@@ -70,8 +70,12 @@ target_link_libraries(
   ReactAndroid::jsi
   ${LOGCAT}
 )
-# Allow undefined symbols from libveloqrs.so - resolved at runtime by Android's linker
-# when System.loadLibrary("veloqrs") is called before System.loadLibrary("veloqrs_jni")
-target_link_options(veloqrs_jni PRIVATE
-  -Wl,--allow-shlib-undefined
+# Link against libveloqrs.so from jniLibs
+# Use IMPORTED SHARED to tell CMake about the library without copying it
+# The library is in jniLibs and will be packaged by AGP - we just need CMake to know about it for linking
+add_library(veloqrs SHARED IMPORTED)
+set_target_properties(veloqrs PROPERTIES
+  IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libveloqrs.so
+  IMPORTED_NO_SONAME TRUE
 )
+target_link_libraries(veloqrs_jni veloqrs)

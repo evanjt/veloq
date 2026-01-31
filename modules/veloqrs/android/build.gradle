@@ -152,3 +152,51 @@ if (isNewArchitectureEnabled()) {
     codegenJavaPackageName = "com.veloq"
   }
 }
+
+// Build Rust library if not present (local development)
+// In CI, the library is pre-built by a separate workflow step
+task buildRustLibrary {
+  def jniLibsDir = file("${projectDir}/src/main/jniLibs")
+  def rustDir = file("${projectDir}/../rust/veloqrs")
+  def targetArch = "arm64-v8a"  // Primary dev target
+  def targetLib = file("${jniLibsDir}/${targetArch}/libveloqrs.so")
+
+  outputs.file(targetLib)
+
+  doLast {
+    if (!targetLib.exists()) {
+      println "[veloqrs] Building Rust library for ${targetArch}..."
+      exec {
+        workingDir rustDir
+        commandLine "cargo", "ndk", "-t", targetArch, "--platform", "24",
+                    "-o", jniLibsDir.absolutePath, "build", "--release", "-p", "veloqrs"
+      }
+      println "[veloqrs] Rust library built successfully"
+    } else {
+      println "[veloqrs] Rust library already exists: ${targetLib}"
+    }
+  }
+}
+
+// Make CMake and JniLibs tasks depend on Rust library
+tasks.matching { it.name.startsWith("buildCMake") }.configureEach {
+  dependsOn buildRustLibrary
+}
+tasks.matching { it.name.matches("merge.*JniLibFolders") }.configureEach {
+  dependsOn buildRustLibrary
+}
+
+// Fix duplicate libveloqrs.so: AGP copies jniLibs into CMake output directory,
+// causing conflict with the original in jniLibs. Remove the CMake copy before merging.
+// The Rust library should only come from jniLibs (pre-built by cargo-ndk).
+tasks.configureEach { task ->
+  if (task.name == "mergeReleaseNativeLibs" || task.name == "mergeDebugNativeLibs") {
+    task.doFirst {
+      // Delete libveloqrs.so from CMake intermediates (keep only jniLibs copy)
+      fileTree(dir: "${buildDir}/intermediates/cxx", includes: ["**/libveloqrs.so"]).each { file ->
+        println "[veloqrs] Removing duplicate from CMake output: ${file}"
+        file.delete()
+      }
+    }
+  }
+}

@@ -447,24 +447,36 @@ async function runPreBuildSetup(platform) {
     console.log(`  Local Rust: ${hasLocalRust()}`);
   }
 
-  // For local development: build + generate in one step
-  // Rust incremental build is fast if nothing changed
-  if (!hasBinaries || !hasBindings) {
+  // Bindings are now committed to the repo - never regenerate them during local dev.
+  // Only build platform binaries if they're missing.
+  if (!hasBindings) {
+    // Bindings should be committed. If missing, user needs to run generate-bindings.sh
+    console.error("\n  ERROR: UniFFI bindings not found!");
+    console.error("  Bindings should be committed to the repo.");
+    console.error("  Run: ./scripts/generate-bindings.sh");
+    console.error("  Then: git add modules/veloqrs/src/generated modules/veloqrs/cpp");
+    throw new Error("Bindings not found - run ./scripts/generate-bindings.sh");
+  }
+
+  if (!hasBinaries) {
     if (isCI()) {
       // In CI, binaries should be pre-built by separate workflow jobs
-      console.log("  Warning: Binaries/bindings not found in CI - they should be pre-built");
+      console.log("  Warning: Binaries not found in CI - they should be pre-built");
     } else if (hasLocalRust()) {
-      if (!quiet) console.log("\n  Building and generating bindings...");
+      // Only build platform binaries, don't regenerate bindings
+      if (!quiet) console.log("\n  Building platform binaries (bindings already committed)...");
       if (platform === "android") {
-        // Single command: builds Rust (incremental), copies .so, generates all bindings
         const arch = detectAndroidArch() || "arm64-v8a";
         if (!quiet) console.log(`  Target architecture: ${arch}`);
         try {
+          // Build Rust for Android using cargo-ndk (no binding generation)
+          if (!quiet) console.log("    Building Rust for Android...");
+          const jniLibsDir = path.join(MODULE_DIR, "android/src/main/jniLibs");
+          mkdirSync(jniLibsDir, { recursive: true });
           execSync(
-            `npx uniffi-bindgen-react-native build android --release --and-generate --targets ${arch}`,
-            { cwd: MODULE_DIR, stdio: quiet ? "pipe" : "inherit" }
+            `cargo ndk -t ${arch} --platform 24 -o ${jniLibsDir} build --release -p veloqrs`,
+            { cwd: path.join(RUST_DIR, "veloqrs"), stdio: quiet ? "pipe" : "inherit" }
           );
-          execSync("./scripts/fix-generated.sh", { cwd: MODULE_DIR, stdio: "pipe" });
         } catch (error) {
           // Show error output even in quiet mode
           if (quiet && error.stderr) console.error(error.stderr.toString());
@@ -472,56 +484,15 @@ async function runPreBuildSetup(platform) {
           throw error;
         }
       } else if (platform === "ios") {
-        // Follow CI workflow: build for host first, generate bindings, then build for iOS
-        if (!quiet) console.log("  Building iOS (following CI workflow)...");
-        try {
-          // Step 1: Build Rust for host (macOS) to generate bindings
-          if (!quiet) console.log("    Building Rust for host...");
-          execSync("cargo build --release -p veloqrs", {
-            cwd: path.join(RUST_DIR, "veloqrs"),
-            stdio: quiet ? "pipe" : "inherit",
-          });
-
-          // Step 2: Generate jsi bindings from host library
-          if (!quiet) console.log("    Generating UniFFI bindings...");
-          execSync(
-            `npx uniffi-bindgen-react-native generate jsi bindings ` +
-              `--ts-dir ../src/generated ` +
-              `--cpp-dir ../cpp/generated ` +
-              `--library target/release/libveloqrs.dylib`,
-            { cwd: RUST_DIR, stdio: quiet ? "pipe" : "inherit" }
-          );
-
-          // Step 3: Generate turbo-module wrapper (cpp/veloqrs.h, cpp/veloqrs.cpp)
-          // Note: This also generates ios/Veloqrs.{h,mm} which we don't want - we have custom ones
-          // Save custom iOS files BEFORE turbo-module generation (CI workflow approach)
-          const iosVeloqrsH = path.join(MODULE_DIR, "ios/Veloqrs.h");
-          const iosVeloqrsMm = path.join(MODULE_DIR, "ios/Veloqrs.mm");
-          const backupH = path.join(MODULE_DIR, "ios/Veloqrs.h.custom");
-          const backupMm = path.join(MODULE_DIR, "ios/Veloqrs.mm.custom");
-
-          if (existsSync(iosVeloqrsH)) fs.copyFileSync(iosVeloqrsH, backupH);
-          if (existsSync(iosVeloqrsMm)) fs.copyFileSync(iosVeloqrsMm, backupMm);
-
-          if (!quiet) console.log("    Generating turbo-module wrapper...");
-          execSync("npx uniffi-bindgen-react-native generate jsi turbo-module veloqrs", {
-            cwd: MODULE_DIR,
-            stdio: quiet ? "pipe" : "inherit",
-          });
-
-          // Restore custom iOS files (the generated ones use NativeVeloqrsSpec which isn't available)
-          if (existsSync(backupH)) {
-            fs.renameSync(backupH, iosVeloqrsH);
-            if (!quiet) console.log("    Restored custom Veloqrs.h");
-          }
-          if (existsSync(backupMm)) {
-            fs.renameSync(backupMm, iosVeloqrsMm);
-            if (!quiet) console.log("    Restored custom Veloqrs.mm");
-          }
-
-          // Step 4: Copy C++ files to ios/cpp/ for CocoaPods (done below in copyIOSCppFiles)
-
-          // Step 5: Build Rust for iOS simulator (aarch64 + x86_64)
+        // iOS builds require macOS (for Xcode toolchain)
+        if (process.platform !== "darwin") {
+          console.log("  Skipping iOS library build on non-macOS platform");
+          console.log("  iOS binaries must be built on macOS or pre-built in CI");
+        } else {
+          // Only build iOS libraries - bindings are already committed
+          if (!quiet) console.log("  Building iOS libraries...");
+          try {
+          // Build Rust for iOS simulator (aarch64 + x86_64)
           if (!quiet) console.log("    Building Rust for iOS simulator...");
           execSync("cargo build --release --target aarch64-apple-ios-sim -p veloqrs", {
             cwd: path.join(RUST_DIR, "veloqrs"),
@@ -532,7 +503,7 @@ async function runPreBuildSetup(platform) {
             stdio: quiet ? "pipe" : "inherit",
           });
 
-          // Step 6: Create universal library for simulator
+          // Create universal library for simulator
           if (!quiet) console.log("    Creating XCFramework...");
           const xcframeworkDir = path.join(MODULE_DIR, "ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64_x86_64-simulator");
           mkdirSync(xcframeworkDir, { recursive: true });
@@ -574,12 +545,11 @@ async function runPreBuildSetup(platform) {
 </dict>
 </plist>`;
           writeFileSync(path.join(MODULE_DIR, "ios/Frameworks/VeloqrsFFI.xcframework/Info.plist"), infoPlist);
-
-          execSync("./scripts/fix-generated.sh", { cwd: MODULE_DIR, stdio: "pipe" });
-        } catch (error) {
-          if (quiet && error.stderr) console.error(error.stderr.toString());
-          if (quiet && error.stdout) console.log(error.stdout.toString());
-          throw error;
+          } catch (error) {
+            if (quiet && error.stderr) console.error(error.stderr.toString());
+            if (quiet && error.stdout) console.log(error.stdout.toString());
+            throw error;
+          }
         }
       }
     } else {

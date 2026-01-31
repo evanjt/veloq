@@ -1,0 +1,19 @@
+name: Build iOS Native
+description: Build veloqrs Rust library for iOS and create XCFramework
+
+inputs:
+  target:
+    description: 'iOS target (simulator, device, all)'
+    required: false
+    default: 'simulator'
+
+runs:
+  using: composite
+  steps:
+    - name: Build Rust for iOS
+      shell: bash
+      run: ./scripts/build-veloqrs.sh ios ${{ inputs.target }}
+
+    - name: Verify iOS build
+      shell: bash
+      run: ./scripts/verify-build.sh ios ${{ inputs.target }}

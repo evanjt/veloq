@@ -124,60 +124,16 @@ jobs:
           workspaces: modules/veloqrs/rust
           key: ios-sim-${{ matrix.config }}
 
-      # Build Rust for host FIRST to generate bindings BEFORE any cache restoration
-      - name: Build Rust for host (binding generation)
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        working-directory: modules/veloqrs/rust
-        run: |
-          # Build for macOS host to generate bindings (faster than iOS targets)
-          cargo build --release -p veloqrs
-          echo "✓ Built for host platform"
-
-      - name: Generate UniFFI Bindings
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        working-directory: modules/veloqrs/rust
-        run: |
-          # Generate TypeScript/C++ bindings from host library
-          # Uses 'jsi bindings' to avoid overwriting custom index.ts
-          npx uniffi-bindgen-react-native generate jsi bindings \
-            --ts-dir ../src/generated \
-            --cpp-dir ../cpp/generated \
-            --library \
-            target/release/libveloqrs.dylib
-          echo "✓ Generated UniFFI bindings"
-
-          # Save custom iOS files BEFORE turbo-module generation (it overwrites them)
-          cp ../ios/Veloqrs.h ../ios/Veloqrs.h.custom
-          cp ../ios/Veloqrs.mm ../ios/Veloqrs.mm.custom
-
-          # Generate turbo-module wrapper files (cpp/veloqrs.h, cpp/veloqrs.cpp)
-          # Note: This also generates ios/Veloqrs.{h,mm} which we don't want
-          cd .. && npx uniffi-bindgen-react-native generate jsi turbo-module veloqrs
-          echo "✓ Generated turbo-module wrapper"
-
-          # Restore custom iOS files (the generated ones use NativeVeloqrsSpec which isn't available)
-          mv ios/Veloqrs.h.custom ios/Veloqrs.h
-          mv ios/Veloqrs.mm.custom ios/Veloqrs.mm
-          echo "✓ Restored custom iOS files"
-
-          ls -la cpp/ cpp/generated/
-
       - name: Setup C++ files for CocoaPods
         if: steps.app-cache.outputs.cache-hit != 'true'
         run: |
-          # Copy C++ files into module ios/cpp/ where CocoaPods can find them
-          # This MUST happen BEFORE prebuild cache restoration
-          # IMPORTANT: Keep generated/ subdirectory to avoid file name conflicts
+          # Copy committed C++ bindings to ios/cpp/ where CocoaPods can find them
           mkdir -p modules/veloqrs/ios/cpp/generated
-          # Turbo module files (wrapper that includes generated bindings)
           cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/
           cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/
-          # Generated bindings (must stay in generated/ subdirectory)
           cp modules/veloqrs/cpp/generated/veloqrs.hpp modules/veloqrs/ios/cpp/generated/
           cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/generated/
-          echo "✓ Copied C++ files to module ios/cpp/"
-          ls -la modules/veloqrs/ios/cpp/
-          ls -la modules/veloqrs/ios/cpp/generated/
+          echo "✓ Copied C++ bindings to ios/cpp/"
 
       # Build Rust for iOS simulator (aarch64 for Apple Silicon, x86_64 for Intel)
       - name: Build Rust for iOS Simulator
@@ -228,25 +184,6 @@ jobs:
           PLIST
 
           echo "✓ Built iOS simulator XCFramework"
-
-      # Verify C++ files exist before proceeding (safety check)
-      - name: Verify C++ bindings exist
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        run: |
-          echo "=== Verifying C++ bindings ==="
-          MISSING=""
-          [ ! -f "modules/veloqrs/cpp/veloqrs.h" ] && MISSING="$MISSING cpp/veloqrs.h"
-          [ ! -f "modules/veloqrs/cpp/veloqrs.cpp" ] && MISSING="$MISSING cpp/veloqrs.cpp"
-          [ ! -f "modules/veloqrs/cpp/generated/veloqrs.hpp" ] && MISSING="$MISSING cpp/generated/veloqrs.hpp"
-          [ ! -f "modules/veloqrs/cpp/generated/veloqrs.cpp" ] && MISSING="$MISSING cpp/generated/veloqrs.cpp"
-          [ ! -f "modules/veloqrs/ios/cpp/veloqrs.h" ] && MISSING="$MISSING ios/cpp/veloqrs.h"
-          [ ! -f "modules/veloqrs/ios/cpp/veloqrs.cpp" ] && MISSING="$MISSING ios/cpp/veloqrs.cpp"
-          if [ -n "$MISSING" ]; then
-            echo "::error::Missing C++ files:$MISSING"
-            echo "This indicates binding generation failed. Check the 'Generate UniFFI Bindings' step."
-            exit 1
-          fi
-          echo "✓ All C++ bindings present"
 
       - name: Cache iOS prebuild
         if: steps.app-cache.outputs.cache-hit != 'true'
@@ -425,33 +362,6 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit != 'true'
         run: cargo install cargo-ndk
 
-      # Build for host FIRST to generate bindings BEFORE cache restoration
-      - name: Build Rust for host (binding generation)
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        working-directory: modules/veloqrs/rust
-        run: |
-          # Build for Linux host to generate bindings
-          cargo build --release -p veloqrs
-          echo "✓ Built for host platform"
-
-      - name: Generate UniFFI Bindings
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        working-directory: modules/veloqrs/rust
-        run: |
-          # Generate TypeScript/C++ bindings from host library
-          # This MUST happen BEFORE prebuild cache restoration
-          npx uniffi-bindgen-react-native generate jsi bindings \
-            --ts-dir ../src/generated \
-            --cpp-dir ../cpp/generated \
-            --library \
-            target/release/libveloqrs.so
-          echo "✓ Generated UniFFI bindings"
-
-          # Generate turbo-module wrapper files (cpp/veloqrs.h, cpp/veloqrs.cpp)
-          cd .. && npx uniffi-bindgen-react-native generate jsi turbo-module veloqrs
-          echo "✓ Generated turbo-module wrapper"
-          ls -la cpp/ cpp/generated/
-
       - name: Build Rust for Android
         if: steps.apk-cache.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
@@ -459,23 +369,6 @@ jobs:
           # Build for arm64 (modern devices) and x86_64 (emulator) only
           cargo ndk -t arm64-v8a -t x86_64 -o ../android/src/main/jniLibs build --release -p veloqrs
           echo "✓ Built Android .so libraries"
-
-      # Verify C++ files exist before proceeding (safety check)
-      - name: Verify C++ bindings exist
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        run: |
-          echo "=== Verifying C++ bindings ==="
-          MISSING=""
-          [ ! -f "modules/veloqrs/cpp/veloqrs.h" ] && MISSING="$MISSING cpp/veloqrs.h"
-          [ ! -f "modules/veloqrs/cpp/veloqrs.cpp" ] && MISSING="$MISSING cpp/veloqrs.cpp"
-          [ ! -f "modules/veloqrs/cpp/generated/veloqrs.hpp" ] && MISSING="$MISSING cpp/generated/veloqrs.hpp"
-          [ ! -f "modules/veloqrs/cpp/generated/veloqrs.cpp" ] && MISSING="$MISSING cpp/generated/veloqrs.cpp"
-          if [ -n "$MISSING" ]; then
-            echo "::error::Missing C++ files:$MISSING"
-            echo "This indicates binding generation failed. Check the 'Generate UniFFI Bindings' step."
-            exit 1
-          fi
-          echo "✓ All C++ bindings present"
 
       - name: Cache Android prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true'

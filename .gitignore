@@ -51,9 +51,15 @@ yarn-error.*
 modules/veloqrs/android/src/main/jniLibs/
 modules/veloqrs/ios/Frameworks/
 
-# UniFFI generated bindings (generated fresh in CI, not committed)
-modules/veloqrs/src/generated/
-modules/veloqrs/cpp/generated/
+# UniFFI generated bindings
+# These ARE tracked for CI simplification (see build system plan):
+# modules/veloqrs/src/generated/  # TypeScript bindings - TRACKED
+# modules/veloqrs/cpp/generated/  # C++ bindings - TRACKED
+# modules/veloqrs/cpp/veloqrs.h   # Turbo-module wrapper - TRACKED
+# modules/veloqrs/cpp/veloqrs.cpp # Turbo-module wrapper - TRACKED
+# To regenerate after Rust FFI changes: ./scripts/generate-bindings.sh
+#
+# These remain gitignored (platform-specific, generated during build):
 modules/veloqrs/android/src/main/java/uniffi/
 modules/veloqrs/ios/Generated/
 modules/veloqrs/ios/cpp/

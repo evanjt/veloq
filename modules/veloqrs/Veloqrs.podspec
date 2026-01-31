@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   s.source       = { :git => "https://github.com/evanjt/veloq", :tag => "#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,swift}", "ios/generated/**/*.{h,m,mm}", "cpp/**/*.{hpp,cpp,c,h}", "cpp/generated/**/*.{hpp,cpp,c,h}"
-  s.vendored_frameworks = "VeloqrsFFI.xcframework"
+  s.vendored_frameworks = "ios/Frameworks/VeloqrsFFI.xcframework"
   s.dependency    "uniffi-bindgen-react-native", "0.29.3-1"
 
   # Header search paths for cpp headers (needed for #import "cpp/veloqrs.h" in ios/Veloqrs.h)

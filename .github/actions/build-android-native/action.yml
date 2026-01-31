@@ -1,0 +1,26 @@
+name: Build Android Native
+description: Build veloqrs Rust library for Android using cargo-ndk
+
+inputs:
+  arch:
+    description: 'Android architecture (arm64-v8a, armeabi-v7a, x86_64, x86)'
+    required: false
+    default: 'arm64-v8a'
+
+runs:
+  using: composite
+  steps:
+    - name: Install cargo-ndk
+      shell: bash
+      run: |
+        if ! command -v cargo-ndk &> /dev/null; then
+          cargo install cargo-ndk
+        fi
+
+    - name: Build Rust for Android
+      shell: bash
+      run: ./scripts/build-veloqrs.sh android ${{ inputs.arch }}
+
+    - name: Verify Android build
+      shell: bash
+      run: ./scripts/verify-build.sh android ${{ inputs.arch }}

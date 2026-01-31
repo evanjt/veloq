@@ -1,0 +1,27 @@
+name: Setup Rust
+description: Setup Rust toolchain with caching for veloqrs builds
+
+inputs:
+  targets:
+    description: 'Space-separated list of Rust targets to install'
+    required: false
+    default: ''
+  cache-key:
+    description: 'Additional cache key suffix'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ inputs.targets }}
+
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: modules/veloqrs/rust
+        key: ${{ inputs.cache-key }}
+        cache-on-failure: true

@@ -41,7 +41,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: ${{ matrix.name == 'typescript' && 'recursive' || 'false' }}
+          submodules: recursive
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -52,31 +52,55 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # TypeScript check requires generated bindings from Rust
+      - name: Run ${{ matrix.name }}
+        run: ${{ matrix.cmd }}
+
+  # ============================================
+  # Verify committed bindings match Rust source
+  # ============================================
+  verify-bindings:
+    name: Verify Bindings
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "${{ env.NODE_VERSION }}"
+          cache: "npm"
+
       - name: Setup Rust
-        if: matrix.name == 'typescript'
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Rust
-        if: matrix.name == 'typescript'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: modules/veloqrs/rust
-          key: typecheck
+          key: verify-bindings
 
-      - name: Build Rust and generate bindings
-        if: matrix.name == 'typescript'
-        working-directory: modules/veloqrs/rust
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Regenerate bindings
+        run: ./scripts/generate-bindings.sh
+
+      - name: Check bindings match
         run: |
-          cargo build --release -p veloqrs
-          npx uniffi-bindgen-react-native generate jsi bindings \
-            --ts-dir ../src/generated \
-            --cpp-dir ../cpp/generated \
-            --library \
-            target/release/libveloqrs.so
-
-      - name: Run ${{ matrix.name }}
-        run: ${{ matrix.cmd }}
+          if ! git diff --quiet modules/veloqrs/src/generated modules/veloqrs/cpp/generated; then
+            echo "::error::Bindings out of sync with Rust source. Run ./scripts/generate-bindings.sh and commit."
+            echo ""
+            echo "=== Changed files ==="
+            git diff --stat modules/veloqrs/src/generated modules/veloqrs/cpp/generated
+            echo ""
+            echo "=== Detailed diff (first 100 lines) ==="
+            git diff modules/veloqrs/src/generated modules/veloqrs/cpp/generated | head -100
+            exit 1
+          fi
+          echo "✓ Bindings are in sync with Rust source"
 
   # ============================================
   # Verify Signing Keys (fail fast)
@@ -412,47 +436,6 @@ jobs:
       - name: Install cargo-ndk
         run: cargo install cargo-ndk
 
-      # Build for host FIRST to generate bindings BEFORE cache restoration
-      - name: Build Rust for host (binding generation)
-        working-directory: modules/veloqrs/rust
-        run: |
-          # Build for Linux host to generate bindings
-          cargo build --release -p veloqrs
-          echo "✓ Built for host platform"
-
-      - name: Generate UniFFI Bindings
-        working-directory: modules/veloqrs/rust
-        run: |
-          # Generate TypeScript/C++ bindings from host library
-          # This MUST happen BEFORE prebuild cache restoration and Gradle build
-          npx uniffi-bindgen-react-native generate jsi bindings \
-            --ts-dir ../src/generated \
-            --cpp-dir ../cpp/generated \
-            --library \
-            target/release/libveloqrs.so
-          echo "✓ Generated UniFFI bindings"
-
-          # Generate turbo-module wrapper files (cpp/veloqrs.h, cpp/veloqrs.cpp)
-          cd .. && npx uniffi-bindgen-react-native generate jsi turbo-module veloqrs
-          echo "✓ Generated turbo-module wrapper"
-          ls -la cpp/ cpp/generated/
-
-      # Verify C++ files exist before proceeding (safety check)
-      - name: Verify C++ bindings exist
-        run: |
-          echo "=== Verifying C++ bindings ==="
-          MISSING=""
-          [ ! -f "modules/veloqrs/cpp/veloqrs.h" ] && MISSING="$MISSING cpp/veloqrs.h"
-          [ ! -f "modules/veloqrs/cpp/veloqrs.cpp" ] && MISSING="$MISSING cpp/veloqrs.cpp"
-          [ ! -f "modules/veloqrs/cpp/generated/veloqrs.hpp" ] && MISSING="$MISSING cpp/generated/veloqrs.hpp"
-          [ ! -f "modules/veloqrs/cpp/generated/veloqrs.cpp" ] && MISSING="$MISSING cpp/generated/veloqrs.cpp"
-          if [ -n "$MISSING" ]; then
-            echo "::error::Missing C++ files:$MISSING"
-            echo "This indicates binding generation failed. Check the 'Generate UniFFI Bindings' step."
-            exit 1
-          fi
-          echo "✓ All C++ bindings present"
-
       - name: Build Rust libraries for Android
         working-directory: modules/veloqrs/rust
         run: |
@@ -772,73 +755,15 @@ jobs:
           echo "✓ XCFramework created"
           ls -la ../ios/Frameworks/
 
-      - name: Build Rust for host (binding generation)
-        working-directory: modules/veloqrs/rust
-        run: |
-          # Build for macOS host to generate bindings
-          cargo build --release -p veloqrs
-          echo "✓ Built for host platform"
-
-      - name: Generate UniFFI bindings for iOS
-        working-directory: modules/veloqrs/rust
-        run: |
-          echo "=== Generating UniFFI C++/TypeScript bindings ==="
-          # Use 'jsi bindings' to avoid overwriting custom index.ts
-          npx uniffi-bindgen-react-native generate jsi bindings \
-            --ts-dir ../src/generated \
-            --cpp-dir ../cpp/generated \
-            --library \
-            target/release/libveloqrs.dylib
-          echo "✓ Generated bindings"
-
-          # Save custom iOS files BEFORE turbo-module generation (it overwrites them)
-          cp ../ios/Veloqrs.h ../ios/Veloqrs.h.custom
-          cp ../ios/Veloqrs.mm ../ios/Veloqrs.mm.custom
-
-          # Generate turbo-module wrapper files (cpp/veloqrs.h, cpp/veloqrs.cpp)
-          # Note: This also generates ios/Veloqrs.{h,mm} which we don't want
-          cd .. && npx uniffi-bindgen-react-native generate jsi turbo-module veloqrs
-          echo "✓ Generated turbo-module wrapper"
-
-          # Restore custom iOS files (the generated ones use NativeVeloqrsSpec which isn't available)
-          mv ios/Veloqrs.h.custom ios/Veloqrs.h
-          mv ios/Veloqrs.mm.custom ios/Veloqrs.mm
-          echo "✓ Restored custom iOS files"
-
-          ls -la cpp/ cpp/generated/
-
       - name: Copy C++ files for iOS build
         run: |
-          # Copy C++ files into module ios/cpp/ where CocoaPods can find them
-          # IMPORTANT: Keep generated/ subdirectory to avoid file name conflicts
+          # Copy committed C++ bindings to ios/cpp/ where CocoaPods can find them
           mkdir -p modules/veloqrs/ios/cpp/generated
-          # Turbo module files (wrapper that includes generated bindings)
           cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/
           cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/
-          # Generated bindings (must stay in generated/ subdirectory)
           cp modules/veloqrs/cpp/generated/veloqrs.hpp modules/veloqrs/ios/cpp/generated/
           cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/generated/
-          echo "✓ Copied C++ files to module ios/cpp/"
-          ls -la modules/veloqrs/ios/cpp/
-          ls -la modules/veloqrs/ios/cpp/generated/
-
-      # Verify C++ files exist before proceeding (safety check)
-      - name: Verify C++ bindings exist
-        run: |
-          echo "=== Verifying C++ bindings ==="
-          MISSING=""
-          [ ! -f "modules/veloqrs/cpp/veloqrs.h" ] && MISSING="$MISSING cpp/veloqrs.h"
-          [ ! -f "modules/veloqrs/cpp/veloqrs.cpp" ] && MISSING="$MISSING cpp/veloqrs.cpp"
-          [ ! -f "modules/veloqrs/cpp/generated/veloqrs.hpp" ] && MISSING="$MISSING cpp/generated/veloqrs.hpp"
-          [ ! -f "modules/veloqrs/cpp/generated/veloqrs.cpp" ] && MISSING="$MISSING cpp/generated/veloqrs.cpp"
-          [ ! -f "modules/veloqrs/ios/cpp/veloqrs.h" ] && MISSING="$MISSING ios/cpp/veloqrs.h"
-          [ ! -f "modules/veloqrs/ios/cpp/veloqrs.cpp" ] && MISSING="$MISSING ios/cpp/veloqrs.cpp"
-          if [ -n "$MISSING" ]; then
-            echo "::error::Missing C++ files:$MISSING"
-            echo "This indicates binding generation failed. Check the 'Generate UniFFI bindings for iOS' step."
-            exit 1
-          fi
-          echo "✓ All C++ bindings present"
+          echo "✓ Copied C++ bindings to ios/cpp/"
 
       - name: Cache iOS prebuild
         id: ios-prebuild-cache
