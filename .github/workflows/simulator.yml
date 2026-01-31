@@ -482,9 +482,13 @@ jobs:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
+
+          # Wait for simulator to be fully ready
+          sleep 5
+
+          # Run smoke test
           mkdir -p screenshots
-          # Run smoke test only (other tests disabled for now)
-          maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml
+          maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml --no-ansi
 
       - name: Collect screenshots
         if: always()
@@ -519,24 +523,15 @@ jobs:
     needs: android-release
     if: ${{ !inputs.skip_e2e }}
     name: E2E Android (Maestro)
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    runs-on: macos-latest  # macOS required for reliable Android emulator (HVF acceleration)
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
-
-      - uses: android-actions/setup-android@v3
-
-      - run: npm ci
 
       - name: Download APK
         uses: actions/download-artifact@v4
@@ -549,52 +544,28 @@ jobs:
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/local/lib/android/sdk/ndk
-          sudo rm -rf /usr/local/lib/android/sdk/build-tools/3[0-3]*
-          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-[1-2]*
-          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-3[0-2]
-          sudo docker image prune --all --force || true
-
-      - name: Create AVD
-        run: |
-          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-30;default;x86_64"
-          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd \
-            -n Pixel_5_API_30 \
-            -k "system-images;android-30;default;x86_64" \
-            --device "pixel_5" \
-            --force
-
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
       - name: Run Maestro tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: 29
           target: default
           arch: x86_64
-          avd-name: Pixel_5_API_30
-          emulator-boot-timeout: 600
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -accel on
+          ram-size: 2048M
+          emulator-boot-timeout: 300
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
           script: |
             export PATH="$HOME/.maestro/bin:$PATH"
-            adb wait-for-device
-            adb shell settings put global window_animation_scale 0
-            adb shell settings put global transition_animation_scale 0
-            adb shell settings put global animator_duration_scale 0
 
             # Install APK
             adb install /tmp/android-artifact/app-release.apk
 
-            # Run smoke test only (other tests disabled for now)
+            # Wait for app to be ready
+            sleep 5
+
+            # Run smoke test
             mkdir -p screenshots
-            maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml
+            maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml --no-ansi
 
       - name: Collect screenshots
         if: always()
