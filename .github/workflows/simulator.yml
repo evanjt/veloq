@@ -482,9 +482,16 @@ jobs:
         id: android-prebuild-cache
         uses: actions/cache@v4
         with:
-          path: android
-          # v1: Clean slate
-          key: android-prebuild-v1-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'modules/veloqrs/android/**', 'modules/veloqrs/package.json') }}
+          # Cache generated project files, but EXCLUDE build outputs to prevent stale .so conflicts
+          path: |
+            android
+            !android/build
+            !android/.gradle
+            !android/.cxx
+            !android/app/build
+            !android/app/.cxx
+          # v2: exclude build directories to prevent stale CMake outputs
+          key: android-prebuild-v2-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'modules/veloqrs/android/**', 'modules/veloqrs/package.json') }}
 
       - name: Expo Prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.android-prebuild-cache.outputs.cache-hit != 'true'
@@ -544,16 +551,10 @@ jobs:
 
       - run: npm ci
 
-      - name: Get artifact name
-        id: artifact
-        run: |
-          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
-          echo "name=ios-Release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
-
       - name: Download iOS app
         uses: actions/download-artifact@v4
         with:
-          name: ${{ steps.artifact.outputs.name }}
+          name: ${{ needs.ios-simulator.outputs.artifact_name }}
           path: /tmp/ios-artifact
 
       - name: Extract iOS app
@@ -646,16 +647,10 @@ jobs:
 
       - run: npm ci
 
-      - name: Get artifact name
-        id: artifact
-        run: |
-          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" -o -name "*.gradle" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
-          echo "name=android-release-${SOURCE_HASH}" >> $GITHUB_OUTPUT
-
       - name: Download APK
         uses: actions/download-artifact@v4
         with:
-          name: ${{ steps.artifact.outputs.name }}
+          name: ${{ needs.android-release.outputs.artifact_name }}
           path: /tmp/android-artifact
 
       - name: Install Maestro

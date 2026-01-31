@@ -472,9 +472,16 @@ jobs:
         id: android-prebuild-cache
         uses: actions/cache@v4
         with:
-          path: android
-          # v4: force cache invalidation - removed restore-keys for clean slate strategy
-          key: android-prebuild-v4-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'modules/**/package.json', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
+          # Cache generated project files, but EXCLUDE build outputs to prevent stale .so conflicts
+          path: |
+            android
+            !android/build
+            !android/.gradle
+            !android/.cxx
+            !android/app/build
+            !android/app/.cxx
+          # v5: exclude build directories to prevent stale CMake outputs
+          key: android-prebuild-v5-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'modules/**/package.json', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
 
       - name: Generate Android native project
         if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
