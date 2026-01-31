@@ -509,9 +509,10 @@ jobs:
       - name: Clean stale CMake outputs
         if: steps.apk-cache.outputs.cache-hit != 'true'
         run: |
-          # Remove any stale libveloqrs.so from CMake output (left by previous builds with IMPORTED target)
-          find modules/veloqrs/android -name "libveloqrs.so" -path "*/.cxx/*" -delete 2>/dev/null || true
-          find android -name "libveloqrs.so" -path "*/.cxx/*" -delete 2>/dev/null || true
+          # Remove stale libveloqrs.so from CMake output (Gradle build cache restores old files)
+          # Pattern "*/cxx/*" matches both ".cxx/" and "build/intermediates/cxx/"
+          find modules/veloqrs/android -name "libveloqrs.so" -path "*/cxx/*" -delete 2>/dev/null || true
+          find android -name "libveloqrs.so" -path "*/cxx/*" -delete 2>/dev/null || true
           echo "✓ Cleaned stale CMake outputs"
 
       - name: Build Release APK
