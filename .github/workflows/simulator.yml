@@ -22,7 +22,7 @@ jobs:
   # ============================================
   changes:
     name: Detect Changes
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       ios: ${{ steps.filter.outputs.ios }}
       android: ${{ steps.filter.outputs.android }}
@@ -298,7 +298,7 @@ jobs:
   android-release:
     needs: changes
     name: Android Release
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 60
     outputs:
       artifact_name: ${{ steps.version.outputs.artifact_name }}
@@ -397,7 +397,7 @@ jobs:
           cp .github/ci-init.gradle ~/.gradle/init.gradle
 
       - name: Free disk space
-        if: steps.apk-cache.outputs.cache-hit != 'true'
+        if: steps.apk-cache.outputs.cache-hit != 'true' && runner.environment == 'github-hosted'
         run: |
           sudo rm -rf /usr/local/lib/android/sdk/ndk
           sudo rm -rf /usr/local/lib/android/sdk/build-tools/3[0-3]*
@@ -523,7 +523,7 @@ jobs:
     needs: android-release
     if: ${{ !inputs.skip_e2e }}
     name: E2E Android (Maestro)
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -544,7 +544,8 @@ jobs:
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
-      - name: Enable KVM
+      - name: Enable KVM (GitHub-hosted only)
+        if: runner.environment == 'github-hosted'
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
