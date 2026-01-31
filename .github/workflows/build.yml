@@ -74,13 +74,16 @@ jobs:
           cache: "npm"
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.93.0
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: modules/veloqrs/rust
-          key: verify-bindings
+          key: verify-bindings-1.93
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y clang-format
 
       - name: Install dependencies
         run: npm ci
