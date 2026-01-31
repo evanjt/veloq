@@ -386,19 +386,6 @@ jobs:
             notifications
             wrapper
 
-      - name: Cache Android build outputs
-        uses: actions/cache@v4
-        with:
-          path: |
-            android/.gradle
-            android/app/build
-            android/app/.cxx
-            android/build
-          # Include package-lock.json to invalidate cache when npm deps change (affects dex archives)
-          key: android-build-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'package-lock.json') }}
-          restore-keys: |
-            android-build-${{ runner.os }}-
-
       - name: Cache Metro bundler
         uses: actions/cache@v4
         with:
@@ -408,16 +395,6 @@ jobs:
           key: metro-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             metro-${{ runner.os }}-
-
-      - name: Cache React Native library builds
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules/**/android/build
-            node_modules/**/android/.cxx
-          key: rn-libs-build-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            rn-libs-build-${{ runner.os }}-
 
       - name: Install dependencies
         run: npm ci
@@ -496,10 +473,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: android
-          # v3: force cache invalidation after fixing JNA/JNI Kotlin bindings issue
-          key: android-prebuild-v3-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'modules/**/package.json', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
-          restore-keys: |
-            android-prebuild-v3-${{ runner.os }}-
+          # v4: force cache invalidation - removed restore-keys for clean slate strategy
+          key: android-prebuild-v4-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'modules/**/package.json', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
 
       - name: Generate Android native project
         if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
@@ -585,22 +560,14 @@ jobs:
           rm -rf android/app/build/intermediates/dex
           echo "✅ Cleaned dex archives"
 
-      - name: Clean stale CMake outputs
-        run: |
-          # Remove stale libveloqrs.so from CMake output (Gradle build cache restores old files)
-          # Pattern "*/cxx/*" matches both ".cxx/" and "build/intermediates/cxx/"
-          find modules/veloqrs/android -name "libveloqrs.so" -path "*/cxx/*" -delete 2>/dev/null || true
-          find android -name "libveloqrs.so" -path "*/cxx/*" -delete 2>/dev/null || true
-          echo "✅ Cleaned stale CMake outputs"
-
       - name: Build Android APK
         if: github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch'
-        run: cd android && ./gradlew assembleRelease --no-daemon
+        run: cd android && ./gradlew assembleRelease --no-daemon --no-build-cache
 
       - name: Build Android APK + AAB
         # Build both in single Gradle invocation on main (faster than separate builds)
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-        run: cd android && ./gradlew assembleRelease bundleRelease --no-daemon
+        run: cd android && ./gradlew assembleRelease bundleRelease --no-daemon --no-build-cache
 
       - name: Copy APK
         run: |

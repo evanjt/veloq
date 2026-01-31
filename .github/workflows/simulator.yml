@@ -506,22 +506,13 @@ jobs:
           sudo docker image prune --all --force || true
           df -h
 
-      - name: Clean stale CMake outputs
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        run: |
-          # Remove stale libveloqrs.so from CMake output (Gradle build cache restores old files)
-          # Pattern "*/cxx/*" matches both ".cxx/" and "build/intermediates/cxx/"
-          find modules/veloqrs/android -name "libveloqrs.so" -path "*/cxx/*" -delete 2>/dev/null || true
-          find android -name "libveloqrs.so" -path "*/cxx/*" -delete 2>/dev/null || true
-          echo "✓ Cleaned stale CMake outputs"
-
       - name: Build Release APK
         if: steps.apk-cache.outputs.cache-hit != 'true'
         run: |
           # Only build arm64-v8a (modern devices) and x86_64 (emulator) to save disk space
           cd android && ./gradlew assembleRelease \
             -PreactNativeArchitectures=arm64-v8a,x86_64 \
-            --no-daemon
+            --no-daemon --no-build-cache
 
       - name: Skip build (cache hit)
         if: steps.apk-cache.outputs.cache-hit == 'true'
