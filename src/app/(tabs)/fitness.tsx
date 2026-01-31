@@ -1,9 +1,8 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
-import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
-import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
@@ -135,13 +134,7 @@ export default function FitnessScreen() {
     return (
       <ScreenSafeAreaView style={shared.container}>
         <View style={styles.header}>
-          <IconButton
-            icon="arrow-left"
-            iconColor={themeColors.text}
-            onPress={() => router.back()}
-          />
           <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
-          <View style={{ width: 48 }} />
         </View>
         <View style={shared.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -164,13 +157,7 @@ export default function FitnessScreen() {
     return (
       <ScreenSafeAreaView style={shared.container}>
         <View style={styles.header}>
-          <IconButton
-            icon="arrow-left"
-            iconColor={themeColors.text}
-            onPress={() => router.back()}
-          />
           <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
-          <View style={{ width: 48 }} />
         </View>
         <View style={shared.loadingContainer}>
           {isNetworkError ? (
@@ -187,14 +174,11 @@ export default function FitnessScreen() {
     <ScreenSafeAreaView style={shared.container} testID="fitness-screen">
       {/* Header */}
       <View style={styles.header}>
-        <IconButton icon="arrow-left" iconColor={themeColors.text} onPress={() => router.back()} />
-        <View style={styles.headerTitleRow}>
-          <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
-        </View>
+        <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
         {/* Subtle loading indicator in header when fetching in background (not during pull-to-refresh) */}
-        <View style={{ width: 48, alignItems: 'center' }}>
-          {isFetching && !isRefreshing && <ActivityIndicator size="small" color={colors.primary} />}
-        </View>
+        {isFetching && !isRefreshing && (
+          <ActivityIndicator size="small" color={colors.primary} style={styles.headerSpinner} />
+        )}
       </View>
 
       <ScrollView
@@ -432,12 +416,11 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: layout.screenPadding,
+    paddingVertical: spacing.sm,
   },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  headerSpinner: {
+    marginLeft: spacing.sm,
   },
   scrollView: {
     flex: 1,

@@ -644,6 +644,7 @@
     "demoDataSources": "Demodatakilder",
     "demoMode": "Demotilstand",
     "dialect": "Dialekt",
+    "display": "Visning",
     "disconnectAccount": "Afbryd konto",
     "disconnectDescription": "Dette vil fjerne dine API-legitimationsoplysninger fra appen. Du skal indtaste dem igen for at bruge appen.",
     "enableRouteMatching": "Aktivér rutematchning",

@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RegionalMapView, TimelineSlider, SyncProgressBanner } from '@/components/maps';
@@ -30,7 +29,6 @@ export default function MapScreen() {
   });
 
   const { t } = useTranslation();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
@@ -137,11 +135,6 @@ export default function MapScreen() {
     };
   }, []);
 
-  // Handle close
-  const handleClose = useCallback(() => {
-    router.back();
-  }, [router]);
-
   // Calculate min/max dates for slider using API oldest date
   const { minDateForSlider, maxDateForSlider } = useMemo(() => {
     const now = new Date();
@@ -174,7 +167,6 @@ export default function MapScreen() {
       <ComponentErrorBoundary componentName="Map">
         <RegionalMapView
           activities={filteredActivities}
-          onClose={handleClose}
           showAttribution={false}
           onAttributionChange={setAttribution}
         />

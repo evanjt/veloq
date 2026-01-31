@@ -644,6 +644,7 @@
     "demoDataSources": "Demo-Datenquellen",
     "demoMode": "Demo-Modus",
     "dialect": "Dialekt",
+    "display": "Anzeige",
     "disconnectAccount": "Konto trennen",
     "disconnectDescription": "Dies entfernt deine API-Zugangsdaten aus der App. Du musst sie erneut eingeben, um die App zu nutzen.",
     "enableRouteMatching": "Routenabgleich aktivieren",

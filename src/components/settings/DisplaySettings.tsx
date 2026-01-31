@@ -77,11 +77,22 @@ function DisplaySettingsComponent({
 
   return (
     <>
-      {/* Appearance Section */}
+      {/* Display Settings Section - Appearance, Units, Language combined */}
       <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-        {t('settings.appearance').toUpperCase()}
+        {t('settings.display').toUpperCase()}
       </Text>
       <View style={[styles.section, isDark && styles.sectionDark]}>
+        {/* Appearance */}
+        <View style={styles.subsectionHeader}>
+          <MaterialCommunityIcons
+            name="theme-light-dark"
+            size={18}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <Text style={[styles.subsectionLabel, isDark && styles.textMuted]}>
+            {t('settings.appearance')}
+          </Text>
+        </View>
         <View testID="settings-theme-toggle" style={styles.themePickerContainer}>
           <SegmentedButtons
             value={themePreference}
@@ -109,13 +120,20 @@ function DisplaySettingsComponent({
             style={styles.themePicker}
           />
         </View>
-      </View>
 
-      {/* Units Section */}
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-        {t('settings.units').toUpperCase()}
-      </Text>
-      <View style={[styles.section, isDark && styles.sectionDark]}>
+        <View style={[styles.divider, isDark && styles.dividerDark]} />
+
+        {/* Units */}
+        <View style={styles.subsectionHeader}>
+          <MaterialCommunityIcons
+            name="ruler"
+            size={18}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <Text style={[styles.subsectionLabel, isDark && styles.textMuted]}>
+            {t('settings.units')}
+          </Text>
+        </View>
         <View style={styles.themePickerContainer}>
           <SegmentedButtons
             value={unitPreference}
@@ -140,24 +158,21 @@ function DisplaySettingsComponent({
             style={styles.themePicker}
           />
         </View>
-      </View>
-      <Text style={[styles.infoText, isDark && styles.textMuted]}>
-        {unitPreference === 'auto'
-          ? intervalsUnitPreference
-            ? t('settings.unitsAutoHintWithIntervals', {
-                setting: getIntervalsPreferenceLabel(intervalsUnitPreference),
-              })
-            : t('settings.unitsAutoHint')
-          : unitPreference === 'metric'
-            ? t('settings.unitsMetricHint')
-            : t('settings.unitsImperialHint')}
-      </Text>
+        <Text style={[styles.subsectionHint, isDark && styles.textMuted]}>
+          {unitPreference === 'auto'
+            ? intervalsUnitPreference
+              ? t('settings.unitsAutoHintWithIntervals', {
+                  setting: getIntervalsPreferenceLabel(intervalsUnitPreference),
+                })
+              : t('settings.unitsAutoHint')
+            : unitPreference === 'metric'
+              ? t('settings.unitsMetricHint')
+              : t('settings.unitsImperialHint')}
+        </Text>
 
-      {/* Language Section */}
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-        {t('settings.language').toUpperCase()}
-      </Text>
-      <View style={[styles.section, isDark && styles.sectionDark]}>
+        <View style={[styles.divider, isDark && styles.dividerDark]} />
+
+        {/* Language */}
         <CollapsibleSection
           title={t('settings.language')}
           subtitle={currentLanguageLabel}
@@ -337,10 +352,41 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surfaceCard,
   },
   themePickerContainer: {
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
   },
   themePicker: {
     // React Native Paper SegmentedButtons handles styling
+  },
+  subsectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  subsectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    letterSpacing: 0.3,
+  },
+  subsectionHint: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
+    lineHeight: 14,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.xs,
+  },
+  dividerDark: {
+    backgroundColor: darkColors.border,
   },
   languageRow: {
     flexDirection: 'row',

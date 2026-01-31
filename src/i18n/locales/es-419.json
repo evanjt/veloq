@@ -644,6 +644,7 @@
     "demoDataSources": "Fuentes de datos demo",
     "demoMode": "Modo demo",
     "dialect": "Dialecto",
+    "display": "Pantalla",
     "disconnectAccount": "Desconectar cuenta",
     "disconnectDescription": "Esto eliminara tus credenciales API de la app. Tendras que ingresarlas de nuevo para usar la app.",
     "enableRouteMatching": "Activar coincidencia de rutas",

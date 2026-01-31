@@ -279,6 +279,7 @@ export interface TranslationResource {
 
   settings: {
     title: string;
+    display: string;
     appearance: string;
     system: string;
     light: string;

@@ -242,15 +242,9 @@ export default function RoutesScreen() {
     return (
       <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
-          <IconButton
-            icon="arrow-left"
-            iconColor={isDark ? colors.textOnDark : colors.textPrimary}
-            onPress={() => router.back()}
-          />
           <Text style={[styles.headerTitle, isDark && styles.textLight]}>
             {t('routesScreen.title')}
           </Text>
-          <View style={styles.headerRight} />
         </View>
 
         <View style={styles.disabledContainer}>
@@ -285,15 +279,9 @@ export default function RoutesScreen() {
       testID="routes-screen"
     >
       <View style={styles.header}>
-        <IconButton
-          icon="arrow-left"
-          iconColor={isDark ? colors.textOnDark : colors.textPrimary}
-          onPress={() => router.back()}
-        />
         <Text style={[styles.headerTitle, isDark && styles.textLight]}>
           {t('routesScreen.title')}
         </Text>
-        <View style={styles.headerRight} />
       </View>
 
       {/* Date range summary - shows cached range with link to expand */}
@@ -331,17 +319,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.textPrimary,
-  },
-  headerRight: {
-    width: 48,
-    alignItems: 'flex-end',
-    paddingRight: spacing.sm,
   },
   textLight: {
     color: colors.textOnDark,

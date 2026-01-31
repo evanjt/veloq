@@ -68,8 +68,6 @@ import {
 interface RegionalMapViewProps {
   /** Activities to display */
   activities: ActivityBoundsItem[];
-  /** Callback to go back */
-  onClose: () => void;
   /** Extra bottom offset for attribution (e.g., when timeline slider is shown) */
   attributionBottomOffset?: number;
   /** Show attribution (default: true) */
@@ -80,7 +78,6 @@ interface RegionalMapViewProps {
 
 export function RegionalMapView({
   activities,
-  onClose,
   attributionBottomOffset = 0,
   showAttribution = true,
   onAttributionChange,
@@ -1487,25 +1484,6 @@ export function RegionalMapView({
         </MapView>
       )}
 
-      {/* Close button */}
-      <TouchableOpacity
-        style={[
-          styles.button,
-          styles.closeButton,
-          { top: insets.top + 12 },
-          isDark && styles.buttonDark,
-        ]}
-        onPress={onClose}
-        activeOpacity={0.8}
-        accessibilityLabel={t('maps.closeMap')}
-        accessibilityRole="button"
-      >
-        <MaterialCommunityIcons
-          name="close"
-          size={24}
-          color={isDark ? colors.textOnDark : colors.textSecondary}
-        />
-      </TouchableOpacity>
       {/* Style toggle */}
       <TouchableOpacity
         style={[
@@ -1612,9 +1590,6 @@ const styles = StyleSheet.create({
   },
   buttonDark: {
     backgroundColor: darkColors.surfaceCard,
-  },
-  closeButton: {
-    left: spacing.md,
   },
   styleButton: {
     right: spacing.md,

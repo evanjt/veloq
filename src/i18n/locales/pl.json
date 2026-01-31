@@ -644,6 +644,7 @@
     "demoDataSources": "Zrodla danych demo",
     "demoMode": "Tryb demo",
     "dialect": "Dialect",
+    "display": "Wyświetlanie",
     "disconnectAccount": "Odlacz konto",
     "disconnectDescription": "Usunie Twoje dane uwierzytelniajace API z aplikacji. Bedziesz musial je ponownie wprowadzic, aby korzystac z aplikacji.",
     "enableRouteMatching": "Wlacz dopasowywanie tras",

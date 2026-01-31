@@ -644,6 +644,7 @@
     "demoDataSources": "Demo-Quelle",
     "demoMode": "Demo-Modus",
     "dialect": "Dialekt",
+    "display": "Anzeige",
     "disconnectAccount": "Konto trenne",
     "disconnectDescription": "Entfernt API-Date. Muesch nomol iigee.",
     "enableRouteMatching": "Route-Matching aa",

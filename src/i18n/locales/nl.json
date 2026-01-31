@@ -644,6 +644,7 @@
     "demoDataSources": "Demo-gegevensbronnen",
     "demoMode": "Demomodus",
     "dialect": "Dialect",
+    "display": "Weergave",
     "disconnectAccount": "Account loskoppelen",
     "disconnectDescription": "Dit verwijdert je API-gegevens uit de app. Je moet ze opnieuw invoeren om de app te gebruiken.",
     "enableRouteMatching": "Route-matching inschakelen",

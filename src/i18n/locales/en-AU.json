@@ -632,6 +632,7 @@
     "demoDataSources": "Demo data sources",
     "demoMode": "Demo mode",
     "dialect": "Dialect",
+    "display": "Display",
     "disconnectAccount": "Pull the plug",
     "disconnectDescription": "This'll chuck your API credentials from the app. You'll need to enter them again to use it.",
     "enableRouteMatching": "Turn on route matching",

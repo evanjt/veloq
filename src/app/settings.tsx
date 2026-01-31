@@ -43,8 +43,6 @@ import {
   useUnitPreference,
   useDashboardPreferences,
   getMetricDefinition,
-  getMetricsForSport,
-  AVAILABLE_METRICS,
   type ThemePreference,
   type PrimarySport,
   type UnitPreference,
@@ -54,7 +52,8 @@ import Constants from 'expo-constants';
 import { type SupportedLocale } from '@/i18n';
 import { type MapStyleType } from '@/components/maps';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import { ProfileSection, DisplaySettings } from '@/components/settings';
+import { ProfileSection, DisplaySettings, MapStylePreviewPicker } from '@/components/settings';
+import { SummaryCard } from '@/components/home';
 import type { ActivityType } from '@/types';
 
 // Activity type groups for map settings
@@ -183,51 +182,9 @@ export default function SettingsScreen() {
   const { language, setLanguage } = useLanguageStore();
   const { unitPreference, setUnitPreference, intervalsPreferences } = useUnitPreference();
 
-  // Dashboard metrics customization
-  const {
-    metrics: allMetrics,
-    setMetricEnabled,
-    reorderMetrics,
-    resetToDefaults: resetMetricsToDefaults,
-    getEnabledMetrics,
-    summaryCard,
-    setSummaryCardPreferences,
-  } = useDashboardPreferences();
-  const [showDashboardMetrics, setShowDashboardMetrics] = useState(false);
+  // Summary card customization
+  const { summaryCard, setSummaryCardPreferences } = useDashboardPreferences();
   const [showSummaryCardConfig, setShowSummaryCardConfig] = useState(false);
-
-  // Filter metrics for current sport (hide sport-specific metrics for other sports)
-  const filteredMetrics = useMemo(() => {
-    return getMetricsForSport(allMetrics, primarySport).sort((a, b) => {
-      // Enabled metrics first, then by order
-      if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
-      return a.order - b.order;
-    });
-  }, [allMetrics, primarySport]);
-
-  const enabledMetrics = useMemo(() => {
-    return filteredMetrics.filter((m) => m.enabled).sort((a, b) => a.order - b.order);
-  }, [filteredMetrics]);
-
-  const handleMetricToggle = (id: MetricId, enabled: boolean) => {
-    setMetricEnabled(id, enabled);
-  };
-
-  const handleMetricMoveUp = (metricId: MetricId) => {
-    const enabledList = enabledMetrics;
-    const currentIndex = enabledList.findIndex((m) => m.id === metricId);
-    if (currentIndex > 0) {
-      reorderMetrics(currentIndex, currentIndex - 1);
-    }
-  };
-
-  const handleMetricMoveDown = (metricId: MetricId) => {
-    const enabledList = enabledMetrics;
-    const currentIndex = enabledList.findIndex((m) => m.id === metricId);
-    if (currentIndex < enabledList.length - 1) {
-      reorderMetrics(currentIndex, currentIndex + 1);
-    }
-  };
 
   // Load saved theme preference on mount
   useEffect(() => {
@@ -554,128 +511,174 @@ export default function SettingsScreen() {
           setShowLanguages={setShowLanguages}
         />
 
-        {/* Dashboard Metrics Section */}
+        {/* Summary Card Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-          {t('settings.dashboardMetrics').toUpperCase()}
+          {t('settings.summaryCard').toUpperCase()}
         </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={() => setShowDashboardMetrics(!showDashboardMetrics)}
-          >
-            <MaterialCommunityIcons
-              name="view-dashboard-outline"
-              size={22}
-              color={colors.primary}
+          {/* Live Preview using actual SummaryCard */}
+          <View style={styles.summaryCardPreview}>
+            <SummaryCard
+              profileUrl={athlete?.profile_medium || athlete?.profile}
+              onProfilePress={() => {}}
+              heroValue={
+                summaryCard.heroMetric === 'form'
+                  ? 12
+                  : summaryCard.heroMetric === 'fitness'
+                    ? 48
+                    : 42
+              }
+              heroLabel={t(`metrics.${summaryCard.heroMetric}` as never)}
+              heroColor={
+                summaryCard.heroMetric === 'form'
+                  ? colors.success
+                  : summaryCard.heroMetric === 'fitness'
+                    ? colors.fitnessBlue
+                    : colors.chartPink
+              }
+              heroZoneLabel={summaryCard.heroMetric === 'form' ? 'Fresh' : undefined}
+              heroZoneColor={summaryCard.heroMetric === 'form' ? colors.success : undefined}
+              sparklineData={
+                summaryCard.showSparkline
+                  ? summaryCard.heroMetric === 'form'
+                    ? [
+                        -5, -2, 3, 8, 5, 10, 15, 12, 8, 5, 10, 14, 11, 7, 4, 9, 13, 10, 6, 8, 11,
+                        14, 10, 7, 9, 12, 15, 11, 9, 12,
+                      ]
+                    : summaryCard.heroMetric === 'fitness'
+                      ? [
+                          32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 42, 43, 44, 44, 45, 45, 46,
+                          46, 47, 47, 47, 48, 48, 48, 48, 48, 48, 48, 48,
+                        ]
+                      : [
+                          38, 45, 42, 51, 39, 48, 44, 52, 41, 46, 43, 49, 40, 47, 45, 50, 42, 48,
+                          44, 51, 40, 46, 43, 49, 41, 47, 44, 50, 42, 42,
+                        ]
+                  : undefined
+              }
+              showSparkline={summaryCard.showSparkline}
+              supportingMetrics={summaryCard.supportingMetrics.slice(0, 4).map((metricId) => {
+                const def = getMetricDefinition(metricId);
+                const mockValues: Record<string, { value: string | number; color?: string }> = {
+                  fitness: { value: 48, color: colors.fitnessBlue },
+                  form: { value: '+12', color: colors.success },
+                  ftp: { value: 245 },
+                  weekHours: { value: '4.2h' },
+                  weekCount: { value: 5 },
+                  hrv: { value: 42, color: colors.chartPink },
+                  rhr: { value: 52 },
+                  thresholdPace: { value: '4:30' },
+                  css: { value: '1:42' },
+                };
+                const mock = mockValues[metricId] || { value: '-' };
+                return {
+                  label: def ? t(def.labelKey as never) : metricId,
+                  value: mock.value,
+                  color: mock.color,
+                };
+              })}
             />
+          </View>
+
+          {/* Hero Metric Picker - always visible */}
+          <View style={styles.summaryCardContainer}>
+            <View style={styles.heroMetricHeader}>
+              <Text style={[styles.summaryCardLabel, isDark && styles.textLight]}>
+                {t('settings.heroMetric')}
+              </Text>
+              <View style={styles.sparklineToggleInline}>
+                <Text style={[styles.sparklineToggleLabel, isDark && styles.textMuted]}>
+                  {t('settings.showSparkline')}
+                </Text>
+                <Switch
+                  value={summaryCard.showSparkline}
+                  onValueChange={(value) => setSummaryCardPreferences({ showSparkline: value })}
+                  color={colors.primary}
+                />
+              </View>
+            </View>
+            <SegmentedButtons
+              value={summaryCard.heroMetric}
+              onValueChange={(value) =>
+                setSummaryCardPreferences({ heroMetric: value as MetricId })
+              }
+              buttons={[
+                { value: 'form', label: t('metrics.form') },
+                { value: 'fitness', label: t('metrics.fitness') },
+                { value: 'hrv', label: t('metrics.hrv') },
+              ]}
+              style={styles.summaryCardPicker}
+            />
+          </View>
+
+          {/* Supporting Metrics - collapsible */}
+          <TouchableOpacity
+            style={[styles.actionRow, styles.actionRowBorder]}
+            onPress={() => setShowSummaryCardConfig(!showSummaryCardConfig)}
+          >
+            <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
             <Text style={[styles.actionText, isDark && styles.textLight]}>
-              {t('settings.customiseMetrics')}
+              {t('settings.supportingMetrics')}
             </Text>
             <MaterialCommunityIcons
-              name={showDashboardMetrics ? 'chevron-up' : 'chevron-down'}
+              name={showSummaryCardConfig ? 'chevron-up' : 'chevron-down'}
               size={20}
               color={isDark ? darkColors.textMuted : colors.textSecondary}
             />
           </TouchableOpacity>
 
-          {showDashboardMetrics && (
-            <View style={styles.metricsContainer}>
-              <Text style={[styles.metricsHint, isDark && styles.textMuted]}>
-                {t('settings.metricsHint')}
+          {showSummaryCardConfig && (
+            <View style={styles.summaryCardContainer}>
+              <Text style={[styles.summaryCardHint, isDark && styles.textMuted]}>
+                {t('settings.maxMetricsHint')}
               </Text>
 
-              {/* Enabled metrics with reorder */}
-              {enabledMetrics.length > 0 && (
-                <View style={styles.enabledMetricsList}>
-                  {enabledMetrics.map((metric, index) => {
-                    const def = getMetricDefinition(metric.id);
-                    if (!def) return null;
-                    return (
-                      <View
-                        key={metric.id}
-                        style={[styles.metricRow, isDark && styles.metricRowDark]}
-                      >
-                        <View style={styles.metricReorderButtons}>
-                          <TouchableOpacity
-                            onPress={() => handleMetricMoveUp(metric.id)}
-                            disabled={index === 0}
-                            style={styles.reorderButton}
-                          >
-                            <MaterialCommunityIcons
-                              name="chevron-up"
-                              size={20}
-                              color={index === 0 ? colors.textSecondary : colors.primary}
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() => handleMetricMoveDown(metric.id)}
-                            disabled={index === enabledMetrics.length - 1}
-                            style={styles.reorderButton}
-                          >
-                            <MaterialCommunityIcons
-                              name="chevron-down"
-                              size={20}
-                              color={
-                                index === enabledMetrics.length - 1
-                                  ? colors.textSecondary
-                                  : colors.primary
-                              }
-                            />
-                          </TouchableOpacity>
-                        </View>
-                        <Text style={[styles.metricLabel, isDark && styles.textLight]}>
-                          {t(def.labelKey as never)}
-                        </Text>
-                        <Switch
-                          value={true}
-                          onValueChange={(enabled) => handleMetricToggle(metric.id, enabled)}
-                          color={colors.primary}
-                        />
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
+              {(
+                [
+                  'fitness',
+                  'ftp',
+                  'weekHours',
+                  'weekCount',
+                  'form',
+                  'hrv',
+                  'rhr',
+                  'thresholdPace',
+                  'css',
+                ] as MetricId[]
+              ).map((metricId) => {
+                const isEnabled = summaryCard.supportingMetrics.includes(metricId);
+                const maxReached = summaryCard.supportingMetrics.length >= 4;
+                const def = getMetricDefinition(metricId);
+                if (!def) return null;
 
-              {/* Disabled metrics */}
-              {filteredMetrics.filter((m) => !m.enabled).length > 0 && (
-                <>
-                  <Text style={[styles.disabledMetricsLabel, isDark && styles.textMuted]}>
-                    {t('settings.availableMetrics')}
-                  </Text>
-                  {filteredMetrics
-                    .filter((m) => !m.enabled)
-                    .map((metric) => {
-                      const def = getMetricDefinition(metric.id);
-                      if (!def) return null;
-                      return (
-                        <View
-                          key={metric.id}
-                          style={[styles.metricRow, isDark && styles.metricRowDark]}
-                        >
-                          <View style={styles.metricReorderButtons} />
-                          <Text style={[styles.metricLabel, isDark && styles.textLight]}>
-                            {t(def.labelKey as never)}
-                          </Text>
-                          <Switch
-                            value={false}
-                            onValueChange={(enabled) => handleMetricToggle(metric.id, enabled)}
-                            color={colors.primary}
-                          />
-                        </View>
-                      );
-                    })}
-                </>
-              )}
-
-              {/* Reset button */}
-              <TouchableOpacity
-                style={styles.resetButton}
-                onPress={() => resetMetricsToDefaults(primarySport)}
-              >
-                <MaterialCommunityIcons name="refresh" size={18} color={colors.primary} />
-                <Text style={styles.resetButtonText}>{t('settings.resetToDefaults')}</Text>
-              </TouchableOpacity>
+                return (
+                  <View
+                    key={metricId}
+                    style={[styles.summaryMetricRow, isDark && styles.summaryMetricRowDark]}
+                  >
+                    <Text style={[styles.summaryMetricLabel, isDark && styles.textLight]}>
+                      {t(def.labelKey as never)}
+                    </Text>
+                    <Switch
+                      value={isEnabled}
+                      disabled={!isEnabled && maxReached}
+                      onValueChange={(enabled) => {
+                        const current = summaryCard.supportingMetrics;
+                        if (enabled && current.length < 4) {
+                          setSummaryCardPreferences({
+                            supportingMetrics: [...current, metricId],
+                          });
+                        } else if (!enabled) {
+                          setSummaryCardPreferences({
+                            supportingMetrics: current.filter((id) => id !== metricId),
+                          });
+                        }
+                      }}
+                      color={colors.primary}
+                    />
+                  </View>
+                );
+              })}
             </View>
           )}
         </View>
@@ -690,30 +693,10 @@ export default function SettingsScreen() {
               {t('settings.defaultStyle')}
             </Text>
           </View>
-          <View style={styles.themePickerContainer}>
-            <SegmentedButtons
-              value={mapPreferences.defaultStyle}
-              onValueChange={handleDefaultMapStyleChange}
-              buttons={[
-                {
-                  value: 'light',
-                  label: t('settings.light'),
-                  icon: 'map',
-                },
-                {
-                  value: 'dark',
-                  label: t('settings.dark'),
-                  icon: 'map',
-                },
-                {
-                  value: 'satellite',
-                  label: t('settings.satellite'),
-                  icon: 'satellite-variant',
-                },
-              ]}
-              style={styles.themePicker}
-            />
-          </View>
+          <MapStylePreviewPicker
+            value={mapPreferences.defaultStyle}
+            onValueChange={handleDefaultMapStyleChange}
+          />
 
           {/* Per-activity-type styles toggle */}
           <TouchableOpacity
@@ -956,16 +939,9 @@ export default function SettingsScreen() {
             </Text>
           </View>
 
-          <Text style={[styles.infoTextInline, isDark && styles.textMuted]}>
-            {t('settings.cacheHint')}
-          </Text>
-        </View>
+          <View style={[styles.divider, isDark && styles.dividerDark]} />
 
-        {/* Route Matching Toggle */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-          {t('settings.routeMatching').toUpperCase()}
-        </Text>
-        <View style={[styles.section, isDark && styles.sectionDark]}>
+          {/* Route Matching Toggle - moved here from separate section */}
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
               <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
@@ -981,115 +957,10 @@ export default function SettingsScreen() {
               color={colors.primary}
             />
           </View>
-        </View>
 
-        {/* Summary Card Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-          {t('settings.summaryCard').toUpperCase()}
-        </Text>
-        <View style={[styles.section, isDark && styles.sectionDark]}>
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={() => setShowSummaryCardConfig(!showSummaryCardConfig)}
-          >
-            <MaterialCommunityIcons name="card-text-outline" size={22} color={colors.primary} />
-            <Text style={[styles.actionText, isDark && styles.textLight]}>
-              {t('settings.summaryCard')}
-            </Text>
-            <MaterialCommunityIcons
-              name={showSummaryCardConfig ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={isDark ? darkColors.textMuted : colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          {showSummaryCardConfig && (
-            <View style={styles.summaryCardContainer}>
-              {/* Hero Metric Picker */}
-              <Text style={[styles.summaryCardLabel, isDark && styles.textLight]}>
-                {t('settings.heroMetric')}
-              </Text>
-              <SegmentedButtons
-                value={summaryCard.heroMetric}
-                onValueChange={(value) =>
-                  setSummaryCardPreferences({ heroMetric: value as MetricId })
-                }
-                buttons={[
-                  { value: 'form', label: t('metrics.form') },
-                  { value: 'fitness', label: t('metrics.fitness') },
-                  { value: 'hrv', label: t('metrics.hrv') },
-                ]}
-                style={styles.summaryCardPicker}
-              />
-
-              {/* Show Sparkline Toggle */}
-              <View style={styles.summaryCardToggleRow}>
-                <Text style={[styles.summaryCardToggleLabel, isDark && styles.textLight]}>
-                  {t('settings.showSparkline')}
-                </Text>
-                <Switch
-                  value={summaryCard.showSparkline}
-                  onValueChange={(value) => setSummaryCardPreferences({ showSparkline: value })}
-                  color={colors.primary}
-                />
-              </View>
-
-              {/* Supporting Metrics */}
-              <Text style={[styles.summaryCardLabel, isDark && styles.textLight]}>
-                {t('settings.supportingMetrics')}
-              </Text>
-              <Text style={[styles.summaryCardHint, isDark && styles.textMuted]}>
-                {t('settings.maxMetricsHint')}
-              </Text>
-
-              {(
-                [
-                  'fitness',
-                  'ftp',
-                  'weekHours',
-                  'weekCount',
-                  'form',
-                  'hrv',
-                  'rhr',
-                  'thresholdPace',
-                  'css',
-                ] as MetricId[]
-              ).map((metricId) => {
-                const isEnabled = summaryCard.supportingMetrics.includes(metricId);
-                const maxReached = summaryCard.supportingMetrics.length >= 4;
-                const def = getMetricDefinition(metricId);
-                if (!def) return null;
-
-                return (
-                  <View
-                    key={metricId}
-                    style={[styles.summaryMetricRow, isDark && styles.summaryMetricRowDark]}
-                  >
-                    <Text style={[styles.summaryMetricLabel, isDark && styles.textLight]}>
-                      {t(def.labelKey as never)}
-                    </Text>
-                    <Switch
-                      value={isEnabled}
-                      disabled={!isEnabled && maxReached}
-                      onValueChange={(enabled) => {
-                        const current = summaryCard.supportingMetrics;
-                        if (enabled && current.length < 4) {
-                          setSummaryCardPreferences({
-                            supportingMetrics: [...current, metricId],
-                          });
-                        } else if (!enabled) {
-                          setSummaryCardPreferences({
-                            supportingMetrics: current.filter((id) => id !== metricId),
-                          });
-                        }
-                      }}
-                      color={colors.primary}
-                    />
-                  </View>
-                );
-              })}
-            </View>
-          )}
+          <Text style={[styles.infoTextInline, isDark && styles.textMuted]}>
+            {t('settings.cacheHint')}
+          </Text>
         </View>
 
         {/* Account Section */}
@@ -1550,64 +1421,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     marginBottom: spacing.md,
   },
-  // Dashboard Metrics styles
-  metricsContainer: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  metricsHint: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-    lineHeight: 18,
-  },
-  enabledMetricsList: {
-    marginBottom: spacing.md,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  metricRowDark: {
-    borderBottomColor: darkColors.border,
-  },
-  metricReorderButtons: {
-    flexDirection: 'column',
-    width: 28,
-    marginRight: spacing.sm,
-  },
-  reorderButton: {
-    padding: 2,
-  },
-  metricLabel: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  disabledMetricsLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-    letterSpacing: 0.5,
-  },
-  resetButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    marginTop: spacing.md,
-    gap: spacing.xs,
-  },
-  resetButtonText: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '500',
-  },
   // Summary Card styles
   summaryCardContainer: {
     paddingHorizontal: spacing.md,
@@ -1617,23 +1430,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: colors.textPrimary,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
   },
   summaryCardPicker: {
     // Handled by React Native Paper
   },
-  summaryCardToggleRow: {
+  heroMetricHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
-  summaryCardToggleLabel: {
-    fontSize: 15,
-    color: colors.textPrimary,
+  sparklineToggleInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  sparklineToggleLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   summaryCardHint: {
     fontSize: 12,
@@ -1654,5 +1469,10 @@ const styles = StyleSheet.create({
   summaryMetricLabel: {
     fontSize: 15,
     color: colors.textPrimary,
+  },
+  // Summary Card Preview styles
+  summaryCardPreview: {
+    marginHorizontal: -layout.screenPadding,
+    paddingTop: spacing.sm,
   },
 });

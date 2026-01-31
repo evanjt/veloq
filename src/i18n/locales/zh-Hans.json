@@ -644,6 +644,7 @@
     "demoDataSources": "演示数据来源",
     "demoMode": "演示模式",
     "dialect": "Dialect",
+    "display": "显示",
     "disconnectAccount": "断开账户连接",
     "disconnectDescription": "这将从应用中删除您的 API 凭据。您需要重新输入它们才能使用该应用。",
     "enableRouteMatching": "启用路线匹配",

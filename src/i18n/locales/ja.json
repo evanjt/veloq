@@ -644,6 +644,7 @@
     "demoDataSources": "デモデータソース",
     "demoMode": "デモモード",
     "dialect": "Dialect",
+    "display": "表示",
     "disconnectAccount": "アカウントを切断",
     "disconnectDescription": "アプリからAPI認証情報が削除されます。アプリを使用するには再度入力が必要です。",
     "enableRouteMatching": "ルートマッチングを有効化",

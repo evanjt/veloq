@@ -644,6 +644,7 @@
     "demoDataSources": "Fontes de dados demo",
     "demoMode": "Modo demo",
     "dialect": "Dialeto",
+    "display": "Tela",
     "disconnectAccount": "Desconectar conta",
     "disconnectDescription": "Isso removera suas credenciais de API do aplicativo. Voce precisara inseri-las novamente para usar o aplicativo.",
     "enableRouteMatching": "Ativar correspondencia de rotas",

@@ -644,6 +644,7 @@
     "demoDataSources": "Sources de données démo",
     "demoMode": "Mode démo",
     "dialect": "Dialecte",
+    "display": "Affichage",
     "disconnectAccount": "Déconnecter le compte",
     "disconnectDescription": "Cela supprimera vos identifiants API de l'application. Vous devrez les saisir à nouveau pour utiliser l'application.",
     "enableRouteMatching": "Activer la correspondance de parcours",
