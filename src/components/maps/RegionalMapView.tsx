@@ -59,8 +59,8 @@ import {
  *    selection state. Instead, MapLibre expressions use selectedActivityId
  *    directly, preventing GeoJSON rebuilds on selection change.
  *
- * 3. Efficient sorting: sortedVisibleActivities skips sorting when no
- *    selection, and uses stable ID comparison.
+ * 3. Stable marker order: MarkerViews are rendered in stable order to avoid
+ *    iOS crash (NSRangeException in MLRNMapView insertReactSubview:atIndex:).
  *
  * 4. Viewport culling: Uses spatial index (R-tree) to filter activities
  *    to only those in current viewport before rendering.
@@ -801,19 +801,12 @@ export function RegionalMapView({
   // Markers are rendered as native map features, preserving all gestures
 
   // ===========================================
-  // 120HZ OPTIMIZATION: Stable sort order
+  // iOS CRASH FIX: Stable marker order
   // ===========================================
-  // Sort activities so selected is rendered last (on top)
-  // Uses selectedActivityId to avoid re-sorting when other selection properties change
-  const sortedVisibleActivities = useMemo(() => {
-    const selId = selected?.activity.id;
-    if (!selId) return visibleActivities; // No selection, no need to sort
-    return [...visibleActivities].sort((a, b) => {
-      if (selId === a.id) return 1;
-      if (selId === b.id) return -1;
-      return 0;
-    });
-  }, [visibleActivities, selected?.activity.id]);
+  // NOTE: We no longer sort markers by selection. Re-ordering MarkerViews causes
+  // NSRangeException crash in MLRNMapView insertReactSubview:atIndex: on iOS.
+  // The selected marker is visually distinct (larger, border) but may be behind others.
+  // This is acceptable UX to avoid the crash.
 
   // ===========================================
   // 120HZ OPTIMIZATION: Stable GeoJSON that doesn't rebuild on selection
@@ -973,20 +966,52 @@ export function RegionalMapView({
   // Show 3D view when enabled
   const show3D = is3DMode && can3D;
 
+  // Rate limit iOS taps to prevent race conditions that can crash MapLibre
+  const lastTapTimeRef = useRef<number>(0);
+  const TAP_DEBOUNCE_MS = 100; // Minimum time between taps
+
   // iOS tap handler - uses queryRenderedFeaturesAtPoint for O(1) hit detection
-  // instead of iterating all activities with getPointInView (which was O(n) FFI calls)
+  // Queries activity markers, section lines, and route lines based on visibility toggles
   const handleiOSTap = useCallback(
     async (screenX: number, screenY: number) => {
-      if (!showActivities) {
+      // Rate limiting: ignore taps that are too close together
+      const now = Date.now();
+      if (now - lastTapTimeRef.current < TAP_DEBOUNCE_MS) {
+        return;
+      }
+      lastTapTimeRef.current = now;
+
+      // Wrap in try-catch to prevent unhandled errors from crashing the app
+      try {
+        // Defensive check: ensure map ref is valid before querying
+        if (!mapRef.current) {
+          return;
+        }
+
+        const zoom = currentZoomLevel.current;
+      // Expand query rect based on zoom (matches CircleLayer radius interpolation)
+      // Use different hit radius for points vs lines - lines are thin and need bigger area
+      // Matches CircleLayer: zoom 0→16, 4→14, 8→12, 12→8, 16→6
+      const pointHitRadius = zoom < 4 ? 16 : zoom < 8 ? 14 : zoom < 12 ? 12 : zoom < 16 ? 8 : 6;
+      // Lines need 3x the hit area since they're only a few pixels wide
+      const lineHitRadius = Math.max(pointHitRadius * 3, 20); // Minimum 20px for lines
+
+      // Build list of layers to query based on visibility
+      const layersToQuery: string[] = [];
+      if (showActivities) layersToQuery.push('marker-hitarea');
+      if (showSections) layersToQuery.push('sectionsLine');
+      if (showRoutes) layersToQuery.push('routesLine');
+
+      if (layersToQuery.length === 0) {
         if (selected) setSelected(null);
+        if (selectedSection) setSelectedSection(null);
+        if (selectedRoute) setSelectedRoute(null);
         return;
       }
 
-      // Query the marker hit area layer directly - single FFI call instead of O(n)
-      // MapLibre handles spatial indexing internally (R-tree), returns features at tap point
-      const zoom = currentZoomLevel.current;
-      // Expand query rect based on zoom (matches CircleLayer radius interpolation)
-      const hitRadius = zoom < 4 ? 18 : zoom < 6 ? 16 : zoom < 10 ? 14 : 12;
+      // Use line hit radius if querying any line layers (sections or routes)
+      const hasLineLayer = showSections || showRoutes;
+      const hitRadius = hasLineLayer ? lineHitRadius : pointHitRadius;
       const bbox: [number, number, number, number] = [
         screenX - hitRadius,
         screenY - hitRadius,
@@ -994,48 +1019,97 @@ export function RegionalMapView({
         screenY + hitRadius,
       ];
 
-      const features = await mapRef.current?.queryRenderedFeaturesInRect(bbox, undefined, [
-        'marker-hitarea',
-      ]);
+      // Try queryRenderedFeaturesAtPoint first (more reliable for single taps on iOS)
+      // Then fall back to queryRenderedFeaturesInRect with expanded bbox
+      let features = await mapRef.current?.queryRenderedFeaturesAtPoint(
+        [screenX, screenY],
+        undefined,
+        layersToQuery
+      );
+
+      // If no hit at point, try with expanded bbox
+      if (!features || features.features.length === 0) {
+        features = await mapRef.current?.queryRenderedFeaturesInRect(
+          bbox,
+          undefined,
+          layersToQuery
+        );
+      }
 
       if (features && features.features.length > 0) {
-        // Find the feature closest to tap point (in case multiple overlap)
-        let nearestFeature = features.features[0];
-        if (features.features.length > 1) {
-          let nearestDist = Infinity;
-          for (const f of features.features) {
-            if (f.geometry.type !== 'Point') continue;
-            const coords = f.geometry.coordinates as [number, number];
-            const screenPos = await mapRef.current?.getPointInView(coords);
-            if (!screenPos) continue;
-            const dx = screenX - screenPos[0];
-            const dy = screenY - screenPos[1];
-            const dist = dx * dx + dy * dy;
-            if (dist < nearestDist) {
-              nearestDist = dist;
-              nearestFeature = f;
-            }
-          }
-        }
+        // Process the first feature found (closest to tap point due to bbox query)
+        const feature = features.features[0];
+        const featureId = feature.properties?.id;
 
-        const activityId = nearestFeature.properties?.id;
-        if (activityId) {
-          const activity = activities.find((a) => a.id === activityId);
+        // Determine feature type by checking geometry and properties
+        if (feature.geometry?.type === 'Point' && showActivities) {
+          // Activity marker hit
+          const activity = activities.find((a) => a.id === featureId);
           if (activity) {
-            console.log('[iOS tap] HIT via queryRenderedFeatures:', activityId);
+            console.log('[iOS tap] HIT activity:', featureId);
             handleMarkerTap(activity);
             return;
           }
+        } else if (feature.geometry?.type === 'LineString') {
+          // Could be section or route - check properties to determine
+          if (feature.properties?.visitCount !== undefined && showSections) {
+            // Section hit (has visitCount property)
+            const section = sections.find((s) => s.id === featureId);
+            if (section) {
+              console.log('[iOS tap] HIT section:', featureId);
+              setSelectedSection(section);
+              setSelected(null);
+              setSelectedRoute(null);
+              return;
+            }
+          } else if (feature.properties?.activityCount !== undefined && showRoutes) {
+            // Route hit (has activityCount property)
+            const route = routeGroups.find((g) => g.id === featureId);
+            if (route) {
+              console.log('[iOS tap] HIT route:', featureId);
+              setSelectedRoute({
+                id: route.id,
+                name: route.name,
+                activityCount: route.activityCount,
+                sportType: route.sportType,
+                type: route.type,
+                bestTime: route.bestTime,
+              });
+              setSelected(null);
+              setSelectedSection(null);
+              return;
+            }
+          }
         }
       }
 
-      // No marker hit - clear selection if any
-      if (selected) {
-        console.log('[iOS tap] MISS - clearing selection');
-        setSelected(null);
+      // No hit - clear appropriate selections
+      if (selected) setSelected(null);
+      if (selectedSection) setSelectedSection(null);
+      if (selectedRoute) setSelectedRoute(null);
+      } catch (error) {
+        // Log error but don't crash - gracefully handle MapLibre query failures
+        if (__DEV__) {
+          console.warn('[iOS tap] Error during tap handling:', error);
+        }
       }
     },
-    [activities, handleMarkerTap, selected, setSelected, showActivities, currentZoomLevel]
+    [
+      activities,
+      sections,
+      routeGroups,
+      handleMarkerTap,
+      selected,
+      setSelected,
+      selectedSection,
+      setSelectedSection,
+      selectedRoute,
+      setSelectedRoute,
+      showActivities,
+      showSections,
+      showRoutes,
+      currentZoomLevel,
+    ]
   );
 
   // Track touch start for iOS tap detection (to distinguish taps from gestures)
@@ -1059,7 +1133,6 @@ export function RegionalMapView({
         Platform.OS === 'ios'
           ? (e) => {
               const start = touchStartRef.current;
-              console.log('[iOS touchEnd] start:', !!start);
               if (!start) return;
 
               const dx = Math.abs(e.nativeEvent.locationX - start.x);
@@ -1069,15 +1142,6 @@ export function RegionalMapView({
               // Only treat as tap if: short duration, minimal movement, not in button area
               const isTap = duration < 300 && dx < 10 && dy < 10;
               const isInMapArea = e.nativeEvent.locationY > insets.top + 60; // Below buttons
-
-              console.log(
-                '[iOS touchEnd] isTap:',
-                isTap,
-                'isInMapArea:',
-                isInMapArea,
-                'show3D:',
-                show3D
-              );
 
               if (isTap && isInMapArea && !show3D) {
                 handleiOSTap(e.nativeEvent.locationX, e.nativeEvent.locationY);
@@ -1129,9 +1193,10 @@ export function RegionalMapView({
           {/* CRITICAL: Always render MarkerViews to avoid iOS crash during reconciliation */}
           {/* Use opacity to hide instead of conditional rendering */}
           {/* pointerEvents="none" ensures these don't intercept touches (fixes Android rendering) */}
-          {/* Sorted to render selected activity last (on top) */}
+          {/* iOS CRASH FIX: Use stable order (visibleActivities) instead of sortedVisibleActivities */}
+          {/* Re-ordering markers causes NSRangeException in MLRNMapView insertReactSubview:atIndex: */}
           {/* filter(Boolean) prevents null children crash on iOS MapLibre */}
-          {sortedVisibleActivities
+          {visibleActivities
             .map((activity) => {
               const config = getActivityTypeConfig(activity.type);
               // Use pre-computed center (no format detection during render!)
@@ -1181,36 +1246,55 @@ export function RegionalMapView({
             })
             .filter(Boolean)}
 
-          {/* Activity marker hit detection - Android only (iOS uses touch gestures on container) */}
+          {/* Activity marker hit detection - invisible circles for queryRenderedFeaturesAtPoint */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS crash during view reconciliation */}
+          {/* Android uses onPress handler, iOS uses queryRenderedFeaturesAtPoint in handleiOSTap */}
           <ShapeSource
             id="activity-markers-hitarea"
             shape={markersGeoJSON}
             onPress={Platform.OS === 'android' && showActivities ? handleMarkerPress : undefined}
             hitbox={{ width: 36, height: 36 }}
           >
-            {/* Invisible circles for hit detection - Android only, sized to match visual markers */}
+            {/* Invisible circles for hit detection - sized to match visual markers */}
+            {/* iOS FIX: Must have non-zero radius and higher opacity for queryRenderedFeaturesAtPoint */}
             <CircleLayer
               id="marker-hitarea"
               style={{
-                circleRadius:
-                  Platform.OS === 'android' && showActivities
-                    ? [
-                        'interpolate',
-                        ['linear'],
-                        ['zoom'],
-                        1,
-                        18, // World view: modest hitarea to avoid overlap
-                        6,
-                        16, // Continental
-                        10,
-                        14, // Regional
-                        14,
-                        12, // City level
-                      ]
-                    : 0,
+                circleRadius: showActivities
+                  ? [
+                      'interpolate',
+                      ['linear'],
+                      ['zoom'],
+                      0,
+                      16, // World view: modest hitarea
+                      4,
+                      14, // Continental
+                      8,
+                      12, // Regional
+                      12,
+                      8, // City level - smaller to not overlap markers
+                      16,
+                      6, // Neighborhood - minimal, just for touch tolerance
+                    ]
+                  : 0,
                 circleColor: '#000000',
-                circleOpacity: 0.01, // Nearly invisible but tappable
+                // iOS requires higher opacity than Android to be queryable
+                // Scale opacity down at higher zoom so halos are less visible
+                circleOpacity: showActivities
+                  ? [
+                      'interpolate',
+                      ['linear'],
+                      ['zoom'],
+                      0,
+                      0.05, // World view - slightly visible for queryability
+                      8,
+                      0.03, // Regional - less visible
+                      12,
+                      0.02, // City level - barely visible
+                      16,
+                      0.01, // Neighborhood - nearly invisible
+                    ]
+                  : 0,
                 circleStrokeWidth: 0,
               }}
             />
