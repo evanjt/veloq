@@ -989,104 +989,104 @@ export function RegionalMapView({
         }
 
         const zoom = currentZoomLevel.current;
-      // Expand query rect based on zoom (matches CircleLayer radius interpolation)
-      // Use different hit radius for points vs lines - lines are thin and need bigger area
-      // Matches CircleLayer: zoom 0→16, 4→14, 8→12, 12→8, 16→6
-      const pointHitRadius = zoom < 4 ? 16 : zoom < 8 ? 14 : zoom < 12 ? 12 : zoom < 16 ? 8 : 6;
-      // Lines need 3x the hit area since they're only a few pixels wide
-      const lineHitRadius = Math.max(pointHitRadius * 3, 20); // Minimum 20px for lines
+        // Expand query rect based on zoom (matches CircleLayer radius interpolation)
+        // Use different hit radius for points vs lines - lines are thin and need bigger area
+        // Matches CircleLayer: zoom 0→16, 4→14, 8→12, 12→8, 16→6
+        const pointHitRadius = zoom < 4 ? 16 : zoom < 8 ? 14 : zoom < 12 ? 12 : zoom < 16 ? 8 : 6;
+        // Lines need 3x the hit area since they're only a few pixels wide
+        const lineHitRadius = Math.max(pointHitRadius * 3, 20); // Minimum 20px for lines
 
-      // Build list of layers to query based on visibility
-      const layersToQuery: string[] = [];
-      if (showActivities) layersToQuery.push('marker-hitarea');
-      if (showSections) layersToQuery.push('sectionsLine');
-      if (showRoutes) layersToQuery.push('routesLine');
+        // Build list of layers to query based on visibility
+        const layersToQuery: string[] = [];
+        if (showActivities) layersToQuery.push('marker-hitarea');
+        if (showSections) layersToQuery.push('sectionsLine');
+        if (showRoutes) layersToQuery.push('routesLine');
 
-      if (layersToQuery.length === 0) {
-        if (selected) setSelected(null);
-        if (selectedSection) setSelectedSection(null);
-        if (selectedRoute) setSelectedRoute(null);
-        return;
-      }
+        if (layersToQuery.length === 0) {
+          if (selected) setSelected(null);
+          if (selectedSection) setSelectedSection(null);
+          if (selectedRoute) setSelectedRoute(null);
+          return;
+        }
 
-      // Use line hit radius if querying any line layers (sections or routes)
-      const hasLineLayer = showSections || showRoutes;
-      const hitRadius = hasLineLayer ? lineHitRadius : pointHitRadius;
-      const bbox: [number, number, number, number] = [
-        screenX - hitRadius,
-        screenY - hitRadius,
-        screenX + hitRadius,
-        screenY + hitRadius,
-      ];
+        // Use line hit radius if querying any line layers (sections or routes)
+        const hasLineLayer = showSections || showRoutes;
+        const hitRadius = hasLineLayer ? lineHitRadius : pointHitRadius;
+        const bbox: [number, number, number, number] = [
+          screenX - hitRadius,
+          screenY - hitRadius,
+          screenX + hitRadius,
+          screenY + hitRadius,
+        ];
 
-      // Try queryRenderedFeaturesAtPoint first (more reliable for single taps on iOS)
-      // Then fall back to queryRenderedFeaturesInRect with expanded bbox
-      let features = await mapRef.current?.queryRenderedFeaturesAtPoint(
-        [screenX, screenY],
-        undefined,
-        layersToQuery
-      );
-
-      // If no hit at point, try with expanded bbox
-      if (!features || features.features.length === 0) {
-        features = await mapRef.current?.queryRenderedFeaturesInRect(
-          bbox,
+        // Try queryRenderedFeaturesAtPoint first (more reliable for single taps on iOS)
+        // Then fall back to queryRenderedFeaturesInRect with expanded bbox
+        let features = await mapRef.current?.queryRenderedFeaturesAtPoint(
+          [screenX, screenY],
           undefined,
           layersToQuery
         );
-      }
 
-      if (features && features.features.length > 0) {
-        // Process the first feature found (closest to tap point due to bbox query)
-        const feature = features.features[0];
-        const featureId = feature.properties?.id;
+        // If no hit at point, try with expanded bbox
+        if (!features || features.features.length === 0) {
+          features = await mapRef.current?.queryRenderedFeaturesInRect(
+            bbox,
+            undefined,
+            layersToQuery
+          );
+        }
 
-        // Determine feature type by checking geometry and properties
-        if (feature.geometry?.type === 'Point' && showActivities) {
-          // Activity marker hit
-          const activity = activities.find((a) => a.id === featureId);
-          if (activity) {
-            console.log('[iOS tap] HIT activity:', featureId);
-            handleMarkerTap(activity);
-            return;
-          }
-        } else if (feature.geometry?.type === 'LineString') {
-          // Could be section or route - check properties to determine
-          if (feature.properties?.visitCount !== undefined && showSections) {
-            // Section hit (has visitCount property)
-            const section = sections.find((s) => s.id === featureId);
-            if (section) {
-              console.log('[iOS tap] HIT section:', featureId);
-              setSelectedSection(section);
-              setSelected(null);
-              setSelectedRoute(null);
+        if (features && features.features.length > 0) {
+          // Process the first feature found (closest to tap point due to bbox query)
+          const feature = features.features[0];
+          const featureId = feature.properties?.id;
+
+          // Determine feature type by checking geometry and properties
+          if (feature.geometry?.type === 'Point' && showActivities) {
+            // Activity marker hit
+            const activity = activities.find((a) => a.id === featureId);
+            if (activity) {
+              console.log('[iOS tap] HIT activity:', featureId);
+              handleMarkerTap(activity);
               return;
             }
-          } else if (feature.properties?.activityCount !== undefined && showRoutes) {
-            // Route hit (has activityCount property)
-            const route = routeGroups.find((g) => g.id === featureId);
-            if (route) {
-              console.log('[iOS tap] HIT route:', featureId);
-              setSelectedRoute({
-                id: route.id,
-                name: route.name,
-                activityCount: route.activityCount,
-                sportType: route.sportType,
-                type: route.type,
-                bestTime: route.bestTime,
-              });
-              setSelected(null);
-              setSelectedSection(null);
-              return;
+          } else if (feature.geometry?.type === 'LineString') {
+            // Could be section or route - check properties to determine
+            if (feature.properties?.visitCount !== undefined && showSections) {
+              // Section hit (has visitCount property)
+              const section = sections.find((s) => s.id === featureId);
+              if (section) {
+                console.log('[iOS tap] HIT section:', featureId);
+                setSelectedSection(section);
+                setSelected(null);
+                setSelectedRoute(null);
+                return;
+              }
+            } else if (feature.properties?.activityCount !== undefined && showRoutes) {
+              // Route hit (has activityCount property)
+              const route = routeGroups.find((g) => g.id === featureId);
+              if (route) {
+                console.log('[iOS tap] HIT route:', featureId);
+                setSelectedRoute({
+                  id: route.id,
+                  name: route.name,
+                  activityCount: route.activityCount,
+                  sportType: route.sportType,
+                  type: route.type,
+                  bestTime: route.bestTime,
+                });
+                setSelected(null);
+                setSelectedSection(null);
+                return;
+              }
             }
           }
         }
-      }
 
-      // No hit - clear appropriate selections
-      if (selected) setSelected(null);
-      if (selectedSection) setSelectedSection(null);
-      if (selectedRoute) setSelectedRoute(null);
+        // No hit - clear appropriate selections
+        if (selected) setSelected(null);
+        if (selectedSection) setSelectedSection(null);
+        if (selectedRoute) setSelectedRoute(null);
       } catch (error) {
         // Log error but don't crash - gracefully handle MapLibre query failures
         if (__DEV__) {
