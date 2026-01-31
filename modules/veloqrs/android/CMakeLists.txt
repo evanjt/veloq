@@ -42,8 +42,8 @@ cmake_path(
   ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libveloqrs.so
   NORMALIZE
 )
-add_library(my_rust_lib SHARED IMPORTED)
-set_target_properties(my_rust_lib PROPERTIES IMPORTED_LOCATION ${MY_RUST_LIB} IMPORTED_NO_SONAME ON)
+# Link directly against the library file (no IMPORTED target)
+# This prevents AGP from auto-packaging it (jniLibs handles packaging)
 
 # Add ReactAndroid libraries, being careful to account for different versions.
 find_package(ReactAndroid REQUIRED CONFIG)
@@ -72,5 +72,5 @@ target_link_libraries(
   fbjni::fbjni
   ReactAndroid::jsi
   ${LOGCAT}
-  my_rust_lib
+  "${MY_RUST_LIB}"
 )
