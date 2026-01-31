@@ -550,40 +550,23 @@ jobs:
           name: ${{ needs.android-release.outputs.artifact_name }}
           path: /tmp/android-artifact
 
-      - name: Setup Android SDK
+      - name: Setup Android SDK PATH
         run: |
-          # Use system SDK or install if missing
-          if [ ! -d "$ANDROID_SDK_ROOT" ]; then
-            echo "Installing Android SDK to $ANDROID_SDK_ROOT"
-            sudo mkdir -p $ANDROID_SDK_ROOT
-            sudo chown $USER:$USER $ANDROID_SDK_ROOT
-            cd $ANDROID_SDK_ROOT
-            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
-            unzip -q cmdline-tools.zip
-            mkdir -p cmdline-tools/latest
-            mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
-          fi
+          # Add Android SDK to PATH (assumes pre-installed on self-hosted)
           echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
           echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
           echo "$ANDROID_SDK_ROOT/emulator" >> $GITHUB_PATH
 
-      - name: Install emulator and system image
-        run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "emulator" "platforms;android-34" "system-images;android-34;google_apis;x86_64"
-
-      - name: Create AVD
+      - name: Create AVD (if not exists)
         run: |
           mkdir -p $ANDROID_AVD_HOME
-          # Delete existing AVD if present
-          avdmanager delete avd -n veloq_test 2>/dev/null || true
-          # Create AVD with high specs
-          echo "no" | avdmanager create avd -n veloq_test -k "system-images;android-34;google_apis;x86_64" -d pixel_6
-
-      - name: Configure AVD for high performance
-        run: |
-          AVD_CONFIG="$ANDROID_AVD_HOME/veloq_test.avd/config.ini"
-          cat >> "$AVD_CONFIG" << EOF
+          # Create AVD if it doesn't exist
+          if [ ! -d "$ANDROID_AVD_HOME/veloq_test.avd" ]; then
+            echo "Creating new AVD..."
+            echo "no" | avdmanager create avd -n veloq_test -k "system-images;android-34;google_apis;x86_64" -d pixel_6
+            # Configure for high performance
+            AVD_CONFIG="$ANDROID_AVD_HOME/veloq_test.avd/config.ini"
+            cat >> "$AVD_CONFIG" << EOF
           hw.ramSize=16384
           hw.cpu.ncore=8
           disk.dataPartition.size=8G
@@ -591,6 +574,9 @@ jobs:
           hw.gpu.enabled=yes
           hw.gpu.mode=swiftshader_indirect
           EOF
+          else
+            echo "Using existing AVD"
+          fi
 
       - name: Start emulator
         run: |
