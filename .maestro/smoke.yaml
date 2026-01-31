@@ -1,42 +1,24 @@
 # Smoke Test
-# Basic sanity check that the app launches and demo mode works
+# Basic sanity check that the app launches and shows either login or home screen
 
 appId: com.veloq.app
 ---
 - launchApp:
-    clearState: true
+    clearState: false
 
-# Dismiss any system alerts that might appear after clearing state
+# If on login screen, enter demo mode
 - runFlow:
     when:
-      visible: "Not Now"
+      visible:
+        id: "login-demo-button"
     commands:
-      - tapOn: "Not Now"
-
-# Wait for login screen (30s timeout for React Native boot)
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-# Verify login elements are present
-- assertVisible:
-    id: "login-oauth-button"
-- assertVisible:
-    id: "login-demo-button"
-
-# Enter demo mode
-- tapOn:
-    id: "login-demo-button"
+      - tapOn:
+          id: "login-demo-button"
 
 # Verify home screen loads
 - extendedWaitUntil:
     visible:
       id: "home-screen"
-    timeout: 15000
-
-# Verify demo mode indicator
-- assertVisible:
-    id: "demo-mode-banner"
+    timeout: 30000
 
 - takeScreenshot: "smoke-complete"

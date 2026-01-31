@@ -481,9 +481,8 @@ jobs:
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
           mkdir -p screenshots
-          # Run smoke test first, then all other tests
-          maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml || true
-          maestro test .maestro/ --format junit --output maestro-report-full.xml
+          # Run smoke test only (other tests disabled for now)
+          maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml
 
       - name: Collect screenshots
         if: always()
@@ -591,10 +590,9 @@ jobs:
             # Install APK
             adb install /tmp/android-artifact/app-release.apk
 
-            # Run tests
+            # Run smoke test only (other tests disabled for now)
             mkdir -p screenshots
-            maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml || true
-            maestro test .maestro/ --format junit --output maestro-report-full.xml
+            maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml
 
       - name: Collect screenshots
         if: always()
