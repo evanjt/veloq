@@ -809,15 +809,17 @@ jobs:
       - name: Copy C++ files for iOS build
         run: |
           # Copy C++ files into module ios/cpp/ where CocoaPods can find them
-          mkdir -p modules/veloqrs/ios/cpp
-          # Turbo module files
-          cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/ 2>/dev/null || true
-          cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
-          # Generated bindings
-          cp modules/veloqrs/cpp/generated/veloqrs.hpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
-          cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/ 2>/dev/null || true
+          # IMPORTANT: Keep generated/ subdirectory to avoid file name conflicts
+          mkdir -p modules/veloqrs/ios/cpp/generated
+          # Turbo module files (wrapper that includes generated bindings)
+          cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/
+          cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/
+          # Generated bindings (must stay in generated/ subdirectory)
+          cp modules/veloqrs/cpp/generated/veloqrs.hpp modules/veloqrs/ios/cpp/generated/
+          cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/generated/
           echo "✓ Copied C++ files to module ios/cpp/"
           ls -la modules/veloqrs/ios/cpp/
+          ls -la modules/veloqrs/ios/cpp/generated/
 
       # Verify C++ files exist before proceeding (safety check)
       - name: Verify C++ bindings exist
