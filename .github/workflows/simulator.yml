@@ -465,9 +465,12 @@ jobs:
           mkdir -p ios/build/Build/Products/Release-iphonesimulator
           unzip /tmp/ios-artifact/Veloq.app.zip -d ios/build/Build/Products/Release-iphonesimulator/
 
-      - name: Install Maestro
+      - name: Setup Maestro
         run: |
-          curl -Ls "https://get.maestro.mobile.dev" | bash
+          # Install if not present, add to PATH
+          if [ ! -f "$HOME/.maestro/bin/maestro" ]; then
+            curl -Ls "https://get.maestro.mobile.dev" | bash
+          fi
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
       - name: Find and boot simulator
