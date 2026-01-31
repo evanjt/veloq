@@ -164,6 +164,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <View
+        testID="auth-loading"
         style={{
           flex: 1,
           justifyContent: 'center',
@@ -219,6 +220,7 @@ export default function RootLayout() {
   if (!appReady) {
     return (
       <View
+        testID="app-loading"
         style={{
           flex: 1,
           justifyContent: 'center',

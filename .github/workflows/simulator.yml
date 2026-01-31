@@ -524,15 +524,13 @@ jobs:
     needs: android-release
     if: ${{ !inputs.skip_e2e }}
     name: E2E Android (Maestro)
-    runs-on: self-hosted
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 30
+    env:
+      ANDROID_AVD_HOME: ${{ github.workspace }}/.android/avd
+      ANDROID_SDK_ROOT: /opt/android-sdk
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
 
       - name: Download APK
         uses: actions/download-artifact@v4
@@ -540,40 +538,85 @@ jobs:
           name: ${{ needs.android-release.outputs.artifact_name }}
           path: /tmp/android-artifact
 
-      - name: Install Maestro
+      - name: Setup Android SDK
         run: |
-          curl -Ls "https://get.maestro.mobile.dev" | bash
-          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+          # Use system SDK or install if missing
+          if [ ! -d "$ANDROID_SDK_ROOT" ]; then
+            echo "Installing Android SDK to $ANDROID_SDK_ROOT"
+            sudo mkdir -p $ANDROID_SDK_ROOT
+            sudo chown $USER:$USER $ANDROID_SDK_ROOT
+            cd $ANDROID_SDK_ROOT
+            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+            unzip -q cmdline-tools.zip
+            mkdir -p cmdline-tools/latest
+            mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+          fi
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
+          echo "$ANDROID_SDK_ROOT/emulator" >> $GITHUB_PATH
 
-      - name: Enable KVM (GitHub-hosted only)
-        if: runner.environment == 'github-hosted'
+      - name: Install emulator and system image
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "emulator" "platforms;android-34" "system-images;android-34;google_apis;x86_64"
+
+      - name: Create AVD
+        run: |
+          mkdir -p $ANDROID_AVD_HOME
+          # Delete existing AVD if present
+          avdmanager delete avd -n veloq_test 2>/dev/null || true
+          # Create AVD with high specs
+          echo "no" | avdmanager create avd -n veloq_test -k "system-images;android-34;google_apis;x86_64" -d pixel_6
+
+      - name: Configure AVD for high performance
+        run: |
+          AVD_CONFIG="$ANDROID_AVD_HOME/veloq_test.avd/config.ini"
+          cat >> "$AVD_CONFIG" << EOF
+          hw.ramSize=16384
+          hw.cpu.ncore=8
+          disk.dataPartition.size=8G
+          vm.heapSize=512
+          hw.gpu.enabled=yes
+          hw.gpu.mode=swiftshader_indirect
+          EOF
+
+      - name: Start emulator
+        run: |
+          # Start emulator with optimized settings (20GB RAM, 8 cores)
+          emulator -avd veloq_test \
+            -no-window \
+            -no-audio \
+            -no-boot-anim \
+            -gpu swiftshader_indirect \
+            -memory 20480 \
+            -cores 8 \
+            -accel on \
+            -no-snapshot \
+            -wipe-data &
+
+          # Wait for emulator to boot
+          echo "Waiting for emulator to boot..."
+          adb wait-for-device
+
+          # Wait for boot completion
+          timeout 300 bash -c 'while [[ "$(adb shell getprop sys.boot_completed 2>/dev/null)" != "1" ]]; do sleep 2; done'
+          echo "Emulator booted!"
+
+          # Disable animations
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+
+      - name: Install APK
+        run: |
+          adb install /tmp/android-artifact/app-release.apk
+          sleep 5
 
       - name: Run Maestro tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 29
-          target: default
-          arch: x86_64
-          ram-size: 2048M
-          emulator-boot-timeout: 600
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -accel on
-          disable-animations: true
-          script: |
-            export PATH="$HOME/.maestro/bin:$PATH"
-
-            # Install APK
-            adb install /tmp/android-artifact/app-release.apk
-
-            # Give app time to install and emulator to stabilize
-            sleep 10
-
-            # Run smoke test
-            mkdir -p screenshots
-            maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml --no-ansi
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          mkdir -p screenshots
+          maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml --no-ansi
 
       - name: Collect screenshots
         if: always()
