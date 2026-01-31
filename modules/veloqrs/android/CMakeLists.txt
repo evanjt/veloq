@@ -37,13 +37,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fstack-protector-all")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 
-cmake_path(
-  SET MY_RUST_LIB
-  ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libveloqrs.so
-  NORMALIZE
-)
-# Link directly against the library file (no IMPORTED target)
-# This prevents AGP from auto-packaging it (jniLibs handles packaging)
+# Rust library path - use linker flags instead of linking directly
+# to prevent AGP from auto-packaging (jniLibs already handles packaging)
+set(RUST_LIB_DIR ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI})
 
 # Add ReactAndroid libraries, being careful to account for different versions.
 find_package(ReactAndroid REQUIRED CONFIG)
@@ -72,5 +68,10 @@ target_link_libraries(
   fbjni::fbjni
   ReactAndroid::jsi
   ${LOGCAT}
-  "${MY_RUST_LIB}"
+)
+# Link Rust library via linker flags (not target_link_libraries)
+# This prevents CMake from copying it to the build output (jniLibs handles packaging)
+target_link_options(veloqrs_jni PRIVATE
+  -L${RUST_LIB_DIR}
+  -lveloqrs
 )
