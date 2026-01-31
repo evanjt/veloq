@@ -506,6 +506,14 @@ jobs:
           sudo docker image prune --all --force || true
           df -h
 
+      - name: Clean stale CMake outputs
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: |
+          # Remove any stale libveloqrs.so from CMake output (left by previous builds with IMPORTED target)
+          find modules/veloqrs/android -name "libveloqrs.so" -path "*/.cxx/*" -delete 2>/dev/null || true
+          find android -name "libveloqrs.so" -path "*/.cxx/*" -delete 2>/dev/null || true
+          echo "✓ Cleaned stale CMake outputs"
+
       - name: Build Release APK
         if: steps.apk-cache.outputs.cache-hit != 'true'
         run: |

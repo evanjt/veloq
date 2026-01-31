@@ -585,6 +585,13 @@ jobs:
           rm -rf android/app/build/intermediates/dex
           echo "✅ Cleaned dex archives"
 
+      - name: Clean stale CMake outputs
+        run: |
+          # Remove any stale libveloqrs.so from CMake output (left by previous builds with IMPORTED target)
+          find modules/veloqrs/android -name "libveloqrs.so" -path "*/.cxx/*" -delete 2>/dev/null || true
+          find android -name "libveloqrs.so" -path "*/.cxx/*" -delete 2>/dev/null || true
+          echo "✅ Cleaned stale CMake outputs"
+
       - name: Build Android APK
         if: github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch'
         run: cd android && ./gradlew assembleRelease --no-daemon
