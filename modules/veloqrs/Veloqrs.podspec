@@ -19,18 +19,25 @@ Pod::Spec.new do |s|
   s.vendored_frameworks = "VeloqrsFFI.xcframework"
   s.dependency    "uniffi-bindgen-react-native", "0.29.3-1"
 
+  # Header search paths for cpp headers (needed for #import "cpp/veloqrs.h" in ios/Veloqrs.h)
+  base_header_paths = "\"${PODS_TARGET_SRCROOT}\" \"${PODS_TARGET_SRCROOT}/cpp\" \"${PODS_TARGET_SRCROOT}/cpp/generated\""
+
   # Use install_modules_dependencies helper to install the dependencies if React Native version >=0.71.0.
   # See https://github.com/facebook/react-native/blob/febf6b7f33fdb4904669f99d795eba4c0f95d7bf/scripts/cocoapods/new_architecture.rb#L79.
   if respond_to?(:install_modules_dependencies, true)
     install_modules_dependencies(s)
+    # For RN 0.71+, set header search paths
+    s.pod_target_xcconfig = {
+      "HEADER_SEARCH_PATHS" => base_header_paths
+    }
   else
     s.dependency "React-Core"
 
     # Don't install the dependencies when we run `pod install` in the old architecture.
     if ENV['RCT_NEW_ARCH_ENABLED'] == '1' then
       s.compiler_flags = folly_compiler_flags + " -DRCT_NEW_ARCH_ENABLED=1"
-      s.pod_target_xcconfig    = {
-          "HEADER_SEARCH_PATHS" => "\"$(PODS_ROOT)/boost\"",
+      s.pod_target_xcconfig = {
+          "HEADER_SEARCH_PATHS" => "\"$(PODS_ROOT)/boost\" " + base_header_paths,
           "OTHER_CPLUSPLUSFLAGS" => "-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1",
           "CLANG_CXX_LANGUAGE_STANDARD" => "c++17"
       }
@@ -39,6 +46,11 @@ Pod::Spec.new do |s|
       s.dependency "RCTRequired"
       s.dependency "RCTTypeSafety"
       s.dependency "ReactCommon/turbomodule/core"
+    else
+      # Old architecture without new arch flag
+      s.pod_target_xcconfig = {
+        "HEADER_SEARCH_PATHS" => base_header_paths
+      }
     end
   end
 end
