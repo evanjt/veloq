@@ -16,7 +16,7 @@ import Svg, { Polyline, G, Defs, LinearGradient, Stop, Rect, Circle } from 'reac
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { debug, formatDistance, getBoundsFromPoints, getActivityColor } from '@/lib';
-import type { FrequentSection, RoutePoint } from '@/types';
+import type { ActivityType, FrequentSection, RoutePoint } from '@/types';
 import type { SectionSummary } from 'veloqrs';
 
 const log = debug.create('SectionRow');
@@ -221,7 +221,7 @@ export const SectionRow = memo(function SectionRow({
   const icon = sportIcons[section.sportType] || 'map-marker-path';
 
   // Get activity color for the sport type
-  const activityColor = getActivityColor(section.sportType);
+  const activityColor = getActivityColor(section.sportType as ActivityType);
 
   // Background colors for map-like appearance
   const bgColor = isDark ? '#1a2a1a' : '#e8f4e8';

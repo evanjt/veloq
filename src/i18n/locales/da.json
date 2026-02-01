@@ -578,6 +578,7 @@
   "sections": {
     "activities": "Aktiviteter",
     "avg": "Gns",
+    "averagePace": "Gns. tempo",
     "averageTime": "Gennemsnitstid",
     "best": "Bedste",
     "bestPace": "Bedste tempo",
@@ -778,6 +779,8 @@
   },
   "statsScreen": {
     "days42": "42 dage",
+    "decoupling": "Aerob effektivitet",
+    "eFTPTrend": "eFTP-trend",
     "garminNote": "Grafer kan indeholde data fra Garmin-enheder",
     "heartRate": "Puls",
     "lactateThreshold": "Laktatterskel",
@@ -790,7 +793,9 @@
     "powerCurve": "Kraftkurve",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
     "ref": "Ref",
+    "swimPaceCurve": "Svømmetempokurve",
     "title": "Præstation",
+    "trainingZones": "Træningszoner",
     "year1": "1 år"
   },
   "time": {

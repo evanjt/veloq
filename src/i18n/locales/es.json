@@ -578,6 +578,7 @@
   "sections": {
     "activities": "Actividades",
     "avg": "Prom",
+    "averagePace": "Ritmo promedio",
     "averageTime": "Tiempo promedio",
     "best": "Mejor",
     "bestPace": "Mejor ritmo",

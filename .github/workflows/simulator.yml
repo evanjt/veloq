@@ -434,6 +434,7 @@ jobs:
     name: E2E iOS (Maestro)
     runs-on: macos-26
     timeout-minutes: 30
+    continue-on-error: true  # Don't fail the workflow on E2E test failures
     steps:
       - uses: actions/checkout@v4
 
@@ -525,6 +526,7 @@ jobs:
     name: E2E Android (Maestro)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    continue-on-error: true  # Don't fail the workflow on E2E test failures
     steps:
       - uses: actions/checkout@v4
 

@@ -578,6 +578,7 @@
   "sections": {
     "activities": "アクティビティ",
     "avg": "平均",
+    "averagePace": "平均ペース",
     "averageTime": "平均タイム",
     "best": "ベスト",
     "bestPace": "ベストペース",
@@ -778,6 +779,8 @@
   },
   "statsScreen": {
     "days42": "42日",
+    "decoupling": "有酸素効率",
+    "eFTPTrend": "eFTPトレンド",
     "garminNote": "チャートにはGarminデバイスからのデータが含まれる場合があります",
     "heartRate": "心拍数",
     "lactateThreshold": "乳酸閾値",
@@ -790,7 +793,9 @@
     "powerCurve": "パワーカーブ",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
     "ref": "Ref",
+    "swimPaceCurve": "スイムペースカーブ",
     "title": "パフォーマンス",
+    "trainingZones": "トレーニングゾーン",
     "year1": "1年"
   },
   "time": {

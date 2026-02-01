@@ -79,7 +79,6 @@ export const LOCALE_FALLBACKS: Record<string, SupportedLocale[]> = {
   de: ['de-DE', 'en-GB'],
   'de-DE': ['de-DE', 'en-GB'],
   'de-AT': ['de-DE', 'en-GB'],
-  'de-CH': ['de-DE', 'en-GB'],
   'de-CH': ['de-CH', 'de-DE', 'en-GB'],
 
   // Dutch variants
@@ -182,6 +181,7 @@ export interface TranslationResource {
     showDetails: string;
     hideDetails: string;
     reset: string;
+    activities: string;
   };
 
   navigation: {
@@ -605,6 +605,10 @@ export interface TranslationResource {
     powerCurveInfo: string;
     ref: string;
     garminNote: string;
+    swimPaceCurve: string;
+    trainingZones: string;
+    eFTPTrend: string;
+    decoupling: string;
   };
 
   licenses: {

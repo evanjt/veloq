@@ -578,6 +578,7 @@
   "sections": {
     "activities": "Aktivitäten",
     "avg": "Ø",
+    "averagePace": "Durchschnittstempo",
     "averageTime": "Durchschnittszeit",
     "best": "Beste",
     "bestPace": "Bestes Tempo",
@@ -778,6 +779,8 @@
   },
   "statsScreen": {
     "days42": "42 Tage",
+    "decoupling": "Aerobe Effizienz",
+    "eFTPTrend": "eFTP-Trend",
     "garminNote": "Diagramme können Daten von Garmin-Geräten enthalten",
     "heartRate": "Herzfrequenz",
     "lactateThreshold": "Laktatschwelle",
@@ -790,7 +793,9 @@
     "powerCurve": "Leistungskurve",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
     "ref": "Ref",
+    "swimPaceCurve": "Schwimmtempokurve",
     "title": "Leistung",
+    "trainingZones": "Trainingszonen",
     "year1": "1 Jahr"
   },
   "time": {

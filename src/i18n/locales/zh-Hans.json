@@ -578,6 +578,7 @@
   "sections": {
     "activities": "活动",
     "avg": "平均",
+    "averagePace": "平均配速",
     "averageTime": "平均时间",
     "best": "最佳",
     "bestPace": "最佳配速",
@@ -778,6 +779,8 @@
   },
   "statsScreen": {
     "days42": "42 天",
+    "decoupling": "有氧效率",
+    "eFTPTrend": "eFTP趋势",
     "garminNote": "图表可能包含来自 Garmin 设备的数据",
     "heartRate": "心率",
     "lactateThreshold": "乳酸阈值",
@@ -790,7 +793,9 @@
     "powerCurve": "功率曲线",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
     "ref": "Ref",
+    "swimPaceCurve": "游泳配速曲线",
     "title": "表现",
+    "trainingZones": "训练区间",
     "year1": "1 年"
   },
   "time": {

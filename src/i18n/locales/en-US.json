@@ -566,6 +566,7 @@
   "sections": {
     "activities": "Activities",
     "avg": "Avg",
+    "averagePace": "Average Pace",
     "averageTime": "Average Time",
     "best": "Best",
     "bestPace": "Best pace",

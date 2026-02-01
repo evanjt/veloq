@@ -48,6 +48,7 @@ export interface RoutePerformancePoint {
 /** Per-direction best record for UI display */
 export interface DirectionBestRecord {
   bestTime: number;
+  bestSpeed?: number; // Speed (m/s) for routes where distance varies
   activityDate: Date;
 }
 

@@ -198,6 +198,11 @@ export default function FitnessScreen() {
     return { name: top.name, percentage: top.percentage };
   }, [sportMode, powerZones, hrZones]);
 
+  // Fetch streams for the decoupling activity
+  const { data: decouplingStreams, isLoading: loadingStreams } = useActivityStreams(
+    decouplingActivity?.id || ''
+  );
+
   // Compute decoupling percentage for header display
   const decouplingValue = useMemo(() => {
     if (!decouplingStreams?.watts || !decouplingStreams?.heartrate) return null;
@@ -219,11 +224,6 @@ export default function FitnessScreen() {
 
     return { value: decoupling, isGood };
   }, [decouplingStreams]);
-
-  // Fetch streams for the decoupling activity
-  const { data: decouplingStreams, isLoading: loadingStreams } = useActivityStreams(
-    decouplingActivity?.id || ''
-  );
 
   // Handle chart interaction state changes
   const handleInteractionChange = useCallback((isInteracting: boolean) => {
@@ -482,7 +482,7 @@ export default function FitnessScreen() {
                   sportMode === sport && styles.sportToggleTextActive,
                 ]}
               >
-                {t(`filters.${sport.toLowerCase()}`)}
+                {t(`filters.${sport.toLowerCase()}` as never)}
               </Text>
             </TouchableOpacity>
           ))}

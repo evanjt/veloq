@@ -566,6 +566,7 @@
   "sections": {
     "activities": "Activities",
     "avg": "Avg",
+    "averagePace": "Average Pace",
     "averageTime": "Average Time",
     "best": "PB",
     "bestPace": "Best pace",
@@ -766,6 +767,8 @@
   },
   "statsScreen": {
     "days42": "42 days",
+    "decoupling": "Aerobic Efficiency",
+    "eFTPTrend": "eFTP Trend",
     "garminNote": "Charts may include data from Garmin devices",
     "heartRate": "Ticker",
     "lactateThreshold": "Lactate Threshold",
@@ -775,7 +778,9 @@
     "pace": "Pace",
     "paceCurve": "Pace Curve",
     "powerCurve": "Power Curve",
+    "swimPaceCurve": "Swim Pace Curve",
     "title": "How you're going",
+    "trainingZones": "Training Zones",
     "year1": "1 year",
     "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
