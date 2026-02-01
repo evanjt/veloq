@@ -359,27 +359,26 @@ export const SectionMapView = memo(function SectionMapView({
         />
       </ShapeSource>
 
-      {/* Start marker - keep conditional as MarkerViews need valid coordinates */}
-      {startPoint && (
-        <MarkerView coordinate={[startPoint.lng, startPoint.lat]}>
-          <View style={styles.markerContainer}>
-            <View style={[styles.marker, styles.startMarker]}>
-              <MaterialCommunityIcons name="play" size={12} color={colors.textOnDark} />
-            </View>
+      {/* Start marker */}
+      {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
+      {/* Use opacity to hide when point is undefined */}
+      <MarkerView coordinate={startPoint ? [startPoint.lng, startPoint.lat] : [0, 0]}>
+        <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
+          <View style={[styles.marker, styles.startMarker]}>
+            <MaterialCommunityIcons name="play" size={12} color={colors.textOnDark} />
           </View>
-        </MarkerView>
-      )}
+        </View>
+      </MarkerView>
 
       {/* End marker */}
-      {endPoint && (
-        <MarkerView coordinate={[endPoint.lng, endPoint.lat]}>
-          <View style={styles.markerContainer}>
-            <View style={[styles.marker, styles.endMarker]}>
-              <MaterialCommunityIcons name="flag-checkered" size={12} color={colors.textOnDark} />
-            </View>
+      {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
+      <MarkerView coordinate={endPoint ? [endPoint.lng, endPoint.lat] : [0, 0]}>
+        <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
+          <View style={[styles.marker, styles.endMarker]}>
+            <MaterialCommunityIcons name="flag-checkered" size={12} color={colors.textOnDark} />
           </View>
-        </MarkerView>
-      )}
+        </View>
+      </MarkerView>
     </MapView>
   );
 

@@ -1195,56 +1195,52 @@ export function RegionalMapView({
           {/* pointerEvents="none" ensures these don't intercept touches (fixes Android rendering) */}
           {/* iOS CRASH FIX: Use stable order (visibleActivities) instead of sortedVisibleActivities */}
           {/* Re-ordering markers causes NSRangeException in MLRNMapView insertReactSubview:atIndex: */}
-          {/* filter(Boolean) prevents null children crash on iOS MapLibre */}
-          {visibleActivities
-            .map((activity) => {
-              const config = getActivityTypeConfig(activity.type);
-              // Use pre-computed center (no format detection during render!)
-              const center = activityCenters[activity.id];
-              // Skip if center not computed yet (prevents iOS crash with undefined coordinate)
-              if (!center) return null;
-              const size = getMarkerSize(activity.distance);
-              const isSelected = selectedActivityId === activity.id;
-              const markerSize = isSelected ? size + 8 : size;
-              // Larger icon ratio to fill more of the marker
-              const iconSize = isSelected ? size * 0.75 : size * 0.7;
-              // Hide markers when activities toggle is off or in heatmap mode
-              const isVisible = showActivities;
+          {/* iOS CRASH FIX: Never return null - always render with fallback coordinate and opacity: 0 */}
+          {visibleActivities.map((activity) => {
+            const config = getActivityTypeConfig(activity.type);
+            // Use pre-computed center (no format detection during render!)
+            const center = activityCenters[activity.id];
+            const size = getMarkerSize(activity.distance);
+            const isSelected = selectedActivityId === activity.id;
+            const markerSize = isSelected ? size + 8 : size;
+            // Larger icon ratio to fill more of the marker
+            const iconSize = isSelected ? size * 0.75 : size * 0.7;
+            // Hide markers when activities toggle is off, in heatmap mode, or center not computed
+            const isVisible = showActivities && !!center;
 
-              return (
-                <MarkerView
-                  key={`marker-${activity.id}`}
-                  coordinate={center}
-                  anchor={{ x: 0.5, y: 0.5 }}
-                  allowOverlap={true}
+            return (
+              <MarkerView
+                key={`marker-${activity.id}`}
+                coordinate={center || [0, 0]}
+                anchor={{ x: 0.5, y: 0.5 }}
+                allowOverlap={true}
+              >
+                {/* pointerEvents="none" is CRITICAL for Android - Pressable breaks marker rendering */}
+                <View
+                  pointerEvents="none"
+                  testID={`map-activity-marker-${activity.id}`}
+                  style={{
+                    width: markerSize,
+                    height: markerSize,
+                    borderRadius: markerSize / 2,
+                    backgroundColor: config.color,
+                    borderWidth: isSelected ? 2 : 1.5,
+                    borderColor: isSelected ? colors.primary : colors.textOnDark,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    opacity: isVisible ? 1 : 0,
+                    ...shadows.elevated,
+                  }}
                 >
-                  {/* pointerEvents="none" is CRITICAL for Android - Pressable breaks marker rendering */}
-                  <View
-                    pointerEvents="none"
-                    testID={`map-activity-marker-${activity.id}`}
-                    style={{
-                      width: markerSize,
-                      height: markerSize,
-                      borderRadius: markerSize / 2,
-                      backgroundColor: config.color,
-                      borderWidth: isSelected ? 2 : 1.5,
-                      borderColor: isSelected ? colors.primary : colors.textOnDark,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      opacity: isVisible ? 1 : 0,
-                      ...shadows.elevated,
-                    }}
-                  >
-                    <MaterialCommunityIcons
-                      name={config.icon}
-                      size={iconSize}
-                      color={colors.textOnDark}
-                    />
-                  </View>
-                </MarkerView>
-              );
-            })
-            .filter(Boolean)}
+                  <MaterialCommunityIcons
+                    name={config.icon}
+                    size={iconSize}
+                    color={colors.textOnDark}
+                  />
+                </View>
+              </MarkerView>
+            );
+          })}
 
           {/* Activity marker hit detection - invisible circles for queryRenderedFeaturesAtPoint */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS crash during view reconciliation */}

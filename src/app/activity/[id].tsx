@@ -1232,7 +1232,7 @@ export default function ActivityDetailScreen() {
                   const style = getSectionStyle(index);
                   return (
                     <View
-                      key={`engine-${match.section.id}-${performanceDataReady}`}
+                      key={`engine-${match.section.id}`}
                       onLayout={(e) => {
                         sectionRowLayoutsRef.current.set(match.section.id, {
                           y: e.nativeEvent.layout.y,

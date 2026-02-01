@@ -1001,9 +1001,10 @@ export function ActivityMapView({
           }
         }
 
-        if (sectionGeo || portionGeo) {
-          overlayData.push({ id: overlay.id, sectionGeo, portionGeo });
-        }
+        // iOS CRASH FIX: Always push to maintain stable child count
+        // MapLibre Fabric crashes when child count changes between renders
+        // Rendering handles invalid markers with opacity: 0
+        overlayData.push({ id: overlay.id, sectionGeo, portionGeo });
       });
 
       if (__DEV__ && (skippedSections > 0 || skippedPortions > 0)) {

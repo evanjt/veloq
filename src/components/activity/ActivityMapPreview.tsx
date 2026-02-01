@@ -258,26 +258,25 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
         </ShapeSource>
 
         {/* Start marker */}
-        {startPoint && (
-          <MarkerView coordinate={[startPoint.longitude, startPoint.latitude]}>
-            <View style={styles.markerContainer}>
-              <View style={[styles.marker, styles.startMarker]}>
-                <MaterialCommunityIcons name="play" size={10} color={colors.textOnDark} />
-              </View>
+        {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
+        {/* Use opacity to hide when point is undefined */}
+        <MarkerView coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}>
+          <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
+            <View style={[styles.marker, styles.startMarker]}>
+              <MaterialCommunityIcons name="play" size={10} color={colors.textOnDark} />
             </View>
-          </MarkerView>
-        )}
+          </View>
+        </MarkerView>
 
         {/* End marker */}
-        {endPoint && (
-          <MarkerView coordinate={[endPoint.longitude, endPoint.latitude]}>
-            <View style={styles.markerContainer}>
-              <View style={[styles.marker, styles.endMarker]}>
-                <MaterialCommunityIcons name="flag-checkered" size={10} color={colors.textOnDark} />
-              </View>
+        {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
+        <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
+          <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
+            <View style={[styles.marker, styles.endMarker]}>
+              <MaterialCommunityIcons name="flag-checkered" size={10} color={colors.textOnDark} />
             </View>
-          </MarkerView>
-        )}
+          </View>
+        </MarkerView>
       </MapView>
       {/* Loading overlay - shows during stagger period only */}
       {/* mapReady callback is unreliable on Android, so we use deterministic stagger timing */}
