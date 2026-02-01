@@ -197,7 +197,7 @@
     "watts": "Watts"
   },
   "common": {
-    "activities": "activities",
+    "activities": "Aktivitäten",
     "back": "Zurück",
     "cancel": "Abbrechen",
     "clearSearch": "Suche löschen",
@@ -232,39 +232,39 @@
   "emptyState": {
     "clearFilters": "Filter löschen",
     "error": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basierend auf {{duration}} Aktivitätsdaten",
       "description": "Dieser Inhalt konnte nicht geladen werden",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "In Einstellungen erweitern",
       "title": "Etwas ist schiefgelaufen"
     },
     "networkError": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basierend auf {{duration}} Aktivitätsdaten",
       "description": "Überprüfe deine Internetverbindung und versuche es erneut",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "In Einstellungen erweitern",
       "title": "Verbindungsfehler"
     },
     "noActivities": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basierend auf {{duration}} Aktivitätsdaten",
       "description": "Deine Aktivitäten erscheinen hier, sobald du mit Intervals.icu synchronisierst",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "In Einstellungen erweitern",
       "title": "Noch keine Aktivitäten"
     },
     "noData": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basierend auf {{duration}} Aktivitätsdaten",
       "description": "Absolviere einige Aktivitäten, um deine Statistiken zu sehen",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "In Einstellungen erweitern",
       "title": "Keine Daten verfügbar"
     },
     "noResults": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basierend auf {{duration}} Aktivitätsdaten",
       "description": "Versuche deine Suche oder Filter anzupassen",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "In Einstellungen erweitern",
       "title": "Keine Ergebnisse gefunden"
     },
     "offline": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basierend auf {{duration}} Aktivitätsdaten",
       "description": "Einige Funktionen könnten eingeschränkt sein",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "In Einstellungen erweitern",
       "title": "Du bist offline"
     },
     "refresh": "Aktualisieren"
@@ -486,13 +486,13 @@
     "checkingActivities": "Schritt 1: Prüfe {{count}} Aktivitäten...",
     "createSection": "Abschnitt erstellen",
     "custom": "Benutzerdefiniert",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Basierend auf {{duration}} Aktivitätsdaten",
     "defaultActivityName": "Aktivität {{number}}",
     "defaultRouteName": "{{type}} Route",
     "duplicateNameMessage": "Bitte wähle einen anderen Namen. Jede Route muss einen eindeutigen Namen haben.",
     "duplicateNameTitle": "Name bereits vorhanden",
     "errorOccurred": "Ein Fehler ist aufgetreten",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "In Einstellungen erweitern",
     "expandTimeline": "Erweitere die Zeitleiste, um mehr Aktivitäten zu analysieren. Der Routenabgleich wird im Hintergrund fortgesetzt bis zum Abschluss.",
     "fastest": "#{{rank}} schnellste",
     "fetchingGpsData": "Schritt 2: Lade Spurdaten...",
@@ -566,11 +566,11 @@
   "routesScreen": {
     "analysingRoutes": "Analysiere Routen {{current}}/{{total}}",
     "computingRoutes": "Berechne Routen...",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Basierend auf {{duration}} Aktivitätsdaten",
     "downloadingGps": "Spuren werden heruntergeladen",
     "enableInSettings": "Aktiviere den Routenabgleich in den Einstellungen, um automatisch wiederkehrende Routen aus deinen Aktivitäten zu erkennen.",
     "expandDateRange": "Datumsbereich erweitern",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "In Einstellungen erweitern",
     "goToSettings": "Zu Einstellungen",
     "matchingDisabled": "Routenabgleich deaktiviert",
     "title": "Routen"

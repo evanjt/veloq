@@ -84,6 +84,7 @@ export interface ChartSummaryStats {
 /** Per-direction best record for display in lane header */
 export interface DirectionBestRecord {
   bestTime: number;
+  bestSpeed?: number; // Speed (m/s) for routes where distance varies
   activityDate: Date;
 }
 
@@ -91,6 +92,8 @@ export interface DirectionBestRecord {
 export interface DirectionSummaryStats {
   /** Average time across all traversals in this direction */
   avgTime: number | null;
+  /** Average speed across all traversals (for routes where distance varies) */
+  avgSpeed?: number | null;
   /** Date of most recent traversal in this direction */
   lastActivity: Date | null;
   /** Number of traversals in this direction */
@@ -154,6 +157,9 @@ export function UnifiedPerformanceChart({
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
   const activityColor = getActivityColor(activityType);
+
+  // Get section distance from chart data for pace calculations
+  const sectionDistance = chartData[0]?.sectionDistance || 0;
 
   // Track selected point for tooltip
   const [selectedPoint, setSelectedPoint] = useState<(PerformanceDataPoint & { x: number }) | null>(
@@ -951,10 +957,14 @@ export function UnifiedPerformanceChart({
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={[styles.summaryValue, { color: colors.chartGold }]}>
-                    {summaryStats.bestTime ? formatDuration(summaryStats.bestTime) : '-'}
+                    {summaryStats.bestTime
+                      ? showPace && sectionDistance > 0
+                        ? formatPace(sectionDistance / summaryStats.bestTime)
+                        : formatDuration(summaryStats.bestTime)
+                      : '-'}
                   </Text>
                   <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                    {t('sections.best')}
+                    {showPace ? t('sections.bestPace') : t('sections.best')}
                   </Text>
                 </View>
                 <View style={styles.summaryItem}>
@@ -980,18 +990,26 @@ export function UnifiedPerformanceChart({
               <>
                 <View style={styles.summaryItem}>
                   <Text style={[styles.summaryValue, { color: colors.chartGold }]}>
-                    {summaryStats.bestTime ? formatDuration(summaryStats.bestTime) : '-'}
+                    {summaryStats.bestTime
+                      ? showPace && sectionDistance > 0
+                        ? formatPace(sectionDistance / summaryStats.bestTime)
+                        : formatDuration(summaryStats.bestTime)
+                      : '-'}
                   </Text>
                   <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                    {t('sections.bestTime')}
+                    {showPace ? t('sections.bestPace') : t('sections.bestTime')}
                   </Text>
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                    {summaryStats.avgTime ? formatDuration(summaryStats.avgTime) : '-'}
+                    {summaryStats.avgTime
+                      ? showPace && sectionDistance > 0
+                        ? formatPace(sectionDistance / summaryStats.avgTime)
+                        : formatDuration(summaryStats.avgTime)
+                      : '-'}
                   </Text>
                   <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
-                    {t('sections.averageTime')}
+                    {showPace ? t('sections.averagePace') : t('sections.averageTime')}
                   </Text>
                 </View>
                 <View style={styles.summaryItem}>
@@ -1123,19 +1141,17 @@ export function UnifiedPerformanceChart({
                   </Text>
                 </View>
               </View>
-              {/* Middle: Avg · Last */}
+              {/* Middle: Avg */}
               <View style={styles.laneHeaderMiddle}>
                 {forwardStats?.avgTime != null && (
                   <Text style={[styles.headerStatText, isDark && styles.headerStatTextDark]}>
-                    {formatDuration(forwardStats.avgTime)} avg
-                  </Text>
-                )}
-                {forwardStats?.avgTime != null && forwardStats?.lastActivity && (
-                  <Text style={[styles.headerStatSep, isDark && styles.headerStatSepDark]}>·</Text>
-                )}
-                {forwardStats?.lastActivity && (
-                  <Text style={[styles.headerStatText, isDark && styles.headerStatTextDark]}>
-                    {formatShortDate(forwardStats.lastActivity)}
+                    {showPace
+                      ? sectionDistance > 0
+                        ? `${formatPace(sectionDistance / forwardStats.avgTime)} avg`
+                        : forwardStats.avgSpeed
+                          ? `${formatPace(forwardStats.avgSpeed)} avg`
+                          : `${formatDuration(forwardStats.avgTime)} avg`
+                      : `${formatDuration(forwardStats.avgTime)} avg`}
                   </Text>
                 )}
               </View>
@@ -1145,7 +1161,13 @@ export function UnifiedPerformanceChart({
                   <View style={styles.prBadgeRow}>
                     <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
                     <Text style={styles.prBadgeTime}>
-                      {formatDuration(bestForwardRecord.bestTime)}
+                      {showPace
+                        ? sectionDistance > 0
+                          ? formatPace(sectionDistance / bestForwardRecord.bestTime)
+                          : bestForwardRecord.bestSpeed
+                            ? formatPace(bestForwardRecord.bestSpeed)
+                            : formatDuration(bestForwardRecord.bestTime)
+                        : formatDuration(bestForwardRecord.bestTime)}
                     </Text>
                   </View>
                   <Text style={styles.prBadgeDateSmall}>
@@ -1218,19 +1240,17 @@ export function UnifiedPerformanceChart({
                   </Text>
                 </View>
               </View>
-              {/* Middle: Avg · Last */}
+              {/* Middle: Avg */}
               <View style={styles.laneHeaderMiddle}>
                 {reverseStats?.avgTime != null && (
                   <Text style={[styles.headerStatText, isDark && styles.headerStatTextDark]}>
-                    {formatDuration(reverseStats.avgTime)} avg
-                  </Text>
-                )}
-                {reverseStats?.avgTime != null && reverseStats?.lastActivity && (
-                  <Text style={[styles.headerStatSep, isDark && styles.headerStatSepDark]}>·</Text>
-                )}
-                {reverseStats?.lastActivity && (
-                  <Text style={[styles.headerStatText, isDark && styles.headerStatTextDark]}>
-                    {formatShortDate(reverseStats.lastActivity)}
+                    {showPace
+                      ? sectionDistance > 0
+                        ? `${formatPace(sectionDistance / reverseStats.avgTime)} avg`
+                        : reverseStats.avgSpeed
+                          ? `${formatPace(reverseStats.avgSpeed)} avg`
+                          : `${formatDuration(reverseStats.avgTime)} avg`
+                      : `${formatDuration(reverseStats.avgTime)} avg`}
                   </Text>
                 )}
               </View>
@@ -1240,7 +1260,13 @@ export function UnifiedPerformanceChart({
                   <View style={styles.prBadgeRow}>
                     <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
                     <Text style={styles.prBadgeTime}>
-                      {formatDuration(bestReverseRecord.bestTime)}
+                      {showPace
+                        ? sectionDistance > 0
+                          ? formatPace(sectionDistance / bestReverseRecord.bestTime)
+                          : bestReverseRecord.bestSpeed
+                            ? formatPace(bestReverseRecord.bestSpeed)
+                            : formatDuration(bestReverseRecord.bestTime)
+                        : formatDuration(bestReverseRecord.bestTime)}
                     </Text>
                   </View>
                   <Text style={styles.prBadgeDateSmall}>

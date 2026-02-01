@@ -169,25 +169,11 @@ export function SeasonComparison({
     return Math.max(...data.flatMap((d) => [d.current, d.previous]));
   }, [data]);
 
-  // Labels for rolling 12-month periods
   const now = new Date();
-  const currentYear = now.getFullYear();
-  const oneYearAgo = new Date(now);
-  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-  const twoYearsAgo = new Date(now);
-  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
 
-  // Year labels for legend
-  const newerCurrentYear = currentYear; // e.g., 2026
-  const olderCurrentYear = currentYear - 1; // e.g., 2025
-  const newerPreviousYear = currentYear - 1; // e.g., 2025
-  const olderPreviousYear = currentYear - 2; // e.g., 2024
-
-  // Color constants for legend
-  const colorCurrentNewer = colors.primary;
-  const colorCurrentOlder = isDark ? 'rgba(252, 76, 2, 0.5)' : 'rgba(252, 76, 2, 0.6)';
-  const colorPreviousNewer = isDark ? 'rgba(100, 149, 237, 0.8)' : 'rgba(70, 130, 220, 0.7)';
-  const colorPreviousOlder = isDark ? 'rgba(100, 149, 237, 0.4)' : 'rgba(70, 130, 220, 0.35)';
+  // Color constants - simplified to 2 colors
+  const colorCurrent = colors.primary;
+  const colorPrevious = isDark ? 'rgba(100, 149, 237, 0.8)' : 'rgba(70, 130, 220, 0.7)';
 
   // Calculate totals - round to 1 decimal place
   const totals = useMemo(() => {
@@ -210,17 +196,9 @@ export function SeasonComparison({
   // Current month for highlighting
   const currentMonth = now.getMonth();
 
-  // Determine bar colors based on which calendar year the month falls in
-  // For rolling periods, months after currentMonth are from the "older" year
-  // Months up to currentMonth are from the "newer" year
-  const getBarColor = (monthIdx: number, isPrevious: boolean) => {
-    const isNewerYear = monthIdx <= currentMonth;
-
-    if (isPrevious) {
-      return isNewerYear ? colorPreviousNewer : colorPreviousOlder;
-    } else {
-      return isNewerYear ? colorCurrentNewer : colorCurrentOlder;
-    }
+  // Simplified bar colors - one color per period
+  const getBarColor = (_monthIdx: number, isPrevious: boolean) => {
+    return isPrevious ? colorPrevious : colorCurrent;
   };
 
   // Get selected month data for tooltip
@@ -261,41 +239,13 @@ export function SeasonComparison({
 
       {/* Legend */}
       <View style={styles.legend}>
-        <View style={styles.legendRow}>
-          <Text style={[styles.legendTitle, isDark && styles.textLight]}>{t('stats.current')}</Text>
-          <View style={styles.legendItems}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colorCurrentNewer }]} />
-              <Text style={[styles.legendLabel, isDark && styles.textDark]}>
-                {newerCurrentYear}
-              </Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colorCurrentOlder }]} />
-              <Text style={[styles.legendLabel, isDark && styles.textDark]}>
-                {olderCurrentYear}
-              </Text>
-            </View>
-          </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: colorCurrent }]} />
+          <Text style={[styles.legendLabel, isDark && styles.textDark]}>{t('stats.current')}</Text>
         </View>
-        <View style={styles.legendRow}>
-          <Text style={[styles.legendTitle, isDark && styles.textLight]}>
-            {t('stats.previous')}
-          </Text>
-          <View style={styles.legendItems}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colorPreviousNewer }]} />
-              <Text style={[styles.legendLabel, isDark && styles.textDark]}>
-                {newerPreviousYear}
-              </Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colorPreviousOlder }]} />
-              <Text style={[styles.legendLabel, isDark && styles.textDark]}>
-                {olderPreviousYear}
-              </Text>
-            </View>
-          </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: colorPrevious }]} />
+          <Text style={[styles.legendLabel, isDark && styles.textDark]}>{t('stats.previous')}</Text>
         </View>
       </View>
 
@@ -495,24 +445,10 @@ const styles = StyleSheet.create({
   },
   legend: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
+    gap: spacing.lg,
     marginBottom: spacing.sm,
     paddingVertical: spacing.xs,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  legendTitle: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    minWidth: 55,
-  },
-  legendItems: {
-    flexDirection: 'row',
-    gap: spacing.md,
   },
   legendItem: {
     flexDirection: 'row',

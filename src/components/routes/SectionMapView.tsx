@@ -328,7 +328,7 @@ export const SectionMapView = memo(function SectionMapView({
             lineWidth: 4,
             lineCap: 'round',
             lineJoin: 'round',
-            lineOpacity: !isScrubbing && hasAllTraces && highlightedTraceFilter ? 1 : 0,
+            lineOpacity: hasAllTraces && highlightedTraceFilter ? 1 : 0,
           }}
         />
       </ShapeSource>
@@ -355,7 +355,6 @@ export const SectionMapView = memo(function SectionMapView({
             lineWidth: 4,
             lineCap: 'round',
             lineJoin: 'round',
-            lineOpacity: !isScrubbing ? 1 : 0,
           }}
         />
       </ShapeSource>
@@ -474,7 +473,7 @@ export const SectionMapView = memo(function SectionMapView({
               filter={highlightedTraceFilter}
               style={{
                 lineColor: colors.chartCyan,
-                lineWidth: 4,
+                lineWidth: 5,
                 lineCap: 'round',
                 lineJoin: 'round',
                 lineOpacity: hasAllTraces && highlightedTraceFilter ? 1 : 0,

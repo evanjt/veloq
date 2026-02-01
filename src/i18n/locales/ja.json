@@ -197,7 +197,7 @@
     "watts": "Watts"
   },
   "common": {
-    "activities": "activities",
+    "activities": "アクティビティ",
     "back": "戻る",
     "cancel": "キャンセル",
     "clearSearch": "検索をクリア",
@@ -232,39 +232,39 @@
   "emptyState": {
     "clearFilters": "フィルターをクリア",
     "error": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "{{duration}}のアクティビティデータに基づく",
       "description": "このコンテンツを読み込めませんでした",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "設定で拡張",
       "title": "問題が発生しました"
     },
     "networkError": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "{{duration}}のアクティビティデータに基づく",
       "description": "インターネット接続を確認して再試行してください",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "設定で拡張",
       "title": "接続エラー"
     },
     "noActivities": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "{{duration}}のアクティビティデータに基づく",
       "description": "Intervals.icuと同期すると、アクティビティがここに表示されます",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "設定で拡張",
       "title": "まだアクティビティがありません"
     },
     "noData": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "{{duration}}のアクティビティデータに基づく",
       "description": "統計を見るにはアクティビティを完了してください",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "設定で拡張",
       "title": "データがありません"
     },
     "noResults": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "{{duration}}のアクティビティデータに基づく",
       "description": "検索やフィルターを調整してみてください",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "設定で拡張",
       "title": "結果が見つかりません"
     },
     "offline": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "{{duration}}のアクティビティデータに基づく",
       "description": "一部の機能が制限される場合があります",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "設定で拡張",
       "title": "オフラインです"
     },
     "refresh": "更新"
@@ -486,13 +486,13 @@
     "checkingActivities": "ステップ1: {{count}}件のアクティビティを確認中...",
     "createSection": "区間を作成",
     "custom": "カスタム",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "{{duration}}のアクティビティデータに基づく",
     "defaultActivityName": "アクティビティ {{number}}",
     "defaultRouteName": "{{type}}ルート",
     "duplicateNameMessage": "別の名前を選択してください。各ルートには一意の名前が必要です。",
     "duplicateNameTitle": "名前が既に存在します",
     "errorOccurred": "エラーが発生しました",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "設定で拡張",
     "expandTimeline": "タイムラインを拡張してより多くのアクティビティを分析。ルートマッチングは完了までバックグラウンドで継続します。",
     "fastest": "#{{rank}}位",
     "fetchingGpsData": "ステップ2: トラックデータを取得中...",
@@ -566,11 +566,11 @@
   "routesScreen": {
     "analysingRoutes": "ルート分析中 {{current}}/{{total}}",
     "computingRoutes": "ルート計算中...",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "{{duration}}のアクティビティデータに基づく",
     "downloadingGps": "トラックをダウンロード中",
     "enableInSettings": "設定でルートマッチングを有効にすると、アクティビティから繰り返しルートを自動検出します。",
     "expandDateRange": "日付範囲を拡張",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "設定で拡張",
     "goToSettings": "設定へ",
     "matchingDisabled": "ルートマッチング無効",
     "title": "ルート"

@@ -229,7 +229,11 @@ export function useRoutePerformances(
         ? forwardPoints.reduce((best, p) => (p.speed > best.speed ? p : best), forwardPoints[0])
         : null;
     const bestForward: DirectionBestRecord | null = bestForwardPoint
-      ? { bestTime: bestForwardPoint.duration, activityDate: bestForwardPoint.date }
+      ? {
+          bestTime: bestForwardPoint.duration,
+          bestSpeed: bestForwardPoint.speed,
+          activityDate: bestForwardPoint.date,
+        }
       : null;
 
     // Find best reverse
@@ -239,7 +243,11 @@ export function useRoutePerformances(
         ? reversePoints.reduce((best, p) => (p.speed > best.speed ? p : best), reversePoints[0])
         : null;
     const bestReverse: DirectionBestRecord | null = bestReversePoint
-      ? { bestTime: bestReversePoint.duration, activityDate: bestReversePoint.date }
+      ? {
+          bestTime: bestReversePoint.duration,
+          bestSpeed: bestReversePoint.speed,
+          activityDate: bestReversePoint.date,
+        }
       : null;
 
     return {
@@ -250,6 +258,29 @@ export function useRoutePerformances(
     };
   }, [engineGroup, activities, activityId, matchInfoMap]);
 
+  // Compute average speed for each direction (for pace display in routes)
+  const augmentedForwardStats = useMemo(() => {
+    if (!rustForwardStats) return null;
+    const forwardPerfs = performances.filter(
+      (p) => p.direction === 'same' || p.direction === 'partial'
+    );
+    const avgSpeed =
+      forwardPerfs.length > 0
+        ? forwardPerfs.reduce((sum, p) => sum + p.speed, 0) / forwardPerfs.length
+        : null;
+    return { ...rustForwardStats, avgSpeed };
+  }, [rustForwardStats, performances]);
+
+  const augmentedReverseStats = useMemo(() => {
+    if (!rustReverseStats) return null;
+    const reversePerfs = performances.filter((p) => p.direction === 'reverse');
+    const avgSpeed =
+      reversePerfs.length > 0
+        ? reversePerfs.reduce((sum, p) => sum + p.speed, 0) / reversePerfs.length
+        : null;
+    return { ...rustReverseStats, avgSpeed };
+  }, [rustReverseStats, performances]);
+
   return {
     routeGroup,
     performances,
@@ -257,8 +288,8 @@ export function useRoutePerformances(
     best,
     bestForwardRecord,
     bestReverseRecord,
-    forwardStats: rustForwardStats,
-    reverseStats: rustReverseStats,
+    forwardStats: augmentedForwardStats,
+    reverseStats: augmentedReverseStats,
     currentRank: rustData.currentRank,
   };
 }

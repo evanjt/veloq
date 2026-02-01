@@ -58,27 +58,30 @@ export default function LoginScreen() {
   const [apiKey, setApiKey] = useState('');
   const [apiKeyExpanded, setApiKeyExpanded] = useState(false);
 
-  // Get the display label for the current language selection
-  const currentLanguageLabel = React.useMemo(() => {
+  // Get the display label for the current language selection and check if it's a dialect
+  const { currentLanguageLabel, isDialectSelected } = React.useMemo(() => {
     for (const group of availableLanguages) {
       for (const lang of group.languages) {
         if (language === lang.value) {
-          return lang.label;
+          return { currentLanguageLabel: lang.label, isDialectSelected: false };
         }
         // Check variants
         if (lang.variants) {
           const variant = lang.variants.find((v) => v.value === language);
           if (variant) {
-            return `${lang.label} (${variant.label})`;
+            return {
+              currentLanguageLabel: `${lang.label} (${variant.label})`,
+              isDialectSelected: variant.isDialect ?? false,
+            };
           }
         }
         // Check if current language is a variant of this language
         if (isLanguageVariant(language, lang.value)) {
-          return lang.label;
+          return { currentLanguageLabel: lang.label, isDialectSelected: false };
         }
       }
     }
-    return 'English'; // Fallback
+    return { currentLanguageLabel: 'English', isDialectSelected: false }; // Fallback
   }, [language, availableLanguages]);
 
   const handleLanguageChange = async (value: string) => {
@@ -243,7 +246,12 @@ export default function LoginScreen() {
         <View style={styles.languagePickerContainer}>
           <TouchableOpacity
             testID="login-language-button"
-            style={[styles.languageButton, isDark && styles.languageButtonDark]}
+            style={[
+              styles.languageButton,
+              isDark && styles.languageButtonDark,
+              isDialectSelected && styles.languageButtonDialect,
+              isDialectSelected && isDark && styles.languageButtonDialectDark,
+            ]}
             onPress={() => setShowLanguages(!showLanguages)}
           >
             <MaterialCommunityIcons
@@ -265,6 +273,22 @@ export default function LoginScreen() {
         {/* Language Dropdown */}
         {showLanguages && (
           <View style={[styles.languageDropdown, isDark && styles.languageDropdownDark]}>
+            {/* Dialect legend - fixed at top right, styled as chip */}
+            <View style={[styles.dialectLegendHeader, isDark && styles.dialectLegendHeaderDark]}>
+              <View
+                style={[
+                  styles.variantChip,
+                  isDark && styles.variantChipDark,
+                  styles.variantChipDialect,
+                  isDark && styles.variantChipDialectDark,
+                  styles.dialectLegendChip,
+                ]}
+              >
+                <Text style={[styles.variantChipText, isDark && styles.textMuted]}>
+                  {t('settings.dialect')}
+                </Text>
+              </View>
+            </View>
             {availableLanguages.flatMap((group, groupIndex) =>
               group.languages.map((lang, langIndex) => {
                 const index = groupIndex * 100 + langIndex;
@@ -545,6 +569,13 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surface,
     borderColor: darkColors.border,
   },
+  languageButtonDialect: {
+    borderColor: brand.gold,
+    borderWidth: 2,
+  },
+  languageButtonDialectDark: {
+    borderColor: brand.goldLight,
+  },
   languageButtonText: {
     fontSize: 14,
     color: colors.textSecondary,
@@ -629,6 +660,17 @@ const styles = StyleSheet.create({
   },
   variantChipTextSelected: {
     color: colors.textOnDark,
+  },
+  dialectLegendHeader: {
+    position: 'absolute',
+    top: spacing.sm,
+    // Match row paddingHorizontal minus border (1px)
+    right: spacing.md - 1,
+    zIndex: 1,
+  },
+  dialectLegendHeaderDark: {},
+  dialectLegendChip: {
+    // Use same padding as variantChip for consistent sizing
   },
   header: {
     alignItems: 'center',

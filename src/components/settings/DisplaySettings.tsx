@@ -182,7 +182,7 @@ function DisplaySettingsComponent({
           estimatedHeight={500}
           headerRight={
             // Show dialect chip only when a dialect is selected
-            language === 'en-AU' || language === 'de-CHZ' || language === 'de-CHB' ? (
+            language === 'en-AU' || language === 'de-CH' ? (
               <View style={[styles.dialectLegendChip, isDark && styles.dialectLegendChipDark]}>
                 <Text style={[styles.dialectLegendText, isDark && styles.textMuted]}>
                   {t('settings.dialect')}

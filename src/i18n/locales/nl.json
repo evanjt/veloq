@@ -197,7 +197,7 @@
     "watts": "Watts"
   },
   "common": {
-    "activities": "activities",
+    "activities": "activiteiten",
     "back": "Terug",
     "cancel": "Annuleren",
     "clearSearch": "Zoekopdracht wissen",
@@ -232,39 +232,39 @@
   "emptyState": {
     "clearFilters": "Filters wissen",
     "error": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Gebaseerd op {{duration}} activiteitsgegevens",
       "description": "We konden deze inhoud niet laden",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Uitbreiden in Instellingen",
       "title": "Er ging iets mis"
     },
     "networkError": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Gebaseerd op {{duration}} activiteitsgegevens",
       "description": "Controleer je internetverbinding en probeer opnieuw",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Uitbreiden in Instellingen",
       "title": "Verbindingsfout"
     },
     "noActivities": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Gebaseerd op {{duration}} activiteitsgegevens",
       "description": "Je activiteiten verschijnen hier zodra je synchroniseert met Intervals.icu",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Uitbreiden in Instellingen",
       "title": "Nog geen activiteiten"
     },
     "noData": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Gebaseerd op {{duration}} activiteitsgegevens",
       "description": "Voltooi enkele activiteiten om je statistieken te zien",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Uitbreiden in Instellingen",
       "title": "Geen gegevens beschikbaar"
     },
     "noResults": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Gebaseerd op {{duration}} activiteitsgegevens",
       "description": "Probeer je zoekopdracht of filters aan te passen",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Uitbreiden in Instellingen",
       "title": "Geen resultaten gevonden"
     },
     "offline": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Gebaseerd op {{duration}} activiteitsgegevens",
       "description": "Sommige functies kunnen beperkt zijn",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Uitbreiden in Instellingen",
       "title": "Je bent offline"
     },
     "refresh": "Vernieuwen"
@@ -486,13 +486,13 @@
     "checkingActivities": "Stap 1: {{count}} activiteiten controleren...",
     "createSection": "Sectie aanmaken",
     "custom": "Aangepast",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Gebaseerd op {{duration}} activiteitsgegevens",
     "defaultActivityName": "Activiteit {{number}}",
     "defaultRouteName": "{{type}} route",
     "duplicateNameMessage": "Kies een andere naam. Elke route moet een unieke naam hebben.",
     "duplicateNameTitle": "Naam bestaat al",
     "errorOccurred": "Er is een fout opgetreden",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Uitbreiden in Instellingen",
     "expandTimeline": "Breid de tijdlijn uit om meer activiteiten te analyseren. Route-matching gaat op de achtergrond door tot voltooid.",
     "fastest": "#{{rank}} snelste",
     "fetchingGpsData": "Stap 2: Spoorgegevens laden...",
@@ -566,11 +566,11 @@
   "routesScreen": {
     "analysingRoutes": "Routes analyseren {{current}}/{{total}}",
     "computingRoutes": "Routes berekenen...",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Gebaseerd op {{duration}} activiteitsgegevens",
     "downloadingGps": "Sporen downloaden",
     "enableInSettings": "Schakel route-matching in via Instellingen om automatisch herhaalde routes uit je activiteiten te detecteren.",
     "expandDateRange": "Datumbereik uitbreiden",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Uitbreiden in Instellingen",
     "goToSettings": "Naar Instellingen",
     "matchingDisabled": "Route-matching uitgeschakeld",
     "title": "Routes"

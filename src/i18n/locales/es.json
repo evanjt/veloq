@@ -197,7 +197,7 @@
     "watts": "Watts"
   },
   "common": {
-    "activities": "activities",
+    "activities": "actividades",
     "back": "Atrás",
     "cancel": "Cancelar",
     "clearSearch": "Borrar búsqueda",
@@ -232,39 +232,39 @@
   "emptyState": {
     "clearFilters": "Borrar filtros",
     "error": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basado en {{duration}} de datos de actividad",
       "description": "No pudimos cargar este contenido",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir en Ajustes",
       "title": "Algo salió mal"
     },
     "networkError": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basado en {{duration}} de datos de actividad",
       "description": "Comprueba tu conexión a internet e inténtalo de nuevo",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir en Ajustes",
       "title": "Error de conexión"
     },
     "noActivities": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basado en {{duration}} de datos de actividad",
       "description": "Tus actividades aparecerán aquí una vez que sincronices con Intervals.icu",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir en Ajustes",
       "title": "Sin actividades todavía"
     },
     "noData": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basado en {{duration}} de datos de actividad",
       "description": "Completa algunas actividades para ver tus estadísticas",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir en Ajustes",
       "title": "Sin datos disponibles"
     },
     "noResults": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basado en {{duration}} de datos de actividad",
       "description": "Intenta ajustar tu búsqueda o filtros",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir en Ajustes",
       "title": "No se encontraron resultados"
     },
     "offline": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basado en {{duration}} de datos de actividad",
       "description": "Algunas funciones pueden estar limitadas",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir en Ajustes",
       "title": "Estás sin conexión"
     },
     "refresh": "Actualizar"
@@ -486,13 +486,13 @@
     "checkingActivities": "Paso 1: Comprobando {{count}} actividades...",
     "createSection": "Crear sección",
     "custom": "Personalizado",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Basado en {{duration}} de datos de actividad",
     "defaultActivityName": "Actividad {{number}}",
     "defaultRouteName": "Ruta {{type}}",
     "duplicateNameMessage": "Por favor, elige un nombre diferente. Cada ruta debe tener un nombre único.",
     "duplicateNameTitle": "Nombre ya existe",
     "errorOccurred": "Ocurrió un error",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Expandir en Ajustes",
     "expandTimeline": "Expande la línea de tiempo para analizar más actividades. La coincidencia de rutas continuará en segundo plano hasta completarse.",
     "fastest": "#{{rank}} más rápido",
     "fetchingGpsData": "Paso 2: Obteniendo datos de trazas...",
@@ -566,11 +566,11 @@
   "routesScreen": {
     "analysingRoutes": "Analizando rutas {{current}}/{{total}}",
     "computingRoutes": "Calculando rutas...",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Basado en {{duration}} de datos de actividad",
     "downloadingGps": "Descargando trazas",
     "enableInSettings": "Activa la coincidencia de rutas en Ajustes para detectar automáticamente rutas repetidas de tus actividades.",
     "expandDateRange": "Ampliar rango de fechas",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Expandir en Ajustes",
     "goToSettings": "Ir a Ajustes",
     "matchingDisabled": "Coincidencia de rutas desactivada",
     "title": "Rutas"
@@ -778,6 +778,8 @@
   },
   "statsScreen": {
     "days42": "42 Días",
+    "decoupling": "Eficiencia aeróbica",
+    "eFTPTrend": "Tendencia eFTP",
     "garminNote": "Los gráficos pueden incluir datos de dispositivos Garmin",
     "heartRate": "Frecuencia cardíaca",
     "lactateThreshold": "Umbral de lactato",
@@ -790,7 +792,9 @@
     "powerCurve": "Curva de potencia",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
     "ref": "Ref",
+    "swimPaceCurve": "Curva de ritmo natación",
     "title": "Rendimiento",
+    "trainingZones": "Zonas de entrenamiento",
     "year1": "1 Año"
   },
   "time": {

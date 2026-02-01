@@ -12,10 +12,10 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme, useSectionPolyline, useMetricSystem } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Svg, { Polyline, G } from 'react-native-svg';
+import Svg, { Polyline, G, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout } from '@/theme';
-import { debug, formatDistance, getBoundsFromPoints } from '@/lib';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { debug, formatDistance, getBoundsFromPoints, getActivityColor } from '@/lib';
 import type { FrequentSection, RoutePoint } from '@/types';
 import type { SectionSummary } from 'veloqrs';
 
@@ -116,7 +116,7 @@ const TRACE_COLORS = [
   'rgba(252, 76, 2, 0.30)',
 ];
 
-const PREVIEW_WIDTH = 60;
+const PREVIEW_WIDTH = 56;
 const PREVIEW_HEIGHT = 40;
 const PREVIEW_PADDING = 4;
 
@@ -220,6 +220,23 @@ export const SectionRow = memo(function SectionRow({
   const hasSectionPolyline = sectionPolylineString.length > 0;
   const icon = sportIcons[section.sportType] || 'map-marker-path';
 
+  // Get activity color for the sport type
+  const activityColor = getActivityColor(section.sportType);
+
+  // Background colors for map-like appearance
+  const bgColor = isDark ? '#1a2a1a' : '#e8f4e8';
+  const gridColor = isDark ? '#2a3a2a' : '#d0e8d0';
+
+  // Get start/end points for markers
+  const polylinePoints = useMemo(() => {
+    if (!polyline?.length || !bounds) return null;
+    const normalized = polyline.map((p) => normalizePoint(p.lat, p.lng));
+    return {
+      start: normalized[0],
+      end: normalized[normalized.length - 1],
+    };
+  }, [polyline, bounds]);
+
   return (
     <TouchableOpacity
       testID={`section-row-${section.id}`}
@@ -229,10 +246,47 @@ export const SectionRow = memo(function SectionRow({
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      {/* Section polyline preview with activity traces */}
-      <View style={[styles.preview, isDark && styles.previewDark]} pointerEvents="none">
+      {/* Section polyline preview with map-like backdrop */}
+      <View style={styles.previewBox} pointerEvents="none">
         {hasSectionPolyline ? (
           <Svg width={PREVIEW_WIDTH} height={PREVIEW_HEIGHT}>
+            <Defs>
+              <LinearGradient id="mapGradient" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={bgColor} stopOpacity="1" />
+                <Stop offset="1" stopColor={isDark ? '#0d1a0d' : '#d4e8d4'} stopOpacity="1" />
+              </LinearGradient>
+            </Defs>
+
+            {/* Map-like background */}
+            <Rect
+              x="0"
+              y="0"
+              width={PREVIEW_WIDTH}
+              height={PREVIEW_HEIGHT}
+              fill="url(#mapGradient)"
+              rx="4"
+            />
+
+            {/* Subtle grid lines for map effect */}
+            <Polyline
+              points={`${PREVIEW_WIDTH / 3},0 ${PREVIEW_WIDTH / 3},${PREVIEW_HEIGHT}`}
+              stroke={gridColor}
+              strokeWidth={0.5}
+              strokeOpacity={0.5}
+            />
+            <Polyline
+              points={`${(2 * PREVIEW_WIDTH) / 3},0 ${(2 * PREVIEW_WIDTH) / 3},${PREVIEW_HEIGHT}`}
+              stroke={gridColor}
+              strokeWidth={0.5}
+              strokeOpacity={0.5}
+            />
+            <Polyline
+              points={`0,${PREVIEW_HEIGHT / 2} ${PREVIEW_WIDTH},${PREVIEW_HEIGHT / 2}`}
+              stroke={gridColor}
+              strokeWidth={0.5}
+              strokeOpacity={0.5}
+            />
+
             {/* Activity traces underneath (if any) */}
             {hasTraces && (
               <G>
@@ -249,89 +303,95 @@ export const SectionRow = memo(function SectionRow({
                 ))}
               </G>
             )}
+
+            {/* Route shadow for depth */}
+            <Polyline
+              points={sectionPolylineString}
+              fill="none"
+              stroke="#000000"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeOpacity={0.15}
+              transform="translate(0.5, 0.5)"
+            />
+
             {/* Section polyline on top */}
             <Polyline
               points={sectionPolylineString}
               fill="none"
-              stroke={isDark ? colors.chartBlue : colors.primary}
-              strokeWidth={2}
+              stroke={activityColor}
+              strokeWidth={2.5}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
+
+            {/* Start marker (green) */}
+            {polylinePoints && (
+              <>
+                <Circle
+                  cx={polylinePoints.start.x}
+                  cy={polylinePoints.start.y}
+                  r={3}
+                  fill={colors.success}
+                />
+                <Circle
+                  cx={polylinePoints.start.x}
+                  cy={polylinePoints.start.y}
+                  r={2}
+                  fill="#FFFFFF"
+                />
+              </>
+            )}
+
+            {/* End marker (red) */}
+            {polylinePoints && (
+              <>
+                <Circle
+                  cx={polylinePoints.end.x}
+                  cy={polylinePoints.end.y}
+                  r={3}
+                  fill={colors.error}
+                />
+                <Circle cx={polylinePoints.end.x} cy={polylinePoints.end.y} r={2} fill="#FFFFFF" />
+              </>
+            )}
           </Svg>
         ) : (
-          <MaterialCommunityIcons
-            name={icon}
-            size={24}
-            color={isDark ? darkColors.textMuted : colors.primary}
-          />
+          <View style={[styles.previewPlaceholder, isDark && styles.previewPlaceholderDark]}>
+            <MaterialCommunityIcons name={icon} size={18} color={isDark ? '#555' : '#BBB'} />
+          </View>
         )}
       </View>
 
       {/* Section info */}
-      <View style={styles.info}>
-        <View style={styles.header}>
-          <MaterialCommunityIcons
-            name={icon}
-            size={14}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-          <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
-            {section.name || `${section.sportType} Section`}
+      <View style={styles.infoContainer}>
+        <Text style={[styles.sectionName, isDark && styles.textLight]} numberOfLines={1}>
+          {section.name || `${section.sportType} Section`}
+        </Text>
+        <View style={styles.metaRow}>
+          <Text style={[styles.metaText, isDark && styles.textMuted]}>
+            {formatDistance(section.distanceMeters, isMetric)}
           </Text>
-        </View>
-
-        <View style={styles.stats}>
-          <View style={styles.stat}>
-            <MaterialCommunityIcons
-              name="map-marker-distance"
-              size={12}
-              color={isDark ? darkColors.textMuted : colors.textMuted}
-            />
-            <Text style={[styles.statText, isDark && styles.textMuted]}>
-              {formatDistance(section.distanceMeters, isMetric)}
-            </Text>
-          </View>
-
-          <View style={styles.stat}>
-            <MaterialCommunityIcons name="repeat" size={12} color={isDark ? '#666' : '#999'} />
-            <Text style={[styles.statText, isDark && styles.textMuted]}>
-              {section.visitCount} {t('sections.traversals')}
-            </Text>
-          </View>
-
-          <View style={styles.stat}>
-            <MaterialCommunityIcons
-              name="lightning-bolt"
-              size={12}
-              color={isDark ? darkColors.textMuted : colors.textMuted}
-            />
-            <Text style={[styles.statText, isDark && styles.textMuted]}>
-              {section.activityCount} {t('routes.activities')}
-            </Text>
-          </View>
-        </View>
-
-        {/* Routes using this section (only shown if routeCount is available) */}
-        {section.routeCount !== undefined && section.routeCount > 0 && (
-          <Text style={[styles.routes, isDark && styles.textMuted]} numberOfLines={1}>
-            {section.routeCount > 1
-              ? t('routes.partOfRoutesPlural', {
-                  count: section.routeCount,
-                })
-              : t('routes.partOfRoutes', { count: section.routeCount })}
+          <Text style={[styles.metaText, isDark && styles.textMuted]}>
+            {section.visitCount}× {t('sections.traversals')}
           </Text>
-        )}
+          {section.routeCount !== undefined && section.routeCount > 0 && (
+            <Text style={[styles.routesText, { color: colors.primary }]}>
+              {section.routeCount}{' '}
+              {section.routeCount === 1
+                ? t('navigation.routes').slice(0, -1)
+                : t('navigation.routes').toLowerCase()}
+            </Text>
+          )}
+        </View>
       </View>
 
-      {/* Chevron */}
-      {onPress && (
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={20}
-          color={isDark ? darkColors.textMuted : colors.border}
-        />
-      )}
+      {/* Activity count badge */}
+      <View style={styles.countBadge}>
+        <Text style={styles.countText}>{section.activityCount}</Text>
+        <MaterialCommunityIcons name="chevron-right" size={16} color="#FFFFFF" />
+      </View>
     </TouchableOpacity>
   );
 });
@@ -341,64 +401,73 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    marginHorizontal: layout.screenPadding,
-    marginBottom: spacing.sm,
-    padding: spacing.md,
-    borderRadius: 12,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+    borderRadius: 10,
+    padding: spacing.sm,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 2,
     elevation: 1,
   },
   containerDark: {
-    backgroundColor: darkColors.surfaceCard,
+    backgroundColor: darkColors.surface,
   },
-  preview: {
+  previewBox: {
     width: PREVIEW_WIDTH,
     height: PREVIEW_HEIGHT,
     borderRadius: 6,
-    backgroundColor: colors.background,
-    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  previewPlaceholder: {
+    width: PREVIEW_WIDTH,
+    height: PREVIEW_HEIGHT,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.05)',
     justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  previewDark: {
-    backgroundColor: darkColors.surfaceElevated,
-  },
-  info: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
   },
-  name: {
+  previewPlaceholderDark: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  infoContainer: {
     flex: 1,
-    fontSize: 15,
+    marginLeft: spacing.sm,
+    marginRight: spacing.xs,
+  },
+  sectionName: {
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
-  stats: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  stat: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    marginTop: 2,
+    gap: spacing.sm,
   },
-  statText: {
-    fontSize: 12,
+  metaText: {
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
-  routes: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
+  routesText: {
+    fontSize: typography.label.fontSize,
+    fontWeight: '500',
+  },
+  countBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: layout.borderRadius,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    gap: 2,
+  },
+  countText: {
+    fontSize: typography.bodyCompact.fontSize,
+    fontWeight: '700',
+    color: colors.textOnDark,
   },
   textLight: {
     color: colors.textOnDark,

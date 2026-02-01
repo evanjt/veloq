@@ -460,6 +460,20 @@ export default function FeedScreen() {
 
   const navigateToSettings = () => router.push('/settings' as Href);
 
+  const navigateToHeroMetric = () => {
+    switch (summaryCard.heroMetric) {
+      case 'form':
+      case 'fitness':
+        router.push('/fitness' as Href);
+        break;
+      case 'hrv':
+        router.push('/training' as Href);
+        break;
+      default:
+        router.push('/fitness' as Href);
+    }
+  };
+
   const toggleFilters = () => setShowFilters(!showFilters);
 
   const selectTypeGroup = (group: string | null) => {
@@ -567,6 +581,7 @@ export default function FeedScreen() {
         heroZoneLabel={heroData.zoneLabel}
         heroZoneColor={heroData.zoneColor}
         heroTrend={heroData.trend}
+        onHeroPress={navigateToHeroMetric}
         sparklineData={sparklineData}
         showSparkline={summaryCard.showSparkline}
         supportingMetrics={supportingMetrics}

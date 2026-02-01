@@ -185,7 +185,7 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
   const startPoint = validCoordinates[0];
   const endPoint = validCoordinates[validCoordinates.length - 1];
 
-  // No GPS data available for this activity
+  // No GPS data available for this activity (stream_types doesn't include latlng)
   if (!hasGpsData) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
@@ -194,11 +194,20 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
     );
   }
 
-  // Loading streams or no bounds
-  if (isLoading || !bounds || validCoordinates.length === 0) {
+  // Still loading streams
+  if (isLoading) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '10' }]}>
         <ActivityIndicator size="small" color={activityColor} />
+      </View>
+    );
+  }
+
+  // Loaded but no valid GPS data (empty or all NaN coordinates)
+  if (!bounds || validCoordinates.length === 0) {
+    return (
+      <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
+        <MaterialCommunityIcons name="map-marker-off" size={32} color={activityColor} />
       </View>
     );
   }
@@ -219,7 +228,7 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
         zoomEnabled={false}
         rotateEnabled={false}
         pitchEnabled={false}
-        onDidFinishRenderingMapFully={handleMapFullyRendered}
+        onDidFinishLoadingMap={handleMapFullyRendered}
         onDidFailLoadingMap={handleMapLoadError}
       >
         <Camera
@@ -270,8 +279,9 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
           </MarkerView>
         )}
       </MapView>
-      {/* Loading overlay - shows while map is rendering or content is staggered */}
-      {(!mapReady || !showMapContent) && (
+      {/* Loading overlay - shows during stagger period only */}
+      {/* mapReady callback is unreliable on Android, so we use deterministic stagger timing */}
+      {!showMapContent && (
         <View style={[styles.loadingOverlay, { backgroundColor: activityColor + '10' }]}>
           <ActivityIndicator size="small" color={activityColor} />
         </View>

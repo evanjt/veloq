@@ -197,7 +197,7 @@
     "watts": "Watts"
   },
   "common": {
-    "activities": "activities",
+    "activities": "actividades",
     "back": "Atras",
     "cancel": "Cancelar",
     "clearSearch": "Borrar busqueda",
@@ -232,39 +232,39 @@
   "emptyState": {
     "clearFilters": "Borrar filtros",
     "error": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basado en {{duration}} de datos de actividad",
       "description": "No pudimos cargar este contenido",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir en Ajustes",
       "title": "Algo salio mal"
     },
     "networkError": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basado en {{duration}} de datos de actividad",
       "description": "Verifica tu conexion a internet e intentalo de nuevo",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir en Ajustes",
       "title": "Error de conexion"
     },
     "noActivities": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basado en {{duration}} de datos de actividad",
       "description": "Tus actividades apareceran aqui una vez que sincronices con Intervals.icu",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir en Ajustes",
       "title": "Sin actividades todavia"
     },
     "noData": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basado en {{duration}} de datos de actividad",
       "description": "Completa algunas actividades para ver tus estadisticas",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir en Ajustes",
       "title": "Sin datos disponibles"
     },
     "noResults": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basado en {{duration}} de datos de actividad",
       "description": "Intenta ajustar tu busqueda o filtros",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir en Ajustes",
       "title": "No se encontraron resultados"
     },
     "offline": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basado en {{duration}} de datos de actividad",
       "description": "Algunas funciones pueden estar limitadas",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir en Ajustes",
       "title": "Estas sin conexion"
     },
     "refresh": "Actualizar"
@@ -486,13 +486,13 @@
     "checkingActivities": "Paso 1: Verificando {{count}} actividades...",
     "createSection": "Crear sección",
     "custom": "Personalizado",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Basado en {{duration}} de datos de actividad",
     "defaultActivityName": "Actividad {{number}}",
     "defaultRouteName": "Ruta {{type}}",
     "duplicateNameMessage": "Por favor, elige un nombre diferente. Cada ruta debe tener un nombre único.",
     "duplicateNameTitle": "Nombre ya existe",
     "errorOccurred": "Ocurrio un error",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Expandir en Ajustes",
     "expandTimeline": "Expande la linea de tiempo para analizar mas actividades. La coincidencia de rutas continuara en segundo plano hasta completarse.",
     "fastest": "#{{rank}} mas rapido",
     "fetchingGpsData": "Paso 2: Obteniendo datos de trazas...",
@@ -566,11 +566,11 @@
   "routesScreen": {
     "analysingRoutes": "Analizando rutas {{current}}/{{total}}",
     "computingRoutes": "Calculando rutas...",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Basado en {{duration}} de datos de actividad",
     "downloadingGps": "Descargando trazas",
     "enableInSettings": "Activa la coincidencia de rutas en Configuracion para detectar automaticamente rutas repetidas de tus actividades.",
     "expandDateRange": "Ampliar rango de fechas",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Expandir en Ajustes",
     "goToSettings": "Ir a Configuracion",
     "matchingDisabled": "Coincidencia de rutas desactivada",
     "title": "Rutas"

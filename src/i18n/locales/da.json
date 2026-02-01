@@ -197,7 +197,7 @@
     "watts": "Watts"
   },
   "common": {
-    "activities": "activities",
+    "activities": "aktiviteter",
     "back": "Tilbage",
     "cancel": "Annuller",
     "clearSearch": "Ryd søgning",
@@ -232,39 +232,39 @@
   "emptyState": {
     "clearFilters": "Ryd filtre",
     "error": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseret på {{duration}} aktivitetsdata",
       "description": "Vi kunne ikke indlæse dette indhold",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Udvid i Indstillinger",
       "title": "Noget gik galt"
     },
     "networkError": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseret på {{duration}} aktivitetsdata",
       "description": "Tjek din internetforbindelse og prøv igen",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Udvid i Indstillinger",
       "title": "Forbindelsesfejl"
     },
     "noActivities": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseret på {{duration}} aktivitetsdata",
       "description": "Dine aktiviteter vises her, når du synkroniserer med Intervals.icu",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Udvid i Indstillinger",
       "title": "Ingen aktiviteter endnu"
     },
     "noData": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseret på {{duration}} aktivitetsdata",
       "description": "Gennemfør nogle aktiviteter for at se din statistik",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Udvid i Indstillinger",
       "title": "Ingen data tilgængelig"
     },
     "noResults": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseret på {{duration}} aktivitetsdata",
       "description": "Prøv at justere din søgning eller filtre",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Udvid i Indstillinger",
       "title": "Ingen resultater fundet"
     },
     "offline": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseret på {{duration}} aktivitetsdata",
       "description": "Nogle funktioner kan være begrænsede",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Udvid i Indstillinger",
       "title": "Du er offline"
     },
     "refresh": "Opdater"
@@ -486,13 +486,13 @@
     "checkingActivities": "Trin 1: Tjekker {{count}} aktiviteter...",
     "createSection": "Opret sektion",
     "custom": "Brugerdefineret",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Baseret på {{duration}} aktivitetsdata",
     "defaultActivityName": "Aktivitet {{number}}",
     "defaultRouteName": "{{type}} rute",
     "duplicateNameMessage": "Vælg venligst et andet navn. Hver rute skal have et unikt navn.",
     "duplicateNameTitle": "Navn findes allerede",
     "errorOccurred": "Der opstod en fejl",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Udvid i Indstillinger",
     "expandTimeline": "Udvid tidslinjen for at analysere flere aktiviteter. Rutematchning fortsætter i baggrunden indtil den er færdig.",
     "fastest": "#{{rank}} hurtigste",
     "fetchingGpsData": "Trin 2: Henter spordata...",
@@ -566,11 +566,11 @@
   "routesScreen": {
     "analysingRoutes": "Analyserer ruter {{current}}/{{total}}",
     "computingRoutes": "Beregner ruter...",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Baseret på {{duration}} aktivitetsdata",
     "downloadingGps": "Downloader spor",
     "enableInSettings": "Aktivér rutematchning i Indstillinger for automatisk at registrere gentagne ruter fra dine aktiviteter.",
     "expandDateRange": "Udvid datointerval",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Udvid i Indstillinger",
     "goToSettings": "Gå til Indstillinger",
     "matchingDisabled": "Rutematchning deaktiveret",
     "title": "Ruter"

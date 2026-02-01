@@ -496,21 +496,6 @@ export default function SettingsScreen() {
           <ProfileSection athlete={athlete} />
         </View>
 
-        {/* Display Settings: Appearance, Units, Language, Primary Sport */}
-        <DisplaySettings
-          themePreference={themePreference}
-          onThemeChange={handleThemeChange}
-          unitPreference={unitPreference}
-          onUnitChange={handleUnitChange}
-          intervalsUnitPreference={intervalsPreferences}
-          primarySport={primarySport}
-          onSportChange={handleSportChange}
-          language={language ?? 'en-GB'}
-          onLanguageChange={handleLanguageChange}
-          showLanguages={showLanguages}
-          setShowLanguages={setShowLanguages}
-        />
-
         {/* Summary Card Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
           {t('settings.summaryCard').toUpperCase()}
@@ -682,6 +667,21 @@ export default function SettingsScreen() {
             </View>
           )}
         </View>
+
+        {/* Display Settings: Appearance, Units, Language, Primary Sport */}
+        <DisplaySettings
+          themePreference={themePreference}
+          onThemeChange={handleThemeChange}
+          unitPreference={unitPreference}
+          onUnitChange={handleUnitChange}
+          intervalsUnitPreference={intervalsPreferences}
+          primarySport={primarySport}
+          onSportChange={handleSportChange}
+          language={language ?? 'en-GB'}
+          onLanguageChange={handleLanguageChange}
+          showLanguages={showLanguages}
+          setShowLanguages={setShowLanguages}
+        />
 
         {/* Maps Section */}
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>

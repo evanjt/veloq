@@ -167,8 +167,7 @@ export function getAvailableLanguages(): LanguageGroup[] {
           defaultVariant: 'de-DE',
           variants: [
             { value: 'de-DE', label: 'DE' },
-            { value: 'de-CHZ', label: 'Züri', isDialect: true },
-            { value: 'de-CHB', label: 'Bärn', isDialect: true },
+            { value: 'de-CH', label: 'CH', isDialect: true },
           ],
         },
         {
@@ -253,7 +252,7 @@ export function isLanguageVariant(language: string | null, baseLanguage: string)
 }
 
 /**
- * Get the base language code from a locale (e.g., 'de-CHZ' -> 'de')
+ * Get the base language code from a locale (e.g., 'de-CH' -> 'de')
  */
 export function getBaseLanguage(language: string | null): string | null {
   if (language === null) return null;

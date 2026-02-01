@@ -61,7 +61,7 @@ describe('LanguageStore', () => {
 
     it('returns exact locale when it is in SUPPORTED_LOCALES', () => {
       expect(resolveLanguageToLocale('en-AU')).toBe('en-AU');
-      expect(resolveLanguageToLocale('de-CHZ')).toBe('de-CHZ');
+      expect(resolveLanguageToLocale('de-CH')).toBe('de-CH');
       expect(resolveLanguageToLocale('pt-BR')).toBe('pt-BR');
     });
 
@@ -93,12 +93,12 @@ describe('LanguageStore', () => {
 
   describe('initializeLanguage()', () => {
     it('loads saved preference from AsyncStorage', async () => {
-      await AsyncStorage.setItem(STORAGE_KEY, 'de-CHZ');
+      await AsyncStorage.setItem(STORAGE_KEY, 'de-CH');
 
       const result = await initializeLanguage();
 
-      expect(result).toBe('de-CHZ');
-      expect(useLanguageStore.getState().language).toBe('de-CHZ');
+      expect(result).toBe('de-CH');
+      expect(useLanguageStore.getState().language).toBe('de-CH');
       expect(useLanguageStore.getState().isInitialized).toBe(true);
     });
 
@@ -175,11 +175,11 @@ describe('LanguageStore', () => {
     });
 
     it.skip('handles Swiss dialects (requires i18next init)', async () => {
-      await useLanguageStore.getState().setLanguage('de-CHZ');
+      await useLanguageStore.getState().setLanguage('de-CH');
 
-      expect(useLanguageStore.getState().language).toBe('de-CHZ');
+      expect(useLanguageStore.getState().language).toBe('de-CH');
       const saved = await AsyncStorage.getItem(STORAGE_KEY);
-      expect(saved).toBe('de-CHZ');
+      expect(saved).toBe('de-CH');
     });
   });
 
@@ -220,7 +220,7 @@ describe('LanguageStore', () => {
 
       it('returns false for non-English values', () => {
         expect(isEnglishVariant('de')).toBe(false);
-        expect(isEnglishVariant('de-CHZ')).toBe(false);
+        expect(isEnglishVariant('de-CH')).toBe(false);
         expect(isEnglishVariant('fr')).toBe(false);
         expect(isEnglishVariant(null)).toBe(false);
       });
@@ -275,13 +275,13 @@ describe('LanguageStore', () => {
     });
 
     it('matches regional variants', () => {
-      expect(isLanguageVariant('de-CHZ', 'de')).toBe(true);
+      expect(isLanguageVariant('de-CH', 'de')).toBe(true);
       expect(isLanguageVariant('en-AU', 'en')).toBe(true);
       expect(isLanguageVariant('pt-BR', 'pt')).toBe(true);
     });
 
     it('returns false for non-matching languages', () => {
-      expect(isLanguageVariant('de-CHZ', 'en')).toBe(false);
+      expect(isLanguageVariant('de-CH', 'en')).toBe(false);
       expect(isLanguageVariant('fr', 'de')).toBe(false);
     });
 
@@ -292,7 +292,7 @@ describe('LanguageStore', () => {
 
   describe('getBaseLanguage()', () => {
     it('extracts base language from locale', () => {
-      expect(getBaseLanguage('de-CHZ')).toBe('de');
+      expect(getBaseLanguage('de-CH')).toBe('de');
       expect(getBaseLanguage('en-AU')).toBe('en');
       expect(getBaseLanguage('pt-BR')).toBe('pt');
     });
@@ -325,19 +325,16 @@ describe('LanguageStore', () => {
 
       expect(german).toBeDefined();
       expect(german?.variants).toBeDefined();
-      expect(german?.variants?.some((v) => v.value === 'de-CHZ')).toBe(true);
-      expect(german?.variants?.some((v) => v.value === 'de-CHB')).toBe(true);
+      expect(german?.variants?.some((v) => v.value === 'de-CH')).toBe(true);
     });
 
-    it('marks Swiss dialects with isDialect flag', () => {
+    it('marks Swiss German with isDialect flag', () => {
       const groups = getAvailableLanguages();
       const german = groups[0].languages.find((l) => l.value === 'de');
 
-      const chz = german?.variants?.find((v) => v.value === 'de-CHZ');
-      const chb = german?.variants?.find((v) => v.value === 'de-CHB');
+      const ch = german?.variants?.find((v) => v.value === 'de-CH');
 
-      expect(chz?.isDialect).toBe(true);
-      expect(chb?.isDialect).toBe(true);
+      expect(ch?.isDialect).toBe(true);
     });
 
     it('marks English-AU as dialect', () => {
@@ -383,7 +380,7 @@ describe('LanguageStore', () => {
 
       const result = await initializeLanguage();
       // de-AT should fall back to de-DE
-      expect(['de-DE', 'de-CHZ', 'de-CHB']).toContain(result);
+      expect(['de-DE', 'de-CH']).toContain(result);
     });
   });
 

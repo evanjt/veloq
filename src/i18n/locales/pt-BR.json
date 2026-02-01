@@ -197,7 +197,7 @@
     "watts": "Watts"
   },
   "common": {
-    "activities": "activities",
+    "activities": "atividades",
     "back": "Voltar",
     "cancel": "Cancelar",
     "clearSearch": "Limpar busca",
@@ -232,39 +232,39 @@
   "emptyState": {
     "clearFilters": "Limpar filtros",
     "error": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
       "description": "Nao foi possivel carregar este conteudo",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir nas Configurações",
       "title": "Algo deu errado"
     },
     "networkError": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
       "description": "Verifique sua conexao com a internet e tente novamente",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir nas Configurações",
       "title": "Erro de conexao"
     },
     "noActivities": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
       "description": "Suas atividades aparecerao aqui apos sincronizar com o Intervals.icu",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir nas Configurações",
       "title": "Sem atividades ainda"
     },
     "noData": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
       "description": "Complete algumas atividades para ver suas estatisticas",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir nas Configurações",
       "title": "Sem dados disponiveis"
     },
     "noResults": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
       "description": "Tente ajustar sua busca ou filtros",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir nas Configurações",
       "title": "Nenhum resultado encontrado"
     },
     "offline": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
       "description": "Algumas funcionalidades podem estar limitadas",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir nas Configurações",
       "title": "Voce esta offline"
     },
     "refresh": "Atualizar"
@@ -486,13 +486,13 @@
     "checkingActivities": "Passo 1: Verificando {{count}} atividades...",
     "createSection": "Criar trecho",
     "custom": "Personalizado",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
     "defaultActivityName": "Atividade {{number}}",
     "defaultRouteName": "Rota {{type}}",
     "duplicateNameMessage": "Por favor, escolha um nome diferente. Cada rota deve ter um nome único.",
     "duplicateNameTitle": "Nome já existe",
     "errorOccurred": "Ocorreu um erro",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Expandir nas Configurações",
     "expandTimeline": "Expanda a linha do tempo para analisar mais atividades. A correspondencia de rotas continuara em segundo plano ate ser concluida.",
     "fastest": "#{{rank}} mais rapido",
     "fetchingGpsData": "Passo 2: Obtendo dados de trilhas...",
@@ -566,11 +566,11 @@
   "routesScreen": {
     "analysingRoutes": "Analisando rotas {{current}}/{{total}}",
     "computingRoutes": "Calculando rotas...",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
     "downloadingGps": "Baixando trilhas",
     "enableInSettings": "Ative a correspondencia de rotas nas Configuracoes para detectar automaticamente rotas repetidas das suas atividades.",
     "expandDateRange": "Expandir intervalo de datas",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Expandir nas Configurações",
     "goToSettings": "Ir para Configuracoes",
     "matchingDisabled": "Correspondencia de rotas desativada",
     "title": "Rotas"

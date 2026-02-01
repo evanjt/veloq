@@ -31,6 +31,7 @@ export interface SummaryCardProps {
   heroZoneLabel?: string; // "Fresh", "Tired", etc.
   heroZoneColor?: string;
   heroTrend?: '↑' | '↓' | '';
+  onHeroPress?: () => void;
 
   // Sparkline data (7 days)
   sparklineData?: number[];
@@ -61,6 +62,7 @@ export function SummaryCard({
   heroZoneLabel,
   heroZoneColor,
   heroTrend,
+  onHeroPress,
   sparklineData,
   showSparkline,
   supportingMetrics,
@@ -111,7 +113,12 @@ export function SummaryCard({
         </TouchableOpacity>
 
         {/* Hero metric - compact inline */}
-        <View style={styles.heroSection}>
+        <TouchableOpacity
+          style={styles.heroSection}
+          onPress={onHeroPress}
+          disabled={!onHeroPress}
+          activeOpacity={onHeroPress ? 0.7 : 1}
+        >
           <View style={styles.heroValueRow}>
             <Text style={[styles.heroValue, { color: heroColor }]}>
               {formattedHeroValue}
@@ -127,7 +134,7 @@ export function SummaryCard({
               </>
             )}
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Sparkline - zone-colored line */}
         {showSparkline && sparklineData && sparklineData.length > 0 && (

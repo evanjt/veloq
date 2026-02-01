@@ -197,7 +197,7 @@
     "watts": "Watts"
   },
   "common": {
-    "activities": "activities",
+    "activities": "aktywności",
     "back": "Wstecz",
     "cancel": "Anuluj",
     "clearSearch": "Wyczysc wyszukiwanie",
@@ -232,39 +232,39 @@
   "emptyState": {
     "clearFilters": "Wyczysc filtry",
     "error": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Na podstawie {{duration}} danych aktywności",
       "description": "Nie udalo sie wczytac tej tresci",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Rozwiń w Ustawieniach",
       "title": "Cos poszlo nie tak"
     },
     "networkError": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Na podstawie {{duration}} danych aktywności",
       "description": "Sprawdz polaczenie internetowe i sprobuj ponownie",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Rozwiń w Ustawieniach",
       "title": "Blad polaczenia"
     },
     "noActivities": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Na podstawie {{duration}} danych aktywności",
       "description": "Twoje aktywnosci pojawia sie tutaj po synchronizacji z Intervals.icu",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Rozwiń w Ustawieniach",
       "title": "Brak aktywnosci"
     },
     "noData": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Na podstawie {{duration}} danych aktywności",
       "description": "Wykonaj aktywnosci, aby zobaczyc statystyki",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Rozwiń w Ustawieniach",
       "title": "Brak dostepnych danych"
     },
     "noResults": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Na podstawie {{duration}} danych aktywności",
       "description": "Sprobuj dostosowac wyszukiwanie lub filtry",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Rozwiń w Ustawieniach",
       "title": "Nie znaleziono wynikow"
     },
     "offline": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Na podstawie {{duration}} danych aktywności",
       "description": "Niektore funkcje moga byc ograniczone",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Rozwiń w Ustawieniach",
       "title": "Jestes offline"
     },
     "refresh": "Odswiez"
@@ -486,13 +486,13 @@
     "checkingActivities": "Krok 1: Sprawdzanie {{count}} aktywnosci...",
     "createSection": "Utwórz odcinek",
     "custom": "Własny",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Na podstawie {{duration}} danych aktywności",
     "defaultActivityName": "Aktywność {{number}}",
     "defaultRouteName": "Trasa {{type}}",
     "duplicateNameMessage": "Proszę wybrać inną nazwę. Każda trasa musi mieć unikalną nazwę.",
     "duplicateNameTitle": "Nazwa już istnieje",
     "errorOccurred": "Wystapil blad",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Rozwiń w Ustawieniach",
     "expandTimeline": "Rozszerz os czasu, aby przeanalizowac wiecej aktywnosci. Dopasowywanie tras bedzie kontynuowane w tle az do zakonczenia.",
     "fastest": "#{{rank}} najszybsza",
     "fetchingGpsData": "Krok 2: Pobieranie danych śladów...",
@@ -566,11 +566,11 @@
   "routesScreen": {
     "analysingRoutes": "Analiza tras {{current}}/{{total}}",
     "computingRoutes": "Obliczanie tras...",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Na podstawie {{duration}} danych aktywności",
     "downloadingGps": "Pobieranie śladów",
     "enableInSettings": "Wlacz dopasowywanie tras w Ustawieniach, aby automatycznie wykrywac powtarzajace sie trasy z Twoich aktywnosci.",
     "expandDateRange": "Rozszerz zakres dat",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Rozwiń w Ustawieniach",
     "goToSettings": "Przejdz do Ustawien",
     "matchingDisabled": "Dopasowywanie tras wylaczone",
     "title": "Trasy"

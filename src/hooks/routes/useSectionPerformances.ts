@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { intervalsApi } from '@/api';
 import { routeEngine, type SectionPerformanceResult } from 'veloqrs';
-import type { FrequentSection, ActivityStreams, DirectionStats } from '@/types';
+import type { FrequentSection, ActivityStreams, DirectionStats, Activity } from '@/types';
 import { toDirectionStats, castDirection, fromUnixSeconds } from '@/lib/utils/ffiConversions';
+import { toActivityMetrics } from '@/lib/utils/activityMetrics';
 
 /**
  * Individual lap/traversal of a section
@@ -73,19 +74,13 @@ interface UseSectionPerformancesResult {
   refetch: () => void;
 }
 
-interface Activity {
-  id: string;
-  name: string;
-  start_date_local: string;
-}
-
 /**
  * Hook for calculating accurate section performance times.
  * Uses cached time streams from Rust engine (SQLite) when available.
  * Only fetches from API for activities missing from cache.
  *
  * @param section - The section to calculate performances for
- * @param activities - Activities that have traversed this section
+ * @param activities - Activities that have traversed this section (full Activity objects needed for metrics)
  */
 export function useSectionPerformances(
   section: FrequentSection | null,
@@ -114,6 +109,13 @@ export function useSectionPerformances(
     if (allActivityIds.length === 0) {
       setFetchComplete(true);
       return;
+    }
+
+    // Ensure activity metrics are set for all activities (needed for performance calculations)
+    // This handles activities that were synced before setActivityMetrics was added
+    if (activities && activities.length > 0) {
+      const metrics = activities.map(toActivityMetrics);
+      routeEngine.setActivityMetrics(metrics);
     }
 
     // Check which activities are missing from cache (memory + SQLite)

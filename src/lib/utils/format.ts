@@ -22,7 +22,7 @@ const MPS_TO_MPH = 2.23694;
  *
  * @example
  * ```ts
- * getIntlLocale(); // "de-CH" for "de-CHZ"
+ * getIntlLocale(); // "zh-CN" for "zh-Hans"
  * ```
  */
 function getIntlLocale(): string {
@@ -30,9 +30,7 @@ function getIntlLocale(): string {
 
   // Map custom locale codes to valid Intl codes
   const localeMap: Record<string, string> = {
-    'de-CHZ': 'de-CH', // Zürich dialect → Swiss German formatting
-    'de-CHB': 'de-CH', // Bernese dialect → Swiss German formatting
-    'zh-Hans': 'zh-CN', // Simplified Chinese
+    'zh-Hans': 'zh-CN', // Simplified Chinese script → China region
   };
 
   return localeMap[locale] || locale;

@@ -232,39 +232,39 @@
   "emptyState": {
     "clearFilters": "Filter lösche",
     "error": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basierend uf {{duration}} Aktivitätsdatä",
       "description": "Öppis isch schiefggange",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "In Istellige erwitere",
       "title": "Siech!"
     },
     "networkError": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basierend uf {{duration}} Aktivitätsdatä",
       "description": "Lueg dini Internetverbindig aa",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "In Istellige erwitere",
       "title": "Kei Verbindig!"
     },
     "noActivities": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basierend uf {{duration}} Aktivitätsdatä",
       "description": "Dini Aktivitäte chömed wenn du synced",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "In Istellige erwitere",
       "title": "No kei Aktivitäte"
     },
     "noData": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basierend uf {{duration}} Aktivitätsdatä",
       "description": "Mach es paar Aktivitäte",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "In Istellige erwitere",
       "title": "Kei Date da"
     },
     "noResults": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basierend uf {{duration}} Aktivitätsdatä",
       "description": "Probier dini Suechi oder Filter aazpasse",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "In Istellige erwitere",
       "title": "Nüüt gfunde!"
     },
     "offline": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basierend uf {{duration}} Aktivitätsdatä",
       "description": "Es paar Sache gönd vilicht nöd",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "In Istellige erwitere",
       "title": "Du bisch offline"
     },
     "refresh": "Nöi lade"
@@ -486,13 +486,13 @@
     "checkingActivities": "1: {{count}} Aktivitäte prüefe...",
     "createSection": "Abschnitt mache",
     "custom": "Eigene",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Basierend uf {{duration}} Aktivitätsdatä",
     "defaultActivityName": "Aktivität {{number}}",
     "defaultRouteName": "{{type}} Route",
     "duplicateNameMessage": "Bitte wähl en andere Name. Jedi Route muess en eigene Name ha.",
     "duplicateNameTitle": "Name gits scho",
     "errorOccurred": "Gopferteckel, öppis isch schiefggange!",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "In Istellige erwitere",
     "expandTimeline": "Mach d Ziitlinie grösser für meh.",
     "fastest": "#{{rank}} schnellschti",
     "fetchingGpsData": "2: GPS-Date lade...",
@@ -566,11 +566,11 @@
   "routesScreen": {
     "analysingRoutes": "Analysiere {{current}}/{{total}}",
     "computingRoutes": "Am Berechne...",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Basierend uf {{duration}} Aktivitätsdatä",
     "downloadingGps": "GPS abelade...",
     "enableInSettings": "Mach Route-Matching aa i de Istellige!",
     "expandDateRange": "Meh Ziit zeige",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "In Istellige erwitere",
     "goToSettings": "Zu Istellige",
     "matchingDisabled": "Route-Matching us",
     "title": "Route"

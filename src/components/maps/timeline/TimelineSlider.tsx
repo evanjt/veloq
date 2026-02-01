@@ -167,15 +167,22 @@ export function TimelineSlider({
 
     // Older years (left half: 0-0.5)
     const positionPerYear = RECENT_YEAR_POSITION / olderYears;
+    // Skip years when labels would be too close (< 40px apart)
+    const olderYearsWidth = trackWidth * RECENT_YEAR_POSITION;
+    const pixelsPerYear = olderYearsWidth / olderYears;
+    const yearStep = pixelsPerYear < 40 ? Math.ceil(40 / pixelsPerYear) : 1;
+
     for (let i = 0; i <= olderYears; i++) {
       const position = i * positionPerYear;
       const yearsBack = olderYears - i + 1;
       const date = new Date(maxDate.getTime() - yearsBack * ONE_YEAR_MS);
+      // Always keep snap points for all years, but only show labels for visible ones
+      const showLabel = i % yearStep === 0 || i === olderYears;
       points.push({
         position,
         label: date.getFullYear().toString(),
         date,
-        showLabel: true,
+        showLabel,
       });
     }
 
@@ -218,7 +225,7 @@ export function TimelineSlider({
     });
 
     return points;
-  }, [olderYears, maxDate, t]);
+  }, [olderYears, maxDate, t, trackWidth]);
 
   // Snap position to nearest snap point
   const snapToNearest = useCallback(
@@ -477,16 +484,18 @@ export function TimelineSlider({
                       { left: pixelPos - 0.5 },
                     ]}
                   />
-                  <Text
-                    style={[
-                      styles.tickLabelBase,
-                      isDark && styles.tickLabelDark,
-                      { left: pixelPos - 14, width: 28, textAlign: 'center' },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {labelText}
-                  </Text>
+                  {point.showLabel && (
+                    <Text
+                      style={[
+                        styles.tickLabelBase,
+                        isDark && styles.tickLabelDark,
+                        { left: pixelPos - 14, width: 28, textAlign: 'center' },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {labelText}
+                    </Text>
+                  )}
                 </React.Fragment>
               );
             })}

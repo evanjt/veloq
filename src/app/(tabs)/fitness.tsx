@@ -1,24 +1,45 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, CollapsibleSection } from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { FitnessChart, FormZoneChart, ActivityDotsChart } from '@/components/fitness';
+import {
+  PowerCurveChart,
+  PaceCurveChart,
+  SwimPaceCurveChart,
+  ZoneDistributionChart,
+  FTPTrendChart,
+  DecouplingChart,
+} from '@/components/stats';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { NetworkErrorState, ErrorStatePreset } from '@/components/ui';
 import {
   useWellness,
   useActivities,
+  useActivityStreams,
+  useZoneDistribution,
+  useEFTPHistory,
+  getLatestFTP,
+  useSportSettings,
+  getSettingsForSport,
+  usePaceCurve,
   useTheme,
   getFormZone,
   FORM_ZONE_COLORS,
   FORM_ZONE_LABELS,
   type TimeRange,
 } from '@/hooks';
-import { useNetwork } from '@/providers';
-import { formatLocalDate, formatShortDateWithWeekday } from '@/lib';
+import { useNetwork, useSportPreference, SPORT_COLORS, type PrimarySport } from '@/providers';
+import {
+  formatLocalDate,
+  formatShortDateWithWeekday,
+  formatPaceCompact,
+  formatSwimPace,
+} from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
@@ -62,6 +83,12 @@ export default function FitnessScreen() {
   const [timeRange, setTimeRange] = useState<TimeRange>('3m');
   const [chartInteracting, setChartInteracting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Collapsible section state - performance expanded by default
+  const [performanceExpanded, setPerformanceExpanded] = useState(true);
+  const [zonesExpanded, setZonesExpanded] = useState(false);
+  const [trendsExpanded, setTrendsExpanded] = useState(false);
+  const [efficiencyExpanded, setEfficiencyExpanded] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedValues, setSelectedValues] = useState<{
     fitness: number;
@@ -83,14 +110,120 @@ export default function FitnessScreen() {
 
   const { data: wellness, isLoading, isFetching, isError, error, refetch } = useWellness(timeRange);
   const { isOnline } = useNetwork();
+  const { primarySport } = useSportPreference();
 
-  // Fetch activities for the selected time range
-  const { data: activities } = useActivities({
+  // Sport mode state - defaults to primary sport, can be toggled
+  const [sportMode, setSportMode] = useState<PrimarySport>(() => primarySport);
+
+  // Update sport mode when primary sport preference changes
+  useEffect(() => {
+    setSportMode(primarySport);
+  }, [primarySport]);
+
+  // Fetch activities for the selected time range (with stats for zone/eFTP)
+  const { data: activities, isLoading: loadingActivities } = useActivities({
     days: timeRangeToDays(timeRange),
+    includeStats: true,
   });
 
   // Background sync: prefetch 1 year of activities on first load for cache
   useActivities({ days: 365 });
+
+  // Compute zone distributions - filtered by current sport mode
+  const powerZones = useZoneDistribution({
+    type: 'power',
+    activities,
+    sport: sportMode,
+  });
+  const hrZones = useZoneDistribution({
+    type: 'hr',
+    activities,
+    sport: sportMode,
+  });
+
+  // Compute eFTP history and current FTP
+  const eftpHistory = useEFTPHistory(activities);
+  const currentFTP = getLatestFTP(activities);
+
+  // Get sport settings for thresholds
+  const { data: sportSettings } = useSportSettings();
+  const runSettings = getSettingsForSport(sportSettings, 'Run');
+  const runLthr = runSettings?.lthr;
+  const runMaxHr = runSettings?.max_hr;
+
+  // Get pace curve for critical speed (threshold pace)
+  const { data: runPaceCurve } = usePaceCurve({
+    sport: 'Run',
+    days: timeRangeToDays(timeRange),
+  });
+  const thresholdPace = runPaceCurve?.criticalSpeed;
+
+  // Get swim pace curve for threshold (CSS - critical swim speed)
+  const { data: swimPaceCurve } = usePaceCurve({
+    sport: 'Swim',
+    days: timeRangeToDays(timeRange),
+  });
+  const swimThresholdPace = swimPaceCurve?.criticalSpeed;
+
+  // Find a recent activity with power data for decoupling analysis
+  const decouplingActivity = useMemo(() => {
+    if (!activities) return null;
+    return (
+      activities.find(
+        (a) =>
+          (a.type === 'Ride' || a.type === 'VirtualRide') &&
+          (a.icu_average_watts || a.average_watts) &&
+          (a.average_heartrate || a.icu_average_hr) &&
+          a.moving_time >= 30 * 60
+      ) || null
+    );
+  }, [activities]);
+
+  // Compute FTP trend (compare current to avg of previous values)
+  const ftpTrend = useMemo(() => {
+    if (!eftpHistory || eftpHistory.length < 2) return null;
+    const current = eftpHistory[eftpHistory.length - 1].eftp;
+    const previous = eftpHistory[eftpHistory.length - 2].eftp;
+    if (current === previous) return 'stable';
+    return current > previous ? 'up' : 'down';
+  }, [eftpHistory]);
+
+  // Compute dominant zone for header display
+  const dominantZone = useMemo(() => {
+    const zones = sportMode === 'Cycling' ? powerZones : hrZones;
+    if (!zones || zones.length === 0) return null;
+    const sorted = [...zones].sort((a, b) => b.percentage - a.percentage);
+    const top = sorted[0];
+    if (top.percentage === 0) return null;
+    return { name: top.name, percentage: top.percentage };
+  }, [sportMode, powerZones, hrZones]);
+
+  // Compute decoupling percentage for header display
+  const decouplingValue = useMemo(() => {
+    if (!decouplingStreams?.watts || !decouplingStreams?.heartrate) return null;
+    const power = decouplingStreams.watts;
+    const hr = decouplingStreams.heartrate;
+    if (power.length === 0 || hr.length === 0) return null;
+
+    const midpoint = Math.floor(power.length / 2);
+    const avgFirstPower = power.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint;
+    const avgFirstHR = hr.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint;
+    const avgSecondPower =
+      power.slice(midpoint).reduce((a, b) => a + b, 0) / (power.length - midpoint);
+    const avgSecondHR = hr.slice(midpoint).reduce((a, b) => a + b, 0) / (hr.length - midpoint);
+
+    const firstHalfEf = avgFirstPower / avgFirstHR;
+    const secondHalfEf = avgSecondPower / avgSecondHR;
+    const decoupling = ((firstHalfEf - secondHalfEf) / firstHalfEf) * 100;
+    const isGood = decoupling < 5;
+
+    return { value: decoupling, isGood };
+  }, [decouplingStreams]);
+
+  // Fetch streams for the decoupling activity
+  const { data: decouplingStreams, isLoading: loadingStreams } = useActivityStreams(
+    decouplingActivity?.id || ''
+  );
 
   // Handle chart interaction state changes
   const handleInteractionChange = useCallback((isInteracting: boolean) => {
@@ -323,6 +456,255 @@ export default function FitnessScreen() {
             />
           </View>
         </View>
+
+        {/* Sport Toggle - compact pill selector */}
+        <View style={styles.sportToggleContainer}>
+          {(['Cycling', 'Running', 'Swimming'] as const).map((sport) => (
+            <TouchableOpacity
+              key={sport}
+              style={[
+                styles.sportToggleButton,
+                isDark && styles.sportToggleButtonDark,
+                sportMode === sport && { backgroundColor: SPORT_COLORS[sport] },
+              ]}
+              onPress={() => setSportMode(sport)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={sport === 'Cycling' ? 'bike' : sport === 'Running' ? 'run' : 'swim'}
+                size={16}
+                color={sportMode === sport ? colors.textOnDark : themeColors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.sportToggleText,
+                  isDark && styles.sportToggleTextDark,
+                  sportMode === sport && styles.sportToggleTextActive,
+                ]}
+              >
+                {t(`filters.${sport.toLowerCase()}`)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Performance Section - Power/Pace Curve (expanded by default) */}
+        <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
+          <CollapsibleSection
+            title={
+              sportMode === 'Cycling'
+                ? t('statsScreen.powerCurve')
+                : sportMode === 'Swimming'
+                  ? t('statsScreen.swimPaceCurve')
+                  : t('statsScreen.paceCurve')
+            }
+            icon={sportMode === 'Cycling' ? 'lightning-bolt' : 'speedometer'}
+            expanded={performanceExpanded}
+            onToggle={setPerformanceExpanded}
+            estimatedHeight={240}
+            headerRight={
+              sportMode === 'Cycling' && currentFTP ? (
+                <Text style={[styles.headerValue, { color: SPORT_COLORS.Cycling }]}>
+                  {currentFTP}w
+                </Text>
+              ) : sportMode === 'Running' && thresholdPace ? (
+                <Text style={[styles.headerValue, { color: SPORT_COLORS.Running }]}>
+                  {formatPaceCompact(thresholdPace)}/km
+                </Text>
+              ) : sportMode === 'Swimming' && swimThresholdPace ? (
+                <Text style={[styles.headerValue, { color: SPORT_COLORS.Swimming }]}>
+                  {formatSwimPace(swimThresholdPace)}/100m
+                </Text>
+              ) : null
+            }
+          >
+            <View style={styles.collapsibleContent}>
+              {sportMode === 'Cycling' && (
+                <PowerCurveChart height={200} days={timeRangeToDays(timeRange)} ftp={currentFTP} />
+              )}
+              {sportMode === 'Running' && (
+                <PaceCurveChart height={200} days={timeRangeToDays(timeRange)} />
+              )}
+              {sportMode === 'Swimming' && (
+                <SwimPaceCurveChart height={200} days={timeRangeToDays(timeRange)} />
+              )}
+            </View>
+          </CollapsibleSection>
+        </View>
+
+        {/* Training Zones Section */}
+        <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
+          <CollapsibleSection
+            title={t('statsScreen.trainingZones')}
+            icon="chart-bar"
+            expanded={zonesExpanded}
+            onToggle={setZonesExpanded}
+            estimatedHeight={sportMode === 'Cycling' ? 400 : 200}
+            headerRight={
+              dominantZone ? (
+                <Text style={[styles.headerValue, { color: SPORT_COLORS[sportMode] }]}>
+                  {dominantZone.name}: {dominantZone.percentage}%
+                </Text>
+              ) : null
+            }
+          >
+            <View style={styles.collapsibleContent}>
+              {loadingActivities && !activities ? (
+                <View style={styles.zoneLoadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : (
+                <>
+                  {sportMode === 'Cycling' && (
+                    <View style={styles.zoneSection}>
+                      <ZoneDistributionChart
+                        data={powerZones}
+                        type="power"
+                        periodLabel={TIME_RANGES.find((r) => r.id === timeRange)?.label || '3M'}
+                      />
+                    </View>
+                  )}
+                  <View style={sportMode === 'Cycling' ? styles.zoneSectionDivided : undefined}>
+                    <ZoneDistributionChart
+                      data={hrZones}
+                      type="hr"
+                      periodLabel={TIME_RANGES.find((r) => r.id === timeRange)?.label || '3M'}
+                    />
+                  </View>
+                </>
+              )}
+            </View>
+          </CollapsibleSection>
+        </View>
+
+        {/* Trends Section - eFTP/Threshold */}
+        {sportMode === 'Cycling' && (
+          <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
+            <CollapsibleSection
+              title={t('statsScreen.eFTPTrend')}
+              icon="trending-up"
+              expanded={trendsExpanded}
+              onToggle={setTrendsExpanded}
+              estimatedHeight={220}
+              headerRight={
+                currentFTP ? (
+                  <View style={styles.headerValueRow}>
+                    <Text style={[styles.headerValue, { color: SPORT_COLORS.Cycling }]}>
+                      {currentFTP}w
+                    </Text>
+                    {ftpTrend && ftpTrend !== 'stable' && (
+                      <MaterialCommunityIcons
+                        name={ftpTrend === 'up' ? 'trending-up' : 'trending-down'}
+                        size={16}
+                        color={ftpTrend === 'up' ? colors.success : colors.error}
+                        style={styles.trendIcon}
+                      />
+                    )}
+                  </View>
+                ) : null
+              }
+            >
+              <View style={styles.collapsibleContent}>
+                {loadingActivities && !activities ? (
+                  <View style={styles.zoneLoadingContainer}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                ) : (
+                  <FTPTrendChart data={eftpHistory} currentFTP={currentFTP} height={180} />
+                )}
+              </View>
+            </CollapsibleSection>
+          </View>
+        )}
+
+        {/* Running Threshold Stats */}
+        {sportMode === 'Running' && (thresholdPace || runLthr) && (
+          <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
+            <CollapsibleSection
+              title={t('statsScreen.lactateThreshold')}
+              icon="heart-pulse"
+              expanded={trendsExpanded}
+              onToggle={setTrendsExpanded}
+              estimatedHeight={100}
+              headerRight={
+                thresholdPace ? (
+                  <Text style={[styles.headerValue, { color: SPORT_COLORS.Running }]}>
+                    {formatPaceCompact(thresholdPace)}/km
+                  </Text>
+                ) : runLthr ? (
+                  <Text style={[styles.headerValue, { color: SPORT_COLORS.Running }]}>
+                    {runLthr} bpm
+                  </Text>
+                ) : null
+              }
+            >
+              <View style={styles.collapsibleContent}>
+                <View style={styles.thresholdRow}>
+                  <View style={styles.thresholdItem}>
+                    <Text style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}>
+                      {t('statsScreen.pace')}
+                    </Text>
+                    <Text style={[styles.thresholdValue, { color: SPORT_COLORS.Running }]}>
+                      {thresholdPace ? `${formatPaceCompact(thresholdPace)}/km` : '-'}
+                    </Text>
+                  </View>
+                  {runLthr && (
+                    <>
+                      <View style={styles.thresholdDivider} />
+                      <View style={styles.thresholdItem}>
+                        <Text style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}>
+                          {t('statsScreen.heartRate')}
+                        </Text>
+                        <Text style={[styles.thresholdValue, { color: SPORT_COLORS.Running }]}>
+                          {runLthr} bpm
+                        </Text>
+                      </View>
+                    </>
+                  )}
+                </View>
+              </View>
+            </CollapsibleSection>
+          </View>
+        )}
+
+        {/* Efficiency Section - Decoupling (Cycling only) */}
+        {sportMode === 'Cycling' && (
+          <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
+            <CollapsibleSection
+              title={t('statsScreen.decoupling')}
+              icon="heart-flash"
+              expanded={efficiencyExpanded}
+              onToggle={setEfficiencyExpanded}
+              estimatedHeight={160}
+              headerRight={
+                decouplingValue ? (
+                  <Text
+                    style={[
+                      styles.headerValue,
+                      { color: decouplingValue.isGood ? colors.success : colors.warning },
+                    ]}
+                  >
+                    {decouplingValue.value.toFixed(1)}%
+                  </Text>
+                ) : null
+              }
+            >
+              <View style={styles.collapsibleContent}>
+                {loadingStreams && !decouplingStreams ? (
+                  <View style={styles.zoneLoadingContainer}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                ) : (
+                  <DecouplingChart
+                    power={decouplingStreams?.watts}
+                    heartrate={decouplingStreams?.heartrate}
+                    height={120}
+                  />
+                )}
+              </View>
+            </CollapsibleSection>
+          </View>
+        )}
 
         {/* Info section */}
         <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
@@ -609,6 +991,110 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.primary,
     paddingVertical: spacing.xs,
+  },
+  sportToggleContainer: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  sportToggleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: layout.borderRadiusSm,
+    backgroundColor: opacity.overlay.light,
+    gap: 6,
+  },
+  sportToggleButtonDark: {
+    backgroundColor: opacity.overlayDark.medium,
+  },
+  sportToggleText: {
+    ...typography.caption,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  sportToggleTextDark: {
+    color: darkColors.textSecondary,
+  },
+  sportToggleTextActive: {
+    color: colors.textOnDark,
+  },
+  headerValue: {
+    ...typography.bodyBold,
+    marginRight: spacing.sm,
+  },
+  headerValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  trendIcon: {
+    marginLeft: 2,
+    marginRight: spacing.sm,
+  },
+  zoneLoadingContainer: {
+    padding: spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  collapsibleCard: {
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadius,
+    marginBottom: spacing.sm,
+    overflow: 'hidden',
+  },
+  collapsibleCardDark: {
+    backgroundColor: darkColors.surface,
+  },
+  collapsibleContent: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  zoneSection: {
+    marginBottom: spacing.md,
+  },
+  zoneSectionDivided: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: opacity.overlay.medium,
+  },
+  thresholdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thresholdItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  thresholdLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  thresholdLabelDark: {
+    color: darkColors.textSecondary,
+  },
+  thresholdValue: {
+    fontSize: typography.statsValue.fontSize,
+    fontWeight: '700',
+  },
+  thresholdValueSmall: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  thresholdValueSmallDark: {
+    color: darkColors.textSecondary,
+  },
+  thresholdDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: opacity.overlay.medium,
+    marginHorizontal: spacing.md,
   },
   loadingText: {
     ...typography.bodySmall,

@@ -3777,10 +3777,13 @@ impl PersistentRouteEngine {
     /// Uses time streams to calculate actual traversal times.
     /// Auto-loads time streams from SQLite if not in memory.
     pub fn get_section_performances(&mut self, section_id: &str) -> SectionPerformanceResult {
+        log::info!("[DEBUG] get_section_performances called for section_id: {}", section_id);
+
         // Find the section (both auto-detected and custom are now in unified sections table)
         let section = match self.sections.iter().find(|s| s.id == section_id) {
             Some(s) => s.clone(),
             None => {
+                log::warn!("[DEBUG] Section not found: {}", section_id);
                 return SectionPerformanceResult {
                     records: vec![],
                     best_record: None,
@@ -3792,6 +3795,11 @@ impl PersistentRouteEngine {
             }
         };
 
+        log::info!(
+            "[DEBUG] Section found. activity_portions count: {}",
+            section.activity_portions.len()
+        );
+
         // Auto-load time streams from SQLite for all activities in this section
         let activity_ids: Vec<String> = section
             .activity_portions
@@ -3801,8 +3809,27 @@ impl PersistentRouteEngine {
             .into_iter()
             .collect();
 
+        log::info!("[DEBUG] Unique activity IDs: {:?}", activity_ids);
+
         for activity_id in &activity_ids {
-            self.ensure_time_stream_loaded(activity_id);
+            let loaded = self.ensure_time_stream_loaded(activity_id);
+            log::info!(
+                "[DEBUG] ensure_time_stream_loaded({}) = {}",
+                activity_id,
+                loaded
+            );
+        }
+
+        // Debug: Check what's available
+        for activity_id in &activity_ids {
+            let has_metrics = self.activity_metrics.contains_key(activity_id);
+            let has_times = self.time_streams.contains_key(activity_id);
+            log::info!(
+                "[DEBUG] Activity {}: has_metrics={}, has_times={}",
+                activity_id,
+                has_metrics,
+                has_times
+            );
         }
 
         // Group portions by activity
@@ -3890,6 +3917,8 @@ impl PersistentRouteEngine {
                 })
             })
             .collect();
+
+        log::info!("[DEBUG] Built {} performance records", records.len());
 
         // Sort by date
         records.sort_by_key(|r| r.activity_date);

@@ -9,17 +9,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { brand } from '@/theme';
 import { PERF_DEBUG } from '@/lib/debug/renderTimer';
 
-// Menu items with routes and icons
+// Menu items with routes and icons (labels come from i18n)
 const MENU_ITEMS = [
-  { key: 'feed', icon: 'home-outline', route: '/', label: 'Feed' },
-  { key: 'fitness', icon: 'chart-line', route: '/fitness', label: 'Fitness' },
-  { key: 'map', icon: 'map-outline', route: '/map', label: 'Map' },
-  { key: 'routes', icon: 'map-marker-path', route: '/routes', label: 'Routes' },
-  { key: 'health', icon: 'heart-pulse', route: '/training', label: 'Health' },
+  { key: 'feed', icon: 'home-outline', route: '/' },
+  { key: 'fitness', icon: 'chart-line', route: '/fitness' },
+  { key: 'map', icon: 'map-outline', route: '/map' },
+  { key: 'routes', icon: 'map-marker-path', route: '/routes' },
+  { key: 'health', icon: 'heart-pulse', route: '/training' },
 ] as const;
 
 // Dimensions
@@ -45,6 +46,7 @@ function BottomTabBarComponent() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const { isDark } = useTheme();
+  const { t } = useTranslation();
 
   // Colors with proper contrast for accessibility
   const activeColor = isDark ? ACTIVE_COLOR_DARK : brand.tealLight;
@@ -110,13 +112,14 @@ function BottomTabBarComponent() {
               ? pathname === '/' || pathname === '/index'
               : pathname.startsWith(item.route);
 
+          const label = t(`navigation.${item.key}`);
           return (
             <TouchableOpacity
               key={item.key}
               style={styles.tabItem}
               onPress={() => handlePress(item.route)}
               activeOpacity={0.6}
-              accessibilityLabel={item.label}
+              accessibilityLabel={label}
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
             >
@@ -133,7 +136,7 @@ function BottomTabBarComponent() {
                 ]}
                 numberOfLines={1}
               >
-                {item.label}
+                {label}
               </Text>
             </TouchableOpacity>
           );

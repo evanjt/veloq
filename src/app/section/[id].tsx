@@ -96,6 +96,8 @@ interface ActivityRowProps {
   rank?: number;
   /** Best time in seconds (for delta calculation) */
   bestTime?: number;
+  /** Best pace in m/s (for pace delta calculation) */
+  bestPace?: number;
   /** Is this the reference (medoid) activity for the section? */
   isReference?: boolean;
   /** Stable callback for highlight - receives activity ID, pass null to clear */
@@ -119,6 +121,7 @@ const ActivityRow = memo(function ActivityRow({
   isBest = false,
   rank,
   bestTime,
+  bestPace,
   isReference = false,
   onHighlightChange,
   onSetAsReference,
@@ -170,25 +173,57 @@ const ActivityRow = memo(function ActivityRow({
   const showPace = isRunningActivity(activity.type);
   const showLapCount = lapCount !== undefined && lapCount > 1;
 
-  // Calculate delta from best time
-  const delta = useMemo(() => {
-    if (bestTime === undefined || sectionTime === undefined || sectionTime <= 0) return null;
-    const diff = sectionTime - bestTime;
-    if (Math.abs(diff) < 1) return null; // Don't show for < 1s difference
-    return diff;
-  }, [bestTime, sectionTime]);
+  // Calculate delta from best - use pace for running, time for others
+  const { deltaDisplay, deltaColor } = useMemo(() => {
+    if (isBest) return { deltaDisplay: null, deltaColor: colors.textSecondary };
 
-  // Format delta as +/-MM:SS or +/-SS
-  const formatDelta = (seconds: number): string => {
-    const absSeconds = Math.abs(seconds);
-    const sign = seconds > 0 ? '+' : '-';
-    if (absSeconds >= 60) {
-      const mins = Math.floor(absSeconds / 60);
-      const secs = Math.floor(absSeconds % 60);
-      return `${sign}${mins}:${secs.toString().padStart(2, '0')}`;
+    // For running: calculate pace delta (seconds per km difference)
+    if (showPace && sectionSpeed > 0 && bestPace && bestPace > 0) {
+      const currentPacePerKm = 1000 / sectionSpeed; // seconds per km
+      const bestPacePerKm = 1000 / bestPace; // seconds per km
+      const paceDelta = currentPacePerKm - bestPacePerKm; // positive = slower
+
+      if (!Number.isFinite(paceDelta) || Math.abs(paceDelta) < 1) {
+        return { deltaDisplay: null, deltaColor: colors.textSecondary };
+      }
+
+      const absDelta = Math.abs(paceDelta);
+      const minutes = Math.floor(absDelta / 60);
+      const seconds = Math.round(absDelta % 60);
+      const sign = paceDelta > 0 ? '+' : '-';
+      const formatted =
+        minutes > 0
+          ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
+          : `${sign}${seconds}s`;
+
+      return {
+        deltaDisplay: formatted,
+        deltaColor: paceDelta <= 0 ? colors.success : colors.error,
+      };
     }
-    return `${sign}${Math.floor(absSeconds)}s`;
-  };
+
+    // Fall back to time delta for non-running
+    if (bestTime === undefined || sectionTime === undefined || sectionTime <= 0) {
+      return { deltaDisplay: null, deltaColor: colors.textSecondary };
+    }
+
+    const diff = sectionTime - bestTime;
+    if (Math.abs(diff) < 1) return { deltaDisplay: null, deltaColor: colors.textSecondary };
+
+    const absDelta = Math.abs(diff);
+    const minutes = Math.floor(absDelta / 60);
+    const seconds = Math.round(absDelta % 60);
+    const sign = diff > 0 ? '+' : '-';
+    const formatted =
+      minutes > 0
+        ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
+        : `${sign}${Math.floor(absDelta)}s`;
+
+    return {
+      deltaDisplay: formatted,
+      deltaColor: diff <= 0 ? colors.success : colors.error,
+    };
+  }, [isBest, showPace, sectionSpeed, bestPace, bestTime, sectionTime]);
 
   return (
     <Pressable
@@ -202,6 +237,8 @@ const ActivityRow = memo(function ActivityRow({
         isDark && styles.activityRowDark,
         isHighlighted && styles.activityRowHighlighted,
         pressed && styles.activityRowPressed,
+        isBest && styles.activityRowBest,
+        isReference && styles.activityRowReference,
       ]}
     >
       {activityPoints && activityPoints.length > 1 ? (
@@ -211,9 +248,17 @@ const ActivityRow = memo(function ActivityRow({
           primaryColor={traceColor}
           referenceColor={colors.consensusRoute}
           isHighlighted={isHighlighted}
+          isDark={isDark}
+          width={56}
+          height={40}
         />
       ) : (
-        <View style={[styles.activityIcon, { backgroundColor: traceColor + '20' }]}>
+        <View
+          style={[
+            styles.activityIcon,
+            { backgroundColor: traceColor + '20', width: 56, height: 40 },
+          ]}
+        >
           <MaterialCommunityIcons
             name={getActivityIcon(activity.type)}
             size={18}
@@ -226,34 +271,23 @@ const ActivityRow = memo(function ActivityRow({
           <Text style={[styles.activityName, isDark && styles.textLight]} numberOfLines={1}>
             {activity.name}
           </Text>
-          {/* PR badge for best performance */}
+          {/* PR indicator - small trophy icon (gold) */}
           {isBest && (
-            <View style={[styles.prBadge, { backgroundColor: colors.primary }]}>
-              <MaterialCommunityIcons name="trophy" size={12} color={colors.textOnDark} />
-              <Text style={styles.prText}>{t('routes.pr')}</Text>
-            </View>
+            <MaterialCommunityIcons
+              name="trophy"
+              size={14}
+              color={colors.chartGold}
+              style={{ marginLeft: 4 }}
+            />
           )}
-          {/* Reference badge for medoid activity */}
+          {/* Reference indicator - small star icon (cyan) - show even if also PR */}
           {isReference && (
-            <View style={[styles.referenceBadge, isDark && styles.referenceBadgeDark]}>
-              <MaterialCommunityIcons name="star" size={10} color={colors.chartCyan} />
-              <Text style={styles.referenceText}>{t('sections.reference')}</Text>
-            </View>
-          )}
-          {/* Rank badge for non-best performances (top 10) */}
-          {!isBest && rank !== undefined && rank <= 10 && (
-            <View style={[styles.rankBadge, { backgroundColor: colors.textSecondary + '20' }]}>
-              <Text
-                style={[
-                  styles.rankText,
-                  {
-                    color: isDark ? colors.textSecondary : colors.textSecondary,
-                  },
-                ]}
-              >
-                #{rank}
-              </Text>
-            </View>
+            <MaterialCommunityIcons
+              name="star"
+              size={14}
+              color={colors.chartCyan}
+              style={{ marginLeft: 4 }}
+            />
           )}
           {isReverse && (
             <View style={[styles.directionBadge, { backgroundColor: REVERSE_COLOR + '15' }]}>
@@ -277,12 +311,6 @@ const ActivityRow = memo(function ActivityRow({
               · {lapCount} traversals
             </Text>
           )}
-          {/* vs-PR delta */}
-          {delta !== null && !isBest && (
-            <Text style={[styles.deltaText, { color: delta <= 0 ? colors.success : colors.error }]}>
-              {formatDelta(delta)}
-            </Text>
-          )}
         </View>
       </View>
       <View style={styles.activityStats}>
@@ -292,6 +320,10 @@ const ActivityRow = memo(function ActivityRow({
         <Text style={[styles.activityTime, isDark && styles.textMuted]}>
           {formatDuration(sectionTime)}
         </Text>
+        {/* Pace/time delta - on right under time */}
+        {deltaDisplay && !isBest && (
+          <Text style={[styles.deltaText, { color: deltaColor }]}>{deltaDisplay}</Text>
+        )}
       </View>
       <MaterialCommunityIcons
         name="chevron-right"
@@ -380,7 +412,7 @@ export default function SectionDetailScreen() {
       const engine = getRouteEngine();
       if (engine && id) {
         const fresh = engine.getSectionById(id);
-        if (fresh) {
+        if (fresh && fresh.polyline && fresh.polyline.length > 0) {
           // Map polyline coordinates from lat/lng to RoutePoint format
           // and use ALL fresh data to get updated activityIds, visitCount, etc.
           // Also cast activityPortions direction and ensure required fields
@@ -405,6 +437,7 @@ export default function SectionDetailScreen() {
             createdAt,
           } as FrequentSection;
         }
+        // If fresh data is invalid/empty, keep using rawEngineSection to avoid map flicker
       }
     }
     return rawEngineSection;
@@ -541,14 +574,13 @@ export default function SectionDetailScreen() {
   // Works for both custom sections AND engine-detected sections
   // Runs in batches to avoid blocking the main thread
   useEffect(() => {
-    if (!section || !section.activityIds.length) {
-      setComputedActivityTraces({});
+    if (!section || !section.activityIds.length || !section.polyline?.length) {
+      // Don't clear traces if section is temporarily invalid - preserve existing traces
       return;
     }
 
     const engine = getRouteEngine();
     if (!engine) {
-      setComputedActivityTraces({});
       return;
     }
 
@@ -581,7 +613,7 @@ export default function SectionDetailScreen() {
         }
       }
 
-      if (!cancelled) {
+      if (!cancelled && Object.keys(traces).length > 0) {
         setComputedActivityTraces({ ...traces });
       }
     };
@@ -909,11 +941,9 @@ export default function SectionDetailScreen() {
   const mapHighlightedActivityId = highlightedActivityId;
   const mapHighlightedLapPoints = highlightedActivityPoints;
 
-  // Memoize activities list highlighted ID - only updates when NOT scrubbing
-  // This prevents the activities list from re-rendering during scrubbing
-  const listHighlightedActivityId = useMemo(() => {
-    return isScrubbing ? committedActivityId : highlightedActivityId;
-  }, [isScrubbing, committedActivityId, highlightedActivityId]);
+  // Use highlightedActivityId directly for immediate row highlighting during scrubbing
+  // (like route detail page does)
+  const listHighlightedActivityId = highlightedActivityId;
 
   // Stable callback for ActivityRow highlight changes
   // This callback is memoized and won't change between renders, so it doesn't break ActivityRow's memo
@@ -939,7 +969,7 @@ export default function SectionDetailScreen() {
   });
 
   // Filter to only activities in this section
-  const sectionActivities = useMemo(() => {
+  const sectionActivitiesUnsorted = useMemo(() => {
     if (!section || !allActivities) return [];
     const idsSet = new Set(section.activityIds);
     const seen = new Set<string>();
@@ -959,7 +989,7 @@ export default function SectionDetailScreen() {
     bestReverseRecord,
     forwardStats,
     reverseStats,
-  } = useSectionPerformances(section, sectionActivities);
+  } = useSectionPerformances(section, sectionActivitiesUnsorted);
 
   // Show loading indicator while fetching performance data (but don't block the UI)
   const hasPerformanceData = performanceRecords && performanceRecords.length > 0;
@@ -975,6 +1005,23 @@ export default function SectionDetailScreen() {
     if (!performanceRecords) return new Map<string, ActivitySectionRecord>();
     return new Map(performanceRecords.map((r) => [r.activityId, r]));
   }, [performanceRecords]);
+
+  // Sort activities by pace (fastest first) - uses records if available, else estimates
+  const sectionActivities = useMemo(() => {
+    if (sectionActivitiesUnsorted.length === 0) return [];
+
+    // Sort by best pace (higher pace = faster = first)
+    return [...sectionActivitiesUnsorted].sort((a, b) => {
+      const recordA = performanceRecordMap.get(a.id);
+      const recordB = performanceRecordMap.get(b.id);
+
+      // Get pace from record if available, otherwise calculate from activity data
+      const paceA = recordA?.bestPace ?? (a.moving_time > 0 ? a.distance / a.moving_time : 0);
+      const paceB = recordB?.bestPace ?? (b.moving_time > 0 ? b.distance / b.moving_time : 0);
+
+      return paceB - paceA; // Descending (fastest first = highest pace)
+    });
+  }, [sectionActivitiesUnsorted, performanceRecordMap]);
 
   // Prepare chart data for UnifiedPerformanceChart
   // Uses actual section times from records when available, otherwise proportional estimate
@@ -1098,54 +1145,58 @@ export default function SectionDetailScreen() {
 
   // Compute performance rankings by speed (higher speed = better = rank 1)
   // Also compute summary statistics
-  const { rankMap, bestActivityId, bestTimeValue, averageTime, lastActivityDate } = useMemo(() => {
-    console.log('[SectionDetail] stats recompute:', {
-      chartDataLength: chartData.length,
-      firstEntry: chartData[0]
-        ? { time: chartData[0].sectionTime, speed: chartData[0].speed }
-        : null,
-    });
+  const { rankMap, bestActivityId, bestTimeValue, bestPaceValue, averageTime, lastActivityDate } =
+    useMemo(() => {
+      console.log('[SectionDetail] stats recompute:', {
+        chartDataLength: chartData.length,
+        firstEntry: chartData[0]
+          ? { time: chartData[0].sectionTime, speed: chartData[0].speed }
+          : null,
+      });
 
-    if (chartData.length === 0) {
+      if (chartData.length === 0) {
+        return {
+          rankMap: new Map<string, number>(),
+          bestActivityId: null as string | null,
+          bestTimeValue: undefined as number | undefined,
+          bestPaceValue: undefined as number | undefined,
+          averageTime: undefined as number | undefined,
+          lastActivityDate: undefined as string | undefined,
+        };
+      }
+
+      // Sort by speed descending (fastest first)
+      const sorted = [...chartData].sort((a, b) => b.speed - a.speed);
+      const map = new Map<string, number>();
+      sorted.forEach((item, idx) => {
+        map.set(item.activityId, idx + 1);
+      });
+
+      // Best is rank 1 (highest speed = best pace)
+      const bestId = sorted.length > 0 ? sorted[0].activityId : null;
+      const bestTime = sorted.length > 0 ? sorted[0].sectionTime : undefined;
+      const bestPace = sorted.length > 0 ? sorted[0].speed : undefined;
+
+      // Calculate average time
+      const times = chartData
+        .map((d) => d.sectionTime)
+        .filter((t): t is number => t !== undefined && t > 0);
+      const avgTime =
+        times.length > 0 ? times.reduce((sum, t) => sum + t, 0) / times.length : undefined;
+
+      // Get last activity date
+      const dates = chartData.map((d) => d.date.getTime());
+      const lastDate = dates.length > 0 ? new Date(Math.max(...dates)).toISOString() : undefined;
+
       return {
-        rankMap: new Map<string, number>(),
-        bestActivityId: null as string | null,
-        bestTimeValue: undefined as number | undefined,
-        averageTime: undefined as number | undefined,
-        lastActivityDate: undefined as string | undefined,
+        rankMap: map,
+        bestActivityId: bestId,
+        bestTimeValue: bestTime,
+        bestPaceValue: bestPace,
+        averageTime: avgTime,
+        lastActivityDate: lastDate,
       };
-    }
-
-    // Sort by speed descending (fastest first)
-    const sorted = [...chartData].sort((a, b) => b.speed - a.speed);
-    const map = new Map<string, number>();
-    sorted.forEach((item, idx) => {
-      map.set(item.activityId, idx + 1);
-    });
-
-    // Best is rank 1
-    const bestId = sorted.length > 0 ? sorted[0].activityId : null;
-    const bestTime = sorted.length > 0 ? sorted[0].sectionTime : undefined;
-
-    // Calculate average time
-    const times = chartData
-      .map((d) => d.sectionTime)
-      .filter((t): t is number => t !== undefined && t > 0);
-    const avgTime =
-      times.length > 0 ? times.reduce((sum, t) => sum + t, 0) / times.length : undefined;
-
-    // Get last activity date
-    const dates = chartData.map((d) => d.date.getTime());
-    const lastDate = dates.length > 0 ? new Date(Math.max(...dates)).toISOString() : undefined;
-
-    return {
-      rankMap: map,
-      bestActivityId: bestId,
-      bestTimeValue: bestTime,
-      averageTime: avgTime,
-      lastActivityDate: lastDate,
-    };
-  }, [chartData]);
+    }, [chartData]);
 
   // Summary stats for the chart header
   const summaryStats = useMemo((): ChartSummaryStats => {
@@ -1156,6 +1207,63 @@ export default function SectionDetailScreen() {
       lastActivity: lastActivityDate ? new Date(lastActivityDate) : null,
     };
   }, [bestTimeValue, averageTime, chartData.length, lastActivityDate]);
+
+  // Compute direction stats from chartData when Rust FFI returns empty
+  const computedForwardStats = useMemo((): DirectionSummaryStats | null => {
+    if (forwardStats) return forwardStats;
+    const forwardPoints = chartData.filter((p) => p.direction === 'same');
+    if (forwardPoints.length === 0) return null;
+    const times = forwardPoints
+      .map((p) => p.sectionTime)
+      .filter((t): t is number => t != null && t > 0);
+    const avgTime = times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : null;
+    const lastDate = forwardPoints.reduce(
+      (latest, p) => (p.date > latest ? p.date : latest),
+      forwardPoints[0].date
+    );
+    return { avgTime, lastActivity: lastDate, count: forwardPoints.length };
+  }, [forwardStats, chartData]);
+
+  const computedReverseStats = useMemo((): DirectionSummaryStats | null => {
+    if (reverseStats) return reverseStats;
+    const reversePoints = chartData.filter((p) => p.direction === 'reverse');
+    if (reversePoints.length === 0) return null;
+    const times = reversePoints
+      .map((p) => p.sectionTime)
+      .filter((t): t is number => t != null && t > 0);
+    const avgTime = times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : null;
+    const lastDate = reversePoints.reduce(
+      (latest, p) => (p.date > latest ? p.date : latest),
+      reversePoints[0].date
+    );
+    return { avgTime, lastActivity: lastDate, count: reversePoints.length };
+  }, [reverseStats, chartData]);
+
+  const computedBestForward = useMemo((): { bestTime: number; activityDate: Date } | null => {
+    if (bestForwardRecord) return bestForwardRecord;
+    const forwardPoints = chartData.filter((p) => p.direction === 'same');
+    if (forwardPoints.length === 0) return null;
+    const withTime = forwardPoints.filter((p) => p.sectionTime != null && p.sectionTime > 0);
+    if (withTime.length === 0) return null;
+    const best = withTime.reduce(
+      (min, p) => (p.sectionTime! < min.sectionTime! ? p : min),
+      withTime[0]
+    );
+    return { bestTime: best.sectionTime!, activityDate: best.date };
+  }, [bestForwardRecord, chartData]);
+
+  const computedBestReverse = useMemo((): { bestTime: number; activityDate: Date } | null => {
+    if (bestReverseRecord) return bestReverseRecord;
+    const reversePoints = chartData.filter((p) => p.direction === 'reverse');
+    if (reversePoints.length === 0) return null;
+    const withTime = reversePoints.filter((p) => p.sectionTime != null && p.sectionTime > 0);
+    if (withTime.length === 0) return null;
+    const best = withTime.reduce(
+      (min, p) => (p.sectionTime! < min.sectionTime! ? p : min),
+      withTime[0]
+    );
+    return { bestTime: best.sectionTime!, activityDate: best.date };
+  }, [bestReverseRecord, chartData]);
 
   if (!section) {
     return (
@@ -1353,19 +1461,38 @@ export default function SectionDetailScreen() {
                 onScrubChange={handleScrubChange}
                 selectedActivityId={highlightedActivityId}
                 summaryStats={summaryStats}
-                bestForwardRecord={bestForwardRecord}
-                bestReverseRecord={bestReverseRecord}
-                forwardStats={forwardStats}
-                reverseStats={reverseStats}
+                bestForwardRecord={computedBestForward}
+                bestReverseRecord={computedBestReverse}
+                forwardStats={computedForwardStats}
+                reverseStats={computedReverseStats}
               />
             </View>
           )}
 
           {/* Activities list */}
           <View style={styles.activitiesSection}>
-            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-              {t('sections.activities')}
-            </Text>
+            <View style={styles.activitiesHeader}>
+              <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+                {t('sections.activities')}
+              </Text>
+              {/* Legend */}
+              <View style={styles.legend}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendIndicator, { backgroundColor: colors.chartGold }]} />
+                  <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
+                  <Text style={[styles.legendText, isDark && styles.textMuted]}>
+                    {t('routes.pr')}
+                  </Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendIndicator, { backgroundColor: colors.chartCyan }]} />
+                  <MaterialCommunityIcons name="star" size={12} color={colors.chartCyan} />
+                  <Text style={[styles.legendText, isDark && styles.textMuted]}>
+                    {t('sections.reference')}
+                  </Text>
+                </View>
+              </View>
+            </View>
           </View>
 
           {/* Activity rows */}
@@ -1390,7 +1517,6 @@ export default function SectionDetailScreen() {
 
                 return (
                   <React.Fragment key={activity.id}>
-                    {index > 0 && <View style={[styles.divider, isDark && styles.dividerDark]} />}
                     <ActivityRow
                       activity={activity}
                       isDark={isDark}
@@ -1405,6 +1531,7 @@ export default function SectionDetailScreen() {
                       isBest={isBest}
                       rank={rank}
                       bestTime={bestTimeValue}
+                      bestPace={bestPaceValue}
                       isReference={isReference}
                       onHighlightChange={handleRowHighlightChange}
                       onSetAsReference={handleSetAsReference}
@@ -1641,11 +1768,35 @@ const styles = StyleSheet.create({
   activitiesSection: {
     marginBottom: spacing.xl,
   },
+  activitiesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
   sectionTitle: {
     fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: spacing.sm,
+  },
+  legend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendIndicator: {
+    width: 3,
+    height: 12,
+    borderRadius: 1.5,
+  },
+  legendText: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
   },
   loadingContainer: {
     padding: spacing.xl,
@@ -1658,20 +1809,24 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
   },
   activitiesCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    overflow: 'hidden',
+    // Individual rows now have their own card styling
   },
   activitiesCardDark: {
-    backgroundColor: darkColors.surface,
+    // Individual rows now have their own card styling
   },
   activityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
-    gap: spacing.md,
+    padding: spacing.sm,
+    gap: spacing.sm,
     backgroundColor: colors.surface,
-    marginHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   activityRowDark: {
     backgroundColor: darkColors.surface,
@@ -1681,6 +1836,14 @@ const styles = StyleSheet.create({
   },
   activityRowPressed: {
     opacity: 0.7,
+  },
+  activityRowBest: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.chartGold,
+  },
+  activityRowReference: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.chartCyan,
   },
   activityIcon: {
     width: 36,

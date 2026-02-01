@@ -66,7 +66,9 @@ export function DateRangeSummary({
       <View style={styles.summaryRow}>
         <View style={styles.dateInfo}>
           <Text style={[styles.countText, isDark && styles.textLight]}>
-            {isLoading ? t('mapScreen.loadingActivities') : `${activityCount} activities`}
+            {isLoading
+              ? t('mapScreen.loadingActivities')
+              : `${activityCount} ${t('common.activities')}`}
           </Text>
           {!isLoading && oldestDate && newestDate && (
             <Text style={[styles.dateText, isDark && styles.textMuted]}>

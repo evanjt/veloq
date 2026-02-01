@@ -197,7 +197,7 @@
     "watts": "Watts"
   },
   "common": {
-    "activities": "activities",
+    "activities": "atividades",
     "back": "Voltar",
     "cancel": "Cancelar",
     "clearSearch": "Limpar pesquisa",
@@ -232,39 +232,39 @@
   "emptyState": {
     "clearFilters": "Limpar filtros",
     "error": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
       "description": "Nao foi possivel carregar este conteudo",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir nas Definições",
       "title": "Algo correu mal"
     },
     "networkError": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
       "description": "Verifique a sua ligacao a internet e tente novamente",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir nas Definições",
       "title": "Erro de ligacao"
     },
     "noActivities": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
       "description": "As suas atividades aparecerao aqui apos sincronizar com o Intervals.icu",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir nas Definições",
       "title": "Sem atividades ainda"
     },
     "noData": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
       "description": "Complete algumas atividades para ver as suas estatisticas",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir nas Definições",
       "title": "Sem dados disponiveis"
     },
     "noResults": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
       "description": "Tente ajustar a sua pesquisa ou filtros",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir nas Definições",
       "title": "Nenhum resultado encontrado"
     },
     "offline": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
       "description": "Algumas funcionalidades podem estar limitadas",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Expandir nas Definições",
       "title": "Esta offline"
     },
     "refresh": "Atualizar"
@@ -486,13 +486,13 @@
     "checkingActivities": "Passo 1: A verificar {{count}} atividades...",
     "createSection": "Criar troço",
     "custom": "Personalizado",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
     "defaultActivityName": "Atividade {{number}}",
     "defaultRouteName": "Percurso {{type}}",
     "duplicateNameMessage": "Por favor, escolha um nome diferente. Cada rota deve ter um nome único.",
     "duplicateNameTitle": "Nome já existe",
     "errorOccurred": "Ocorreu um erro",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Expandir nas Definições",
     "expandTimeline": "Expanda a cronologia para analisar mais atividades. A correspondencia de percursos continuara em segundo plano ate estar concluida.",
     "fastest": "#{{rank}} mais rapido",
     "fetchingGpsData": "Passo 2: A obter dados de trilhos...",
@@ -566,11 +566,11 @@
   "routesScreen": {
     "analysingRoutes": "A analisar percursos {{current}}/{{total}}",
     "computingRoutes": "A calcular percursos...",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Baseado em {{duration}} de dados de atividade",
     "downloadingGps": "A transferir trilhos",
     "enableInSettings": "Ative a correspondencia de percursos nas Definicoes para detetar automaticamente percursos repetidos das suas atividades.",
     "expandDateRange": "Expandir intervalo de datas",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Expandir nas Definições",
     "goToSettings": "Ir para Definicoes",
     "matchingDisabled": "Correspondencia de percursos desativada",
     "title": "Percursos"

@@ -13,11 +13,10 @@ export const SUPPORTED_LOCALES = [
   'es-419',
   // French
   'fr',
-  // German variants (including Swiss dialects)
+  // German variants (including Swiss)
   'de',
   'de-DE',
-  'de-CHZ',
-  'de-CHB',
+  'de-CH',
   // Dutch
   'nl',
   // Italian
@@ -81,8 +80,7 @@ export const LOCALE_FALLBACKS: Record<string, SupportedLocale[]> = {
   'de-DE': ['de-DE', 'en-GB'],
   'de-AT': ['de-DE', 'en-GB'],
   'de-CH': ['de-DE', 'en-GB'],
-  'de-CHZ': ['de-CHZ', 'de-DE', 'en-GB'],
-  'de-CHB': ['de-CHB', 'de-DE', 'en-GB'],
+  'de-CH': ['de-CH', 'de-DE', 'en-GB'],
 
   // Dutch variants
   nl: ['nl', 'en-GB'],
@@ -135,8 +133,7 @@ export const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
   // German
   de: 'Deutsch',
   'de-DE': 'Deutsch (Deutschland)',
-  'de-CHZ': 'Züridütsch',
-  'de-CHB': 'Bärndütsch',
+  'de-CH': 'Schwiizerdütsch',
   // Dutch
   nl: 'Nederlands',
   // Italian
@@ -724,6 +721,7 @@ export interface TranslationResource {
     bestTime: string;
     avg: string;
     averageTime: string;
+    averagePace: string;
     totalTraversals: string;
     last: string;
     lastActivity: string;

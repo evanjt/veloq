@@ -109,9 +109,10 @@ export function ActivityHeatmap({
   const { grid, monthLabels, totalActivities } = useMemo(() => {
     const today = new Date();
     const grid: { date: string; intensity: number }[][] = [];
-    const monthPositions: { month: string; col: number }[] = [];
+    const monthPositions: { month: string; col: number; year?: number }[] = [];
 
     let lastMonth = -1;
+    let lastYear = -1;
 
     for (let w = weeksToShow - 1; w >= 0; w--) {
       const week: { date: string; intensity: number }[] = [];
@@ -126,12 +127,17 @@ export function ActivityHeatmap({
 
         // Track month labels
         const month = date.getMonth();
+        const year = date.getFullYear();
         if (month !== lastMonth && d === 0) {
+          // Show year at January or at the first month in the view
+          const showYear = month === 0 || lastYear === -1 || year !== lastYear;
           monthPositions.push({
             month: MONTHS[month],
             col: weeksToShow - 1 - w,
+            year: showYear ? year : undefined,
           });
           lastMonth = month;
+          lastYear = year;
         }
       }
 
@@ -196,19 +202,18 @@ export function ActivityHeatmap({
         contentContainerStyle={styles.scrollContent}
       >
         <View>
-          {/* Month labels */}
+          {/* Month labels with year indicators */}
           <View style={[styles.monthLabels, { width: gridWidth, marginLeft: spacing.lg }]}>
             {monthLabels.map((m, idx) => (
-              <Text
+              <View
                 key={idx}
-                style={[
-                  styles.monthLabel,
-                  isDark && styles.textDark,
-                  { left: m.col * (cellSize + cellGap) },
-                ]}
+                style={[styles.monthLabelContainer, { left: m.col * (cellSize + cellGap) }]}
               >
-                {m.month}
-              </Text>
+                {m.year !== undefined && (
+                  <Text style={[styles.yearLabel, isDark && styles.textLight]}>{m.year}</Text>
+                )}
+                <Text style={[styles.monthLabel, isDark && styles.textDark]}>{m.month}</Text>
+              </View>
             ))}
           </View>
 
@@ -300,12 +305,21 @@ const styles = StyleSheet.create({
     paddingRight: spacing.md,
   },
   monthLabels: {
-    height: spacing.md,
+    height: spacing.lg + spacing.xs,
     position: 'relative',
     marginBottom: spacing.xs,
   },
-  monthLabel: {
+  monthLabelContainer: {
     position: 'absolute',
+    bottom: 0,
+  },
+  yearLabel: {
+    fontSize: typography.pillLabel.fontSize,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: 1,
+  },
+  monthLabel: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
   },

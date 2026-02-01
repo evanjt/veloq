@@ -18,7 +18,11 @@ interface SectionMiniPreviewProps {
   polyline?: RoutePoint[];
   /** Color for the trace */
   color: string;
-  /** Size of the preview (default 48) */
+  /** Width of the preview (default 56) */
+  width?: number;
+  /** Height of the preview (default 40) */
+  height?: number;
+  /** Size of the preview - sets both width and height (default 56) */
   size?: number;
   /** Whether dark mode is enabled */
   isDark?: boolean;
@@ -28,9 +32,15 @@ export function SectionMiniPreview({
   sectionId,
   polyline: providedPolyline,
   color,
-  size = 48,
+  width: propWidth,
+  height: propHeight,
+  size = 56,
   isDark = false,
 }: SectionMiniPreviewProps) {
+  // Calculate dimensions
+  const width = propWidth ?? size;
+  const height = propHeight ?? (propWidth ? 40 : size);
+
   // Only lazy-load if no polyline provided or it's empty
   const shouldLazyLoad = !providedPolyline?.length;
   const { polyline: lazyPolyline } = useSectionPolyline(shouldLazyLoad ? sectionId : null);
@@ -44,17 +54,19 @@ export function SectionMiniPreview({
         primaryPoints={polyline}
         primaryColor={color}
         referenceColor={color}
-        size={size}
+        width={width}
+        height={height}
+        isDark={isDark}
       />
     );
   }
 
   // Fallback icon when no polyline available
   return (
-    <View style={[styles.iconContainer, { width: size, height: size }]}>
+    <View style={[styles.iconContainer, { width, height }]}>
       <MaterialCommunityIcons
         name="road-variant"
-        size={size * 0.5}
+        size={Math.min(width, height) * 0.5}
         color={isDark ? darkColors.textMuted : colors.primary}
       />
     </View>

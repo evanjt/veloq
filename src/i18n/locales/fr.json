@@ -232,39 +232,39 @@
   "emptyState": {
     "clearFilters": "Effacer les filtres",
     "error": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basé sur {{duration}} de données d'activité",
       "description": "Nous n'avons pas pu charger ce contenu",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Étendre dans les paramètres",
       "title": "Une erreur s'est produite"
     },
     "networkError": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basé sur {{duration}} de données d'activité",
       "description": "Vérifiez votre connexion internet et réessayez",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Étendre dans les paramètres",
       "title": "Erreur de connexion"
     },
     "noActivities": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basé sur {{duration}} de données d'activité",
       "description": "Vos activités apparaîtront ici une fois synchronisées avec Intervals.icu",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Étendre dans les paramètres",
       "title": "Aucune activité pour le moment"
     },
     "noData": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basé sur {{duration}} de données d'activité",
       "description": "Complétez quelques activités pour voir vos statistiques",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Étendre dans les paramètres",
       "title": "Aucune donnée disponible"
     },
     "noResults": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basé sur {{duration}} de données d'activité",
       "description": "Essayez d'ajuster votre recherche ou vos filtres",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Étendre dans les paramètres",
       "title": "Aucun résultat trouvé"
     },
     "offline": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "Basé sur {{duration}} de données d'activité",
       "description": "Certaines fonctionnalités peuvent être limitées",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "Étendre dans les paramètres",
       "title": "Vous êtes hors ligne"
     },
     "refresh": "Actualiser"
@@ -486,13 +486,13 @@
     "checkingActivities": "Étape 1 : Vérification de {{count}} activités...",
     "createSection": "Créer une section",
     "custom": "Personnalisé",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Basé sur {{duration}} de données d'activité",
     "defaultActivityName": "Activité {{number}}",
     "defaultRouteName": "Parcours {{type}}",
     "duplicateNameMessage": "Veuillez choisir un autre nom. Chaque parcours doit avoir un nom unique.",
     "duplicateNameTitle": "Nom déjà utilisé",
     "errorOccurred": "Une erreur s'est produite",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Étendre dans les paramètres",
     "expandTimeline": "Étendez la chronologie pour analyser plus d'activités. La correspondance de parcours continuera en arrière-plan jusqu'à la fin.",
     "fastest": "#{{rank}} plus rapide",
     "fetchingGpsData": "Étape 2 : Récupération des données de trace...",
@@ -566,11 +566,11 @@
   "routesScreen": {
     "analysingRoutes": "Analyse des parcours {{current}}/{{total}}",
     "computingRoutes": "Calcul des parcours...",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "Basé sur {{duration}} de données d'activité",
     "downloadingGps": "Téléchargement des traces",
     "enableInSettings": "Activez la correspondance de parcours dans les Paramètres pour détecter automatiquement les parcours répétés de vos activités.",
     "expandDateRange": "Étendre la plage de dates",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Étendre dans les paramètres",
     "goToSettings": "Aller aux Paramètres",
     "matchingDisabled": "Correspondance de parcours désactivée",
     "title": "Parcours"

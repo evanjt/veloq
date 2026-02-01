@@ -197,7 +197,7 @@
     "watts": "Watts"
   },
   "common": {
-    "activities": "activities",
+    "activities": "活动",
     "back": "返回",
     "cancel": "取消",
     "clearSearch": "清除搜索",
@@ -232,39 +232,39 @@
   "emptyState": {
     "clearFilters": "清除筛选",
     "error": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "基于{{duration}}的活动数据",
       "description": "我们无法加载此内容",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "在设置中展开",
       "title": "出错了"
     },
     "networkError": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "基于{{duration}}的活动数据",
       "description": "请检查您的网络连接并重试",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "在设置中展开",
       "title": "连接错误"
     },
     "noActivities": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "基于{{duration}}的活动数据",
       "description": "与 Intervals.icu 同步后，您的活动将显示在这里",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "在设置中展开",
       "title": "暂无活动"
     },
     "noData": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "基于{{duration}}的活动数据",
       "description": "完成一些活动后即可查看您的统计数据",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "在设置中展开",
       "title": "无可用数据"
     },
     "noResults": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "基于{{duration}}的活动数据",
       "description": "尝试调整您的搜索或筛选条件",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "在设置中展开",
       "title": "未找到结果"
     },
     "offline": {
-      "dataRangeHint": "Based on {{duration}} of activity data",
+      "dataRangeHint": "基于{{duration}}的活动数据",
       "description": "部分功能可能受限",
-      "expandInSettings": "Expand in Settings",
+      "expandInSettings": "在设置中展开",
       "title": "您已离线"
     },
     "refresh": "刷新"
@@ -486,13 +486,13 @@
     "checkingActivities": "第 1 步: 正在检查 {{count}} 个活动...",
     "createSection": "创建路段",
     "custom": "自定义",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "基于{{duration}}的活动数据",
     "defaultActivityName": "活动 {{number}}",
     "defaultRouteName": "{{type}}路线",
     "duplicateNameMessage": "请选择一个不同的名称。每条路线必须有唯一的名称。",
     "duplicateNameTitle": "名称已存在",
     "errorOccurred": "发生错误",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "在设置中展开",
     "expandTimeline": "扩展时间线以分析更多活动。路线匹配将在后台继续进行直到完成。",
     "fastest": "第 {{rank}} 快",
     "fetchingGpsData": "第 2 步: 获取轨迹数据...",
@@ -566,11 +566,11 @@
   "routesScreen": {
     "analysingRoutes": "正在分析路线 {{current}}/{{total}}",
     "computingRoutes": "正在计算路线...",
-    "dataRangeHint": "Based on {{duration}} of activity data",
+    "dataRangeHint": "基于{{duration}}的活动数据",
     "downloadingGps": "下载轨迹数据",
     "enableInSettings": "在设置中启用路线匹配，以自动从您的活动中检测重复路线。",
     "expandDateRange": "扩展日期范围",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "在设置中展开",
     "goToSettings": "前往设置",
     "matchingDisabled": "路线匹配已禁用",
     "title": "路线"

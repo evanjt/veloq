@@ -1266,18 +1266,13 @@ export default function ActivityDetailScreen() {
                           activeOpacity={0.7}
                         >
                           <View style={styles.sectionCardContent}>
-                            {/* Number badge matching map marker */}
-                            <View style={[styles.sectionNumberBadge, { borderColor: style.color }]}>
-                              <Text style={styles.sectionNumberBadgeText}>{index + 1}</Text>
-                            </View>
                             {/* Mini trace preview - shows section's canonical polyline */}
-                            <View
-                              style={[styles.sectionPreview, isDark && styles.sectionPreviewDark]}
-                            >
+                            <View style={styles.sectionPreviewBox}>
                               <SectionMiniPreview
                                 sectionId={match.section.id}
                                 color={style.color}
-                                size={48}
+                                width={56}
+                                height={40}
                                 isDark={isDark}
                               />
                             </View>
@@ -1403,19 +1398,14 @@ export default function ActivityDetailScreen() {
                           activeOpacity={0.7}
                         >
                           <View style={styles.sectionCardContent}>
-                            {/* Number badge matching map marker */}
-                            <View style={[styles.sectionNumberBadge, { borderColor: style.color }]}>
-                              <Text style={styles.sectionNumberBadgeText}>{sectionIndex + 1}</Text>
-                            </View>
                             {/* Mini trace preview - shows section's canonical polyline */}
-                            <View
-                              style={[styles.sectionPreview, isDark && styles.sectionPreviewDark]}
-                            >
+                            <View style={styles.sectionPreviewBox}>
                               <SectionMiniPreview
                                 sectionId={section.id}
                                 polyline={section.polyline}
                                 color={style.color}
-                                size={48}
+                                width={56}
+                                height={40}
                                 isDark={isDark}
                               />
                             </View>
@@ -1884,18 +1874,18 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // Section card styles
+  // Section card styles - matches SectionRow for consistency
   sectionCard: {
     backgroundColor: colors.surface,
-    borderRadius: layout.cardPadding,
-    padding: spacing.md,
+    borderRadius: 10,
+    padding: spacing.sm,
     marginHorizontal: spacing.md,
-    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: spacing.sm,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1967,6 +1957,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
+  },
+  sectionPreviewBox: {
+    width: 56,
+    height: 40,
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginRight: spacing.sm,
   },
   sectionPreviewDark: {
     backgroundColor: 'rgba(255, 255, 255, 0.06)',

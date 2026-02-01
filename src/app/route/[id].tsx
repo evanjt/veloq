@@ -60,6 +60,9 @@ import {
   getActivityIcon,
   getActivityColor,
   formatDuration,
+  formatPace,
+  formatSpeed,
+  isRunningActivity,
 } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import type { Activity, ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
@@ -93,6 +96,12 @@ interface ActivityRowProps {
   rank?: number;
   /** Time delta vs PR in seconds (positive = slower, negative = faster) */
   deltaFromPR?: number;
+  /** Speed/pace for this route effort (m/s) */
+  speed?: number;
+  /** Duration for this route effort (seconds) */
+  duration?: number;
+  /** Best speed (PR) for pace delta calculation */
+  bestSpeed?: number;
 }
 
 function ActivityRow({
@@ -108,6 +117,9 @@ function ActivityRow({
   isBest = false,
   rank,
   deltaFromPR,
+  speed,
+  duration,
+  bestSpeed,
 }: ActivityRowProps) {
   const { t } = useTranslation();
   const handlePress = () => {
@@ -124,20 +136,58 @@ function ActivityRow({
       : colors.sameDirection;
   const badgeColor = isReverse ? REVERSE_COLOR : colors.success;
 
-  // Format delta from PR for display (e.g., "+0:45" or "-1:30")
-  const deltaDisplay = useMemo(() => {
-    if (deltaFromPR === undefined || !Number.isFinite(deltaFromPR) || isBest) return null;
+  // Use route-specific speed/duration if available, otherwise fall back to activity averages
+  const displaySpeed =
+    speed ?? (activity.moving_time > 0 ? activity.distance / activity.moving_time : 0);
+  const displayDuration = duration ?? activity.moving_time;
+  const showPace = isRunningActivity(activity.type);
+
+  // Format delta from PR for display
+  // For running: show pace delta (e.g., "+0:15 /km")
+  // For cycling: show time delta (e.g., "+0:45")
+  const { deltaDisplay, deltaColor } = useMemo(() => {
+    if (isBest) return { deltaDisplay: null, deltaColor: colors.textSecondary };
+
+    if (showPace && displaySpeed > 0 && bestSpeed && bestSpeed > 0) {
+      // Calculate pace delta (seconds per km)
+      const currentPace = 1000 / displaySpeed; // seconds per km
+      const bestPace = 1000 / bestSpeed; // seconds per km
+      const paceDelta = currentPace - bestPace; // positive = slower
+
+      if (!Number.isFinite(paceDelta) || Math.abs(paceDelta) < 1) {
+        return { deltaDisplay: null, deltaColor: colors.textSecondary };
+      }
+
+      const absDelta = Math.abs(paceDelta);
+      const minutes = Math.floor(absDelta / 60);
+      const seconds = Math.round(absDelta % 60);
+      const sign = paceDelta > 0 ? '+' : '-';
+      const formatted =
+        minutes > 0
+          ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
+          : `${sign}${seconds}s`;
+
+      return {
+        deltaDisplay: formatted,
+        deltaColor: paceDelta <= 0 ? colors.success : colors.error,
+      };
+    }
+
+    // Fall back to time delta for non-running activities
+    if (deltaFromPR === undefined || !Number.isFinite(deltaFromPR)) {
+      return { deltaDisplay: null, deltaColor: colors.textSecondary };
+    }
+
     const absDelta = Math.abs(deltaFromPR);
     const minutes = Math.floor(absDelta / 60);
     const seconds = Math.round(absDelta % 60);
     const sign = deltaFromPR > 0 ? '+' : '-';
-    return `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`;
-  }, [deltaFromPR, isBest]);
 
-  const deltaColor = useMemo(() => {
-    if (deltaFromPR === undefined || !Number.isFinite(deltaFromPR)) return colors.textSecondary;
-    return deltaFromPR <= 0 ? colors.success : colors.error;
-  }, [deltaFromPR]);
+    return {
+      deltaDisplay: `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`,
+      deltaColor: deltaFromPR <= 0 ? colors.success : colors.error,
+    };
+  }, [isBest, showPace, displaySpeed, bestSpeed, deltaFromPR]);
 
   return (
     <Pressable
@@ -147,6 +197,7 @@ function ActivityRow({
         isDark && styles.activityRowDark,
         isHighlighted && styles.activityRowHighlighted,
         pressed && styles.activityRowPressed,
+        isBest && styles.activityRowBest,
       ]}
     >
       {/* Mini trace showing route reference (gold) vs activity trace */}
@@ -157,9 +208,17 @@ function ActivityRow({
           primaryColor={traceColor}
           referenceColor={CONSENSUS_COLOR}
           isHighlighted={isHighlighted}
+          isDark={isDark}
+          width={56}
+          height={40}
         />
       ) : (
-        <View style={[styles.activityIcon, { backgroundColor: traceColor + '20' }]}>
+        <View
+          style={[
+            styles.activityIcon,
+            { backgroundColor: traceColor + '20', width: 56, height: 40 },
+          ]}
+        >
           <MaterialCommunityIcons
             name={getActivityIcon(activity.type)}
             size={18}
@@ -172,27 +231,14 @@ function ActivityRow({
           <Text style={[styles.activityName, isDark && styles.textLight]} numberOfLines={1}>
             {activity.name}
           </Text>
-          {/* PR badge for best performance */}
+          {/* PR indicator - small trophy icon (gold) */}
           {isBest && (
-            <View style={[styles.prBadge, { backgroundColor: colors.primary }]}>
-              <MaterialCommunityIcons name="trophy" size={12} color={colors.textOnDark} />
-              <Text style={styles.prText}>{t('routes.pr')}</Text>
-            </View>
-          )}
-          {/* Rank badge for non-best performances */}
-          {!isBest && rank !== undefined && rank <= 10 && (
-            <View style={[styles.rankBadge, { backgroundColor: colors.textSecondary + '20' }]}>
-              <Text
-                style={[
-                  styles.rankText,
-                  {
-                    color: isDark ? colors.textSecondary : colors.textSecondary,
-                  },
-                ]}
-              >
-                #{rank}
-              </Text>
-            </View>
+            <MaterialCommunityIcons
+              name="trophy"
+              size={14}
+              color={colors.chartGold}
+              style={{ marginLeft: 4 }}
+            />
           )}
           {/* Match percentage badge with direction-based color */}
           {matchPercentage !== undefined && (
@@ -213,11 +259,13 @@ function ActivityRow({
         </View>
       </View>
       <View style={styles.activityStats}>
+        {/* Pace/speed prominently */}
         <Text style={[styles.activityDistance, isDark && styles.textLight]}>
-          {formatDistance(activity.distance, isMetric)}
+          {showPace ? formatPace(displaySpeed) : formatSpeed(displaySpeed)}
         </Text>
+        {/* Duration more subtle */}
         <Text style={[styles.activityTime, isDark && styles.textMuted]}>
-          {formatDuration(activity.moving_time)}
+          {formatDuration(displayDuration)}
         </Text>
         {/* Delta from PR */}
         {deltaDisplay && (
@@ -391,13 +439,14 @@ export default function RouteDetailScreen() {
   const performancesMap = useMemo(() => {
     const map: Record<
       string,
-      { direction: string; matchPercentage: number | undefined; duration: number }
+      { direction: string; matchPercentage: number | undefined; duration: number; speed: number }
     > = {};
     for (const perf of performances) {
       map[perf.activityId] = {
         direction: perf.direction,
         matchPercentage: perf.matchPercentage,
         duration: perf.duration,
+        speed: perf.speed,
       };
     }
     return map;
@@ -434,18 +483,38 @@ export default function RouteDetailScreen() {
     }
   }, [engineGroup?.activityIds]);
 
-  // Filter to only activities in this route group (deduplicated)
+  // Filter to only activities in this route group (deduplicated), sorted by fastest pace
   const routeActivities = React.useMemo(() => {
     if (!routeGroupBase || !allActivities) return [];
     const idsSet = new Set(routeGroupBase.activityIds);
     // Filter and deduplicate by ID (in case API returns duplicates)
     const seen = new Set<string>();
-    return allActivities.filter((a) => {
+    const filtered = allActivities.filter((a) => {
       if (!idsSet.has(a.id) || seen.has(a.id)) return false;
       seen.add(a.id);
       return true;
     });
-  }, [routeGroupBase, allActivities]);
+
+    // Build speed/pace lookup from performances
+    // Speed = distance/time, so higher speed = faster pace
+    const speedMap = new Map<string, number>();
+    for (const perf of performances) {
+      if (Number.isFinite(perf.speed)) {
+        speedMap.set(perf.activityId, perf.speed);
+      }
+    }
+
+    // Sort by fastest pace (highest speed first = PR at top)
+    return filtered.sort((a, b) => {
+      const speedA = speedMap.get(a.id);
+      const speedB = speedMap.get(b.id);
+      // Activities without speed go to the bottom
+      if (speedA === undefined && speedB === undefined) return 0;
+      if (speedA === undefined) return 1;
+      if (speedB === undefined) return -1;
+      return speedB - speedA; // Descending (fastest/highest speed first)
+    });
+  }, [routeGroupBase, allActivities, performances]);
 
   // Prepare chart data for UnifiedPerformanceChart using Rust engine performance data
   // This provides precise segment times instead of approximate activity averages
@@ -740,9 +809,21 @@ export default function RouteDetailScreen() {
 
           {/* Activities list */}
           <View style={styles.activitiesSection}>
-            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-              {t('settings.activities')}
-            </Text>
+            <View style={styles.activitiesHeader}>
+              <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+                {t('settings.activities')}
+              </Text>
+              {/* Legend */}
+              <View style={styles.legend}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendIndicator, { backgroundColor: colors.chartGold }]} />
+                  <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
+                  <Text style={[styles.legendText, isDark && styles.textMuted]}>
+                    {t('routes.pr')}
+                  </Text>
+                </View>
+              </View>
+            </View>
 
             {isLoading ? (
               <View style={styles.loadingContainer}>
@@ -799,11 +880,11 @@ export default function RouteDetailScreen() {
                           isBest={isBest}
                           rank={rank}
                           deltaFromPR={deltaFromPR}
+                          speed={perfData?.speed}
+                          duration={perfData?.duration}
+                          bestSpeed={bestPerformance?.speed}
                         />
                       </Pressable>
-                      {index < routeActivities.length - 1 && (
-                        <View style={[styles.divider, isDark && styles.dividerDark]} />
-                      )}
                     </React.Fragment>
                   );
                 })}
@@ -1007,7 +1088,31 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  activitiesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: spacing.sm,
+  },
+  legend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendIndicator: {
+    width: 3,
+    height: 12,
+    borderRadius: 1.5,
+  },
+  legendText: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
   },
   loadingContainer: {
     padding: spacing.xl,
@@ -1020,25 +1125,37 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
   },
   activitiesCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    overflow: 'hidden',
+    // Individual rows now have their own card styling
   },
   activitiesCardDark: {
-    backgroundColor: darkColors.surface,
+    // Individual rows now have their own card styling
   },
   activityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
-    gap: spacing.md,
+    padding: spacing.sm,
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    marginBottom: spacing.xs,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  activityRowDark: {},
+  activityRowDark: {
+    backgroundColor: darkColors.surface,
+  },
   activityRowHighlighted: {
     backgroundColor: 'rgba(0, 188, 212, 0.1)',
   },
   activityRowPressed: {
     opacity: 0.7,
+  },
+  activityRowBest: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.chartGold,
   },
   activityIcon: {
     width: 36,

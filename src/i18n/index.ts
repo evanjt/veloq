@@ -14,8 +14,7 @@ import esES from './locales/es-ES.json';
 import es419 from './locales/es-419.json';
 import fr from './locales/fr.json';
 import deDE from './locales/de-DE.json';
-import deCHZ from './locales/de-CHZ.json';
-import deCHB from './locales/de-CHB.json';
+import deCH from './locales/de-CH.json';
 import nl from './locales/nl.json';
 import it from './locales/it.json';
 import pt from './locales/pt.json';
@@ -67,8 +66,7 @@ const resources = {
   'es-419': { translation: es419 },
   fr: { translation: fr },
   'de-DE': { translation: deDE },
-  'de-CHZ': { translation: deCHZ },
-  'de-CHB': { translation: deCHB },
+  'de-CH': { translation: deCH },
   nl: { translation: nl },
   it: { translation: it },
   pt: { translation: pt },
@@ -78,13 +76,6 @@ const resources = {
   pl: { translation: pl },
   da: { translation: da },
 };
-
-/**
- * Custom locale codes that use non-standard region codes.
- * i18next's languageUtils doesn't recognize these, so we need to
- * override toResolveHierarchy to include them in the lookup chain.
- */
-const CUSTOM_LOCALE_CODES = ['de-CHZ', 'de-CHB'] as const;
 
 /**
  * Initialize i18n with the detected or saved locale
@@ -118,21 +109,6 @@ export async function initializeI18n(savedLocale?: SupportedLocale | null): Prom
     returnNull: false,
     returnEmptyString: false,
   });
-
-  // CRITICAL FIX: Override languageUtils.toResolveHierarchy for custom locale codes.
-  // i18next's default implementation doesn't recognize non-standard region codes
-  // like 'CHZ' and 'CHB', so it skips them in the resolution hierarchy.
-  // This patch ensures our Swiss German dialects are properly resolved.
-  const langUtils = (i18n as any).services?.languageUtils;
-  if (langUtils) {
-    const originalToResolveHierarchy = langUtils.toResolveHierarchy.bind(langUtils);
-    langUtils.toResolveHierarchy = (code: string, fallbackCode?: string) => {
-      if (CUSTOM_LOCALE_CODES.includes(code as any)) {
-        return LOCALE_FALLBACKS[code] || [code, 'de-DE', 'en-GB'];
-      }
-      return originalToResolveHierarchy(code, fallbackCode);
-    };
-  }
 }
 
 /**
