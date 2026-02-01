@@ -12,8 +12,9 @@ const log = debug.create('Geocoding');
 const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
 const GEOCODE_CACHE_KEY = 'veloq_geocode_cache';
 const MAX_CACHE_SIZE = 500;
+const MAX_MEMORY_CACHE_SIZE = 100;
 
-// In-memory cache for quick access
+// In-memory cache for quick access (LRU-style with size limit)
 const memoryCache = new Map<string, string>();
 
 interface CacheEntry {
@@ -210,7 +211,11 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
     const name = extractLocationName(data);
 
     if (name) {
-      // Cache the result
+      // Cache the result (with LRU-style eviction for memory cache)
+      if (memoryCache.size >= MAX_MEMORY_CACHE_SIZE) {
+        const firstKey = memoryCache.keys().next().value;
+        if (firstKey) memoryCache.delete(firstKey);
+      }
       memoryCache.set(cacheKey, name);
       cache.entries[cacheKey] = {
         name,

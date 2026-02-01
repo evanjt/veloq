@@ -16,23 +16,9 @@ import { logScreenRender, PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import {
-  useInfiniteActivities,
-  useAthlete,
-  useWellness,
-  useTheme,
-  getFormZone,
-  FORM_ZONE_COLORS,
-  FORM_ZONE_LABELS,
-  getLatestFTP,
-  useSportSettings,
-  getSettingsForSport,
-  usePaceCurve,
-} from '@/hooks';
+import { useInfiniteActivities, useTheme, useSummaryCardData } from '@/hooks';
 import type { Activity } from '@/types';
-import { useSportPreference, SPORT_COLORS, useDashboardPreferences } from '@/providers';
-import type { MetricId } from '@/providers';
-import { formatPaceCompact, formatSwimPace } from '@/lib';
+import { useDashboardPreferences } from '@/providers';
 import { ActivityCard, notifyMapScroll } from '@/components/activity';
 import {
   ActivityCardSkeleton,
@@ -80,22 +66,25 @@ export default function FeedScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
 
-  const { data: athlete } = useAthlete();
-  const { primarySport } = useSportPreference();
-  const { data: sportSettings } = useSportSettings();
   const { isOnline } = useNetwork();
 
-  // Dashboard preferences for summary card
+  // Dashboard preferences for navigation
   const { summaryCard } = useDashboardPreferences();
 
-  // Fetch pace curve for running threshold pace (only when running is selected)
-  const { data: runPaceCurve } = usePaceCurve({
-    sport: 'Run',
-    enabled: primarySport === 'Running',
-  });
-
-  // Profile URL for SummaryCard
-  const profileUrl = athlete?.profile_medium || athlete?.profile;
+  // Summary card data (hero metric, sparkline, supporting metrics)
+  const {
+    profileUrl,
+    heroValue,
+    heroLabel,
+    heroColor,
+    heroZoneLabel,
+    heroZoneColor,
+    heroTrend,
+    sparklineData,
+    showSparkline,
+    supportingMetrics,
+    refetch: refetchSummary,
+  } = useSummaryCardData();
 
   const {
     data,
@@ -141,12 +130,9 @@ export default function FeedScreen() {
     return filtered;
   }, [allActivities, searchQuery, selectedTypeGroup]);
 
-  // Fetch wellness data for the summary card (short range for quick load)
-  const { data: wellnessData, refetch: refetchWellness } = useWellness('1m');
-
   // Combined refresh handler - fetches fresh data
   const handleRefresh = async () => {
-    await Promise.all([refetch(), refetchWellness()]);
+    await Promise.all([refetch(), refetchSummary()]);
   };
 
   // Load more when scrolling to the end
@@ -155,286 +141,6 @@ export default function FeedScreen() {
       fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  // Compute quick stats from wellness and activities data
-  // Optimized: Single-pass over activities for all weekly/FTP stats
-  const quickStats = useMemo(() => {
-    // Get latest wellness data for form and HRV
-    const sorted = wellnessData ? [...wellnessData].sort((a, b) => b.id.localeCompare(a.id)) : [];
-    const latest = sorted[0];
-    const previous = sorted[1]; // Yesterday for trend comparison
-
-    const fitness = Math.round(latest?.ctl ?? latest?.ctlLoad ?? 0);
-    const fatigue = Math.round(latest?.atl ?? latest?.atlLoad ?? 0);
-    const form = fitness - fatigue;
-    const hrv = latest?.hrv ?? null;
-    const rhr = latest?.restingHR ?? null;
-
-    // Calculate previous day's values for trends
-    const prevFitness = Math.round(previous?.ctl ?? previous?.ctlLoad ?? fitness);
-    const prevFatigue = Math.round(previous?.atl ?? previous?.atlLoad ?? fatigue);
-    const prevForm = prevFitness - prevFatigue;
-    const prevHrv = previous?.hrv ?? hrv;
-    const prevRhr = previous?.restingHR ?? rhr;
-
-    const getTrend = (
-      current: number | null,
-      prev: number | null,
-      threshold = 1
-    ): '↑' | '↓' | '' => {
-      if (current === null || prev === null) return '';
-      const diff = current - prev;
-      if (Math.abs(diff) < threshold) return '';
-      return diff > 0 ? '↑' : '↓';
-    };
-
-    const fitnessTrend = getTrend(fitness, prevFitness, 1);
-    const formTrend = getTrend(form, prevForm, 2);
-    const hrvTrend = getTrend(hrv, prevHrv, 2);
-    const rhrTrend = getTrend(rhr, prevRhr, 1);
-
-    // Pre-compute date boundaries once (avoid creating Date objects in loop)
-    const now = Date.now();
-    const weekMs = 7 * 24 * 60 * 60 * 1000;
-    const weekAgoTs = now - weekMs;
-    const twoWeeksAgoTs = now - weekMs * 2;
-    const thirtyDaysAgoTs = now - 30 * 24 * 60 * 60 * 1000;
-
-    // Single-pass: Compute all activity-based metrics in one loop
-    let weekCount = 0;
-    let weekSeconds = 0;
-    let prevWeekCount = 0;
-    let prevWeekSeconds = 0;
-    let latestFtp: number | null = null;
-    let latestFtpDate = 0;
-    let prevFtp: number | null = null;
-    let prevFtpDate = 0;
-
-    if (allActivities) {
-      for (const activity of allActivities) {
-        const activityTs = new Date(activity.start_date_local).getTime();
-
-        // Current week stats
-        if (activityTs >= weekAgoTs) {
-          weekCount++;
-          weekSeconds += activity.moving_time || 0;
-        }
-        // Previous week stats
-        else if (activityTs >= twoWeeksAgoTs) {
-          prevWeekCount++;
-          prevWeekSeconds += activity.moving_time || 0;
-        }
-
-        // Track FTP values
-        if (activity.icu_ftp) {
-          // Latest FTP (most recent)
-          if (activityTs > latestFtpDate) {
-            latestFtpDate = activityTs;
-            latestFtp = activity.icu_ftp;
-          }
-          // Previous FTP (~30 days ago) - most recent before threshold
-          if (activityTs <= thirtyDaysAgoTs && activityTs > prevFtpDate) {
-            prevFtpDate = activityTs;
-            prevFtp = activity.icu_ftp;
-          }
-        }
-      }
-    }
-
-    const weekHours = Math.round((weekSeconds / 3600) * 10) / 10;
-    const prevWeekHours = Math.round((prevWeekSeconds / 3600) * 10) / 10;
-
-    const weekHoursTrend = getTrend(weekHours, prevWeekHours, 0.5);
-    const weekCountTrend = getTrend(weekCount, prevWeekCount, 1);
-
-    // Use latest FTP, fallback to getLatestFTP for edge cases
-    const ftp = latestFtp ?? getLatestFTP(allActivities) ?? null;
-    const ftpTrend = getTrend(ftp, prevFtp ?? ftp, 3);
-
-    return {
-      fitness,
-      fitnessTrend,
-      form,
-      formTrend,
-      hrv,
-      hrvTrend,
-      rhr,
-      rhrTrend,
-      weekHours,
-      weekHoursTrend,
-      weekCount,
-      weekCountTrend,
-      ftp,
-      ftpTrend,
-    };
-  }, [wellnessData, allActivities]);
-
-  const formZone = getFormZone(quickStats.form);
-  const formColor = formZone ? FORM_ZONE_COLORS[formZone] : colors.success;
-
-  // Build hero metric data based on summaryCard preferences
-  const heroData = useMemo(() => {
-    const metric = summaryCard.heroMetric;
-
-    // Get metric value, label, color, and trend based on hero metric type
-    switch (metric) {
-      case 'form':
-        return {
-          value: quickStats.form,
-          label: t('metrics.form'),
-          color: formColor,
-          zoneLabel: formZone ? FORM_ZONE_LABELS[formZone] : undefined,
-          zoneColor: formColor,
-          trend: quickStats.formTrend,
-        };
-      case 'fitness':
-        return {
-          value: quickStats.fitness,
-          label: t('metrics.fitness'),
-          color: colors.fitnessBlue,
-          zoneLabel: undefined,
-          zoneColor: undefined,
-          trend: quickStats.fitnessTrend,
-        };
-      case 'hrv':
-        return {
-          value: quickStats.hrv ?? '-',
-          label: t('metrics.hrv'),
-          color: colors.chartPink,
-          zoneLabel: undefined,
-          zoneColor: undefined,
-          trend: quickStats.hrvTrend,
-        };
-      default:
-        return {
-          value: quickStats.form,
-          label: t('metrics.form'),
-          color: formColor,
-          zoneLabel: formZone ? FORM_ZONE_LABELS[formZone] : undefined,
-          zoneColor: formColor,
-          trend: quickStats.formTrend,
-        };
-    }
-  }, [summaryCard.heroMetric, quickStats, formColor, formZone, t]);
-
-  // Build sparkline data from wellness (last 7 days)
-  const sparklineData = useMemo(() => {
-    if (!wellnessData || wellnessData.length === 0) return undefined;
-
-    // Sort by date ascending for sparkline
-    const sorted = [...wellnessData].sort((a, b) => a.id.localeCompare(b.id)).slice(-30);
-
-    switch (summaryCard.heroMetric) {
-      case 'form':
-        return sorted.map((w) => {
-          const ctl = w.ctl ?? w.ctlLoad ?? 0;
-          const atl = w.atl ?? w.atlLoad ?? 0;
-          return ctl - atl;
-        });
-      case 'fitness':
-        return sorted.map((w) => w.ctl ?? w.ctlLoad ?? 0);
-      case 'hrv':
-        return sorted.map((w) => w.hrv ?? 0);
-      default:
-        return undefined;
-    }
-  }, [wellnessData, summaryCard.heroMetric]);
-
-  // Get sport-specific metrics from sport settings and pace curve
-  const sportMetrics = useMemo(() => {
-    const runSettings = getSettingsForSport(sportSettings, 'Run');
-    const swimSettings = getSettingsForSport(sportSettings, 'Swim');
-
-    // For running, use criticalSpeed from pace curve (threshold pace equivalent)
-    // criticalSpeed is in m/s, same as CSS
-    const thresholdPace = runPaceCurve?.criticalSpeed ?? null;
-
-    return {
-      // Running threshold metrics
-      thresholdPace, // m/s
-      runLthr: runSettings?.lthr ?? null, // Lactate Threshold HR
-      // Swimming CSS (Critical Swim Speed)
-      css: swimSettings?.threshold_pace ?? null, // m/s
-    };
-  }, [sportSettings, runPaceCurve]);
-
-  // Build supporting metrics array from preferences
-  const supportingMetrics = useMemo(() => {
-    return summaryCard.supportingMetrics.slice(0, 4).map((metricId: MetricId) => {
-      switch (metricId) {
-        case 'fitness':
-          return {
-            label: t('metrics.fitness'),
-            value: quickStats.fitness,
-            color: colors.fitnessBlue,
-            trend: quickStats.fitnessTrend,
-          };
-        case 'form':
-          return {
-            label: t('metrics.form'),
-            value: quickStats.form > 0 ? `+${quickStats.form}` : quickStats.form,
-            color: formColor,
-            trend: quickStats.formTrend,
-          };
-        case 'hrv':
-          return {
-            label: t('metrics.hrv'),
-            value: quickStats.hrv ?? '-',
-            color: colors.chartPink,
-            trend: quickStats.hrvTrend,
-          };
-        case 'rhr':
-          return {
-            label: t('metrics.rhr'),
-            value: quickStats.rhr ?? '-',
-            color: undefined,
-            trend: quickStats.rhrTrend,
-          };
-        case 'ftp':
-          return {
-            label: t('metrics.ftp'),
-            value: quickStats.ftp ?? '-',
-            color: SPORT_COLORS.Cycling,
-            trend: quickStats.ftpTrend,
-          };
-        case 'thresholdPace':
-          return {
-            label: t('metrics.pace'),
-            value: sportMetrics.thresholdPace ? formatPaceCompact(sportMetrics.thresholdPace) : '-',
-            color: SPORT_COLORS.Running,
-            trend: undefined,
-          };
-        case 'css':
-          return {
-            label: t('metrics.css'),
-            value: sportMetrics.css ? formatSwimPace(sportMetrics.css) : '-',
-            color: SPORT_COLORS.Swimming,
-            trend: undefined,
-          };
-        case 'weekHours':
-          return {
-            label: t('metrics.week'),
-            value: `${quickStats.weekHours}h`,
-            color: undefined,
-            trend: quickStats.weekHoursTrend,
-          };
-        case 'weekCount':
-          return {
-            label: '#',
-            value: quickStats.weekCount,
-            color: undefined,
-            trend: quickStats.weekCountTrend,
-          };
-        default:
-          return {
-            label: metricId,
-            value: '-',
-            color: undefined,
-            trend: undefined,
-          };
-      }
-    });
-  }, [summaryCard.supportingMetrics, quickStats, formColor, sportMetrics, t]);
 
   const renderActivity = ({ item, index }: { item: Activity; index: number }) => (
     <ActivityCard activity={item} index={index} />
@@ -575,15 +281,15 @@ export default function FeedScreen() {
       <SummaryCard
         profileUrl={profileUrl}
         onProfilePress={navigateToSettings}
-        heroValue={heroData.value}
-        heroLabel={heroData.label}
-        heroColor={heroData.color}
-        heroZoneLabel={heroData.zoneLabel}
-        heroZoneColor={heroData.zoneColor}
-        heroTrend={heroData.trend}
+        heroValue={heroValue}
+        heroLabel={heroLabel}
+        heroColor={heroColor}
+        heroZoneLabel={heroZoneLabel}
+        heroZoneColor={heroZoneColor}
+        heroTrend={heroTrend}
         onHeroPress={navigateToHeroMetric}
         sparklineData={sparklineData}
-        showSparkline={summaryCard.showSparkline}
+        showSparkline={showSparkline}
         supportingMetrics={supportingMetrics}
       />
 

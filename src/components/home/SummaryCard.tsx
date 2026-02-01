@@ -53,7 +53,7 @@ export interface SummaryCardProps {
  * │   Fitness 34  ·  FTP 168  ·  0.4h  ·  #1           │
  * └─────────────────────────────────────────────────────┘
  */
-export function SummaryCard({
+export const SummaryCard = React.memo(function SummaryCard({
   profileUrl,
   onProfilePress,
   heroValue,
@@ -174,7 +174,7 @@ export function SummaryCard({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

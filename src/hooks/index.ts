@@ -92,3 +92,6 @@ export { useRetentionCleanup } from './routes/useRetentionCleanup';
 
 // Section detail hook from route engine
 export { useSectionDetail } from './routes/useRouteEngine';
+
+// Home hooks
+export { useSummaryCardData, type SummaryCardData } from './home';

@@ -14,7 +14,7 @@ interface StatCardProps {
   onPress: (stat: StatDetail) => void;
 }
 
-export function StatCard({ stat, isDark, onPress }: StatCardProps) {
+export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: StatCardProps) {
   return (
     <Pressable
       onLongPress={() => onPress(stat)}
@@ -80,7 +80,7 @@ export function StatCard({ stat, isDark, onPress }: StatCardProps) {
       ) : null}
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   statCard: {

@@ -26,6 +26,7 @@ import {
   useOldestActivityDate,
   useTheme,
   useUnifiedSections,
+  useSummaryCardData,
 } from '@/hooks';
 import * as FileSystem from 'expo-file-system/legacy';
 import { TimelineSlider } from '@/components/maps';
@@ -186,6 +187,9 @@ export default function SettingsScreen() {
   const { summaryCard, setSummaryCardPreferences } = useDashboardPreferences();
   const [showSummaryCardConfig, setShowSummaryCardConfig] = useState(false);
 
+  // Real summary card data (same as home screen) for live preview
+  const summaryCardData = useSummaryCardData();
+
   // Load saved theme preference on mount
   useEffect(() => {
     getThemePreference()
@@ -240,6 +244,21 @@ export default function SettingsScreen() {
   });
 
   const { progress, cacheStats, clearCache, sync, syncDateRange } = useActivityBoundsCache();
+
+  // Memoized date range text for cache stats (prevents Date parsing on every render)
+  const dateRangeText = useMemo(() => {
+    if (!cacheStats.oldestDate || !cacheStats.newestDate) {
+      return t('settings.noData');
+    }
+    const oldest = new Date(cacheStats.oldestDate);
+    const newest = new Date(cacheStats.newestDate);
+    // Use calendar days for accurate day counting
+    const oldestDay = new Date(oldest.getFullYear(), oldest.getMonth(), oldest.getDate());
+    const newestDay = new Date(newest.getFullYear(), newest.getMonth(), newest.getDate());
+    const days =
+      Math.round((newestDay.getTime() - oldestDay.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    return `${formatDate(cacheStats.oldestDate, i18n.language)} - ${formatDate(cacheStats.newestDate, i18n.language)} (${t('stats.daysCount', { count: days })})`;
+  }, [cacheStats.oldestDate, cacheStats.newestDate, t, i18n.language]);
 
   // Fetch oldest activity date from API for timeline extent
   const { data: apiOldestDate } = useOldestActivityDate();
@@ -501,67 +520,20 @@ export default function SettingsScreen() {
           {t('settings.summaryCard').toUpperCase()}
         </Text>
         <View style={[styles.section, isDark && styles.sectionDark]}>
-          {/* Live Preview using actual SummaryCard */}
+          {/* Live Preview using actual SummaryCard with real data */}
           <View style={styles.summaryCardPreview}>
             <SummaryCard
-              profileUrl={athlete?.profile_medium || athlete?.profile}
+              profileUrl={summaryCardData.profileUrl}
               onProfilePress={() => {}}
-              heroValue={
-                summaryCard.heroMetric === 'form'
-                  ? 12
-                  : summaryCard.heroMetric === 'fitness'
-                    ? 48
-                    : 42
-              }
-              heroLabel={t(`metrics.${summaryCard.heroMetric}` as never)}
-              heroColor={
-                summaryCard.heroMetric === 'form'
-                  ? colors.success
-                  : summaryCard.heroMetric === 'fitness'
-                    ? colors.fitnessBlue
-                    : colors.chartPink
-              }
-              heroZoneLabel={summaryCard.heroMetric === 'form' ? 'Fresh' : undefined}
-              heroZoneColor={summaryCard.heroMetric === 'form' ? colors.success : undefined}
-              sparklineData={
-                summaryCard.showSparkline
-                  ? summaryCard.heroMetric === 'form'
-                    ? [
-                        -5, -2, 3, 8, 5, 10, 15, 12, 8, 5, 10, 14, 11, 7, 4, 9, 13, 10, 6, 8, 11,
-                        14, 10, 7, 9, 12, 15, 11, 9, 12,
-                      ]
-                    : summaryCard.heroMetric === 'fitness'
-                      ? [
-                          32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 42, 43, 44, 44, 45, 45, 46,
-                          46, 47, 47, 47, 48, 48, 48, 48, 48, 48, 48, 48,
-                        ]
-                      : [
-                          38, 45, 42, 51, 39, 48, 44, 52, 41, 46, 43, 49, 40, 47, 45, 50, 42, 48,
-                          44, 51, 40, 46, 43, 49, 41, 47, 44, 50, 42, 42,
-                        ]
-                  : undefined
-              }
-              showSparkline={summaryCard.showSparkline}
-              supportingMetrics={summaryCard.supportingMetrics.slice(0, 4).map((metricId) => {
-                const def = getMetricDefinition(metricId);
-                const mockValues: Record<string, { value: string | number; color?: string }> = {
-                  fitness: { value: 48, color: colors.fitnessBlue },
-                  form: { value: '+12', color: colors.success },
-                  ftp: { value: 245 },
-                  weekHours: { value: '4.2h' },
-                  weekCount: { value: 5 },
-                  hrv: { value: 42, color: colors.chartPink },
-                  rhr: { value: 52 },
-                  thresholdPace: { value: '4:30' },
-                  css: { value: '1:42' },
-                };
-                const mock = mockValues[metricId] || { value: '-' };
-                return {
-                  label: def ? t(def.labelKey as never) : metricId,
-                  value: mock.value,
-                  color: mock.color,
-                };
-              })}
+              heroValue={summaryCardData.heroValue}
+              heroLabel={summaryCardData.heroLabel}
+              heroColor={summaryCardData.heroColor}
+              heroZoneLabel={summaryCardData.heroZoneLabel}
+              heroZoneColor={summaryCardData.heroZoneColor}
+              heroTrend={summaryCardData.heroTrend}
+              sparklineData={summaryCardData.sparklineData}
+              showSparkline={summaryCardData.showSparkline}
+              supportingMetrics={summaryCardData.supportingMetrics}
             />
           </View>
 
@@ -886,30 +858,7 @@ export default function SettingsScreen() {
             <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
               {t('settings.dateRange')}
             </Text>
-            <Text style={[styles.infoValue, isDark && styles.textLight]}>
-              {cacheStats.oldestDate && cacheStats.newestDate
-                ? (() => {
-                    const oldest = new Date(cacheStats.oldestDate);
-                    const newest = new Date(cacheStats.newestDate);
-                    // Use calendar days for accurate day counting
-                    const oldestDay = new Date(
-                      oldest.getFullYear(),
-                      oldest.getMonth(),
-                      oldest.getDate()
-                    );
-                    const newestDay = new Date(
-                      newest.getFullYear(),
-                      newest.getMonth(),
-                      newest.getDate()
-                    );
-                    const days =
-                      Math.round(
-                        (newestDay.getTime() - oldestDay.getTime()) / (1000 * 60 * 60 * 24)
-                      ) + 1; // +1 to include both start and end days
-                    return `${formatDate(cacheStats.oldestDate, i18n.language)} - ${formatDate(cacheStats.newestDate, i18n.language)} (${t('stats.daysCount', { count: days })})`;
-                  })()
-                : t('settings.noData')}
-            </Text>
+            <Text style={[styles.infoValue, isDark && styles.textLight]}>{dateRangeText}</Text>
           </View>
 
           <View style={[styles.infoRow, isDark && styles.infoRowDark]}>

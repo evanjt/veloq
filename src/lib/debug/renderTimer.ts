@@ -133,10 +133,11 @@ export function logNavigation(from: string, to: string) {
 }
 
 /**
- * Reset render counts (call on app background/foreground)
+ * Reset render counts and timers (call on app background/foreground)
  */
 export function resetRenderCounts() {
   renderCounts.clear();
+  componentTimers.clear();
 }
 
 /**
