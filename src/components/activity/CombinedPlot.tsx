@@ -339,12 +339,18 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Format Y-axis values for single metric display
   const formatYAxisValue = useCallback(
     (value: number, series: (typeof seriesInfo)[0]) => {
+      // Guard against invalid values or missing config
+      if (!Number.isFinite(value) || !series?.config) {
+        return '-';
+      }
       let displayValue = value;
       if (!isMetric && series.config.convertToImperial) {
         displayValue = series.config.convertToImperial(value);
       }
       if (series.config.formatValue) {
-        return series.config.formatValue(displayValue, isMetric);
+        const formatted = series.config.formatValue(displayValue, isMetric);
+        // Guard against formatValue returning empty/invalid string
+        return formatted || '-';
       }
       return Math.round(displayValue).toString();
     },
@@ -356,8 +362,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     ? seriesInfo.find((s) => s.id === previewMetricId)
     : seriesInfo[0];
 
-  // Show color accent when multiple metrics (to identify which Y-axis it is)
-  const showYAxisAccent = seriesInfo.length > 1 || previewMetricId != null;
+  // Always show color accent when any metric is displayed (helps identify the data type)
+  const showYAxisAccent = seriesInfo.length > 0;
 
   // Calculate normalized average position for the Y-axis series (for average line)
   const yAxisAvgNormalized = useMemo(() => {

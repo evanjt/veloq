@@ -1081,6 +1081,7 @@ export default function ActivityDetailScreen() {
                     return (
                       <View key={chartId} style={[styles.chartCard, isDark && styles.cardDark]}>
                         <CombinedPlot
+                          key={chartId}
                           streams={streams}
                           selectedCharts={[chartId]}
                           chartConfigs={CHART_CONFIGS}
@@ -1096,6 +1097,7 @@ export default function ActivityDetailScreen() {
                   // Combined view - overlay chart
                   <View style={[styles.chartCard, isDark && styles.cardDark]}>
                     <CombinedPlot
+                      key={selectedCharts.join(',')}
                       streams={streams}
                       selectedCharts={selectedCharts}
                       chartConfigs={CHART_CONFIGS}
@@ -1564,6 +1566,7 @@ export default function ActivityDetailScreen() {
             {streams && selectedCharts.length > 0 && (
               <View style={styles.fullscreenChartWrapper}>
                 <CombinedPlot
+                  key={selectedCharts.join(',')}
                   streams={streams}
                   selectedCharts={selectedCharts}
                   chartConfigs={CHART_CONFIGS}
