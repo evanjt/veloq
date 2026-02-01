@@ -47,18 +47,18 @@ export default function HealthScreen() {
   const [smoothingWindow, setSmoothingWindow] = useState<SmoothingWindow>('auto');
   const [showSmoothingModal, setShowSmoothingModal] = useState(false);
 
-  // Fetch activities for rolling year comparison (last 24 months)
-  const today = new Date();
-  const twoYearsAgo = new Date(today);
-  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+  // Fetch activities for calendar year comparison (current + previous year)
+  const now = new Date();
+  const currentYearStart = new Date(now.getFullYear(), 0, 1);
+  const prevYearStart = new Date(now.getFullYear() - 1, 0, 1);
   const {
     data: activities,
     isLoading: activitiesLoading,
     isFetching: activitiesFetching,
     refetch: refetchActivities,
   } = useActivities({
-    oldest: twoYearsAgo.toISOString().split('T')[0],
-    newest: today.toISOString().split('T')[0],
+    oldest: prevYearStart.toISOString().split('T')[0],
+    newest: now.toISOString().split('T')[0],
     includeStats: true,
   });
 
@@ -81,24 +81,21 @@ export default function HealthScreen() {
     setIsRefreshing(false);
   }, [refetchActivities, refetchWellness]);
 
-  // Split activities by rolling year for season comparison
+  // Split activities by calendar year for season comparison
   const { currentYearActivities, previousYearActivities } = useMemo(() => {
     if (!activities) return { currentYearActivities: [], previousYearActivities: [] };
 
-    const now = new Date();
-    const oneYearAgo = new Date(now);
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    const twoYearsAgoDate = new Date(now);
-    twoYearsAgoDate.setFullYear(twoYearsAgoDate.getFullYear() - 2);
+    const currentYear = new Date().getFullYear();
+    const previousYear = currentYear - 1;
 
     const current: typeof activities = [];
     const previous: typeof activities = [];
 
     for (const activity of activities) {
-      const activityDate = new Date(activity.start_date_local);
-      if (activityDate >= oneYearAgo && activityDate <= now) {
+      const activityYear = new Date(activity.start_date_local).getFullYear();
+      if (activityYear === currentYear) {
         current.push(activity);
-      } else if (activityDate >= twoYearsAgoDate && activityDate < oneYearAgo) {
+      } else if (activityYear === previousYear) {
         previous.push(activity);
       }
     }

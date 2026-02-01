@@ -288,11 +288,6 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
     };
   }, [activities, timeRange, summaryData, t]);
 
-  const tssChange =
-    previousStats.tss > 0 ? ((currentStats.tss - previousStats.tss) / previousStats.tss) * 100 : 0;
-
-  const isLoadIncreasing = tssChange > 0;
-
   // Show loading state while fetching calendar data
   const isLoading = timeRange === 'week' && isLoadingSummary;
 
@@ -377,70 +372,124 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
           {/* Stats grid */}
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
-              <Text
-                testID="weekly-summary-count"
-                style={[styles.statValue, isDark && styles.textLight]}
-              >
-                {currentStats.count}
-              </Text>
+              <View style={styles.statValueRow}>
+                <Text
+                  testID="weekly-summary-count"
+                  style={[styles.statValue, isDark && styles.textLight]}
+                >
+                  {currentStats.count}
+                </Text>
+                {previousStats.count > 0 && currentStats.count !== previousStats.count && (
+                  <Text
+                    style={[
+                      styles.trendArrow,
+                      {
+                        color:
+                          currentStats.count > previousStats.count
+                            ? colors.success
+                            : colors.warning,
+                      },
+                    ]}
+                  >
+                    {currentStats.count > previousStats.count ? '↑' : '↓'}
+                  </Text>
+                )}
+              </View>
               <Text style={[styles.statLabel, isDark && styles.textDark]}>
                 {t('stats.activities')}
               </Text>
             </View>
 
             <View style={styles.statItem}>
-              <Text
-                testID="weekly-summary-duration"
-                style={[styles.statValue, isDark && styles.textLight]}
-              >
-                {formatDuration(currentStats.duration)}
-              </Text>
+              <View style={styles.statValueRow}>
+                <Text
+                  testID="weekly-summary-duration"
+                  style={[styles.statValue, isDark && styles.textLight]}
+                >
+                  {formatDuration(currentStats.duration)}
+                </Text>
+                {previousStats.duration > 0 &&
+                  Math.abs(currentStats.duration - previousStats.duration) > 300 && (
+                    <Text
+                      style={[
+                        styles.trendArrow,
+                        {
+                          color:
+                            currentStats.duration > previousStats.duration
+                              ? colors.success
+                              : colors.warning,
+                        },
+                      ]}
+                    >
+                      {currentStats.duration > previousStats.duration ? '↑' : '↓'}
+                    </Text>
+                  )}
+              </View>
               <Text style={[styles.statLabel, isDark && styles.textDark]}>
                 {t('activity.duration')}
               </Text>
             </View>
 
             <View style={styles.statItem}>
-              <Text
-                testID="weekly-summary-distance"
-                style={[styles.statValue, isDark && styles.textLight]}
-              >
-                {formatDistance(currentStats.distance, isMetric)}
-              </Text>
+              <View style={styles.statValueRow}>
+                <Text
+                  testID="weekly-summary-distance"
+                  style={[styles.statValue, isDark && styles.textLight]}
+                >
+                  {formatDistance(currentStats.distance, isMetric)}
+                </Text>
+                {previousStats.distance > 0 &&
+                  Math.abs(currentStats.distance - previousStats.distance) > 1000 && (
+                    <Text
+                      style={[
+                        styles.trendArrow,
+                        {
+                          color:
+                            currentStats.distance > previousStats.distance
+                              ? colors.success
+                              : colors.warning,
+                        },
+                      ]}
+                    >
+                      {currentStats.distance > previousStats.distance ? '↑' : '↓'}
+                    </Text>
+                  )}
+              </View>
               <Text style={[styles.statLabel, isDark && styles.textDark]}>
                 {t('activity.distance')}
               </Text>
             </View>
 
             <View style={styles.statItem}>
-              <Text
-                testID="weekly-summary-tss"
-                style={[styles.statValue, isDark && styles.textLight]}
-              >
-                {currentStats.tss}
-              </Text>
+              <View style={styles.statValueRow}>
+                <Text
+                  testID="weekly-summary-tss"
+                  style={[styles.statValue, isDark && styles.textLight]}
+                >
+                  {currentStats.tss}
+                </Text>
+                {previousStats.tss > 0 && Math.abs(currentStats.tss - previousStats.tss) > 5 && (
+                  <Text
+                    style={[
+                      styles.trendArrow,
+                      {
+                        color:
+                          currentStats.tss > previousStats.tss ? colors.warning : colors.success,
+                      },
+                    ]}
+                  >
+                    {currentStats.tss > previousStats.tss ? '↑' : '↓'}
+                  </Text>
+                )}
+              </View>
               <Text style={[styles.statLabel, isDark && styles.textDark]}>
                 {t('stats.loadTss')}
               </Text>
             </View>
           </View>
 
-          {/* Comparison with previous period */}
-          {previousStats.tss > 0 && (
-            <View style={styles.comparisonRow}>
-              <Text style={[styles.comparisonLabel, isDark && styles.textDark]}>
-                {labels.previous}
-              </Text>
-              <Text
-                style={[
-                  styles.comparisonValue,
-                  { color: isLoadIncreasing ? colors.warning : colors.success },
-                ]}
-              >
-                {isLoadIncreasing ? '▲' : '▼'} {Math.abs(tssChange).toFixed(0)}%
-              </Text>
-            </View>
-          )}
+          {/* Period comparison label */}
+          <Text style={[styles.comparisonLabel, isDark && styles.textDark]}>{labels.previous}</Text>
         </>
       )}
     </View>
@@ -498,31 +547,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
     marginBottom: spacing.md,
   },
+  statValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.xs,
+  },
   statValue: {
     fontSize: 24,
     fontWeight: '700',
     color: colors.textPrimary,
+  },
+  trendArrow: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   statLabel: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
-  comparisonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
   comparisonLabel: {
-    fontSize: typography.caption.fontSize,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
-  },
-  comparisonValue: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    marginTop: spacing.xs,
   },
   emptyState: {
     alignItems: 'center',

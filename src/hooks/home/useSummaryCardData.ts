@@ -144,12 +144,35 @@ export function useSummaryCardData(): SummaryCardData {
     const hrvTrend = getTrend(hrv, prevHrv, 2);
     const rhrTrend = getTrend(rhr, prevRhr, 1);
 
-    // Pre-compute date boundaries
-    const now = Date.now();
-    const weekMs = 7 * 24 * 60 * 60 * 1000;
-    const weekAgoTs = now - weekMs;
-    const twoWeeksAgoTs = now - weekMs * 2;
-    const thirtyDaysAgoTs = now - 30 * 24 * 60 * 60 * 1000;
+    // Calendar week boundaries (Monday-Sunday) - matches training page
+    const getMonday = (date: Date): Date => {
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      d.setDate(diff);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const currentMonday = getMonday(today);
+    const currentSunday = new Date(currentMonday);
+    currentSunday.setDate(currentMonday.getDate() + 6);
+    currentSunday.setHours(23, 59, 59, 999);
+
+    const prevMonday = new Date(currentMonday);
+    prevMonday.setDate(currentMonday.getDate() - 7);
+    const prevSunday = new Date(currentMonday);
+    prevSunday.setDate(currentMonday.getDate() - 1);
+    prevSunday.setHours(23, 59, 59, 999);
+
+    const currentMondayTs = currentMonday.getTime();
+    const currentSundayTs = currentSunday.getTime();
+    const prevMondayTs = prevMonday.getTime();
+    const prevSundayTs = prevSunday.getTime();
+
+    const thirtyDaysAgoTs = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
     // Single-pass: Compute all activity-based metrics
     let weekCount = 0;
@@ -165,13 +188,13 @@ export function useSummaryCardData(): SummaryCardData {
       for (const activity of allActivities) {
         const activityTs = new Date(activity.start_date_local).getTime();
 
-        // Current week stats
-        if (activityTs >= weekAgoTs) {
+        // Current calendar week stats (Monday-Sunday)
+        if (activityTs >= currentMondayTs && activityTs <= currentSundayTs) {
           weekCount++;
           weekSeconds += activity.moving_time || 0;
         }
-        // Previous week stats
-        else if (activityTs >= twoWeeksAgoTs) {
+        // Previous calendar week stats (Monday-Sunday)
+        else if (activityTs >= prevMondayTs && activityTs <= prevSundayTs) {
           prevWeekCount++;
           prevWeekSeconds += activity.moving_time || 0;
         }
@@ -357,7 +380,7 @@ export function useSummaryCardData(): SummaryCardData {
         case 'weekHours':
           return {
             label: t('metrics.week'),
-            value: `${quickStats.weekHours}h`,
+            value: `${quickStats.weekHours}h (${quickStats.weekCount})`,
             color: undefined,
             trend: quickStats.weekHoursTrend,
           };
@@ -366,7 +389,7 @@ export function useSummaryCardData(): SummaryCardData {
             label: '#',
             value: quickStats.weekCount,
             color: undefined,
-            trend: quickStats.weekCountTrend,
+            trend: undefined,
           };
         default:
           return {
