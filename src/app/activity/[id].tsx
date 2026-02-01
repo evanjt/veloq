@@ -1224,7 +1224,7 @@ export default function ActivityDetailScreen() {
             scrollEventThrottle={16}
           >
             {totalSectionCount > 0 ? (
-              <View>
+              <View style={styles.sectionListContent}>
                 {/* Auto-detected sections from engine */}
                 {engineSectionMatches.map((match, index) => {
                   const style = getSectionStyle(index);
@@ -1872,6 +1872,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     textAlign: 'center',
     lineHeight: 20,
+  },
+
+  // Section list content wrapper
+  sectionListContent: {
+    paddingTop: spacing.md,
   },
 
   // Section card styles - matches SectionRow for consistency

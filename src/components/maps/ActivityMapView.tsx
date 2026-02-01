@@ -1411,7 +1411,9 @@ export function ActivityMapView({
 
             {/* Highlight marker from elevation chart */}
             {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
+            {/* Key includes highlightIndex to force position update (stable when null) */}
             <MarkerView
+              key={`highlight-${highlightIndex ?? 'none'}`}
               coordinate={
                 highlightPoint ? [highlightPoint.longitude, highlightPoint.latitude] : [0, 0]
               }
