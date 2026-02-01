@@ -1,8 +1,13 @@
-Neu in 0.0.7:
+Neu in Version 0.1.0:
 
-- Mehrere iOS-Abstürze behoben (Standort-Button, Vollbild-Diagramme, Abschnitterstellung)
-- Aktivitäten-Umschalter in der regionalen Kartenansicht hinzugefügt
-- Neue Luftbild-/Satellitenkartenoptionen
-- Benutzerdefinierte Abschnitterstellung mit Kartenlegende
-- Verbesserte Stabilität beim Wechseln der Kartenzustände
-- Reduzierte GPS-Punktanforderungen für Abschnitterstellung
+- Fitness-Tab mit Leistungs-/Tempokurven und Trainingszonen neu organisiert
+- Routen und Abschnitte werden nach Tempo sortiert (Laufaktivitäten)
+- Wochenstatistiken verwenden Kalenderwochen (Mo-So) wie intervals.icu
+- Jahresvergleiche nutzen Kalenderjahre statt rollierender Zeiträume
+- Individuelle Trendpfeile für jede Metrik in der Wochenübersicht
+- Übersetzte automatisch generierte Namen für Routen und Abschnitte
+- Einstellungsvorschau für Übersichtskarte und Kartenkreise
+- GPS-Ladeindikator auf der Regionalkarte
+- 3D-Karten-Polylinien-Darstellung behoben
+- Y-Achsen-Werte und Scrubbing in Aktivitätsdiagrammen behoben
+- Leistungsverbesserungen in der gesamten App

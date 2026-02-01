@@ -1,8 +1,13 @@
-Nouveautés de la version 0.0.7 :
+What's new in 0.1.0:
 
-- Correction de plusieurs plantages iOS (bouton de localisation, graphiques plein écran, création de sections)
-- Ajout d'un bouton pour afficher/masquer les activités sur la carte régionale
-- Nouvelles options de carte aérienne/satellite
-- Création de sections personnalisées avec légende de la carte
-- Amélioration de la stabilité lors du changement d'état de la carte
-- Assouplissement des exigences de points GPS pour la création de sections
+- Reorganised fitness tab with power/pace curves and training zones
+- Routes and sections now sorted by pace for running activities
+- Weekly stats now use calendar weeks (Mon-Sun) matching intervals.icu
+- Year comparisons use calendar years instead of rolling periods
+- Individual trend arrows for each metric in weekly summary
+- Translated route and section auto-generated names
+- Settings preview for summary card and map circles
+- GPS loading indicator on regional map
+- Fixed 3D map polyline rendering
+- Fixed activity chart y-axis values and scrubbing
+- Performance improvements throughout the app

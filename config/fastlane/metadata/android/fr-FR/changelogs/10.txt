@@ -1,0 +1,13 @@
+Nouveautés dans 0.1.0 :
+
+- Onglet fitness réorganisé avec courbes de puissance/allure et zones d'entraînement
+- Routes et sections triées par allure pour les activités de course
+- Statistiques hebdomadaires basées sur les semaines calendaires (lun-dim) comme intervals.icu
+- Comparaisons annuelles utilisant les années calendaires au lieu des périodes glissantes
+- Flèches de tendance individuelles pour chaque métrique dans le résumé hebdomadaire
+- Noms auto-générés traduits pour les routes et sections
+- Aperçu des paramètres pour la carte résumé et les cercles de carte
+- Indicateur de chargement GPS sur la carte régionale
+- Correction du rendu des polylignes en carte 3D
+- Correction des valeurs de l'axe Y et du défilement dans les graphiques d'activité
+- Améliorations de performances dans toute l'application

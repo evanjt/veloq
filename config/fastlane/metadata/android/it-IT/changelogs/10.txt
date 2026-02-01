@@ -1,0 +1,13 @@
+Novità nella versione 0.1.0:
+
+- Scheda fitness riorganizzata con curve di potenza/passo e zone di allenamento
+- Percorsi e sezioni ordinati per passo nelle attività di corsa
+- Statistiche settimanali usano settimane di calendario (lun-dom) come intervals.icu
+- Confronti annuali usano anni di calendario invece di periodi mobili
+- Frecce di tendenza individuali per ogni metrica nel riepilogo settimanale
+- Nomi auto-generati tradotti per percorsi e sezioni
+- Anteprima impostazioni per scheda riepilogo e cerchi mappa
+- Indicatore di caricamento GPS sulla mappa regionale
+- Corretto il rendering delle polilinee della mappa 3D
+- Corretti i valori dell'asse Y e lo scorrimento nei grafici attività
+- Miglioramenti delle prestazioni in tutta l'app
