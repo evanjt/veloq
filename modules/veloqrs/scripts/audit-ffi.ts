@@ -329,7 +329,7 @@ function outputHuman(
   }
 
   // Generate markdown table for documentation
-  console.log('\n📋 FFI Mapping Table (for CLAUDE.md):\n');
+  console.log('\n📋 FFI Mapping Table:\n');
   console.log('| TypeScript | Rust Function | Location |');
   console.log('|------------|---------------|----------|');
 

@@ -3,7 +3,7 @@
  * Displays the route with activity count and preview polyline.
  */
 
-import React, { memo, useState, useMemo } from 'react';
+import React, { memo, useState, useMemo, useId } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme, useMetricSystem } from '@/hooks';
 import { Text } from 'react-native-paper';
@@ -62,6 +62,10 @@ interface RoutePreviewProps {
 }
 
 const RoutePreview = memo(function RoutePreview({ points, color, isDark }: RoutePreviewProps) {
+  // Unique ID for SVG gradient to avoid collisions between multiple instances
+  const uniqueId = useId();
+  const gradientId = `routeGradient-${uniqueId}`;
+
   if (points.length < 2) return null;
 
   const width = 56;
@@ -84,14 +88,14 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
   return (
     <Svg width={width} height={height}>
       <Defs>
-        <LinearGradient id="mapGradient" x1="0" y1="0" x2="0" y2="1">
+        <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor={bgColor} stopOpacity="1" />
           <Stop offset="1" stopColor={isDark ? '#0d1a0d' : '#d4e8d4'} stopOpacity="1" />
         </LinearGradient>
       </Defs>
 
       {/* Map-like background */}
-      <Rect x="0" y="0" width={width} height={height} fill="url(#mapGradient)" rx="4" />
+      <Rect x="0" y="0" width={width} height={height} fill={`url(#${gradientId})`} rx="4" />
 
       {/* Subtle grid lines for map effect */}
       <Polyline

@@ -4,7 +4,7 @@
  * Used in both route and section detail pages for consistent visualization.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useId } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { colors } from '@/theme';
@@ -45,6 +45,10 @@ export function MiniTraceView({
   isDark = false,
   showMarkers = true,
 }: MiniTraceViewProps) {
+  // Unique ID for SVG gradient to avoid collisions between multiple instances
+  const uniqueId = useId();
+  const gradientId = `mapGradient-${uniqueId}`;
+
   // Calculate actual dimensions
   const width = propWidth ?? size;
   const height = propHeight ?? (propWidth ? 40 : size);
@@ -131,14 +135,14 @@ export function MiniTraceView({
     <View style={[styles.container, { width, height }, isHighlighted && styles.highlighted]}>
       <Svg width={width} height={height}>
         <Defs>
-          <LinearGradient id="mapGradientMini" x1="0" y1="0" x2="0" y2="1">
+          <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0" stopColor={bgColor} stopOpacity="1" />
             <Stop offset="1" stopColor={bgColorBottom} stopOpacity="1" />
           </LinearGradient>
         </Defs>
 
         {/* Map-like background */}
-        <Rect x="0" y="0" width={width} height={height} fill="url(#mapGradientMini)" rx="6" />
+        <Rect x="0" y="0" width={width} height={height} fill={`url(#${gradientId})`} rx="6" />
 
         {/* Subtle grid lines for map effect */}
         <Polyline
@@ -221,9 +225,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
+    // Use consistent border to prevent layout shifts when highlighted
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   highlighted: {
-    borderWidth: 2,
+    // Only change border color, not width - prevents layout shift
     borderColor: colors.chartCyan,
   },
 });

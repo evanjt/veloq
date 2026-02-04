@@ -7,7 +7,7 @@
  * When using summaries, the polyline is lazy-loaded on-demand.
  */
 
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useId } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme, useSectionPolyline, useMetricSystem } from '@/hooks';
 import { Text } from 'react-native-paper';
@@ -128,6 +128,9 @@ export const SectionRow = memo(function SectionRow({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
+  // Unique ID for SVG gradient to avoid collisions between multiple instances
+  const uniqueId = useId();
+  const gradientId = `sectionGradient-${uniqueId}`;
 
   // Normalize section data to common format
   const section = useMemo(() => normalizeSectionData(rawSection), [rawSection]);
@@ -251,7 +254,7 @@ export const SectionRow = memo(function SectionRow({
         {hasSectionPolyline ? (
           <Svg width={PREVIEW_WIDTH} height={PREVIEW_HEIGHT}>
             <Defs>
-              <LinearGradient id="mapGradient" x1="0" y1="0" x2="0" y2="1">
+              <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                 <Stop offset="0" stopColor={bgColor} stopOpacity="1" />
                 <Stop offset="1" stopColor={isDark ? '#0d1a0d' : '#d4e8d4'} stopOpacity="1" />
               </LinearGradient>
@@ -263,7 +266,7 @@ export const SectionRow = memo(function SectionRow({
               y="0"
               width={PREVIEW_WIDTH}
               height={PREVIEW_HEIGHT}
-              fill="url(#mapGradient)"
+              fill={`url(#${gradientId})`}
               rx="4"
             />
 
