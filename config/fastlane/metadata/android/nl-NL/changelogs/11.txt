@@ -1,0 +1,7 @@
+Wat is er nieuw in 0.1.1:
+
+- Vaste mini trace views die verdwijnen bij het markeren van routes en secties
+- Vast dat sectierichting niet correct bleef behouden
+- Vaste race conditions bij cache clearing en uitloggen
+- Vaste activiteitsovereenstemming voor aangepaste secties
+- Verbeterde cache freshness-afhandeling

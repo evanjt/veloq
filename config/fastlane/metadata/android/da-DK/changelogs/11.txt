@@ -1,0 +1,7 @@
+Nyheder i 0.1.1:
+
+- Fikset mini-kortvisninger der forsvandt ved highlighting af ruter og sektioner
+- Fikset at sektionsretning ikke blev gemt korrekt
+- Fikset race conditions ved cache-rydning og sign out
+- Fikset matching af brugerdefinerede sektioner
+- Forbedret håndtering af cache-friskhed

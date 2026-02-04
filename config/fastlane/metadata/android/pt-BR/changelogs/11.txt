@@ -1,0 +1,8 @@
+Novidades na versão 0.1.1:
+
+- Corrigidas vistas de mini rastro que desapareciam ao destacar rotas e secções
+- Corrigida persistência da direção da secção
+- Corrigidas condições de corrida ao limpar cache e terminar sessão
+- Corrigida correspondência de atividades de secções personalizadas
+- Melhorada o processamento de atualização de cache
+

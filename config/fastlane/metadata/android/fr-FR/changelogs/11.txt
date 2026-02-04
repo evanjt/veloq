@@ -1,0 +1,7 @@
+Nouveautés dans 0.1.1 :
+
+- Correction : mini cartes de trace qui disparaissaient lors de la mise en évidence des itinéraires et sections
+- Correction : direction de section non conservée correctement
+- Correction : conditions de concurrence lors du vidage du cache et de la déconnexion
+- Correction : correspondance personnalisée des activités dans les sections
+- Amélioration : gestion améliorée de la fraîcheur du cache

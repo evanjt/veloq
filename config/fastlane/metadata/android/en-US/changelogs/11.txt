@@ -1,0 +1,7 @@
+What's new in 0.1.1:
+
+- Fixed mini trace views disappearing when highlighting routes and sections
+- Fixed section direction not persisting correctly
+- Fixed cache clear and sign out race conditions
+- Fixed custom section activity matching
+- Improved cache freshness handling

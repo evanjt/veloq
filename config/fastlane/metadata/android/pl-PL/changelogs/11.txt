@@ -1,0 +1,7 @@
+Nowości w wersji 0.1.1:
+
+- Naprawiono znikające miniatury tras przy wyróżnianiu tras i sekcji
+- Naprawiono brak zachowywania kierunku sekcji
+- Naprawiono warunki wyścigu przy czyszczeniu pamięci podręcznej i wylogowywaniu
+- Naprawiono dopasowywanie aktywności dla niestandardowych sekcji
+- Ulepszono obsługę świeżości pamięci podręcznej

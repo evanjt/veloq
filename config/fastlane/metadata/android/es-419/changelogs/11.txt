@@ -1,0 +1,8 @@
+Novedades en 0.1.1:
+
+- Se corrigió que las vistas de mini traza desaparecieran al resaltar rutas y secciones
+- Se corrigió que la dirección de la sección no se guardara correctamente
+- Se corrigieron condiciones de carrera en la limpieza de caché y cierre de sesión
+- Se corrigió la coincidencia de actividades de sección personalizada
+- Se mejoró el manejo de la actualización de caché
+
