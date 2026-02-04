@@ -1623,6 +1623,15 @@ impl PersistentRouteEngine {
         self.activity_metadata.keys().cloned().collect()
     }
 
+    /// Get activity IDs filtered by sport type.
+    pub fn get_activity_ids_by_sport(&self, sport_type: &str) -> Vec<String> {
+        self.activity_metadata
+            .iter()
+            .filter(|(_, meta)| meta.sport_type == sport_type)
+            .map(|(id, _)| id.clone())
+            .collect()
+    }
+
     /// Check if an activity exists.
     pub fn has_activity(&self, id: &str) -> bool {
         self.activity_metadata.contains_key(id)
@@ -2431,6 +2440,133 @@ impl PersistentRouteEngine {
         }
     }
 
+    /// Refresh a section in memory from the database.
+    /// Only applies to auto sections (custom sections are not cached in memory).
+    /// Call this after modifying a section's polyline or activity list.
+    pub fn refresh_section_in_memory(&mut self, section_id: &str) {
+        // Only auto sections are cached in self.sections
+        // Custom sections always come from DB via get_section()
+
+        // First check if this is an auto section by querying the DB
+        let section_data: Option<(String, String, Option<String>, String, f64, Option<String>, Option<f64>, Option<u32>, Option<f64>, Option<String>, Option<String>, Option<u32>, Option<i32>, Option<f64>, Option<String>, Option<String>)> = {
+            let mut stmt = match self.db.prepare(
+                "SELECT section_type, sport_type, name, polyline_json, distance_meters,
+                        representative_activity_id, confidence, observation_count, average_spread,
+                        point_density_json, scale, version, is_user_defined, stability,
+                        created_at, updated_at
+                 FROM sections WHERE id = ?"
+            ) {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+
+            stmt.query_row(params![section_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,  // section_type
+                    row.get::<_, String>(1)?,  // sport_type
+                    row.get::<_, Option<String>>(2)?,  // name
+                    row.get::<_, String>(3)?,  // polyline_json
+                    row.get::<_, f64>(4)?,  // distance_meters
+                    row.get::<_, Option<String>>(5)?,  // representative_activity_id
+                    row.get::<_, Option<f64>>(6)?,  // confidence
+                    row.get::<_, Option<u32>>(7)?,  // observation_count
+                    row.get::<_, Option<f64>>(8)?,  // average_spread
+                    row.get::<_, Option<String>>(9)?,  // point_density_json
+                    row.get::<_, Option<String>>(10)?,  // scale
+                    row.get::<_, Option<u32>>(11)?,  // version
+                    row.get::<_, Option<i32>>(12)?,  // is_user_defined
+                    row.get::<_, Option<f64>>(13)?,  // stability
+                    row.get::<_, Option<String>>(14)?,  // created_at
+                    row.get::<_, Option<String>>(15)?,  // updated_at
+                ))
+            }).ok()
+        };
+
+        let (section_type, sport_type, name, polyline_json, distance_meters,
+             representative_activity_id, confidence, observation_count, average_spread,
+             point_density_json, scale, version, is_user_defined, stability,
+             created_at, updated_at) = match section_data {
+            Some(data) => data,
+            None => return,  // Section not found
+        };
+
+        // Only auto sections are cached in memory
+        if section_type != "auto" {
+            return;
+        }
+
+        // Get activity IDs from junction table
+        let activity_ids: Vec<String> = {
+            let mut stmt = match self.db.prepare(
+                "SELECT activity_id FROM section_activities WHERE section_id = ?"
+            ) {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+            stmt.query_map(params![section_id], |row| row.get(0))
+                .map(|rows| rows.filter_map(|r| r.ok()).collect())
+                .unwrap_or_default()
+        };
+
+        // Parse polyline and point density
+        let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json).unwrap_or_default();
+        let point_density: Vec<u32> = point_density_json
+            .and_then(|j| serde_json::from_str(&j).ok())
+            .unwrap_or_default();
+
+        let visit_count = activity_ids.len() as u32;
+
+        // Build the FrequentSection
+        let updated_section = FrequentSection {
+            id: section_id.to_string(),
+            name,
+            sport_type,
+            polyline,
+            representative_activity_id: representative_activity_id.unwrap_or_default(),
+            activity_ids,
+            activity_portions: vec![],  // Not stored in DB
+            route_ids: vec![],  // Not stored in DB
+            visit_count,
+            distance_meters,
+            activity_traces: std::collections::HashMap::new(),  // Not stored in DB
+            confidence: confidence.unwrap_or(0.0),
+            observation_count: observation_count.unwrap_or(0),
+            average_spread: average_spread.unwrap_or(0.0),
+            point_density,
+            scale,
+            version: version.unwrap_or(1),
+            is_user_defined: is_user_defined.unwrap_or(0) != 0,
+            stability: stability.unwrap_or(0.0),
+            created_at,
+            updated_at,
+        };
+
+        // Find and update existing section, or append if new
+        if let Some(existing) = self.sections.iter_mut().find(|s| s.id == section_id) {
+            *existing = updated_section;
+            log::debug!(
+                "tracematch: [refresh_section_in_memory] Updated section {} in memory",
+                section_id
+            );
+        } else {
+            self.sections.push(updated_section);
+            log::debug!(
+                "tracematch: [refresh_section_in_memory] Added section {} to memory",
+                section_id
+            );
+        }
+    }
+
+    /// Remove a section from in-memory cache.
+    /// Call this after deleting a section.
+    pub fn remove_section_from_memory(&mut self, section_id: &str) {
+        self.sections.retain(|s| s.id != section_id);
+        log::debug!(
+            "tracematch: [remove_section_from_memory] Removed section {} from memory",
+            section_id
+        );
+    }
+
     /// Get section count directly from SQLite (no data loading).
     /// This is O(1) and doesn't require loading sections into memory.
     pub fn get_section_count(&self) -> u32 {
@@ -3011,6 +3147,14 @@ impl PersistentRouteEngine {
         self.sections = sections;
         self.save_sections()?;
         self.sections_dirty = false;
+
+        // Clear activity_traces to prevent memory leak.
+        // These GPS traces were used for consensus computation but are not persisted
+        // to SQLite, so keeping them in memory is wasteful.
+        for section in &mut self.sections {
+            section.activity_traces.clear();
+        }
+
         Ok(())
     }
 
@@ -5233,8 +5377,7 @@ mod tests {
             activity_ids: activity_ids.clone(),
             activity_portions: activity_ids
                 .iter()
-                .enumerate()
-                .map(|(i, aid)| crate::SectionPortion {
+                .map(|aid| crate::SectionPortion {
                     activity_id: aid.clone(),
                     start_index: 0,
                     end_index: 49,
@@ -5282,21 +5425,359 @@ mod tests {
         );
         engine.apply_sections(vec![section]).unwrap();
 
-        // Verify initial state
-        let sections = engine.get_sections();
-        assert_eq!(sections.len(), 1);
-        assert_eq!(sections[0].representative_activity_id, "activity-1");
-        assert!(!sections[0].is_user_defined);
+        // Verify initial state (from DATABASE, not in-memory cache)
+        let db_section = engine.get_section("sec_cycling_1").expect("Section should exist");
+        assert_eq!(db_section.representative_activity_id, Some("activity-1".to_string()));
+        assert!(!db_section.is_user_defined);
 
         // Set activity-2 as the new reference
         let result = engine.set_section_reference("sec_cycling_1", "activity-2");
         assert!(result.is_ok(), "set_section_reference should succeed for auto-detected sections");
 
-        // Verify the reference was changed
-        let sections = engine.get_sections();
-        assert_eq!(sections[0].representative_activity_id, "activity-2");
-        assert!(sections[0].is_user_defined);
-        assert_eq!(sections[0].version, 2);
+        // Verify the reference was changed (from DATABASE)
+        let db_section = engine.get_section("sec_cycling_1").expect("Section should exist");
+        assert_eq!(db_section.representative_activity_id, Some("activity-2".to_string()));
+        assert!(db_section.is_user_defined);
+    }
+
+    // ==========================================================================
+    // Bug Fix Tests (TDD)
+    // ==========================================================================
+
+    /// Bug 1: Setting reference on auto section should extract the section-matching portion,
+    /// NOT use the entire activity track.
+    ///
+    /// The bug was that set_section_reference used `track.clone()` for auto sections,
+    /// which replaced the short section polyline with the entire activity track (200 points
+    /// instead of ~50).
+    ///
+    /// The fix extracts only the portion of the new activity that spatially overlaps with
+    /// the section, preserving approximately the same geographic extent.
+    #[test]
+    fn test_set_section_reference_extracts_matching_portion_for_auto_section() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+
+        // Create a SHORT section polyline (50 points, ~5km)
+        let section_coords: Vec<GpsPoint> = (0..50)
+            .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278 + i as f64 * 0.0005))
+            .collect();
+
+        // Create a LONGER activity track (200 points, ~20km) that contains the section
+        let long_activity_coords: Vec<GpsPoint> = (0..200)
+            .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278 + i as f64 * 0.0005))
+            .collect();
+
+        // Add activities
+        engine
+            .add_activity("activity-short".to_string(), section_coords.clone(), "cycling".to_string())
+            .unwrap();
+        engine
+            .add_activity("activity-long".to_string(), long_activity_coords.clone(), "cycling".to_string())
+            .unwrap();
+
+        // Create auto-detected section with the SHORT polyline
+        let section = create_test_frequent_section(
+            "sec_cycling_auto",
+            "activity-short",
+            vec!["activity-short".to_string(), "activity-long".to_string()],
+            section_coords.clone(),
+        );
+        engine.apply_sections(vec![section]).unwrap();
+
+        // Verify initial state from DATABASE (not in-memory cache)
+        let db_section = engine.get_section("sec_cycling_auto").expect("Section should exist in DB");
+        assert_eq!(db_section.polyline.len(), 50, "Initial section should have 50 points");
+        let initial_distance = compute_test_polyline_distance(&db_section.polyline);
+
+        // Set the LONG activity as the new reference
+        let result = engine.set_section_reference("sec_cycling_auto", "activity-long");
+        assert!(result.is_ok());
+
+        // CRITICAL ASSERTION: Read from DATABASE after update
+        let db_section = engine.get_section("sec_cycling_auto").expect("Section should exist in DB");
+
+        // Polyline should be approximately the same length (NOT the full 200 points)
+        // Allow some variance since spatial extraction may include slightly more/fewer points
+        assert!(
+            db_section.polyline.len() < 100,
+            "BUG: Polyline was corrupted with entire activity track! \
+             Expected ~50 points but got {}. Should extract only the section-matching portion.",
+            db_section.polyline.len()
+        );
+
+        // Distance should be approximately the same (not 4x larger)
+        let new_distance = compute_test_polyline_distance(&db_section.polyline);
+        let distance_ratio = new_distance / initial_distance;
+        assert!(
+            distance_ratio > 0.8 && distance_ratio < 1.2,
+            "BUG: Distance changed significantly from {} to {}! \
+             Expected approximately the same distance after setting new reference.",
+            initial_distance, new_distance
+        );
+
+        // Representative should be updated
+        assert_eq!(
+            db_section.representative_activity_id,
+            Some("activity-long".to_string()),
+            "Representative activity should be updated"
+        );
+    }
+
+    /// Bug 2: Reset reference should clear is_user_defined flag.
+    ///
+    /// NOTE: Fully regenerating the consensus polyline would require access to activity traces
+    /// which are not stored in the database. For now, reset_section_reference only clears the
+    /// is_user_defined flag. This is acceptable if Bug 1 is fixed (polyline won't be corrupted).
+    #[test]
+    fn test_reset_section_reference_clears_user_defined_flag() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+
+        // Create two activities with slightly different but overlapping routes
+        let coords_1: Vec<GpsPoint> = (0..50)
+            .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278 + i as f64 * 0.0005))
+            .collect();
+        let coords_2: Vec<GpsPoint> = (0..50)
+            .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001 + 0.0001, -0.1278 + i as f64 * 0.0005))
+            .collect();
+
+        engine
+            .add_activity("activity-1".to_string(), coords_1.clone(), "cycling".to_string())
+            .unwrap();
+        engine
+            .add_activity("activity-2".to_string(), coords_2.clone(), "cycling".to_string())
+            .unwrap();
+
+        // Create auto-detected section with consensus polyline from both activities
+        let consensus_polyline: Vec<GpsPoint> = (0..50)
+            .map(|i| {
+                // Consensus should be average of both routes
+                GpsPoint::new(
+                    51.5074 + i as f64 * 0.001 + 0.00005, // midpoint
+                    -0.1278 + i as f64 * 0.0005,
+                )
+            })
+            .collect();
+
+        let section = create_test_frequent_section(
+            "sec_cycling_consensus",
+            "activity-1",
+            vec!["activity-1".to_string(), "activity-2".to_string()],
+            consensus_polyline.clone(),
+        );
+        engine.apply_sections(vec![section]).unwrap();
+
+        // Set reference to activity-1 (marks as user_defined)
+        engine.set_section_reference("sec_cycling_consensus", "activity-1").unwrap();
+
+        // Verify it's now user-defined (from DATABASE)
+        let db_section = engine.get_section("sec_cycling_consensus").expect("Section should exist");
+        assert!(db_section.is_user_defined, "Section should be user-defined after set_section_reference");
+
+        // Now reset the reference
+        let result = engine.reset_section_reference("sec_cycling_consensus");
+        assert!(result.is_ok());
+
+        // CRITICAL ASSERTION: After reset, read from DATABASE
+        let db_section = engine.get_section("sec_cycling_consensus").expect("Section should exist");
+
+        // Should not be user-defined anymore
+        assert!(
+            !db_section.is_user_defined,
+            "BUG: Section should not be user-defined after reset"
+        );
+    }
+
+    /// Bug 4: Activity traces should be cleared after section save to prevent memory leak.
+    /// The bug was that activity_traces in FrequentSection accumulated GPS data and was never cleared.
+    #[test]
+    fn test_activity_traces_cleared_after_section_save() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+
+        // Create activities with GPS tracks
+        let coords: Vec<GpsPoint> = (0..1000)
+            .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.0001, -0.1278 + i as f64 * 0.00005))
+            .collect();
+
+        for i in 0..10 {
+            engine
+                .add_activity(format!("activity-{}", i), coords.clone(), "cycling".to_string())
+                .unwrap();
+        }
+
+        // Create section with activity traces populated
+        let mut section = create_test_frequent_section(
+            "sec_memory_test",
+            "activity-0",
+            (0..10).map(|i| format!("activity-{}", i)).collect(),
+            coords[0..50].to_vec(),
+        );
+
+        // Simulate what happens during section detection - traces get populated
+        for i in 0..10 {
+            section.activity_traces.insert(
+                format!("activity-{}", i),
+                coords.clone(), // 1000 points each
+            );
+        }
+
+        // Apply sections (this saves to DB)
+        engine.apply_sections(vec![section]).unwrap();
+
+        // CRITICAL ASSERTION: After save, activity_traces should be cleared from in-memory sections
+        // to prevent memory leak
+        let in_memory_section_traces_empty = engine.sections.iter().all(|s| s.activity_traces.is_empty());
+        assert!(
+            in_memory_section_traces_empty,
+            "BUG: Memory leak! activity_traces should be cleared after save. \
+             These GPS traces are no longer needed and should be cleared."
+        );
+    }
+
+    /// Data integrity test: After set_section_reference, stored distance should match polyline.
+    /// This verifies that when we extract the matching portion, the distance field is correctly
+    /// updated to match the new polyline.
+    #[test]
+    fn test_section_distance_matches_polyline() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+
+        // Create section polyline
+        let coords: Vec<GpsPoint> = (0..50)
+            .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278 + i as f64 * 0.0005))
+            .collect();
+
+        // Longer activity
+        let long_coords: Vec<GpsPoint> = (0..200)
+            .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278 + i as f64 * 0.0005))
+            .collect();
+
+        engine
+            .add_activity("activity-short".to_string(), coords.clone(), "cycling".to_string())
+            .unwrap();
+        engine
+            .add_activity("activity-long".to_string(), long_coords.clone(), "cycling".to_string())
+            .unwrap();
+
+        // Create section with CORRECT distance matching the polyline
+        let mut section = create_test_frequent_section(
+            "sec_integrity",
+            "activity-short",
+            vec!["activity-short".to_string(), "activity-long".to_string()],
+            coords.clone(),
+        );
+        // Fix the distance to match the actual polyline
+        section.distance_meters = compute_test_polyline_distance(&coords);
+        engine.apply_sections(vec![section]).unwrap();
+
+        // Get initial state from DB
+        let db_section_before = engine.get_section("sec_integrity").expect("Section should exist");
+        let initial_distance = db_section_before.distance_meters;
+
+        // Set reference to the longer activity
+        engine.set_section_reference("sec_integrity", "activity-long").unwrap();
+
+        // Read from DATABASE after update
+        let db_section = engine.get_section("sec_integrity").expect("Section should exist");
+
+        // Distance should be approximately the same (within 20% since we're extracting matching portion)
+        let distance_ratio = db_section.distance_meters / initial_distance;
+        assert!(
+            distance_ratio > 0.8 && distance_ratio < 1.2,
+            "Distance changed too much. Before: {}, After: {}",
+            initial_distance, db_section.distance_meters
+        );
+
+        // CRITICAL: Verify stored distance matches computed distance from polyline (data integrity)
+        let computed_distance = compute_test_polyline_distance(&db_section.polyline);
+        let integrity_diff = (db_section.distance_meters - computed_distance).abs();
+        assert!(
+            integrity_diff < 10.0, // Allow 10m tolerance
+            "Stored distance ({}) doesn't match polyline distance ({})! Data integrity issue.",
+            db_section.distance_meters, computed_distance
+        );
+    }
+
+    /// Helper function to compute distance for tests
+    fn compute_test_polyline_distance(points: &[GpsPoint]) -> f64 {
+        if points.len() < 2 {
+            return 0.0;
+        }
+        points.windows(2).map(|w| {
+            let dlat = (w[1].latitude - w[0].latitude).to_radians();
+            let dlon = (w[1].longitude - w[0].longitude).to_radians();
+            let a = (dlat / 2.0).sin().powi(2)
+                + w[0].latitude.to_radians().cos()
+                * w[1].latitude.to_radians().cos()
+                * (dlon / 2.0).sin().powi(2);
+            6_371_000.0 * 2.0 * a.sqrt().asin()
+        }).sum()
+    }
+
+    /// Test that set_section_reference re-matches activities against the new polyline.
+    /// Activities that no longer overlap should be removed from the junction table.
+    #[test]
+    fn test_set_section_reference_rematches_activities() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+
+        // Create section polyline in a specific area
+        let section_coords: Vec<GpsPoint> = (0..50)
+            .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278 + i as f64 * 0.0005))
+            .collect();
+
+        // Activity 1: overlaps with section (same area)
+        let activity1_coords: Vec<GpsPoint> = (0..60)
+            .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278 + i as f64 * 0.0005))
+            .collect();
+
+        // Activity 2: overlaps with section (same area)
+        let activity2_coords: Vec<GpsPoint> = (0..55)
+            .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278 + i as f64 * 0.0005 + 0.0001))
+            .collect();
+
+        // Activity 3: does NOT overlap (different area entirely)
+        let activity3_coords: Vec<GpsPoint> = (0..50)
+            .map(|i| GpsPoint::new(52.5 + i as f64 * 0.001, 0.0 + i as f64 * 0.0005))
+            .collect();
+
+        // Add activities
+        engine.add_activity("activity-1".to_string(), activity1_coords.clone(), "cycling".to_string()).unwrap();
+        engine.add_activity("activity-2".to_string(), activity2_coords.clone(), "cycling".to_string()).unwrap();
+        engine.add_activity("activity-3".to_string(), activity3_coords.clone(), "cycling".to_string()).unwrap();
+
+        // Create section with all 3 activities (even though activity-3 doesn't actually overlap)
+        let section = create_test_frequent_section(
+            "sec_rematch_test",
+            "activity-1",
+            vec!["activity-1".to_string(), "activity-2".to_string(), "activity-3".to_string()],
+            section_coords.clone(),
+        );
+        engine.apply_sections(vec![section]).unwrap();
+
+        // Verify initial state: all 3 activities are associated
+        let db_section = engine.get_section("sec_rematch_test").expect("Section should exist");
+        assert_eq!(db_section.activity_ids.len(), 3, "Initial section should have 3 activities");
+
+        // Set activity-1 as reference (this triggers re-matching)
+        engine.set_section_reference("sec_rematch_test", "activity-1").unwrap();
+
+        // After re-matching, only activities 1 and 2 should remain (they overlap)
+        // Activity 3 should be removed (it's in a completely different area)
+        let db_section = engine.get_section("sec_rematch_test").expect("Section should exist");
+
+        // Activity-3 should have been removed (doesn't overlap)
+        assert!(
+            !db_section.activity_ids.contains(&"activity-3".to_string()),
+            "Activity-3 should be removed after re-matching (doesn't overlap with section)"
+        );
+
+        // Activities 1 and 2 should still be present
+        assert!(
+            db_section.activity_ids.contains(&"activity-1".to_string()),
+            "Activity-1 should still be present after re-matching"
+        );
+        assert!(
+            db_section.activity_ids.contains(&"activity-2".to_string()),
+            "Activity-2 should still be present after re-matching"
+        );
     }
 
 }

@@ -6,7 +6,9 @@
 use super::{CreateSectionParams, Section, SectionSummary, SectionType};
 use crate::persistence::PersistentRouteEngine;
 use rusqlite::params;
+use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tracematch::sections::extract_all_activity_traces;
 use tracematch::GpsPoint;
 
 impl PersistentRouteEngine {
@@ -277,6 +279,10 @@ impl PersistentRouteEngine {
             let _ = self.add_section_activity(&id, activity_id);
         }
 
+        // Match all activities with same sport type against the new section
+        // This ensures custom sections show all traversals, not just the source activity
+        let _ = self.match_activities_to_section(&id, &params.polyline, &params.sport_type);
+
         Ok(id)
     }
 
@@ -317,22 +323,34 @@ impl PersistentRouteEngine {
     }
 
     /// Set a new reference activity for a section.
-    /// This updates the representative_activity_id and reloads the polyline from the activity.
+    ///
+    /// For **auto-detected sections**: Updates `representative_activity_id` and replaces the
+    /// polyline with the new activity's section-matching portion (extracted via spatial overlap).
+    ///
+    /// For **custom sections**: Updates both the representative and reloads the polyline from
+    /// the new activity using the stored start/end indices.
     pub fn set_section_reference(
         &mut self,
         section_id: &str,
         activity_id: &str,
     ) -> Result<(), String> {
-        // Load the activity's GPS track
+        // Verify activity exists and get its track
         let track = self
             .get_gps_track(activity_id)
             .ok_or_else(|| format!("Activity not found: {}", activity_id))?;
 
-        // Get current section to determine indices
-        let (start_index, end_index, section_type) = {
+        // Get current section to determine type, indices, and current polyline
+        let (start_index, end_index, section_type, current_polyline_json): (
+            Option<u32>,
+            Option<u32>,
+            String,
+            String,
+        ) = {
             let mut stmt = self
                 .db
-                .prepare("SELECT start_index, end_index, section_type FROM sections WHERE id = ?")
+                .prepare(
+                    "SELECT start_index, end_index, section_type, polyline_json FROM sections WHERE id = ?",
+                )
                 .map_err(|e| e.to_string())?;
 
             stmt.query_row(params![section_id], |row| {
@@ -340,68 +358,208 @@ impl PersistentRouteEngine {
                     row.get::<_, Option<u32>>(0)?,
                     row.get::<_, Option<u32>>(1)?,
                     row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
                 ))
             })
             .map_err(|_| format!("Section not found: {}", section_id))?
         };
 
-        // Extract polyline based on section type
-        let polyline: Vec<GpsPoint> = if section_type == "custom" {
-            // For custom sections, use stored indices
-            let start = start_index.unwrap_or(0) as usize;
-            let end = end_index.unwrap_or(track.len() as u32) as usize;
-            track
-                .get(start..end.min(track.len()))
-                .unwrap_or(&[])
-                .to_vec()
-        } else {
-            // For auto sections, use the full track (or match against existing polyline)
-            // TODO: Implement proper polyline matching for auto sections
-            track.clone()
-        };
-
-        let polyline_json = serde_json::to_string(&polyline).unwrap_or_else(|_| "[]".to_string());
-        let distance = calculate_polyline_distance(&polyline);
         let updated_at = chrono::Utc::now().to_rfc3339();
 
-        // Update section with new reference
-        self.db
-            .execute(
-                "UPDATE sections SET
-                    representative_activity_id = ?,
-                    polyline_json = ?,
-                    distance_meters = ?,
-                    updated_at = ?
-                 WHERE id = ?",
-                params![activity_id, polyline_json, distance, updated_at, section_id],
-            )
-            .map_err(|e| format!("Failed to update section reference: {}", e))?;
-
-        // For custom sections, also update source_activity_id
         if section_type == "custom" {
+            // For custom sections, update polyline from new activity's track using indices
+            let start = start_index.unwrap_or(0) as usize;
+            let end = end_index.unwrap_or(track.len() as u32) as usize;
+            let polyline: Vec<GpsPoint> = track
+                .get(start..end.min(track.len()))
+                .unwrap_or(&[])
+                .to_vec();
+
+            let polyline_json = serde_json::to_string(&polyline).unwrap_or_else(|_| "[]".to_string());
+            let distance = calculate_polyline_distance(&polyline);
+
             self.db
                 .execute(
-                    "UPDATE sections SET source_activity_id = ? WHERE id = ?",
-                    params![activity_id, section_id],
+                    "UPDATE sections SET
+                        representative_activity_id = ?,
+                        source_activity_id = ?,
+                        polyline_json = ?,
+                        distance_meters = ?,
+                        is_user_defined = 1,
+                        updated_at = ?
+                     WHERE id = ?",
+                    params![activity_id, activity_id, polyline_json, distance, updated_at, section_id],
                 )
-                .map_err(|e| format!("Failed to update source activity: {}", e))?;
+                .map_err(|e| format!("Failed to update section: {}", e))?;
+        } else {
+            // For auto sections, extract the section-matching portion from the new activity's track
+            let current_polyline: Vec<GpsPoint> =
+                serde_json::from_str(&current_polyline_json).unwrap_or_default();
+
+            if current_polyline.is_empty() {
+                return Err("Section has no polyline to match against".to_string());
+            }
+
+            // Build track map with just this activity
+            let mut track_map: HashMap<String, Vec<GpsPoint>> = HashMap::new();
+            track_map.insert(activity_id.to_string(), track);
+
+            // Extract the portion of the activity that overlaps with the section
+            let traces = extract_all_activity_traces(
+                &[activity_id.to_string()],
+                &current_polyline,
+                &track_map,
+            );
+
+            let new_polyline = traces
+                .get(activity_id)
+                .cloned()
+                .unwrap_or_else(|| current_polyline.clone());
+
+            // Only update if we got a valid trace
+            if new_polyline.len() < 3 {
+                return Err(format!(
+                    "Activity {} does not overlap sufficiently with section {}",
+                    activity_id, section_id
+                ));
+            }
+
+            let polyline_json =
+                serde_json::to_string(&new_polyline).unwrap_or_else(|_| "[]".to_string());
+            let distance = calculate_polyline_distance(&new_polyline);
+
+            self.db
+                .execute(
+                    "UPDATE sections SET
+                        representative_activity_id = ?,
+                        polyline_json = ?,
+                        distance_meters = ?,
+                        is_user_defined = 1,
+                        updated_at = ?
+                     WHERE id = ?",
+                    params![activity_id, polyline_json, distance, updated_at, section_id],
+                )
+                .map_err(|e| format!("Failed to update section reference: {}", e))?;
+
+            // Re-match all activities against the new polyline
+            self.rematch_section_activities(section_id, &new_polyline)?;
         }
 
-        // Add to junction table
+        // Add to junction table (if not already there)
         self.add_section_activity(section_id, activity_id)?;
-
-        // Mark as user-defined
-        self.db
-            .execute(
-                "UPDATE sections SET is_user_defined = 1 WHERE id = ?",
-                params![section_id],
-            )
-            .map_err(|e| format!("Failed to mark section as user-defined: {}", e))?;
 
         // Invalidate cache so next fetch gets fresh data
         self.invalidate_section_cache(section_id);
 
+        // Refresh in-memory section (for auto sections)
+        self.refresh_section_in_memory(section_id);
+
         Ok(())
+    }
+
+    /// Re-match activities against an updated section polyline.
+    /// Checks all previously-associated activities and keeps only those that still overlap.
+    fn rematch_section_activities(
+        &mut self,
+        section_id: &str,
+        new_polyline: &[GpsPoint],
+    ) -> Result<(), String> {
+        // Get current activity IDs for this section
+        let activity_ids = self.get_section_activity_ids(section_id);
+
+        if activity_ids.is_empty() || new_polyline.is_empty() {
+            return Ok(());
+        }
+
+        // Build track map for all associated activities
+        let mut track_map: HashMap<String, Vec<GpsPoint>> = HashMap::new();
+        for aid in &activity_ids {
+            if let Some(track) = self.get_gps_track(aid) {
+                track_map.insert(aid.clone(), track);
+            }
+        }
+
+        // Find which activities still overlap with the new polyline
+        let matching_traces = extract_all_activity_traces(
+            &activity_ids,
+            new_polyline,
+            &track_map,
+        );
+
+        // Clear existing junction entries for this section
+        self.db
+            .execute(
+                "DELETE FROM section_activities WHERE section_id = ?",
+                params![section_id],
+            )
+            .map_err(|e| format!("Failed to clear section activities: {}", e))?;
+
+        // Re-add only activities that still match
+        for (aid, trace) in matching_traces {
+            // Require minimum overlap (at least 3 points)
+            if trace.len() >= 3 {
+                self.add_section_activity(section_id, &aid)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Match all activities with the same sport type against a section polyline.
+    /// Adds any activities that overlap (≥3 points) to the junction table.
+    /// Used when creating custom sections to find all matching activities.
+    pub fn match_activities_to_section(
+        &mut self,
+        section_id: &str,
+        polyline: &[GpsPoint],
+        sport_type: &str,
+    ) -> Result<u32, String> {
+        if polyline.is_empty() {
+            return Ok(0);
+        }
+
+        // Get all activity IDs with matching sport type
+        let activity_ids = self.get_activity_ids_by_sport(sport_type);
+
+        if activity_ids.is_empty() {
+            return Ok(0);
+        }
+
+        log::info!(
+            "tracematch: [match_activities_to_section] Checking {} activities with sport_type '{}'",
+            activity_ids.len(),
+            sport_type
+        );
+
+        // Build track map for all activities with matching sport type
+        let mut track_map: HashMap<String, Vec<GpsPoint>> = HashMap::new();
+        for aid in &activity_ids {
+            if let Some(track) = self.get_gps_track(aid) {
+                track_map.insert(aid.to_string(), track);
+            }
+        }
+
+        // Find which activities overlap with the section polyline
+        let matching_traces = extract_all_activity_traces(&activity_ids, polyline, &track_map);
+
+        let mut match_count: u32 = 0;
+
+        // Add matching activities to junction table
+        for (aid, trace) in matching_traces {
+            // Require minimum overlap (at least 3 points)
+            if trace.len() >= 3 {
+                self.add_section_activity(section_id, &aid)?;
+                match_count += 1;
+            }
+        }
+
+        log::info!(
+            "tracematch: [match_activities_to_section] Found {} matching activities for section {}",
+            match_count,
+            section_id
+        );
+
+        Ok(match_count)
     }
 
     /// Reset a section's reference to automatic (algorithm-selected).
@@ -416,6 +574,9 @@ impl PersistentRouteEngine {
 
         // Invalidate cache so next fetch gets fresh data
         self.invalidate_section_cache(section_id);
+
+        // Refresh in-memory section (for auto sections)
+        self.refresh_section_in_memory(section_id);
 
         Ok(())
     }
@@ -434,6 +595,9 @@ impl PersistentRouteEngine {
 
         // Invalidate cache
         self.invalidate_section_cache(section_id);
+
+        // Remove from in-memory cache
+        self.remove_section_from_memory(section_id);
 
         Ok(())
     }
