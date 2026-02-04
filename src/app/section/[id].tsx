@@ -35,7 +35,7 @@ import {
   useCacheDays,
   type ActivitySectionRecord,
 } from '@/hooks';
-import { useGroupSummaries, useSectionDetail } from '@/hooks/routes/useRouteEngine';
+import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
 import { createSharedStyles } from '@/styles';
 import { useDisabledSections } from '@/providers';
@@ -448,18 +448,6 @@ export default function SectionDetailScreen() {
   const { removeSection, renameSection } = useCustomSections();
   const queryClient = useQueryClient();
 
-  // Get route group summaries to compute routeIds for custom sections
-  // Note: Group summaries don't include activityIds to save memory
-  const { summaries: routeGroups } = useGroupSummaries({ minActivities: 1 });
-
-  // Create a mapping from activity ID to route group IDs
-  // Note: This is empty since summaries don't include activityIds
-  // TODO: If routeIds are needed, fetch group details on-demand
-  const activityToRouteIds = useMemo(() => {
-    // Group summaries don't include activity IDs to save memory
-    return new Map<string, string[]>();
-  }, []);
-
   // Disabled sections state
   const { isDisabled, disable, enable } = useDisabledSections();
   const isSectionDisabled = id ? isDisabled(id) : false;
@@ -506,25 +494,12 @@ export default function SectionDetailScreen() {
         })),
       ];
 
-      // Compute routeIds by finding which routes contain this section's activities
-      // Note: activityToRouteIds is empty since we use lightweight group summaries
-      const routeIdSet = new Set<string>();
-      for (const activityId of activityIds) {
-        const routes = activityToRouteIds.get(activityId);
-        if (routes) {
-          for (const routeId of routes) {
-            routeIdSet.add(routeId);
-          }
-        }
-      }
-
       return {
         id: customSection.id,
         sportType: customSection.sportType,
         polyline: customSection.polyline,
         activityIds,
         activityPortions,
-        routeIds: Array.from(routeIdSet),
         visitCount: activityIds.length,
         distanceMeters: customSection.distanceMeters,
         name: customSection.name,
@@ -534,7 +509,7 @@ export default function SectionDetailScreen() {
     }
 
     return null;
-  }, [id, engineSection, customSection, isCustomId, activityToRouteIds]);
+  }, [id, engineSection, customSection, isCustomId]);
 
   // Merge computed activity traces into the section
   // Always use computedActivityTraces when available, as they use extractSectionTrace
@@ -1420,10 +1395,6 @@ export default function SectionDetailScreen() {
               <Text style={styles.heroStatDivider}>·</Text>
               <Text style={styles.heroStat}>
                 {chartData.length} {t('sections.traversals')}
-              </Text>
-              <Text style={styles.heroStatDivider}>·</Text>
-              <Text style={styles.heroStat}>
-                {section.routeIds?.length ?? 0} {t('sections.routesCount')}
               </Text>
             </View>
           </View>

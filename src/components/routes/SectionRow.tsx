@@ -40,8 +40,6 @@ interface SectionRowData {
   visitCount: number;
   /** Number of activities (from activityCount or activityIds.length) */
   activityCount: number;
-  /** Number of routes (optional, only in full FrequentSection) */
-  routeCount?: number;
   /** Polyline (optional - will be lazy-loaded if not provided) */
   polyline?: RoutePoint[];
 }
@@ -56,7 +54,7 @@ interface SectionRowProps {
 
 /**
  * Normalize section data to a common format.
- * Handles both FrequentSection (with polyline, activityIds, routeIds) and
+ * Handles both FrequentSection (with polyline, activityIds) and
  * SectionSummary (lightweight, no polyline).
  */
 function normalizeSectionData(
@@ -76,7 +74,6 @@ function normalizeSectionData(
       distanceMeters: section.distanceMeters,
       visitCount: section.visitCount,
       activityCount,
-      routeCount: 'routeIds' in section ? section.routeIds?.length : undefined,
       polyline: section.polyline,
     };
   }
@@ -89,7 +86,6 @@ function normalizeSectionData(
       distanceMeters: section.distanceMeters,
       visitCount: section.visitCount,
       activityCount: section.activityCount,
-      routeCount: undefined, // Not available in summary
       polyline: undefined, // Will be lazy-loaded
     };
   }
@@ -379,14 +375,6 @@ export const SectionRow = memo(function SectionRow({
           <Text style={[styles.metaText, isDark && styles.textMuted]}>
             {section.visitCount}× {t('sections.traversals')}
           </Text>
-          {section.routeCount !== undefined && section.routeCount > 0 && (
-            <Text style={[styles.routesText, { color: colors.primary }]}>
-              {section.routeCount}{' '}
-              {section.routeCount === 1
-                ? t('navigation.routes').slice(0, -1)
-                : t('navigation.routes').toLowerCase()}
-            </Text>
-          )}
         </View>
       </View>
 
@@ -453,10 +441,6 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-  },
-  routesText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '500',
   },
   countBadge: {
     flexDirection: 'row',

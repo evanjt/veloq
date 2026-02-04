@@ -25,7 +25,6 @@ import { useTranslation } from 'react-i18next';
 import { router, Href } from 'expo-router';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
-import { useGroupSummaries } from '@/hooks/routes/useRouteEngine';
 import { SectionRow } from './SectionRow';
 import { PotentialSectionCard } from './PotentialSectionCard';
 import { DataRangeFooter } from './DataRangeFooter';
@@ -97,22 +96,6 @@ export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
 
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays();
-
-  // Get route group summaries to compute routeIds for custom sections
-  // Uses lightweight query-on-demand pattern (no memory bloat)
-  const { summaries: routeGroups } = useGroupSummaries({ minActivities: 1 });
-
-  // Note: useFocusEffect refresh removed - hooks now subscribe to engine events
-  // and automatically refresh when data changes (e.g., after renaming)
-
-  // Create a mapping from activity ID to route group IDs
-  // Note: Group summaries don't include activityIds, so this mapping is empty
-  // TODO: If routeIds are needed for custom sections, fetch group details on-demand
-  const activityToRouteIds = useMemo(() => {
-    // Group summaries don't include activity IDs to save memory
-    // Return empty map - routeIds for custom sections will be computed elsewhere if needed
-    return new Map<string, string[]>();
-  }, []);
 
   // Separate regular sections from potential sections and apply filter
   const { regularSections, potentialSections } = useMemo(() => {
@@ -358,49 +341,34 @@ export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
   );
 
   // Convert UnifiedSection to FrequentSection-like object for SectionRow
-  const toFrequentSection = useCallback(
-    (section: UnifiedSection): FrequentSection => {
-      // If we have engineData, use it directly
-      if (section.engineData) {
-        return section.engineData;
-      }
-      // Otherwise, construct a compatible object (for custom sections)
-      // Include source activity if not already in matches or activityIds
-      const matchActivityIds = section.customData?.matches?.map((m) => m.activityId) ?? [];
-      const sectionActivityIds = section.customData?.activityIds ?? [];
-      const allActivityIds = [...new Set([...matchActivityIds, ...sectionActivityIds])];
-      const sourceActivityId = section.customData?.sourceActivityId;
-      const activityIds =
-        sourceActivityId && !allActivityIds.includes(sourceActivityId)
-          ? [sourceActivityId, ...allActivityIds]
-          : allActivityIds;
+  const toFrequentSection = useCallback((section: UnifiedSection): FrequentSection => {
+    // If we have engineData, use it directly
+    if (section.engineData) {
+      return section.engineData;
+    }
+    // Otherwise, construct a compatible object (for custom sections)
+    // Include source activity if not already in matches or activityIds
+    const matchActivityIds = section.customData?.matches?.map((m) => m.activityId) ?? [];
+    const sectionActivityIds = section.customData?.activityIds ?? [];
+    const allActivityIds = [...new Set([...matchActivityIds, ...sectionActivityIds])];
+    const sourceActivityId = section.customData?.sourceActivityId;
+    const activityIds =
+      sourceActivityId && !allActivityIds.includes(sourceActivityId)
+        ? [sourceActivityId, ...allActivityIds]
+        : allActivityIds;
 
-      // Compute routeIds by finding which routes contain this section's activities
-      const routeIdSet = new Set<string>();
-      for (const activityId of activityIds) {
-        const routes = activityToRouteIds.get(activityId);
-        if (routes) {
-          for (const routeId of routes) {
-            routeIdSet.add(routeId);
-          }
-        }
-      }
-
-      return {
-        id: section.id,
-        sectionType: section.sectionType || 'custom',
-        sportType: section.sportType,
-        polyline: section.polyline,
-        activityIds,
-        routeIds: Array.from(routeIdSet),
-        visitCount: activityIds.length,
-        distanceMeters: section.distanceMeters,
-        name: section.name,
-        createdAt: section.createdAt || new Date().toISOString(),
-      };
-    },
-    [activityToRouteIds]
-  );
+    return {
+      id: section.id,
+      sectionType: section.sectionType || 'custom',
+      sportType: section.sportType,
+      polyline: section.polyline,
+      activityIds,
+      visitCount: activityIds.length,
+      distanceMeters: section.distanceMeters,
+      name: section.name,
+      createdAt: section.createdAt || new Date().toISOString(),
+    };
+  }, []);
 
   // Close any open swipeable when another opens
   const handleSwipeableOpen = useCallback((id: string) => {
