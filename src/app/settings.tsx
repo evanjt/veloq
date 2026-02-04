@@ -400,27 +400,35 @@ export default function SettingsScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            // 1. FIRST: Reset sync date range to 90 days (locks expansion)
+            // 1. Cancel any in-flight queries FIRST to stop ongoing fetches
+            await queryClient.cancelQueries();
+
+            // 2. Reset sync date range to 90 days and LOCK expansion
+            // The expansion lock prevents any expandRange() calls from re-expanding
             resetSyncDateRange();
 
-            // 2. Clear GPS/bounds cache and route cache
+            // 3. CRITICAL: Yield to allow React to re-render GlobalDataSync with new date range
+            // Without this, removeQueries() triggers refetch before GlobalDataSync has the new
+            // 90-day syncOldest/syncNewest values, causing it to fetch the old extended range.
+            await new Promise((resolve) => setTimeout(resolve, 0));
+
+            // 4. Clear GPS/bounds cache and route cache BEFORE removing queries
+            // This ensures the engine is empty before any new queries start
             // Note: clearCache() already calls engine.clear(), so don't call clearRouteCache()
             // as that would emit a second 'syncReset' event and trigger duplicate syncs
             await clearCache();
 
-            // 3. REMOVE queries entirely (not just clear) - prevents old date ranges persisting
+            // 5. Remove all cached query data
+            // Now GlobalDataSync has the new 90-day range, so any refetch uses correct dates
             queryClient.removeQueries({ queryKey: ['activities'] });
+            queryClient.removeQueries({ queryKey: ['activities-infinite'] });
             queryClient.removeQueries({ queryKey: ['wellness'] });
             queryClient.removeQueries({ queryKey: ['powerCurve'] });
             queryClient.removeQueries({ queryKey: ['paceCurve'] });
             queryClient.removeQueries({ queryKey: ['athlete'] });
             await AsyncStorage.removeItem('veloq-query-cache');
 
-            // 4. Invalidate queries to trigger fresh fetches
-            // NOTE: Don't use refetchQueries here - the current component closure still has
-            // the OLD syncOldest/syncNewest values before React re-renders. By invalidating
-            // instead, we let the queries become stale, and when GlobalDataSync re-renders
-            // with the NEW 90-day range from the store, it will create fresh queries.
+            // 6. Invalidate remaining queries to trigger fresh fetches
             queryClient.invalidateQueries({ queryKey: ['wellness'] });
             queryClient.invalidateQueries({ queryKey: ['powerCurve'] });
             queryClient.invalidateQueries({ queryKey: ['paceCurve'] });
@@ -464,12 +472,20 @@ export default function SettingsScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            // Clear ALL cached data before logging out
-            await clearAllAppCaches(queryClient);
-            // Reset sync date range to default 90 days
-            resetSyncDateRange();
-            // Clear auth credentials
+            // 1. FIRST: Clear credentials to set isAuthenticated=false
+            // This disables GlobalDataSync's useActivities query immediately
             await clearCredentials();
+
+            // 2. Cancel any in-flight queries
+            await queryClient.cancelQueries();
+
+            // 3. Clear ALL cached data (safe now - no fetches can trigger)
+            await clearAllAppCaches(queryClient);
+
+            // 4. Reset sync date range to default 90 days (for next login)
+            resetSyncDateRange();
+
+            // 5. Navigate to login
             router.replace('/login' as Href);
           } catch {
             Alert.alert(t('alerts.error'), t('alerts.failedToDisconnect'));

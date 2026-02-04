@@ -709,9 +709,12 @@ class RouteEngineClient {
 
   /**
    * Set activity metrics.
+   * Also notifies 'activities' subscribers since stats (including date range) depend on metrics table.
    */
   setActivityMetrics(metrics: ActivityMetrics[]): void {
     persistentEngineSetActivityMetrics(metrics);
+    // Notify activities subscribers - getStats() reads dates from activity_metrics table
+    this.notify('activities');
   }
 
   /**
