@@ -8,8 +8,7 @@ use crate::persistence::PersistentRouteEngine;
 use rusqlite::params;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tracematch::sections::extract_all_activity_traces;
-use tracematch::GpsPoint;
+use tracematch::{GpsPoint, SectionPortion};
 
 impl PersistentRouteEngine {
     /// Initialize the unified sections schema.
@@ -47,11 +46,15 @@ impl PersistentRouteEngine {
                     updated_at TEXT
                 );
 
-                -- Junction table for section-activity relationships
+                -- Junction table for section-activity relationships (with portion details)
                 CREATE TABLE IF NOT EXISTS section_activities (
                     section_id TEXT NOT NULL,
                     activity_id TEXT NOT NULL,
-                    PRIMARY KEY (section_id, activity_id),
+                    direction TEXT NOT NULL DEFAULT 'same',
+                    start_index INTEGER NOT NULL DEFAULT 0,
+                    end_index INTEGER NOT NULL DEFAULT 0,
+                    distance_meters REAL NOT NULL DEFAULT 0,
+                    PRIMARY KEY (section_id, activity_id, start_index),
                     FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE
                 );
 
@@ -274,24 +277,43 @@ impl PersistentRouteEngine {
             )
             .map_err(|e| format!("Failed to create section: {}", e))?;
 
-        // Add source activity to junction table if provided
-        if let Some(ref activity_id) = params.source_activity_id {
-            let _ = self.add_section_activity(&id, activity_id);
-        }
-
         // Match all activities with same sport type against the new section
-        // This ensures custom sections show all traversals, not just the source activity
+        // This ensures custom sections show all traversals, including the source activity
+        // with proper portion details (direction, indices, distance)
         let _ = self.match_activities_to_section(&id, &params.polyline, &params.sport_type);
 
         Ok(id)
     }
 
-    /// Add an activity to a section's activity list.
+    /// Add an activity to a section's activity list with default portion values.
+    /// For full portion details, use add_section_activity_with_portion().
     pub fn add_section_activity(&mut self, section_id: &str, activity_id: &str) -> Result<(), String> {
         self.db
             .execute(
-                "INSERT OR IGNORE INTO section_activities (section_id, activity_id) VALUES (?, ?)",
+                "INSERT OR IGNORE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters) VALUES (?, ?, 'same', 0, 0, 0)",
                 params![section_id, activity_id],
+            )
+            .map_err(|e| format!("Failed to add section activity: {}", e))?;
+        Ok(())
+    }
+
+    /// Add an activity to a section's activity list with full portion details.
+    pub fn add_section_activity_with_portion(
+        &mut self,
+        section_id: &str,
+        portion: &SectionPortion,
+    ) -> Result<(), String> {
+        self.db
+            .execute(
+                "INSERT OR IGNORE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters) VALUES (?, ?, ?, ?, ?, ?)",
+                params![
+                    section_id,
+                    portion.activity_id,
+                    portion.direction,
+                    portion.start_index,
+                    portion.end_index,
+                    portion.distance_meters,
+                ],
             )
             .map_err(|e| format!("Failed to add section activity: {}", e))?;
         Ok(())
@@ -400,29 +422,17 @@ impl PersistentRouteEngine {
                 return Err("Section has no polyline to match against".to_string());
             }
 
-            // Build track map with just this activity
-            let mut track_map: HashMap<String, Vec<GpsPoint>> = HashMap::new();
-            track_map.insert(activity_id.to_string(), track);
-
-            // Extract the portion of the activity that overlaps with the section
-            let traces = extract_all_activity_traces(
-                &[activity_id.to_string()],
-                &current_polyline,
-                &track_map,
-            );
-
-            let new_polyline = traces
-                .get(activity_id)
-                .cloned()
-                .unwrap_or_else(|| current_polyline.clone());
-
-            // Only update if we got a valid trace
-            if new_polyline.len() < 3 {
-                return Err(format!(
+            // Compute portion details for the new reference activity
+            let portion = compute_section_portion(activity_id, &track, &current_polyline)
+                .ok_or_else(|| format!(
                     "Activity {} does not overlap sufficiently with section {}",
                     activity_id, section_id
-                ));
-            }
+                ))?;
+
+            // Use the portion's indices to extract the new polyline
+            let start = portion.start_index as usize;
+            let end = (portion.end_index as usize + 1).min(track.len());
+            let new_polyline: Vec<GpsPoint> = track[start..end].to_vec();
 
             let polyline_json =
                 serde_json::to_string(&new_polyline).unwrap_or_else(|_| "[]".to_string());
@@ -443,10 +453,31 @@ impl PersistentRouteEngine {
 
             // Re-match all activities against the new polyline
             self.rematch_section_activities(section_id, &new_polyline)?;
+
+            // Add the new reference activity with proper portion details
+            // (rematch only includes previously-associated activities)
+            self.add_section_activity_with_portion(section_id, &portion)?;
         }
 
-        // Add to junction table (if not already there)
-        self.add_section_activity(section_id, activity_id)?;
+        // For custom sections, add the reference activity with portion details
+        if section_type == "custom" {
+            // Get the updated polyline for custom section
+            let polyline_json: String = self.db
+                .query_row(
+                    "SELECT polyline_json FROM sections WHERE id = ?",
+                    params![section_id],
+                    |row| row.get(0),
+                )
+                .map_err(|e| format!("Failed to get section polyline: {}", e))?;
+            let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json).unwrap_or_default();
+
+            if let Some(portion) = compute_section_portion(activity_id, &track, &polyline) {
+                self.add_section_activity_with_portion(section_id, &portion)?;
+            } else {
+                // Fallback for custom sections - the source activity should always match
+                self.add_section_activity(section_id, activity_id)?;
+            }
+        }
 
         // Invalidate cache so next fetch gets fresh data
         self.invalidate_section_cache(section_id);
@@ -471,21 +502,6 @@ impl PersistentRouteEngine {
             return Ok(());
         }
 
-        // Build track map for all associated activities
-        let mut track_map: HashMap<String, Vec<GpsPoint>> = HashMap::new();
-        for aid in &activity_ids {
-            if let Some(track) = self.get_gps_track(aid) {
-                track_map.insert(aid.clone(), track);
-            }
-        }
-
-        // Find which activities still overlap with the new polyline
-        let matching_traces = extract_all_activity_traces(
-            &activity_ids,
-            new_polyline,
-            &track_map,
-        );
-
         // Clear existing junction entries for this section
         self.db
             .execute(
@@ -494,11 +510,12 @@ impl PersistentRouteEngine {
             )
             .map_err(|e| format!("Failed to clear section activities: {}", e))?;
 
-        // Re-add only activities that still match
-        for (aid, trace) in matching_traces {
-            // Require minimum overlap (at least 3 points)
-            if trace.len() >= 3 {
-                self.add_section_activity(section_id, &aid)?;
+        // Re-add only activities that still match, with full portion details
+        for aid in &activity_ids {
+            if let Some(track) = self.get_gps_track(aid) {
+                if let Some(portion) = compute_section_portion(aid, &track, new_polyline) {
+                    self.add_section_activity_with_portion(section_id, &portion)?;
+                }
             }
         }
 
@@ -539,17 +556,15 @@ impl PersistentRouteEngine {
             }
         }
 
-        // Find which activities overlap with the section polyline
-        let matching_traces = extract_all_activity_traces(&activity_ids, polyline, &track_map);
-
         let mut match_count: u32 = 0;
 
-        // Add matching activities to junction table
-        for (aid, trace) in matching_traces {
-            // Require minimum overlap (at least 3 points)
-            if trace.len() >= 3 {
-                self.add_section_activity(section_id, &aid)?;
-                match_count += 1;
+        // Compute full portion details for each matching activity
+        for aid in &activity_ids {
+            if let Some(track) = track_map.get(aid) {
+                if let Some(portion) = compute_section_portion(aid, track, polyline) {
+                    self.add_section_activity_with_portion(section_id, &portion)?;
+                    match_count += 1;
+                }
             }
         }
 
@@ -726,6 +741,114 @@ impl PersistentRouteEngine {
         self.invalidate_section_cache(&section.id);
 
         Ok(())
+    }
+}
+
+/// Distance threshold for considering a point "on" the section (meters)
+const TRACE_PROXIMITY_THRESHOLD: f64 = 50.0;
+
+/// Minimum points to consider a valid overlap trace
+const MIN_TRACE_POINTS: usize = 3;
+
+/// Compute a SectionPortion for an activity's overlap with a section polyline.
+/// Returns None if the activity doesn't sufficiently overlap.
+fn compute_section_portion(
+    activity_id: &str,
+    track: &[GpsPoint],
+    section_polyline: &[GpsPoint],
+) -> Option<SectionPortion> {
+    if track.len() < MIN_TRACE_POINTS || section_polyline.len() < 2 {
+        return None;
+    }
+
+    // Convert threshold from meters to approximate degrees
+    let threshold_deg = (TRACE_PROXIMITY_THRESHOLD * 1.2) / 111_000.0;
+
+    // Find the start and end indices of the overlapping portion
+    let mut start_index: Option<usize> = None;
+    let mut end_index: Option<usize> = None;
+    let mut overlap_points: Vec<GpsPoint> = Vec::new();
+    let mut gap_count = 0;
+    const MAX_GAP: usize = 3;
+
+    for (i, point) in track.iter().enumerate() {
+        // Check if point is near any point on the section polyline
+        let is_near = section_polyline.iter().any(|sp| {
+            let dlat = point.latitude - sp.latitude;
+            let dlon = point.longitude - sp.longitude;
+            (dlat * dlat + dlon * dlon).sqrt() <= threshold_deg
+        });
+
+        if is_near {
+            gap_count = 0;
+            if start_index.is_none() {
+                start_index = Some(i);
+            }
+            end_index = Some(i);
+            overlap_points.push(*point);
+        } else {
+            gap_count += 1;
+            if gap_count <= MAX_GAP && start_index.is_some() {
+                overlap_points.push(*point);
+                end_index = Some(i);
+            } else if gap_count > MAX_GAP && overlap_points.len() >= MIN_TRACE_POINTS {
+                // Found a valid sequence, stop here
+                break;
+            } else if gap_count > MAX_GAP {
+                // Reset if we haven't found enough points yet
+                start_index = None;
+                end_index = None;
+                overlap_points.clear();
+            }
+        }
+    }
+
+    // Check if we found a valid overlap
+    let start_idx = start_index?;
+    let end_idx = end_index?;
+    if overlap_points.len() < MIN_TRACE_POINTS {
+        return None;
+    }
+
+    // Compute direction by comparing trace direction with section direction
+    let direction = compute_direction(&overlap_points, section_polyline);
+
+    // Compute distance
+    let distance_meters = calculate_polyline_distance(&overlap_points);
+
+    Some(SectionPortion {
+        activity_id: activity_id.to_string(),
+        start_index: start_idx as u32,
+        end_index: end_idx as u32,
+        distance_meters,
+        direction,
+    })
+}
+
+/// Determine if the trace travels in the same or reverse direction as the section.
+fn compute_direction(trace: &[GpsPoint], section_polyline: &[GpsPoint]) -> String {
+    if trace.len() < 2 || section_polyline.len() < 2 {
+        return "same".to_string();
+    }
+
+    // Compare the direction vectors of trace and section
+    let trace_start = &trace[0];
+    let trace_end = &trace[trace.len() - 1];
+    let section_start = &section_polyline[0];
+    let section_end = &section_polyline[section_polyline.len() - 1];
+
+    // Compute dot product of direction vectors to determine if same or opposite direction
+    let trace_dx = trace_end.longitude - trace_start.longitude;
+    let trace_dy = trace_end.latitude - trace_start.latitude;
+    let section_dx = section_end.longitude - section_start.longitude;
+    let section_dy = section_end.latitude - section_start.latitude;
+
+    let dot_product = trace_dx * section_dx + trace_dy * section_dy;
+
+    if dot_product >= 0.0 {
+        "same".to_string()
+    } else {
+        "reverse".to_string()
     }
 }
 

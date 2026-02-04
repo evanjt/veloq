@@ -706,7 +706,11 @@ impl PersistentRouteEngine {
              CREATE TABLE section_activities_new (
                  section_id TEXT NOT NULL,
                  activity_id TEXT NOT NULL,
-                 PRIMARY KEY (section_id, activity_id)
+                 direction TEXT NOT NULL DEFAULT 'same',
+                 start_index INTEGER NOT NULL DEFAULT 0,
+                 end_index INTEGER NOT NULL DEFAULT 0,
+                 distance_meters REAL NOT NULL DEFAULT 0,
+                 PRIMARY KEY (section_id, activity_id, start_index)
              );"
         )?;
 
@@ -744,10 +748,10 @@ impl PersistentRouteEngine {
             )?;
             migrated_count += 1;
 
-            // Migrate activity associations
+            // Migrate activity associations (with default portion values for legacy data)
             for activity_id in activity_ids {
                 conn.execute(
-                    "INSERT OR IGNORE INTO section_activities_new (section_id, activity_id) VALUES (?, ?)",
+                    "INSERT OR IGNORE INTO section_activities_new (section_id, activity_id, direction, start_index, end_index, distance_meters) VALUES (?, ?, 'same', 0, 0, 0)",
                     params![id, activity_id],
                 )?;
                 total_associations += 1;
@@ -1164,14 +1168,24 @@ impl PersistentRouteEngine {
             count
         );
 
-        // Load activity IDs for each section from junction table
-        let section_activity_ids: HashMap<String, Vec<String>> = {
+        // Load full activity portions from junction table (includes direction, indices, distance)
+        let section_portions: HashMap<String, Vec<SectionPortion>> = {
             let mut stmt = self.db.prepare(
-                "SELECT section_id, activity_id FROM section_activities ORDER BY section_id"
+                "SELECT section_id, activity_id, direction, start_index, end_index, distance_meters
+                 FROM section_activities ORDER BY section_id, start_index"
             )?;
-            let mut map: HashMap<String, Vec<String>> = HashMap::new();
+            let mut map: HashMap<String, Vec<SectionPortion>> = HashMap::new();
             let rows = stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                Ok((
+                    row.get::<_, String>(0)?,  // section_id
+                    SectionPortion {
+                        activity_id: row.get(1)?,
+                        direction: row.get(2)?,
+                        start_index: row.get(3)?,
+                        end_index: row.get(4)?,
+                        distance_meters: row.get(5)?,
+                    }
+                ))
             })?;
             for row in rows.flatten() {
                 map.entry(row.0).or_default().push(row.1);
@@ -1202,10 +1216,16 @@ impl PersistentRouteEngine {
                         .and_then(|j| serde_json::from_str(&j).ok())
                         .unwrap_or_default();
 
-                    let activity_ids = section_activity_ids.get(&id)
+                    let portions = section_portions.get(&id)
                         .cloned()
                         .unwrap_or_default();
-                    let visit_count = activity_ids.len() as u32;
+                    // Derive activity_ids from portions (deduplicated)
+                    let activity_ids: Vec<String> = portions.iter()
+                        .map(|p| p.activity_id.clone())
+                        .collect::<std::collections::HashSet<_>>()
+                        .into_iter()
+                        .collect();
+                    let visit_count = portions.len() as u32;
 
                     Ok(FrequentSection {
                         id,
@@ -1214,7 +1234,7 @@ impl PersistentRouteEngine {
                         polyline,
                         representative_activity_id: representative_activity_id.unwrap_or_default(),
                         activity_ids,
-                        activity_portions: vec![],
+                        activity_portions: portions,
                         route_ids: vec![],
                         visit_count,
                         distance_meters: row.get(5)?,
@@ -3196,7 +3216,7 @@ impl PersistentRouteEngine {
         )?;
         let mut junction_stmt = self
             .db
-            .prepare("INSERT INTO section_activities (section_id, activity_id) VALUES (?, ?)")?;
+            .prepare("INSERT INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters) VALUES (?, ?, ?, ?, ?, ?)")?;
 
         // Sort sections by sport type and activity count for consistent numbering
         let mut sorted_sections: Vec<&FrequentSection> = self.sections.iter().collect();
@@ -3267,9 +3287,16 @@ impl PersistentRouteEngine {
                 section.updated_at,
             ])?;
 
-            // Populate junction table for fast activity-based lookup
-            for activity_id in &section.activity_ids {
-                junction_stmt.execute(params![section.id, activity_id])?;
+            // Populate junction table with full portion details
+            for portion in &section.activity_portions {
+                junction_stmt.execute(params![
+                    section.id,
+                    portion.activity_id,
+                    portion.direction,
+                    portion.start_index,
+                    portion.end_index,
+                    portion.distance_meters,
+                ])?;
             }
         }
 

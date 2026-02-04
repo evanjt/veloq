@@ -30,11 +30,15 @@ CREATE TABLE IF NOT EXISTS sections (
     updated_at TEXT
 );
 
--- Junction table for section-activity relationships
+-- Junction table for section-activity relationships (with portion details)
 CREATE TABLE IF NOT EXISTS section_activities (
     section_id TEXT NOT NULL,
     activity_id TEXT NOT NULL,
-    PRIMARY KEY (section_id, activity_id),
+    direction TEXT NOT NULL DEFAULT 'same',
+    start_index INTEGER NOT NULL DEFAULT 0,
+    end_index INTEGER NOT NULL DEFAULT 0,
+    distance_meters REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (section_id, activity_id, start_index),
     FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE
 );
 
