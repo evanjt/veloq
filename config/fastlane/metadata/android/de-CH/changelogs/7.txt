@@ -1,8 +1,0 @@
-Neu in 0.0.7:
-
-- Mehrere iOS-Abstürze behoben (Standort-Button, Vollbild-Diagramme, Abschnitterstellung)
-- Aktivitäten-Umschalter in der regionalen Kartenansicht hinzugefügt
-- Neue Luftbild-/Satellitenkartenoptionen
-- Benutzerdefinierte Abschnitterstellung mit Kartenlegende
-- Verbesserte Stabilität beim Wechseln der Kartenzustände
-- Reduzierte GPS-Punktanforderungen für Abschnitterstellung

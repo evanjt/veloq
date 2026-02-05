@@ -1,7 +1,0 @@
-Neu in Version 0.1.1:
-
-- Fehler behoben: MiniTraceView-Ansichten verschwanden beim Hervorheben von Routen und Abschnitten
-- Fehler behoben: Abschnittsrichtung wurde nicht korrekt beibehalten
-- Fehler behoben: Race Conditions beim Löschen des Cache und Abmelden
-- Fehler behoben: Benutzerdefinierte Abschnittsaktivitätsübereinstimmung
-- Verbesserte Handhabung der Cache-Aktualität
