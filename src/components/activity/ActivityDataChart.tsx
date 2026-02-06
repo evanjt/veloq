@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react';
+import React, { memo, useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
@@ -43,7 +43,7 @@ interface ActivityDataChartProps {
 
 const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 16 } as const;
 
-export function ActivityDataChart({
+export const ActivityDataChart = memo(function ActivityDataChart({
   data: rawData = [],
   distance = [],
   height = 150,
@@ -343,7 +343,7 @@ export function ActivityDataChart({
       </View>
     </ChartErrorBoundary>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {},

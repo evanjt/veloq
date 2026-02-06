@@ -49,6 +49,16 @@ describe('Component memoization', () => {
       const source = readComponent('components/home/SummaryCardSparkline.tsx');
       expectMemoExport(source, 'SummaryCardSparkline');
     });
+
+    it('ActivityDataChart is wrapped in React.memo', () => {
+      const source = readComponent('components/activity/ActivityDataChart.tsx');
+      expectMemoExport(source, 'ActivityDataChart');
+    });
+
+    it('FitnessFormChart is wrapped in React.memo', () => {
+      const source = readComponent('components/fitness/FitnessFormChart.tsx');
+      expectMemoExport(source, 'FitnessFormChart');
+    });
   });
 
   describe('Already-memoized components (regression)', () => {
