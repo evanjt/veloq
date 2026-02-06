@@ -448,19 +448,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       });
 
       // Add hillshade for better depth perception (skip for satellite - already has shadows)
+      // Reuses the existing 'terrain' raster-dem source to avoid downloading tiles twice
       if (!isSatellite) {
-        map.addSource('hillshade', {
-          type: 'raster-dem',
-          tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-          encoding: 'terrarium',
-          tileSize: 256,
-          maxzoom: 15,
-        });
-
         map.addLayer({
           id: 'hillshading',
           type: 'hillshade',
-          source: 'hillshade',
+          source: 'terrain',
           layout: { visibility: 'visible' },
           paint: {
             'hillshade-shadow-color': '${isDark ? '#000000' : '#473B24'}',
