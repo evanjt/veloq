@@ -28,6 +28,8 @@ interface SingularPlotProps {
   onInteractionChange?: (isInteracting: boolean) => void;
 }
 
+const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 16 } as const;
+
 export function SingularPlot({
   altitude = [],
   distance = [],
@@ -233,7 +235,7 @@ export function SingularPlot({
               xKey="x"
               yKeys={['y']}
               domain={{ y: [minAlt, maxAlt] }}
-              padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
+              padding={CHART_PADDING}
             >
               {({ points, chartBounds }) => {
                 // Sync chartBounds and point coordinates for UI thread crosshair

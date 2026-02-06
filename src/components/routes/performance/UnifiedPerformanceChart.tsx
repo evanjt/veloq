@@ -136,6 +136,8 @@ interface LaneData {
   maxSpeed: number;
 }
 
+const CHART_PADDING = { left: 40, right: 20, top: 16, bottom: 12 } as const;
+
 export function UnifiedPerformanceChart({
   chartData,
   activityType,
@@ -765,7 +767,7 @@ export function UnifiedPerformanceChart({
                 x: [0, 1], // Normalized date range (0-1)
                 y: [lane.minSpeed, lane.maxSpeed],
               }}
-              padding={{ left: 40, right: 20, top: 16, bottom: 12 }}
+              padding={CHART_PADDING}
             >
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {

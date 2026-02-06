@@ -41,6 +41,8 @@ interface ActivityDataChartProps {
   onInteractionChange?: (isInteracting: boolean) => void;
 }
 
+const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 16 } as const;
+
 export function ActivityDataChart({
   data: rawData = [],
   distance = [],
@@ -277,7 +279,7 @@ export function ActivityDataChart({
               xKey="x"
               yKeys={['y']}
               domain={{ y: [minVal, maxVal] }}
-              padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
+              padding={CHART_PADDING}
             >
               {({ points, chartBounds }) => {
                 // Sync chartBounds and point coordinates for UI thread crosshair

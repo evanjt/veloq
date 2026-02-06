@@ -41,6 +41,8 @@ interface ChartDataPoint {
   [key: string]: number;
 }
 
+const CHART_PADDING = { left: 0, right: 0, top: 2, bottom: 2 } as const;
+
 export function MiniFormChart({ data, width = 140, height = 50 }: MiniFormChartProps) {
   const { isDark } = useTheme();
 
@@ -85,7 +87,7 @@ export function MiniFormChart({ data, width = 140, height = 50 }: MiniFormChartP
         xKey="x"
         yKeys={['form']}
         domain={formDomain}
-        padding={{ left: 0, right: 0, top: 2, bottom: 2 }}
+        padding={CHART_PADDING}
       >
         {({ points, chartBounds }) => {
           const chartHeight = chartBounds.bottom - chartBounds.top;

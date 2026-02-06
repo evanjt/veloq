@@ -82,6 +82,8 @@ interface ChartPoint {
   [key: string]: unknown;
 }
 
+const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 0 } as const;
+
 export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -454,7 +456,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
             xKey="x"
             yKeys={['y']}
             domain={{ x: xDomain, y: yDomain }}
-            padding={{ left: 0, right: 0, top: 4, bottom: 0 }}
+            padding={CHART_PADDING}
           >
             {({ points, chartBounds }) => {
               // Sync bounds for gesture and x-axis label positioning

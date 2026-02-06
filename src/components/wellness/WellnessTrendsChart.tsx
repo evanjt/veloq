@@ -71,6 +71,8 @@ function formatSleepDuration(hours: number): string {
   return `${h}h ${m}m`;
 }
 
+const SPARKLINE_PADDING = { left: 4, right: 4, top: 8, bottom: 8 } as const;
+
 // Individual sparkline that receives selected index from parent
 function MetricSparkline({
   data,
@@ -133,7 +135,7 @@ function MetricSparkline({
             xKey={'x' as never}
             yKeys={['value'] as never}
             domain={{ x: [0, totalDays - 1], y: [yMin, yMax] }}
-            padding={{ left: 4, right: 4, top: 8, bottom: 8 }}
+            padding={SPARKLINE_PADDING}
           >
             {
               (({ points, chartBounds }: any) => (

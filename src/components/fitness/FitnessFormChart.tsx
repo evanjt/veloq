@@ -98,6 +98,9 @@ function formatFullDateLocal(dateStr: string): string {
   return formatShortDateWithWeekday(dateStr);
 }
 
+const FITNESS_CHART_PADDING = { left: 0, right: 0, top: 8, bottom: 0 } as const;
+const FORM_CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 16 } as const;
+
 export function FitnessFormChart({
   data,
   fitnessHeight = 160,
@@ -335,7 +338,7 @@ export function FitnessFormChart({
               xKey="x"
               yKeys={['fitness', 'fatigue', 'load']}
               domain={{ y: [0, maxFitness * 1.15] }}
-              padding={{ left: 0, right: 0, top: 8, bottom: 0 }}
+              padding={FITNESS_CHART_PADDING}
             >
               {({ points, chartBounds }) => {
                 // Sync chartBounds and point coordinates
@@ -411,7 +414,7 @@ export function FitnessFormChart({
                 xKey="x"
                 yKeys={['form']}
                 domain={formDomain}
-                padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
+                padding={FORM_CHART_PADDING}
               >
                 {({ points, chartBounds }) => {
                   const chartHeight = chartBounds.bottom - chartBounds.top;

@@ -53,6 +53,8 @@ function formatDate(dateStr: string): string {
   return formatShortDate(dateStr);
 }
 
+const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 4 } as const;
+
 export const FormZoneChart = React.memo(function FormZoneChart({
   data,
   height = 100,
@@ -270,7 +272,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
             xKey="x"
             yKeys={['form']}
             domain={{ y: [minForm, maxForm] }}
-            padding={{ left: 0, right: 0, top: 4, bottom: 4 }}
+            padding={CHART_PADDING}
           >
             {({ points, chartBounds }) => {
               // Sync chartBounds and point coordinates for UI thread crosshair
