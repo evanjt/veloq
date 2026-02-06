@@ -41,7 +41,7 @@ export default function RoutesScreen() {
   const { tab } = useLocalSearchParams<{ tab?: string }>();
 
   // Check if route matching is enabled
-  const { settings: routeSettings } = useRouteSettings();
+  const routeSettings = useRouteSettings((s) => s.settings);
   const isRouteMatchingEnabled = routeSettings.enabled;
 
   const { clearCache: clearRouteCache } = useRouteProcessing();
