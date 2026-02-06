@@ -87,7 +87,8 @@ function configureMapLibreLogger() {
 function AuthGate({ children }: { children: React.ReactNode }) {
   const routeParts = useSegments();
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
   const expandRange = useSyncDateRange((s) => s.expandRange);
 
   // Initialize Rust route engine with persistent storage when authenticated
