@@ -179,9 +179,13 @@ export default function SettingsScreen() {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const hideDemoBanner = useAuthStore((state) => state.hideDemoBanner);
   const setHideDemoBanner = useAuthStore((state) => state.setHideDemoBanner);
-  const { primarySport, setPrimarySport } = useSportPreference();
-  const { language, setLanguage } = useLanguageStore();
-  const { unitPreference, setUnitPreference, intervalsPreferences } = useUnitPreference();
+  const primarySport = useSportPreference((s) => s.primarySport);
+  const setPrimarySport = useSportPreference((s) => s.setPrimarySport);
+  const language = useLanguageStore((s) => s.language);
+  const setLanguage = useLanguageStore((s) => s.setLanguage);
+  const unitPreference = useUnitPreference((s) => s.unitPreference);
+  const setUnitPreference = useUnitPreference((s) => s.setUnitPreference);
+  const intervalsPreferences = useUnitPreference((s) => s.intervalsPreferences);
 
   // Summary card customization
   const { summaryCard, setSummaryCardPreferences } = useDashboardPreferences();
