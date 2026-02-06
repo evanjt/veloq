@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useCallback, useState } from 'react';
+import React, { memo, useMemo, useRef, useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
@@ -101,7 +101,7 @@ function formatFullDateLocal(dateStr: string): string {
 const FITNESS_CHART_PADDING = { left: 0, right: 0, top: 8, bottom: 0 } as const;
 const FORM_CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 16 } as const;
 
-export function FitnessFormChart({
+export const FitnessFormChart = memo(function FitnessFormChart({
   data,
   fitnessHeight = 160,
   formHeight = 100,
@@ -554,7 +554,7 @@ export function FitnessFormChart({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {},
