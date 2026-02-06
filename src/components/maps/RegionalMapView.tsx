@@ -416,8 +416,8 @@ export function RegionalMapView({
 
   // Filter activities to only those visible in viewport (for performance)
   // Only enable viewport culling for large activity counts to avoid marker flashing
-  // With < 500 activities, showing all is fast enough and provides better UX
-  const VIEWPORT_CULLING_THRESHOLD = 500;
+  // With < 150 activities, showing all is fast enough and provides better UX
+  const VIEWPORT_CULLING_THRESHOLD = 150;
   const visibleActivities = useMemo(() => {
     // Skip viewport culling for small activity counts - prevents marker flashing during pan
     if (activities.length < VIEWPORT_CULLING_THRESHOLD) {
