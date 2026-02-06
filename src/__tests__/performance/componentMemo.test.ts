@@ -39,6 +39,13 @@ describe('Component memoization', () => {
     });
   });
 
+  describe('Chart components', () => {
+    it('MiniFormChart is wrapped in React.memo', () => {
+      const source = readComponent('components/home/MiniFormChart.tsx');
+      expectMemoExport(source, 'MiniFormChart');
+    });
+  });
+
   describe('Already-memoized components (regression)', () => {
     it('StatCard is wrapped in React.memo', () => {
       const source = readComponent('components/activity/stats/StatCard.tsx');
