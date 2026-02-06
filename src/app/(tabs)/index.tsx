@@ -142,8 +142,11 @@ export default function FeedScreen() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const renderActivity = ({ item, index }: { item: Activity; index: number }) => (
-    <ActivityCard activity={item} index={index} />
+  const renderActivity = useCallback(
+    ({ item, index }: { item: Activity; index: number }) => (
+      <ActivityCard activity={item} index={index} />
+    ),
+    []
   );
 
   // Notify map previews when items become visible for lazy loading
