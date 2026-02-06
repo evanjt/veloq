@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -43,7 +43,7 @@ interface ButtonProps {
   textStyle?: StyleProp<TextStyle>;
 }
 
-export function Button({
+export const Button = memo(function Button({
   children,
   variant = 'primary',
   size = 'medium',
@@ -101,7 +101,7 @@ export function Button({
       )}
     </AnimatedPressable>
   );
-}
+});
 
 function getVariantStyle(variant: ButtonVariant, isDark: boolean, disabled: boolean): ViewStyle {
   const opacity = disabled ? 0.5 : 1;

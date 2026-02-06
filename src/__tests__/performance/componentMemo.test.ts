@@ -32,6 +32,11 @@ describe('Component memoization', () => {
       const source = readComponent('components/ui/Badge.tsx');
       expectMemoExport(source, 'Badge');
     });
+
+    it('Button is wrapped in React.memo', () => {
+      const source = readComponent('components/ui/Button.tsx');
+      expectMemoExport(source, 'Button');
+    });
   });
 
   describe('Already-memoized components (regression)', () => {
