@@ -44,6 +44,11 @@ describe('Component memoization', () => {
       const source = readComponent('components/home/MiniFormChart.tsx');
       expectMemoExport(source, 'MiniFormChart');
     });
+
+    it('SummaryCardSparkline is wrapped in React.memo', () => {
+      const source = readComponent('components/home/SummaryCardSparkline.tsx');
+      expectMemoExport(source, 'SummaryCardSparkline');
+    });
   });
 
   describe('Already-memoized components (regression)', () => {
