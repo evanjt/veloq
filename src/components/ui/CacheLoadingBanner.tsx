@@ -4,13 +4,14 @@
  * Tapping navigates to cache settings.
  */
 
-import React, { useEffect, useRef, useMemo } from 'react';
-import { View, StyleSheet, Animated, TouchableOpacity, Platform } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useSegments } from 'expo-router';
+import Animated, { useAnimatedStyle, withTiming, useSharedValue } from 'react-native-reanimated';
 import { useActivityBoundsCache } from '@/hooks';
 import { useAuthStore } from '@/providers';
 import { colors } from '@/theme';
@@ -66,30 +67,17 @@ export function CacheLoadingBanner() {
     return null;
   }, [isSyncingBounds, isProcessingRoutes, boundsProgress, routeProgress, t]);
 
-  // Animated values
-  const heightAnim = useRef(new Animated.Value(0)).current;
-  const progressAnim = useRef(new Animated.Value(0)).current;
+  // Shared values for native-thread animations
+  const progress = useSharedValue(0);
 
-  // Show/hide animation
-  useEffect(() => {
-    Animated.timing(heightAnim, {
-      toValue: showBanner ? 1 : 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  }, [showBanner, heightAnim]);
+  // Update shared values reactively
+  if (displayInfo && displayInfo.total > 0) {
+    progress.value = withTiming(displayInfo.completed / displayInfo.total, { duration: 150 });
+  }
 
-  // Progress animation
-  useEffect(() => {
-    if (displayInfo && displayInfo.total > 0) {
-      const progressValue = displayInfo.completed / displayInfo.total;
-      Animated.timing(progressAnim, {
-        toValue: progressValue,
-        duration: 150,
-        useNativeDriver: false,
-      }).start();
-    }
-  }, [displayInfo, progressAnim]);
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progress.value * 100}%` as `${number}%`,
+  }));
 
   // Don't render at all if not showing
   if (!showBanner || !displayInfo) {
@@ -98,11 +86,6 @@ export function CacheLoadingBanner() {
 
   const progressPercent =
     displayInfo.total > 0 ? Math.round((displayInfo.completed / displayInfo.total) * 100) : 0;
-
-  const progressWidth = progressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
 
   // Calculate banner height - handle display cutout on Android and Dynamic Island on iOS
   const bannerContentHeight = 36;
@@ -138,7 +121,7 @@ export function CacheLoadingBanner() {
         <MaterialCommunityIcons name="chevron-right" size={16} color="rgba(255, 255, 255, 0.7)" />
       </View>
       <View style={styles.progressTrack}>
-        <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+        <Animated.View style={[styles.progressFill, progressStyle]} />
       </View>
     </TouchableOpacity>
   );

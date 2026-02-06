@@ -3,11 +3,12 @@
  * Uses the same data source as CacheLoadingBanner for consistent display.
  */
 
-import React, { useEffect, useRef, useMemo } from 'react';
-import { View, StyleSheet, Animated, LayoutChangeEvent } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Animated, { useAnimatedStyle, withTiming, useSharedValue } from 'react-native-reanimated';
 import { useActivityBoundsCache } from '@/hooks';
 import { useSyncDateRange } from '@/providers';
 import { colors } from '@/theme';
@@ -68,30 +69,24 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   // Should show when visible AND there's something to display
   const shouldShow = visible && (isSyncingBounds || isProcessingRoutes) && displayInfo;
 
-  // Animated values
-  const heightAnim = useRef(new Animated.Value(0)).current;
-  const progressAnim = useRef(new Animated.Value(0)).current;
+  // Shared values for native-thread animations
+  const progress = useSharedValue(0);
+  const heightFraction = useSharedValue(0);
 
-  // Show/hide animation
-  useEffect(() => {
-    Animated.timing(heightAnim, {
-      toValue: shouldShow ? 1 : 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  }, [shouldShow, heightAnim]);
+  // Update shared values reactively
+  heightFraction.value = withTiming(shouldShow ? 1 : 0, { duration: 200 });
+  if (displayInfo && displayInfo.total > 0) {
+    progress.value = withTiming(displayInfo.completed / displayInfo.total, { duration: 150 });
+  }
 
-  // Progress animation
-  useEffect(() => {
-    if (displayInfo && displayInfo.total > 0) {
-      const progressValue = displayInfo.completed / displayInfo.total;
-      Animated.timing(progressAnim, {
-        toValue: progressValue,
-        duration: 150,
-        useNativeDriver: false,
-      }).start();
-    }
-  }, [displayInfo, progressAnim]);
+  const containerStyle = useAnimatedStyle(() => ({
+    height: heightFraction.value * 42,
+    opacity: heightFraction.value,
+  }));
+
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progress.value * 100}%` as `${number}%`,
+  }));
 
   // Don't render at all if not showing
   if (!shouldShow || !displayInfo) {
@@ -101,18 +96,8 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   const progressPercent =
     displayInfo.total > 0 ? Math.round((displayInfo.completed / displayInfo.total) * 100) : 0;
 
-  const progressWidth = progressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
-
-  const bannerHeight = heightAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 42],
-  });
-
   return (
-    <Animated.View style={[styles.container, { height: bannerHeight, opacity: heightAnim }]}>
+    <Animated.View style={[styles.container, containerStyle]}>
       <View style={styles.content}>
         <MaterialCommunityIcons name={displayInfo.icon} size={16} color="#FFFFFF" />
         <Text style={styles.text}>
@@ -123,7 +108,7 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
         </Text>
       </View>
       <View style={styles.progressTrack}>
-        <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+        <Animated.View style={[styles.progressFill, progressStyle]} />
       </View>
     </Animated.View>
   );
