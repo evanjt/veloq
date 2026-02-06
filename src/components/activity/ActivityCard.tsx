@@ -39,6 +39,13 @@ interface ActivityCardProps {
 // Breakpoint for narrow screens (icon-only mode for stats)
 const NARROW_SCREEN_WIDTH = 380;
 
+// Pre-computed icon background styles to avoid object creation on render
+const ICON_BG_TSS = { backgroundColor: colors.primary + '20' };
+const ICON_BG_HR = { backgroundColor: colors.error + '20' };
+const ICON_BG_POWER = { backgroundColor: colors.warning + '20' };
+const ICON_BG_CALORIES = { backgroundColor: colors.success + '20' };
+const ICON_BG_WEATHER = { backgroundColor: colors.info + '20' };
+
 export const ActivityCard = React.memo(function ActivityCard({
   activity,
   index,
@@ -157,7 +164,7 @@ export const ActivityCard = React.memo(function ActivityCard({
               <View
                 style={[
                   styles.secondaryStatIcon,
-                  { backgroundColor: colors.primary + '20' },
+                  ICON_BG_TSS,
                   isNarrowScreen && styles.secondaryStatIconNarrow,
                 ]}
               >
@@ -188,7 +195,7 @@ export const ActivityCard = React.memo(function ActivityCard({
               <View
                 style={[
                   styles.secondaryStatIcon,
-                  { backgroundColor: colors.error + '20' },
+                  ICON_BG_HR,
                   isNarrowScreen && styles.secondaryStatIconNarrow,
                 ]}
               >
@@ -219,7 +226,7 @@ export const ActivityCard = React.memo(function ActivityCard({
               <View
                 style={[
                   styles.secondaryStatIcon,
-                  { backgroundColor: colors.warning + '20' },
+                  ICON_BG_POWER,
                   isNarrowScreen && styles.secondaryStatIconNarrow,
                 ]}
               >
@@ -250,7 +257,7 @@ export const ActivityCard = React.memo(function ActivityCard({
               <View
                 style={[
                   styles.secondaryStatIcon,
-                  { backgroundColor: colors.success + '20' },
+                  ICON_BG_CALORIES,
                   isNarrowScreen && styles.secondaryStatIconNarrow,
                 ]}
               >
@@ -281,7 +288,7 @@ export const ActivityCard = React.memo(function ActivityCard({
               <View
                 style={[
                   styles.secondaryStatIcon,
-                  { backgroundColor: colors.info + '20' },
+                  ICON_BG_WEATHER,
                   isNarrowScreen && styles.secondaryStatIconNarrow,
                 ]}
               >
