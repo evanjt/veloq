@@ -474,20 +474,8 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                 <Text style={[styles.metricLabel, isDark && styles.textDark]}>{metric.label}</Text>
               </View>
 
-              {/* Center: sparkline canvas (single shared surface) — only render in first row */}
-              {i === 0 ? (
-                <View style={[styles.sparklineContainer, { height: canvasHeight }]}>
-                  {sparklineWidth > 0 && chartPicture ? (
-                    <Canvas style={{ width: sparklineWidth, height: canvasHeight }}>
-                      <Picture picture={chartPicture} />
-                    </Canvas>
-                  ) : (
-                    <View style={{ height: canvasHeight }} />
-                  )}
-                </View>
-              ) : (
-                <View style={styles.sparklineContainer} />
-              )}
+              {/* Center: spacer for sparkline area (canvas is overlaid absolutely) */}
+              <View style={styles.sparklineContainer} />
 
               {/* Right: values */}
               <View style={styles.metricValues}>
@@ -512,6 +500,24 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
               </View>
             </View>
           ))}
+
+          {/* Single Skia canvas overlaid on the sparkline column area */}
+          {sparklineWidth > 0 && chartPicture && (
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 75 + spacing.sm,
+                width: sparklineWidth,
+                height: canvasHeight,
+              }}
+              pointerEvents="none"
+            >
+              <Canvas style={{ width: sparklineWidth, height: canvasHeight }}>
+                <Picture picture={chartPicture} />
+              </Canvas>
+            </View>
+          )}
         </View>
       </GestureDetector>
 

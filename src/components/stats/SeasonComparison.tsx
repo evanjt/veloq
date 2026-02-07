@@ -76,13 +76,16 @@ export function SeasonComparison({
   const { isDark } = useTheme();
   const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
-  const chartWidth = useRef(0);
+  const [measuredWidth, setMeasuredWidth] = useState(0);
+  const chartWidthRef = useRef(0);
   const chartPageX = useRef(0);
   const chartRef = useRef<View>(null);
 
   // Handle chart layout to get width and absolute position for touch calculations
   const onChartLayout = useCallback((event: LayoutChangeEvent) => {
-    chartWidth.current = event.nativeEvent.layout.width;
+    const w = event.nativeEvent.layout.width;
+    chartWidthRef.current = w;
+    setMeasuredWidth(w);
     // Measure absolute position after layout
     if (chartRef.current) {
       const nodeHandle = findNodeHandle(chartRef.current);
@@ -96,8 +99,8 @@ export function SeasonComparison({
 
   // Calculate month index from x position relative to chart
   const getMonthFromX = useCallback((x: number) => {
-    if (chartWidth.current === 0) return 0;
-    const monthIndex = Math.floor((x / chartWidth.current) * 12);
+    if (chartWidthRef.current === 0) return 0;
+    const monthIndex = Math.floor((x / chartWidthRef.current) * 12);
     return Math.max(0, Math.min(11, monthIndex));
   }, []);
 
@@ -202,7 +205,7 @@ export function SeasonComparison({
 
   // Build the bar chart as a single Skia Picture
   const chartPicture = useMemo(() => {
-    const w = chartWidth.current;
+    const w = measuredWidth;
     if (w === 0 || maxValue === 0) return null;
 
     const chartHeight = height;
@@ -298,7 +301,17 @@ export function SeasonComparison({
     }
 
     return recorder.finishRecordingAsPicture();
-  }, [data, maxValue, height, isDark, selectedMonth, currentMonth, colorCurrent, colorPrevious]);
+  }, [
+    data,
+    maxValue,
+    height,
+    isDark,
+    selectedMonth,
+    currentMonth,
+    colorCurrent,
+    colorPrevious,
+    measuredWidth,
+  ]);
 
   // Month labels — kept as native Text for proper font rendering
   const monthLabels = useMemo(() => {
