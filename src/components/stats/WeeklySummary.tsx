@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text as RNText } from 'react-native';
 import {
   useTheme,
   useMetricSystem,
@@ -416,7 +416,9 @@ export function WeeklySummary({
                     ]}
                   >
                     {currentStats.count > previousStats.count ? '↑' : '↓'}
-                    {pctChange(currentStats.count, previousStats.count)}
+                    <RNText style={styles.trendPct}>
+                      {pctChange(currentStats.count, previousStats.count)}
+                    </RNText>
                   </Text>
                 )}
               </View>
@@ -447,7 +449,9 @@ export function WeeklySummary({
                       ]}
                     >
                       {currentStats.duration > previousStats.duration ? '↑' : '↓'}
-                      {pctChange(currentStats.duration, previousStats.duration)}
+                      <RNText style={styles.trendPct}>
+                        {pctChange(currentStats.duration, previousStats.duration)}
+                      </RNText>
                     </Text>
                   )}
               </View>
@@ -478,7 +482,9 @@ export function WeeklySummary({
                       ]}
                     >
                       {currentStats.distance > previousStats.distance ? '↑' : '↓'}
-                      {pctChange(currentStats.distance, previousStats.distance)}
+                      <RNText style={styles.trendPct}>
+                        {pctChange(currentStats.distance, previousStats.distance)}
+                      </RNText>
                     </Text>
                   )}
               </View>
@@ -506,7 +512,9 @@ export function WeeklySummary({
                     ]}
                   >
                     {currentStats.tss > previousStats.tss ? '↑' : '↓'}
-                    {pctChange(currentStats.tss, previousStats.tss)}
+                    <RNText style={styles.trendPct}>
+                      {pctChange(currentStats.tss, previousStats.tss)}
+                    </RNText>
                   </Text>
                 )}
               </View>
@@ -586,8 +594,12 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   trendArrow: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
+  },
+  trendPct: {
+    fontSize: typography.micro.fontSize,
+    fontWeight: '400',
   },
   statLabel: {
     fontSize: typography.caption.fontSize,
