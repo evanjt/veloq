@@ -597,7 +597,7 @@ jobs:
             # Run smoke test
             mkdir -p screenshots
             maestro test .maestro/smoke.yaml --format junit --output maestro-report-smoke.xml --no-ansi
-          maestro test .maestro/critical-path.yaml --format junit --output maestro-report-critical.xml --no-ansi
+            maestro test .maestro/critical-path.yaml --format junit --output maestro-report-critical.xml --no-ansi
 
       - name: Collect screenshots
         if: always()
