@@ -904,7 +904,7 @@ export default function SectionDetailScreen() {
     bestReverseRecord,
     forwardStats,
     reverseStats,
-  } = useSectionPerformances(section, sectionActivitiesUnsorted);
+  } = useSectionPerformances(section);
 
   // Show loading indicator while fetching performance data (but don't block the UI)
   const hasPerformanceData = performanceRecords && performanceRecords.length > 0;

@@ -22,7 +22,6 @@ import {
   useActivityBoundsCache,
   useRouteProcessing,
   useRouteGroups,
-  useActivities,
   useOldestActivityDate,
   useTheme,
   useUnifiedSections,
@@ -235,17 +234,8 @@ export default function SettingsScreen() {
     await setActivityGroupStyle(group.types, style);
   };
 
-  // Get sync state from global store first (needed for activity fetch range)
+  // Get sync state from global store first
   const syncOldest = useSyncDateRange((s) => s.oldest);
-  const syncNewest = useSyncDateRange((s) => s.newest);
-
-  // Fetch activities only for the synced date range (not 10 years!)
-  // This dramatically improves settings screen load time
-  const { data: allActivities } = useActivities({
-    oldest: syncOldest,
-    newest: syncNewest,
-    includeStats: false,
-  });
 
   const { progress, cacheStats, clearCache, sync, syncDateRange } = useActivityBoundsCache();
 
@@ -313,21 +303,11 @@ export default function SettingsScreen() {
       };
     }
 
-    // Fallback: use cached activities or 90 days ago
-    if (!allActivities || allActivities.length === 0) {
-      const d = new Date();
-      d.setDate(d.getDate() - 90);
-      return { minDateForSlider: d, maxDateForSlider: now };
-    }
-
-    const dates = allActivities.map((a) => new Date(a.start_date_local).getTime());
-    const oldestActivityTime = Math.min(...dates);
-
-    return {
-      minDateForSlider: new Date(oldestActivityTime),
-      maxDateForSlider: now,
-    };
-  }, [apiOldestDate, allActivities]);
+    // Fallback: 90 days ago
+    const d = new Date();
+    d.setDate(d.getDate() - 90);
+    return { minDateForSlider: d, maxDateForSlider: now };
+  }, [apiOldestDate]);
 
   // Handle date range change from timeline slider
   // Only allow expansion - start can only go earlier (left), end is fixed at "now"

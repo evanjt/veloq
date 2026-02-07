@@ -6,7 +6,7 @@
 
 import React, { useMemo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme, useActivities } from '@/hooks';
+import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
@@ -29,10 +29,6 @@ export function RoutePerformanceSection({
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
-  // Fetch activities to pass to useRoutePerformances for building performance data
-  // Need a long time range to capture all activities in the route group
-  const { data: activities = [] } = useActivities({ days: 365 * 3 });
-
   const {
     routeGroup,
     performances,
@@ -41,7 +37,7 @@ export function RoutePerformanceSection({
     bestForwardRecord,
     bestReverseRecord,
     currentRank,
-  } = useRoutePerformances(activityId, undefined, activities);
+  } = useRoutePerformances(activityId);
 
   const activityColor = getActivityColor(activityType);
 

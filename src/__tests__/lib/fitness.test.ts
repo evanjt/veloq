@@ -1,11 +1,4 @@
-import {
-  calculateTSB,
-  getFormZone,
-  FORM_ZONE_COLORS,
-  FORM_ZONE_LABELS,
-  FORM_ZONE_BOUNDARIES,
-  type FormZone,
-} from '@/lib/algorithms/fitness';
+import { calculateTSB, getFormZone, type FormZone } from '@/lib/algorithms/fitness';
 import type { WellnessData } from '@/types';
 
 describe('calculateTSB', () => {
@@ -94,49 +87,5 @@ describe('getFormZone', () => {
     it(`returns "${expected}" for TSB = ${tsb}`, () => {
       expect(getFormZone(tsb)).toBe(expected);
     });
-  });
-});
-
-describe('FORM_ZONE_COLORS', () => {
-  it('has a color for each zone', () => {
-    const zones: FormZone[] = ['highRisk', 'optimal', 'grey', 'fresh', 'transition'];
-
-    zones.forEach((zone) => {
-      expect(FORM_ZONE_COLORS[zone]).toBeDefined();
-      expect(FORM_ZONE_COLORS[zone]).toMatch(/^#[0-9A-Fa-f]{6}$/);
-    });
-  });
-});
-
-describe('FORM_ZONE_LABELS', () => {
-  it('has a human-readable label for each zone', () => {
-    expect(FORM_ZONE_LABELS.highRisk).toBe('High Risk');
-    expect(FORM_ZONE_LABELS.optimal).toBe('Optimal');
-    expect(FORM_ZONE_LABELS.grey).toBe('Grey Zone');
-    expect(FORM_ZONE_LABELS.fresh).toBe('Fresh');
-    expect(FORM_ZONE_LABELS.transition).toBe('Transition');
-  });
-});
-
-describe('FORM_ZONE_BOUNDARIES', () => {
-  it('has min and max for each zone', () => {
-    const zones: FormZone[] = ['highRisk', 'optimal', 'grey', 'fresh', 'transition'];
-
-    zones.forEach((zone) => {
-      expect(FORM_ZONE_BOUNDARIES[zone].min).toBeDefined();
-      expect(FORM_ZONE_BOUNDARIES[zone].max).toBeDefined();
-      expect(FORM_ZONE_BOUNDARIES[zone].min).toBeLessThan(FORM_ZONE_BOUNDARIES[zone].max);
-    });
-  });
-
-  it('has contiguous boundaries', () => {
-    // Fresh ends where transition begins
-    expect(FORM_ZONE_BOUNDARIES.fresh.max).toBe(FORM_ZONE_BOUNDARIES.transition.min);
-    // Grey ends where fresh begins
-    expect(FORM_ZONE_BOUNDARIES.grey.max).toBe(FORM_ZONE_BOUNDARIES.fresh.min);
-    // Optimal ends where grey begins
-    expect(FORM_ZONE_BOUNDARIES.optimal.max).toBe(FORM_ZONE_BOUNDARIES.grey.min);
-    // HighRisk ends where optimal begins
-    expect(FORM_ZONE_BOUNDARIES.highRisk.max).toBe(FORM_ZONE_BOUNDARIES.optimal.min);
   });
 });

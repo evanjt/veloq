@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { intervalsApi } from '@/api';
 import { routeEngine, type SectionPerformanceResult } from 'veloqrs';
-import type { FrequentSection, ActivityStreams, DirectionStats, Activity } from '@/types';
+import type { FrequentSection, ActivityStreams, DirectionStats } from '@/types';
 import { toDirectionStats, castDirection, fromUnixSeconds } from '@/lib/utils/ffiConversions';
-import { toActivityMetrics } from '@/lib/utils/activityMetrics';
 
 /**
  * Individual lap/traversal of a section
@@ -80,42 +79,30 @@ interface UseSectionPerformancesResult {
  * Only fetches from API for activities missing from cache.
  *
  * @param section - The section to calculate performances for
- * @param activities - Activities that have traversed this section (full Activity objects needed for metrics)
  */
 export function useSectionPerformances(
-  section: FrequentSection | null,
-  activities: Activity[] | undefined
+  section: FrequentSection | null
 ): UseSectionPerformancesResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetchKey, setFetchKey] = useState(0); // For refetch
   const [fetchComplete, setFetchComplete] = useState(false);
 
-  // Get unique activity IDs that need streams
+  // Get unique activity IDs from section portions (engine already validated these)
   const allActivityIds = useMemo(() => {
-    if (!section?.activityPortions || !activities) return [];
-    const activityIdSet = new Set(activities.map((a) => a.id));
+    if (!section?.activityPortions) return [];
     const ids = new Set<string>();
     for (const p of section.activityPortions) {
-      if (activityIdSet.has(p.activityId)) {
-        ids.add(p.activityId);
-      }
+      ids.add(p.activityId);
     }
     return Array.from(ids);
-  }, [section?.activityPortions, activities]);
+  }, [section?.activityPortions]);
 
   // Fetch ONLY missing streams from API (ones not in Rust cache/SQLite)
   const fetchMissingStreams = useCallback(async () => {
     if (allActivityIds.length === 0) {
       setFetchComplete(true);
       return;
-    }
-
-    // Ensure activity metrics are set for all activities (needed for performance calculations)
-    // This handles activities that were synced before setActivityMetrics was added
-    if (activities && activities.length > 0) {
-      const metrics = activities.map(toActivityMetrics);
-      routeEngine.setActivityMetrics(metrics);
     }
 
     // Check which activities are missing from cache (memory + SQLite)
@@ -198,7 +185,7 @@ export function useSectionPerformances(
         reverseStats: null as DirectionStats | null,
       };
 
-      if (!section || !activities || !fetchComplete) {
+      if (!section || !fetchComplete) {
         return emptyResult;
       }
 
@@ -248,7 +235,7 @@ export function useSectionPerformances(
         // Engine may not have data yet - return empty
         return emptyResult;
       }
-    }, [section, fetchComplete, activities]);
+    }, [section, fetchComplete]);
 
   const refetch = useCallback(() => {
     setFetchKey((k) => k + 1);

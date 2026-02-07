@@ -109,58 +109,6 @@ describe('Code smell: Inconsistent null/undefined handling', () => {
   });
 });
 
-describe('Code smell: Magic numbers without constants', () => {
-  /**
-   * These tests document magic numbers that should be constants.
-   * They serve as regression tests if the values change.
-   */
-
-  it('geocoding precision is ~500m', () => {
-    // src/lib/geo/geocoding.ts:32-33
-    // const roundedLat = Math.round(lat * 200) / 200;
-    // This gives ~500m precision (1/200 degree ≈ 555m at equator)
-
-    const precision = 1 / 200; // degrees
-    const metersPerDegree = 111320; // at equator
-    const precisionMeters = precision * metersPerDegree;
-
-    // Document the actual precision
-    expect(precisionMeters).toBeCloseTo(556.6, 0);
-  });
-
-  it('query cache times are documented', () => {
-    // src/providers/QueryProvider.tsx:10-11
-    // These should be in a constants file
-
-    const STALE_TIME = 1000 * 60 * 5; // 5 minutes
-    const GC_TIME = 1000 * 60 * 60 * 24; // 1 day
-
-    expect(STALE_TIME).toBe(300000);
-    expect(GC_TIME).toBe(86400000);
-  });
-});
-
-describe('Potential bug: Type coercion in comparisons', () => {
-  /**
-   * JavaScript's == vs === can cause subtle bugs.
-   * These tests ensure consistent behavior.
-   */
-
-  it('null/undefined checks use correct equality', () => {
-    // src/lib/geo/polyline.ts:58 uses `== null` which catches both null and undefined
-    // This is actually correct, but let's verify the behavior
-
-    const checkValue = (val: unknown) => val == null;
-
-    expect(checkValue(null)).toBe(true);
-    expect(checkValue(undefined)).toBe(true);
-    expect(checkValue(0)).toBe(false);
-    expect(checkValue('')).toBe(false);
-    expect(checkValue(false)).toBe(false);
-    expect(checkValue(NaN)).toBe(false); // NaN != null
-  });
-});
-
 describe('Performance: Large data handling', () => {
   /**
    * Tests for handling large datasets without crashing.

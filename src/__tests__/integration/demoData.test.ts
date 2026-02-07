@@ -304,6 +304,30 @@ describe('Demo Data Integration Tests', () => {
     });
   });
 
+  describe('Stress test fixtures', () => {
+    it('should generate 200 stress test activities', () => {
+      const stressActivities = demoActivities.filter((a) => a.id.startsWith('demo-stress-'));
+      expect(stressActivities.length).toBe(200);
+    });
+
+    it('stress activities should all use the same route', () => {
+      const stressActivities = demoActivities.filter((a) =>
+        a.id.startsWith('demo-stress-')
+      ) as (ApiActivity & { _routeId?: string })[];
+      const routes = new Set(stressActivities.map((a) => a._routeId));
+      expect(routes.size).toBe(1);
+      expect(routes.has('route-rio-run-1')).toBe(true);
+    });
+
+    it('stress activities should have unique IDs', () => {
+      const stressIds = demoActivities
+        .filter((a) => a.id.startsWith('demo-stress-'))
+        .map((a) => a.id);
+      const unique = new Set(stressIds);
+      expect(unique.size).toBe(stressIds.length);
+    });
+  });
+
   describe('Deterministic Data Generation', () => {
     // Filter out stable test and stress test activities for date-based ID tests
     const dateBasedActivities = demoActivities.filter(

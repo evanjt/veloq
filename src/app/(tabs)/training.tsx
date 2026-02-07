@@ -17,6 +17,7 @@ import { useActivities, useWellness, useAthleteSummary, useTheme, type TimeRange
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import { SMOOTHING_PRESETS, getSmoothingDescription, type SmoothingWindow } from '@/lib';
+import { logScreenRender } from '@/lib/debug/renderTimer';
 
 const TIME_RANGES: { id: TimeRange; label: string }[] = [
   { id: '7d', label: '1W' },
@@ -27,9 +28,16 @@ const TIME_RANGES: { id: TimeRange; label: string }[] = [
 ];
 
 export default function HealthScreen() {
+  const perfEnd = logScreenRender('HealthScreen');
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
+
+  // Log render time (JS phase only)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    perfEnd();
+  });
 
   // Defer below-fold cards by one frame to reduce first-frame native view count
   const [belowFoldReady, setBelowFoldReady] = useState(false);
