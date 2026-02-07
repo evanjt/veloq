@@ -23,8 +23,6 @@ const CHART_LABEL_KEYS: Partial<Record<ChartTypeId, ChartTypeKey>> = {
   speed: 'chartTypes.speed',
   pace: 'chartTypes.pace',
   elevation: 'chartTypes.elev',
-  altitude: 'chartTypes.elev',
-  watts: 'chartTypes.power',
 };
 
 interface ChartTypeSelectorProps {

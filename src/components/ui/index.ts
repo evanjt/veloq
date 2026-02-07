@@ -6,7 +6,6 @@ export {
   WellnessCardSkeleton,
 } from './Shimmer';
 export { GradientText, GlowText, AnimatedNumber } from './GradientText';
-export { GradientCard, GlassCard } from './GradientCard';
 export { BottomTabBar, TAB_BAR_HEIGHT, TAB_BAR_SAFE_PADDING } from './BottomTabBar';
 export { CompassArrow } from './CompassArrow';
 export {

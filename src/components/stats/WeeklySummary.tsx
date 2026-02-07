@@ -5,6 +5,7 @@ import {
   useMetricSystem,
   useAthleteSummary,
   getISOWeekNumber,
+  formatWeekRange,
   type WeeklySummaryData,
 } from '@/hooks';
 import { Text, ActivityIndicator } from 'react-native-paper';
@@ -29,18 +30,6 @@ interface WeeklySummaryProps {
 
 const TIME_RANGE_IDS: TimeRange[] = ['week', 'month', '3m', '6m', 'year'];
 
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) {
-    return `${hours}h ${mins}m`;
-  }
-  return `${mins}m`;
-}
-
-/**
- * Get the Monday of the week for a given date (ISO week: Monday-Sunday)
- */
 function getMonday(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();
@@ -50,9 +39,6 @@ function getMonday(date: Date): Date {
   return d;
 }
 
-/**
- * Get the Sunday of the week for a given date
- */
 function getSunday(date: Date): Date {
   const monday = getMonday(date);
   const sunday = new Date(monday);
@@ -60,18 +46,13 @@ function getSunday(date: Date): Date {
   return sunday;
 }
 
-/**
- * Format week range for display (e.g., "Jan 20-26")
- */
-function formatWeekRange(monday: Date): string {
-  const sunday = getSunday(monday);
-  const mondayMonth = monday.toLocaleString('en-US', { month: 'short' });
-  const sundayMonth = sunday.toLocaleString('en-US', { month: 'short' });
-
-  if (mondayMonth === sundayMonth) {
-    return `${mondayMonth} ${monday.getDate()}-${sunday.getDate()}`;
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) {
+    return `${hours}h ${mins}m`;
   }
-  return `${mondayMonth} ${monday.getDate()} - ${sundayMonth} ${sunday.getDate()}`;
+  return `${mins}m`;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

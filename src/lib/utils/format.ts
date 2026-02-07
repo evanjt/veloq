@@ -244,28 +244,6 @@ export function formatTemperature(celsius: number | undefined | null, isMetric =
   }
 }
 
-/**
- * Format wind speed in m/s (metric) or mph (imperial).
- *
- * @param metersPerSecond - Wind speed in meters per second
- * @param isMetric - Whether to use metric units (default: true)
- * @returns Formatted wind speed string (e.g., "5 m/s", "11 mph")
- */
-export function formatWindSpeed(
-  metersPerSecond: number | undefined | null,
-  isMetric = true
-): string {
-  if (metersPerSecond == null || !Number.isFinite(metersPerSecond) || metersPerSecond < 0) {
-    return isMetric ? '0 m/s' : '0 mph';
-  }
-
-  if (isMetric) {
-    return `${Math.round(metersPerSecond)} m/s`;
-  } else {
-    return `${Math.round(metersPerSecond * MPS_TO_MPH)} mph`;
-  }
-}
-
 export function formatHeartRate(bpm: number): string {
   if (!Number.isFinite(bpm) || bpm < 0) {
     return '0 bpm';
@@ -436,13 +414,6 @@ export function formatLocalDate(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
-
-/**
- * Get today's date as YYYY-MM-DD in local timezone
- */
-export function getTodayLocalDate(): string {
-  return formatLocalDate(new Date());
 }
 
 /**

@@ -7,6 +7,7 @@ export {
   useZoneDistribution,
   useAthleteSummary,
   getISOWeekNumber,
+  formatWeekRange,
   type WeeklySummaryData,
 } from './fitness';
 
