@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -55,15 +55,24 @@ export function CollapsibleSection({
 }: CollapsibleSectionProps) {
   const { isDark } = useTheme();
 
+  // Defer child mounting until section has been expanded at least once.
+  // Sections that start collapsed render null children, avoiding expensive
+  // mounts (e.g., Victory Native charts) until the user opens them.
+  // Once expanded, children stay mounted so re-collapsing is instant.
+  const [hasEverExpanded, setHasEverExpanded] = useState(expanded);
+
   const animation = useSharedValue(expanded ? 1 : 0);
   const measuredHeight = useSharedValue(estimatedHeight);
 
   useEffect(() => {
+    if (expanded && !hasEverExpanded) {
+      setHasEverExpanded(true);
+    }
     animation.value = withTiming(expanded ? 1 : 0, {
       duration: 250,
       easing: Easing.bezier(0.4, 0, 0.2, 1),
     });
-  }, [expanded, animation]);
+  }, [expanded, animation, hasEverExpanded]);
 
   const contentStyle = useAnimatedStyle(() => ({
     height: interpolate(animation.value, [0, 1], [0, measuredHeight.value]),
@@ -148,7 +157,7 @@ export function CollapsibleSection({
 
       <Animated.View style={contentStyle}>
         <View onLayout={onContentLayout} style={styles.content}>
-          {children}
+          {hasEverExpanded ? children : null}
         </View>
       </Animated.View>
     </View>
