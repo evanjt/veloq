@@ -559,6 +559,10 @@ impl PersistentRouteEngine {
             M::up(include_str!("migrations/002_unified_sections.sql")),
             // M3: Drop legacy section_names table (names now in sections.name column)
             M::up(include_str!("migrations/003_drop_section_names.sql")),
+            // M4: Extend activity_metrics with training_load, ftp, zone times for aggregation
+            M::up(include_str!("migrations/004_extend_activity_metrics.sql")),
+            // M5: Athlete profile and sport settings cache tables
+            M::up(include_str!("migrations/005_profile_and_settings.sql")),
         ])
     }
 
@@ -3907,7 +3911,7 @@ impl PersistentRouteEngine {
     /// Set activity metrics for performance calculations.
     /// This persists the metrics to the database and keeps them in memory.
     pub fn set_activity_metrics(&mut self, metrics: Vec<ActivityMetrics>) -> SqlResult<()> {
-        // Insert or replace in database
+        // Insert or replace in database (core fields only, no extended metrics)
         let mut stmt = self.db.prepare(
             "INSERT OR REPLACE INTO activity_metrics
              (activity_id, name, date, distance, moving_time, elapsed_time,
@@ -3938,9 +3942,314 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Set activity metrics with extended fields (training load, FTP, zone times).
+    /// Persists all fields to the database. Extended fields are only used for SQL aggregate queries.
+    pub fn set_activity_metrics_extended(&mut self, metrics: Vec<crate::FfiActivityMetrics>) -> SqlResult<()> {
+        let mut stmt = self.db.prepare(
+            "INSERT OR REPLACE INTO activity_metrics
+             (activity_id, name, date, distance, moving_time, elapsed_time,
+              elevation_gain, avg_hr, avg_power, sport_type,
+              training_load, ftp, power_zone_times, hr_zone_times)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )?;
+
+        for m in &metrics {
+            stmt.execute(params![
+                &m.activity_id,
+                &m.name,
+                m.date,
+                m.distance,
+                m.moving_time,
+                m.elapsed_time,
+                m.elevation_gain,
+                m.avg_hr.map(|v| v as i32),
+                m.avg_power.map(|v| v as i32),
+                &m.sport_type,
+                m.training_load,
+                m.ftp.map(|v| v as i32),
+                m.power_zone_times.as_deref(),
+                m.hr_zone_times.as_deref(),
+            ])?;
+        }
+
+        // Update in-memory cache (core fields only)
+        for m in metrics {
+            let core: ActivityMetrics = m.into();
+            self.activity_metrics.insert(core.activity_id.clone(), core);
+        }
+
+        Ok(())
+    }
+
     /// Get activity metrics for a specific activity.
     pub fn get_activity_metrics(&self, activity_id: &str) -> Option<&ActivityMetrics> {
         self.activity_metrics.get(activity_id)
+    }
+
+    // ========================================================================
+    // Aggregate Queries (SQL-based, for dashboard/stats/charts)
+    // ========================================================================
+
+    /// Get aggregated stats for a date range: count, total duration, distance, TSS.
+    pub fn get_period_stats(&self, start_ts: i64, end_ts: i64) -> crate::FfiPeriodStats {
+        self.db
+            .query_row(
+                "SELECT COUNT(*), COALESCE(SUM(moving_time), 0), COALESCE(SUM(distance), 0),
+                        COALESCE(SUM(training_load), 0)
+                 FROM activity_metrics WHERE date BETWEEN ?1 AND ?2",
+                params![start_ts, end_ts],
+                |row| {
+                    Ok(crate::FfiPeriodStats {
+                        count: row.get::<_, i64>(0)? as u32,
+                        total_duration: row.get(1)?,
+                        total_distance: row.get(2)?,
+                        total_tss: row.get(3)?,
+                    })
+                },
+            )
+            .unwrap_or(crate::FfiPeriodStats {
+                count: 0,
+                total_duration: 0,
+                total_distance: 0.0,
+                total_tss: 0.0,
+            })
+    }
+
+    /// Get monthly aggregates for a given year and metric.
+    /// metric: "hours" | "distance" | "tss"
+    pub fn get_monthly_aggregates(&self, year: i32, metric: &str) -> Vec<crate::FfiMonthlyAggregate> {
+        let sql_expr = match metric {
+            "hours" => "COALESCE(SUM(moving_time), 0) / 3600.0",
+            "distance" => "COALESCE(SUM(distance), 0)",
+            "tss" => "COALESCE(SUM(training_load), 0)",
+            _ => return Vec::new(),
+        };
+
+        // Convert year to date range as Unix timestamps
+        let start = chrono::NaiveDate::from_ymd_opt(year, 1, 1)
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc()
+            .timestamp();
+        let end = chrono::NaiveDate::from_ymd_opt(year, 12, 31)
+            .unwrap()
+            .and_hms_opt(23, 59, 59)
+            .unwrap()
+            .and_utc()
+            .timestamp();
+
+        let query = format!(
+            "SELECT CAST(strftime('%m', date, 'unixepoch') AS INTEGER) - 1 as month, {}
+             FROM activity_metrics
+             WHERE date BETWEEN ?1 AND ?2
+             GROUP BY month
+             ORDER BY month",
+            sql_expr
+        );
+
+        let mut stmt = match self.db.prepare(&query) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        stmt.query_map(params![start, end], |row| {
+            Ok(crate::FfiMonthlyAggregate {
+                month: row.get::<_, i64>(0)? as u8,
+                value: row.get(1)?,
+            })
+        })
+        .ok()
+        .map(|iter| iter.flatten().collect())
+        .unwrap_or_default()
+    }
+
+    /// Get activity heatmap data: date string + intensity (0-4) based on moving_time.
+    pub fn get_activity_heatmap(&self, start_ts: i64, end_ts: i64) -> Vec<crate::FfiHeatmapDay> {
+        let mut stmt = match self.db.prepare(
+            "SELECT date, MAX(moving_time) as max_time
+             FROM activity_metrics
+             WHERE date BETWEEN ?1 AND ?2
+             GROUP BY date(date, 'unixepoch')
+             ORDER BY date",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        stmt.query_map(params![start_ts, end_ts], |row| {
+            let ts: i64 = row.get(0)?;
+            let max_time: i64 = row.get(1)?;
+            let intensity = match max_time {
+                t if t > 7200 => 4,  // > 2h
+                t if t > 5400 => 3,  // > 1.5h
+                t if t > 3600 => 2,  // > 1h
+                t if t > 0 => 1,     // any activity
+                _ => 0,
+            };
+            // Format date string from timestamp
+            let date_str = chrono::DateTime::from_timestamp(ts, 0)
+                .map(|dt| dt.format("%Y-%m-%d").to_string())
+                .unwrap_or_default();
+            Ok(crate::FfiHeatmapDay {
+                date: date_str,
+                intensity: intensity as u8,
+            })
+        })
+        .ok()
+        .map(|iter| iter.flatten().collect())
+        .unwrap_or_default()
+    }
+
+    /// Get aggregated zone distribution for a sport type and zone type.
+    /// zone_type: "power" | "hr"
+    pub fn get_zone_distribution(&self, sport_type: &str, zone_type: &str) -> Vec<f64> {
+        let column = match zone_type {
+            "power" => "power_zone_times",
+            "hr" => "hr_zone_times",
+            _ => return Vec::new(),
+        };
+
+        let query = format!(
+            "SELECT {} FROM activity_metrics WHERE sport_type = ?1 AND {} IS NOT NULL",
+            column, column,
+        );
+
+        let mut stmt = match self.db.prepare(&query) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        let mut totals: Vec<f64> = Vec::new();
+
+        let _ = stmt.query_map(params![sport_type], |row| {
+            let json_str: String = row.get(0)?;
+            Ok(json_str)
+        })
+        .ok()
+        .map(|iter| {
+            for json_result in iter.flatten() {
+                if let Ok(zones) = serde_json::from_str::<Vec<f64>>(&json_result) {
+                    // Extend totals vector if needed
+                    if totals.len() < zones.len() {
+                        totals.resize(zones.len(), 0.0);
+                    }
+                    for (i, &val) in zones.iter().enumerate() {
+                        totals[i] += val;
+                    }
+                }
+            }
+        });
+
+        totals
+    }
+
+    /// Get FTP trend: latest and previous FTP values with dates.
+    pub fn get_ftp_trend(&self) -> crate::FfiFtpTrend {
+        let default = crate::FfiFtpTrend {
+            latest_ftp: None,
+            latest_date: None,
+            previous_ftp: None,
+            previous_date: None,
+        };
+
+        // Get the two most recent distinct FTP values
+        let mut stmt = match self.db.prepare(
+            "SELECT ftp, date FROM activity_metrics
+             WHERE ftp IS NOT NULL
+             ORDER BY date DESC",
+        ) {
+            Ok(s) => s,
+            Err(_) => return default,
+        };
+
+        let rows: Vec<(i32, i64)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .ok()
+            .map(|iter| iter.flatten().collect())
+            .unwrap_or_default();
+
+        if rows.is_empty() {
+            return default;
+        }
+
+        let latest_ftp = rows[0].0 as u16;
+        let latest_date = rows[0].1;
+
+        // Find the first row with a different FTP value
+        let previous = rows.iter().find(|(ftp, _)| *ftp as u16 != latest_ftp);
+
+        crate::FfiFtpTrend {
+            latest_ftp: Some(latest_ftp),
+            latest_date: Some(latest_date),
+            previous_ftp: previous.map(|(ftp, _)| *ftp as u16),
+            previous_date: previous.map(|(_, date)| *date),
+        }
+    }
+
+    /// Get distinct sport types from stored activities.
+    pub fn get_available_sport_types(&self) -> Vec<String> {
+        let mut stmt = match self.db.prepare(
+            "SELECT DISTINCT sport_type FROM activity_metrics ORDER BY sport_type",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        stmt.query_map([], |row| row.get(0))
+            .ok()
+            .map(|iter| iter.flatten().collect())
+            .unwrap_or_default()
+    }
+
+    // =========================================================================
+    // Athlete Profile & Sport Settings Cache
+    // =========================================================================
+
+    /// Store athlete profile JSON blob for instant startup rendering.
+    pub fn set_athlete_profile(&self, json: &str) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        let _ = self.db.execute(
+            "INSERT OR REPLACE INTO athlete_profile (id, data, updated_at) VALUES ('current', ?1, ?2)",
+            rusqlite::params![json, now],
+        );
+    }
+
+    /// Get cached athlete profile JSON blob. Returns None if not cached.
+    pub fn get_athlete_profile(&self) -> Option<String> {
+        self.db
+            .query_row(
+                "SELECT data FROM athlete_profile WHERE id = 'current'",
+                [],
+                |row| row.get(0),
+            )
+            .ok()
+    }
+
+    /// Store sport settings JSON blob for instant startup rendering.
+    pub fn set_sport_settings(&self, json: &str) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        let _ = self.db.execute(
+            "INSERT OR REPLACE INTO sport_settings (id, data, updated_at) VALUES ('current', ?1, ?2)",
+            rusqlite::params![json, now],
+        );
+    }
+
+    /// Get cached sport settings JSON blob. Returns None if not cached.
+    pub fn get_sport_settings(&self) -> Option<String> {
+        self.db
+            .query_row(
+                "SELECT data FROM sport_settings WHERE id = 'current'",
+                [],
+                |row| row.get(0),
+            )
+            .ok()
     }
 
     /// Set time streams for activities from flat buffer.
@@ -4691,12 +5000,11 @@ pub mod persistent_engine_ffi {
     }
 
     /// Get the name for a section.
-    /// Set activity metrics for performance calculations.
+    /// Set activity metrics for performance calculations (with extended fields for aggregation).
     #[uniffi::export]
     pub fn persistent_engine_set_activity_metrics(metrics: Vec<crate::FfiActivityMetrics>) {
         with_persistent_engine(|e| {
-            let metrics: Vec<ActivityMetrics> = metrics.into_iter().map(|m| m.into()).collect();
-            e.set_activity_metrics(metrics).ok();
+            e.set_activity_metrics_extended(metrics).ok();
         });
     }
 
@@ -5347,6 +5655,159 @@ pub mod persistent_engine_ffi {
             .unwrap_or_default()
     }
 
+    // ========================================================================
+    // Aggregate Query FFI (Phase 2: SQL-based dashboard/stats queries)
+    // ========================================================================
+
+    /// Get aggregated stats for a date range.
+    /// Returns count, total duration (seconds), total distance (meters), total TSS.
+    #[uniffi::export]
+    pub fn persistent_engine_get_period_stats(start_ts: i64, end_ts: i64) -> crate::FfiPeriodStats {
+        with_persistent_engine(|e| e.get_period_stats(start_ts, end_ts)).unwrap_or(
+            crate::FfiPeriodStats {
+                count: 0,
+                total_duration: 0,
+                total_distance: 0.0,
+                total_tss: 0.0,
+            },
+        )
+    }
+
+    /// Get monthly aggregates for a year.
+    /// metric: "hours" | "distance" | "tss"
+    /// Returns Vec of (month 0-11, value).
+    #[uniffi::export]
+    pub fn persistent_engine_get_monthly_aggregates(
+        year: i32,
+        metric: String,
+    ) -> Vec<crate::FfiMonthlyAggregate> {
+        with_persistent_engine(|e| e.get_monthly_aggregates(year, &metric)).unwrap_or_default()
+    }
+
+    /// Get activity heatmap data for a date range.
+    /// Returns Vec of (date string, intensity 0-4).
+    #[uniffi::export]
+    pub fn persistent_engine_get_activity_heatmap(
+        start_ts: i64,
+        end_ts: i64,
+    ) -> Vec<crate::FfiHeatmapDay> {
+        with_persistent_engine(|e| e.get_activity_heatmap(start_ts, end_ts)).unwrap_or_default()
+    }
+
+    /// Get aggregated zone distribution for a sport type.
+    /// zone_type: "power" | "hr"
+    /// Returns flat array of total seconds per zone.
+    #[uniffi::export]
+    pub fn persistent_engine_get_zone_distribution(
+        sport_type: String,
+        zone_type: String,
+    ) -> Vec<f64> {
+        with_persistent_engine(|e| e.get_zone_distribution(&sport_type, &zone_type))
+            .unwrap_or_default()
+    }
+
+    /// Get FTP trend: latest and previous distinct FTP values with dates.
+    #[uniffi::export]
+    pub fn persistent_engine_get_ftp_trend() -> crate::FfiFtpTrend {
+        with_persistent_engine(|e| e.get_ftp_trend()).unwrap_or(crate::FfiFtpTrend {
+            latest_ftp: None,
+            latest_date: None,
+            previous_ftp: None,
+            previous_date: None,
+        })
+    }
+
+    /// Get distinct sport types from stored activities.
+    #[uniffi::export]
+    pub fn persistent_engine_get_available_sport_types() -> Vec<String> {
+        with_persistent_engine(|e| e.get_available_sport_types()).unwrap_or_default()
+    }
+
+    /// Store athlete profile JSON blob in SQLite for instant startup rendering.
+    #[uniffi::export]
+    pub fn persistent_engine_set_athlete_profile(json: String) {
+        with_persistent_engine(|e| e.set_athlete_profile(&json));
+    }
+
+    /// Get cached athlete profile JSON blob. Returns empty string if not cached.
+    #[uniffi::export]
+    pub fn persistent_engine_get_athlete_profile() -> String {
+        with_persistent_engine(|e| e.get_athlete_profile())
+            .flatten()
+            .unwrap_or_default()
+    }
+
+    /// Store sport settings JSON blob in SQLite for instant startup rendering.
+    #[uniffi::export]
+    pub fn persistent_engine_set_sport_settings(json: String) {
+        with_persistent_engine(|e| e.set_sport_settings(&json));
+    }
+
+    /// Get cached sport settings JSON blob. Returns empty string if not cached.
+    #[uniffi::export]
+    pub fn persistent_engine_get_sport_settings() -> String {
+        with_persistent_engine(|e| e.get_sport_settings())
+            .flatten()
+            .unwrap_or_default()
+    }
+
+}
+
+/// Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB.
+/// Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...].
+/// Uses an R-tree on polylineB for O(n log m) instead of O(n*m).
+/// Returns 0.0-1.0.
+#[uniffi::export]
+pub fn compute_polyline_overlap(
+    coords_a: Vec<f64>,
+    coords_b: Vec<f64>,
+    threshold_meters: f64,
+) -> f64 {
+    use rstar::{RTree, AABB};
+
+    if coords_a.len() < 2 || coords_b.len() < 2 {
+        return 0.0;
+    }
+
+    let points_a_count = coords_a.len() / 2;
+
+    // Build R-tree from polyline B
+    let points_b: Vec<[f64; 2]> = coords_b
+        .chunks_exact(2)
+        .map(|c| [c[0], c[1]])
+        .collect();
+    let rtree = RTree::bulk_load(points_b);
+
+    // Approximate threshold in degrees (rough: 1 degree ≈ 111km at equator)
+    // Use a generous buffer and verify with haversine
+    let threshold_deg = threshold_meters / 111_000.0 * 1.5; // 1.5x safety factor
+
+    let mut matched = 0u32;
+    for chunk in coords_a.chunks_exact(2) {
+        let lat_a = chunk[0];
+        let lng_a = chunk[1];
+
+        let envelope = AABB::from_corners(
+            [lat_a - threshold_deg, lng_a - threshold_deg],
+            [lat_a + threshold_deg, lng_a + threshold_deg],
+        );
+
+        let mut found = false;
+        for &[lat_b, lng_b] in rtree.locate_in_envelope(&envelope) {
+            let pa = tracematch::GpsPoint { latitude: lat_a, longitude: lng_a, elevation: None };
+            let pb = tracematch::GpsPoint { latitude: lat_b, longitude: lng_b, elevation: None };
+            let dist = tracematch::geo_utils::haversine_distance(&pa, &pb);
+            if dist <= threshold_meters {
+                found = true;
+                break;
+            }
+        }
+        if found {
+            matched += 1;
+        }
+    }
+
+    matched as f64 / points_a_count as f64
 }
 
 // ============================================================================

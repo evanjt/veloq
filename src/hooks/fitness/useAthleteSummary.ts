@@ -2,6 +2,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { useAuthStore } from '@/providers';
 import { formatLocalDate } from '@/lib';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { AthleteSummary } from '@/types';
 
 /**
@@ -73,6 +74,48 @@ export interface WeeklySummaryData {
  *
  * @param weeksBack - Number of weeks to fetch (default 8 for comparison purposes)
  */
+/**
+ * Build a partial AthleteSummary from engine period stats.
+ * Only populates fields used by WeeklySummary (count, moving_time, distance, training_load).
+ */
+function enginePeriodToSummary(
+  monday: Date,
+  startTs: number,
+  endTs: number
+): AthleteSummary | null {
+  const engine = getRouteEngine();
+  if (!engine) return null;
+
+  const stats = engine.getPeriodStats(startTs, endTs);
+  if (stats.count === 0) return null;
+
+  return {
+    date: formatLocalDate(monday),
+    count: stats.count,
+    time: Number(stats.totalDuration),
+    moving_time: Number(stats.totalDuration),
+    elapsed_time: Number(stats.totalDuration),
+    calories: 0,
+    total_elevation_gain: 0,
+    training_load: stats.totalTss,
+    srpe: 0,
+    distance: stats.totalDistance,
+    eftp: null,
+    eftpPerKg: null,
+    athlete_id: '',
+    athlete_name: '',
+    fitness: 0,
+    fatigue: 0,
+    form: 0,
+    rampRate: 0,
+    weight: null,
+    timeInZones: [],
+    timeInZonesTot: 0,
+    byCategory: [],
+    mostRecentWellnessId: '',
+  };
+}
+
 export function useAthleteSummary(weeksBack: number = 8) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
@@ -122,6 +165,27 @@ export function useAthleteSummary(weeksBack: number = 8) {
         data.previousWeek = week;
       }
     }
+  }
+
+  // Engine fallback: if API hasn't responded yet, compute from engine
+  if (!data.currentWeek) {
+    const currentSunday = getSunday(today);
+    data.currentWeek = enginePeriodToSummary(
+      currentMonday,
+      Math.floor(currentMonday.getTime() / 1000),
+      Math.floor(currentSunday.getTime() / 1000)
+    );
+  }
+  if (!data.previousWeek) {
+    const prevMonday = new Date(currentMonday);
+    prevMonday.setDate(prevMonday.getDate() - 7);
+    const prevSunday = new Date(prevMonday);
+    prevSunday.setDate(prevMonday.getDate() + 6);
+    data.previousWeek = enginePeriodToSummary(
+      prevMonday,
+      Math.floor(prevMonday.getTime() / 1000),
+      Math.floor(prevSunday.getTime() / 1000)
+    );
   }
 
   return {

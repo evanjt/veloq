@@ -62,6 +62,20 @@ import {
   persistentEngineGetActivitiesMissingTimeStreams,
   persistentEngineGetAllMapActivitiesComplete,
   persistentEngineGetMapActivitiesFiltered,
+  // Aggregate query functions (Phase 2)
+  persistentEngineGetPeriodStats,
+  persistentEngineGetMonthlyAggregates,
+  persistentEngineGetActivityHeatmap,
+  persistentEngineGetZoneDistribution,
+  persistentEngineGetFtpTrend,
+  persistentEngineGetAvailableSportTypes,
+  // Athlete profile & sport settings cache (Phase 3A-3B)
+  persistentEngineSetAthleteProfile,
+  persistentEngineGetAthleteProfile,
+  persistentEngineSetSportSettings,
+  persistentEngineGetSportSettings,
+  // Polyline overlap (Phase 4A)
+  computePolylineOverlap as ffiComputePolylineOverlap,
   ffiDetectSectionsMultiscale,
   defaultScalePresets,
   fetchActivityMaps,
@@ -90,6 +104,10 @@ import {
   type DownloadProgressResult,
   FfiSectionConfig,
   type MapActivityComplete,
+  type FfiPeriodStats,
+  type FfiMonthlyAggregate,
+  type FfiHeatmapDay,
+  type FfiFtpTrend,
 } from './generated/veloqrs';
 
 // Re-export types with shorter names for convenience
@@ -103,6 +121,11 @@ export type SectionPerformanceResult = FfiSectionPerformanceResult;
 export type RoutePerformanceResult = FfiRoutePerformanceResult;
 // These are already exported without Ffi prefix:
 export type { PersistentEngineStats, SectionSummary, GroupSummary, DownloadProgressResult, MapActivityComplete };
+// Aggregate query types
+export type PeriodStats = FfiPeriodStats;
+export type MonthlyAggregate = FfiMonthlyAggregate;
+export type HeatmapDay = FfiHeatmapDay;
+export type FtpTrend = FfiFtpTrend;
 
 // For backward compatibility, also export the module initialization status
 export function isRouteMatcherInitialized(): boolean {
@@ -807,6 +830,119 @@ class RouteEngineClient {
    */
   getStats(): PersistentEngineStats | undefined {
     return this.timed('getStats', () => persistentEngineGetStats());
+  }
+
+  // ==========================================================================
+  // Aggregate Queries (SQL-based, for dashboard/stats/charts)
+  // ==========================================================================
+
+  /**
+   * Get aggregated stats for a date range.
+   * @param startTs - Start Unix timestamp (seconds)
+   * @param endTs - End Unix timestamp (seconds)
+   */
+  getPeriodStats(startTs: number, endTs: number): FfiPeriodStats {
+    return this.timed('getPeriodStats', () =>
+      persistentEngineGetPeriodStats(BigInt(startTs), BigInt(endTs))
+    );
+  }
+
+  /**
+   * Get monthly aggregates for a year.
+   * @param year - Full year (e.g., 2026)
+   * @param metric - "hours" | "distance" | "tss"
+   */
+  getMonthlyAggregates(year: number, metric: string): FfiMonthlyAggregate[] {
+    return this.timed('getMonthlyAggregates', () =>
+      persistentEngineGetMonthlyAggregates(year, metric)
+    );
+  }
+
+  /**
+   * Get activity heatmap data for a date range.
+   * @param startTs - Start Unix timestamp (seconds)
+   * @param endTs - End Unix timestamp (seconds)
+   */
+  getActivityHeatmap(startTs: number, endTs: number): FfiHeatmapDay[] {
+    return this.timed('getActivityHeatmap', () =>
+      persistentEngineGetActivityHeatmap(BigInt(startTs), BigInt(endTs))
+    );
+  }
+
+  /**
+   * Get aggregated zone distribution for a sport type.
+   * @param sportType - e.g., "Ride", "Run"
+   * @param zoneType - "power" | "hr"
+   * @returns Array of total seconds per zone
+   */
+  getZoneDistribution(sportType: string, zoneType: string): number[] {
+    return this.timed('getZoneDistribution', () =>
+      persistentEngineGetZoneDistribution(sportType, zoneType)
+    );
+  }
+
+  /**
+   * Get FTP trend: latest and previous distinct FTP values with dates.
+   */
+  getFtpTrend(): FfiFtpTrend {
+    return this.timed('getFtpTrend', () => persistentEngineGetFtpTrend());
+  }
+
+  /**
+   * Get distinct sport types from stored activities.
+   */
+  getAvailableSportTypes(): string[] {
+    return this.timed('getAvailableSportTypes', () => persistentEngineGetAvailableSportTypes());
+  }
+
+  // ==========================================================================
+  // Athlete Profile & Sport Settings Cache
+  // ==========================================================================
+
+  /**
+   * Store athlete profile JSON in SQLite for instant startup rendering.
+   */
+  setAthleteProfile(json: string): void {
+    this.timed('setAthleteProfile', () => persistentEngineSetAthleteProfile(json));
+  }
+
+  /**
+   * Get cached athlete profile JSON. Returns empty string if not cached.
+   */
+  getAthleteProfile(): string {
+    return this.timed('getAthleteProfile', () => persistentEngineGetAthleteProfile());
+  }
+
+  /**
+   * Store sport settings JSON in SQLite for instant startup rendering.
+   */
+  setSportSettings(json: string): void {
+    this.timed('setSportSettings', () => persistentEngineSetSportSettings(json));
+  }
+
+  /**
+   * Get cached sport settings JSON. Returns empty string if not cached.
+   */
+  getSportSettings(): string {
+    return this.timed('getSportSettings', () => persistentEngineGetSportSettings());
+  }
+
+  // ==========================================================================
+  // Polyline Overlap (Rust R-tree)
+  // ==========================================================================
+
+  /**
+   * Compute what fraction of polylineA's points are within threshold of polylineB.
+   * Uses R-tree for O(n log m) performance.
+   * @param coordsA - Flat [lat, lng, lat, lng, ...] array
+   * @param coordsB - Flat [lat, lng, lat, lng, ...] array
+   * @param thresholdMeters - Distance threshold (default 50m)
+   * @returns 0.0-1.0 overlap ratio
+   */
+  computePolylineOverlap(coordsA: number[], coordsB: number[], thresholdMeters = 50): number {
+    return this.timed('computePolylineOverlap', () =>
+      ffiComputePolylineOverlap(coordsA, coordsB, thresholdMeters)
+    );
   }
 
   // ==========================================================================

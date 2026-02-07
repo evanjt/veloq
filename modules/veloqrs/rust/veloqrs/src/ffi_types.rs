@@ -97,6 +97,14 @@ pub struct FfiActivityMetrics {
     pub avg_power: Option<u16>,
     /// Sport type (e.g., "Ride", "Run")
     pub sport_type: String,
+    /// Training load / TSS (optional)
+    pub training_load: Option<f64>,
+    /// FTP used for this activity (optional)
+    pub ftp: Option<u16>,
+    /// Power zone times as JSON array string: "[secs, secs, ...]" (optional)
+    pub power_zone_times: Option<String>,
+    /// HR zone times as JSON array string: "[secs, secs, ...]" (optional)
+    pub hr_zone_times: Option<String>,
 }
 
 impl From<tracematch::ActivityMetrics> for FfiActivityMetrics {
@@ -112,6 +120,10 @@ impl From<tracematch::ActivityMetrics> for FfiActivityMetrics {
             avg_hr: m.avg_hr,
             avg_power: m.avg_power,
             sport_type: m.sport_type,
+            training_load: None,
+            ftp: None,
+            power_zone_times: None,
+            hr_zone_times: None,
         }
     }
 }
@@ -131,6 +143,54 @@ impl From<FfiActivityMetrics> for tracematch::ActivityMetrics {
             sport_type: m.sport_type,
         }
     }
+}
+
+// ============================================================================
+// Aggregate Query Result Types
+// ============================================================================
+
+/// Aggregated stats for a date range.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiPeriodStats {
+    /// Number of activities
+    pub count: u32,
+    /// Total moving time in seconds
+    pub total_duration: i64,
+    /// Total distance in meters
+    pub total_distance: f64,
+    /// Total training load (TSS)
+    pub total_tss: f64,
+}
+
+/// Monthly aggregate value.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMonthlyAggregate {
+    /// Month (0-11)
+    pub month: u8,
+    /// Aggregated value (hours, distance in meters, or TSS)
+    pub value: f64,
+}
+
+/// Activity heatmap day entry.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiHeatmapDay {
+    /// Date string "YYYY-MM-DD"
+    pub date: String,
+    /// Intensity level (0-4)
+    pub intensity: u8,
+}
+
+/// FTP trend data.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiFtpTrend {
+    /// Most recent FTP value
+    pub latest_ftp: Option<u16>,
+    /// Date of most recent FTP (Unix timestamp seconds)
+    pub latest_date: Option<i64>,
+    /// Previous different FTP value
+    pub previous_ftp: Option<u16>,
+    /// Date of previous FTP (Unix timestamp seconds)
+    pub previous_date: Option<i64>,
 }
 
 // ============================================================================

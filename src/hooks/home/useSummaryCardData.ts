@@ -16,6 +16,7 @@ import { useDashboardPreferences, useSportPreference, SPORT_COLORS } from '@/pro
 import type { MetricId } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
 import { colors } from '@/theme';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 
 /**
  * Supporting metric for SummaryCard display
@@ -172,34 +173,49 @@ export function useSummaryCardData(): SummaryCardData {
     const prevMondayTs = prevMonday.getTime();
     const prevSundayTs = prevSunday.getTime();
 
-    const thirtyDaysAgoTs = Date.now() - 30 * 24 * 60 * 60 * 1000;
-
-    // Single-pass: Compute all activity-based metrics
+    // Try engine aggregate queries first, fall back to JS iteration
     let weekCount = 0;
     let weekSeconds = 0;
     let prevWeekCount = 0;
     let prevWeekSeconds = 0;
     let latestFtp: number | null = null;
-    let latestFtpDate = 0;
     let prevFtp: number | null = null;
-    let prevFtpDate = 0;
 
-    if (allActivities) {
+    const engine = getRouteEngine();
+    if (engine) {
+      const currentWeekStats = engine.getPeriodStats(
+        Math.floor(currentMondayTs / 1000),
+        Math.floor(currentSundayTs / 1000)
+      );
+      weekCount = currentWeekStats.count;
+      weekSeconds = Number(currentWeekStats.totalDuration);
+
+      const prevWeekStats = engine.getPeriodStats(
+        Math.floor(prevMondayTs / 1000),
+        Math.floor(prevSundayTs / 1000)
+      );
+      prevWeekCount = prevWeekStats.count;
+      prevWeekSeconds = Number(prevWeekStats.totalDuration);
+
+      const ftpTrend = engine.getFtpTrend();
+      latestFtp = ftpTrend.latestFtp ?? null;
+      prevFtp = ftpTrend.previousFtp ?? null;
+    } else if (allActivities) {
+      let latestFtpDate = 0;
+      let prevFtpDate = 0;
+      const thirtyDaysAgoTs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
       for (const activity of allActivities) {
         const activityTs = new Date(activity.start_date_local).getTime();
 
-        // Current calendar week stats (Monday-Sunday)
         if (activityTs >= currentMondayTs && activityTs <= currentSundayTs) {
           weekCount++;
           weekSeconds += activity.moving_time || 0;
-        }
-        // Previous calendar week stats (Monday-Sunday)
-        else if (activityTs >= prevMondayTs && activityTs <= prevSundayTs) {
+        } else if (activityTs >= prevMondayTs && activityTs <= prevSundayTs) {
           prevWeekCount++;
           prevWeekSeconds += activity.moving_time || 0;
         }
 
-        // Track FTP values
         if (activity.icu_ftp) {
           if (activityTs > latestFtpDate) {
             latestFtpDate = activityTs;

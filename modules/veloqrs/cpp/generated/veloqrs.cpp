@@ -109,6 +109,9 @@ typedef struct UniffiVTableCallbackInterfaceFetchProgressCallback {
 } UniffiVTableCallbackInterfaceFetchProgressCallback;
 void uniffi_veloqrs_fn_init_callback_vtable_fetchprogresscallback(
     UniffiVTableCallbackInterfaceFetchProgressCallback *vtable);
+double uniffi_veloqrs_fn_func_compute_polyline_overlap(
+    RustBuffer coords_a, RustBuffer coords_b, double threshold_meters,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_create_section(
     RustBuffer sport_type, RustBuffer polyline_json, double distance_meters,
     RustBuffer name, RustBuffer source_activity_id, RustBuffer start_index,
@@ -176,6 +179,8 @@ uniffi_veloqrs_fn_func_persistent_engine_get_activities_missing_time_streams(
     RustBuffer activity_ids, RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_func_persistent_engine_get_activity_count(
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_activity_heatmap(
+    int64_t start_ts, int64_t end_ts, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_activity_ids(
     RustCallStatus *uniffi_out_err);
 RustBuffer
@@ -188,8 +193,14 @@ RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_all_route_names(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_all_section_names(
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_athlete_profile(
+    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_available_sport_types(
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_consensus_route(
     RustBuffer group_id, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_ftp_trend(
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_gps_track(
     RustBuffer activity_id, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_group_by_id(
@@ -203,6 +214,10 @@ RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_groups(
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_map_activities_filtered(
     int64_t start_date, int64_t end_date, RustBuffer sport_types_json,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_monthly_aggregates(
+    int32_t year, RustBuffer metric, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_period_stats(
+    int64_t start_ts, int64_t end_ts, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_route_name(
     RustBuffer route_id, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_route_performances(
@@ -226,7 +241,12 @@ uniffi_veloqrs_fn_func_persistent_engine_get_section_summaries_for_sport(
     RustBuffer sport_type, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_sections(
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_sport_settings(
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_stats(
+    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_zone_distribution(
+    RustBuffer sport_type, RustBuffer zone_type,
     RustCallStatus *uniffi_out_err);
 int8_t
 uniffi_veloqrs_fn_func_persistent_engine_init(RustBuffer db_path,
@@ -242,6 +262,8 @@ RustBuffer uniffi_veloqrs_fn_func_persistent_engine_query_viewport(
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_func_persistent_engine_set_activity_metrics(
     RustBuffer metrics, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_func_persistent_engine_set_athlete_profile(
+    RustBuffer json, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_func_persistent_engine_set_name_translations(
     RustBuffer route_word, RustBuffer section_word,
     RustCallStatus *uniffi_out_err);
@@ -249,6 +271,8 @@ void uniffi_veloqrs_fn_func_persistent_engine_set_route_name(
     RustBuffer route_id, RustBuffer name, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_func_persistent_engine_set_section_name(
     RustBuffer section_id, RustBuffer name, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_func_persistent_engine_set_sport_settings(
+    RustBuffer json, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_func_persistent_engine_set_time_streams_flat(
     RustBuffer activity_ids, RustBuffer all_times, RustBuffer offsets,
     RustCallStatus *uniffi_out_err);
@@ -399,6 +423,7 @@ void ffi_veloqrs_rust_future_free_void(
     /*handle*/ uint64_t handle);
 void ffi_veloqrs_rust_future_complete_void(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+uint16_t uniffi_veloqrs_checksum_func_compute_polyline_overlap();
 uint16_t uniffi_veloqrs_checksum_func_create_section();
 uint16_t uniffi_veloqrs_checksum_func_decode_polyline_to_coordinates();
 uint16_t uniffi_veloqrs_checksum_func_default_scale_presets();
@@ -428,6 +453,7 @@ uniffi_veloqrs_checksum_func_persistent_engine_extract_section_traces_batch();
 uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_get_activities_missing_time_streams();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_activity_count();
+uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_activity_heatmap();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_activity_ids();
 uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids();
@@ -435,7 +461,11 @@ uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_activities_complete();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_all_route_names();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_all_section_names();
+uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_athlete_profile();
+uint16_t
+uniffi_veloqrs_checksum_func_persistent_engine_get_available_sport_types();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_consensus_route();
+uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_ftp_trend();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_gps_track();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_group_by_id();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_group_count();
@@ -443,6 +473,9 @@ uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_group_summaries();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_groups();
 uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_get_map_activities_filtered();
+uint16_t
+uniffi_veloqrs_checksum_func_persistent_engine_get_monthly_aggregates();
+uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_period_stats();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_route_name();
 uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_get_route_performances();
@@ -457,7 +490,9 @@ uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_section_summaries();
 uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_get_section_summaries_for_sport();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_sections();
+uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_sport_settings();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_stats();
+uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_zone_distribution();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_init();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_is_initialized();
 uint16_t
@@ -465,9 +500,11 @@ uniffi_veloqrs_checksum_func_persistent_engine_mark_for_recomputation();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_poll_sections();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_query_viewport();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_set_activity_metrics();
+uint16_t uniffi_veloqrs_checksum_func_persistent_engine_set_athlete_profile();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_set_name_translations();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_set_route_name();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_set_section_name();
+uint16_t uniffi_veloqrs_checksum_func_persistent_engine_set_sport_settings();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_set_time_streams_flat();
 uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_start_section_detection();
@@ -2188,6 +2225,17 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_init_callback_vtable_fetchprogresscallback(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_func_compute_polyline_overlap(
+                rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_func_create_section"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2492,6 +2540,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_activity_count(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_heatmap"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_uniffi_veloqrs_fn_func_persistent_"
+                                    "engine_get_activity_heatmap"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_activity_heatmap(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_ids"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2555,6 +2616,31 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_all_section_names(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_athlete_profile"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_uniffi_veloqrs_fn_func_persistent_"
+                                    "engine_get_athlete_profile"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_athlete_profile(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_available_sport_"
+        "types"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_func_persistent_"
+                                    "engine_get_available_sport_types"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_available_sport_types(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_consensus_route"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2566,6 +2652,19 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_consensus_route(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_ftp_trend"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_ftp_trend"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_ftp_trend(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_gps_track"] =
@@ -2644,6 +2743,31 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_map_activities_filtered(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_monthly_"
+        "aggregates"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_func_persistent_"
+                                    "engine_get_monthly_aggregates"),
+      2,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_monthly_aggregates(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_period_stats"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_period_stats"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_period_stats(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_route_name"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2767,6 +2891,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_sections(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_sport_settings"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_func_"
+                                        "persistent_engine_get_sport_settings"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_sport_settings(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_stats"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2777,6 +2913,19 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_stats(
                 rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_zone_distribution"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_uniffi_veloqrs_fn_func_persistent_"
+                                    "engine_get_zone_distribution"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_zone_distribution(
+                    rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_init"] =
       jsi::Function::createFromHostFunction(
@@ -2853,6 +3002,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_func_persistent_engine_set_activity_metrics(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_athlete_profile"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_uniffi_veloqrs_fn_func_persistent_"
+                                    "engine_set_athlete_profile"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_func_persistent_engine_set_athlete_profile(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_name_translations"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2890,6 +3052,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_func_persistent_engine_set_section_name(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_sport_settings"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_func_"
+                                        "persistent_engine_set_sport_settings"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_func_persistent_engine_set_sport_settings(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_time_streams_flat"] =
@@ -2994,6 +3168,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
                 rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_func_compute_polyline_overlap(
+                    rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_func_create_section"] =
       jsi::Function::createFromHostFunction(
@@ -3302,6 +3488,18 @@ NativeVeloqrs::NativeVeloqrs(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_"
+        "heatmap"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
+                                    "persistent_engine_get_activity_heatmap"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_heatmap(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_"
         "ids"] = jsi::Function::createFromHostFunction(
       rt,
       jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
@@ -3363,6 +3561,31 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_all_section_names(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_athlete_"
+        "profile"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
+                                    "persistent_engine_get_athlete_profile"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_athlete_profile(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_available_"
+        "sport_types"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt,
+                                "ubrn_uniffi_veloqrs_checksum_func_persistent_"
+                                "engine_get_available_sport_types"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_available_sport_types(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_consensus_"
         "route"] = jsi::Function::createFromHostFunction(
       rt,
@@ -3375,6 +3598,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_consensus_route(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_ftp_trend"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
+                                        "persistent_engine_get_ftp_trend"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_ftp_trend(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_gps_track"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -3447,6 +3682,30 @@ NativeVeloqrs::NativeVeloqrs(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_map_activities_filtered(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_monthly_"
+        "aggregates"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
+                                    "persistent_engine_get_monthly_aggregates"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_monthly_aggregates(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_period_"
+        "stats"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
+                                    "persistent_engine_get_period_stats"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_period_stats(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_route_name"] =
@@ -3572,6 +3831,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_sections(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_sport_"
+        "settings"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
+                                    "persistent_engine_get_sport_settings"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_sport_settings(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_stats"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -3585,6 +3856,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_stats(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_zone_"
+        "distribution"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
+                                    "persistent_engine_get_zone_distribution"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_zone_distribution(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_init"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -3657,6 +3940,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_set_activity_metrics(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_athlete_"
+        "profile"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
+                                    "persistent_engine_set_athlete_profile"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_set_athlete_profile(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_name_"
         "translations"] = jsi::Function::createFromHostFunction(
       rt,
@@ -3691,6 +3986,18 @@ NativeVeloqrs::NativeVeloqrs(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_set_section_name(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_sport_"
+        "settings"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
+                                    "persistent_engine_set_sport_settings"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_set_sport_settings(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_time_streams_"
@@ -3908,6 +4215,20 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_init_callback_vtable_fetchprogresscallback(
           "UniffiVTableCallbackInterfaceFetchProgressCallback",
           vtableInstance));
   return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_compute_polyline_overlap(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_compute_polyline_overlap(
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[2]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<double>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_create_section(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -4275,6 +4596,20 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_get_activity_count(
 
   return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_func_persistent_engine_get_activity_heatmap(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_persistent_engine_get_activity_heatmap(
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_get_activity_ids(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -4345,6 +4680,33 @@ jsi::Value NativeVeloqrs::
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_get_athlete_profile(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value =
+      uniffi_veloqrs_fn_func_persistent_engine_get_athlete_profile(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_func_persistent_engine_get_available_sport_types(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value =
+      uniffi_veloqrs_fn_func_persistent_engine_get_available_sport_types(
+          &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_get_consensus_route(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -4353,6 +4715,18 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_get_consensus_route(
   auto value = uniffi_veloqrs_fn_func_persistent_engine_get_consensus_route(
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
       &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_get_ftp_trend(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_persistent_engine_get_ftp_trend(&status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -4437,6 +4811,35 @@ jsi::Value NativeVeloqrs::
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[2]),
           &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_func_persistent_engine_get_monthly_aggregates(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_persistent_engine_get_monthly_aggregates(
+      uniffi_jsi::Bridging<int32_t>::fromJs(rt, callInvoker, args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_get_period_stats(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_persistent_engine_get_period_stats(
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]), &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -4584,12 +4987,40 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_get_sections(
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_get_sport_settings(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value =
+      uniffi_veloqrs_fn_func_persistent_engine_get_sport_settings(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_get_stats(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_func_persistent_engine_get_stats(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_func_persistent_engine_get_zone_distribution(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_persistent_engine_get_zone_distribution(
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -4674,6 +5105,20 @@ jsi::Value NativeVeloqrs::
 
   return jsi::Value::undefined();
 }
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_set_athlete_profile(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_func_persistent_engine_set_athlete_profile(
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
 jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_fn_func_persistent_engine_set_name_translations(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -4713,6 +5158,20 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_set_section_name(
   uniffi_veloqrs_fn_func_persistent_engine_set_section_name(
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_set_sport_settings(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_func_persistent_engine_set_sport_settings(
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -4842,6 +5301,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
                                                         args[count - 1]);
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_compute_polyline_overlap(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_func_compute_polyline_overlap();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_create_section(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -5051,6 +5518,15 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_heatmap(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_get_activity_heatmap();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_ids(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -5096,11 +5572,37 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_athlete_profile(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_get_athlete_profile();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_available_sport_types(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_get_available_sport_types();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_consensus_route(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_func_persistent_engine_get_consensus_route();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_ftp_trend(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_func_persistent_engine_get_ftp_trend();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -5151,6 +5653,24 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_func_persistent_engine_get_map_activities_filtered();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_monthly_aggregates(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_get_monthly_aggregates();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_period_stats(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_get_period_stats();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -5242,11 +5762,29 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_sections(
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_sport_settings(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_get_sport_settings();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_stats(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_func_persistent_engine_get_stats();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_zone_distribution(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_get_zone_distribution();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -5301,6 +5839,15 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_set_athlete_profile(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_set_athlete_profile();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_checksum_func_persistent_engine_set_name_translations(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -5323,6 +5870,15 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_func_persistent_engine_set_section_name();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_set_sport_settings(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_set_sport_settings();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

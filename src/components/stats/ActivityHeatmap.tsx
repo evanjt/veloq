@@ -7,6 +7,7 @@ import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { Activity } from '@/types';
 
 interface ActivityHeatmapProps {
@@ -49,13 +50,25 @@ export function ActivityHeatmap({ activities }: ActivityHeatmapProps) {
   const cellSize = CELL_SIZE;
   const cellGap = CELL_GAP;
 
-  // Build activity intensity map (1 year of data)
+  // Build activity intensity map (1 year of data) — engine SQL or JS fallback
   const activityMap = useMemo(() => {
-    if (!activities || activities.length === 0) return new Map<string, number>();
-
     const map = new Map<string, number>();
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - WEEKS_TO_SHOW * 7);
+
+    const engine = getRouteEngine();
+    if (engine) {
+      const startTs = Math.floor(cutoff.getTime() / 1000);
+      const endTs = Math.floor(Date.now() / 1000);
+      const heatmap = engine.getActivityHeatmap(startTs, endTs);
+      for (const day of heatmap) {
+        map.set(day.date, day.intensity);
+      }
+      return map;
+    }
+
+    // JS fallback
+    if (!activities || activities.length === 0) return map;
 
     for (const activity of activities) {
       const date = activity.start_date_local.split('T')[0];

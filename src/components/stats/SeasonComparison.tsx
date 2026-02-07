@@ -15,6 +15,7 @@ import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { Activity } from '@/types';
 
 interface SeasonComparisonProps {
@@ -34,13 +35,29 @@ interface MonthData {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// Aggregate activities by month
+// Aggregate activities by month — uses engine SQL if available, JS fallback otherwise
 function aggregateByMonth(
   activities: Activity[] | undefined,
-  metric: 'hours' | 'distance' | 'tss'
+  metric: 'hours' | 'distance' | 'tss',
+  year?: number
 ): number[] {
   const monthlyTotals = new Array(12).fill(0);
+  const engine = getRouteEngine();
 
+  // Use engine SQL aggregate if year is known
+  if (engine && year) {
+    const engineMetric = metric === 'distance' ? 'distance' : metric;
+    const aggregates = engine.getMonthlyAggregates(year, engineMetric);
+    for (const agg of aggregates) {
+      if (agg.month >= 0 && agg.month < 12) {
+        // Distance comes as meters from engine, convert to km
+        monthlyTotals[agg.month] = metric === 'distance' ? agg.value / 1000 : agg.value;
+      }
+    }
+    return monthlyTotals.map((v) => Math.round(v * 10) / 10);
+  }
+
+  // JS fallback
   if (!activities) return monthlyTotals;
 
   for (const activity of activities) {
@@ -137,8 +154,10 @@ export function SeasonComparison({
     (previousYearActivities && previousYearActivities.length > 0);
 
   const data = useMemo(() => {
-    const currentTotals = aggregateByMonth(currentYearActivities, metric);
-    const previousTotals = aggregateByMonth(previousYearActivities, metric);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentTotals = aggregateByMonth(currentYearActivities, metric, currentYear);
+    const previousTotals = aggregateByMonth(previousYearActivities, metric, currentYear - 1);
 
     return MONTHS.map((month, idx) => ({
       month,

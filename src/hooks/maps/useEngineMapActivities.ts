@@ -70,16 +70,8 @@ export function useEngineMapActivities({
       return { activities: [], availableTypes: [] };
     }
 
-    // Get all activities to extract available types
-    const allActivities = engine.getAllMapActivitiesComplete();
-    if (allActivities.length === 0) {
-      return { activities: [], availableTypes: [] };
-    }
-
-    // Extract available sport types
-    const types = new Set<string>();
-    allActivities.forEach((a) => types.add(a.sportType));
-    const availableTypesList = Array.from(types).sort();
+    // Get available sport types from engine (SQL DISTINCT query)
+    const availableTypesList = engine.getAvailableSportTypes();
 
     // Get filtered activities from engine (filtering in Rust)
     const sportTypesArray = selectedTypes.size > 0 ? Array.from(selectedTypes) : undefined;

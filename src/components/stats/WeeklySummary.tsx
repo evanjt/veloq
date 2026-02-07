@@ -13,6 +13,7 @@ import { colors, darkColors, opacity } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { formatDistance } from '@/lib';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { Activity } from '@/types';
 
 type TimeRange = 'week' | 'month' | '3m' | '6m' | 'year';
@@ -182,56 +183,83 @@ function getDateRanges(range: TimeRange): {
   }
 }
 
-// Optimized: Single-pass computation of stats for both periods
+// Query engine for period stats (SQL aggregate, no JS iteration)
 function computeStatsForPeriods(
-  activities: Activity[],
+  _activities: Activity[] | undefined,
   currentStart: Date,
   currentEnd: Date,
   previousStart: Date,
   previousEnd: Date
 ) {
+  const engine = getRouteEngine();
+
+  const toTs = (d: Date, endOfDay = false) => {
+    const ts = Math.floor(d.getTime() / 1000);
+    return endOfDay ? ts + 86399 : ts;
+  };
+
+  if (engine) {
+    const current = engine.getPeriodStats(toTs(currentStart), toTs(currentEnd, true));
+    const previous = engine.getPeriodStats(toTs(previousStart), toTs(previousEnd, true));
+    return {
+      currentStats: {
+        count: current.count,
+        duration: Number(current.totalDuration),
+        distance: current.totalDistance,
+        tss: Math.round(current.totalTss),
+      },
+      previousStats: {
+        count: previous.count,
+        duration: Number(previous.totalDuration),
+        distance: previous.totalDistance,
+        tss: Math.round(previous.totalTss),
+      },
+    };
+  }
+
+  // Fallback: JS iteration if engine unavailable
+  const activities = _activities ?? [];
   const currentStartTs = currentStart.getTime();
-  const currentEndTs = currentEnd.getTime() + 24 * 60 * 60 * 1000 - 1; // End of day
+  const currentEndTs = currentEnd.getTime() + 86400000 - 1;
   const previousStartTs = previousStart.getTime();
-  const previousEndTs = previousEnd.getTime() + 24 * 60 * 60 * 1000 - 1;
+  const previousEndTs = previousEnd.getTime() + 86400000 - 1;
 
-  let currentCount = 0,
-    currentDuration = 0,
-    currentDistance = 0,
-    currentTss = 0;
-  let previousCount = 0,
-    previousDuration = 0,
-    previousDistance = 0,
-    previousTss = 0;
+  let cCount = 0,
+    cDuration = 0,
+    cDistance = 0,
+    cTss = 0;
+  let pCount = 0,
+    pDuration = 0,
+    pDistance = 0,
+    pTss = 0;
 
-  for (const activity of activities) {
-    const activityTs = new Date(activity.start_date_local).getTime();
-
-    if (activityTs >= currentStartTs && activityTs <= currentEndTs) {
-      currentCount++;
-      currentDuration += activity.moving_time || 0;
-      currentDistance += activity.distance || 0;
-      currentTss += activity.icu_training_load || 0;
-    } else if (activityTs >= previousStartTs && activityTs <= previousEndTs) {
-      previousCount++;
-      previousDuration += activity.moving_time || 0;
-      previousDistance += activity.distance || 0;
-      previousTss += activity.icu_training_load || 0;
+  for (const a of activities) {
+    const ts = new Date(a.start_date_local).getTime();
+    if (ts >= currentStartTs && ts <= currentEndTs) {
+      cCount++;
+      cDuration += a.moving_time || 0;
+      cDistance += a.distance || 0;
+      cTss += a.icu_training_load || 0;
+    } else if (ts >= previousStartTs && ts <= previousEndTs) {
+      pCount++;
+      pDuration += a.moving_time || 0;
+      pDistance += a.distance || 0;
+      pTss += a.icu_training_load || 0;
     }
   }
 
   return {
     currentStats: {
-      count: currentCount,
-      duration: currentDuration,
-      distance: currentDistance,
-      tss: Math.round(currentTss),
+      count: cCount,
+      duration: cDuration,
+      distance: cDistance,
+      tss: Math.round(cTss),
     },
     previousStats: {
-      count: previousCount,
-      duration: previousDuration,
-      distance: previousDistance,
-      tss: Math.round(previousTss),
+      count: pCount,
+      duration: pDuration,
+      distance: pDistance,
+      tss: Math.round(pTss),
     },
   };
 }

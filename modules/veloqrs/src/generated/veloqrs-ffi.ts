@@ -26,6 +26,12 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_init_callback_vtable_fetchprogresscallback(
     vtable: UniffiVTableCallbackInterfaceFetchProgressCallback,
   ): void;
+  ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap(
+    coordsA: Uint8Array,
+    coordsB: Uint8Array,
+    thresholdMeters: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_func_create_section(
     sportType: Uint8Array,
     polylineJson: Uint8Array,
@@ -144,6 +150,11 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_count(
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_heatmap(
+    startTs: bigint,
+    endTs: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_ids(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -160,8 +171,17 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_section_names(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_athlete_profile(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_available_sport_types(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_consensus_route(
     groupId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_ftp_trend(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_gps_track(
@@ -185,6 +205,16 @@ interface NativeModuleInterface {
     startDate: bigint,
     endDate: bigint,
     sportTypesJson: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_monthly_aggregates(
+    year: number,
+    metric: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_period_stats(
+    startTs: bigint,
+    endTs: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_route_name(
@@ -224,7 +254,15 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_sections(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_sport_settings(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_stats(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_zone_distribution(
+    sportType: Uint8Array,
+    zoneType: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_init(
@@ -251,6 +289,10 @@ interface NativeModuleInterface {
     metrics: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_athlete_profile(
+    json: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_name_translations(
     routeWord: Uint8Array,
     sectionWord: Uint8Array,
@@ -264,6 +306,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_section_name(
     sectionId: Uint8Array,
     name: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_sport_settings(
+    json: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_time_streams_flat(
@@ -307,6 +353,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap(): number;
   ubrn_uniffi_veloqrs_checksum_func_create_section(): number;
   ubrn_uniffi_veloqrs_checksum_func_decode_polyline_to_coordinates(): number;
   ubrn_uniffi_veloqrs_checksum_func_default_scale_presets(): number;
@@ -333,18 +380,24 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_extract_section_traces_batch(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activities_missing_time_streams(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_count(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_heatmap(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_ids(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_activities_complete(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_route_names(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_section_names(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_athlete_profile(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_available_sport_types(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_consensus_route(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_ftp_trend(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_gps_track(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_group_by_id(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_group_count(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_group_summaries(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_groups(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_map_activities_filtered(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_monthly_aggregates(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_period_stats(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_route_name(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_route_performances(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_by_id(): number;
@@ -355,16 +408,20 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_summaries(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_summaries_for_sport(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_sections(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_sport_settings(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_stats(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_zone_distribution(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_init(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_is_initialized(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_mark_for_recomputation(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_poll_sections(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_query_viewport(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_activity_metrics(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_athlete_profile(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_name_translations(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_route_name(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_section_name(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_sport_settings(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_time_streams_flat(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_start_section_detection(): number;
   ubrn_uniffi_veloqrs_checksum_func_rename_section(): number;

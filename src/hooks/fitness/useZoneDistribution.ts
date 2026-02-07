@@ -7,6 +7,7 @@ import {
   HR_ZONE_COLORS,
 } from '../useSportSettings';
 import { type PrimarySport, SPORT_API_TYPES } from '@/providers';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 
 interface UseZoneDistributionOptions {
   type: 'power' | 'hr';
@@ -15,13 +16,16 @@ interface UseZoneDistributionOptions {
   sport?: PrimarySport;
 }
 
+// Map PrimarySport to API sport type for engine query
+const SPORT_TO_ENGINE_TYPE: Record<PrimarySport, string> = {
+  Cycling: 'Ride',
+  Running: 'Run',
+  Swimming: 'Swim',
+};
+
 /**
- * Aggregates zone time distribution from activities
- * Returns zone distribution data formatted for ZoneDistributionChart
- *
- * Note: API returns different formats for power vs HR zones:
- * - icu_zone_times (power): Array of {id: 'Z1', secs: 123} objects
- * - icu_hr_zone_times (HR): Flat array of seconds [123, 456, ...]
+ * Aggregates zone time distribution from activities.
+ * Uses engine SQL aggregate when available, falls back to JS iteration.
  */
 export function useZoneDistribution({
   type,
@@ -29,30 +33,48 @@ export function useZoneDistribution({
   sport,
 }: UseZoneDistributionOptions): ZoneDistribution[] | undefined {
   return useMemo(() => {
+    const defaultZones = type === 'power' ? DEFAULT_POWER_ZONES : DEFAULT_HR_ZONES;
+    const zoneColors = type === 'power' ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
+
+    // Try engine aggregate first
+    const engine = getRouteEngine();
+    if (engine && sport) {
+      const sportType = SPORT_TO_ENGINE_TYPE[sport];
+      if (sportType) {
+        const totals = engine.getZoneDistribution(sportType, type);
+        if (totals.length > 0) {
+          const totalSeconds = totals.reduce((sum, t) => sum + t, 0);
+          if (totalSeconds > 0) {
+            return defaultZones.map((zone, idx) => ({
+              zone: zone.id,
+              name: zone.name,
+              seconds: totals[idx] || 0,
+              percentage: Math.round(((totals[idx] || 0) / totalSeconds) * 100),
+              color: zoneColors[idx] || zoneColors[zoneColors.length - 1],
+            }));
+          }
+        }
+      }
+    }
+
+    // JS fallback
     if (!activities || activities.length === 0) return undefined;
 
-    // Filter activities by sport if specified
     const filteredActivities = sport
       ? activities.filter((a) => SPORT_API_TYPES[sport].includes(a.type))
       : activities;
 
     if (filteredActivities.length === 0) return undefined;
 
-    const defaultZones = type === 'power' ? DEFAULT_POWER_ZONES : DEFAULT_HR_ZONES;
-    const zoneColors = type === 'power' ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
-
-    // Aggregate zone times across filtered activities
     const aggregatedTimes: number[] = new Array(defaultZones.length).fill(0);
     let hasZoneData = false;
 
     for (const activity of filteredActivities) {
       if (type === 'power') {
-        // Power zones: icu_zone_times is array of {id: 'Z1', secs: 123} objects
         const zoneTimes = activity.icu_zone_times;
         if (zoneTimes && zoneTimes.length > 0) {
           hasZoneData = true;
           zoneTimes.forEach((zt) => {
-            // Map zone ID (Z1, Z2, etc.) to index
             const match = zt.id.match(/Z(\d+)/);
             if (match) {
               const zoneIdx = parseInt(match[1], 10) - 1;
@@ -63,7 +85,6 @@ export function useZoneDistribution({
           });
         }
       } else {
-        // HR zones: icu_hr_zone_times is flat array of seconds
         const hrTimes = activity.icu_hr_zone_times;
         if (hrTimes && hrTimes.length > 0) {
           hasZoneData = true;
@@ -76,23 +97,18 @@ export function useZoneDistribution({
       }
     }
 
-    // If no activities have zone data, return undefined
     if (!hasZoneData) return undefined;
 
-    // Calculate total time
     const totalSeconds = aggregatedTimes.reduce((sum, t) => sum + (t || 0), 0);
     if (totalSeconds === 0) return undefined;
 
-    // Build zone distribution array
-    const distribution: ZoneDistribution[] = defaultZones.map((zone, idx) => ({
+    return defaultZones.map((zone, idx) => ({
       zone: zone.id,
       name: zone.name,
       seconds: aggregatedTimes[idx] || 0,
       percentage: Math.round(((aggregatedTimes[idx] || 0) / totalSeconds) * 100),
       color: zoneColors[idx] || zoneColors[zoneColors.length - 1],
     }));
-
-    return distribution;
   }, [type, activities, sport]);
 }
 
