@@ -210,6 +210,7 @@ describe('SyncDateRangeStore', () => {
         status: 'fetching',
         completed: 5,
         total: 20,
+        percent: 25,
         message: 'Downloading GPS data...',
       };
 
@@ -230,6 +231,7 @@ describe('SyncDateRangeStore', () => {
           status,
           completed: 0,
           total: 10,
+          percent: 0,
           message: '',
         });
 
@@ -245,6 +247,7 @@ describe('SyncDateRangeStore', () => {
           status,
           completed: 0,
           total: 10,
+          percent: 0,
           message: '',
         });
 
@@ -259,6 +262,7 @@ describe('SyncDateRangeStore', () => {
         status: 'complete',
         completed: 20,
         total: 20,
+        percent: 100,
         message: 'Done',
       });
 
@@ -272,6 +276,7 @@ describe('SyncDateRangeStore', () => {
         status: 'error',
         completed: 5,
         total: 20,
+        percent: 0,
         message: 'Network error',
       });
 
@@ -282,23 +287,53 @@ describe('SyncDateRangeStore', () => {
       const store = useSyncDateRange.getState();
 
       // Start sync
-      store.setGpsSyncProgress({ status: 'fetching', completed: 0, total: 10, message: '' });
+      store.setGpsSyncProgress({
+        status: 'fetching',
+        completed: 0,
+        total: 10,
+        percent: 0,
+        message: '',
+      });
       expect(useSyncDateRange.getState().isGpsSyncing).toBe(true);
 
       // Progress
-      store.setGpsSyncProgress({ status: 'fetching', completed: 5, total: 10, message: '' });
+      store.setGpsSyncProgress({
+        status: 'fetching',
+        completed: 5,
+        total: 10,
+        percent: 50,
+        message: '',
+      });
       expect(useSyncDateRange.getState().gpsSyncProgress.completed).toBe(5);
 
       // Processing
-      store.setGpsSyncProgress({ status: 'processing', completed: 10, total: 10, message: '' });
+      store.setGpsSyncProgress({
+        status: 'processing',
+        completed: 10,
+        total: 10,
+        percent: 100,
+        message: '',
+      });
       expect(useSyncDateRange.getState().isGpsSyncing).toBe(true);
 
       // Computing
-      store.setGpsSyncProgress({ status: 'computing', completed: 10, total: 10, message: '' });
+      store.setGpsSyncProgress({
+        status: 'computing',
+        completed: 0,
+        total: 0,
+        percent: 50,
+        message: '',
+      });
       expect(useSyncDateRange.getState().isGpsSyncing).toBe(true);
 
       // Complete
-      store.setGpsSyncProgress({ status: 'complete', completed: 10, total: 10, message: '' });
+      store.setGpsSyncProgress({
+        status: 'complete',
+        completed: 10,
+        total: 10,
+        percent: 100,
+        message: '',
+      });
       expect(useSyncDateRange.getState().isGpsSyncing).toBe(false);
       expect(useSyncDateRange.getState().lastSyncTimestamp).not.toBeNull();
     });
@@ -432,6 +467,7 @@ describe('SyncDateRangeStore', () => {
         status: 'fetching',
         completed: 0,
         total: 100,
+        percent: 0,
         message: '',
       });
       const syncStartGen = getSyncGeneration();
@@ -477,6 +513,7 @@ describe('SyncDateRangeStore', () => {
         status: 'complete',
         completed: 10,
         total: 10,
+        percent: 100,
         message: '',
       });
       useSyncDateRange.getState().delayedUnlockExpansion();

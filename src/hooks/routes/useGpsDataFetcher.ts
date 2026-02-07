@@ -49,17 +49,13 @@ interface FetchDeps {
  * Legacy phases (building_rtrees, etc.) are kept for backwards compatibility.
  */
 const PHASE_WEIGHTS: Record<string, { start: number; weight: number }> = {
-  // Current Rust phases
+  // Rust phases (from DetectionProgressCallback)
   loading: { start: 0, weight: 10 },
-  detecting: { start: 10, weight: 85 }, // Main detection work
-  complete: { start: 100, weight: 0 },
-
-  // Legacy detailed phases (kept for backwards compatibility)
   building_rtrees: { start: 10, weight: 5 },
-  finding_overlaps: { start: 15, weight: 40 },
-  clustering: { start: 55, weight: 10 },
-  building_sections: { start: 65, weight: 20 },
+  finding_overlaps: { start: 15, weight: 70 },
   postprocessing: { start: 85, weight: 15 },
+  complete: { start: 100, weight: 0 },
+  detecting: { start: 10, weight: 85 }, // backwards compat (single blocking call)
 };
 
 // Track the last known progress to prevent backwards jumps
@@ -115,13 +111,12 @@ export function resetProgressTracker(): void {
  * Simplified to show just "Analyzing routes..." with percentage.
  * Uses i18n for translation support.
  */
-function getSectionDetectionMessage(phase: string, completed: number, total: number): string {
+function getSectionDetectionMessage(phase: string): string {
   if (phase === 'complete') {
     return i18n.t('cache.routeAnalysisComplete');
   }
 
-  const percent = calculateOverallProgress(phase, completed, total);
-  return i18n.t('cache.analyzingRoutesProgress', { percent });
+  return i18n.t('cache.analyzingRoutes');
 }
 
 /**
@@ -189,6 +184,7 @@ export function useGpsDataFetcher() {
           status: 'fetching',
           completed: 0,
           total: activities.length,
+          percent: 0,
           message: 'Loading demo GPS data...',
         });
       }
@@ -312,13 +308,14 @@ export function useGpsDataFetcher() {
             // Update on every percentage change - the animation will smooth transitions
             if (overallPercent !== lastPercent) {
               const message = progress
-                ? getSectionDetectionMessage(progress.phase, progress.completed, progress.total)
+                ? getSectionDetectionMessage(progress.phase)
                 : i18n.t('cache.analyzingRoutes');
 
               updateProgress({
                 status: 'computing',
-                completed: overallPercent,
-                total: 100,
+                completed: 0,
+                total: 0,
+                percent: overallPercent,
                 message,
               });
               lastPercent = overallPercent;
@@ -351,6 +348,7 @@ export function useGpsDataFetcher() {
             status: 'complete',
             completed: ids.length,
             total: activities.length,
+            percent: 100,
             message: `Synced ${ids.length} demo activities`,
           });
         }
@@ -368,6 +366,7 @@ export function useGpsDataFetcher() {
           status: 'idle',
           completed: 0,
           total: activities.length,
+          percent: 0,
           message: `No valid GPS data found (checked ${activities.length} activities)`,
         });
       }
@@ -457,6 +456,7 @@ export function useGpsDataFetcher() {
           status: 'fetching',
           completed: 0,
           total: activities.length,
+          percent: 0,
           message: 'Fetching GPS data...',
         });
       }
@@ -478,6 +478,7 @@ export function useGpsDataFetcher() {
           status: 'fetching',
           completed: 0,
           total: activityIds.length,
+          percent: 0,
           message: `Downloading GPS data... 0/${activityIds.length}`,
         });
       }
@@ -501,10 +502,13 @@ export function useGpsDataFetcher() {
         }
 
         if (progress.active) {
+          const dlPercent =
+            progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
           updateProgress({
             status: 'fetching',
             completed: progress.completed,
             total: progress.total,
+            percent: dlPercent,
             message: `Downloading GPS data... ${progress.completed}/${progress.total}`,
           });
         } else {
@@ -591,8 +595,9 @@ export function useGpsDataFetcher() {
         updateProgress({
           status: 'computing',
           completed: 0,
-          total: 100,
-          message: 'Starting route analysis...',
+          total: 0,
+          percent: 0,
+          message: i18n.t('cache.analyzingRoutes'),
         });
 
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -620,13 +625,14 @@ export function useGpsDataFetcher() {
 
             if (overallPercent !== lastPercent) {
               const message = progress
-                ? getSectionDetectionMessage(progress.phase, progress.completed, progress.total)
+                ? getSectionDetectionMessage(progress.phase)
                 : i18n.t('cache.analyzingRoutes');
 
               updateProgress({
                 status: 'computing',
-                completed: overallPercent,
-                total: 100,
+                completed: 0,
+                total: 0,
+                percent: overallPercent,
                 message,
               });
               lastPercent = overallPercent;
@@ -660,6 +666,7 @@ export function useGpsDataFetcher() {
           status: 'complete',
           completed: result.successCount,
           total: activities.length,
+          percent: 100,
           message: `Synced ${result.successCount} activities`,
         });
       }

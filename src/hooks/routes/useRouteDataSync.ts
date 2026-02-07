@@ -153,6 +153,7 @@ export function useRouteDataSync(
             status: 'idle',
             completed: 0,
             total: 0,
+            percent: 0,
             message: 'Offline - using cached routes',
           });
         }
@@ -182,6 +183,7 @@ export function useRouteDataSync(
               status: 'complete',
               completed: 0,
               total: 0,
+              percent: 0,
               message: 'Native module unavailable',
             });
           }
@@ -218,6 +220,7 @@ export function useRouteDataSync(
               status: 'complete',
               completed: engineActivityIds.size,
               total: engineActivityIds.size,
+              percent: 100,
               message: 'All activities synced',
             });
           }
@@ -253,6 +256,7 @@ export function useRouteDataSync(
             status: 'error',
             completed: 0,
             total: 0,
+            percent: 0,
             message: error instanceof Error ? error.message : 'Sync failed',
           });
         }

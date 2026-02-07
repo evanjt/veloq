@@ -194,8 +194,6 @@ export default function RoutesScreen() {
     // Phase 1: Loading activities from API / extending date range
     if (isFetchingExtended) {
       return {
-        completed: 0,
-        total: 0,
         message: t('mapScreen.loadingActivities') as string,
         phase: 1,
       };
@@ -203,22 +201,20 @@ export default function RoutesScreen() {
 
     // Phase 2: Downloading GPS data (from bounds sync)
     if (syncProgress.status === 'syncing') {
+      const countText =
+        syncProgress.total > 0 ? ` (${syncProgress.completed}/${syncProgress.total})` : '';
       return {
-        completed: syncProgress.completed,
-        total: syncProgress.total,
-        message: (syncProgress.total > 0
-          ? `${t('routesScreen.downloadingGps')} (${syncProgress.completed}/${syncProgress.total})`
-          : t('routesScreen.downloadingGps')) as string,
+        message: `${t('routesScreen.downloadingGps')}${countText}` as string,
         phase: 2,
       };
     }
 
     // Phase 3: Analyzing routes (check BEFORE downloading status)
     if (dataSyncProgress.status === 'computing') {
+      const pct = dataSyncProgress.percent;
+      const text = t('cache.analyzingRoutes') as string;
       return {
-        completed: 0,
-        total: 0,
-        message: dataSyncProgress.message || (t('routesScreen.computingRoutes') as string),
+        message: pct > 0 ? `${text}... ${pct}%` : `${text}...`,
         phase: 3,
       };
     }
@@ -226,8 +222,6 @@ export default function RoutesScreen() {
     // Phase 2b: Fetching GPS (from route data sync)
     if (isDataSyncing && dataSyncProgress.status === 'fetching' && dataSyncProgress.total > 0) {
       return {
-        completed: dataSyncProgress.completed,
-        total: dataSyncProgress.total,
         message:
           `${t('routesScreen.downloadingGps')} (${dataSyncProgress.completed}/${dataSyncProgress.total})` as string,
         phase: 2,

@@ -1,16 +1,23 @@
 /**
  * Sync progress banner for the map timeline.
- * Uses the same data source as CacheLoadingBanner for consistent display.
+ * Shows GPS download, route analysis, and bounds sync progress.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { useAnimatedStyle, withTiming, useSharedValue } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  useSharedValue,
+  cancelAnimation,
+} from 'react-native-reanimated';
 import { useActivityBoundsCache } from '@/hooks';
 import { useSyncDateRange } from '@/providers';
+import { formatGpsSyncProgress, formatBoundsSyncProgress } from '@/lib/utils/syncProgressFormat';
 import { colors } from '@/theme';
 
 interface SyncProgressBannerProps {
@@ -32,52 +39,42 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
     isGpsSyncing &&
     (gpsSyncProgress.status === 'fetching' || gpsSyncProgress.status === 'computing');
 
-  // Determine what to show - bounds syncing takes priority
+  // Use shared formatter — bounds syncing takes priority
   const displayInfo = useMemo(() => {
     if (isSyncingBounds) {
-      return {
-        icon: 'cloud-sync-outline' as const,
-        text: t('cache.syncingActivities'),
-        completed: boundsProgress.completed,
-        total: boundsProgress.total,
-      };
+      return formatBoundsSyncProgress(boundsProgress, t);
     }
     if (isProcessingRoutes) {
-      if (gpsSyncProgress.status === 'fetching') {
-        return {
-          icon: 'download-outline' as const,
-          text: t('routesScreen.downloadingGps', {
-            completed: gpsSyncProgress.completed,
-            total: gpsSyncProgress.total,
-          }),
-          completed: gpsSyncProgress.completed,
-          total: gpsSyncProgress.total,
-        };
-      }
-      if (gpsSyncProgress.status === 'computing') {
-        return {
-          icon: 'map-marker-path' as const,
-          text: gpsSyncProgress.message || t('routesScreen.computingRoutes'),
-          completed: gpsSyncProgress.completed,
-          total: gpsSyncProgress.total,
-        };
-      }
+      return formatGpsSyncProgress(gpsSyncProgress, false, t);
     }
     return null;
   }, [isSyncingBounds, isProcessingRoutes, boundsProgress, gpsSyncProgress, t]);
 
   // Should show when visible AND there's something to display
-  const shouldShow = visible && (isSyncingBounds || isProcessingRoutes) && displayInfo;
+  const shouldShow = visible && displayInfo !== null;
 
   // Shared values for native-thread animations
-  const progress = useSharedValue(0);
+  const progressValue = useSharedValue(0);
   const heightFraction = useSharedValue(0);
+  const indeterminateOffset = useSharedValue(0);
 
   // Update shared values reactively
   heightFraction.value = withTiming(shouldShow ? 1 : 0, { duration: 200 });
-  if (displayInfo && displayInfo.total > 0) {
-    progress.value = withTiming(displayInfo.completed / displayInfo.total, { duration: 150 });
+  if (displayInfo) {
+    progressValue.value = withTiming(displayInfo.percent / 100, { duration: 150 });
   }
+
+  // Indeterminate animation
+  const isIndeterminate = displayInfo?.indeterminate ?? false;
+  useEffect(() => {
+    if (isIndeterminate) {
+      indeterminateOffset.value = 0;
+      indeterminateOffset.value = withRepeat(withTiming(1, { duration: 1500 }), -1, false);
+    } else {
+      cancelAnimation(indeterminateOffset);
+      indeterminateOffset.value = 0;
+    }
+  }, [isIndeterminate, indeterminateOffset]);
 
   const containerStyle = useAnimatedStyle(() => ({
     height: heightFraction.value * 42,
@@ -85,7 +82,11 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   }));
 
   const progressStyle = useAnimatedStyle(() => ({
-    width: `${progress.value * 100}%` as `${number}%`,
+    width: `${progressValue.value * 100}%` as `${number}%`,
+  }));
+
+  const indeterminateStyle = useAnimatedStyle(() => ({
+    left: `${indeterminateOffset.value * 130 - 30}%` as `${number}%`,
   }));
 
   // Don't render at all if not showing
@@ -93,22 +94,28 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
     return null;
   }
 
-  const progressPercent =
-    displayInfo.total > 0 ? Math.round((displayInfo.completed / displayInfo.total) * 100) : 0;
-
   return (
     <Animated.View style={[styles.container, containerStyle]}>
       <View style={styles.content}>
-        <MaterialCommunityIcons name={displayInfo.icon} size={16} color="#FFFFFF" />
+        <MaterialCommunityIcons
+          name={displayInfo.icon as keyof typeof MaterialCommunityIcons.glyphMap}
+          size={16}
+          color="#FFFFFF"
+        />
         <Text style={styles.text}>
-          {displayInfo.text}... {progressPercent}%
+          {displayInfo.text}
+          {displayInfo.percent > 0 ? `... ${displayInfo.percent}%` : '...'}
         </Text>
-        <Text style={styles.countText}>
-          {displayInfo.completed}/{displayInfo.total}
-        </Text>
+        {displayInfo.countText && <Text style={styles.countText}>{displayInfo.countText}</Text>}
       </View>
       <View style={styles.progressTrack}>
-        <Animated.View style={[styles.progressFill, progressStyle]} />
+        {displayInfo.indeterminate ? (
+          <Animated.View
+            style={[styles.progressFill, styles.indeterminateFill, indeterminateStyle]}
+          />
+        ) : (
+          <Animated.View style={[styles.progressFill, progressStyle]} />
+        )}
       </View>
     </Animated.View>
   );
@@ -143,5 +150,9 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     backgroundColor: colors.textOnDark,
+  },
+  indeterminateFill: {
+    width: '30%',
+    position: 'absolute',
   },
 });

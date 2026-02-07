@@ -11,6 +11,7 @@ export interface SyncProgress {
   status: 'idle' | 'fetching' | 'processing' | 'computing' | 'complete' | 'error';
   completed: number;
   total: number;
+  percent: number;
   message: string;
 }
 
@@ -55,6 +56,7 @@ export function useRouteSyncProgress(): UseRouteSyncProgressResult {
     status: 'idle',
     completed: 0,
     total: 0,
+    percent: 0,
     message: '',
   });
 

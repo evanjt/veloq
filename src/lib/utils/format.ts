@@ -217,7 +217,7 @@ export function formatSpeed(metersPerSecond: number, isMetric = true): string {
  * @returns Formatted elevation string (e.g., "150 m", "492 ft")
  */
 export function formatElevation(meters: number | undefined | null, isMetric = true): string {
-  if (meters == null || isNaN(meters)) return isMetric ? '0 m' : '0 ft';
+  if (meters == null || !Number.isFinite(meters)) return isMetric ? '0 m' : '0 ft';
 
   if (isMetric) {
     return `${Math.round(meters)} m`;
@@ -392,6 +392,7 @@ export function formatFullDateWithWeekday(date: Date | string): string {
 }
 
 export function formatTSS(load: number): string {
+  if (!Number.isFinite(load) || load < 0) return '0';
   return `${Math.round(load)}`;
 }
 

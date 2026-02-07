@@ -62,6 +62,13 @@ strip = false
 inherits = "release"
 panic = "abort"
 
+[dev-dependencies]
+tempfile = "3.10"
+
+[dev-dependencies.tracematch]
+path = "../tracematch"
+features = ["synthetic"]
+
 [[bin]]
 name = "uniffi-bindgen"
 path = "uniffi-bindgen.rs"

@@ -34,13 +34,7 @@ import {
 import { formatLocalDate } from '@/lib';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
-import {
-  CacheLoadingBanner,
-  DemoBanner,
-  GlobalDataSync,
-  OfflineBanner,
-  BottomTabBar,
-} from '@/components/ui';
+import { DemoBanner, GlobalDataSync, OfflineBanner, BottomTabBar } from '@/components/ui';
 
 // Lazy load native module to avoid bundler errors
 function getRouteEngine() {
@@ -271,7 +265,6 @@ export default function RootLayout() {
                   <OfflineBanner />
                   <GlobalDataSync />
                   <DemoBanner />
-                  <CacheLoadingBanner />
                   <Stack
                     screenOptions={{
                       headerShown: false,

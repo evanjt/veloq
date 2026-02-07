@@ -173,7 +173,7 @@ pub struct MapActivityComplete {
 
 #[derive(Debug, Clone)]
 pub struct SectionDetectionProgress {
-    /// Current phase: "loading", "building_rtrees", "finding_overlaps", "clustering", "building_sections", "postprocessing"
+    /// Current phase: "loading", "building_rtrees", "finding_overlaps", "postprocessing"
     pub phase: Arc<std::sync::Mutex<String>>,
     /// Number of items completed in current phase
     pub completed: Arc<AtomicU32>,
@@ -214,6 +214,15 @@ impl SectionDetectionProgress {
     }
 }
 
+impl tracematch::DetectionProgressCallback for SectionDetectionProgress {
+    fn on_phase(&self, phase: tracematch::DetectionPhase, total: u32) {
+        self.set_phase(phase.as_str(), total);
+    }
+
+    fn on_progress(&self) {
+        self.increment();
+    }
+}
 
 impl Default for SectionDetectionProgress {
     fn default() -> Self {
@@ -3158,13 +3167,13 @@ impl PersistentRouteEngine {
                 total_points / tracks.len().max(1)
             );
 
-            // Detect sections using multi-scale algorithm
-            progress_clone.set_phase("detecting", tracks.len() as u32);
-            let result = tracematch::sections::detect_sections_multiscale(
+            // Detect sections using multi-scale algorithm with progress callback
+            let result = tracematch::detect_sections_multiscale_with_progress(
                 &tracks,
                 &sport_map,
                 &groups,
                 &section_config,
+                Arc::new(progress_clone.clone()),
             );
 
             log::info!(
