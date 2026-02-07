@@ -26,6 +26,8 @@ export interface UseUnifiedSectionsOptions {
   includeCustom?: boolean;
   /** Include potential sections (default: true) */
   includePotentials?: boolean;
+  /** Whether to run the hook (default: true). When false, returns empty defaults without FFI calls. */
+  enabled?: boolean;
 }
 
 export interface UseUnifiedSectionsResult {
@@ -53,7 +55,7 @@ export interface UseUnifiedSectionsResult {
 export function useUnifiedSections(
   options: UseUnifiedSectionsOptions = {}
 ): UseUnifiedSectionsResult {
-  const { sportType, includeCustom = true, includePotentials = true } = options;
+  const { sportType, includeCustom = true, includePotentials = true, enabled = true } = options;
 
   // Get pre-computed superseded sections (computed when custom sections are created)
   // NOTE: Select raw data, not the Set - calling getAllSuperseded() in selector
@@ -71,17 +73,21 @@ export function useUnifiedSections(
 
   // Load auto-detected sections from engine
   // Pass excludeDisabled: false because we handle disabled sections ourselves (sort to bottom with visual indicator)
-  const { sections: engineSections } = useFrequentSections({ sportType, excludeDisabled: false });
+  const { sections: engineSections } = useFrequentSections({
+    sportType,
+    excludeDisabled: false,
+    enabled,
+  });
 
   // Load custom sections
   const {
     sections: customSections,
     isLoading: customLoading,
     error: customError,
-  } = useCustomSections({ sportType });
+  } = useCustomSections({ sportType, enabled });
 
   // Load potential sections from storage (pre-computed during GPS sync)
-  const { potentials: rawPotentials } = usePotentialSections({ sportType });
+  const { potentials: rawPotentials } = usePotentialSections({ sportType, enabled });
 
   // Get dismissals
   const isDismissed = useSectionDismissals((s) => s.isDismissed);

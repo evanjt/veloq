@@ -73,6 +73,7 @@ export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
     sportType,
     includeCustom: true,
     includePotentials: true,
+    enabled: !prefetchedData,
   });
 
   // Use pre-fetched data if provided, otherwise use hook data
