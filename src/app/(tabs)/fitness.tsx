@@ -143,7 +143,7 @@ export default function FitnessScreen() {
 
   // Compute eFTP history and current FTP
   const eftpHistory = useEFTPHistory(activities);
-  const currentFTP = getLatestFTP(activities);
+  const currentFTP = useMemo(() => getLatestFTP(activities), [activities]);
 
   // Get sport settings for thresholds
   const { data: sportSettings } = useSportSettings();

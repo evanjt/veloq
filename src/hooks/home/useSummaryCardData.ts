@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   useAthlete,
@@ -104,9 +104,9 @@ export function useSummaryCardData(): SummaryCardData {
   const isLoading = activitiesLoading || wellnessLoading;
 
   // Combined refresh handler
-  const refetch = async () => {
+  const refetch = useCallback(async () => {
     await Promise.all([refetchActivities(), refetchWellness()]);
-  };
+  }, [refetchActivities, refetchWellness]);
 
   // Compute quick stats from wellness and activities data
   const quickStats = useMemo(() => {
@@ -402,18 +402,29 @@ export function useSummaryCardData(): SummaryCardData {
     });
   }, [summaryCard.supportingMetrics, quickStats, formColor, sportMetrics, t]);
 
-  return {
-    profileUrl,
-    heroValue: heroData.value,
-    heroLabel: heroData.label,
-    heroColor: heroData.color,
-    heroZoneLabel: heroData.zoneLabel,
-    heroZoneColor: heroData.zoneColor,
-    heroTrend: heroData.trend,
-    sparklineData,
-    showSparkline: summaryCard.showSparkline,
-    supportingMetrics,
-    isLoading,
-    refetch,
-  };
+  return useMemo(
+    () => ({
+      profileUrl,
+      heroValue: heroData.value,
+      heroLabel: heroData.label,
+      heroColor: heroData.color,
+      heroZoneLabel: heroData.zoneLabel,
+      heroZoneColor: heroData.zoneColor,
+      heroTrend: heroData.trend,
+      sparklineData,
+      showSparkline: summaryCard.showSparkline,
+      supportingMetrics,
+      isLoading,
+      refetch,
+    }),
+    [
+      profileUrl,
+      heroData,
+      sparklineData,
+      summaryCard.showSparkline,
+      supportingMetrics,
+      isLoading,
+      refetch,
+    ]
+  );
 }
