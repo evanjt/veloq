@@ -186,10 +186,7 @@ export function getFFIMetrics(): FFIMetricEntry[] {
     return [...ffiMetrics];
   }
   // Ring buffer wrapped — return in chronological order
-  return [
-    ...ffiMetrics.slice(ffiMetricsIndex),
-    ...ffiMetrics.slice(0, ffiMetricsIndex),
-  ];
+  return [...ffiMetrics.slice(ffiMetricsIndex), ...ffiMetrics.slice(0, ffiMetricsIndex)];
 }
 
 interface FFIMethodSummary {

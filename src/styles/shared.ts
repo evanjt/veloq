@@ -19,11 +19,25 @@
 import { StyleSheet, TextStyle, ViewStyle } from 'react-native';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
+// Two-slot cache: light and dark styles (only 2 possible values of isDark)
+let cachedLight: ReturnType<typeof buildSharedStyles> | null = null;
+let cachedDark: ReturnType<typeof buildSharedStyles> | null = null;
+
 /**
  * Creates theme-aware shared styles.
  * Call this with isDark from useTheme() to get the correct styles for the current theme.
+ * Results are cached per theme (light/dark) to avoid calling StyleSheet.create() every render.
  */
 export const createSharedStyles = (isDark: boolean) => {
+  if (isDark) {
+    if (!cachedDark) cachedDark = buildSharedStyles(true);
+    return cachedDark;
+  }
+  if (!cachedLight) cachedLight = buildSharedStyles(false);
+  return cachedLight;
+};
+
+const buildSharedStyles = (isDark: boolean) => {
   const c = isDark ? darkColors : colors;
 
   return StyleSheet.create({
@@ -280,4 +294,4 @@ export const createSharedStyles = (isDark: boolean) => {
 };
 
 /** Type for the shared styles object */
-export type SharedStyles = ReturnType<typeof createSharedStyles>;
+export type SharedStyles = ReturnType<typeof buildSharedStyles>;

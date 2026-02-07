@@ -60,10 +60,7 @@ describe('Bundle budget', () => {
 
   describe('renderTimer exports', () => {
     it('renderTimer.ts exports getFFIMetrics and getFFIMetricsSummary', () => {
-      const source = fs.readFileSync(
-        path.join(SRC_ROOT, 'lib/debug/renderTimer.ts'),
-        'utf-8'
-      );
+      const source = fs.readFileSync(path.join(SRC_ROOT, 'lib/debug/renderTimer.ts'), 'utf-8');
       expect(source).toContain('export function getFFIMetrics');
       expect(source).toContain('export function getFFIMetricsSummary');
       expect(source).toContain('export function recordFFIMetric');

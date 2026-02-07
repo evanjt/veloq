@@ -40,8 +40,11 @@ describe('FFI budget', () => {
 
         // Match direct persistentEngine* calls not wrapped in timed()
         // Exclude persistentEngineIsInitialized — trivial boolean check, no FFI overhead
-        if (/persistentEngine\w+\(/.test(line) && !line.includes('this.timed(')
-            && !line.includes('persistentEngineIsInitialized')) {
+        if (
+          /persistentEngine\w+\(/.test(line) &&
+          !line.includes('this.timed(') &&
+          !line.includes('persistentEngineIsInitialized')
+        ) {
           // Check if the previous line has this.timed(
           const prevLine = i > 0 ? lines[i - 1].trim() : '';
           const prevPrevLine = i > 1 ? lines[i - 2].trim() : '';
