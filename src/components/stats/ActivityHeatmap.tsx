@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import React, { useMemo, useRef } from 'react';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -35,6 +35,8 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const DAYS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 
 const WEEKS_TO_SHOW = 52;
+const CELL_SIZE = 10;
+const CELL_GAP = 2;
 const DAY_LABELS_WIDTH = 20;
 const DAY_LABELS_MARGIN = spacing.xs; // 4
 
@@ -42,17 +44,10 @@ export function ActivityHeatmap({ activities }: ActivityHeatmapProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const intensityColors = isDark ? INTENSITY_COLORS : INTENSITY_COLORS_LIGHT;
-  const { width: screenWidth } = useWindowDimensions();
+  const scrollRef = useRef<ScrollView>(null);
 
-  // Compute cell size to fit exactly within the card
-  const availableGridWidth =
-    screenWidth -
-    2 * layout.screenPadding -
-    2 * layout.cardPadding -
-    DAY_LABELS_WIDTH -
-    DAY_LABELS_MARGIN;
-  const cellGap = 1;
-  const cellSize = Math.floor(availableGridWidth / WEEKS_TO_SHOW - cellGap);
+  const cellSize = CELL_SIZE;
+  const cellGap = CELL_GAP;
 
   // Build activity intensity map (1 year of data)
   const activityMap = useMemo(() => {
@@ -181,55 +176,69 @@ export function ActivityHeatmap({ activities }: ActivityHeatmapProps) {
         </Text>
       </View>
 
-      {/* Month labels */}
-      <View
-        style={[
-          styles.monthLabels,
-          { width: gridWidth, marginLeft: DAY_LABELS_WIDTH + DAY_LABELS_MARGIN },
-        ]}
+      {/* Horizontally scrollable heatmap grid */}
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
       >
-        {monthLabels.map((m, idx) =>
-          m.year !== undefined ? (
-            <View
-              key={idx}
-              style={[styles.monthLabelContainer, { left: m.col * (cellSize + cellGap) }]}
-            >
-              <Text style={[styles.yearLabel, isDark && styles.textLight]}>{m.year}</Text>
-              <Text style={[styles.monthLabel, isDark && styles.textDark]}>{m.month}</Text>
+        <View>
+          {/* Month labels */}
+          <View
+            style={[
+              styles.monthLabels,
+              { width: gridWidth, marginLeft: DAY_LABELS_WIDTH + DAY_LABELS_MARGIN },
+            ]}
+          >
+            {monthLabels.map((m, idx) =>
+              m.year !== undefined ? (
+                <View
+                  key={idx}
+                  style={[styles.monthLabelContainer, { left: m.col * (cellSize + cellGap) }]}
+                >
+                  <Text style={[styles.yearLabel, isDark && styles.textLight]}>{m.year}</Text>
+                  <Text style={[styles.monthLabel, isDark && styles.textDark]}>{m.month}</Text>
+                </View>
+              ) : (
+                <Text
+                  key={idx}
+                  style={[
+                    styles.monthLabel,
+                    styles.monthLabelAbsolute,
+                    isDark && styles.textDark,
+                    { left: m.col * (cellSize + cellGap) },
+                  ]}
+                >
+                  {m.month}
+                </Text>
+              )
+            )}
+          </View>
+
+          {/* Grid with day labels */}
+          <View style={styles.gridContainer}>
+            <View style={styles.dayLabels}>
+              {DAYS.map((day, idx) => (
+                <Text
+                  key={idx}
+                  style={[
+                    styles.dayLabel,
+                    isDark && styles.textDark,
+                    { height: cellSize + cellGap },
+                  ]}
+                >
+                  {day}
+                </Text>
+              ))}
             </View>
-          ) : (
-            <Text
-              key={idx}
-              style={[
-                styles.monthLabel,
-                styles.monthLabelAbsolute,
-                isDark && styles.textDark,
-                { left: m.col * (cellSize + cellGap) },
-              ]}
-            >
-              {m.month}
-            </Text>
-          )
-        )}
-      </View>
 
-      {/* Grid with day labels */}
-      <View style={styles.gridContainer}>
-        <View style={styles.dayLabels}>
-          {DAYS.map((day, idx) => (
-            <Text
-              key={idx}
-              style={[styles.dayLabel, isDark && styles.textDark, { height: cellSize + cellGap }]}
-            >
-              {day}
-            </Text>
-          ))}
+            <Canvas style={{ width: gridWidth, height: gridHeight }}>
+              <Picture picture={heatmapPicture} />
+            </Canvas>
+          </View>
         </View>
-
-        <Canvas style={{ width: gridWidth, height: gridHeight }}>
-          <Picture picture={heatmapPicture} />
-        </Canvas>
-      </View>
+      </ScrollView>
 
       {/* Legend */}
       <View style={styles.legend}>

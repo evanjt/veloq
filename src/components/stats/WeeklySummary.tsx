@@ -236,6 +236,12 @@ function computeStatsForPeriods(
   };
 }
 
+function pctChange(current: number, previous: number): string {
+  if (previous === 0) return '';
+  const pct = Math.round(Math.abs(((current - previous) / previous) * 100));
+  return ` ${pct}%`;
+}
+
 export function WeeklySummary({
   activities,
   summaryData: externalSummaryData,
@@ -410,6 +416,7 @@ export function WeeklySummary({
                     ]}
                   >
                     {currentStats.count > previousStats.count ? '↑' : '↓'}
+                    {pctChange(currentStats.count, previousStats.count)}
                   </Text>
                 )}
               </View>
@@ -440,6 +447,7 @@ export function WeeklySummary({
                       ]}
                     >
                       {currentStats.duration > previousStats.duration ? '↑' : '↓'}
+                      {pctChange(currentStats.duration, previousStats.duration)}
                     </Text>
                   )}
               </View>
@@ -470,6 +478,7 @@ export function WeeklySummary({
                       ]}
                     >
                       {currentStats.distance > previousStats.distance ? '↑' : '↓'}
+                      {pctChange(currentStats.distance, previousStats.distance)}
                     </Text>
                   )}
               </View>
@@ -497,6 +506,7 @@ export function WeeklySummary({
                     ]}
                   >
                     {currentStats.tss > previousStats.tss ? '↑' : '↓'}
+                    {pctChange(currentStats.tss, previousStats.tss)}
                   </Text>
                 )}
               </View>
