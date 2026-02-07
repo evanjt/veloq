@@ -2,7 +2,13 @@
 export { useActivities, useActivityBoundsCache, useEFTPHistory } from './activities';
 
 // Fitness & Wellness hooks
-export { useWellness, useZoneDistribution, useAthleteSummary, getISOWeekNumber } from './fitness';
+export {
+  useWellness,
+  useZoneDistribution,
+  useAthleteSummary,
+  getISOWeekNumber,
+  type WeeklySummaryData,
+} from './fitness';
 
 export {
   calculateTSB,

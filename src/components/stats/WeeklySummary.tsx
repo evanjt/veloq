@@ -1,6 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme, useMetricSystem, useAthleteSummary, getISOWeekNumber } from '@/hooks';
+import {
+  useTheme,
+  useMetricSystem,
+  useAthleteSummary,
+  getISOWeekNumber,
+  type WeeklySummaryData,
+} from '@/hooks';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity } from '@/theme/colors';
@@ -14,6 +20,10 @@ type TimeRange = 'week' | 'month' | '3m' | '6m' | 'year';
 interface WeeklySummaryProps {
   /** All activities (component will filter based on selected time range) */
   activities?: Activity[];
+  /** Pre-fetched athlete summary data (lifted from parent for data call visibility) */
+  summaryData?: WeeklySummaryData;
+  /** Whether summary data is loading */
+  summaryLoading?: boolean;
 }
 
 const TIME_RANGE_IDS: TimeRange[] = ['week', 'month', '3m', '6m', 'year'];
@@ -226,14 +236,22 @@ function computeStatsForPeriods(
   };
 }
 
-export function WeeklySummary({ activities }: WeeklySummaryProps) {
+export function WeeklySummary({
+  activities,
+  summaryData: externalSummaryData,
+  summaryLoading: externalSummaryLoading,
+}: WeeklySummaryProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
 
-  // Fetch athlete summary for calendar week view
-  const { data: summaryData, isLoading: isLoadingSummary } = useAthleteSummary(4);
+  // Use externally-provided summary data if available, otherwise fetch internally.
+  // When parent provides data, the internal hook still runs but TanStack Query
+  // deduplicates — same queryKey means zero extra network requests.
+  const { data: internalSummaryData, isLoading: internalSummaryLoading } = useAthleteSummary(4);
+  const summaryData = externalSummaryData ?? internalSummaryData;
+  const isLoadingSummary = externalSummaryLoading ?? internalSummaryLoading;
 
   // Compute stats based on time range
   const { currentStats, previousStats, labels } = useMemo(() => {

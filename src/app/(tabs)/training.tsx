@@ -13,7 +13,7 @@ import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { useTranslation } from 'react-i18next';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/components/stats';
 import { WellnessDashboard, WellnessTrendsChart } from '@/components/wellness';
-import { useActivities, useWellness, useTheme, type TimeRange } from '@/hooks';
+import { useActivities, useWellness, useAthleteSummary, useTheme, type TimeRange } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import { SMOOTHING_PRESETS, getSmoothingDescription, type SmoothingWindow } from '@/lib';
@@ -67,6 +67,9 @@ export default function HealthScreen() {
     isFetching: wellnessFetching,
     refetch: refetchWellness,
   } = useWellness(timeRange);
+
+  // Fetch athlete summary for WeeklySummary (lifted from child component)
+  const { data: summaryData, isLoading: summaryLoading } = useAthleteSummary(4);
 
   // Combined loading states
   const isLoading = activitiesLoading || wellnessLoading;
@@ -210,7 +213,11 @@ export default function HealthScreen() {
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
               ) : (
-                <WeeklySummary activities={activities} />
+                <WeeklySummary
+                  activities={activities}
+                  summaryData={summaryData}
+                  summaryLoading={summaryLoading}
+                />
               )}
             </View>
 
