@@ -1436,7 +1436,8 @@ impl PersistentRouteEngine {
     /// Clear all data.
     pub fn clear(&mut self) -> SqlResult<()> {
         self.db.execute_batch(
-            "DELETE FROM sections;
+            "DELETE FROM section_activities;
+             DELETE FROM sections;
              DELETE FROM route_groups;
              DELETE FROM gps_tracks;
              DELETE FROM signatures;
@@ -2793,19 +2794,35 @@ impl PersistentRouteEngine {
             return Some(section.clone());
         }
 
-        // Get activity IDs from junction table
-        let activity_ids: Vec<String> = {
+        // Load full activity portions from junction table (matching load_sections pattern)
+        let portions: Vec<SectionPortion> = {
             let mut stmt = match self.db.prepare(
-                "SELECT activity_id FROM section_activities WHERE section_id = ?"
+                "SELECT activity_id, direction, start_index, end_index, distance_meters
+                 FROM section_activities WHERE section_id = ? ORDER BY start_index"
             ) {
                 Ok(s) => s,
                 Err(_) => return None,
             };
-            stmt.query_map(params![section_id], |row| row.get(0))
-                .ok()?
-                .filter_map(|r| r.ok())
-                .collect()
+            stmt.query_map(params![section_id], |row| {
+                Ok(SectionPortion {
+                    activity_id: row.get(0)?,
+                    direction: row.get(1)?,
+                    start_index: row.get(2)?,
+                    end_index: row.get(3)?,
+                    distance_meters: row.get(4)?,
+                })
+            })
+            .ok()?
+            .filter_map(|r| r.ok())
+            .collect()
         };
+        // Derive activity_ids from portions (deduplicated)
+        let activity_ids: Vec<String> = portions.iter()
+            .map(|p| p.activity_id.clone())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+        let visit_count = portions.len() as u32;
 
         // Query SQLite with new schema
         let result: Option<FrequentSection> = self
@@ -2836,9 +2853,9 @@ impl PersistentRouteEngine {
                         polyline,
                         representative_activity_id: representative_activity_id.unwrap_or_default(),
                         activity_ids: activity_ids.clone(),
-                        activity_portions: vec![],
+                        activity_portions: portions.clone(),
                         route_ids: vec![],
-                        visit_count: activity_ids.len() as u32,
+                        visit_count,
                         distance_meters: row.get(5)?,
                         activity_traces: std::collections::HashMap::new(),
                         confidence: row.get::<_, Option<f64>>(7)?.unwrap_or(0.0),
@@ -3163,29 +3180,40 @@ impl PersistentRouteEngine {
     }
 
     /// Apply completed section detection results.
+    /// Saves to DB first, only updates in-memory state on success.
     pub fn apply_sections(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
-        self.sections = sections;
-        self.save_sections()?;
-        self.sections_dirty = false;
-
-        // Clear activity_traces to prevent memory leak.
-        // These GPS traces were used for consensus computation but are not persisted
-        // to SQLite, so keeping them in memory is wasteful.
-        for section in &mut self.sections {
-            section.activity_traces.clear();
+        let old_sections = std::mem::replace(&mut self.sections, sections);
+        match self.save_sections() {
+            Ok(()) => {
+                self.sections_dirty = false;
+                // Clear activity_traces to prevent memory leak.
+                // These GPS traces were used for consensus computation but are not persisted
+                // to SQLite, so keeping them in memory is wasteful.
+                for section in &mut self.sections {
+                    section.activity_traces.clear();
+                }
+                // Invalidate section LRU cache since sections changed
+                self.section_cache.clear();
+                Ok(())
+            }
+            Err(e) => {
+                // Rollback in-memory state on DB failure
+                self.sections = old_sections;
+                Err(e)
+            }
         }
-
-        Ok(())
     }
 
     fn save_sections(&self) -> SqlResult<()> {
+        let tx = self.db.unchecked_transaction()?;
+
         // Clear existing auto sections (keep custom sections)
-        self.db.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto')", [])?;
-        self.db.execute("DELETE FROM sections WHERE section_type = 'auto'", [])?;
+        tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto')", [])?;
+        tx.execute("DELETE FROM sections WHERE section_type = 'auto'", [])?;
 
         // Load existing section names to preserve user-set names (from custom sections)
         let existing_names: HashMap<String, String> = {
-            let mut stmt = self.db.prepare("SELECT id, name FROM sections WHERE name IS NOT NULL")?;
+            let mut stmt = tx.prepare("SELECT id, name FROM sections WHERE name IS NOT NULL")?;
             stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
                 .filter_map(|r| r.ok())
                 .collect()
@@ -3207,15 +3235,14 @@ impl PersistentRouteEngine {
         }
 
         // Insert auto-detected sections with new schema
-        let mut section_stmt = self.db.prepare(
+        let mut section_stmt = tx.prepare(
             "INSERT INTO sections (
                 id, section_type, name, sport_type, polyline_json, distance_meters,
                 representative_activity_id, confidence, observation_count, average_spread,
                 point_density_json, scale, version, is_user_defined, stability, created_at, updated_at
             ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )?;
-        let mut junction_stmt = self
-            .db
+        let mut junction_stmt = tx
             .prepare("INSERT INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters) VALUES (?, ?, ?, ?, ?, ?)")?;
 
         // Sort sections by sport type and activity count for consistent numbering
@@ -3299,6 +3326,11 @@ impl PersistentRouteEngine {
                 ])?;
             }
         }
+
+        // Drop prepared statements before committing (they hold borrows on tx)
+        drop(section_stmt);
+        drop(junction_stmt);
+        tx.commit()?;
 
         Ok(())
     }
@@ -5113,6 +5145,69 @@ pub mod persistent_engine_ffi {
                 }
                 None => vec![],
             }
+        })
+        .unwrap_or_default()
+    }
+
+    /// Extract section traces for multiple activities in a single FFI call.
+    /// Builds the R-tree from the section polyline ONCE, then processes each activity
+    /// sequentially — only one GPS track in memory at a time.
+    /// Returns flat coords per activity: Vec<(activity_id, [lat, lng, lat, lng, ...])>
+    #[uniffi::export]
+    pub fn persistent_engine_extract_section_traces_batch(
+        activity_ids: Vec<String>,
+        section_polyline_json: String,
+    ) -> Vec<crate::FfiBatchTrace> {
+        with_persistent_engine(|engine| {
+            let polyline: Vec<GpsPoint> = match serde_json::from_str(&section_polyline_json) {
+                Ok(p) => p,
+                Err(_) => return vec![],
+            };
+
+            if polyline.len() < 2 {
+                return vec![];
+            }
+
+            // Build R-tree ONCE for the section polyline
+            let polyline_tree = tracematch::sections::build_rtree(&polyline);
+
+            activity_ids
+                .iter()
+                .filter_map(|id| {
+                    let track = engine.get_gps_track(id)?;
+                    if track.len() < 3 {
+                        return None;
+                    }
+                    let trace =
+                        tracematch::sections::extract_activity_trace(&track, &polyline, &polyline_tree);
+                    // track is dropped here — only one in memory at a time
+                    if trace.is_empty() {
+                        return None;
+                    }
+                    Some(crate::FfiBatchTrace {
+                        activity_id: id.clone(),
+                        coords: trace
+                            .iter()
+                            .flat_map(|p| vec![p.latitude, p.longitude])
+                            .collect(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+    }
+
+    /// Get activity metrics for a list of activity IDs.
+    /// Returns metrics from the in-memory HashMap (O(1) per lookup).
+    #[uniffi::export]
+    pub fn persistent_engine_get_activity_metrics_for_ids(
+        ids: Vec<String>,
+    ) -> Vec<crate::FfiActivityMetrics> {
+        with_persistent_engine(|engine| {
+            ids.iter()
+                .filter_map(|id| engine.activity_metrics.get(id).cloned())
+                .map(crate::FfiActivityMetrics::from)
+                .collect()
         })
         .unwrap_or_default()
     }

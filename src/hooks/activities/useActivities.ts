@@ -48,6 +48,7 @@ export function useActivities(options: UseActivitiesOptions = {}) {
     staleTime: 1000 * 60 * 5, // 5 minutes - data appears instantly from cache
     gcTime: 1000 * 60 * 60, // 1 hour - keep in memory for navigation
     placeholderData: keepPreviousData,
+    refetchOnWindowFocus: true, // Pick up new activities on foreground
     enabled,
   });
 }
@@ -111,7 +112,7 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
     // Stale-while-revalidate: show cached data immediately, refetch in background
     staleTime: 1000 * 60 * 5, // 5 minutes - data appears instantly from cache
     gcTime: 1000 * 60 * 60, // 1 hour - keep in memory for navigation
-    // Use pull-to-refresh for fresh data - no automatic refetch on focus/mount
+    refetchOnWindowFocus: true, // Pick up new activities on foreground
   });
 
   // All activities flattened from loaded pages

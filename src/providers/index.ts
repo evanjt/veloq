@@ -1,4 +1,4 @@
-export { QueryProvider } from './QueryProvider';
+export { QueryProvider, queryClient } from './QueryProvider';
 export {
   initializeTheme,
   setThemePreference,

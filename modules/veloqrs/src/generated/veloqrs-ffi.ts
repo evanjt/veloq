@@ -132,6 +132,11 @@ interface NativeModuleInterface {
     sectionPolylineJson: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_extract_section_traces_batch(
+    activityIds: Uint8Array,
+    sectionPolylineJson: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activities_missing_time_streams(
     activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
@@ -140,6 +145,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_ids(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_metrics_for_ids(
+    ids: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_activities_complete(
@@ -321,9 +330,11 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_clear(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_detect_potentials(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_extract_section_trace(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_extract_section_traces_batch(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activities_missing_time_streams(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_count(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_ids(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_activities_complete(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_route_names(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_section_names(): number;

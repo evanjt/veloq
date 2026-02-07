@@ -9,6 +9,14 @@ use serde::{Deserialize, Serialize};
 // Core Types
 // ============================================================================
 
+/// Batch trace result: one activity's extracted section trace as flat coords.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiBatchTrace {
+    pub activity_id: String,
+    /// Flat coordinates [lat, lng, lat, lng, ...]
+    pub coords: Vec<f64>,
+}
+
 /// GPS point for FFI
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct FfiGpsPoint {

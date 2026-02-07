@@ -3,11 +3,11 @@
 import { enableFreeze } from 'react-native-screens';
 enableFreeze(true);
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
 import { PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme, View, ActivityIndicator, Platform } from 'react-native';
+import { AppState, useColorScheme, View, ActivityIndicator, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
@@ -15,6 +15,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import MapLibre, { Logger as MapLibreLogger } from '@maplibre/maplibre-react-native';
 import {
   QueryProvider,
+  queryClient,
   MapPreferencesProvider,
   NetworkProvider,
   TopSafeAreaProvider,
@@ -147,6 +148,25 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       }
     }
   }, [isAuthenticated, expandRange]);
+
+  // Reset infinite activities query when the date rolls over while backgrounded.
+  // initialPageParam is computed at render time with today's date, but the feed tab
+  // stays mounted (enableFreeze). If the app was opened yesterday, refetch() would
+  // still query with yesterday's date, missing today's activities.
+  const lastForegroundDateRef = useRef(formatLocalDate(new Date()));
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        const today = formatLocalDate(new Date());
+        if (today !== lastForegroundDateRef.current) {
+          lastForegroundDateRef.current = today;
+          queryClient.resetQueries({ queryKey: ['activities-infinite'] });
+        }
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;

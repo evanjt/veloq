@@ -96,6 +96,7 @@ export function useAthleteSummary(weeksBack: number = 8) {
     staleTime: 1000 * 60 * 5, // 5 minutes - weekly data can change as activities sync
     gcTime: 1000 * 60 * 60, // 1 hour
     placeholderData: keepPreviousData,
+    refetchOnWindowFocus: true, // Weekly stats update on foreground
   });
 
   // Process the data to extract current and previous week

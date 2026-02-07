@@ -53,6 +53,8 @@ import {
   encodeCoordinatesToPolyline,
   decodePolylineToCoordinates,
   persistentEngineExtractSectionTrace,
+  persistentEngineExtractSectionTracesBatch,
+  persistentEngineGetActivityMetricsForIds,
   // Unified section functions
   createSection as ffiCreateSection,
   deleteSection as ffiDeleteSection,
@@ -80,6 +82,7 @@ import {
   type FfiFrequentSection,
   type FfiSection,
   type FfiActivityMapResult,
+  type FfiBatchTrace,
   type FfiSectionPerformanceResult,
   type FfiRoutePerformanceResult,
   type SectionSummary,
@@ -881,6 +884,40 @@ class RouteEngineClient {
     validateId(activityId, 'activity ID');
     const flatCoords = persistentEngineExtractSectionTrace(activityId, sectionPolylineJson);
     return flatCoordsToPoints(flatCoords);
+  }
+
+  /**
+   * Extract section traces for multiple activities in a single FFI call.
+   * Builds the section polyline R-tree once, processes activities sequentially.
+   * Only one GPS track is in memory at a time (vs all N in the old approach).
+   * Returns a map of activityId -> RoutePoint[].
+   */
+  extractSectionTracesBatch(
+    activityIds: string[],
+    sectionPolylineJson: string
+  ): Record<string, RoutePoint[]> {
+    if (activityIds.length === 0) return {};
+    const results = persistentEngineExtractSectionTracesBatch(activityIds, sectionPolylineJson);
+    const traces: Record<string, RoutePoint[]> = {};
+    for (const batch of results) {
+      const points: RoutePoint[] = [];
+      for (let i = 0; i < batch.coords.length - 1; i += 2) {
+        points.push({ lat: batch.coords[i], lng: batch.coords[i + 1] });
+      }
+      if (points.length > 0) {
+        traces[batch.activityId] = points;
+      }
+    }
+    return traces;
+  }
+
+  /**
+   * Get activity metrics for a list of activity IDs.
+   * Returns metrics from the in-memory HashMap (O(1) per lookup).
+   */
+  getActivityMetricsForIds(ids: string[]): FfiActivityMetrics[] {
+    if (ids.length === 0) return [];
+    return persistentEngineGetActivityMetricsForIds(ids);
   }
 
   // ==========================================================================

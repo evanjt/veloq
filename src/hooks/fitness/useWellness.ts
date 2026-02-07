@@ -40,6 +40,7 @@ export function useWellness(range: TimeRange = '3m') {
     staleTime: 1000 * 60 * 30, // 30 minutes - wellness data changes infrequently
     gcTime: 1000 * 60 * 60 * 24, // 24 hours
     placeholderData: keepPreviousData, // Keep previous data visible while fetching new range
+    refetchOnWindowFocus: true, // CTL/ATL/TSB updates on foreground
   });
 }
 

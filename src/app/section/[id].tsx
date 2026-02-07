@@ -6,7 +6,7 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef, memo } from 'react';
 import {
   View,
-  ScrollView,
+  FlatList,
   StyleSheet,
   Pressable,
   Dimensions,
@@ -26,7 +26,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  useActivities,
   useSectionPerformances,
   useCustomSection,
   useCustomSections,
@@ -57,6 +56,7 @@ import {
   formatPace,
   isRunningActivity,
 } from '@/lib';
+import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import type {
   Activity,
@@ -543,14 +543,11 @@ export default function SectionDetailScreen() {
     return section;
   }, [section, computedActivityTraces]);
 
-  // Compute activity traces using Rust engine's extractSectionTrace in background batches
-  // This extracts points from each activity that are within proximity of the section polyline,
-  // correctly handling cases where activities take different paths between entry/exit points
-  // Works for both custom sections AND engine-detected sections
-  // Runs in batches to avoid blocking the main thread
+  // Compute activity traces using batch FFI call (single R-tree build, sequential track loading).
+  // Replaces N individual extractSectionTrace calls with 1 batch call.
+  // Correctly handles cases where activities take different paths between entry/exit points.
   useEffect(() => {
     if (!section || !section.activityIds.length || !section.polyline?.length) {
-      // Don't clear traces if section is temporarily invalid - preserve existing traces
       return;
     }
 
@@ -559,7 +556,7 @@ export default function SectionDetailScreen() {
       return;
     }
 
-    // Convert polyline to JSON string for Rust engine (do this once)
+    // Convert polyline to JSON string for Rust engine (done once)
     const polylineJson = JSON.stringify(
       section.polyline.map((p: { lat: number; lng: number }) => ({
         latitude: p.lat,
@@ -567,38 +564,12 @@ export default function SectionDetailScreen() {
       }))
     );
 
-    const activityIds = [...section.activityIds];
-    let cancelled = false;
-    const traces: Record<string, RoutePoint[]> = {};
+    // Single batch FFI call — builds R-tree once, loads tracks sequentially
+    const traces = engine.extractSectionTracesBatch(section.activityIds, polylineJson);
 
-    // Load ALL traces synchronously in one batch for fast availability
-    // This ensures lapPoints is available when user selects a chart point
-    // The FFI calls are fast (~10ms each) and we need them ready immediately
-    const loadAllTraces = () => {
-      if (cancelled) return;
-
-      for (const activityId of activityIds) {
-        if (cancelled) break;
-        const extractedTrace = engine.extractSectionTrace(activityId, polylineJson);
-        if (extractedTrace.length > 0) {
-          traces[activityId] = extractedTrace.map((p) => ({
-            lat: p.latitude,
-            lng: p.longitude,
-          }));
-        }
-      }
-
-      if (!cancelled && Object.keys(traces).length > 0) {
-        setComputedActivityTraces({ ...traces });
-      }
-    };
-
-    // Run immediately - traces are needed for chart interaction
-    loadAllTraces();
-
-    return () => {
-      cancelled = true;
-    };
+    if (Object.keys(traces).length > 0) {
+      setComputedActivityTraces(traces);
+    }
   }, [section]);
 
   // Load custom section name from section data on mount
@@ -775,40 +746,14 @@ export default function SectionDetailScreen() {
     }
   }, [id, isCustomId, isSectionDisabled, enable, disable, t]);
 
-  // Pre-cache all GPS tracks for activities in this section (for fast scrubbing)
-  // Runs in background when section loads, populates gpsTrackCacheRef
+  // GPS tracks are loaded on-demand when user selects an activity (via shadowTrack).
+  // No eager loading — prevents 237+ FFI calls and ~12-19MB heap spike on section open.
+  // Clear cache when section changes to avoid stale data.
   useEffect(() => {
-    if (!section?.activityIds?.length) {
-      gpsTrackCacheRef.current.clear();
-      setCacheReady(false);
-      return;
-    }
-
-    const engine = getRouteEngine();
-    if (!engine) {
-      setCacheReady(false);
-      return;
-    }
-
-    // Clear previous cache
     gpsTrackCacheRef.current.clear();
-    setCacheReady(false);
-
-    // Load ALL GPS tracks synchronously for immediate availability
-    // This ensures shadowTrack doesn't need FFI fallback when user selects a point
-    const activityIds = section.activityIds;
-    for (const activityId of activityIds) {
-      const gpsPoints = engine.getGpsTrack(activityId);
-      if (gpsPoints && gpsPoints.length > 0) {
-        const track: [number, number][] = gpsPoints.map((p) => [p.latitude, p.longitude]);
-        gpsTrackCacheRef.current.set(activityId, track);
-      }
-    }
-    setCacheReady(true);
-
+    setCacheReady(true); // Always "ready" — tracks load on demand
     return () => {
       gpsTrackCacheRef.current.clear();
-      setCacheReady(false);
     };
   }, [section?.activityIds]);
 
@@ -926,34 +871,29 @@ export default function SectionDetailScreen() {
     setHighlightedActivityId(activityId);
   }, []);
 
-  // Get date range for fetching activities
-  const { oldest, newest } = useMemo(() => {
-    if (!section?.activityIds.length) return { oldest: undefined, newest: undefined };
-    // We need to load all activities in the section
-    // Use a wide date range since we'll filter by IDs
-    return {
-      oldest: '2020-01-01',
-      newest: new Date().toISOString().split('T')[0],
-    };
-  }, [section?.activityIds]);
-
-  const { data: allActivities, isLoading } = useActivities({
-    oldest,
-    newest,
-    includeStats: false,
-  });
-
-  // Filter to only activities in this section
+  // Get section activities from engine metrics (no API call needed).
+  // Activities are already cached in the Rust engine's in-memory HashMap.
+  const isLoading = false; // Engine lookup is synchronous
   const sectionActivitiesUnsorted = useMemo(() => {
-    if (!section || !allActivities) return [];
-    const idsSet = new Set(section.activityIds);
-    const seen = new Set<string>();
-    return allActivities.filter((a) => {
-      if (!idsSet.has(a.id) || seen.has(a.id)) return false;
-      seen.add(a.id);
-      return true;
-    });
-  }, [section, allActivities]);
+    if (!section?.activityIds?.length) return [];
+    const engine = getRouteEngine();
+    if (!engine) return [];
+    return engine.getActivityMetricsForIds(section.activityIds).map(
+      (m): Activity => ({
+        id: m.activityId,
+        name: m.name,
+        type: m.sportType as ActivityType,
+        start_date_local: fromUnixSeconds(m.date)?.toISOString() ?? '',
+        distance: m.distance,
+        moving_time: m.movingTime,
+        elapsed_time: m.elapsedTime,
+        total_elevation_gain: m.elevationGain,
+        average_speed: m.movingTime > 0 ? m.distance / m.movingTime : 0,
+        max_speed: 0,
+        average_heartrate: m.avgHr ?? undefined,
+      })
+    );
+  }, [section?.activityIds]);
 
   // Fetch actual section performance times from activity streams
   // This loads in the background - we show estimated times first, then update when ready
@@ -1273,252 +1213,284 @@ export default function SectionDetailScreen() {
   const activityColor = getActivityColor(section.sportType as ActivityType);
   const iconName = getActivityIcon(section.sportType as ActivityType);
 
+  const keyExtractor = useCallback((item: Activity) => item.id, []);
+
+  const renderActivityRow = useCallback(
+    ({ item: activity }: { item: Activity }) => {
+      const portion = portionMap.get(activity.id);
+      const record = performanceRecordMap.get(activity.id);
+      const isHighlighted = listHighlightedActivityId === activity.id;
+      const isBest = bestActivityId === activity.id;
+      const rank = rankMap.get(activity.id);
+      const activityTracePoints = sectionWithTraces?.activityTraces?.[activity.id];
+      const isReference = effectiveReferenceId === activity.id;
+
+      return (
+        <ActivityRow
+          activity={activity}
+          isDark={isDark}
+          direction={record?.direction || portion?.direction}
+          activityPoints={activityTracePoints}
+          sectionPoints={section.polyline}
+          isHighlighted={isHighlighted}
+          sectionDistance={record?.sectionDistance || portion?.distanceMeters}
+          lapCount={record?.lapCount}
+          actualSectionTime={record?.bestTime}
+          actualSectionPace={record?.bestPace}
+          isBest={isBest}
+          rank={rank}
+          bestTime={bestTimeValue}
+          bestPace={bestPaceValue}
+          isReference={isReference}
+          onHighlightChange={handleRowHighlightChange}
+          onSetAsReference={handleSetAsReference}
+        />
+      );
+    },
+    [
+      portionMap,
+      performanceRecordMap,
+      listHighlightedActivityId,
+      bestActivityId,
+      rankMap,
+      sectionWithTraces?.activityTraces,
+      effectiveReferenceId,
+      isDark,
+      section.polyline,
+      bestTimeValue,
+      bestPaceValue,
+      handleRowHighlightChange,
+      handleSetAsReference,
+    ]
+  );
+
   return (
     <View testID="section-detail-screen" style={[styles.container, isDark && styles.containerDark]}>
       <StatusBar barStyle="light-content" />
-      <ScrollView
+      <FlatList
+        data={isLoading ? [] : sectionActivities}
+        keyExtractor={keyExtractor}
+        renderItem={renderActivityRow}
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.flatListContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-      >
-        {/* Hero Map Section */}
-        <View style={styles.heroSection}>
-          <View style={styles.mapContainer}>
-            {mapReady ? (
-              <SectionMapView
-                section={section}
-                height={MAP_HEIGHT}
-                interactive={true}
-                enableFullscreen={true}
-                shadowTrack={shadowTrack}
-                highlightedActivityId={mapHighlightedActivityId}
-                highlightedLapPoints={mapHighlightedLapPoints}
-                allActivityTraces={sectionWithTraces?.activityTraces}
-                isScrubbing={isScrubbing}
-              />
-            ) : (
-              <View style={[styles.mapPlaceholder, { height: MAP_HEIGHT }]}>
-                <ActivityIndicator size="large" color={colors.primary} />
-              </View>
-            )}
-          </View>
-
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.7)']}
-            style={styles.mapGradient}
-            pointerEvents="none"
-          />
-
-          <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
-            </TouchableOpacity>
-            <View style={styles.headerSpacer} />
-            {isCustomId ? (
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={handleDeleteSection}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="delete-outline" size={24} color={colors.textOnDark} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.deleteButton, isSectionDisabled && styles.disabledButtonActive]}
-                onPress={handleToggleDisable}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name={isSectionDisabled ? 'eye-off' : 'eye-off-outline'}
-                  size={24}
-                  color={isSectionDisabled ? colors.error : colors.textOnDark}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.infoOverlay}>
-            <View style={styles.sectionNameRow}>
-              <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
-                <MaterialCommunityIcons name={iconName} size={16} color={colors.textOnDark} />
-              </View>
-              {isEditing ? (
-                <View style={styles.editNameContainer}>
-                  <TextInput
-                    ref={nameInputRef}
-                    style={styles.editNameInput}
-                    value={editName}
-                    onChangeText={setEditName}
-                    onSubmitEditing={handleSaveName}
-                    placeholder={t('sections.sectionNamePlaceholder')}
-                    placeholderTextColor="rgba(255,255,255,0.5)"
-                    returnKeyType="done"
-                    autoFocus
-                    selectTextOnFocus
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        ListHeaderComponent={
+          <>
+            {/* Hero Map Section */}
+            <View style={styles.heroSection}>
+              <View style={styles.mapContainer}>
+                {mapReady ? (
+                  <SectionMapView
+                    section={section}
+                    height={MAP_HEIGHT}
+                    interactive={true}
+                    enableFullscreen={true}
+                    shadowTrack={shadowTrack}
+                    highlightedActivityId={mapHighlightedActivityId}
+                    highlightedLapPoints={mapHighlightedLapPoints}
+                    allActivityTraces={sectionWithTraces?.activityTraces}
+                    isScrubbing={isScrubbing}
                   />
-                  <TouchableOpacity onPress={handleSaveName} style={styles.editNameButton}>
-                    <MaterialCommunityIcons name="check" size={20} color={colors.success} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
-                    <MaterialCommunityIcons name="close" size={20} color={colors.error} />
-                  </TouchableOpacity>
-                </View>
-              ) : (
+                ) : (
+                  <View style={[styles.mapPlaceholder, { height: MAP_HEIGHT }]}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                  </View>
+                )}
+              </View>
+
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.7)']}
+                style={styles.mapGradient}
+                pointerEvents="none"
+              />
+
+              <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
                 <TouchableOpacity
-                  onPress={handleStartEditing}
-                  style={styles.nameEditTouchable}
+                  style={styles.backButton}
+                  onPress={() => router.back()}
                   activeOpacity={0.7}
                 >
-                  {/* Names are stored in Rust (user-set or auto-generated on creation/migration) */}
-                  <Text style={styles.heroSectionName} numberOfLines={1}>
-                    {customName ?? section.name ?? section.id}
-                  </Text>
-                  <MaterialCommunityIcons
-                    name="pencil"
-                    size={14}
-                    color="rgba(255,255,255,0.6)"
-                    style={styles.editIcon}
-                  />
+                  <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
                 </TouchableOpacity>
-              )}
-            </View>
+                <View style={styles.headerSpacer} />
+                {isCustomId ? (
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={handleDeleteSection}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name="delete-outline"
+                      size={24}
+                      color={colors.textOnDark}
+                    />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.deleteButton, isSectionDisabled && styles.disabledButtonActive]}
+                    onPress={handleToggleDisable}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name={isSectionDisabled ? 'eye-off' : 'eye-off-outline'}
+                      size={24}
+                      color={isSectionDisabled ? colors.error : colors.textOnDark}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
 
-            <View style={styles.heroStatsRow}>
-              <Text style={styles.heroStat}>
-                {formatDistance(section.distanceMeters, isMetric)}
-              </Text>
-              <Text style={styles.heroStatDivider}>·</Text>
-              <Text style={styles.heroStat}>
-                {chartData.length} {t('sections.traversals')}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Content below hero */}
-        <View style={styles.contentSection}>
-          {/* Disabled banner */}
-          {isSectionDisabled && (
-            <TouchableOpacity
-              style={[styles.disabledBanner, isDark && styles.disabledBannerDark]}
-              onPress={handleToggleDisable}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons name="eye-off" size={18} color={colors.warning} />
-              <Text style={styles.disabledBannerText}>
-                {t('sections.disabled')} — {t('common.enable')}
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Performance chart with embedded stats - only show when data is ready */}
-          {!isLoadingRecords && chartData.length >= 1 && (
-            <View style={styles.chartSection}>
-              <UnifiedPerformanceChart
-                chartData={chartData}
-                activityType={section.sportType as ActivityType}
-                isDark={isDark}
-                minSpeed={minSpeed}
-                maxSpeed={maxSpeed}
-                bestIndex={bestIndex}
-                hasReverseRuns={hasReverseRuns}
-                tooltipBadgeType="time"
-                onActivitySelect={handleActivitySelect}
-                onScrubChange={handleScrubChange}
-                selectedActivityId={highlightedActivityId}
-                summaryStats={summaryStats}
-                bestForwardRecord={computedBestForward}
-                bestReverseRecord={computedBestReverse}
-                forwardStats={computedForwardStats}
-                reverseStats={computedReverseStats}
-              />
-            </View>
-          )}
-
-          {/* Activities list */}
-          <View style={styles.activitiesSection}>
-            <View style={styles.activitiesHeader}>
-              <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-                {t('sections.activities')}
-              </Text>
-              {/* Legend */}
-              <View style={styles.legend}>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendIndicator, { backgroundColor: colors.chartGold }]} />
-                  <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
-                  <Text style={[styles.legendText, isDark && styles.textMuted]}>
-                    {t('routes.pr')}
-                  </Text>
+              <View style={styles.infoOverlay}>
+                <View style={styles.sectionNameRow}>
+                  <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
+                    <MaterialCommunityIcons name={iconName} size={16} color={colors.textOnDark} />
+                  </View>
+                  {isEditing ? (
+                    <View style={styles.editNameContainer}>
+                      <TextInput
+                        ref={nameInputRef}
+                        style={styles.editNameInput}
+                        value={editName}
+                        onChangeText={setEditName}
+                        onSubmitEditing={handleSaveName}
+                        placeholder={t('sections.sectionNamePlaceholder')}
+                        placeholderTextColor="rgba(255,255,255,0.5)"
+                        returnKeyType="done"
+                        autoFocus
+                        selectTextOnFocus
+                      />
+                      <TouchableOpacity onPress={handleSaveName} style={styles.editNameButton}>
+                        <MaterialCommunityIcons name="check" size={20} color={colors.success} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
+                        <MaterialCommunityIcons name="close" size={20} color={colors.error} />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={handleStartEditing}
+                      style={styles.nameEditTouchable}
+                      activeOpacity={0.7}
+                    >
+                      {/* Names are stored in Rust (user-set or auto-generated on creation/migration) */}
+                      <Text style={styles.heroSectionName} numberOfLines={1}>
+                        {customName ?? section.name ?? section.id}
+                      </Text>
+                      <MaterialCommunityIcons
+                        name="pencil"
+                        size={14}
+                        color="rgba(255,255,255,0.6)"
+                        style={styles.editIcon}
+                      />
+                    </TouchableOpacity>
+                  )}
                 </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendIndicator, { backgroundColor: colors.chartCyan }]} />
-                  <MaterialCommunityIcons name="star" size={12} color={colors.chartCyan} />
-                  <Text style={[styles.legendText, isDark && styles.textMuted]}>
-                    {t('sections.reference')}
+
+                <View style={styles.heroStatsRow}>
+                  <Text style={styles.heroStat}>
+                    {formatDistance(section.distanceMeters, isMetric)}
+                  </Text>
+                  <Text style={styles.heroStatDivider}>·</Text>
+                  <Text style={styles.heroStat}>
+                    {chartData.length} {t('sections.traversals')}
                   </Text>
                 </View>
               </View>
             </View>
-          </View>
 
-          {/* Activity rows */}
-          {isLoading ? (
+            {/* Content below hero */}
+            <View style={styles.contentSection}>
+              {/* Disabled banner */}
+              {isSectionDisabled && (
+                <TouchableOpacity
+                  style={[styles.disabledBanner, isDark && styles.disabledBannerDark]}
+                  onPress={handleToggleDisable}
+                  activeOpacity={0.8}
+                >
+                  <MaterialCommunityIcons name="eye-off" size={18} color={colors.warning} />
+                  <Text style={styles.disabledBannerText}>
+                    {t('sections.disabled')} — {t('common.enable')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Performance chart with embedded stats - only show when data is ready */}
+              {!isLoadingRecords && chartData.length >= 1 && (
+                <View style={styles.chartSection}>
+                  <UnifiedPerformanceChart
+                    chartData={chartData}
+                    activityType={section.sportType as ActivityType}
+                    isDark={isDark}
+                    minSpeed={minSpeed}
+                    maxSpeed={maxSpeed}
+                    bestIndex={bestIndex}
+                    hasReverseRuns={hasReverseRuns}
+                    tooltipBadgeType="time"
+                    onActivitySelect={handleActivitySelect}
+                    onScrubChange={handleScrubChange}
+                    selectedActivityId={highlightedActivityId}
+                    summaryStats={summaryStats}
+                    bestForwardRecord={computedBestForward}
+                    bestReverseRecord={computedBestReverse}
+                    forwardStats={computedForwardStats}
+                    reverseStats={computedReverseStats}
+                  />
+                </View>
+              )}
+
+              {/* Activities header */}
+              <View style={styles.activitiesSection}>
+                <View style={styles.activitiesHeader}>
+                  <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+                    {t('sections.activities')}
+                  </Text>
+                  {/* Legend */}
+                  <View style={styles.legend}>
+                    <View style={styles.legendItem}>
+                      <View
+                        style={[styles.legendIndicator, { backgroundColor: colors.chartGold }]}
+                      />
+                      <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
+                      <Text style={[styles.legendText, isDark && styles.textMuted]}>
+                        {t('routes.pr')}
+                      </Text>
+                    </View>
+                    <View style={styles.legendItem}>
+                      <View
+                        style={[styles.legendIndicator, { backgroundColor: colors.chartCyan }]}
+                      />
+                      <MaterialCommunityIcons name="star" size={12} color={colors.chartCyan} />
+                      <Text style={[styles.legendText, isDark && styles.textMuted]}>
+                        {t('sections.reference')}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </>
+        }
+        ListEmptyComponent={
+          isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={colors.primary} />
             </View>
-          ) : sectionActivities.length === 0 ? (
+          ) : (
             <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
               {t('sections.noActivitiesFound')}
             </Text>
-          ) : (
-            <View style={[styles.activitiesCard, isDark && styles.activitiesCardDark]}>
-              {sectionActivities.map((activity, index) => {
-                const portion = portionMap.get(activity.id);
-                const record = performanceRecordMap.get(activity.id);
-                const isHighlighted = listHighlightedActivityId === activity.id;
-                const isBest = bestActivityId === activity.id;
-                const rank = rankMap.get(activity.id);
-                const activityTracePoints = sectionWithTraces?.activityTraces?.[activity.id];
-                const isReference = effectiveReferenceId === activity.id;
-
-                return (
-                  <React.Fragment key={activity.id}>
-                    <ActivityRow
-                      activity={activity}
-                      isDark={isDark}
-                      direction={record?.direction || portion?.direction}
-                      activityPoints={activityTracePoints}
-                      sectionPoints={section.polyline}
-                      isHighlighted={isHighlighted}
-                      sectionDistance={record?.sectionDistance || portion?.distanceMeters}
-                      lapCount={record?.lapCount}
-                      actualSectionTime={record?.bestTime}
-                      actualSectionPace={record?.bestPace}
-                      isBest={isBest}
-                      rank={rank}
-                      bestTime={bestTimeValue}
-                      bestPace={bestPaceValue}
-                      isReference={isReference}
-                      onHighlightChange={handleRowHighlightChange}
-                      onSetAsReference={handleSetAsReference}
-                    />
-                  </React.Fragment>
-                );
-              })}
-            </View>
-          )}
-
-          {/* Footer */}
+          )
+        }
+        ListFooterComponent={
           <View style={styles.listFooterContainer}>
             <DataRangeFooter days={cacheDays} isDark={isDark} />
           </View>
-        </View>
-      </ScrollView>
+        }
+      />
     </View>
   );
 }
