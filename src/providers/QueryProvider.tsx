@@ -1,10 +1,20 @@
 import React, { useEffect } from 'react';
-import { Alert } from 'react-native';
-import { QueryClient, onlineManager } from '@tanstack/react-query';
+import { Alert, AppState, Platform, type AppStateStatus } from 'react-native';
+import { QueryClient, focusManager, onlineManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Network from 'expo-network';
+
+// Sync TanStack Query's focus state with React Native AppState
+// Module-level so it's active before any query runs
+// https://tanstack.com/query/latest/docs/framework/react/react-native#refetch-on-app-focus
+function onAppStateChange(status: AppStateStatus) {
+  if (Platform.OS !== 'web') {
+    focusManager.setFocused(status === 'active');
+  }
+}
+AppState.addEventListener('change', onAppStateChange);
 
 const queryClient = new QueryClient({
   defaultOptions: {
