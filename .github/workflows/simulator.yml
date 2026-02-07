@@ -18,6 +18,28 @@ env:
 
 jobs:
   # ============================================
+  # Unit Tests (fast, no build dependency)
+  # ============================================
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Jest tests
+        run: npm test -- --ci --forceExit
+
+  # ============================================
   # Detect changes to skip unnecessary builds
   # ============================================
   changes:
@@ -489,7 +511,8 @@ jobs:
 
           # Run smoke test
           mkdir -p screenshots
-          maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml --no-ansi
+          maestro test .maestro/smoke.yaml --format junit --output maestro-report-smoke.xml --no-ansi
+          maestro test .maestro/critical-path.yaml --format junit --output maestro-report-critical.xml --no-ansi
 
       - name: Collect screenshots
         if: always()
@@ -514,7 +537,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: maestro-ios-report
-          path: maestro-report*.xml
+          path: maestro-report-*.xml
           retention-days: 7
 
   # ============================================
@@ -573,7 +596,8 @@ jobs:
 
             # Run smoke test
             mkdir -p screenshots
-            maestro test .maestro/smoke.yaml --format junit --output maestro-report.xml --no-ansi
+            maestro test .maestro/smoke.yaml --format junit --output maestro-report-smoke.xml --no-ansi
+          maestro test .maestro/critical-path.yaml --format junit --output maestro-report-critical.xml --no-ansi
 
       - name: Collect screenshots
         if: always()
@@ -598,5 +622,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: maestro-android-report
-          path: maestro-report*.xml
+          path: maestro-report-*.xml
           retention-days: 7
