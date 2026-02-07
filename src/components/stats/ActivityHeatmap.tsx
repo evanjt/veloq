@@ -1,8 +1,9 @@
-import React, { useMemo, useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
@@ -11,12 +12,6 @@ import type { Activity } from '@/types';
 interface ActivityHeatmapProps {
   /** Activities to display */
   activities?: Activity[];
-  /** Maximum number of weeks to show (default: 104 for 2 years) */
-  maxWeeks?: number;
-  /** Minimum number of weeks to show even with limited data (default: 12) */
-  minWeeks?: number;
-  /** Height of each cell */
-  cellSize?: number;
 }
 
 // Color scale for activity intensity (based on TSS or duration)
@@ -39,124 +34,119 @@ const INTENSITY_COLORS_LIGHT = [
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 
-export function ActivityHeatmap({
-  activities,
-  maxWeeks = 104, // 2 years maximum
-  minWeeks = 12, // At least 3 months
-  cellSize = 12,
-}: ActivityHeatmapProps) {
+const WEEKS_TO_SHOW = 52;
+const DAY_LABELS_WIDTH = 20;
+const DAY_LABELS_MARGIN = spacing.xs; // 4
+
+export function ActivityHeatmap({ activities }: ActivityHeatmapProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const intensityColors = isDark ? INTENSITY_COLORS : INTENSITY_COLORS_LIGHT;
-  const scrollViewRef = useRef<ScrollView>(null);
+  const { width: screenWidth } = useWindowDimensions();
 
-  // Calculate the actual number of weeks to display based on activity data
-  const { activityMap, weeksToShow } = useMemo(() => {
-    if (!activities || activities.length === 0) {
-      return {
-        activityMap: new Map<string, number>(),
-        weeksToShow: minWeeks,
-      };
-    }
+  // Compute cell size to fit exactly within the card
+  const availableGridWidth =
+    screenWidth -
+    2 * layout.screenPadding -
+    2 * layout.cardPadding -
+    DAY_LABELS_WIDTH -
+    DAY_LABELS_MARGIN;
+  const cellGap = 1;
+  const cellSize = Math.floor(availableGridWidth / WEEKS_TO_SHOW - cellGap);
+
+  // Build activity intensity map (1 year of data)
+  const activityMap = useMemo(() => {
+    if (!activities || activities.length === 0) return new Map<string, number>();
 
     const map = new Map<string, number>();
-    let oldestDate: Date | null = null;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - WEEKS_TO_SHOW * 7);
 
-    activities.forEach((activity) => {
+    for (const activity of activities) {
       const date = activity.start_date_local.split('T')[0];
-      const activityDate = new Date(date);
-
-      // Track oldest activity
-      if (!oldestDate || activityDate < oldestDate) {
-        oldestDate = activityDate;
-      }
+      if (date < cutoff.toISOString().split('T')[0]) continue;
 
       const current = map.get(date) || 0;
-      // Intensity based on moving time (rough categorization)
       const duration = activity.moving_time || 0;
       let intensity = 1;
-      if (duration > 3600) intensity = 2; // > 1 hour
-      if (duration > 5400) intensity = 3; // > 1.5 hours
-      if (duration > 7200) intensity = 4; // > 2 hours
+      if (duration > 3600) intensity = 2;
+      if (duration > 5400) intensity = 3;
+      if (duration > 7200) intensity = 4;
 
       map.set(date, Math.max(current, intensity));
-    });
-
-    // Calculate weeks from oldest activity to today
-    const today = new Date();
-    let calculatedWeeks = minWeeks;
-
-    if (oldestDate !== null) {
-      // Use calendar days for accurate week calculation
-      const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const oldestDay = new Date(
-        (oldestDate as Date).getFullYear(),
-        (oldestDate as Date).getMonth(),
-        (oldestDate as Date).getDate()
-      );
-      const daysSinceOldest = Math.round(
-        (todayDay.getTime() - oldestDay.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      const weeksSinceOldest = Math.ceil(daysSinceOldest / 7);
-      // Add 1 week buffer to ensure the oldest activity is visible
-      calculatedWeeks = Math.min(Math.max(weeksSinceOldest + 1, minWeeks), maxWeeks);
     }
 
-    return { activityMap: map, weeksToShow: calculatedWeeks };
-  }, [activities, minWeeks, maxWeeks]);
+    return map;
+  }, [activities]);
 
-  // Generate grid data
-  const { grid, monthLabels, totalActivities } = useMemo(() => {
+  // Generate grid data (flat intensity array for Picture — no object allocations)
+  const { intensities, monthLabels, totalActivities } = useMemo(() => {
     const today = new Date();
-    const grid: { date: string; intensity: number }[][] = [];
+    // Flat array: intensities[w * 7 + d]
+    const intensities = new Uint8Array(WEEKS_TO_SHOW * 7);
     const monthPositions: { month: string; col: number; year?: number }[] = [];
 
     let lastMonth = -1;
     let lastYear = -1;
 
-    for (let w = weeksToShow - 1; w >= 0; w--) {
-      const week: { date: string; intensity: number }[] = [];
-
+    for (let w = WEEKS_TO_SHOW - 1; w >= 0; w--) {
       for (let d = 0; d < 7; d++) {
         const date = new Date(today);
         date.setDate(date.getDate() - (w * 7 + (6 - d)));
         const dateStr = date.toISOString().split('T')[0];
-        const intensity = activityMap.get(dateStr) || 0;
+        const col = WEEKS_TO_SHOW - 1 - w;
+        intensities[col * 7 + d] = activityMap.get(dateStr) || 0;
 
-        week.push({ date: dateStr, intensity });
-
-        // Track month labels
-        const month = date.getMonth();
-        const year = date.getFullYear();
-        if (month !== lastMonth && d === 0) {
-          // Show year at January or at the first month in the view
-          const showYear = month === 0 || lastYear === -1 || year !== lastYear;
-          monthPositions.push({
-            month: MONTHS[month],
-            col: weeksToShow - 1 - w,
-            year: showYear ? year : undefined,
-          });
-          lastMonth = month;
-          lastYear = year;
+        if (d === 0) {
+          const month = date.getMonth();
+          const year = date.getFullYear();
+          if (month !== lastMonth) {
+            const showYear = month === 0 || lastYear === -1 || year !== lastYear;
+            monthPositions.push({
+              month: MONTHS[month],
+              col,
+              year: showYear ? year : undefined,
+            });
+            lastMonth = month;
+            lastYear = year;
+          }
         }
       }
-
-      grid.push(week);
     }
 
-    const total = Array.from(activityMap.values()).filter((v) => v > 0).length;
+    let total = 0;
+    activityMap.forEach((v) => {
+      if (v > 0) total++;
+    });
 
-    return { grid, monthLabels: monthPositions, totalActivities: total };
-  }, [activityMap, weeksToShow]);
+    return { intensities, monthLabels: monthPositions, totalActivities: total };
+  }, [activityMap]);
 
-  // Scroll to the right (current week) on mount
-  useEffect(() => {
-    // Small delay to ensure layout is complete
-    const timer = setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: false });
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
+  const gridWidth = WEEKS_TO_SHOW * (cellSize + cellGap);
+  const gridHeight = 7 * (cellSize + cellGap);
+
+  // Pre-render entire heatmap grid as a single Skia Picture (zero React elements)
+  const heatmapPicture = useMemo(() => {
+    const recorder = Skia.PictureRecorder();
+    const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, gridWidth, gridHeight));
+    const paint = Skia.Paint();
+
+    for (let w = 0; w < WEEKS_TO_SHOW; w++) {
+      for (let d = 0; d < 7; d++) {
+        paint.setColor(Skia.Color(intensityColors[intensities[w * 7 + d]]));
+        canvas.drawRRect(
+          Skia.RRectXY(
+            Skia.XYWHRect(w * (cellSize + cellGap), d * (cellSize + cellGap), cellSize, cellSize),
+            1,
+            1
+          ),
+          paint
+        );
+      }
+    }
+
+    return recorder.finishRecordingAsPicture();
+  }, [intensities, cellSize, cellGap, gridWidth, gridHeight, intensityColors]);
 
   // Show empty state if no activities
   if (!activities || activities.length === 0) {
@@ -179,9 +169,6 @@ export function ActivityHeatmap({
     );
   }
 
-  const cellGap = 2;
-  const gridWidth = weeksToShow * (cellSize + cellGap);
-
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -194,71 +181,55 @@ export function ActivityHeatmap({
         </Text>
       </View>
 
-      {/* Scrollable heatmap container */}
-      <ScrollView
-        ref={scrollViewRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+      {/* Month labels */}
+      <View
+        style={[
+          styles.monthLabels,
+          { width: gridWidth, marginLeft: DAY_LABELS_WIDTH + DAY_LABELS_MARGIN },
+        ]}
       >
-        <View>
-          {/* Month labels with year indicators */}
-          <View style={[styles.monthLabels, { width: gridWidth, marginLeft: spacing.lg }]}>
-            {monthLabels.map((m, idx) => (
-              <View
-                key={idx}
-                style={[styles.monthLabelContainer, { left: m.col * (cellSize + cellGap) }]}
-              >
-                {m.year !== undefined && (
-                  <Text style={[styles.yearLabel, isDark && styles.textLight]}>{m.year}</Text>
-                )}
-                <Text style={[styles.monthLabel, isDark && styles.textDark]}>{m.month}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Grid with day labels */}
-          <View style={styles.gridContainer}>
-            {/* Day labels */}
-            <View style={styles.dayLabels}>
-              {DAYS.map((day, idx) => (
-                <Text
-                  key={idx}
-                  style={[
-                    styles.dayLabel,
-                    isDark && styles.textDark,
-                    { height: cellSize + cellGap },
-                  ]}
-                >
-                  {day}
-                </Text>
-              ))}
+        {monthLabels.map((m, idx) =>
+          m.year !== undefined ? (
+            <View
+              key={idx}
+              style={[styles.monthLabelContainer, { left: m.col * (cellSize + cellGap) }]}
+            >
+              <Text style={[styles.yearLabel, isDark && styles.textLight]}>{m.year}</Text>
+              <Text style={[styles.monthLabel, isDark && styles.textDark]}>{m.month}</Text>
             </View>
+          ) : (
+            <Text
+              key={idx}
+              style={[
+                styles.monthLabel,
+                styles.monthLabelAbsolute,
+                isDark && styles.textDark,
+                { left: m.col * (cellSize + cellGap) },
+              ]}
+            >
+              {m.month}
+            </Text>
+          )
+        )}
+      </View>
 
-            {/* Heatmap grid */}
-            <View style={styles.grid}>
-              {grid.map((week, wIdx) => (
-                <View key={wIdx} style={styles.weekColumn}>
-                  {week.map((day, dIdx) => (
-                    <View
-                      key={`${wIdx}-${dIdx}`}
-                      style={[
-                        styles.cell,
-                        {
-                          width: cellSize,
-                          height: cellSize,
-                          backgroundColor: intensityColors[day.intensity],
-                          marginBottom: cellGap,
-                        },
-                      ]}
-                    />
-                  ))}
-                </View>
-              ))}
-            </View>
-          </View>
+      {/* Grid with day labels */}
+      <View style={styles.gridContainer}>
+        <View style={styles.dayLabels}>
+          {DAYS.map((day, idx) => (
+            <Text
+              key={idx}
+              style={[styles.dayLabel, isDark && styles.textDark, { height: cellSize + cellGap }]}
+            >
+              {day}
+            </Text>
+          ))}
         </View>
-      </ScrollView>
+
+        <Canvas style={{ width: gridWidth, height: gridHeight }}>
+          <Picture picture={heatmapPicture} />
+        </Canvas>
+      </View>
 
       {/* Legend */}
       <View style={styles.legend}>
@@ -301,9 +272,6 @@ const styles = StyleSheet.create({
   textDark: {
     color: darkColors.textSecondary,
   },
-  scrollContent: {
-    paddingRight: spacing.md,
-  },
   monthLabels: {
     height: spacing.lg + spacing.xs,
     position: 'relative',
@@ -323,6 +291,10 @@ const styles = StyleSheet.create({
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
   },
+  monthLabelAbsolute: {
+    position: 'absolute',
+    bottom: 0,
+  },
   gridContainer: {
     flexDirection: 'row',
   },
@@ -335,15 +307,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'right',
     lineHeight: typography.caption.lineHeight,
-  },
-  grid: {
-    flexDirection: 'row',
-  },
-  weekColumn: {
-    marginRight: 2,
-  },
-  cell: {
-    borderRadius: 2,
   },
   legend: {
     flexDirection: 'row',
