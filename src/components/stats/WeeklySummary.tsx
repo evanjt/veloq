@@ -14,7 +14,6 @@ import { colors, darkColors, opacity } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { formatDistance } from '@/lib';
-import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { Activity } from '@/types';
 
 type TimeRange = 'week' | 'month' | '3m' | '6m' | 'year';
@@ -164,7 +163,9 @@ function getDateRanges(range: TimeRange): {
   }
 }
 
-// Query engine for period stats (SQL aggregate, no JS iteration)
+// Compute period stats from the activity array (JS iteration).
+// Engine SQL is not used here because activity_metrics only covers the GPS sync window (~90 days),
+// while time ranges like 6m/year need full historical data from the API.
 function computeStatsForPeriods(
   _activities: Activity[] | undefined,
   currentStart: Date,
@@ -172,33 +173,6 @@ function computeStatsForPeriods(
   previousStart: Date,
   previousEnd: Date
 ) {
-  const engine = getRouteEngine();
-
-  const toTs = (d: Date, endOfDay = false) => {
-    const ts = Math.floor(d.getTime() / 1000);
-    return endOfDay ? ts + 86399 : ts;
-  };
-
-  if (engine) {
-    const current = engine.getPeriodStats(toTs(currentStart), toTs(currentEnd, true));
-    const previous = engine.getPeriodStats(toTs(previousStart), toTs(previousEnd, true));
-    return {
-      currentStats: {
-        count: current.count,
-        duration: Number(current.totalDuration),
-        distance: current.totalDistance,
-        tss: Math.round(current.totalTss),
-      },
-      previousStats: {
-        count: previous.count,
-        duration: Number(previous.totalDuration),
-        distance: previous.totalDistance,
-        tss: Math.round(previous.totalTss),
-      },
-    };
-  }
-
-  // Fallback: JS iteration if engine unavailable
   const activities = _activities ?? [];
   const currentStartTs = currentStart.getTime();
   const currentEndTs = currentEnd.getTime() + 86400000 - 1;
