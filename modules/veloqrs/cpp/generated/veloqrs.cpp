@@ -168,12 +168,19 @@ RustBuffer uniffi_veloqrs_fn_func_persistent_engine_extract_section_trace(
     RustBuffer activity_id, RustBuffer section_polyline_json,
     RustCallStatus *uniffi_out_err);
 RustBuffer
+uniffi_veloqrs_fn_func_persistent_engine_extract_section_traces_batch(
+    RustBuffer activity_ids, RustBuffer section_polyline_json,
+    RustCallStatus *uniffi_out_err);
+RustBuffer
 uniffi_veloqrs_fn_func_persistent_engine_get_activities_missing_time_streams(
     RustBuffer activity_ids, RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_func_persistent_engine_get_activity_count(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_activity_ids(
     RustCallStatus *uniffi_out_err);
+RustBuffer
+uniffi_veloqrs_fn_func_persistent_engine_get_activity_metrics_for_ids(
+    RustBuffer ids, RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_func_persistent_engine_get_all_map_activities_complete(
     RustCallStatus *uniffi_out_err);
@@ -417,9 +424,13 @@ uint16_t uniffi_veloqrs_checksum_func_persistent_engine_clear();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_detect_potentials();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_extract_section_trace();
 uint16_t
+uniffi_veloqrs_checksum_func_persistent_engine_extract_section_traces_batch();
+uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_get_activities_missing_time_streams();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_activity_count();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_activity_ids();
+uint16_t
+uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids();
 uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_activities_complete();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_all_route_names();
@@ -2444,6 +2455,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_func_persistent_engine_extract_section_trace(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_extract_section_traces_"
+        "batch"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_func_persistent_"
+                                    "engine_extract_section_traces_batch"),
+      2,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_fn_func_persistent_engine_extract_section_traces_batch(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activities_missing_"
         "time_streams"] = jsi::Function::createFromHostFunction(
       rt,
@@ -2482,6 +2505,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_activity_ids(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_metrics_"
+        "for_ids"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_func_persistent_"
+                                    "engine_get_activity_metrics_for_ids"),
+      1,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_activity_metrics_for_ids(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_activities_"
         "complete"] = jsi::Function::createFromHostFunction(
       rt,
@@ -3228,6 +3263,19 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_extract_section_trace(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_extract_section_"
+        "traces_batch"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt,
+                                "ubrn_uniffi_veloqrs_checksum_func_persistent_"
+                                "engine_extract_section_traces_batch"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_extract_section_traces_batch(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activities_"
         "missing_time_streams"] = jsi::Function::createFromHostFunction(
       rt,
@@ -3263,6 +3311,19 @@ NativeVeloqrs::NativeVeloqrs(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_ids(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_"
+        "metrics_for_ids"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt,
+                                "ubrn_uniffi_veloqrs_checksum_func_persistent_"
+                                "engine_get_activity_metrics_for_ids"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_"
@@ -4168,6 +4229,24 @@ jsi::Value NativeVeloqrs::
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_func_persistent_engine_extract_section_traces_batch(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value =
+      uniffi_veloqrs_fn_func_persistent_engine_extract_section_traces_batch(
+          uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
+                                                        args[0]),
+          uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
+                                                        args[1]),
+          &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_fn_func_persistent_engine_get_activities_missing_time_streams(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -4204,6 +4283,22 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_get_activity_ids(
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_func_persistent_engine_get_activity_ids(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_func_persistent_engine_get_activity_metrics_for_ids(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value =
+      uniffi_veloqrs_fn_func_persistent_engine_get_activity_metrics_for_ids(
+          uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
+                                                        args[0]),
+          &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -4929,6 +5024,15 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_extract_section_traces_batch(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_extract_section_traces_batch();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_activities_missing_time_streams(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -4952,6 +5056,15 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_func_persistent_engine_get_activity_ids();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

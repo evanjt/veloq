@@ -305,9 +305,9 @@ describe('Demo Data Integration Tests', () => {
   });
 
   describe('Deterministic Data Generation', () => {
-    // Filter out stable test activities for date-based ID tests
+    // Filter out stable test and stress test activities for date-based ID tests
     const dateBasedActivities = demoActivities.filter(
-      (a: ApiActivity) => !a.id.startsWith('demo-test-')
+      (a: ApiActivity) => !a.id.startsWith('demo-test-') && !a.id.startsWith('demo-stress-')
     );
 
     it('activity IDs use deterministic date-based format', () => {

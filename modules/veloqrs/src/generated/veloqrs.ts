@@ -598,6 +598,29 @@ export function persistentEngineExtractSectionTrace(
   );
 }
 /**
+ * Extract section traces for multiple activities in a single FFI call.
+ * Builds the R-tree from the section polyline ONCE, then processes each activity
+ * sequentially — only one GPS track in memory at a time.
+ * Returns flat coords per activity: Vec<(activity_id, [lat, lng, lat, lng, ...])>
+ */
+export function persistentEngineExtractSectionTracesBatch(
+  activityIds: Array<string>,
+  sectionPolylineJson: string,
+): Array<FfiBatchTrace> {
+  return FfiConverterArrayTypeFfiBatchTrace.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_extract_section_traces_batch(
+          FfiConverterArrayString.lower(activityIds),
+          FfiConverterString.lower(sectionPolylineJson),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Check which activities are missing cached time streams.
  * Returns activity IDs that need to be fetched from the API.
  */
@@ -639,6 +662,25 @@ export function persistentEngineGetActivityIds(): Array<string> {
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_ids(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Get activity metrics for a list of activity IDs.
+ * Returns metrics from the in-memory HashMap (O(1) per lookup).
+ */
+export function persistentEngineGetActivityMetricsForIds(
+  ids: Array<string>,
+): Array<FfiActivityMetrics> {
+  return FfiConverterArrayTypeFfiActivityMetrics.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_metrics_for_ids(
+          FfiConverterArrayString.lower(ids),
           callStatus,
         );
       },
@@ -2061,6 +2103,70 @@ const FfiConverterTypeFfiActivityMetrics = (() => {
         FfiConverterOptionalUInt16.allocationSize(value.avgHr) +
         FfiConverterOptionalUInt16.allocationSize(value.avgPower) +
         FfiConverterString.allocationSize(value.sportType)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Batch trace result: one activity's extracted section trace as flat coords.
+ */
+export type FfiBatchTrace = {
+  activityId: string;
+  /**
+   * Flat coordinates [lat, lng, lat, lng, ...]
+   */
+  coords: Array</*f64*/ number>;
+};
+
+/**
+ * Generated factory for {@link FfiBatchTrace} record objects.
+ */
+export const FfiBatchTrace = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiBatchTrace, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiBatchTrace}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiBatchTrace}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiBatchTrace>,
+  });
+})();
+
+const FfiConverterTypeFfiBatchTrace = (() => {
+  type TypeName = FfiBatchTrace;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityId: FfiConverterString.read(from),
+        coords: FfiConverterArrayFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.activityId, into);
+      FfiConverterArrayFloat64.write(value.coords, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterArrayFloat64.allocationSize(value.coords)
       );
     }
   }
@@ -4404,6 +4510,11 @@ const FfiConverterArrayTypeFfiActivityMetrics = new FfiConverterArray(
   FfiConverterTypeFfiActivityMetrics,
 );
 
+// FfiConverter for Array<FfiBatchTrace>
+const FfiConverterArrayTypeFfiBatchTrace = new FfiConverterArray(
+  FfiConverterTypeFfiBatchTrace,
+);
+
 // FfiConverter for Array<FfiFrequentSection>
 const FfiConverterArrayTypeFfiFrequentSection = new FfiConverterArray(
   FfiConverterTypeFfiFrequentSection,
@@ -4693,6 +4804,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_extract_section_traces_batch() !==
+    6539
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_extract_section_traces_batch",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activities_missing_time_streams() !==
     17851
   ) {
@@ -4714,6 +4833,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_persistent_engine_get_activity_ids",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids() !==
+    44538
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids",
     );
   }
   if (
@@ -5049,6 +5176,7 @@ export default Object.freeze({
     FfiConverterTypeFetchAndStoreResult,
     FfiConverterTypeFfiActivityMapResult,
     FfiConverterTypeFfiActivityMetrics,
+    FfiConverterTypeFfiBatchTrace,
     FfiConverterTypeFfiBounds,
     FfiConverterTypeFfiDetectionStats,
     FfiConverterTypeFfiDirectionStats,
