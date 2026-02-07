@@ -3,10 +3,9 @@ import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { CartesianChart, Line } from 'victory-native';
-import { Circle, Line as SkiaLine } from '@shopify/react-native-skia';
+import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
+import { useSharedValue, runOnJS } from 'react-native-reanimated';
 import { colors, darkColors, spacing, typography, opacity } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import {
@@ -42,6 +41,14 @@ interface MetricChartData {
   rawValue: number;
 }
 
+function formatSleepDuration(hours: number): string {
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return `${h}h ${m}m`;
+}
+
+const SPARKLINE_PADDING = { left: 4, right: 4, top: 8, bottom: 8 } as const;
+
 interface MetricConfig {
   key: string;
   data: MetricChartData[];
@@ -51,153 +58,58 @@ interface MetricConfig {
   formatValue: (v: number) => string;
 }
 
-/** Victory Native chart bounds structure */
-interface ChartBounds {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-}
+/**
+ * Build a smooth Skia path from data points using Catmull-Rom → cubic Bezier conversion.
+ * Returns the path offset to a given yOffset within the combined canvas.
+ */
+function buildSparklinePath(
+  data: MetricChartData[],
+  width: number,
+  rowHeight: number,
+  yOffset: number,
+  totalDays: number,
+  yMin: number,
+  yMax: number
+): {
+  path: ReturnType<typeof Skia.Path.Make>;
+  sx: (x: number) => number;
+  sy: (y: number) => number;
+} | null {
+  if (data.length < 2 || width <= 0) return null;
 
-/** Victory Native chart point - we only need x and y for our rendering */
-interface ChartPoint {
-  x: number;
-  y: number | undefined;
-}
+  const pad = SPARKLINE_PADDING;
+  const cw = width - pad.left - pad.right;
+  const ch = rowHeight - pad.top - pad.bottom;
+  const xRange = Math.max(totalDays - 1, 1);
+  const yRange = yMax - yMin || 1;
 
-function formatSleepDuration(hours: number): string {
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
-  return `${h}h ${m}m`;
-}
+  const sx = (x: number) => pad.left + (x / xRange) * cw;
+  const sy = (y: number) => yOffset + pad.top + ((yMax - y) / yRange) * ch;
 
-const SPARKLINE_PADDING = { left: 4, right: 4, top: 8, bottom: 8 } as const;
+  const path = Skia.Path.Make();
+  path.moveTo(sx(data[0].x), sy(data[0].value));
 
-// Individual sparkline that receives selected index from parent
-function MetricSparkline({
-  data,
-  color,
-  height,
-  isDark,
-  label,
-  unit,
-  formatValue,
-  selectedIdx,
-  totalDays,
-}: {
-  data: MetricChartData[];
-  color: string;
-  height: number;
-  isDark: boolean;
-  label: string;
-  unit: string;
-  formatValue: (v: number) => string;
-  selectedIdx: number | null;
-  totalDays: number;
-}) {
-  if (data.length === 0) return null;
+  if (data.length === 2) {
+    path.lineTo(sx(data[1].x), sy(data[1].value));
+    return { path, sx, sy };
+  }
 
-  const minValue = Math.min(...data.map((d) => d.value));
-  const maxValue = Math.max(...data.map((d) => d.value));
-  const range = maxValue - minValue || 1;
+  // Catmull-Rom to cubic Bezier for smooth curves
+  for (let i = 0; i < data.length - 1; i++) {
+    const p0 = i > 0 ? data[i - 1] : data[i];
+    const p1 = data[i];
+    const p2 = data[i + 1];
+    const p3 = i < data.length - 2 ? data[i + 2] : data[i + 1];
 
-  // Add some padding to the domain
-  const yMin = minValue - range * 0.15;
-  const yMax = maxValue + range * 0.15;
+    const cp1x = sx(p1.x) + (sx(p2.x) - sx(p0.x)) / 6;
+    const cp1y = sy(p1.value) + (sy(p2.value) - sy(p0.value)) / 6;
+    const cp2x = sx(p2.x) - (sx(p3.x) - sx(p1.x)) / 6;
+    const cp2y = sy(p2.value) - (sy(p3.value) - sy(p1.value)) / 6;
 
-  // Latest value and average
-  const latestValue = data[data.length - 1];
-  const avgValue = data.reduce((sum, d) => sum + d.rawValue, 0) / data.length;
+    path.cubicTo(cp1x, cp1y, cp2x, cp2y, sx(p2.x), sy(p2.value));
+  }
 
-  // Get value for selected date
-  const selectedPoint = useMemo(() => {
-    if (selectedIdx === null) return null;
-    return data.find((d) => d.x === selectedIdx) || null;
-  }, [selectedIdx, data]);
-
-  const displayValue = selectedPoint || latestValue;
-  const isSelected = selectedIdx !== null;
-
-  return (
-    <View style={[styles.metricRow, isDark && styles.metricRowDark]}>
-      <View style={styles.metricInfo}>
-        <View style={[styles.metricDot, { backgroundColor: color }]} />
-        <Text style={[styles.metricLabel, isDark && styles.textDark]}>{label}</Text>
-      </View>
-
-      <View style={styles.sparklineContainer}>
-        <View style={{ height }}>
-          {/* Victory Native CartesianChart for programmatic rendering.
-              Using JSX syntax with render prop pattern. */}
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <CartesianChart
-            data={data as unknown as Record<string, unknown>[]}
-            xKey={'x' as never}
-            yKeys={['value'] as never}
-            domain={{ x: [0, totalDays - 1], y: [yMin, yMax] }}
-            padding={SPARKLINE_PADDING}
-          >
-            {
-              (({ points, chartBounds }: any) => (
-                <>
-                  <Line
-                    points={points.value as Parameters<typeof Line>[0]['points']}
-                    color={color}
-                    strokeWidth={2}
-                    curveType="natural"
-                  />
-                  {selectedIdx !== null && selectedPoint && (
-                    <>
-                      {/* Vertical line at selected position */}
-                      <SkiaLine
-                        p1={{
-                          x:
-                            chartBounds.left +
-                            (selectedIdx / (totalDays - 1)) *
-                              (chartBounds.right - chartBounds.left),
-                          y: chartBounds.top,
-                        }}
-                        p2={{
-                          x:
-                            chartBounds.left +
-                            (selectedIdx / (totalDays - 1)) *
-                              (chartBounds.right - chartBounds.left),
-                          y: chartBounds.bottom,
-                        }}
-                        color={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'}
-                        strokeWidth={1}
-                      />
-                      {/* Dot at the data point */}
-                      {points.value[data.findIndex((d) => d.x === selectedIdx)] && (
-                        <Circle
-                          cx={points.value[data.findIndex((d) => d.x === selectedIdx)]?.x || 0}
-                          cy={points.value[data.findIndex((d) => d.x === selectedIdx)]?.y || 0}
-                          r={5}
-                          color={color}
-                        />
-                      )}
-                    </>
-                  )}
-                </>
-              )) as any
-            }
-          </CartesianChart>
-        </View>
-      </View>
-
-      <View style={styles.metricValues}>
-        <Text style={[styles.metricValue, isSelected ? { color } : isDark && styles.textLight]}>
-          {displayValue ? formatValue(displayValue.rawValue) : '-'}
-        </Text>
-        <Text style={[styles.metricUnit, isDark && styles.textDark]}>{unit}</Text>
-        {!isSelected && (
-          <Text style={[styles.metricAvg, isDark && styles.textDark]}>
-            avg {formatValue(avgValue)}
-          </Text>
-        )}
-      </View>
-    </View>
-  );
+  return { path, sx, sy };
 }
 
 export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
@@ -303,17 +215,173 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       };
     }, [data, effectiveWindow]);
 
-  const hasHrv = hrvData.length > 0;
-  const hasRhr = rhrData.length > 0;
-  const hasSleep = sleepData.length > 0;
-  const hasSleepScore = sleepScoreData.length > 0;
-  const hasWeight = weightData.length > 0;
-  const hasAnyData = hasHrv || hasRhr || hasSleep || hasSleepScore || hasWeight;
+  // Build metric configs for active metrics
+  const activeMetrics: MetricConfig[] = useMemo(() => {
+    const metrics: MetricConfig[] = [];
+    if (hrvData.length > 0)
+      metrics.push({
+        key: 'hrv',
+        data: hrvData,
+        color: METRIC_COLORS.hrv,
+        label: t('metrics.hrv'),
+        unit: 'ms',
+        formatValue: (v) => Math.round(v).toString(),
+      });
+    if (rhrData.length > 0)
+      metrics.push({
+        key: 'rhr',
+        data: rhrData,
+        color: METRIC_COLORS.rhr,
+        label: t('wellness.restingHR'),
+        unit: t('units.bpm'),
+        formatValue: (v) => Math.round(v).toString(),
+      });
+    if (sleepData.length > 0)
+      metrics.push({
+        key: 'sleep',
+        data: sleepData,
+        color: METRIC_COLORS.sleep,
+        label: t('wellness.sleep'),
+        unit: '',
+        formatValue: (v) => formatSleepDuration(v),
+      });
+    if (sleepScoreData.length > 0)
+      metrics.push({
+        key: 'sleepScore',
+        data: sleepScoreData,
+        color: METRIC_COLORS.sleepScore,
+        label: t('wellness.sleepScore'),
+        unit: '',
+        formatValue: (v) => Math.round(v).toString(),
+      });
+    if (weightData.length > 0)
+      metrics.push({
+        key: 'weight',
+        data: weightData,
+        color: METRIC_COLORS.weight,
+        label: t('wellness.weight'),
+        unit: 'kg',
+        formatValue: (v) => v.toFixed(1),
+      });
+    return metrics;
+  }, [hrvData, rhrData, sleepData, sleepScoreData, weightData, t]);
 
-  // Calculate x position to index
-  const leftPadding = 75 + 8; // metricInfo width + margin
-  const rightPadding = 55 + 8; // metricValues width + margin
-  const chartWidth = containerWidth - leftPadding - rightPadding;
+  const hasAnyData = activeMetrics.length > 0;
+
+  // Compute sparkline width from container (metricInfo=75 + metricValues=55 + 2*margin)
+  const sparklineWidth = Math.max(0, containerWidth - 75 - 55 - spacing.sm * 2);
+
+  // Calculate x position to index (for gesture)
+  const leftPadding = 75 + spacing.sm;
+  const chartWidth = sparklineWidth;
+
+  const sparklineHeight = 50;
+
+  // Build a single Skia Picture containing all sparkline paths + selection indicators
+  const chartPicture = useMemo(() => {
+    if (activeMetrics.length === 0 || sparklineWidth <= 0) return null;
+
+    const totalHeight = activeMetrics.length * sparklineHeight;
+    const recorder = Skia.PictureRecorder();
+    const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, sparklineWidth, totalHeight));
+    const paint = Skia.Paint();
+    paint.setStyle(1); // stroke
+    paint.setStrokeWidth(2);
+    paint.setAntiAlias(true);
+
+    const selectionLinePaint = Skia.Paint();
+    selectionLinePaint.setStyle(1);
+    selectionLinePaint.setStrokeWidth(1);
+    selectionLinePaint.setColor(Skia.Color(isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'));
+
+    const circlePaint = Skia.Paint();
+    circlePaint.setStyle(0); // fill
+    circlePaint.setAntiAlias(true);
+
+    // Separator paint
+    const separatorPaint = Skia.Paint();
+    separatorPaint.setStyle(1);
+    separatorPaint.setStrokeWidth(StyleSheet.hairlineWidth);
+    separatorPaint.setColor(
+      Skia.Color(isDark ? opacity.overlayDark.medium : opacity.overlay.light)
+    );
+
+    for (let i = 0; i < activeMetrics.length; i++) {
+      const metric = activeMetrics[i];
+      const yOffset = i * sparklineHeight;
+
+      // Compute domain with padding
+      const values = metric.data.map((d) => d.value);
+      const minValue = Math.min(...values);
+      const maxValue = Math.max(...values);
+      const range = maxValue - minValue || 1;
+      const yMin = minValue - range * 0.15;
+      const yMax = maxValue + range * 0.15;
+
+      const pathData = buildSparklinePath(
+        metric.data,
+        sparklineWidth,
+        sparklineHeight,
+        yOffset,
+        totalDays,
+        yMin,
+        yMax
+      );
+
+      if (pathData) {
+        // Draw sparkline path
+        paint.setColor(Skia.Color(metric.color));
+        canvas.drawPath(pathData.path, paint);
+
+        // Draw selection indicator
+        if (selectedIdx !== null) {
+          const selectedPoint = metric.data.find((d) => d.x === selectedIdx);
+          if (selectedPoint) {
+            // Vertical selection line
+            canvas.drawLine(
+              pathData.sx(selectedIdx),
+              yOffset + SPARKLINE_PADDING.top,
+              pathData.sx(selectedIdx),
+              yOffset + sparklineHeight - SPARKLINE_PADDING.bottom,
+              selectionLinePaint
+            );
+            // Selection dot
+            circlePaint.setColor(Skia.Color(metric.color));
+            canvas.drawCircle(
+              pathData.sx(selectedPoint.x),
+              pathData.sy(selectedPoint.value),
+              5,
+              circlePaint
+            );
+          }
+        }
+      }
+
+      // Draw row separator (except after last row)
+      if (i < activeMetrics.length - 1) {
+        const separatorY = yOffset + sparklineHeight;
+        canvas.drawLine(0, separatorY, sparklineWidth, separatorY, separatorPaint);
+      }
+    }
+
+    return recorder.finishRecordingAsPicture();
+  }, [activeMetrics, sparklineWidth, sparklineHeight, totalDays, selectedIdx, isDark]);
+
+  // Compute display values for each metric row
+  const metricDisplayValues = useMemo(() => {
+    return activeMetrics.map((metric) => {
+      const latestValue = metric.data[metric.data.length - 1];
+      const avgValue = metric.data.reduce((sum, d) => sum + d.rawValue, 0) / metric.data.length;
+      const selectedPoint =
+        selectedIdx !== null ? metric.data.find((d) => d.x === selectedIdx) || null : null;
+      const displayValue = selectedPoint || latestValue;
+      return {
+        displayValue,
+        avgValue,
+        isSelected: selectedIdx !== null,
+      };
+    });
+  }, [activeMetrics, selectedIdx]);
 
   const updateSelectedIdx = useCallback(
     (x: number) => {
@@ -373,7 +441,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     );
   }
 
-  const sparklineHeight = 50;
+  const canvasHeight = activeMetrics.length * sparklineHeight;
 
   return (
     <View style={styles.container} onLayout={onLayout}>
@@ -391,80 +459,59 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 
       <GestureDetector gesture={gesture}>
         <View>
-          {/* HRV Chart */}
-          {hasHrv && (
-            <MetricSparkline
-              data={hrvData}
-              color={METRIC_COLORS.hrv}
-              height={sparklineHeight}
-              isDark={isDark}
-              label={t('metrics.hrv')}
-              unit="ms"
-              formatValue={(v) => Math.round(v).toString()}
-              selectedIdx={selectedIdx}
-              totalDays={totalDays}
-            />
-          )}
+          {activeMetrics.map((metric, i) => (
+            <View
+              key={metric.key}
+              style={[
+                styles.metricRow,
+                isDark && styles.metricRowDark,
+                i === activeMetrics.length - 1 && styles.metricRowLast,
+              ]}
+            >
+              {/* Left: label */}
+              <View style={styles.metricInfo}>
+                <View style={[styles.metricDot, { backgroundColor: metric.color }]} />
+                <Text style={[styles.metricLabel, isDark && styles.textDark]}>{metric.label}</Text>
+              </View>
 
-          {/* RHR Chart */}
-          {hasRhr && (
-            <MetricSparkline
-              data={rhrData}
-              color={METRIC_COLORS.rhr}
-              height={sparklineHeight}
-              isDark={isDark}
-              label={t('wellness.restingHR')}
-              unit={t('units.bpm')}
-              formatValue={(v) => Math.round(v).toString()}
-              selectedIdx={selectedIdx}
-              totalDays={totalDays}
-            />
-          )}
+              {/* Center: sparkline canvas (single shared surface) — only render in first row */}
+              {i === 0 ? (
+                <View style={[styles.sparklineContainer, { height: canvasHeight }]}>
+                  {sparklineWidth > 0 && chartPicture ? (
+                    <Canvas style={{ width: sparklineWidth, height: canvasHeight }}>
+                      <Picture picture={chartPicture} />
+                    </Canvas>
+                  ) : (
+                    <View style={{ height: canvasHeight }} />
+                  )}
+                </View>
+              ) : (
+                <View style={styles.sparklineContainer} />
+              )}
 
-          {/* Sleep Chart */}
-          {hasSleep && (
-            <MetricSparkline
-              data={sleepData}
-              color={METRIC_COLORS.sleep}
-              height={sparklineHeight}
-              isDark={isDark}
-              label={t('wellness.sleep')}
-              unit=""
-              formatValue={(v) => formatSleepDuration(v)}
-              selectedIdx={selectedIdx}
-              totalDays={totalDays}
-            />
-          )}
-
-          {/* Sleep Score Chart */}
-          {hasSleepScore && (
-            <MetricSparkline
-              data={sleepScoreData}
-              color={METRIC_COLORS.sleepScore}
-              height={sparklineHeight}
-              isDark={isDark}
-              label={t('wellness.sleepScore')}
-              unit=""
-              formatValue={(v) => Math.round(v).toString()}
-              selectedIdx={selectedIdx}
-              totalDays={totalDays}
-            />
-          )}
-
-          {/* Weight Chart */}
-          {hasWeight && (
-            <MetricSparkline
-              data={weightData}
-              color={METRIC_COLORS.weight}
-              height={sparklineHeight}
-              isDark={isDark}
-              label={t('wellness.weight')}
-              unit="kg"
-              formatValue={(v) => v.toFixed(1)}
-              selectedIdx={selectedIdx}
-              totalDays={totalDays}
-            />
-          )}
+              {/* Right: values */}
+              <View style={styles.metricValues}>
+                <Text
+                  style={[
+                    styles.metricValue,
+                    metricDisplayValues[i]?.isSelected
+                      ? { color: metric.color }
+                      : isDark && styles.textLight,
+                  ]}
+                >
+                  {metricDisplayValues[i]?.displayValue
+                    ? metric.formatValue(metricDisplayValues[i].displayValue.rawValue)
+                    : '-'}
+                </Text>
+                <Text style={[styles.metricUnit, isDark && styles.textDark]}>{metric.unit}</Text>
+                {!metricDisplayValues[i]?.isSelected && (
+                  <Text style={[styles.metricAvg, isDark && styles.textDark]}>
+                    avg {metric.formatValue(metricDisplayValues[i]?.avgValue ?? 0)}
+                  </Text>
+                )}
+              </View>
+            </View>
+          ))}
         </View>
       </GestureDetector>
 
@@ -520,12 +567,15 @@ const styles = StyleSheet.create({
   metricRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.xs,
+    height: 50,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: opacity.overlay.light,
   },
   metricRowDark: {
     borderBottomColor: opacity.overlayDark.medium,
+  },
+  metricRowLast: {
+    borderBottomWidth: 0,
   },
   metricInfo: {
     flexDirection: 'row',
@@ -546,7 +596,6 @@ const styles = StyleSheet.create({
   sparklineContainer: {
     flex: 1,
     marginHorizontal: spacing.sm,
-    position: 'relative',
   },
   metricValues: {
     alignItems: 'flex-end',
