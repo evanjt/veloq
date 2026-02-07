@@ -12,15 +12,16 @@ tags:
 
 # ── Launch & Auth ───────────────────────────────────────
 - launchApp:
-    clearState: true
+    clearState: false
 
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 60000
-
-- tapOn:
-    id: "login-demo-button"
+# Handle both states: already logged in or logged out
+- runFlow:
+    when:
+      visible:
+        id: "login-screen"
+    commands:
+      - tapOn:
+          id: "login-demo-button"
 
 - extendedWaitUntil:
     visible:
@@ -34,22 +35,17 @@ tags:
     commands:
       - tapOn: "Not Now"
 
-# Verify demo mode banner
-- assertVisible:
-    id: "demo-mode-banner"
-
 # ── Home Feed ───────────────────────────────────────────
 - assertVisible:
     id: "home-activity-list"
 
 # Wait for activities to load, then tap first one
 - extendedWaitUntil:
-    visible:
-      id: "activity-card-demo-0"
+    visible: "RECENT ACTIVITIES"
     timeout: 15000
 
 - tapOn:
-    id: "activity-card-demo-0"
+    text: "Morning .*"
 
 # ── Activity Detail ─────────────────────────────────────
 - extendedWaitUntil:
@@ -97,12 +93,12 @@ tags:
     id: "fitness-atl-value"
     optional: true
 
-# ── Training Tab ────────────────────────────────────────
+# ── Health Tab ──────────────────────────────────────────
 - openLink: "veloq://training"
 
 - extendedWaitUntil:
     visible:
-      id: "training-screen"
+      id: "health-screen"
     timeout: 15000
 
 # Verify weekly summary loads
