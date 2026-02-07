@@ -1,21 +1,22 @@
 /**
- * Hook for getting the oldest activity date from the Rust engine.
+ * Hook for getting the oldest activity date from the API.
  *
- * Uses the engine's SQLite stats (Unix timestamp) instead of an API call.
- * Falls back to API if engine has no data yet.
+ * Uses the intervals.icu API binary search to efficiently find the oldest
+ * activity without fetching the entire activity history.
  */
 
-import { useMemo } from 'react';
-import { useEngineStats } from '@/hooks/routes/useRouteEngine';
+import { useQuery } from '@tanstack/react-query';
+import { intervalsApi } from '@/api';
 
-/** Get the oldest activity date from the engine's stored activities */
+/** Get the oldest activity date from the user's activities */
 export function useOldestActivityDate() {
-  const stats = useEngineStats();
-
-  const data = useMemo(() => {
-    if (stats.oldestDate == null) return null;
-    return new Date(Number(stats.oldestDate) * 1000);
-  }, [stats.oldestDate]);
-
-  return { data, isLoading: false, isError: false };
+  return useQuery({
+    queryKey: ['oldestActivityDate'],
+    queryFn: async () => {
+      const dateStr = await intervalsApi.getOldestActivityDate();
+      return dateStr ? new Date(dateStr) : null;
+    },
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours - oldest date rarely changes
+    gcTime: 7 * 24 * 60 * 60 * 1000, // Keep in cache for 7 days
+  });
 }
