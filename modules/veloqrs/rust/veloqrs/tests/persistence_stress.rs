@@ -3,13 +3,12 @@
 //! Tests the full pipeline: SQLite ingest -> section detection -> query.
 //! Uses synthetic data from tracematch for deterministic, scalable testing.
 //!
-//! Run with: `cd modules/veloqrs/rust/veloqrs && cargo test --test persistence_stress`
-//! (requires tracematch synthetic feature, enabled via dev-dependencies)
+//! Run with: `cd modules/veloqrs/rust/veloqrs && cargo test --features synthetic --test persistence_stress`
 //!
 //! Heavy tests are `#[ignore]` by default. Run them with:
-//!   `cargo test --test persistence_stress -- --ignored --nocapture`
+//!   `cargo test --features synthetic --test persistence_stress -- --ignored --nocapture`
 //! Or in release mode (recommended):
-//!   `cargo test --test persistence_stress --release -- --ignored --nocapture`
+//!   `cargo test --features synthetic --test persistence_stress --release -- --ignored --nocapture`
 
 use std::time::Instant;
 use tempfile::TempDir;
