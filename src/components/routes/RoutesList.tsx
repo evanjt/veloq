@@ -16,6 +16,7 @@ import {
   Platform,
 } from 'react-native';
 import { useTheme, useGroupSummaries, useRouteProcessing, useCacheDays } from '@/hooks';
+import type { GroupWithPolyline } from 'veloqrs';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -37,6 +38,8 @@ interface RoutesListProps {
   startDate?: Date;
   /** Filter by end date (only show routes with activities before this date) */
   endDate?: Date;
+  /** Pre-loaded groups with consensus polylines from batch FFI call */
+  batchGroups?: GroupWithPolyline[];
 }
 
 // Memoized routes list - only updates when route count changes
@@ -118,29 +121,61 @@ function summaryToRouteGroup(summary: GroupSummary, index: number): RouteGroup {
   };
 }
 
+/**
+ * Convert batch GroupWithPolyline to RouteGroup with pre-loaded consensus points.
+ * Avoids per-row useConsensusRoute FFI calls.
+ */
+function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteGroup {
+  const sportType = group.sportType || 'Ride';
+  // Convert flat coords [lat1, lng1, lat2, lng2, ...] to RoutePoint[]
+  const consensusPoints: Array<{ lat: number; lng: number }> = [];
+  for (let i = 0; i < group.consensusPolyline.length - 1; i += 2) {
+    consensusPoints.push({ lat: group.consensusPolyline[i], lng: group.consensusPolyline[i + 1] });
+  }
+  return {
+    id: group.groupId,
+    name: group.customName || `${sportType} Route ${index + 1}`,
+    type: toActivityType(sportType),
+    activityCount: group.activityCount,
+    activityIds: [],
+    signature: null,
+    consensusPoints,
+  };
+}
+
 export function RoutesList({
   onRefresh,
   isRefreshing = false,
   startDate,
   endDate,
+  batchGroups,
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
-  // Use lightweight summaries - no activity IDs loaded, just counts and metadata
-  // This prevents memory bloat when many activities are cached
-  const { count: totalCount, summaries } = useGroupSummaries({
+  // Use batch data if provided (single FFI call), otherwise fall back to per-hook queries
+  // Note: hook is always called (React rules) but its data is unused when batch is provided
+  const { summaries: hookSummaries } = useGroupSummaries({
     minActivities: 2,
     sortBy: 'count',
   });
 
-  // Convert summaries to RouteGroup format for RouteRow
-  const groups = useMemo(() => summaries.map((s, i) => summaryToRouteGroup(s, i)), [summaries]);
+  // Convert to RouteGroup format for RouteRow
+  const groups = useMemo(() => {
+    if (batchGroups) {
+      // Filter and sort batch groups (same logic as useGroupSummaries)
+      return batchGroups
+        .filter((g) => g.activityCount >= 2)
+        .sort((a, b) => b.activityCount - a.activityCount)
+        .map((g, i) => batchGroupToRouteGroup(g, i));
+    }
+    return hookSummaries.map((s, i) => summaryToRouteGroup(s, i));
+  }, [batchGroups, hookSummaries]);
 
-  // Calculate processed count from summaries
+  // Calculate processed count
   const processedCount = useMemo(
-    () => summaries.reduce((sum, s) => sum + s.activityCount, 0),
-    [summaries]
+    () => groups.reduce((sum, g) => sum + g.activityCount, 0),
+    [groups]
   );
 
   const isReady = true; // Summaries are always ready (query on demand)

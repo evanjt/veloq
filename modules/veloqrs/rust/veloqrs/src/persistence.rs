@@ -4913,6 +4913,82 @@ impl PersistentRouteEngine {
             newest_date,
         }
     }
+
+    /// Get all data needed by the Routes screen in a single call.
+    /// Returns group summaries with consensus polylines, section summaries with polylines,
+    /// and aggregate counts/stats — all in one mutex acquisition.
+    pub fn get_routes_screen_data(&mut self) -> crate::FfiRoutesScreenData {
+        // Get date range from activity_metrics
+        let (oldest_date, newest_date): (Option<i64>, Option<i64>) = self
+            .db
+            .query_row(
+                "SELECT MIN(date), MAX(date) FROM activity_metrics",
+                [],
+                |row| Ok((row.get(0).ok(), row.get(1).ok())),
+            )
+            .unwrap_or((None, None));
+
+        // Get group summaries with embedded consensus polylines
+        let raw_summaries = self.get_group_summaries();
+        let groups: Vec<crate::FfiGroupWithPolyline> = raw_summaries
+            .into_iter()
+            .map(|g| {
+                let consensus_polyline = self
+                    .get_consensus_route(&g.group_id)
+                    .map(|points| {
+                        points
+                            .iter()
+                            .flat_map(|p| vec![p.latitude, p.longitude])
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                crate::FfiGroupWithPolyline {
+                    group_id: g.group_id,
+                    representative_id: g.representative_id,
+                    sport_type: g.sport_type,
+                    activity_count: g.activity_count,
+                    custom_name: g.custom_name,
+                    bounds: g.bounds,
+                    consensus_polyline,
+                }
+            })
+            .collect();
+
+        // Get section summaries with embedded polylines
+        let raw_sections = self.get_section_summaries();
+        let sections: Vec<crate::FfiSectionWithPolyline> = raw_sections
+            .into_iter()
+            .map(|s| {
+                let polyline = self.get_section_polyline(&s.id);
+                crate::FfiSectionWithPolyline {
+                    id: s.id,
+                    name: s.name,
+                    sport_type: s.sport_type,
+                    visit_count: s.visit_count,
+                    distance_meters: s.distance_meters,
+                    activity_count: s.activity_count,
+                    confidence: s.confidence,
+                    scale: s.scale,
+                    bounds: s.bounds,
+                    polyline,
+                }
+            })
+            .collect();
+
+        let activity_count = self.activity_metadata.len() as u32;
+        let group_count = groups.len() as u32;
+        let section_count = sections.len() as u32;
+
+        crate::FfiRoutesScreenData {
+            activity_count,
+            group_count,
+            section_count,
+            oldest_date,
+            newest_date,
+            groups,
+            sections,
+        }
+    }
 }
 
 /// Statistics for the persistent engine.
@@ -5401,6 +5477,12 @@ pub mod persistent_engine_ffi {
     #[uniffi::export]
     pub fn persistent_engine_get_stats() -> Option<PersistentEngineStats> {
         with_persistent_engine(|e| e.stats())
+    }
+
+    /// Get all data for the Routes screen in a single FFI call.
+    #[uniffi::export]
+    pub fn persistent_engine_get_routes_screen_data() -> Option<crate::FfiRoutesScreenData> {
+        with_persistent_engine(|e| e.get_routes_screen_data())
     }
 
     // ========================================================================

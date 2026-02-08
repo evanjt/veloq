@@ -11,21 +11,15 @@ import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import {
   useRouteProcessing,
   useActivityBoundsCache,
-  useRouteGroups,
-  useEngineStats,
   useOldestActivityDate,
   useTheme,
+  useRoutesScreenData,
 } from '@/hooks';
-import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
 import { useRouteSettings, useSyncDateRange } from '@/providers';
 import { colors, darkColors, spacing } from '@/theme';
-import { createSharedStyles } from '@/styles';
-import { debug } from '@/lib';
 import type { ActivityType } from '@/types';
 
 type TabType = 'routes' | 'sections';
-
-const log = debug.create('Routes');
 
 export default function RoutesScreen() {
   // Performance timing
@@ -36,8 +30,7 @@ export default function RoutesScreen() {
   });
 
   const { t } = useTranslation();
-  const { isDark, colors: themeColors } = useTheme();
-  const shared = createSharedStyles(isDark);
+  const { isDark } = useTheme();
   const { tab } = useLocalSearchParams<{ tab?: string }>();
 
   // Check if route matching is enabled
@@ -46,8 +39,12 @@ export default function RoutesScreen() {
 
   const { clearCache: clearRouteCache } = useRouteProcessing();
 
-  // Get engine stats
-  const engineStats = useEngineStats();
+  // Single FFI call for all routes screen data (groups, sections, counts)
+  const routesData = useRoutesScreenData();
+
+  // Derive counts from batch data
+  const routeGroupCount = routesData?.groupCount ?? 0;
+  const totalSections = routesData?.sectionCount ?? 0;
 
   // Fetch the true oldest activity date from API (for timeline extent)
   const { data: apiOldestDate } = useOldestActivityDate();
@@ -64,17 +61,6 @@ export default function RoutesScreen() {
     syncDateRange,
     sync: triggerSync,
   } = useActivityBoundsCache();
-
-  // Get route groups to count (use minActivities: 2 to match the list)
-  const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
-
-  // Get unified sections data (auto-detected + custom)
-  // Fetch with full options here, pass to SectionsList to avoid duplicate FFI calls
-  const unifiedSectionsData = useUnifiedSections({
-    includeCustom: true,
-    includePotentials: true,
-  });
-  const { count: totalSections } = unifiedSectionsData;
 
   // Tab state - initialize from URL param if provided
   const [activeTab, setActiveTab] = useState<TabType>(() =>
@@ -95,7 +81,7 @@ export default function RoutesScreen() {
         key: 'routes',
         label: t('trainingScreen.routes'),
         icon: 'map-marker-path',
-        count: routeGroups.length,
+        count: routeGroupCount,
       },
       {
         key: 'sections',
@@ -104,7 +90,7 @@ export default function RoutesScreen() {
         count: totalSections,
       },
     ],
-    [t, routeGroups.length, totalSections]
+    [t, routeGroupCount, totalSections]
   );
 
   // Date range state - default to full cached range (show all data)
@@ -171,11 +157,9 @@ export default function RoutesScreen() {
     }
   }, [triggerSync]);
 
-  // Calculate cached range from sync store and engine activity count
+  // Calculate cached range from sync store and batch data activity count
   const { oldestSyncedDate, newestSyncedDate, activityCount } = useMemo(() => {
-    const { getRouteEngine } = require('@/lib/native/routeEngine');
-    const engine = getRouteEngine();
-    const count = engine ? engine.getActivityCount() : 0;
+    const count = routesData?.activityCount ?? 0;
 
     if (count === 0) {
       return { oldestSyncedDate: null, newestSyncedDate: null, activityCount: 0 };
@@ -186,7 +170,7 @@ export default function RoutesScreen() {
       newestSyncedDate: syncNewest,
       activityCount: count,
     };
-  }, [boundsReady, syncOldest, syncNewest]);
+  }, [routesData?.activityCount, syncOldest, syncNewest]);
 
   // Convert sync/processing progress to unified phased format
   // Phases: 1) Loading activities, 2) Downloading GPS, 3) Analyzing routes
@@ -294,9 +278,14 @@ export default function RoutesScreen() {
         activeTab={activeTab}
         onTabChange={(key) => setActiveTab(key as TabType)}
         isDark={isDark}
+        lazy
       >
-        <RoutesList onRefresh={handleRefresh} isRefreshing={isRefreshing} />
-        <SectionsList prefetchedData={unifiedSectionsData} />
+        <RoutesList
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
+          batchGroups={routesData?.groups}
+        />
+        <SectionsList batchSections={routesData?.sections} />
       </SwipeableTabs>
     </ScreenSafeAreaView>
   );

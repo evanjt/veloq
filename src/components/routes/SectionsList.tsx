@@ -33,6 +33,7 @@ import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
 import { useDisabledSections } from '@/providers/DisabledSectionsStore';
 import { debug } from '@/lib';
 import type { UnifiedSection, FrequentSection } from '@/types';
+import type { SectionWithPolyline } from 'veloqrs';
 
 const log = debug.create('SectionsList');
 
@@ -50,6 +51,8 @@ interface SectionsListProps {
     isLoading: boolean;
     error: Error | null;
   };
+  /** Pre-loaded engine sections with polylines from batch FFI call */
+  batchSections?: SectionWithPolyline[];
 }
 
 type HiddenFilters = {
@@ -58,7 +61,7 @@ type HiddenFilters = {
   disabled: boolean;
 };
 
-export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
+export function SectionsList({ sportType, prefetchedData, batchSections }: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const [hiddenFilters, setHiddenFilters] = useState<HiddenFilters>({
@@ -87,6 +90,21 @@ export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
     disabledCount,
     isLoading,
   } = data;
+
+  // Build a polyline lookup from batch data to inject into SectionRow
+  // This avoids per-row useSectionPolyline FFI calls
+  const batchPolylineLookup = useMemo(() => {
+    if (!batchSections) return null;
+    const lookup = new Map<string, Array<{ lat: number; lng: number }>>();
+    for (const s of batchSections) {
+      const points: Array<{ lat: number; lng: number }> = [];
+      for (let i = 0; i < s.polyline.length - 1; i += 2) {
+        points.push({ lat: s.polyline[i], lng: s.polyline[i + 1] });
+      }
+      lookup.set(s.id, points);
+    }
+    return lookup;
+  }, [batchSections]);
 
   const { createSection, removeSection } = useCustomSections();
   const { disable, enable } = useDisabledSections();
@@ -342,34 +360,41 @@ export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
   );
 
   // Convert UnifiedSection to FrequentSection-like object for SectionRow
-  const toFrequentSection = useCallback((section: UnifiedSection): FrequentSection => {
-    // If we have engineData, use it directly
-    if (section.engineData) {
-      return section.engineData;
-    }
-    // Otherwise, construct a compatible object (for custom sections)
-    // Include source activity if not already in matches or activityIds
-    const matchActivityIds = section.customData?.matches?.map((m) => m.activityId) ?? [];
-    const sectionActivityIds = section.customData?.activityIds ?? [];
-    const allActivityIds = [...new Set([...matchActivityIds, ...sectionActivityIds])];
-    const sourceActivityId = section.customData?.sourceActivityId;
-    const activityIds =
-      sourceActivityId && !allActivityIds.includes(sourceActivityId)
-        ? [sourceActivityId, ...allActivityIds]
-        : allActivityIds;
+  const toFrequentSection = useCallback(
+    (section: UnifiedSection): FrequentSection => {
+      // If we have engineData, use it directly (inject batch polyline if available)
+      if (section.engineData) {
+        const batchPolyline = batchPolylineLookup?.get(section.id);
+        if (batchPolyline && batchPolyline.length > 0) {
+          return { ...section.engineData, polyline: batchPolyline };
+        }
+        return section.engineData;
+      }
+      // Otherwise, construct a compatible object (for custom sections)
+      // Include source activity if not already in matches or activityIds
+      const matchActivityIds = section.customData?.matches?.map((m) => m.activityId) ?? [];
+      const sectionActivityIds = section.customData?.activityIds ?? [];
+      const allActivityIds = [...new Set([...matchActivityIds, ...sectionActivityIds])];
+      const sourceActivityId = section.customData?.sourceActivityId;
+      const activityIds =
+        sourceActivityId && !allActivityIds.includes(sourceActivityId)
+          ? [sourceActivityId, ...allActivityIds]
+          : allActivityIds;
 
-    return {
-      id: section.id,
-      sectionType: section.sectionType || 'custom',
-      sportType: section.sportType,
-      polyline: section.polyline,
-      activityIds,
-      visitCount: activityIds.length,
-      distanceMeters: section.distanceMeters,
-      name: section.name,
-      createdAt: section.createdAt || new Date().toISOString(),
-    };
-  }, []);
+      return {
+        id: section.id,
+        sectionType: section.sectionType || 'custom',
+        sportType: section.sportType,
+        polyline: section.polyline,
+        activityIds,
+        visitCount: activityIds.length,
+        distanceMeters: section.distanceMeters,
+        name: section.name,
+        createdAt: section.createdAt || new Date().toISOString(),
+      };
+    },
+    [batchPolylineLookup]
+  );
 
   // Close any open swipeable when another opens
   const handleSwipeableOpen = useCallback((id: string) => {

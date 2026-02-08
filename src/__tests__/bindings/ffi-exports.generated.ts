@@ -19,7 +19,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 78 exports
+ * Total: 79 exports
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -273,6 +273,12 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     camelName: 'persistentEngineGetStats',
     file: 'persistence.rs',
     line: 5233,
+  },
+  {
+    name: 'persistent_engine_get_routes_screen_data',
+    camelName: 'persistentEngineGetRoutesScreenData',
+    file: 'persistence.rs',
+    line: 5480,
   },
   {
     name: 'persistent_engine_start_section_detection',
@@ -538,6 +544,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'persistentEngineGetConsensusRoute',
   'persistentEngineGetGpsTrack',
   'persistentEngineGetStats',
+  'persistentEngineGetRoutesScreenData',
   'persistentEngineStartSectionDetection',
   'persistentEnginePollSections',
   'persistentEngineGetSectionDetectionProgress',
@@ -623,6 +630,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   persistent_engine_get_consensus_route: 'persistentEngineGetConsensusRoute',
   persistent_engine_get_gps_track: 'persistentEngineGetGpsTrack',
   persistent_engine_get_stats: 'persistentEngineGetStats',
+  persistent_engine_get_routes_screen_data: 'persistentEngineGetRoutesScreenData',
   persistent_engine_start_section_detection: 'persistentEngineStartSectionDetection',
   persistent_engine_poll_sections: 'persistentEnginePollSections',
   persistent_engine_get_section_detection_progress: 'persistentEngineGetSectionDetectionProgress',

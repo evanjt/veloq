@@ -17,13 +17,16 @@ export interface RouteSignature {
  * PERFORMANCE: Defers loading until after animations complete to avoid blocking UI.
  * Processes activities in batches to keep the main thread responsive.
  *
+ * @param enabled - Whether to load signatures (default: true). Set to false when the
+ *   map tab is not focused to avoid 80+ getGpsTrack FFI calls on tab switch.
  * @returns Record mapping activityId to {points, center}
  */
-export function useRouteSignatures(): Record<string, RouteSignature> {
+export function useRouteSignatures(enabled = true): Record<string, RouteSignature> {
   const [signatures, setSignatures] = useState<Record<string, RouteSignature>>({});
   const isMountedRef = useRef(true);
 
   const buildSignatures = useCallback(() => {
+    if (!enabled) return;
     const engine = getRouteEngine();
     if (!engine || !isMountedRef.current) return;
 
@@ -82,12 +85,12 @@ export function useRouteSignatures(): Record<string, RouteSignature> {
         setSignatures({});
       }
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     isMountedRef.current = true;
     const engine = getRouteEngine();
-    if (!engine) return;
+    if (!engine || !enabled) return;
 
     // Defer loading until after navigation animations complete
     const task = InteractionManager.runAfterInteractions(() => {
@@ -102,7 +105,7 @@ export function useRouteSignatures(): Record<string, RouteSignature> {
       task.cancel();
       unsubscribe();
     };
-  }, [buildSignatures]);
+  }, [buildSignatures, enabled]);
 
   return signatures;
 }

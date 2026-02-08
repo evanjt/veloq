@@ -156,8 +156,15 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   const isMetric = useMetricSystem();
   const [expanded, setExpanded] = useState(false);
 
-  // Lazy load consensus route for RouteGroup (non-blocking)
-  const { points: consensusPoints } = useConsensusRoute(isRouteGroup(route) ? route.id : null);
+  // Use pre-loaded consensus points if available (from batch FFI), otherwise lazy-load
+  const hasPreloadedConsensus =
+    isRouteGroup(route) && route.consensusPoints && route.consensusPoints.length > 0;
+  const { points: lazyConsensusPoints } = useConsensusRoute(
+    isRouteGroup(route) && !hasPreloadedConsensus ? route.id : null
+  );
+  const consensusPoints = hasPreloadedConsensus
+    ? (route as RouteGroup).consensusPoints!
+    : lazyConsensusPoints;
 
   // Display name comes from parent via route.name (which includes custom name from useRouteGroups)
   // This ensures reactivity when names change via the hook chain

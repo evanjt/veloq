@@ -108,6 +108,10 @@ import {
   type FfiMonthlyAggregate,
   type FfiHeatmapDay,
   type FfiFtpTrend,
+  type FfiRoutesScreenData,
+  type FfiGroupWithPolyline,
+  type FfiSectionWithPolyline,
+  persistentEngineGetRoutesScreenData,
 } from './generated/veloqrs';
 
 // Re-export types with shorter names for convenience
@@ -126,6 +130,10 @@ export type PeriodStats = FfiPeriodStats;
 export type MonthlyAggregate = FfiMonthlyAggregate;
 export type HeatmapDay = FfiHeatmapDay;
 export type FtpTrend = FfiFtpTrend;
+// Routes screen batch types
+export type RoutesScreenData = FfiRoutesScreenData;
+export type GroupWithPolyline = FfiGroupWithPolyline;
+export type SectionWithPolyline = FfiSectionWithPolyline;
 
 // For backward compatibility, also export the module initialization status
 export function isRouteMatcherInitialized(): boolean {
@@ -830,6 +838,15 @@ class RouteEngineClient {
    */
   getStats(): PersistentEngineStats | undefined {
     return this.timed('getStats', () => persistentEngineGetStats());
+  }
+
+  /**
+   * Get all data for the Routes screen in a single FFI call.
+   * Returns group summaries with consensus polylines, section summaries with polylines,
+   * and counts/date range.
+   */
+  getRoutesScreenData(): FfiRoutesScreenData | undefined {
+    return this.timed('getRoutesScreenData', () => persistentEngineGetRoutesScreenData());
   }
 
   // ==========================================================================

@@ -226,6 +226,9 @@ interface NativeModuleInterface {
     currentActivityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_routes_screen_data(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_by_id(
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
@@ -400,6 +403,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_period_stats(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_route_name(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_route_performances(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_routes_screen_data(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_by_id(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_count(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_detection_progress(): number;

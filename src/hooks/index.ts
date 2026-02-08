@@ -95,6 +95,7 @@ export {
 } from './routes/useRouteEngine';
 export { useRouteDataSync } from './routes/useRouteDataSync';
 export { useRouteReoptimization } from './routes/useRouteReoptimization';
+export { useRoutesScreenData } from './routes/useRoutesScreenData';
 export { useRetentionCleanup } from './routes/useRetentionCleanup';
 
 // Section detail hook from route engine

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { useTheme } from '@/hooks';
 import {
   MapView,
@@ -136,8 +136,11 @@ export function RegionalMapView({
     }
   }, [mapStyle, mapKey]);
 
-  // Get route signatures from Rust engine for trace rendering
-  const routeSignatures = useRouteSignatures();
+  // Only load route signatures when the map tab is focused
+  // This prevents 80+ getGpsTrack FFI calls when switching to other tabs
+  const pathname = usePathname();
+  const isMapFocused = pathname === '/map' || pathname.endsWith('/map');
+  const routeSignatures = useRouteSignatures(isMapFocused);
 
   // Frequent sections from route matching (with polylines loaded)
   // useEngineSections loads full section data from Rust engine including polylines

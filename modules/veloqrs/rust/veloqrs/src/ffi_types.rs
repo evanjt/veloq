@@ -852,6 +852,53 @@ impl From<tracematch::RoutePerformanceResult> for FfiRoutePerformanceResult {
 }
 
 // ============================================================================
+// Batch Screen Data Types
+// ============================================================================
+
+/// Group summary with embedded consensus polyline for the Routes screen.
+/// Avoids N separate getConsensusRoute() calls.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiGroupWithPolyline {
+    pub group_id: String,
+    pub representative_id: String,
+    pub sport_type: String,
+    pub activity_count: u32,
+    pub custom_name: Option<String>,
+    pub bounds: Option<FfiBounds>,
+    /// Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
+    pub consensus_polyline: Vec<f64>,
+}
+
+/// Section summary with embedded polyline for the Routes screen.
+/// Avoids N separate getSectionPolyline() calls.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionWithPolyline {
+    pub id: String,
+    pub name: Option<String>,
+    pub sport_type: String,
+    pub visit_count: u32,
+    pub distance_meters: f64,
+    pub activity_count: u32,
+    pub confidence: f64,
+    pub scale: Option<String>,
+    pub bounds: Option<FfiBounds>,
+    /// Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
+    pub polyline: Vec<f64>,
+}
+
+/// All data needed by the Routes screen in a single FFI call.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiRoutesScreenData {
+    pub activity_count: u32,
+    pub group_count: u32,
+    pub section_count: u32,
+    pub oldest_date: Option<i64>,
+    pub newest_date: Option<i64>,
+    pub groups: Vec<FfiGroupWithPolyline>,
+    pub sections: Vec<FfiSectionWithPolyline>,
+}
+
+// ============================================================================
 // Helper functions
 // ============================================================================
 

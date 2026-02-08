@@ -223,6 +223,8 @@ RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_route_name(
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_route_performances(
     RustBuffer route_group_id, RustBuffer current_activity_id,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_routes_screen_data(
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_section_by_id(
     RustBuffer section_id, RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_func_persistent_engine_get_section_count(
@@ -479,6 +481,8 @@ uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_period_stats();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_route_name();
 uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_get_route_performances();
+uint16_t
+uniffi_veloqrs_checksum_func_persistent_engine_get_routes_screen_data();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_section_by_id();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_section_count();
 uint16_t
@@ -2793,6 +2797,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_route_performances(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_routes_screen_"
+        "data"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_func_persistent_"
+                                    "engine_get_routes_screen_data"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_routes_screen_data(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_by_id"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -3730,6 +3746,18 @@ NativeVeloqrs::NativeVeloqrs(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_route_performances(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_routes_screen_"
+        "data"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
+                                    "persistent_engine_get_routes_screen_data"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_routes_screen_data(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_by_"
@@ -4874,6 +4902,19 @@ jsi::Value NativeVeloqrs::
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_func_persistent_engine_get_routes_screen_data(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value =
+      uniffi_veloqrs_fn_func_persistent_engine_get_routes_screen_data(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_get_section_by_id(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -5688,6 +5729,15 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_func_persistent_engine_get_route_performances();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_routes_screen_data(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_get_routes_screen_data();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
