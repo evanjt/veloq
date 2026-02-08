@@ -3,6 +3,9 @@
 import { enableFreeze } from 'react-native-screens';
 enableFreeze(true);
 
+import { LogBox } from 'react-native';
+LogBox.ignoreAllLogs();
+
 import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
 import { PaperProvider } from 'react-native-paper';
