@@ -19,7 +19,7 @@
 //!    - Computed route groups
 //!    - Detected sections
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::mpsc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
@@ -3053,34 +3053,26 @@ impl PersistentRouteEngine {
         let progress_clone = progress.clone();
 
         // Ensure groups are computed before section detection.
-        // This is necessary because:
-        // 1. Route groups are a core feature - users expect to see their routes
-        // 2. Sections need groups to be linked to activities
-        // 3. Without groups, the Routes tab shows "0 routes"
-        //
-        // This call may trigger recomputation if groups_dirty = true (after addActivities).
-        // The recomputation loads signatures and runs grouping algorithm.
-        // For 54 activities, this typically takes < 1 second.
         if self.groups_dirty {
             log::info!(
                 "tracematch: [SectionDetection] Computing route groups before section detection..."
             );
             let start = std::time::Instant::now();
-            let _ = self.get_groups(); // This triggers recomputation and saves to DB
+            let _ = self.get_groups();
             log::info!(
                 "tracematch: [SectionDetection] Route groups computed in {:?}",
                 start.elapsed()
             );
         }
 
-        // Build sport type map - lightweight, just copying metadata
+        // Build sport type map
         let sport_map: HashMap<String, String> = self
             .activity_metadata
             .values()
             .map(|m| (m.id.clone(), m.sport_type.clone()))
             .collect();
 
-        // Filter activity IDs by sport - lightweight
+        // Filter activity IDs by sport
         let activity_ids: Vec<String> = if let Some(ref sport) = sport_filter {
             self.activity_metadata
                 .values()
@@ -3091,16 +3083,61 @@ impl PersistentRouteEngine {
             self.activity_metadata.keys().cloned().collect()
         };
 
+        // Determine if incremental detection is possible:
+        // - Must have existing sections
+        // - New (unprocessed) activities must be < 30% of total
+        let existing_sections = self.sections.clone();
+        let processed_activity_ids: HashSet<String> = {
+            let mut processed = HashSet::new();
+            for section in &self.sections {
+                for aid in &section.activity_ids {
+                    processed.insert(aid.clone());
+                }
+            }
+            processed
+        };
+
+        let new_activity_ids: Vec<String> = activity_ids
+            .iter()
+            .filter(|id| !processed_activity_ids.contains(*id))
+            .cloned()
+            .collect();
+
+        let use_incremental = !existing_sections.is_empty()
+            && !new_activity_ids.is_empty()
+            && (new_activity_ids.len() as f64) < (activity_ids.len() as f64 * 0.3);
+
+        if use_incremental {
+            log::info!(
+                "tracematch: [SectionDetection] Using INCREMENTAL mode: {} new of {} total activities, {} existing sections",
+                new_activity_ids.len(),
+                activity_ids.len(),
+                existing_sections.len()
+            );
+        } else if !new_activity_ids.is_empty() && !existing_sections.is_empty() {
+            log::info!(
+                "tracematch: [SectionDetection] Using FULL mode: {} new of {} total activities (>{:.0}% threshold)",
+                new_activity_ids.len(),
+                activity_ids.len(),
+                30.0
+            );
+        }
+
         // Set initial loading phase
-        progress.set_phase("loading", activity_ids.len() as u32);
+        let ids_to_load = if use_incremental {
+            // Only load new tracks for incremental (plus existing for consensus recalc)
+            activity_ids.clone()
+        } else {
+            activity_ids.clone()
+        };
+        progress.set_phase("loading", ids_to_load.len() as u32);
 
         thread::spawn(move || {
             log::info!(
                 "tracematch: [SectionDetection] Background thread started with {} activity IDs",
-                activity_ids.len()
+                ids_to_load.len()
             );
 
-            // Open separate connection for background thread
             let conn = match Connection::open(&db_path) {
                 Ok(c) => c,
                 Err(e) => {
@@ -3110,20 +3147,18 @@ impl PersistentRouteEngine {
                 }
             };
 
-            // Load groups from DB inside the thread (non-blocking on main thread)
             let groups = load_groups_from_db(&conn);
             log::info!(
                 "tracematch: [SectionDetection] Loaded {} groups from DB",
                 groups.len()
             );
 
-            // Set loading phase with total count
-            progress_clone.set_phase("loading", activity_ids.len() as u32);
+            progress_clone.set_phase("loading", ids_to_load.len() as u32);
 
-            // Load GPS tracks from DB with progress updates
+            // Load GPS tracks from DB
             let mut tracks_loaded = 0;
             let mut tracks_empty = 0;
-            let tracks: Vec<(String, Vec<GpsPoint>)> = activity_ids
+            let tracks: Vec<(String, Vec<GpsPoint>)> = ids_to_load
                 .iter()
                 .filter_map(|id| {
                     progress_clone.increment();
@@ -3138,7 +3173,7 @@ impl PersistentRouteEngine {
                         .ok()?;
                     if track.is_empty() {
                         tracks_empty += 1;
-                        return None; // Skip empty tracks
+                        return None;
                     }
                     tracks_loaded += 1;
                     Some((id.clone(), track))
@@ -3149,7 +3184,7 @@ impl PersistentRouteEngine {
                 "tracematch: [SectionDetection] Loaded {} tracks ({} empty/missing) from {} activity IDs",
                 tracks_loaded,
                 tracks_empty,
-                activity_ids.len()
+                ids_to_load.len()
             );
 
             if tracks.is_empty() {
@@ -3159,7 +3194,6 @@ impl PersistentRouteEngine {
                 return;
             }
 
-            // Log track point counts for debugging
             let total_points: usize = tracks.iter().map(|(_, t)| t.len()).sum();
             log::info!(
                 "tracematch: [SectionDetection] Total GPS points: {}, avg per track: {}",
@@ -3167,23 +3201,149 @@ impl PersistentRouteEngine {
                 total_points / tracks.len().max(1)
             );
 
-            // Detect sections using multi-scale algorithm with progress callback
-            let result = tracematch::detect_sections_multiscale_with_progress(
-                &tracks,
-                &sport_map,
-                &groups,
-                &section_config,
-                Arc::new(progress_clone.clone()),
-            );
+            if use_incremental {
+                // Incremental mode: match new activities against existing sections
+                let new_set: HashSet<String> = new_activity_ids.into_iter().collect();
+                let new_tracks: Vec<(String, Vec<GpsPoint>)> = tracks
+                    .iter()
+                    .filter(|(id, _)| new_set.contains(id))
+                    .cloned()
+                    .collect();
 
-            log::info!(
-                "tracematch: [SectionDetection] Detection complete: {} sections, {} potentials",
-                result.sections.len(),
-                result.potentials.len()
-            );
+                log::info!(
+                    "tracematch: [SectionDetection] Incremental: {} new tracks to match against {} sections",
+                    new_tracks.len(),
+                    existing_sections.len()
+                );
 
-            progress_clone.set_phase("complete", 0);
-            tx.send(result.sections).ok();
+                let result = tracematch::sections::incremental::detect_sections_incremental(
+                    &new_tracks,
+                    &existing_sections,
+                    &tracks, // all tracks for consensus recalc
+                    &sport_map,
+                    &groups,
+                    &section_config,
+                    Arc::new(progress_clone.clone()),
+                );
+
+                log::info!(
+                    "tracematch: [SectionDetection] Incremental complete: {} updated, {} new, {} matched, {} unmatched",
+                    result.updated_sections.len(),
+                    result.new_sections.len(),
+                    result.matched_activity_ids.len(),
+                    result.unmatched_activity_ids.len(),
+                );
+
+                // Merge: updated existing + newly discovered
+                let mut all_sections = result.updated_sections;
+                all_sections.extend(result.new_sections);
+
+                progress_clone.set_phase("complete", 0);
+                tx.send(all_sections).ok();
+            } else {
+                // Full detection mode with batching for large datasets.
+                // Cap full pairwise detection at BATCH_CAP activities per batch.
+                // Subsequent batches use incremental detection against results from prior batches.
+                const BATCH_CAP: usize = 500;
+
+                if tracks.len() <= BATCH_CAP {
+                    // Small enough for single-pass full detection
+                    let result = tracematch::detect_sections_multiscale_with_progress(
+                        &tracks,
+                        &sport_map,
+                        &groups,
+                        &section_config,
+                        Arc::new(progress_clone.clone()),
+                    );
+
+                    log::info!(
+                        "tracematch: [SectionDetection] Detection complete: {} sections, {} potentials",
+                        result.sections.len(),
+                        result.potentials.len()
+                    );
+
+                    progress_clone.set_phase("complete", 0);
+                    tx.send(result.sections).ok();
+                } else {
+                    // Large dataset: process in batches
+                    let num_batches = (tracks.len() + BATCH_CAP - 1) / BATCH_CAP;
+                    log::info!(
+                        "tracematch: [SectionDetection] Batched mode: {} activities in {} batches of up to {}",
+                        tracks.len(),
+                        num_batches,
+                        BATCH_CAP
+                    );
+
+                    // Batch 1: full detection on first BATCH_CAP activities
+                    let batch1_tracks = &tracks[..BATCH_CAP.min(tracks.len())];
+                    let result = tracematch::detect_sections_multiscale_with_progress(
+                        batch1_tracks,
+                        &sport_map,
+                        &groups,
+                        &section_config,
+                        Arc::new(progress_clone.clone()),
+                    );
+
+                    let mut accumulated_sections = result.sections;
+                    log::info!(
+                        "tracematch: [SectionDetection] Batch 1/{}: {} sections from {} activities",
+                        num_batches,
+                        accumulated_sections.len(),
+                        batch1_tracks.len()
+                    );
+
+                    // Subsequent batches: incremental detection against accumulated sections
+                    let mut batch_start = BATCH_CAP;
+                    let mut batch_num = 2;
+                    while batch_start < tracks.len() {
+                        let batch_end = (batch_start + BATCH_CAP).min(tracks.len());
+                        let batch_tracks = &tracks[batch_start..batch_end];
+
+                        log::info!(
+                            "tracematch: [SectionDetection] Batch {}/{}: {} new activities against {} sections",
+                            batch_num,
+                            num_batches,
+                            batch_tracks.len(),
+                            accumulated_sections.len()
+                        );
+
+                        let incr_result =
+                            tracematch::sections::incremental::detect_sections_incremental(
+                                batch_tracks,
+                                &accumulated_sections,
+                                &tracks, // all tracks for consensus
+                                &sport_map,
+                                &groups,
+                                &section_config,
+                                Arc::new(progress_clone.clone()),
+                            );
+
+                        // Replace accumulated with updated + new
+                        accumulated_sections = incr_result.updated_sections;
+                        accumulated_sections.extend(incr_result.new_sections);
+
+                        log::info!(
+                            "tracematch: [SectionDetection] Batch {}/{}: now {} total sections ({} matched, {} unmatched)",
+                            batch_num,
+                            num_batches,
+                            accumulated_sections.len(),
+                            incr_result.matched_activity_ids.len(),
+                            incr_result.unmatched_activity_ids.len(),
+                        );
+
+                        batch_start = batch_end;
+                        batch_num += 1;
+                    }
+
+                    log::info!(
+                        "tracematch: [SectionDetection] Batched detection complete: {} sections",
+                        accumulated_sections.len()
+                    );
+
+                    progress_clone.set_phase("complete", 0);
+                    tx.send(accumulated_sections).ok();
+                }
+            }
         });
 
         SectionDetectionHandle {
@@ -5440,9 +5600,10 @@ pub mod persistent_engine_ffi {
                 return vec![];
             }
 
-            // Build a track map with just this activity
-            let mut track_map = std::collections::HashMap::new();
-            track_map.insert(activity_id.clone(), track);
+            // Build a track map with just this activity — borrow to match tracematch API
+            let mut track_map: std::collections::HashMap<&str, &[tracematch::GpsPoint]> =
+                std::collections::HashMap::new();
+            track_map.insert(activity_id.as_str(), track.as_slice());
 
             // Use the existing trace extraction algorithm
             let traces = tracematch::sections::extract_all_activity_traces(

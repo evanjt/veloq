@@ -1,11 +1,20 @@
-import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, Pressable, Platform, Share, useWindowDimensions } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  Pressable,
+  Platform,
+  Share,
+  useWindowDimensions,
+} from 'react-native';
 import { useTheme, useMetricSystem } from '@/hooks';
 import { Text, Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { Activity } from '@/types';
 import {
   formatDistance,
@@ -57,6 +66,9 @@ export const ActivityCard = React.memo(function ActivityCard({
   const isNarrowScreen = screenWidth < NARROW_SCREEN_WIDTH;
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState({ x: 0, y: 0 });
+  const [isPressed, setIsPressed] = useState(false);
+  const handlePressIn = useCallback(() => setIsPressed(true), []);
+  const handlePressOut = useCallback(() => setIsPressed(false), []);
 
   const handlePress = () => {
     router.push(`/activity/${activity.id}`);
@@ -93,226 +105,288 @@ export const ActivityCard = React.memo(function ActivityCard({
     router.push(`/activity/${activity.id}`);
   }, [activity.id]);
 
+  const [showFade, setShowFade] = useState(false);
+  const scrollViewWidth = useRef(0);
+
+  const handleContentSizeChange = useCallback((contentWidth: number) => {
+    setShowFade(contentWidth > scrollViewWidth.current);
+  }, []);
+
+  const handleScrollViewLayout = useCallback(
+    (e: { nativeEvent: { layout: { width: number } } }) => {
+      scrollViewWidth.current = e.nativeEvent.layout.width;
+    },
+    []
+  );
+
+  const handleScroll = useCallback(
+    (e: {
+      nativeEvent: {
+        contentOffset: { x: number };
+        contentSize: { width: number };
+        layoutMeasurement: { width: number };
+      };
+    }) => {
+      const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+      const atEnd = contentOffset.x + layoutMeasurement.width >= contentSize.width - 1;
+      setShowFade(!atEnd);
+    },
+    []
+  );
+
   const activityColor = getActivityColor(activity.type);
   const iconName = getActivityIcon(activity.type);
   const location = formatLocation(activity);
+  const cardBg = isDark ? darkColors.surface : colors.surface;
 
   return (
-    <Pressable
-      testID={`activity-card-${activity.id}`}
-      onPress={handlePress}
-      onLongPress={handleLongPress}
-      delayLongPress={500}
-      style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
-    >
-      <View style={[styles.card, isDark && styles.cardDark]}>
-        {/* Colored accent bar at top - subtle opacity */}
-        <View style={[styles.accentBar, { backgroundColor: activityColor + '80' }]} />
-
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-            <MaterialCommunityIcons name={iconName} size={20} color={colors.textOnDark} />
-          </View>
-          <View style={styles.headerText}>
-            <Text style={[styles.activityName, isDark && styles.textLight]} numberOfLines={1}>
-              {activity.name}
-            </Text>
-            <Text style={[styles.date, isDark && styles.dateDark]} numberOfLines={1}>
-              {formatRelativeDate(activity.start_date_local)}
-              {location && ` · ${location}`}
-            </Text>
-          </View>
-        </View>
-
-        {/* Map preview with stats overlay */}
-        <View style={styles.mapContainer}>
-          <ActivityMapPreview activity={activity} height={220} index={index} />
-          {/* Stats overlay at bottom of map */}
-          <View style={styles.statsOverlay}>
-            <View style={styles.statPill}>
-              <Text
-                testID={`activity-card-${activity.id}-distance`}
-                style={[styles.statValue, { color: activityColor }]}
-              >
-                {formatDistance(activity.distance, isMetric)}
-              </Text>
-            </View>
-            <View style={styles.statPill}>
-              <Text testID={`activity-card-${activity.id}-duration`} style={styles.statValue}>
-                {formatDuration(activity.moving_time)}
-              </Text>
-            </View>
-            <View style={styles.statPill}>
-              <Text testID={`activity-card-${activity.id}-elevation`} style={styles.statValue}>
-                {formatElevation(activity.total_elevation_gain, isMetric)}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Secondary stats - adaptive layout for narrow screens */}
-        <View
-          style={[
-            styles.secondaryStats,
-            isDark && styles.secondaryStatsDark,
-            isNarrowScreen && styles.secondaryStatsNarrow,
-          ]}
+    <View style={styles.cardWrapper}>
+      <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
+        {/* Pressable wraps only header + map so horizontal scroll on stats row works */}
+        <Pressable
+          testID={`activity-card-${activity.id}`}
+          onPress={handlePress}
+          onLongPress={handleLongPress}
+          delayLongPress={500}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
         >
-          {activity.icu_training_load && (
-            <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
-              <View
-                style={[
-                  styles.secondaryStatIcon,
-                  ICON_BG_TSS,
-                  isNarrowScreen && styles.secondaryStatIconNarrow,
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="fire"
-                  size={isNarrowScreen ? 12 : 14}
-                  color={colors.primary}
-                />
-              </View>
-              {isNarrowScreen ? (
-                <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
-                  {formatTSS(activity.icu_training_load)}
+          {/* Colored accent bar at top - subtle opacity */}
+          <View style={[styles.accentBar, { backgroundColor: activityColor + '80' }]} />
+
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
+              <MaterialCommunityIcons name={iconName} size={20} color={colors.textOnDark} />
+            </View>
+            <View style={styles.headerText}>
+              <Text style={[styles.activityName, isDark && styles.textLight]} numberOfLines={1}>
+                {activity.name}
+              </Text>
+              <Text style={[styles.date, isDark && styles.dateDark]} numberOfLines={1}>
+                {formatRelativeDate(activity.start_date_local)}
+                {location && ` · ${location}`}
+              </Text>
+            </View>
+          </View>
+
+          {/* Map preview with stats overlay */}
+          <View style={styles.mapContainer}>
+            <ActivityMapPreview activity={activity} height={220} index={index} />
+            {/* Stats overlay at bottom of map */}
+            <View style={styles.statsOverlay}>
+              <View style={styles.statPill}>
+                <Text
+                  testID={`activity-card-${activity.id}-distance`}
+                  style={[styles.statValue, { color: activityColor }]}
+                >
+                  {formatDistance(activity.distance, isMetric)}
                 </Text>
-              ) : (
-                <View>
-                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
-                    {formatTSS(activity.icu_training_load)}
-                  </Text>
-                  <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
-                    {t('activity.tss')}
-                  </Text>
+              </View>
+              <View style={styles.statPill}>
+                <Text testID={`activity-card-${activity.id}-duration`} style={styles.statValue}>
+                  {formatDuration(activity.moving_time)}
+                </Text>
+              </View>
+              <View style={styles.statPill}>
+                <Text testID={`activity-card-${activity.id}-elevation`} style={styles.statValue}>
+                  {formatElevation(activity.total_elevation_gain, isMetric)}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </Pressable>
+
+        {/* Secondary stats - outside Pressable so horizontal scroll works */}
+        <View style={[styles.secondaryStatsOuter, isDark && styles.secondaryStatsOuterDark]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            onContentSizeChange={handleContentSizeChange}
+            onLayout={handleScrollViewLayout}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+          >
+            <Pressable
+              onPress={handlePress}
+              onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
+              style={[styles.secondaryStats, isNarrowScreen && styles.secondaryStatsNarrow]}
+            >
+              {activity.icu_training_load && (
+                <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
+                  <View
+                    style={[
+                      styles.secondaryStatIcon,
+                      ICON_BG_TSS,
+                      isNarrowScreen && styles.secondaryStatIconNarrow,
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="fire"
+                      size={isNarrowScreen ? 12 : 14}
+                      color={colors.primary}
+                    />
+                  </View>
+                  {isNarrowScreen ? (
+                    <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
+                      {formatTSS(activity.icu_training_load)}
+                    </Text>
+                  ) : (
+                    <View>
+                      <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+                        {formatTSS(activity.icu_training_load)}
+                      </Text>
+                      <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                        {t('activity.tss')}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
-            </View>
-          )}
-          {(activity.average_heartrate || activity.icu_average_hr) && (
-            <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
-              <View
-                style={[
-                  styles.secondaryStatIcon,
-                  ICON_BG_HR,
-                  isNarrowScreen && styles.secondaryStatIconNarrow,
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="heart-pulse"
-                  size={isNarrowScreen ? 12 : 14}
-                  color={colors.error}
-                />
-              </View>
-              {isNarrowScreen ? (
-                <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
-                  {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
-                </Text>
-              ) : (
-                <View>
-                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
-                    {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
-                  </Text>
-                  <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
-                    {t('metrics.hr')}
-                  </Text>
+              {(activity.average_heartrate || activity.icu_average_hr) && (
+                <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
+                  <View
+                    style={[
+                      styles.secondaryStatIcon,
+                      ICON_BG_HR,
+                      isNarrowScreen && styles.secondaryStatIconNarrow,
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="heart-pulse"
+                      size={isNarrowScreen ? 12 : 14}
+                      color={colors.error}
+                    />
+                  </View>
+                  {isNarrowScreen ? (
+                    <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
+                      {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
+                    </Text>
+                  ) : (
+                    <View>
+                      <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+                        {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
+                      </Text>
+                      <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                        {t('metrics.hr')}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
-            </View>
-          )}
-          {(activity.average_watts || activity.icu_average_watts) && (
-            <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
-              <View
-                style={[
-                  styles.secondaryStatIcon,
-                  ICON_BG_POWER,
-                  isNarrowScreen && styles.secondaryStatIconNarrow,
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="lightning-bolt"
-                  size={isNarrowScreen ? 12 : 14}
-                  color={colors.warning}
-                />
-              </View>
-              {isNarrowScreen ? (
-                <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
-                  {formatPower(activity.average_watts || activity.icu_average_watts!)}
-                </Text>
-              ) : (
-                <View>
-                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
-                    {formatPower(activity.average_watts || activity.icu_average_watts!)}
-                  </Text>
-                  <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
-                    {t('activity.pwr')}
-                  </Text>
+              {(activity.average_watts || activity.icu_average_watts) && (
+                <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
+                  <View
+                    style={[
+                      styles.secondaryStatIcon,
+                      ICON_BG_POWER,
+                      isNarrowScreen && styles.secondaryStatIconNarrow,
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="lightning-bolt"
+                      size={isNarrowScreen ? 12 : 14}
+                      color={colors.warning}
+                    />
+                  </View>
+                  {isNarrowScreen ? (
+                    <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
+                      {formatPower(activity.average_watts || activity.icu_average_watts!)}
+                    </Text>
+                  ) : (
+                    <View>
+                      <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+                        {formatPower(activity.average_watts || activity.icu_average_watts!)}
+                      </Text>
+                      <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                        {t('activity.pwr')}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
-            </View>
-          )}
-          {activity.calories && (
-            <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
-              <View
-                style={[
-                  styles.secondaryStatIcon,
-                  ICON_BG_CALORIES,
-                  isNarrowScreen && styles.secondaryStatIconNarrow,
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="food-apple"
-                  size={isNarrowScreen ? 12 : 14}
-                  color={colors.success}
-                />
-              </View>
-              {isNarrowScreen ? (
-                <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
-                  {formatCalories(activity.calories)}
-                </Text>
-              ) : (
-                <View>
-                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
-                    {formatCalories(activity.calories)}
-                  </Text>
-                  <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
-                    {t('activity.cal')}
-                  </Text>
+              {activity.calories && (
+                <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
+                  <View
+                    style={[
+                      styles.secondaryStatIcon,
+                      ICON_BG_CALORIES,
+                      isNarrowScreen && styles.secondaryStatIconNarrow,
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="food-apple"
+                      size={isNarrowScreen ? 12 : 14}
+                      color={colors.success}
+                    />
+                  </View>
+                  {isNarrowScreen ? (
+                    <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
+                      {formatCalories(activity.calories)}
+                    </Text>
+                  ) : (
+                    <View>
+                      <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+                        {formatCalories(activity.calories)}
+                      </Text>
+                      <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                        {t('activity.cal')}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
-            </View>
-          )}
-          {activity.has_weather && activity.average_weather_temp != null && (
-            <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
-              <View
-                style={[
-                  styles.secondaryStatIcon,
-                  ICON_BG_WEATHER,
-                  isNarrowScreen && styles.secondaryStatIconNarrow,
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="weather-partly-cloudy"
-                  size={isNarrowScreen ? 12 : 14}
-                  color={colors.info}
-                />
-              </View>
-              {isNarrowScreen ? (
-                <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
-                  {formatTemperature(activity.average_weather_temp, isMetric)}
-                </Text>
-              ) : (
-                <View>
-                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
-                    {formatTemperature(activity.average_weather_temp, isMetric)}
-                  </Text>
-                  <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
-                    {t('activity.temp')}
-                  </Text>
+              {activity.has_weather && activity.average_weather_temp != null && (
+                <View style={[styles.secondaryStat, isNarrowScreen && styles.secondaryStatNarrow]}>
+                  <View
+                    style={[
+                      styles.secondaryStatIcon,
+                      ICON_BG_WEATHER,
+                      isNarrowScreen && styles.secondaryStatIconNarrow,
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="weather-partly-cloudy"
+                      size={isNarrowScreen ? 12 : 14}
+                      color={colors.info}
+                    />
+                  </View>
+                  {isNarrowScreen ? (
+                    <Text style={[styles.secondaryStatValueNarrow, isDark && styles.textLight]}>
+                      {formatTemperature(activity.average_weather_temp, isMetric)}
+                    </Text>
+                  ) : (
+                    <View>
+                      <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
+                        {formatTemperature(activity.average_weather_temp, isMetric)}
+                      </Text>
+                      <Text style={[styles.secondaryStatLabel, isDark && styles.statLabelDark]}>
+                        {t('activity.temp')}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
-            </View>
+            </Pressable>
+          </ScrollView>
+          {showFade && (
+            <>
+              <LinearGradient
+                colors={['transparent', cardBg]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.scrollFade}
+                pointerEvents="none"
+              />
+              <View style={styles.scrollHint} pointerEvents="none">
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={14}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                />
+              </View>
+            </>
           )}
         </View>
       </View>
@@ -331,16 +405,16 @@ export const ActivityCard = React.memo(function ActivityCard({
           leadingIcon="information-outline"
         />
       </Menu>
-    </Pressable>
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
-  pressable: {
+  cardWrapper: {
     marginHorizontal: layout.screenPadding,
     marginBottom: spacing.md,
   },
-  pressed: {
+  cardPressed: {
     transform: [{ scale: 0.98 }],
     opacity: 0.9,
   },
@@ -419,16 +493,35 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
     letterSpacing: -0.3,
   },
+  secondaryStatsOuter: {
+    position: 'relative',
+    borderTopWidth: 1,
+    borderTopColor: opacity.overlay.light,
+  },
+  secondaryStatsOuterDark: {
+    borderTopColor: opacity.overlayDark.medium,
+  },
   secondaryStats: {
     flexDirection: 'row',
     paddingHorizontal: layout.cardPadding,
     paddingVertical: spacing.md,
     gap: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: opacity.overlay.light,
   },
-  secondaryStatsDark: {
-    borderTopColor: opacity.overlayDark.medium,
+  scrollFade: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 48,
+  },
+  scrollHint: {
+    position: 'absolute',
+    right: 2,
+    top: 0,
+    bottom: 0,
+    width: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   // Narrow screen: reduced gaps, more compact
   secondaryStatsNarrow: {

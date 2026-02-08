@@ -41,6 +41,7 @@ describe('SyncDateRangeStore', () => {
         status: 'idle',
         completed: 0,
         total: 0,
+        percent: 0,
         message: '',
       },
       isGpsSyncing: false,
