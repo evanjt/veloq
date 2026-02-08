@@ -38,7 +38,13 @@ import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
 import { createSharedStyles } from '@/styles';
 import { useDisabledSections } from '@/providers';
-import { SectionMapView, MiniTraceView, DataRangeFooter } from '@/components/routes';
+import {
+  SectionMapView,
+  MiniTraceView,
+  DataRangeFooter,
+  DebugInfoPanel,
+} from '@/components/routes';
+import { useDebugStore } from '@/providers';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import {
   UnifiedPerformanceChart,
@@ -360,6 +366,7 @@ export default function SectionDetailScreen() {
 
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays();
+  const debugEnabled = useDebugStore((s) => s.enabled);
 
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
@@ -462,9 +469,8 @@ export default function SectionDetailScreen() {
 
     // Check if it's a custom section and convert to FrequentSection shape
     if (customSection) {
-      // Include source activity if not already in matches or activityIds
-      const matchActivityIds = customSection.matches?.map((m) => m.activityId) ?? [];
-      const allActivityIds = [...matchActivityIds, ...(customSection.activityIds ?? [])];
+      // Include source activity if not already in activityIds
+      const allActivityIds = customSection.activityIds ?? [];
       const includeSourceActivity =
         customSection.sourceActivityId && !allActivityIds.includes(customSection.sourceActivityId);
 
@@ -473,7 +479,7 @@ export default function SectionDetailScreen() {
         : allActivityIds;
 
       const activityPortions = [
-        // Include source activity portion if not in matches
+        // Include source activity portion
         ...(includeSourceActivity && customSection.sourceActivityId
           ? [
               {
@@ -485,14 +491,8 @@ export default function SectionDetailScreen() {
               },
             ]
           : []),
-        // Include all match portions
-        ...(customSection.matches ?? []).map((m) => ({
-          activityId: m.activityId,
-          startIndex: m.startIndex,
-          endIndex: m.endIndex,
-          distanceMeters: m.distanceMeters ?? customSection.distanceMeters,
-          direction: m.direction,
-        })),
+        // Include existing portions from FFI
+        ...(customSection.activityPortions ?? []),
       ];
 
       return {
@@ -1489,6 +1489,57 @@ export default function SectionDetailScreen() {
         ListFooterComponent={
           <View style={styles.listFooterContainer}>
             <DataRangeFooter days={cacheDays} isDark={isDark} />
+            {debugEnabled && section && (
+              <DebugInfoPanel
+                isDark={isDark}
+                entries={[
+                  {
+                    label: 'ID',
+                    value: section.id.length > 20 ? section.id.slice(0, 20) + '...' : section.id,
+                  },
+                  { label: 'Type', value: section.sectionType },
+                  {
+                    label: 'Stability',
+                    value: section.stability != null ? section.stability.toFixed(3) : '-',
+                  },
+                  {
+                    label: 'Version',
+                    value: section.version != null ? String(section.version) : '-',
+                  },
+                  {
+                    label: 'Updated',
+                    value: section.updatedAt ? formatRelativeDate(section.updatedAt) : '-',
+                  },
+                  {
+                    label: 'Created',
+                    value: section.createdAt ? formatRelativeDate(section.createdAt) : '-',
+                  },
+                  {
+                    label: 'Confidence',
+                    value: section.confidence != null ? section.confidence.toFixed(2) : '-',
+                  },
+                  {
+                    label: 'Observations',
+                    value:
+                      section.observationCount != null ? String(section.observationCount) : '-',
+                  },
+                  {
+                    label: 'Avg Spread',
+                    value:
+                      section.averageSpread != null ? section.averageSpread.toFixed(1) + 'm' : '-',
+                  },
+                  {
+                    label: 'Reference',
+                    value: section.representativeActivityId
+                      ? section.representativeActivityId.slice(0, 20) + '...'
+                      : '-',
+                  },
+                  { label: 'User Defined', value: section.isUserDefined ? 'Yes' : 'No' },
+                  { label: 'Activities', value: String(section.activityIds.length) },
+                  { label: 'Points', value: String(section.polyline.length) },
+                ]}
+              />
+            )}
           </View>
         }
       />

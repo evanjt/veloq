@@ -19,7 +19,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 79 exports
+ * Total: 73 exports
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -335,18 +335,6 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 5570,
   },
   {
-    name: 'encode_coordinates_to_polyline',
-    camelName: 'encodeCoordinatesToPolyline',
-    file: 'persistence.rs',
-    line: 5626,
-  },
-  {
-    name: 'decode_polyline_to_coordinates',
-    camelName: 'decodePolylineToCoordinates',
-    file: 'persistence.rs',
-    line: 5644,
-  },
-  {
     name: 'persistent_engine_get_period_stats',
     camelName: 'persistentEngineGetPeriodStats',
     file: 'persistence.rs',
@@ -425,12 +413,6 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 34,
   },
   {
-    name: 'get_section_summaries_json',
-    camelName: 'getSectionSummariesJson',
-    file: 'sections/ffi.rs',
-    line: 45,
-  },
-  {
     name: 'create_section',
     camelName: 'createSection',
     file: 'sections/ffi.rs',
@@ -455,28 +437,10 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 163,
   },
   {
-    name: 'get_sections_for_activity_json',
-    camelName: 'getSectionsForActivityJson',
-    file: 'sections/ffi.rs',
-    line: 179,
-  },
-  {
     name: 'get_sections_for_activity',
     camelName: 'getSectionsForActivity',
     file: 'sections/ffi.rs',
     line: 198,
-  },
-  {
-    name: 'get_section_json',
-    camelName: 'getSectionJson',
-    file: 'sections/ffi.rs',
-    line: 216,
-  },
-  {
-    name: 'init_sections_schema',
-    camelName: 'initSectionsSchema',
-    file: 'sections/ffi.rs',
-    line: 228,
   },
   {
     name: 'get_section_reference',
@@ -554,8 +518,6 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'persistentEngineGetActivityMetricsForIds',
   'persistentEngineGetAllMapActivitiesComplete',
   'persistentEngineGetMapActivitiesFiltered',
-  'encodeCoordinatesToPolyline',
-  'decodePolylineToCoordinates',
   'persistentEngineGetPeriodStats',
   'persistentEngineGetMonthlyAggregates',
   'persistentEngineGetActivityHeatmap',
@@ -569,15 +531,11 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'computePolylineOverlap',
   'getSections',
   'getSectionCount',
-  'getSectionSummariesJson',
   'createSection',
   'renameSection',
   'setSectionReference',
   'deleteSection',
-  'getSectionsForActivityJson',
   'getSectionsForActivity',
-  'getSectionJson',
-  'initSectionsSchema',
   'getSectionReference',
   'isSectionReferenceUserDefined',
   'resetSectionReference',
@@ -640,8 +598,6 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   persistent_engine_get_activity_metrics_for_ids: 'persistentEngineGetActivityMetricsForIds',
   persistent_engine_get_all_map_activities_complete: 'persistentEngineGetAllMapActivitiesComplete',
   persistent_engine_get_map_activities_filtered: 'persistentEngineGetMapActivitiesFiltered',
-  encode_coordinates_to_polyline: 'encodeCoordinatesToPolyline',
-  decode_polyline_to_coordinates: 'decodePolylineToCoordinates',
   persistent_engine_get_period_stats: 'persistentEngineGetPeriodStats',
   persistent_engine_get_monthly_aggregates: 'persistentEngineGetMonthlyAggregates',
   persistent_engine_get_activity_heatmap: 'persistentEngineGetActivityHeatmap',
@@ -655,15 +611,11 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   compute_polyline_overlap: 'computePolylineOverlap',
   get_sections: 'getSections',
   get_section_count: 'getSectionCount',
-  get_section_summaries_json: 'getSectionSummariesJson',
   create_section: 'createSection',
   rename_section: 'renameSection',
   set_section_reference: 'setSectionReference',
   delete_section: 'deleteSection',
-  get_sections_for_activity_json: 'getSectionsForActivityJson',
   get_sections_for_activity: 'getSectionsForActivity',
-  get_section_json: 'getSectionJson',
-  init_sections_schema: 'initSectionsSchema',
   get_section_reference: 'getSectionReference',
   is_section_reference_user_defined: 'isSectionReferenceUserDefined',
   reset_section_reference: 'resetSectionReference',

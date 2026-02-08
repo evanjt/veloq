@@ -120,15 +120,15 @@ impl PersistentRouteEngine {
                 point_density: point_density_json
                     .and_then(|j| serde_json::from_str(&j).ok()),
                 scale: row.get(11)?,
-                version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
                 is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                 stability: row.get(14)?,
+                version: row.get(12)?,
+                updated_at: row.get(19)?,
                 source_activity_id: row.get(15)?,
                 start_index: row.get(16)?,
                 end_index: row.get(17)?,
                 created_at: row.get::<_, Option<String>>(18)?.unwrap_or_default(),
-                updated_at: row.get(19)?,
-                route_ids: None, // TODO: Add route_ids junction table if needed
+                route_ids: None,
             })
         });
 
@@ -309,7 +309,7 @@ impl PersistentRouteEngine {
                 params![
                     section_id,
                     portion.activity_id,
-                    portion.direction,
+                    portion.direction.to_string(),
                     portion.start_index,
                     portion.end_index,
                     portion.distance_meters,
@@ -653,14 +653,14 @@ impl PersistentRouteEngine {
                 average_spread: row.get(9)?,
                 point_density: point_density_json.and_then(|j| serde_json::from_str(&j).ok()),
                 scale: row.get(11)?,
-                version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
                 is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                 stability: row.get(14)?,
+                version: row.get(12)?,
+                updated_at: row.get(19)?,
                 source_activity_id: row.get(15)?,
                 start_index: row.get(16)?,
                 end_index: row.get(17)?,
                 created_at: row.get::<_, Option<String>>(18)?.unwrap_or_default(),
-                updated_at: row.get(19)?,
                 route_ids: None,
             })
         })
@@ -720,14 +720,14 @@ impl PersistentRouteEngine {
                     section.average_spread,
                     point_density_json,
                     section.scale,
-                    section.version,
+                    section.version.unwrap_or(1),
                     if section.is_user_defined { 1 } else { 0 },
                     section.stability,
                     section.source_activity_id,
                     section.start_index,
                     section.end_index,
                     section.created_at,
-                    section.updated_at,
+                    section.updated_at
                 ],
             )
             .map_err(|e| format!("Failed to save section: {}", e))?;
@@ -826,9 +826,9 @@ fn compute_section_portion(
 }
 
 /// Determine if the trace travels in the same or reverse direction as the section.
-fn compute_direction(trace: &[GpsPoint], section_polyline: &[GpsPoint]) -> String {
+fn compute_direction(trace: &[GpsPoint], section_polyline: &[GpsPoint]) -> tracematch::Direction {
     if trace.len() < 2 || section_polyline.len() < 2 {
-        return "same".to_string();
+        return tracematch::Direction::Same;
     }
 
     // Compare the direction vectors of trace and section
@@ -846,9 +846,9 @@ fn compute_direction(trace: &[GpsPoint], section_polyline: &[GpsPoint]) -> Strin
     let dot_product = trace_dx * section_dx + trace_dy * section_dy;
 
     if dot_product >= 0.0 {
-        "same".to_string()
+        tracematch::Direction::Same
     } else {
-        "reverse".to_string()
+        tracematch::Direction::Reverse
     }
 }
 

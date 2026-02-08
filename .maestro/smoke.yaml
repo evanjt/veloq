@@ -6,6 +6,12 @@ appId: com.veloq.app
 - launchApp:
     clearState: false
 
+# Wait for the app to render something (login or home screen)
+- extendedWaitUntil:
+    visible:
+      id: "login-screen|home-screen"
+    timeout: 60000
+
 # Debug: capture initial state
 - takeScreenshot: "01-app-launched"
 
@@ -23,6 +29,6 @@ appId: com.veloq.app
 - extendedWaitUntil:
     visible:
       id: "home-screen"
-    timeout: 30000
+    timeout: 60000
 
 - takeScreenshot: "03-smoke-complete"

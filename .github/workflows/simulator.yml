@@ -581,7 +581,7 @@ jobs:
           api-level: 29
           target: default
           arch: x86_64
-          ram-size: 2048M
+          ram-size: 4096M
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -accel on
           disable-animations: true
@@ -591,8 +591,8 @@ jobs:
             # Install APK
             adb install /tmp/android-artifact/app-release.apk
 
-            # Give app time to install and emulator to stabilize
-            sleep 10
+            # Give emulator time to stabilize after install
+            sleep 20
 
             # Run smoke test
             mkdir -p screenshots

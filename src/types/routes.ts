@@ -337,7 +337,7 @@ export const DEFAULT_ROUTE_MATCH_CONFIG: RouteMatchConfig = {
 // =============================================================================
 
 /** Section type discriminator */
-export type SectionType = 'auto' | 'custom';
+export type SectionType = 'auto' | 'custom' | 'potential';
 
 /**
  * A unified section (auto-detected or custom).
@@ -375,19 +375,18 @@ export interface Section {
   /** Detection scale: "short", "medium", "long" */
   scale?: string;
 
-  // Version tracking
-  /** Section version (increments on update) */
-  version?: number;
   /** Whether reference is user-defined */
   isUserDefined?: boolean;
-  /** Stability score */
-  stability?: number;
 
-  // Timestamps
+  /** How well the reference trace aligns with the consensus (0.0-1.0) */
+  stability?: number;
+  /** Number of times this section has been recalibrated */
+  version?: number;
+  /** ISO timestamp of last recalibration */
+  updatedAt?: string;
+
   /** ISO timestamp when section was created */
   createdAt: string;
-  /** ISO timestamp when section was last updated */
-  updatedAt?: string;
 
   // Associations
   /** Route group IDs that include this section */
@@ -401,23 +400,11 @@ export interface Section {
   /** End index in source activity's GPS track */
   endIndex?: number;
 
-  // Legacy fields for backward compatibility (deprecated)
-  /** @deprecated Use activityIds and activityPortions instead */
-  matches?: ActivitySectionRecord[];
-  /** @deprecated Use activityIds and query traces separately */
-  activityTraces?: Record<string, RoutePoint[]>;
-  /** @deprecated Portion data for each activity */
+  // On-demand data (loaded separately, not part of persisted section)
+  /** Portion data for each activity (loaded from junction table) */
   activityPortions?: ActivitySectionRecord[];
-  /** @deprecated Use sectionType instead */
-  source?: 'auto' | 'custom' | 'potential';
-  /** @deprecated Section disabling is now handled differently */
-  isDisabled?: boolean;
-  /** @deprecated Use section fields directly */
-  engineData?: Section;
-  /** @deprecated Use section fields directly */
-  customData?: Section;
-  /** @deprecated Potentials are now separate */
-  potentialData?: PotentialSection;
+  /** Activity traces (loaded on-demand for section detail) */
+  activityTraces?: Record<string, RoutePoint[]>;
 }
 
 /**

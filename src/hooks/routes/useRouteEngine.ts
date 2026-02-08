@@ -13,15 +13,8 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
-import { convertActivityPortions } from '@/lib/utils/ffiConversions';
-import {
-  gpsPointsToRoutePoints,
-  type RouteGroup,
-  type FrequentSection as NativeFrequentSection,
-  type PersistentEngineStats,
-  type SectionSummary,
-  type GroupSummary,
-} from 'veloqrs';
+import { convertNativeSectionToApp } from './sectionConversions';
+import { type RouteGroup, type SectionSummary, type GroupSummary } from 'veloqrs';
 import type { FrequentSection } from '@/types';
 
 // Default database path for persistent engine
@@ -95,34 +88,6 @@ export function createEngineHook<T>(
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [trigger]);
-  };
-}
-
-// ============================================================================
-// Section Conversion Helper
-// ============================================================================
-
-/**
- * Convert native section (GpsPoint) to app section (RoutePoint).
- */
-function convertNativeSectionToApp(native: NativeFrequentSection): FrequentSection {
-  return {
-    id: native.id,
-    sectionType: 'auto',
-    sportType: native.sportType,
-    polyline: gpsPointsToRoutePoints(native.polyline),
-    representativeActivityId: native.representativeActivityId,
-    activityIds: native.activityIds,
-    activityPortions: convertActivityPortions(native.activityPortions),
-    routeIds: native.routeIds,
-    visitCount: native.visitCount,
-    distanceMeters: native.distanceMeters,
-    name: native.name,
-    confidence: native.confidence,
-    observationCount: native.observationCount,
-    averageSpread: native.averageSpread,
-    pointDensity: native.pointDensity,
-    createdAt: new Date().toISOString(),
   };
 }
 
@@ -476,48 +441,6 @@ export function useViewportActivities(bounds: Bounds | null): UseViewportActivit
   };
 }
 
-/**
- * Hook for monitoring engine statistics.
- * Useful for debugging and performance monitoring.
- */
-export function useEngineStats(): PersistentEngineStats {
-  const [stats, setStats] = useState<PersistentEngineStats>({
-    activityCount: 0,
-    gpsTrackCount: 0,
-    signatureCacheSize: 0,
-    consensusCacheSize: 0,
-    groupCount: 0,
-    sectionCount: 0,
-    groupsDirty: false,
-    sectionsDirty: false,
-    oldestDate: undefined,
-    newestDate: undefined,
-  });
-
-  const refresh = useCallback(() => {
-    const engine = getRouteEngine();
-    const newStats = engine?.getStats();
-    if (newStats) setStats(newStats);
-  }, []);
-
-  // Refresh on any engine change
-  useEffect(() => {
-    refresh();
-    const engine = getRouteEngine();
-    if (!engine) return;
-    const unsub1 = engine.subscribe('activities', refresh);
-    const unsub2 = engine.subscribe('groups', refresh);
-    const unsub3 = engine.subscribe('sections', refresh);
-    return () => {
-      unsub1();
-      unsub2();
-      unsub3();
-    };
-  }, [refresh]);
-
-  return stats;
-}
-
 interface UseConsensusRouteResult {
   /** Consensus route points [{ lat, lng }, ...] or null if not available */
   points: Array<{ lat: number; lng: number }> | null;
@@ -543,7 +466,7 @@ export function useConsensusRoute(groupId: string | null): UseConsensusRouteResu
 
     setIsLoading(true);
     const engine = getRouteEngine();
-    const gpsPoints = engine ? engine.getConsensusRoutePoints(groupId) : [];
+    const gpsPoints = engine ? engine.getConsensusRoute(groupId) : [];
 
     if (gpsPoints.length > 0) {
       setPoints(gpsPoints.map((p) => ({ lat: p.latitude, lng: p.longitude })));

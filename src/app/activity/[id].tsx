@@ -377,9 +377,7 @@ export default function ActivityDetailScreen() {
         // Must not already be in engine sections (avoid duplicates)
         !engineSectionIds.has(section.id) &&
         // And must match this activity
-        (section.sourceActivityId === id ||
-          section.activityIds?.includes(id) ||
-          section.matches?.some((match) => match.activityId === id))
+        (section.sourceActivityId === id || section.activityIds?.includes(id))
     );
   }, [sections, id, engineSectionMatches]);
 
@@ -548,11 +546,14 @@ export default function ActivityDetailScreen() {
         activityPortion = computedTrace;
       } else {
         // Fall back to using indices
-        const activityMatch = section.matches?.find((m) => m.activityId === id);
-        if (activityMatch?.startIndex != null && activityMatch?.endIndex != null) {
-          // Use match indices
-          const start = Math.max(0, activityMatch.startIndex);
-          const end = Math.min(coordinates.length - 1, activityMatch.endIndex);
+        const activityPortion_record = section.activityPortions?.find((p) => p.activityId === id);
+        if (
+          activityPortion_record?.startIndex != null &&
+          activityPortion_record?.endIndex != null
+        ) {
+          // Use portion indices from junction table
+          const start = Math.max(0, activityPortion_record.startIndex);
+          const end = Math.min(coordinates.length - 1, activityPortion_record.endIndex);
           if (end > start) {
             activityPortion = coordinates.slice(start, end + 1);
           }
@@ -655,10 +656,6 @@ export default function ActivityDetailScreen() {
       // Include source activity
       if (section.sourceActivityId) {
         ids.add(section.sourceActivityId);
-      }
-      // Include matched activities
-      for (const m of section.matches ?? []) {
-        ids.add(m.activityId);
       }
       // Include activity IDs from the section
       for (const activityId of section.activityIds ?? []) {
@@ -1429,12 +1426,12 @@ export default function ActivityDetailScreen() {
                                 </View>
                               </View>
                               {(() => {
-                                const activityMatch = section.matches?.find(
-                                  (m) => m.activityId === id
+                                const portionRecord = section.activityPortions?.find(
+                                  (p) => p.activityId === id
                                 );
-                                // Use match or section's original indices for source activity
+                                // Use portion or section's original indices for source activity
                                 const portionIndices =
-                                  activityMatch ??
+                                  portionRecord ??
                                   (section.sourceActivityId === id ? section : undefined);
                                 const sectionTime = getSectionTime(portionIndices);
                                 const bestTime = getSectionBestTime(section.id);
@@ -1442,11 +1439,8 @@ export default function ActivityDetailScreen() {
                                   sectionTime != null && bestTime != null
                                     ? formatTimeDelta(sectionTime, bestTime)
                                     : null;
-                                // Count visits: matches + activityIds + 1 if this is the source activity
                                 const visitCount =
-                                  (section.matches?.length ?? 0) +
-                                  (section.activityIds?.length ?? 0) +
-                                  (section.sourceActivityId === id && !activityMatch ? 1 : 0);
+                                  section.activityIds?.length ?? section.visitCount;
                                 return (
                                   <>
                                     <Text style={[styles.sectionMeta, isDark && styles.textMuted]}>

@@ -84,3 +84,4 @@ export {
   type MetricDefinition,
   type MetricPreference,
 } from './DashboardPreferencesStore';
+export { useDebugStore, isDebugEnabled, initializeDebugStore } from './DebugStore';

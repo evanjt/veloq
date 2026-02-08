@@ -14,11 +14,11 @@ import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
 import { getBoundsFromPoints, formatDistance } from '@/lib';
 import { useMetricSystem } from '@/hooks';
-import type { PotentialSection, RoutePoint } from '@/types';
+import type { Section, RoutePoint } from '@/types';
 
 interface PotentialSectionCardProps {
   /** The potential section to display */
-  section: PotentialSection;
+  section: Section;
   /** Called when user wants to promote this to a full section */
   onPromote: () => void;
   /** Called when user dismisses this suggestion */
@@ -84,7 +84,8 @@ export function PotentialSectionCard({ section, onPromote, onDismiss }: Potentia
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
 
-  const getScaleLabel = (scale: string): string => {
+  const getScaleLabel = (scale: string | undefined): string => {
+    if (!scale) return '';
     switch (scale) {
       case 'short':
         return t('routes.scaleShort' as never) as string;

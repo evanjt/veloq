@@ -10,41 +10,8 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useDisabledSections } from '@/providers';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
-import { gpsPointsToRoutePoints, type Section as NativeSection } from 'veloqrs';
+import { convertNativeSectionToApp } from './sectionConversions';
 import type { FrequentSection, SectionPortion } from '@/types';
-
-/**
- * Convert native section (FfiSection) to app section (FrequentSection).
- * FfiSection is the unified type for both auto and custom sections.
- * Note: FfiSection does not have activityPortions - those are looked up separately.
- */
-function convertNativeSectionToApp(native: NativeSection): FrequentSection {
-  // Convert polyline from GpsPoint[] to RoutePoint[]
-  const polyline = gpsPointsToRoutePoints(native.polyline);
-
-  // Use actual section type from database (auto or custom)
-  const sectionType = (native.sectionType === 'custom' ? 'custom' : 'auto') as 'auto' | 'custom';
-
-  return {
-    id: native.id,
-    sectionType,
-    sportType: native.sportType,
-    polyline,
-    representativeActivityId: native.representativeActivityId ?? '',
-    activityIds: native.activityIds,
-    // FfiSection doesn't have activityPortions - it's looked up via junction table
-    activityPortions: undefined,
-    routeIds: native.routeIds ?? [],
-    visitCount: native.visitCount,
-    distanceMeters: native.distanceMeters,
-    name: native.name ?? undefined,
-    confidence: native.confidence ?? 0,
-    observationCount: native.observationCount ?? 0,
-    averageSpread: native.averageSpread ?? 0,
-    pointDensity: native.pointDensity ?? [],
-    createdAt: native.createdAt || new Date().toISOString(),
-  };
-}
 
 /**
  * Runtime type guard for FrequentSection from engine.
@@ -149,14 +116,11 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
         continue;
       }
 
-      // Find the portion data for this activity
-      const portion = section.activityPortions?.find((p) => p.activityId === activityId);
-
       matches.push({
         section,
-        portion: portion as SectionPortion | undefined,
-        direction: (portion?.direction as 'same' | 'reverse') || 'same',
-        distance: portion?.distanceMeters || section.distanceMeters,
+        portion: undefined,
+        direction: 'same',
+        distance: section.distanceMeters,
       });
     }
 

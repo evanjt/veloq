@@ -37,21 +37,6 @@ pub fn get_section_count(section_type: Option<String>) -> u32 {
     with_persistent_engine(|e| e.get_section_count_by_type(st)).unwrap_or(0)
 }
 
-/// Get section summaries (lightweight, no polylines).
-///
-/// # Arguments
-/// * `section_type` - Optional filter: "auto", "custom", or None for all
-#[uniffi::export]
-pub fn get_section_summaries_json(section_type: Option<String>) -> String {
-    let st = section_type.as_deref().and_then(SectionType::from_str);
-
-    with_persistent_engine(|e| {
-        let summaries = e.get_section_summaries_by_type(st);
-        serde_json::to_string(&summaries).unwrap_or_else(|_| "[]".to_string())
-    })
-    .unwrap_or_else(|| "[]".to_string())
-}
-
 /// Create a new section.
 ///
 /// # Arguments
@@ -90,10 +75,13 @@ pub fn create_section(
 
     info!("tracematch: [sections] Parsed {} GPS points", polyline.len());
 
+    // Compute distance from polyline in Rust (ignore JS-computed distance_meters)
+    let computed_distance = tracematch::matching::calculate_route_distance(&polyline);
+
     let params = CreateSectionParams {
         sport_type,
         polyline,
-        distance_meters,
+        distance_meters: computed_distance,
         name,
         source_activity_id,
         start_index,
@@ -169,24 +157,6 @@ pub fn delete_section(section_id: String) -> bool {
 /// Get sections for a specific activity.
 ///
 /// Uses junction table for efficient lookup.
-///
-/// # Arguments
-/// * `activity_id` - Activity ID to find sections for
-///
-/// # Returns
-/// JSON array of sections containing the activity
-#[uniffi::export]
-pub fn get_sections_for_activity_json(activity_id: String) -> String {
-    with_persistent_engine(|e| {
-        let sections = e.get_sections_for_activity(&activity_id);
-        serde_json::to_string(&sections).unwrap_or_else(|_| "[]".to_string())
-    })
-    .unwrap_or_else(|| "[]".to_string())
-}
-
-/// Get sections for a specific activity.
-///
-/// Uses junction table for efficient lookup.
 /// Returns structured data instead of JSON string.
 ///
 /// # Arguments
@@ -203,30 +173,6 @@ pub fn get_sections_for_activity(activity_id: String) -> Vec<crate::FfiSection> 
             .collect()
     })
     .unwrap_or_default()
-}
-
-/// Get a single section by ID.
-///
-/// # Arguments
-/// * `section_id` - Section ID to retrieve
-///
-/// # Returns
-/// JSON object of the section, or empty string if not found
-#[uniffi::export]
-pub fn get_section_json(section_id: String) -> String {
-    with_persistent_engine(|e| {
-        e.get_section(&section_id)
-            .map(|s| serde_json::to_string(&s).unwrap_or_default())
-            .unwrap_or_default()
-    })
-    .unwrap_or_default()
-}
-
-/// Initialize sections schema.
-/// Called during database initialization.
-#[uniffi::export]
-pub fn init_sections_schema() -> bool {
-    with_persistent_engine(|e| e.init_sections_schema().is_ok()).unwrap_or(false)
 }
 
 /// Get the reference activity ID for a section.

@@ -32,6 +32,7 @@ import {
   initializeDisabledSections,
   initializeUnitPreference,
   initializeDashboardPreferences,
+  initializeDebugStore,
   useSyncDateRange,
 } from '@/providers';
 import { formatLocalDate } from '@/lib';
@@ -229,6 +230,7 @@ export default function RootLayout() {
         initializeSupersededSections(),
         initializeDisabledSections(),
         initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
+        initializeDebugStore(),
       ]);
     }
     initialize().finally(() => setAppReady(true));

@@ -42,10 +42,6 @@ interface NativeModuleInterface {
     endIndex: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_decode_polyline_to_coordinates(
-    encoded: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_default_scale_presets(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -53,10 +49,6 @@ interface NativeModuleInterface {
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
-  ubrn_uniffi_veloqrs_fn_func_encode_coordinates_to_polyline(
-    coords: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_fetch_activity_maps(
     authHeader: Uint8Array,
     activityIds: Uint8Array,
@@ -84,16 +76,8 @@ interface NativeModuleInterface {
     sectionType: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
-  ubrn_uniffi_veloqrs_fn_func_get_section_json(
-    sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_get_section_reference(
     sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_get_section_summaries_json(
-    sectionType: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_get_sections(
@@ -104,13 +88,6 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_get_sections_for_activity_json(
-    activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_init_sections_schema(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
   ubrn_uniffi_veloqrs_fn_func_is_section_reference_user_defined(
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
@@ -362,22 +339,16 @@ interface NativeModuleInterface {
   ): Uint8Array;
   ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap(): number;
   ubrn_uniffi_veloqrs_checksum_func_create_section(): number;
-  ubrn_uniffi_veloqrs_checksum_func_decode_polyline_to_coordinates(): number;
   ubrn_uniffi_veloqrs_checksum_func_default_scale_presets(): number;
   ubrn_uniffi_veloqrs_checksum_func_delete_section(): number;
-  ubrn_uniffi_veloqrs_checksum_func_encode_coordinates_to_polyline(): number;
   ubrn_uniffi_veloqrs_checksum_func_fetch_activity_maps(): number;
   ubrn_uniffi_veloqrs_checksum_func_fetch_activity_maps_with_progress(): number;
   ubrn_uniffi_veloqrs_checksum_func_ffi_detect_sections_multiscale(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_download_progress(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_section_count(): number;
-  ubrn_uniffi_veloqrs_checksum_func_get_section_json(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_section_reference(): number;
-  ubrn_uniffi_veloqrs_checksum_func_get_section_summaries_json(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_sections(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_sections_for_activity(): number;
-  ubrn_uniffi_veloqrs_checksum_func_get_sections_for_activity_json(): number;
-  ubrn_uniffi_veloqrs_checksum_func_init_sections_schema(): number;
   ubrn_uniffi_veloqrs_checksum_func_is_section_reference_user_defined(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_add_activities(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_cleanup_old_activities(): number;

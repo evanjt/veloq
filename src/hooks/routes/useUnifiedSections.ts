@@ -105,7 +105,6 @@ export function useUnifiedSections(
 
   // Get disabled sections
   const disabledIds = useDisabledSections((s) => s.disabledIds);
-  const isDisabled = (id: string) => disabledIds.has(id);
 
   // Filter out dismissed potentials
   const potentialSections = useMemo(() => {
@@ -136,7 +135,6 @@ export function useUnifiedSections(
           activityIds: custom.activityIds || [],
           visitCount: custom.visitCount || custom.activityIds?.length || 1,
           createdAt: custom.createdAt || new Date().toISOString(),
-          source: 'custom',
         });
       }
     }
@@ -152,18 +150,11 @@ export function useUnifiedSections(
       if (!supersededSet.has(engine.id)) {
         seenIds.add(engine.id);
         result.push({
-          id: engine.id,
+          ...engine,
           sectionType: 'auto',
           name: generateSectionName(engine),
-          polyline: engine.polyline, // Empty for list view, lazy-loaded in SectionRow
-          sportType: engine.sportType,
-          distanceMeters: engine.distanceMeters,
           activityIds: engine.activityIds || [],
-          visitCount: engine.visitCount,
           createdAt: engine.createdAt || new Date().toISOString(),
-          source: 'auto',
-          isDisabled: isDisabled(engine.id),
-          engineData: engine, // Lightweight - no polyline/activityTraces
         });
       }
     }
@@ -191,7 +182,7 @@ export function useUnifiedSections(
 
           result.push({
             id: potential.id,
-            sectionType: 'auto',
+            sectionType: 'potential',
             name: `Suggested: ${potential.sportType} (${distanceStr})`,
             polyline: potential.polyline,
             sportType: potential.sportType,
@@ -199,23 +190,25 @@ export function useUnifiedSections(
             activityIds: potential.activityIds || [],
             visitCount: potential.visitCount,
             createdAt: new Date().toISOString(),
-            source: 'potential',
-            potentialData: potential,
+            confidence: potential.confidence,
+            scale: potential.scale,
           });
         }
       }
     }
 
-    // Sort: disabled sections last, then by source (custom > auto > potential), then by visit count
+    // Sort: disabled sections last, then by type (custom > auto > potential), then by visit count
     result.sort((a, b) => {
       // Disabled sections go to the bottom
-      if (a.isDisabled && !b.isDisabled) return 1;
-      if (!a.isDisabled && b.isDisabled) return -1;
+      const aDisabled = disabledIds.has(a.id);
+      const bDisabled = disabledIds.has(b.id);
+      if (aDisabled && !bDisabled) return 1;
+      if (!aDisabled && bDisabled) return -1;
 
-      // Source priority
-      const sourcePriority: Record<string, number> = { custom: 0, auto: 1, potential: 2 };
-      const aPriority = sourcePriority[a.source ?? 'auto'] ?? 1;
-      const bPriority = sourcePriority[b.source ?? 'auto'] ?? 1;
+      // Type priority
+      const typePriority: Record<string, number> = { custom: 0, auto: 1, potential: 2 };
+      const aPriority = typePriority[a.sectionType] ?? 1;
+      const bPriority = typePriority[b.sectionType] ?? 1;
 
       if (aPriority !== bPriority) return aPriority - bPriority;
 
@@ -235,10 +228,12 @@ export function useUnifiedSections(
   ]);
 
   // Compute counts
-  const autoCount = unified.filter((s) => s.source === 'auto' && !s.isDisabled).length;
-  const customCount = unified.filter((s) => s.source === 'custom').length;
-  const potentialCount = unified.filter((s) => s.source === 'potential').length;
-  const disabledCount = unified.filter((s) => s.isDisabled).length;
+  const autoCount = unified.filter(
+    (s) => s.sectionType === 'auto' && !disabledIds.has(s.id)
+  ).length;
+  const customCount = unified.filter((s) => s.sectionType === 'custom').length;
+  const potentialCount = unified.filter((s) => s.sectionType === 'potential').length;
+  const disabledCount = unified.filter((s) => disabledIds.has(s.id)).length;
 
   return {
     sections: unified,

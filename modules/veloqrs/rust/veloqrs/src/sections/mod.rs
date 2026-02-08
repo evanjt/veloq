@@ -64,14 +64,16 @@ pub struct Section {
     pub point_density: Option<Vec<u32>>,
     pub scale: Option<String>,
 
-    // Version tracking
-    pub version: u32,
     pub is_user_defined: bool,
-    pub stability: Option<f64>,
 
-    // Timestamps
-    pub created_at: String,
+    /// How well the reference trace aligns with the consensus polyline (0.0-1.0)
+    pub stability: Option<f64>,
+    /// Number of times this section has been recalibrated
+    pub version: Option<u32>,
+    /// ISO timestamp of last recalibration
     pub updated_at: Option<String>,
+
+    pub created_at: String,
 
     // Route associations
     pub route_ids: Option<Vec<String>>,

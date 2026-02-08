@@ -142,6 +142,7 @@ export function SectionsList({
   } = data;
 
   const { createSection, removeSection } = useCustomSections();
+  const disabledIds = useDisabledSections((s) => s.disabledIds);
   const { disable, enable } = useDisabledSections();
 
   // Track open swipeable refs to close them when another opens
@@ -157,13 +158,13 @@ export function SectionsList({
     const potential: UnifiedSection[] = [];
 
     for (const section of unifiedSections) {
-      if (section.source === 'potential') {
+      if (section.sectionType === 'potential') {
         potential.push(section);
       } else {
         // Apply hide filters - hide if the filter is set for this type
-        const isCustom = section.source === 'custom';
-        const isAuto = section.source === 'auto' && !section.isDisabled;
-        const isDisabledAuto = section.source === 'auto' && section.isDisabled;
+        const isCustom = section.sectionType === 'custom';
+        const isAuto = section.sectionType === 'auto' && !disabledIds.has(section.id);
+        const isDisabledAuto = section.sectionType === 'auto' && disabledIds.has(section.id);
 
         if (
           (isCustom && hiddenFilters.custom) ||
@@ -201,13 +202,13 @@ export function SectionsList({
   // Handle promoting a potential section to a custom section
   const handlePromotePotential = useCallback(
     async (section: UnifiedSection) => {
-      if (!section.potentialData) return;
+      if (section.sectionType !== 'potential') return;
       log.log('Promoting potential section:', section.id);
       try {
         await createSection({
           startIndex: 0,
           endIndex: section.polyline.length - 1,
-          sourceActivityId: section.potentialData.activityIds[0] ?? 'unknown',
+          sourceActivityId: section.activityIds[0] ?? 'unknown',
           sportType: section.sportType,
         });
       } catch (error) {
@@ -390,7 +391,7 @@ export function SectionsList({
           {potentialSections.slice(0, 3).map((section) => (
             <PotentialSectionCard
               key={section.id}
-              section={section.potentialData!}
+              section={section}
               onPromote={() => handlePromotePotential(section)}
               onDismiss={() => handleDismissPotential(section)}
             />
@@ -399,36 +400,6 @@ export function SectionsList({
       )}
     </View>
   );
-
-  // Convert UnifiedSection to FrequentSection-like object for SectionRow
-  const toFrequentSection = useCallback((section: UnifiedSection): FrequentSection => {
-    // If we have engineData, use it directly (polylines pre-populated from batch data)
-    if (section.engineData) {
-      return section.engineData;
-    }
-    // Otherwise, construct a compatible object (for custom sections)
-    // Include source activity if not already in matches or activityIds
-    const matchActivityIds = section.customData?.matches?.map((m) => m.activityId) ?? [];
-    const sectionActivityIds = section.customData?.activityIds ?? [];
-    const allActivityIds = [...new Set([...matchActivityIds, ...sectionActivityIds])];
-    const sourceActivityId = section.customData?.sourceActivityId;
-    const activityIds =
-      sourceActivityId && !allActivityIds.includes(sourceActivityId)
-        ? [sourceActivityId, ...allActivityIds]
-        : allActivityIds;
-
-    return {
-      id: section.id,
-      sectionType: section.sectionType || 'custom',
-      sportType: section.sportType,
-      polyline: section.polyline,
-      activityIds,
-      visitCount: activityIds.length,
-      distanceMeters: section.distanceMeters,
-      name: section.name,
-      createdAt: section.createdAt || new Date().toISOString(),
-    };
-  }, []);
 
   // Close any open swipeable when another opens
   const handleSwipeableOpen = useCallback((id: string) => {
@@ -445,7 +416,7 @@ export function SectionsList({
       const swipeable = swipeableRefs.current.get(item.id);
       swipeable?.close();
 
-      if (item.isDisabled) {
+      if (disabledIds.has(item.id)) {
         await enable(item.id);
       } else {
         await disable(item.id);
@@ -485,8 +456,8 @@ export function SectionsList({
       _progress: Animated.AnimatedInterpolation<number>,
       dragX: Animated.AnimatedInterpolation<number>
     ) => {
-      const isCustom = item.source === 'custom';
-      const isDisabled = item.isDisabled;
+      const isCustom = item.sectionType === 'custom';
+      const isDisabled = disabledIds.has(item.id);
 
       // Animate opacity based on drag distance
       const opacity = dragX.interpolate({
@@ -534,7 +505,7 @@ export function SectionsList({
 
   const renderItem = useCallback(
     ({ item }: { item: UnifiedSection }) => {
-      const frequentSection = toFrequentSection(item);
+      const itemDisabled = disabledIds.has(item.id);
       return (
         <Swipeable
           ref={(ref) => {
@@ -549,18 +520,18 @@ export function SectionsList({
             style={[
               styles.swipeableContent,
               isDark && styles.swipeableContentDark,
-              item.isDisabled && styles.disabledSection,
+              itemDisabled && styles.disabledSection,
             ]}
           >
-            <SectionRow section={frequentSection} onPress={() => handleSectionPress(item)} />
+            <SectionRow section={item} onPress={() => handleSectionPress(item)} />
             {/* Show source badge for custom sections */}
-            {item.source === 'custom' && (
+            {item.sectionType === 'custom' && (
               <View style={styles.sourceBadge}>
                 <Text style={styles.sourceBadgeText}>{t('routes.custom')}</Text>
               </View>
             )}
             {/* Show disabled badge */}
-            {item.isDisabled && (
+            {itemDisabled && (
               <View style={styles.disabledIndicator}>
                 <MaterialCommunityIcons name="eye-off" size={12} color={colors.warning} />
                 <Text style={styles.disabledIndicatorText}>{t('sections.disabled')}</Text>
@@ -570,7 +541,7 @@ export function SectionsList({
         </Swipeable>
       );
     },
-    [handleSectionPress, handleSwipeableOpen, renderRightActions, toFrequentSection, t]
+    [handleSectionPress, handleSwipeableOpen, renderRightActions, disabledIds, t]
   );
 
   const renderFooter = () => {

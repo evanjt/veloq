@@ -85,7 +85,6 @@ export {
   useEngineGroups,
   useEngineSections,
   useViewportActivities,
-  useEngineStats,
   useConsensusRoute,
   // Query-on-demand hooks (lightweight, no memory bloat)
   useSectionSummaries,

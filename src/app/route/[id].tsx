@@ -49,7 +49,8 @@ function gpsPointsToRoutePoints(
     lng: p.longitude,
   }));
 }
-import { RouteMapView, MiniTraceView, DataRangeFooter } from '@/components/routes';
+import { RouteMapView, MiniTraceView, DataRangeFooter, DebugInfoPanel } from '@/components/routes';
+import { useDebugStore } from '@/providers';
 import {
   UnifiedPerformanceChart,
   type DirectionSummaryStats,
@@ -298,6 +299,7 @@ export default function RouteDetailScreen() {
 
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays();
+  const debugEnabled = useDebugStore((s) => s.enabled);
 
   // State for highlighted activity
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
@@ -904,6 +906,35 @@ export default function RouteDetailScreen() {
 
           {/* Data range footer */}
           <DataRangeFooter days={cacheDays} isDark={isDark} />
+
+          {debugEnabled && engineGroup && (
+            <DebugInfoPanel
+              isDark={isDark}
+              entries={[
+                {
+                  label: 'ID',
+                  value:
+                    engineGroup.groupId.length > 20
+                      ? engineGroup.groupId.slice(0, 20) + '...'
+                      : engineGroup.groupId,
+                },
+                { label: 'Type', value: engineGroup.sportType || '-' },
+                { label: 'Activities', value: String(engineGroup.activityIds.length) },
+                {
+                  label: 'Avg Distance',
+                  value:
+                    routeStats.distance > 0 ? formatDistance(routeStats.distance, isMetric) : '-',
+                },
+                {
+                  label: 'Best Time',
+                  value:
+                    bestPerformance?.duration != null
+                      ? formatDuration(bestPerformance.duration)
+                      : '-',
+                },
+              ]}
+            />
+          )}
         </View>
       </ScrollView>
     </View>

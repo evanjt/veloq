@@ -136,24 +136,6 @@ export function createSection(
   );
 }
 /**
- * Decode Google polyline string to flat coordinates [lat, lng, lat, lng, ...].
- */
-export function decodePolylineToCoordinates(
-  encoded: string,
-): Array</*f64*/ number> {
-  return FfiConverterArrayFloat64.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_decode_polyline_to_coordinates(
-          FfiConverterString.lower(encoded),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
-  );
-}
-/**
  * Get default scale presets for multi-scale detection
  */
 export function defaultScalePresets(): Array<FfiScalePreset> {
@@ -183,25 +165,6 @@ export function deleteSection(sectionId: string): boolean {
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_delete_section(
           FfiConverterString.lower(sectionId),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
-  );
-}
-/**
- * Encode flat coordinates [lat, lng, lat, lng, ...] to Google polyline string.
- * Precision: 5 decimal places (standard for GPS).
- */
-export function encodeCoordinatesToPolyline(
-  coords: Array</*f64*/ number>,
-): string {
-  return FfiConverterString.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_encode_coordinates_to_polyline(
-          FfiConverterArrayFloat64.lower(coords),
           callStatus,
         );
       },
@@ -343,28 +306,6 @@ export function getSectionCount(
   );
 }
 /**
- * Get a single section by ID.
- *
- * # Arguments
- * * `section_id` - Section ID to retrieve
- *
- * # Returns
- * JSON object of the section, or empty string if not found
- */
-export function getSectionJson(sectionId: string): string {
-  return FfiConverterString.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_section_json(
-          FfiConverterString.lower(sectionId),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
-  );
-}
-/**
  * Get the reference activity ID for a section.
  *
  * # Arguments
@@ -379,27 +320,6 @@ export function getSectionReference(sectionId: string): string {
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_section_reference(
           FfiConverterString.lower(sectionId),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
-  );
-}
-/**
- * Get section summaries (lightweight, no polylines).
- *
- * # Arguments
- * * `section_type` - Optional filter: "auto", "custom", or None for all
- */
-export function getSectionSummariesJson(
-  sectionType: string | undefined,
-): string {
-  return FfiConverterString.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_section_summaries_json(
-          FfiConverterOptionalString.lower(sectionType),
           callStatus,
         );
       },
@@ -449,46 +369,6 @@ export function getSectionsForActivity(activityId: string): Array<FfiSection> {
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_sections_for_activity(
           FfiConverterString.lower(activityId),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
-  );
-}
-/**
- * Get sections for a specific activity.
- *
- * Uses junction table for efficient lookup.
- *
- * # Arguments
- * * `activity_id` - Activity ID to find sections for
- *
- * # Returns
- * JSON array of sections containing the activity
- */
-export function getSectionsForActivityJson(activityId: string): string {
-  return FfiConverterString.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_sections_for_activity_json(
-          FfiConverterString.lower(activityId),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
-  );
-}
-/**
- * Initialize sections schema.
- * Called during database initialization.
- */
-export function initSectionsSchema(): boolean {
-  return FfiConverterBool.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_init_sections_schema(
           callStatus,
         );
       },
@@ -2656,11 +2536,11 @@ export type FfiFrequentSection = {
   averageSpread: /*f64*/ number;
   pointDensity: Array</*u32*/ number>;
   scale: string | undefined;
-  version: /*u32*/ number;
   isUserDefined: boolean;
-  createdAt: string | undefined;
-  updatedAt: string | undefined;
   stability: /*f64*/ number;
+  version: /*u32*/ number;
+  updatedAt: string | undefined;
+  createdAt: string | undefined;
 };
 
 /**
@@ -2713,11 +2593,11 @@ const FfiConverterTypeFfiFrequentSection = (() => {
         averageSpread: FfiConverterFloat64.read(from),
         pointDensity: FfiConverterArrayUInt32.read(from),
         scale: FfiConverterOptionalString.read(from),
-        version: FfiConverterUInt32.read(from),
         isUserDefined: FfiConverterBool.read(from),
-        createdAt: FfiConverterOptionalString.read(from),
-        updatedAt: FfiConverterOptionalString.read(from),
         stability: FfiConverterFloat64.read(from),
+        version: FfiConverterUInt32.read(from),
+        updatedAt: FfiConverterOptionalString.read(from),
+        createdAt: FfiConverterOptionalString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -2739,11 +2619,11 @@ const FfiConverterTypeFfiFrequentSection = (() => {
       FfiConverterFloat64.write(value.averageSpread, into);
       FfiConverterArrayUInt32.write(value.pointDensity, into);
       FfiConverterOptionalString.write(value.scale, into);
-      FfiConverterUInt32.write(value.version, into);
       FfiConverterBool.write(value.isUserDefined, into);
-      FfiConverterOptionalString.write(value.createdAt, into);
-      FfiConverterOptionalString.write(value.updatedAt, into);
       FfiConverterFloat64.write(value.stability, into);
+      FfiConverterUInt32.write(value.version, into);
+      FfiConverterOptionalString.write(value.updatedAt, into);
+      FfiConverterOptionalString.write(value.createdAt, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -2764,11 +2644,11 @@ const FfiConverterTypeFfiFrequentSection = (() => {
         FfiConverterFloat64.allocationSize(value.averageSpread) +
         FfiConverterArrayUInt32.allocationSize(value.pointDensity) +
         FfiConverterOptionalString.allocationSize(value.scale) +
-        FfiConverterUInt32.allocationSize(value.version) +
         FfiConverterBool.allocationSize(value.isUserDefined) +
-        FfiConverterOptionalString.allocationSize(value.createdAt) +
+        FfiConverterFloat64.allocationSize(value.stability) +
+        FfiConverterUInt32.allocationSize(value.version) +
         FfiConverterOptionalString.allocationSize(value.updatedAt) +
-        FfiConverterFloat64.allocationSize(value.stability)
+        FfiConverterOptionalString.allocationSize(value.createdAt)
       );
     }
   }
@@ -4000,11 +3880,11 @@ export type FfiSection = {
   averageSpread: /*f64*/ number | undefined;
   pointDensity: Array</*u32*/ number> | undefined;
   scale: string | undefined;
-  version: /*u32*/ number;
   isUserDefined: boolean;
   stability: /*f64*/ number | undefined;
-  createdAt: string;
+  version: /*u32*/ number | undefined;
   updatedAt: string | undefined;
+  createdAt: string;
   routeIds: Array<string> | undefined;
   sourceActivityId: string | undefined;
   startIndex: /*u32*/ number | undefined;
@@ -4060,11 +3940,11 @@ const FfiConverterTypeFfiSection = (() => {
         averageSpread: FfiConverterOptionalFloat64.read(from),
         pointDensity: FfiConverterOptionalArrayUInt32.read(from),
         scale: FfiConverterOptionalString.read(from),
-        version: FfiConverterUInt32.read(from),
         isUserDefined: FfiConverterBool.read(from),
         stability: FfiConverterOptionalFloat64.read(from),
-        createdAt: FfiConverterString.read(from),
+        version: FfiConverterOptionalUInt32.read(from),
         updatedAt: FfiConverterOptionalString.read(from),
+        createdAt: FfiConverterString.read(from),
         routeIds: FfiConverterOptionalArrayString.read(from),
         sourceActivityId: FfiConverterOptionalString.read(from),
         startIndex: FfiConverterOptionalUInt32.read(from),
@@ -4086,11 +3966,11 @@ const FfiConverterTypeFfiSection = (() => {
       FfiConverterOptionalFloat64.write(value.averageSpread, into);
       FfiConverterOptionalArrayUInt32.write(value.pointDensity, into);
       FfiConverterOptionalString.write(value.scale, into);
-      FfiConverterUInt32.write(value.version, into);
       FfiConverterBool.write(value.isUserDefined, into);
       FfiConverterOptionalFloat64.write(value.stability, into);
-      FfiConverterString.write(value.createdAt, into);
+      FfiConverterOptionalUInt32.write(value.version, into);
       FfiConverterOptionalString.write(value.updatedAt, into);
+      FfiConverterString.write(value.createdAt, into);
       FfiConverterOptionalArrayString.write(value.routeIds, into);
       FfiConverterOptionalString.write(value.sourceActivityId, into);
       FfiConverterOptionalUInt32.write(value.startIndex, into);
@@ -4114,11 +3994,11 @@ const FfiConverterTypeFfiSection = (() => {
         FfiConverterOptionalFloat64.allocationSize(value.averageSpread) +
         FfiConverterOptionalArrayUInt32.allocationSize(value.pointDensity) +
         FfiConverterOptionalString.allocationSize(value.scale) +
-        FfiConverterUInt32.allocationSize(value.version) +
         FfiConverterBool.allocationSize(value.isUserDefined) +
         FfiConverterOptionalFloat64.allocationSize(value.stability) +
-        FfiConverterString.allocationSize(value.createdAt) +
+        FfiConverterOptionalUInt32.allocationSize(value.version) +
         FfiConverterOptionalString.allocationSize(value.updatedAt) +
+        FfiConverterString.allocationSize(value.createdAt) +
         FfiConverterOptionalArrayString.allocationSize(value.routeIds) +
         FfiConverterOptionalString.allocationSize(value.sourceActivityId) +
         FfiConverterOptionalUInt32.allocationSize(value.startIndex) +
@@ -5502,14 +5382,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_decode_polyline_to_coordinates() !==
-    41176
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_decode_polyline_to_coordinates",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_default_scale_presets() !==
     21857
   ) {
@@ -5522,14 +5394,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_delete_section",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_encode_coordinates_to_polyline() !==
-    58271
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_encode_coordinates_to_polyline",
     );
   }
   if (
@@ -5573,27 +5437,11 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_section_json() !==
-    58796
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_get_section_json",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_section_reference() !==
     53900
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_get_section_reference",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_section_summaries_json() !==
-    28647
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_get_section_summaries_json",
     );
   }
   if (
@@ -5609,22 +5457,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_get_sections_for_activity",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_sections_for_activity_json() !==
-    5620
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_get_sections_for_activity_json",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_init_sections_schema() !==
-    45649
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_init_sections_schema",
     );
   }
   if (

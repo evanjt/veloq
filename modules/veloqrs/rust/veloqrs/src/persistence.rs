@@ -28,10 +28,10 @@ use rusqlite::{Connection, Result as SqlResult, params};
 use rusqlite_migration::{Migrations, M};
 use rstar::{AABB, RTree, RTreeObject};
 use crate::{
-    ActivityMatchInfo, ActivityMetrics, Bounds, DirectionStats, FrequentSection, GpsPoint,
-    MatchConfig, RouteGroup, RoutePerformance, RoutePerformanceResult, RouteSignature,
-    SectionConfig, SectionLap, SectionPerformanceRecord, SectionPerformanceResult, SectionPortion,
-    geo_utils,
+    ActivityMatchInfo, ActivityMetrics, Bounds, Direction, DirectionStats, FrequentSection,
+    GpsPoint, MatchConfig, RouteGroup, RoutePerformance, RoutePerformanceResult, RouteSignature,
+    SectionConfig, SectionLap, SectionPerformanceRecord, SectionPerformanceResult,
+    SectionPortion, geo_utils,
 };
 use lru::LruCache;
 use chrono::Utc;
@@ -302,68 +302,6 @@ struct ActivitySectionMatchInternal {
 // Helper Functions for Background Threads
 // ============================================================================
 
-/// Generate current timestamp in ISO 8601 format.
-/// Uses Unix epoch time since chrono is not a dependency.
-
-fn current_timestamp_iso() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    let duration = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default();
-
-    let secs = duration.as_secs();
-
-    // Convert to ISO 8601 format (simplified, always UTC)
-    // Format: YYYY-MM-DDTHH:MM:SSZ
-    let days_since_epoch = secs / 86400;
-    let secs_today = secs % 86400;
-    let hours = secs_today / 3600;
-    let mins = (secs_today % 3600) / 60;
-    let secs_final = secs_today % 60;
-
-    // Calculate year, month, day from days since epoch (1970-01-01)
-    // This is a simplified calculation
-    let mut days = days_since_epoch as i64;
-    let mut year = 1970;
-
-    loop {
-        let days_in_year = if is_leap_year(year) { 366 } else { 365 };
-        if days < days_in_year {
-            break;
-        }
-        days -= days_in_year;
-        year += 1;
-    }
-
-    let mut month = 1;
-    let days_in_months: [i64; 12] = if is_leap_year(year) {
-        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    } else {
-        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    };
-
-    for &dim in &days_in_months {
-        if days < dim {
-            break;
-        }
-        days -= dim;
-        month += 1;
-    }
-
-    let day = days + 1;
-
-    format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-        year, month, day, hours, mins, secs_final
-    )
-}
-
-
-fn is_leap_year(year: i64) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
-}
-
 /// Compute Average Minimum Distance (AMD) between two traces.
 /// For each point in trace1, find minimum distance to any point in trace2.
 /// AMD = average of these minimum distances.
@@ -398,6 +336,21 @@ fn compute_amd(trace1: &[GpsPoint], trace2: &[GpsPoint]) -> f64 {
     } else {
         total_min_dist / count as f64
     }
+}
+
+/// Compute stability: how well a trace aligns with a consensus polyline.
+/// Returns 0.0-1.0 where 1.0 = perfect alignment.
+/// Uses the default proximity threshold (50m) for normalization.
+fn compute_stability(trace: &[GpsPoint], consensus: &[GpsPoint]) -> f64 {
+    let proximity_threshold = SectionConfig::default().proximity_threshold;
+    if trace.is_empty() || consensus.is_empty() || proximity_threshold <= 0.0 {
+        return 0.0;
+    }
+    let amd = compute_amd(trace, consensus);
+    if amd == f64::MAX {
+        return 0.0;
+    }
+    (1.0 - (amd / proximity_threshold)).clamp(0.0, 1.0)
 }
 
 /// Load route groups from SQLite database.
@@ -1016,7 +969,7 @@ impl PersistentRouteEngine {
                     ActivityMatchInfo {
                         activity_id: row.get(1)?,
                         match_percentage: row.get(2)?,
-                        direction: row.get(3)?,
+                        direction: { let s: String = row.get(3)?; s.parse().unwrap_or_default() },
                     },
                 ))
             })?
@@ -1193,7 +1146,7 @@ impl PersistentRouteEngine {
                     row.get::<_, String>(0)?,  // section_id
                     SectionPortion {
                         activity_id: row.get(1)?,
-                        direction: row.get(2)?,
+                        direction: { let s: String = row.get(2)?; s.parse().unwrap_or_default() },
                         start_index: row.get(3)?,
                         end_index: row.get(4)?,
                         distance_meters: row.get(5)?,
@@ -1256,12 +1209,12 @@ impl PersistentRouteEngine {
                         observation_count: row.get::<_, Option<u32>>(8)?.unwrap_or(0),
                         average_spread: row.get::<_, Option<f64>>(9)?.unwrap_or(0.0),
                         point_density,
-                        scale: row.get(11)?,
-                        version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
+                        scale: { let s: Option<String> = row.get(11)?; s.map(|s| s.parse().unwrap_or_default()) },
                         is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                         stability: row.get::<_, Option<f64>>(14)?.unwrap_or(0.0),
-                        created_at: row.get(15)?,
+                        version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
                         updated_at: row.get(16)?,
+                        created_at: row.get(15)?,
                     })
                 })?
                 .filter_map(|r| r.ok())
@@ -2444,7 +2397,7 @@ impl PersistentRouteEngine {
                     route_id,
                     m.activity_id,
                     m.match_percentage,
-                    m.direction,
+                    m.direction.to_string(),
                 ])?;
             }
         }
@@ -2567,12 +2520,12 @@ impl PersistentRouteEngine {
             observation_count: observation_count.unwrap_or(0),
             average_spread: average_spread.unwrap_or(0.0),
             point_density,
-            scale,
-            version: version.unwrap_or(1),
+            scale: scale.map(|s| s.parse().unwrap_or_default()),
             is_user_defined: is_user_defined.unwrap_or(0) != 0,
             stability: stability.unwrap_or(0.0),
-            created_at,
+            version: version.unwrap_or(1),
             updated_at,
+            created_at,
         };
 
         // Find and update existing section, or append if new
@@ -2819,7 +2772,7 @@ impl PersistentRouteEngine {
             stmt.query_map(params![section_id], |row| {
                 Ok(SectionPortion {
                     activity_id: row.get(0)?,
-                    direction: row.get(1)?,
+                    direction: { let s: String = row.get(1)?; s.parse().unwrap_or_default() },
                     start_index: row.get(2)?,
                     end_index: row.get(3)?,
                     distance_meters: row.get(4)?,
@@ -2875,12 +2828,12 @@ impl PersistentRouteEngine {
                         observation_count: row.get::<_, Option<u32>>(8)?.unwrap_or(0),
                         average_spread: row.get::<_, Option<f64>>(9)?.unwrap_or(0.0),
                         point_density,
-                        scale: row.get(11)?,
-                        version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
+                        scale: { let s: Option<String> = row.get(11)?; s.map(|s| s.parse().unwrap_or_default()) },
                         is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                         stability: row.get::<_, Option<f64>>(14)?.unwrap_or(0.0),
-                        created_at: row.get(15)?,
+                        version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
                         updated_at: row.get(16)?,
+                        created_at: row.get(15)?,
                     })
                 },
             )
@@ -3479,12 +3432,12 @@ impl PersistentRouteEngine {
                 section.observation_count,
                 section.average_spread,
                 point_density_json,
-                section.scale,
+                section.scale.map(|s| s.to_string()),
                 section.version,
                 if section.is_user_defined { 1 } else { 0 },
                 section.stability,
                 created_at,
-                section.updated_at,
+                section.updated_at
             ])?;
 
             // Populate junction table with full portion details
@@ -3492,7 +3445,7 @@ impl PersistentRouteEngine {
                 junction_stmt.execute(params![
                     section.id,
                     portion.activity_id,
-                    portion.direction,
+                    portion.direction.to_string(),
                     portion.start_index,
                     portion.end_index,
                     portion.distance_meters,
@@ -3730,7 +3683,7 @@ impl PersistentRouteEngine {
 
         // Add portion metadata
         // Note: start_index/end_index are relative to the overlap, not full track
-        let direction = if same_direction { "same" } else { "reverse" }.to_string();
+        let direction = if same_direction { Direction::Same } else { Direction::Reverse };
         section.activity_portions.push(SectionPortion {
             activity_id: activity_id.to_string(),
             start_index: 0,
@@ -3742,10 +3695,8 @@ impl PersistentRouteEngine {
         // Recalculate medoid if we have enough traces
         self.recalculate_section_medoid(section_id)?;
 
-        // Update version and timestamp
+        // Update observation count
         if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-            section.version += 1;
-            section.updated_at = Some(current_timestamp_iso());
             section.observation_count = section.activity_ids.len() as u32;
         }
 
@@ -3855,16 +3806,45 @@ impl PersistentRouteEngine {
             }
         }
 
-        // Update section with new medoid
-        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-            section.representative_activity_id = best_activity_id.clone();
+        // Compute stability of the best candidate against the section's consensus polyline
+        let new_stability = {
+            let section = self
+                .sections
+                .iter()
+                .find(|s| s.id == section_id)
+                .ok_or_else(|| format!("Section {} not found", section_id))?;
 
-            if old_medoid != best_activity_id {
+            let candidate_trace = traces_data
+                .iter()
+                .find(|(id, _)| *id == best_activity_id)
+                .map(|(_, trace)| trace.as_slice());
+
+            match candidate_trace {
+                Some(trace) if !section.polyline.is_empty() => {
+                    compute_stability(trace, &section.polyline)
+                }
+                _ => 0.0,
+            }
+        };
+
+        // Update section with new medoid and stability
+        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+            let old_stability = section.stability;
+            let changed = old_medoid != best_activity_id || new_stability != old_stability;
+
+            if changed {
+                section.representative_activity_id = best_activity_id.clone();
+                section.stability = new_stability;
+                section.version += 1;
+                section.updated_at = Some(Utc::now().to_rfc3339());
+
                 log::info!(
-                    "tracematch: [Medoid] Section {} medoid changed: {} -> {}",
+                    "tracematch: [Medoid] Section {} recalibrated: medoid {} -> {}, stability {:.3} -> {:.3}",
                     section_id,
                     old_medoid,
-                    best_activity_id
+                    best_activity_id,
+                    old_stability,
+                    new_stability
                 );
             }
         }
@@ -4553,7 +4533,7 @@ impl PersistentRouteEngine {
                             time: lap_time,
                             pace,
                             distance: portion.distance_meters,
-                            direction: portion.direction.clone(),
+                            direction: portion.direction.to_string(),
                             start_index: portion.start_index,
                             end_index: portion.end_index,
                         })
@@ -4742,7 +4722,7 @@ impl PersistentRouteEngine {
                 let match_percentage = match_data.map(|m| m.match_percentage);
                 let direction = match_data
                     .map(|m| m.direction.clone())
-                    .unwrap_or_else(|| "same".to_string());
+                    .unwrap_or(Direction::Same);
 
                 Some(RoutePerformance {
                     activity_id: id.clone(),
@@ -4756,7 +4736,7 @@ impl PersistentRouteEngine {
                     avg_hr: metrics.avg_hr,
                     avg_power: metrics.avg_power,
                     is_current: current_activity_id == Some(id.as_str()),
-                    direction,
+                    direction: direction.to_string(),
                     match_percentage,
                 })
             })
@@ -5093,7 +5073,7 @@ pub mod persistent_engine_ffi {
                     );
                 }
 
-                let mut guard = PERSISTENT_ENGINE.lock().unwrap();
+                let mut guard = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
                 *guard = Some(engine);
                 info!("tracematch: [PersistentEngine] Initialized successfully");
                 true
@@ -5909,46 +5889,6 @@ pub mod persistent_engine_ffi {
     }
 
     // ========================================================================
-    // Polyline Encoding FFI (Google Polyline Algorithm)
-    // ~60% size reduction vs raw [lat,lng] arrays
-    // ========================================================================
-
-    /// Encode flat coordinates [lat, lng, lat, lng, ...] to Google polyline string.
-    /// Precision: 5 decimal places (standard for GPS).
-    #[uniffi::export]
-    pub fn encode_coordinates_to_polyline(coords: Vec<f64>) -> String {
-        use geo::LineString;
-
-        if coords.len() < 4 || coords.len() % 2 != 0 {
-            return String::new();
-        }
-
-        // Convert to geo::LineString (expects (x, y) = (lng, lat) order)
-        let line: LineString<f64> = coords
-            .chunks(2)
-            .map(|chunk| (chunk[1], chunk[0])) // (lng, lat)
-            .collect();
-
-        polyline::encode_coordinates(line, 5).unwrap_or_default()
-    }
-
-    /// Decode Google polyline string to flat coordinates [lat, lng, lat, lng, ...].
-    #[uniffi::export]
-    pub fn decode_polyline_to_coordinates(encoded: String) -> Vec<f64> {
-        if encoded.is_empty() {
-            return Vec::new();
-        }
-
-        polyline::decode_polyline(&encoded, 5)
-            .map(|line| {
-                line.coords()
-                    .flat_map(|c| vec![c.y, c.x]) // (lat, lng) from (x, y)
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    // ========================================================================
     // Aggregate Query FFI (Phase 2: SQL-based dashboard/stats queries)
     // ========================================================================
 
@@ -6270,11 +6210,11 @@ mod tests {
             average_spread: 10.0,
             point_density: vec![activity_ids.len() as u32; 50],
             scale: Some("medium".to_string()),
-            version: 1,
             is_user_defined: false,
-            created_at: Some("2026-01-28T00:00:00Z".to_string()),
+            stability: 0.0,
+            version: 1,
             updated_at: None,
-            stability: 0.7,
+            created_at: Some("2026-01-28T00:00:00Z".to_string()),
         }
     }
 

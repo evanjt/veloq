@@ -116,14 +116,10 @@ RustBuffer uniffi_veloqrs_fn_func_create_section(
     RustBuffer sport_type, RustBuffer polyline_json, double distance_meters,
     RustBuffer name, RustBuffer source_activity_id, RustBuffer start_index,
     RustBuffer end_index, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_func_decode_polyline_to_coordinates(
-    RustBuffer encoded, RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_func_default_scale_presets(RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_func_delete_section(RustBuffer section_id,
                                              RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_func_encode_coordinates_to_polyline(
-    RustBuffer coords, RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_func_fetch_activity_maps(RustBuffer auth_header,
                                            RustBuffer activity_ids,
@@ -141,21 +137,12 @@ uint32_t
 uniffi_veloqrs_fn_func_get_section_count(RustBuffer section_type,
                                          RustCallStatus *uniffi_out_err);
 RustBuffer
-uniffi_veloqrs_fn_func_get_section_json(RustBuffer section_id,
-                                        RustCallStatus *uniffi_out_err);
-RustBuffer
 uniffi_veloqrs_fn_func_get_section_reference(RustBuffer section_id,
                                              RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_func_get_section_summaries_json(
-    RustBuffer section_type, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_get_sections(RustBuffer section_type,
                                                RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_get_sections_for_activity(
     RustBuffer activity_id, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_func_get_sections_for_activity_json(
-    RustBuffer activity_id, RustCallStatus *uniffi_out_err);
-int8_t
-uniffi_veloqrs_fn_func_init_sections_schema(RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_func_is_section_reference_user_defined(
     RustBuffer section_id, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_func_persistent_engine_add_activities(
@@ -428,22 +415,16 @@ void ffi_veloqrs_rust_future_complete_void(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 uint16_t uniffi_veloqrs_checksum_func_compute_polyline_overlap();
 uint16_t uniffi_veloqrs_checksum_func_create_section();
-uint16_t uniffi_veloqrs_checksum_func_decode_polyline_to_coordinates();
 uint16_t uniffi_veloqrs_checksum_func_default_scale_presets();
 uint16_t uniffi_veloqrs_checksum_func_delete_section();
-uint16_t uniffi_veloqrs_checksum_func_encode_coordinates_to_polyline();
 uint16_t uniffi_veloqrs_checksum_func_fetch_activity_maps();
 uint16_t uniffi_veloqrs_checksum_func_fetch_activity_maps_with_progress();
 uint16_t uniffi_veloqrs_checksum_func_ffi_detect_sections_multiscale();
 uint16_t uniffi_veloqrs_checksum_func_get_download_progress();
 uint16_t uniffi_veloqrs_checksum_func_get_section_count();
-uint16_t uniffi_veloqrs_checksum_func_get_section_json();
 uint16_t uniffi_veloqrs_checksum_func_get_section_reference();
-uint16_t uniffi_veloqrs_checksum_func_get_section_summaries_json();
 uint16_t uniffi_veloqrs_checksum_func_get_sections();
 uint16_t uniffi_veloqrs_checksum_func_get_sections_for_activity();
-uint16_t uniffi_veloqrs_checksum_func_get_sections_for_activity_json();
-uint16_t uniffi_veloqrs_checksum_func_init_sections_schema();
 uint16_t uniffi_veloqrs_checksum_func_is_section_reference_user_defined();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_add_activities();
 uint16_t
@@ -2252,18 +2233,6 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_func_create_section(rt, thisVal,
                                                                    args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_func_decode_polyline_to_coordinates"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_func_decode_polyline_to_coordinates"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_func_decode_polyline_to_coordinates(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_fn_func_default_scale_presets"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2285,18 +2254,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_func_delete_section(rt, thisVal,
                                                                    args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_func_encode_coordinates_to_polyline"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_func_encode_coordinates_to_polyline"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_func_encode_coordinates_to_polyline(
-                    rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_func_fetch_activity_maps"] =
       jsi::Function::createFromHostFunction(
@@ -2356,17 +2313,6 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_func_get_section_count(
                 rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_func_get_section_json"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_func_get_section_json"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_func_get_section_json(
-                rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_fn_func_get_section_reference"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2376,17 +2322,6 @@ NativeVeloqrs::NativeVeloqrs(
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_func_get_section_reference(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_func_get_section_summaries_json"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_func_get_section_summaries_json"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_func_get_section_summaries_json(
                 rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_func_get_sections"] =
@@ -2409,29 +2344,6 @@ NativeVeloqrs::NativeVeloqrs(
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_func_get_sections_for_activity(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_func_get_sections_for_activity_json"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_func_get_sections_for_activity_json"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_func_get_sections_for_activity_json(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_func_init_sections_schema"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_func_init_sections_schema"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_func_init_sections_schema(
                 rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_func_is_section_reference_user_defined"] =
@@ -3209,18 +3121,6 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_checksum_func_create_section(
                 rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_checksum_func_decode_polyline_to_coordinates"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
-                                        "decode_polyline_to_coordinates"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_func_decode_polyline_to_coordinates(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_checksum_func_default_scale_presets"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -3242,18 +3142,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_checksum_func_delete_section(
                 rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_func_encode_coordinates_to_polyline"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
-                                        "encode_coordinates_to_polyline"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_func_encode_coordinates_to_polyline(
-                    rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_func_fetch_activity_maps"] =
       jsi::Function::createFromHostFunction(
@@ -3312,17 +3200,6 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_checksum_func_get_section_count(
                 rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_checksum_func_get_section_json"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_func_get_section_json"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_checksum_func_get_section_json(
-                rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_checksum_func_get_section_reference"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -3333,19 +3210,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_checksum_func_get_section_reference(
                 rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_func_get_section_summaries_json"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_veloqrs_checksum_func_get_section_summaries_json"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_func_get_section_summaries_json(
-                    rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_func_get_sections"] =
       jsi::Function::createFromHostFunction(
@@ -3370,29 +3234,6 @@ NativeVeloqrs::NativeVeloqrs(
             return this
                 ->cpp_uniffi_veloqrs_checksum_func_get_sections_for_activity(
                     rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_func_get_sections_for_activity_json"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_get_"
-                                        "sections_for_activity_json"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_func_get_sections_for_activity_json(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_func_init_sections_schema"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_func_init_sections_schema"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_checksum_func_init_sections_schema(
-                rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_func_is_section_reference_user_defined"] =
       jsi::Function::createFromHostFunction(
@@ -4278,20 +4119,6 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_create_section(
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_decode_polyline_to_coordinates(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_func_decode_polyline_to_coordinates(
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_default_scale_presets(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -4315,20 +4142,6 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_delete_section(
                                                         args[count - 1]);
 
   return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_encode_coordinates_to_polyline(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_func_encode_coordinates_to_polyline(
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_fetch_activity_maps(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -4403,38 +4216,12 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_section_count(
 
   return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
 }
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_section_json(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_func_get_section_json(
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_section_reference(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_func_get_section_reference(
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_section_summaries_json(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_func_get_section_summaries_json(
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -4467,31 +4254,6 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_sections_for_activity(
                                                         args[count - 1]);
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_sections_for_activity_json(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_func_get_sections_for_activity_json(
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_init_sections_schema(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_func_init_sections_schema(&status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_is_section_reference_user_defined(
@@ -5364,14 +5126,6 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_create_section(
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_decode_polyline_to_coordinates(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_func_decode_polyline_to_coordinates();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_default_scale_presets(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -5383,14 +5137,6 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_delete_section(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_func_delete_section();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_encode_coordinates_to_polyline(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_func_encode_coordinates_to_polyline();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -5432,26 +5178,11 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_get_section_count(
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_get_section_json(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_func_get_section_json();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_get_section_reference(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_func_get_section_reference();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_get_section_summaries_json(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_func_get_section_summaries_json();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -5467,21 +5198,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_get_sections_for_activity(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_func_get_sections_for_activity();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_get_sections_for_activity_json(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_func_get_sections_for_activity_json();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_init_sections_schema(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_func_init_sections_schema();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

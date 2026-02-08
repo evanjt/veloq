@@ -107,8 +107,8 @@ pub struct FfiActivityMetrics {
     pub hr_zone_times: Option<String>,
 }
 
-impl From<tracematch::ActivityMetrics> for FfiActivityMetrics {
-    fn from(m: tracematch::ActivityMetrics) -> Self {
+impl From<crate::ActivityMetrics> for FfiActivityMetrics {
+    fn from(m: crate::ActivityMetrics) -> Self {
         Self {
             activity_id: m.activity_id,
             name: m.name,
@@ -128,7 +128,7 @@ impl From<tracematch::ActivityMetrics> for FfiActivityMetrics {
     }
 }
 
-impl From<FfiActivityMetrics> for tracematch::ActivityMetrics {
+impl From<FfiActivityMetrics> for crate::ActivityMetrics {
     fn from(m: FfiActivityMetrics) -> Self {
         Self {
             activity_id: m.activity_id,
@@ -312,7 +312,7 @@ pub struct FfiScalePreset {
 impl From<tracematch::ScalePreset> for FfiScalePreset {
     fn from(s: tracematch::ScalePreset) -> Self {
         Self {
-            name: s.name,
+            name: s.name.to_string(),
             min_length: s.min_length,
             max_length: s.max_length,
             min_activities: s.min_activities,
@@ -323,7 +323,7 @@ impl From<tracematch::ScalePreset> for FfiScalePreset {
 impl From<FfiScalePreset> for tracematch::ScalePreset {
     fn from(s: FfiScalePreset) -> Self {
         Self {
-            name: s.name,
+            name: s.name.parse().unwrap_or_default(),
             min_length: s.min_length,
             max_length: s.max_length,
             min_activities: s.min_activities,
@@ -356,7 +356,7 @@ impl From<FfiSectionConfig> for tracematch::SectionConfig {
             min_activities: c.min_activities,
             cluster_tolerance: c.cluster_tolerance,
             sample_points: c.sample_points,
-            detection_mode: c.detection_mode,
+            detection_mode: c.detection_mode.parse().unwrap_or_default(),
             include_potentials: c.include_potentials,
             scale_presets: c
                 .scale_presets
@@ -378,7 +378,7 @@ impl Default for FfiSectionConfig {
             min_activities: c.min_activities,
             cluster_tolerance: c.cluster_tolerance,
             sample_points: c.sample_points,
-            detection_mode: c.detection_mode,
+            detection_mode: c.detection_mode.to_string(),
             include_potentials: c.include_potentials,
             scale_presets: c
                 .scale_presets
@@ -408,7 +408,7 @@ impl From<tracematch::SectionPortion> for FfiSectionPortion {
             start_index: p.start_index,
             end_index: p.end_index,
             distance_meters: p.distance_meters,
-            direction: p.direction,
+            direction: p.direction.to_string(),
         }
     }
 }
@@ -432,11 +432,11 @@ pub struct FfiFrequentSection {
     pub average_spread: f64,
     pub point_density: Vec<u32>,
     pub scale: Option<String>,
-    pub version: u32,
     pub is_user_defined: bool,
-    pub created_at: Option<String>,
-    pub updated_at: Option<String>,
     pub stability: f64,
+    pub version: u32,
+    pub updated_at: Option<String>,
+    pub created_at: Option<String>,
 }
 
 impl From<tracematch::FrequentSection> for FfiFrequentSection {
@@ -460,12 +460,12 @@ impl From<tracematch::FrequentSection> for FfiFrequentSection {
             observation_count: s.observation_count,
             average_spread: s.average_spread,
             point_density: s.point_density,
-            scale: s.scale,
-            version: s.version,
+            scale: s.scale.map(|s| s.to_string()),
             is_user_defined: s.is_user_defined,
-            created_at: s.created_at,
-            updated_at: s.updated_at,
             stability: s.stability,
+            version: s.version,
+            updated_at: s.updated_at,
+            created_at: s.created_at,
         }
     }
 }
@@ -492,7 +492,7 @@ impl From<tracematch::PotentialSection> for FfiPotentialSection {
             activity_ids: s.activity_ids,
             distance_meters: s.distance_meters,
             confidence: s.confidence,
-            scale: s.scale,
+            scale: s.scale.to_string(),
         }
     }
 }
@@ -569,13 +569,11 @@ pub struct FfiSection {
     pub average_spread: Option<f64>,
     pub point_density: Option<Vec<u32>>,
     pub scale: Option<String>,
-    // Version tracking
-    pub version: u32,
     pub is_user_defined: bool,
     pub stability: Option<f64>,
-    // Timestamps
-    pub created_at: String,
+    pub version: Option<u32>,
     pub updated_at: Option<String>,
+    pub created_at: String,
     // Route associations
     pub route_ids: Option<Vec<String>>,
     // Custom-specific fields (None for auto sections)
@@ -601,11 +599,11 @@ impl From<crate::sections::Section> for FfiSection {
             average_spread: s.average_spread,
             point_density: s.point_density,
             scale: s.scale,
-            version: s.version,
             is_user_defined: s.is_user_defined,
             stability: s.stability,
-            created_at: s.created_at,
+            version: s.version,
             updated_at: s.updated_at,
+            created_at: s.created_at,
             route_ids: s.route_ids,
             source_activity_id: s.source_activity_id,
             start_index: s.start_index,
@@ -640,8 +638,8 @@ pub struct FfiSectionLap {
     pub end_index: u32,
 }
 
-impl From<tracematch::SectionLap> for FfiSectionLap {
-    fn from(l: tracematch::SectionLap) -> Self {
+impl From<crate::SectionLap> for FfiSectionLap {
+    fn from(l: crate::SectionLap) -> Self {
         Self {
             id: l.id,
             activity_id: l.activity_id,
@@ -682,8 +680,8 @@ pub struct FfiSectionPerformanceRecord {
     pub section_distance: f64,
 }
 
-impl From<tracematch::SectionPerformanceRecord> for FfiSectionPerformanceRecord {
-    fn from(r: tracematch::SectionPerformanceRecord) -> Self {
+impl From<crate::SectionPerformanceRecord> for FfiSectionPerformanceRecord {
+    fn from(r: crate::SectionPerformanceRecord) -> Self {
         Self {
             activity_id: r.activity_id,
             activity_name: r.activity_name,
@@ -713,8 +711,8 @@ pub struct FfiDirectionStats {
     pub count: u32,
 }
 
-impl From<tracematch::DirectionStats> for FfiDirectionStats {
-    fn from(s: tracematch::DirectionStats) -> Self {
+impl From<crate::DirectionStats> for FfiDirectionStats {
+    fn from(s: crate::DirectionStats) -> Self {
         Self {
             avg_time: s.avg_time,
             last_activity: s.last_activity,
@@ -743,8 +741,8 @@ pub struct FfiSectionPerformanceResult {
     pub reverse_stats: Option<FfiDirectionStats>,
 }
 
-impl From<tracematch::SectionPerformanceResult> for FfiSectionPerformanceResult {
-    fn from(r: tracematch::SectionPerformanceResult) -> Self {
+impl From<crate::SectionPerformanceResult> for FfiSectionPerformanceResult {
+    fn from(r: crate::SectionPerformanceResult) -> Self {
         Self {
             records: r
                 .records
@@ -791,8 +789,8 @@ pub struct FfiRoutePerformance {
     pub match_percentage: Option<f64>,
 }
 
-impl From<tracematch::RoutePerformance> for FfiRoutePerformance {
-    fn from(p: tracematch::RoutePerformance) -> Self {
+impl From<crate::RoutePerformance> for FfiRoutePerformance {
+    fn from(p: crate::RoutePerformance) -> Self {
         Self {
             activity_id: p.activity_id,
             name: p.name,
@@ -833,8 +831,8 @@ pub struct FfiRoutePerformanceResult {
     pub current_rank: Option<u32>,
 }
 
-impl From<tracematch::RoutePerformanceResult> for FfiRoutePerformanceResult {
-    fn from(r: tracematch::RoutePerformanceResult) -> Self {
+impl From<crate::RoutePerformanceResult> for FfiRoutePerformanceResult {
+    fn from(r: crate::RoutePerformanceResult) -> Self {
         Self {
             performances: r
                 .performances
@@ -927,7 +925,7 @@ mod tests {
 
     #[test]
     fn test_ffi_direction_stats_from_tracematch() {
-        let stats = tracematch::DirectionStats {
+        let stats = crate::DirectionStats {
             avg_time: Some(300.0),
             last_activity: Some(1700000000),
             count: 5,
@@ -940,7 +938,7 @@ mod tests {
 
     #[test]
     fn test_ffi_section_lap_from_tracematch() {
-        let lap = tracematch::SectionLap {
+        let lap = crate::SectionLap {
             id: "lap_1".to_string(),
             activity_id: "act_123".to_string(),
             time: 120.5,
@@ -960,7 +958,7 @@ mod tests {
 
     #[test]
     fn test_ffi_section_performance_record_from_tracematch() {
-        let lap = tracematch::SectionLap {
+        let lap = crate::SectionLap {
             id: "lap_1".to_string(),
             activity_id: "act_123".to_string(),
             time: 120.5,
@@ -970,7 +968,7 @@ mod tests {
             start_index: 0,
             end_index: 100,
         };
-        let record = tracematch::SectionPerformanceRecord {
+        let record = crate::SectionPerformanceRecord {
             activity_id: "act_123".to_string(),
             activity_name: "Morning Ride".to_string(),
             activity_date: 1700000000,
@@ -992,7 +990,7 @@ mod tests {
 
     #[test]
     fn test_ffi_route_performance_from_tracematch() {
-        let perf = tracematch::RoutePerformance {
+        let perf = crate::RoutePerformance {
             activity_id: "act_123".to_string(),
             name: "Morning Ride".to_string(),
             date: 1700000000,
@@ -1016,7 +1014,7 @@ mod tests {
 
     #[test]
     fn test_ffi_section_performance_result_empty() {
-        let result = tracematch::SectionPerformanceResult {
+        let result = crate::SectionPerformanceResult {
             records: vec![],
             best_record: None,
             best_forward_record: None,
@@ -1031,7 +1029,7 @@ mod tests {
 
     #[test]
     fn test_ffi_route_performance_result_empty() {
-        let result = tracematch::RoutePerformanceResult {
+        let result = crate::RoutePerformanceResult {
             performances: vec![],
             best: None,
             best_forward: None,
@@ -1068,11 +1066,11 @@ mod tests {
             average_spread: Some(15.0),
             point_density: Some(vec![5, 5]),
             scale: Some("medium".to_string()),
-            version: 1,
             is_user_defined: false,
-            stability: Some(0.9),
+            stability: Some(0.85),
+            version: Some(3),
+            updated_at: Some("2024-06-01T00:00:00Z".to_string()),
             created_at: "2024-01-01T00:00:00Z".to_string(),
-            updated_at: Some("2024-01-02T00:00:00Z".to_string()),
             route_ids: Some(vec!["route_1".to_string()]),
             source_activity_id: None,
             start_index: None,

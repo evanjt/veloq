@@ -29,6 +29,16 @@ pub mod ffi;
 // Unified sections module
 pub mod sections;
 
+// App-layer types that were moved out of tracematch (persistence/UI data containers)
+pub mod types;
+pub use types::*;
+
+/// Helper to calculate elapsed milliseconds from an Instant
+#[inline]
+pub(crate) fn elapsed_ms(start: std::time::Instant) -> u64 {
+    start.elapsed().as_millis() as u64
+}
+
 uniffi::setup_scaffolding!();
 
 /// Initialize logging for Android

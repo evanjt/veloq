@@ -13,18 +13,29 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { FFI_EXPORTS, EXPECTED_TS_FUNCTIONS, RUST_TO_TS_NAME } from './ffi-exports.generated';
 
-const VELOQRS_INDEX_PATH = path.resolve(__dirname, '../../../modules/veloqrs/src/index.ts');
+const VELOQRS_SRC_DIR = path.resolve(__dirname, '../../../modules/veloqrs/src');
+const VELOQRS_INDEX_PATH = path.join(VELOQRS_SRC_DIR, 'index.ts');
 
 /**
- * Extract all imports from the generated veloqrs module in index.ts.
+ * Extract all imports from the generated veloqrs module across all wrapper files.
  * Looks for: import { fn1, fn2, ... } from './generated/veloqrs'
  */
 function extractGeneratedImports(): Set<string> {
-  const content = fs.readFileSync(VELOQRS_INDEX_PATH, 'utf-8');
+  // Read both index.ts and RouteEngineClient.ts (split module structure)
+  const files = ['index.ts', 'RouteEngineClient.ts'];
   const imports = new Set<string>();
 
-  // Match import statements from './generated/veloqrs'
-  // Handles multi-line imports
+  for (const file of files) {
+    const filePath = path.join(VELOQRS_SRC_DIR, file);
+    if (!fs.existsSync(filePath)) continue;
+    const content = fs.readFileSync(filePath, 'utf-8');
+    extractImportsFromContent(content, imports);
+  }
+
+  return imports;
+}
+
+function extractImportsFromContent(content: string, imports: Set<string>): void {
   const importRegex = /import\s*\{([^}]+)\}\s*from\s*['"]\.\/generated\/veloqrs['"]/gs;
 
   let match;
@@ -57,8 +68,6 @@ function extractGeneratedImports(): Set<string> {
       imports.add(originalName);
     }
   }
-
-  return imports;
 }
 
 /**
@@ -98,8 +107,8 @@ describe('FFI Binding Validation', () => {
       expect(FFI_EXPORTS.length).toBeGreaterThan(0);
     });
 
-    it('should have 79 FFI exports from Rust', () => {
-      expect(FFI_EXPORTS.length).toBe(79);
+    it('should have 73 FFI exports from Rust', () => {
+      expect(FFI_EXPORTS.length).toBe(73);
     });
 
     it('should have exports from all expected source files', () => {
@@ -150,8 +159,6 @@ describe('FFI Binding Validation', () => {
         'persistentEngineAddActivities',
         'persistentEngineGetSections',
         'persistentEngineGetSectionSummaries',
-        'encodeCoordinatesToPolyline',
-        'decodePolylineToCoordinates',
       ];
 
       const missingCritical: string[] = [];
@@ -222,7 +229,7 @@ describe('FFI Binding Validation', () => {
 
     it('should have section management functions', () => {
       const sectionFns = FFI_EXPORTS.filter((e) => e.file === 'sections/ffi.rs');
-      expect(sectionFns.length).toBeGreaterThan(10);
+      expect(sectionFns.length).toBeGreaterThan(6);
     });
 
     it('should have HTTP/fetch functions', () => {
@@ -236,7 +243,7 @@ describe('FFI Binding Validation', () => {
       const polylineFns = FFI_EXPORTS.filter(
         (e) => e.name.includes('polyline') || e.name.includes('coordinates')
       );
-      expect(polylineFns.length).toBeGreaterThan(2);
+      expect(polylineFns.length).toBeGreaterThan(1);
     });
   });
 });
@@ -246,7 +253,7 @@ describe('FFI Manifest Freshness', () => {
     // This test ensures the generated manifest is up-to-date
     // If it fails, run: npx tsx scripts/extract-ffi-exports.ts
 
-    const expectedCount = 79; // Update if Rust exports change
+    const expectedCount = 73; // Update if Rust exports change
     const actualCount = FFI_EXPORTS.length;
 
     if (actualCount !== expectedCount) {

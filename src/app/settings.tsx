@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   Alert,
   LayoutChangeEvent,
 } from 'react-native';
@@ -47,6 +48,7 @@ import {
   type PrimarySport,
   type UnitPreference,
   type MetricId,
+  useDebugStore,
 } from '@/providers';
 import Constants from 'expo-constants';
 import { type SupportedLocale } from '@/i18n';
@@ -167,6 +169,26 @@ export default function SettingsScreen() {
     },
     [scrollTo]
   );
+
+  // Debug mode
+  const debugUnlocked = useDebugStore((s) => s.unlocked);
+  const debugEnabled = useDebugStore((s) => s.enabled);
+  const setDebugEnabled = useDebugStore((s) => s.setEnabled);
+  const debugTapCount = useRef(0);
+  const debugTapTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const handleVersionTap = useCallback(() => {
+    if (debugUnlocked) return;
+    debugTapCount.current += 1;
+    clearTimeout(debugTapTimer.current);
+    if (debugTapCount.current >= 5) {
+      debugTapCount.current = 0;
+      useDebugStore.getState().unlock();
+    } else {
+      debugTapTimer.current = setTimeout(() => {
+        debugTapCount.current = 0;
+      }, 2000);
+    }
+  }, [debugUnlocked]);
 
   const { data: athlete } = useAthlete();
   const {
@@ -1076,12 +1098,26 @@ export default function SettingsScreen() {
         </View>
 
         {/* Version */}
-        <Text
-          testID="settings-version-text"
-          style={[styles.versionText, isDark && styles.textMuted]}
-        >
-          {t('settings.version')} {Constants.expoConfig?.version ?? '0.0.1'}
-        </Text>
+        <Pressable onPress={handleVersionTap}>
+          <Text
+            testID="settings-version-text"
+            style={[styles.versionText, isDark && styles.textMuted]}
+          >
+            {t('settings.version')} {Constants.expoConfig?.version ?? '0.0.1'}
+          </Text>
+        </Pressable>
+
+        {debugUnlocked && (
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <Text style={[styles.toggleLabel, isDark && styles.textLight]}>Debug Mode</Text>
+              <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
+                Show internal diagnostics in detail pages
+              </Text>
+            </View>
+            <Switch value={debugEnabled} onValueChange={setDebugEnabled} color={colors.primary} />
+          </View>
+        )}
       </ScrollView>
     </ScreenSafeAreaView>
   );
