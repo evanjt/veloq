@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, Dimensions, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -48,6 +48,8 @@ interface SwipeableTabsProps {
   children: React.ReactNode[];
   /** Whether swipe gesture is enabled (default: true) */
   gestureEnabled?: boolean;
+  /** Only mount tab content once visited (default: false for backward compatibility) */
+  lazy?: boolean;
 }
 
 export function SwipeableTabs({
@@ -57,9 +59,13 @@ export function SwipeableTabs({
   isDark,
   children,
   gestureEnabled = true,
+  lazy = false,
 }: SwipeableTabsProps) {
   const tabCount = tabs.length;
   const maxOffset = -SCREEN_WIDTH * (tabCount - 1);
+
+  // Track which tabs have been visited (for lazy rendering)
+  const visitedRef = useRef<Set<number>>(new Set([0])); // First tab always visited
 
   // Find initial tab index
   const getTabIndex = (key: string) => tabs.findIndex((t) => t.key === key);
@@ -85,6 +91,8 @@ export function SwipeableTabs({
   useEffect(() => {
     const targetIndex = getTabIndex(activeTab);
     if (targetIndex < 0) return;
+    // Mark this tab as visited for lazy rendering
+    visitedRef.current.add(targetIndex);
     const targetX = -SCREEN_WIDTH * targetIndex;
     activeTabIndex.value = targetIndex;
     translateX.value = withTiming(targetX, TIMING_CONFIG);
@@ -222,7 +230,7 @@ export function SwipeableTabs({
         >
           {React.Children.map(children, (child, index) => (
             <View key={index} style={styles.page}>
-              {child}
+              {lazy && !visitedRef.current.has(index) ? null : child}
             </View>
           ))}
         </Animated.View>

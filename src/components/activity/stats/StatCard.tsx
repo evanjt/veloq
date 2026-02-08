@@ -6,6 +6,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, opacity, typography, layout } from '@/theme';
+import { CHART_CONFIG } from '@/constants';
 import type { StatDetail } from './types';
 
 interface StatCardProps {
@@ -19,7 +20,7 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
     <Pressable
       onLongPress={() => onPress(stat)}
       onPress={() => onPress(stat)}
-      delayLongPress={300}
+      delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
       style={({ pressed }) => [
         styles.statCard,
         isDark && styles.statCardDark,

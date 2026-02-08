@@ -319,7 +319,7 @@ interface ActivityMapViewProps {
   highlightedSectionId?: string | null;
 }
 
-export function ActivityMapView({
+export const ActivityMapView = memo(function ActivityMapView({
   polyline: encodedPolyline,
   coordinates: providedCoordinates,
   activityType,
@@ -1846,7 +1846,7 @@ export function ActivityMapView({
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   outerContainer: {

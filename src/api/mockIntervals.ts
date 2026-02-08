@@ -5,15 +5,6 @@
  * This ensures demo mode behaves identically to real mode, and can be used
  * for end-to-end testing as well.
  */
-import {
-  fixtures,
-  getActivity,
-  getActivities,
-  getActivityMap,
-  getActivityStreams,
-  getWellness,
-} from '@/data/demo/fixtures';
-import { demoPowerCurve, demoPaceCurve, demoSportSettings } from '@/data/demo';
 import type {
   Activity,
   ActivityDetail,
@@ -30,6 +21,20 @@ import type {
 // Simulate network delay for realistic UX
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Lazy-loaded demo fixture cache (avoids ~400KB eager load for non-demo users)
+let _fixtures: Awaited<typeof import('@/data/demo/fixtures')> | null = null;
+let _curves: Awaited<typeof import('@/data/demo/curves')> | null = null;
+
+async function loadFixtures() {
+  if (!_fixtures) _fixtures = await import('@/data/demo/fixtures');
+  return _fixtures;
+}
+
+async function loadCurves() {
+  if (!_curves) _curves = await import('@/data/demo/curves');
+  return _curves;
+}
+
 /**
  * Mock implementation of the Intervals.icu API
  *
@@ -42,6 +47,7 @@ export const mockIntervalsApi = {
    */
   async getAthlete(): Promise<Athlete> {
     await delay(100);
+    const { fixtures } = await loadFixtures();
     return fixtures.athlete as Athlete;
   },
 
@@ -50,6 +56,7 @@ export const mockIntervalsApi = {
    */
   async getCurrentAthlete(): Promise<Athlete> {
     await delay(100);
+    const { fixtures } = await loadFixtures();
     return fixtures.athlete as Athlete;
   },
 
@@ -62,6 +69,7 @@ export const mockIntervalsApi = {
     includeStats?: boolean;
   }): Promise<Activity[]> {
     await delay(200);
+    const { getActivities } = await loadFixtures();
     const activities = getActivities({
       oldest: params?.oldest,
       newest: params?.newest,
@@ -74,6 +82,7 @@ export const mockIntervalsApi = {
    */
   async getActivity(id: string): Promise<ActivityDetail> {
     await delay(150);
+    const { getActivity } = await loadFixtures();
     const activity = getActivity(id);
     if (!activity) throw new Error('Activity not found');
     return activity as ActivityDetail;
@@ -84,6 +93,7 @@ export const mockIntervalsApi = {
    */
   async getOldestActivityDate(): Promise<string | null> {
     await delay(50);
+    const { fixtures } = await loadFixtures();
     const activities = fixtures.activities;
     if (activities.length === 0) return null;
     return activities[0].start_date_local;
@@ -94,6 +104,7 @@ export const mockIntervalsApi = {
    */
   async getActivityStreams(id: string, _types?: string[]): Promise<ActivityStreams> {
     await delay(200);
+    const { getActivityStreams } = await loadFixtures();
     const streams = getActivityStreams(id);
     if (!streams) {
       // Return empty streams if activity not found
@@ -107,6 +118,7 @@ export const mockIntervalsApi = {
    */
   async getWellness(params?: { oldest?: string; newest?: string }): Promise<WellnessData[]> {
     await delay(150);
+    const { getWellness } = await loadFixtures();
     const wellness = getWellness({
       oldest: params?.oldest,
       newest: params?.newest,
@@ -119,6 +131,7 @@ export const mockIntervalsApi = {
    */
   async getPowerCurve(_params?: { sport?: string; days?: number }): Promise<PowerCurve> {
     await delay(100);
+    const { demoPowerCurve } = await loadCurves();
     return demoPowerCurve;
   },
 
@@ -131,6 +144,7 @@ export const mockIntervalsApi = {
     gap?: boolean;
   }): Promise<PaceCurve> {
     await delay(100);
+    const { demoPaceCurve } = await loadCurves();
     return demoPaceCurve;
   },
 
@@ -139,6 +153,7 @@ export const mockIntervalsApi = {
    */
   async getSportSettings(): Promise<SportSettings[]> {
     await delay(100);
+    const { demoSportSettings } = await loadCurves();
     return demoSportSettings as SportSettings[];
   },
 
@@ -147,6 +162,7 @@ export const mockIntervalsApi = {
    */
   async getAthleteProfile(): Promise<Athlete & { sport_settings?: SportSettings[] }> {
     await delay(100);
+    const [{ fixtures }, { demoSportSettings }] = await Promise.all([loadFixtures(), loadCurves()]);
     return {
       ...(fixtures.athlete as Athlete),
       sport_settings: demoSportSettings as SportSettings[],
@@ -158,6 +174,7 @@ export const mockIntervalsApi = {
    */
   async getActivityMap(id: string, boundsOnly = false): Promise<ActivityMapData | null> {
     await delay(100);
+    const { getActivityMap } = await loadFixtures();
     const map = getActivityMap(id, boundsOnly);
     return map as ActivityMapData | null;
   },
@@ -168,6 +185,7 @@ export const mockIntervalsApi = {
    */
   async getAthleteSummary(params: { start: string; end: string }): Promise<AthleteSummary[]> {
     await delay(100);
+    const { getActivities } = await loadFixtures();
     const activities = getActivities({
       oldest: params.start,
       newest: params.end,
@@ -248,7 +266,8 @@ function getMonday(date: Date): Date {
 /**
  * Get all fixture data for testing purposes
  */
-export function getTestFixtures() {
+export async function getTestFixtures() {
+  const { fixtures } = await loadFixtures();
   return fixtures;
 }
 

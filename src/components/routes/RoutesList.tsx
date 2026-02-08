@@ -14,8 +14,10 @@ import {
   RefreshControl,
   LayoutAnimation,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
-import { useTheme, useGroupSummaries, useRouteProcessing, useCacheDays } from '@/hooks';
+import { useTheme, useRouteProcessing, useCacheDays } from '@/hooks';
+import type { GroupWithPolyline } from 'veloqrs';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -26,7 +28,6 @@ import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 import { toActivityType } from '@/types/routes';
-import type { GroupSummary } from 'veloqrs';
 
 interface RoutesListProps {
   /** Callback when list is pulled to refresh */
@@ -37,6 +38,12 @@ interface RoutesListProps {
   startDate?: Date;
   /** Filter by end date (only show routes with activities before this date) */
   endDate?: Date;
+  /** Pre-loaded groups with consensus polylines from batch FFI call */
+  batchGroups: GroupWithPolyline[];
+  /** Callback to load more groups (pagination) */
+  onLoadMore?: () => void;
+  /** Whether more groups are available to load */
+  hasMore?: boolean;
 }
 
 // Memoized routes list - only updates when route count changes
@@ -103,18 +110,28 @@ const DiscoveredRoutesList = memo(
 );
 
 /**
- * Convert GroupSummary to RouteGroup-like object for RouteRow.
- * Uses empty activityIds since RouteRow with navigable=true doesn't need them.
+ * Convert batch GroupWithPolyline to RouteGroup with pre-loaded consensus points.
+ * Avoids per-row useConsensusRoute FFI calls.
  */
-function summaryToRouteGroup(summary: GroupSummary, index: number): RouteGroup {
-  const sportType = summary.sportType || 'Ride';
+function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteGroup {
+  const sportType = group.sportType || 'Ride';
+  // Convert flat coords [lat1, lng1, lat2, lng2, ...] to RoutePoint[]
+  const consensusPoints: Array<{ lat: number; lng: number }> = [];
+  for (let i = 0; i < group.consensusPolyline.length - 1; i += 2) {
+    consensusPoints.push({
+      lat: group.consensusPolyline[i],
+      lng: group.consensusPolyline[i + 1],
+    });
+  }
   return {
-    id: summary.groupId,
-    name: summary.customName || `${sportType} Route ${index + 1}`,
+    id: group.groupId,
+    name: group.customName || `${sportType} Route ${index + 1}`,
     type: toActivityType(sportType),
-    activityCount: summary.activityCount,
-    activityIds: [], // Not needed for navigable rows (empty array to satisfy type)
-    signature: null, // Loaded lazily via useConsensusRoute in RouteRow
+    activityCount: group.activityCount,
+    activityIds: [],
+    signature: null,
+    consensusPoints,
+    distance: group.distanceMeters > 0 ? group.distanceMeters : undefined,
   };
 }
 
@@ -123,24 +140,25 @@ export function RoutesList({
   isRefreshing = false,
   startDate,
   endDate,
+  batchGroups,
+  onLoadMore,
+  hasMore = false,
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
-  // Use lightweight summaries - no activity IDs loaded, just counts and metadata
-  // This prevents memory bloat when many activities are cached
-  const { count: totalCount, summaries } = useGroupSummaries({
-    minActivities: 2,
-    sortBy: 'count',
-  });
+  // Convert batch groups to RouteGroup format for RouteRow
+  const groups = useMemo(() => {
+    return batchGroups
+      .filter((g) => g.activityCount >= 2)
+      .sort((a, b) => b.activityCount - a.activityCount)
+      .map((g, i) => batchGroupToRouteGroup(g, i));
+  }, [batchGroups]);
 
-  // Convert summaries to RouteGroup format for RouteRow
-  const groups = useMemo(() => summaries.map((s, i) => summaryToRouteGroup(s, i)), [summaries]);
-
-  // Calculate processed count from summaries
+  // Calculate processed count
   const processedCount = useMemo(
-    () => summaries.reduce((sum, s) => sum + s.activityCount, 0),
-    [summaries]
+    () => groups.reduce((sum, g) => sum + g.activityCount, 0),
+    [groups]
   );
 
   const isReady = true; // Summaries are always ready (query on demand)
@@ -286,7 +304,16 @@ export function RoutesList({
 
   const renderFooter = () => {
     if (groups.length === 0) return null;
-    return <DataRangeFooter days={cacheDays} isDark={isDark} />;
+    return (
+      <View>
+        {hasMore && (
+          <View style={styles.loadingMore}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        )}
+        <DataRangeFooter days={cacheDays} isDark={isDark} />
+      </View>
+    );
   };
 
   return (
@@ -300,6 +327,8 @@ export function RoutesList({
       ListFooterComponent={renderFooter}
       contentContainerStyle={groups.length === 0 ? styles.emptyList : styles.list}
       showsVerticalScrollIndicator={false}
+      onEndReached={hasMore ? onLoadMore : undefined}
+      onEndReachedThreshold={0.5}
       // Performance optimizations
       removeClippedSubviews={Platform.OS === 'ios'}
       maxToRenderPerBatch={10}
@@ -408,5 +437,9 @@ const styles = StyleSheet.create({
   },
   infoTextDark: {
     color: darkColors.textSecondary,
+  },
+  loadingMore: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
   },
 });

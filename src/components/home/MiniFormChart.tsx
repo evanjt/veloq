@@ -2,7 +2,7 @@
  * Mini Form chart with colored zones for the Summary Card.
  * Shows 7-day form trend with zone backgrounds (Fresh, Grey, Optimal, etc.)
  */
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { CartesianChart, Line } from 'victory-native';
 import { Rect, Shadow } from '@shopify/react-native-skia';
@@ -41,7 +41,13 @@ interface ChartDataPoint {
   [key: string]: number;
 }
 
-export function MiniFormChart({ data, width = 140, height = 50 }: MiniFormChartProps) {
+const CHART_PADDING = { left: 0, right: 0, top: 2, bottom: 2 } as const;
+
+export const MiniFormChart = memo(function MiniFormChart({
+  data,
+  width = 140,
+  height = 50,
+}: MiniFormChartProps) {
   const { isDark } = useTheme();
 
   // Process data for the chart
@@ -85,7 +91,7 @@ export function MiniFormChart({ data, width = 140, height = 50 }: MiniFormChartP
         xKey="x"
         yKeys={['form']}
         domain={formDomain}
-        padding={{ left: 0, right: 0, top: 2, bottom: 2 }}
+        padding={CHART_PADDING}
       >
         {({ points, chartBounds }) => {
           const chartHeight = chartBounds.bottom - chartBounds.top;
@@ -160,7 +166,7 @@ export function MiniFormChart({ data, width = 140, height = 50 }: MiniFormChartP
       </CartesianChart>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

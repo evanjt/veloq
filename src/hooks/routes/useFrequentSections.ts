@@ -22,6 +22,8 @@ export interface UseFrequentSectionsOptions {
   sortBy?: 'visits' | 'distance' | 'name';
   /** Exclude disabled sections (default: true) */
   excludeDisabled?: boolean;
+  /** Whether to run the hook (default: true). When false, returns empty defaults without FFI calls. */
+  enabled?: boolean;
 }
 
 export interface UseFrequentSectionsResult {
@@ -72,12 +74,20 @@ function summaryToFrequentSection(
 export function useFrequentSections(
   options: UseFrequentSectionsOptions = {}
 ): UseFrequentSectionsResult {
-  const { sportType, minVisits = 3, sortBy = 'visits', excludeDisabled = true } = options;
+  const {
+    sportType,
+    minVisits = 3,
+    sortBy = 'visits',
+    excludeDisabled = true,
+    enabled = true,
+  } = options;
 
   // Use lightweight summaries - no polylines loaded, queries SQLite on-demand
+  // Pass enabled to skip FFI calls when batch data is available
   const { count: totalCount, summaries } = useSectionSummaries({
     sportType,
     minVisits: 1,
+    enabled,
   });
   const isReady = true;
 
@@ -85,6 +95,8 @@ export function useFrequentSections(
   const disabledIds = useDisabledSections((s) => s.disabledIds);
 
   const sections = useMemo(() => {
+    // Skip processing when disabled
+    if (!enabled) return [];
     // Convert summaries to FrequentSection format
     let filtered = summaries.map(summaryToFrequentSection);
 
@@ -115,7 +127,7 @@ export function useFrequentSections(
     }
 
     return filtered;
-  }, [summaries, sportType, minVisits, sortBy, excludeDisabled, disabledIds]);
+  }, [summaries, sportType, minVisits, sortBy, excludeDisabled, disabledIds, enabled]);
 
   return {
     sections,

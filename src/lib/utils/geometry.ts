@@ -2,6 +2,8 @@
  * Geometry utilities for GPS coordinate processing.
  */
 
+import { getRouteEngine } from '@/lib/native/routeEngine';
+
 /**
  * Haversine distance between two points in meters.
  */
@@ -22,9 +24,20 @@ export function haversineDistance(
   return R * c;
 }
 
+/** Flatten a RoutePoint[] to [lat, lng, lat, lng, ...] for Rust FFI. */
+function flattenPolyline(polyline: Array<{ lat: number; lng: number }>): number[] {
+  const flat = new Array(polyline.length * 2);
+  for (let i = 0; i < polyline.length; i++) {
+    flat[i * 2] = polyline[i].lat;
+    flat[i * 2 + 1] = polyline[i].lng;
+  }
+  return flat;
+}
+
 /**
  * Compute overlap between two polylines.
  * Returns 0-1 representing the fraction of polylineA points that are close to polylineB.
+ * Uses Rust R-tree when engine is available (O(n log m)), falls back to JS brute-force.
  *
  * @param polylineA - First polyline
  * @param polylineB - Second polyline
@@ -38,6 +51,17 @@ export function computePolylineOverlap(
 ): number {
   if (polylineA.length === 0 || polylineB.length === 0) return 0;
 
+  // Try Rust R-tree implementation
+  const engine = getRouteEngine();
+  if (engine) {
+    return engine.computePolylineOverlap(
+      flattenPolyline(polylineA),
+      flattenPolyline(polylineB),
+      thresholdMeters
+    );
+  }
+
+  // JS fallback (O(n*m) brute-force)
   let matchedCount = 0;
 
   for (const pointA of polylineA) {

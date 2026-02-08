@@ -121,70 +121,36 @@ export const intervalsApi = {
   },
 
   /**
-   * Get the oldest activity date for the athlete
-   * Used to determine the full timeline range
+   * Get the oldest activity date for the athlete.
+   * Used to determine the full timeline range for the date slider.
    *
-   * Strategy: Use binary search with year boundaries to find oldest activity
-   * efficiently without fetching entire activity history.
+   * Single API call fetching all activity dates with minimal fields (~68KB for 1366 activities).
+   * intervals.icu returns newest-first, so the oldest is the last element.
    */
   async getOldestActivityDate(): Promise<string | null> {
     if (isDemoMode()) return mockIntervalsApi.getOldestActivityDate();
     const athleteId = getAthleteId();
 
-    // Binary search for oldest activity year
-    // Start with current year and search backwards
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    let oldestFound: string | null = null;
+    try {
+      const response = await apiClient.get(`/athlete/${athleteId}/activities`, {
+        params: {
+          oldest: '2000-01-01',
+          newest: formatLocalDate(new Date()),
+          fields: 'id,start_date_local',
+        },
+      });
 
-    // Check progressively older years until we find no activities
-    // Most users won't have data older than 10-15 years
-    for (let year = currentYear; year >= currentYear - 20; year--) {
-      const yearStart = `${year}-01-01`;
-      const yearEnd = `${year}-12-31`;
+      const activities = response.data as Activity[];
+      if (activities.length === 0) return null;
 
-      try {
-        const response = await apiClient.get(`/athlete/${athleteId}/activities`, {
-          params: {
-            oldest: yearStart,
-            newest: yearEnd,
-            fields: 'id,start_date_local',
-            limit: 1, // We only need to know if any activities exist in this year
-          },
-        });
-
-        const activities = response.data as Activity[];
-        if (activities.length > 0) {
-          // Found activity in this year - need to find the oldest within it
-          // Fetch all activities for this year to find the actual oldest
-          const fullYearResponse = await apiClient.get(`/athlete/${athleteId}/activities`, {
-            params: {
-              oldest: yearStart,
-              newest: yearEnd,
-              fields: 'id,start_date_local',
-            },
-          });
-
-          const yearActivities = fullYearResponse.data as Activity[];
-          if (yearActivities.length > 0) {
-            // intervals.icu returns descending (newest first), so oldest is last
-            oldestFound = yearActivities.reduce(
-              (oldest, a) => (a.start_date_local < oldest ? a.start_date_local : oldest),
-              yearActivities[0].start_date_local
-            );
-          }
-        } else if (oldestFound) {
-          // No activities in this year and we already found some in a later year
-          // We've found the boundary - stop searching
-          break;
-        }
-      } catch {
-        // If year query fails, continue with next year
-        continue;
-      }
+      // intervals.icu returns newest-first, so find the minimum date
+      return activities.reduce(
+        (oldest, a) => (a.start_date_local < oldest ? a.start_date_local : oldest),
+        activities[0].start_date_local
+      );
+    } catch {
+      return null;
     }
-
-    return oldestFound;
   },
 
   async getActivityStreams(id: string, types?: string[]): Promise<ActivityStreams> {

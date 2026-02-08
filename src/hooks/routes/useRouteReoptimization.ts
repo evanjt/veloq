@@ -26,7 +26,8 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
  * ```
  */
 export function useRouteReoptimization() {
-  const { hasExpanded, markExpansionProcessed } = useSyncDateRange();
+  const hasExpanded = useSyncDateRange((s) => s.hasExpanded);
+  const markExpansionProcessed = useSyncDateRange((s) => s.markExpansionProcessed);
 
   useEffect(() => {
     if (!hasExpanded) return;

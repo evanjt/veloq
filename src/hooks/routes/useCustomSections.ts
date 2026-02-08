@@ -16,6 +16,8 @@ const QUERY_KEY = ['sections', 'custom'];
 export interface UseCustomSectionsOptions {
   /** Filter by sport type */
   sportType?: string;
+  /** Whether to run the hook (default: true). When false, returns empty defaults without FFI calls. */
+  enabled?: boolean;
 }
 
 export interface UseCustomSectionsResult {
@@ -80,7 +82,7 @@ function findSupersededSections(
  * Uses Rust engine unified sections table.
  */
 export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCustomSectionsResult {
-  const { sportType } = options;
+  const { sportType, enabled = true } = options;
   const queryClient = useQueryClient();
 
   // Load custom sections from unified sections table
@@ -91,6 +93,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     refetch,
   } = useQuery<Section[]>({
     queryKey: QUERY_KEY,
+    enabled,
     queryFn: async () => {
       const engine = getRouteEngine();
       if (!engine) {

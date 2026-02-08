@@ -1,10 +1,21 @@
 import React, { useEffect } from 'react';
-import { Alert } from 'react-native';
-import { QueryClient, onlineManager } from '@tanstack/react-query';
+import { Alert, AppState, Platform, type AppStateStatus } from 'react-native';
+import { i18n } from '@/i18n';
+import { QueryClient, focusManager, onlineManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Network from 'expo-network';
+
+// Sync TanStack Query's focus state with React Native AppState
+// Module-level so it's active before any query runs
+// https://tanstack.com/query/latest/docs/framework/react/react-native#refetch-on-app-focus
+function onAppStateChange(status: AppStateStatus) {
+  if (Platform.OS !== 'web') {
+    focusManager.setFocused(status === 'active');
+  }
+}
+AppState.addEventListener('change', onAppStateChange);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,11 +104,9 @@ export function QueryProvider({ children }: QueryProviderProps) {
             // Reset query client to ensure consistent state
             queryClient.clear();
             // Notify user that cache was cleared
-            Alert.alert(
-              'Cache Cleared',
-              'Local data cache was corrupted and has been cleared. Your data will be refreshed from the server.',
-              [{ text: 'OK' }]
-            );
+            Alert.alert(i18n.t('alerts.cacheCleared'), i18n.t('alerts.cacheCorruptionMessage'), [
+              { text: i18n.t('common.ok') },
+            ]);
           })
           .catch((clearError) => {
             if (__DEV__) {

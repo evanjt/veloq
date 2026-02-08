@@ -47,6 +47,7 @@ import {
   FfiConverterOptional,
   FfiConverterUInt16,
   FfiConverterUInt32,
+  FfiConverterUInt8,
   RustBuffer,
   UniffiInternalError,
   UniffiResult,
@@ -67,6 +68,31 @@ const uniffiIsDebug =
   false;
 // Public interface members begin here.
 
+/**
+ * Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB.
+ * Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...].
+ * Uses an R-tree on polylineB for O(n log m) instead of O(n*m).
+ * Returns 0.0-1.0.
+ */
+export function computePolylineOverlap(
+  coordsA: Array</*f64*/ number>,
+  coordsB: Array</*f64*/ number>,
+  thresholdMeters: /*f64*/ number,
+): /*f64*/ number {
+  return FfiConverterFloat64.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap(
+          FfiConverterArrayFloat64.lower(coordsA),
+          FfiConverterArrayFloat64.lower(coordsB),
+          FfiConverterFloat64.lower(thresholdMeters),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
 /**
  * Create a new section.
  *
@@ -598,6 +624,29 @@ export function persistentEngineExtractSectionTrace(
   );
 }
 /**
+ * Extract section traces for multiple activities in a single FFI call.
+ * Builds the R-tree from the section polyline ONCE, then processes each activity
+ * sequentially — only one GPS track in memory at a time.
+ * Returns flat coords per activity: Vec<(activity_id, [lat, lng, lat, lng, ...])>
+ */
+export function persistentEngineExtractSectionTracesBatch(
+  activityIds: Array<string>,
+  sectionPolylineJson: string,
+): Array<FfiBatchTrace> {
+  return FfiConverterArrayTypeFfiBatchTrace.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_extract_section_traces_batch(
+          FfiConverterArrayString.lower(activityIds),
+          FfiConverterString.lower(sectionPolylineJson),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Check which activities are missing cached time streams.
  * Returns activity IDs that need to be fetched from the API.
  */
@@ -632,6 +681,27 @@ export function persistentEngineGetActivityCount(): /*u32*/ number {
   );
 }
 /**
+ * Get activity heatmap data for a date range.
+ * Returns Vec of (date string, intensity 0-4).
+ */
+export function persistentEngineGetActivityHeatmap(
+  startTs: /*i64*/ bigint,
+  endTs: /*i64*/ bigint,
+): Array<FfiHeatmapDay> {
+  return FfiConverterArrayTypeFfiHeatmapDay.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_heatmap(
+          FfiConverterInt64.lower(startTs),
+          FfiConverterInt64.lower(endTs),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Get all activity IDs.
  */
 export function persistentEngineGetActivityIds(): Array<string> {
@@ -639,6 +709,25 @@ export function persistentEngineGetActivityIds(): Array<string> {
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_ids(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Get activity metrics for a list of activity IDs.
+ * Returns metrics from the in-memory HashMap (O(1) per lookup).
+ */
+export function persistentEngineGetActivityMetricsForIds(
+  ids: Array<string>,
+): Array<FfiActivityMetrics> {
+  return FfiConverterArrayTypeFfiActivityMetrics.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_metrics_for_ids(
+          FfiConverterArrayString.lower(ids),
           callStatus,
         );
       },
@@ -696,6 +785,36 @@ export function persistentEngineGetAllSectionNames(): Map<string, string> {
   );
 }
 /**
+ * Get cached athlete profile JSON blob. Returns empty string if not cached.
+ */
+export function persistentEngineGetAthleteProfile(): string {
+  return FfiConverterString.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_athlete_profile(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Get distinct sport types from stored activities.
+ */
+export function persistentEngineGetAvailableSportTypes(): Array<string> {
+  return FfiConverterArrayString.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_available_sport_types(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Get consensus route for a group as flat coordinates.
  */
 export function persistentEngineGetConsensusRoute(
@@ -706,6 +825,21 @@ export function persistentEngineGetConsensusRoute(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_consensus_route(
           FfiConverterString.lower(groupId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Get FTP trend: latest and previous distinct FTP values with dates.
+ */
+export function persistentEngineGetFtpTrend(): FfiFtpTrend {
+  return FfiConverterTypeFfiFtpTrend.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_ftp_trend(
           callStatus,
         );
       },
@@ -823,6 +957,49 @@ export function persistentEngineGetMapActivitiesFiltered(
   );
 }
 /**
+ * Get monthly aggregates for a year.
+ * metric: "hours" | "distance" | "tss"
+ * Returns Vec of (month 0-11, value).
+ */
+export function persistentEngineGetMonthlyAggregates(
+  year: /*i32*/ number,
+  metric: string,
+): Array<FfiMonthlyAggregate> {
+  return FfiConverterArrayTypeFfiMonthlyAggregate.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_monthly_aggregates(
+          FfiConverterInt32.lower(year),
+          FfiConverterString.lower(metric),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Get aggregated stats for a date range.
+ * Returns count, total duration (seconds), total distance (meters), total TSS.
+ */
+export function persistentEngineGetPeriodStats(
+  startTs: /*i64*/ bigint,
+  endTs: /*i64*/ bigint,
+): FfiPeriodStats {
+  return FfiConverterTypeFfiPeriodStats.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_period_stats(
+          FfiConverterInt64.lower(startTs),
+          FfiConverterInt64.lower(endTs),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Get the custom name for a route.
  * Returns empty string if no custom name is set.
  */
@@ -853,6 +1030,31 @@ export function persistentEngineGetRoutePerformances(
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_route_performances(
           FfiConverterString.lower(routeGroupId),
           FfiConverterOptionalString.lower(currentActivityId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Get all data for the Routes screen in a single FFI call.
+ * Supports pagination via limit/offset for groups and sections.
+ */
+export function persistentEngineGetRoutesScreenData(
+  groupLimit: /*u32*/ number,
+  groupOffset: /*u32*/ number,
+  sectionLimit: /*u32*/ number,
+  sectionOffset: /*u32*/ number,
+): FfiRoutesScreenData | undefined {
+  return FfiConverterOptionalTypeFfiRoutesScreenData.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_routes_screen_data(
+          FfiConverterUInt32.lower(groupLimit),
+          FfiConverterUInt32.lower(groupOffset),
+          FfiConverterUInt32.lower(sectionLimit),
+          FfiConverterUInt32.lower(sectionOffset),
           callStatus,
         );
       },
@@ -996,6 +1198,21 @@ export function persistentEngineGetSections(): Array<FfiFrequentSection> {
   );
 }
 /**
+ * Get cached sport settings JSON blob. Returns empty string if not cached.
+ */
+export function persistentEngineGetSportSettings(): string {
+  return FfiConverterString.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_sport_settings(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Get engine statistics.
  */
 export function persistentEngineGetStats(): PersistentEngineStats | undefined {
@@ -1003,6 +1220,28 @@ export function persistentEngineGetStats(): PersistentEngineStats | undefined {
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_stats(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Get aggregated zone distribution for a sport type.
+ * zone_type: "power" | "hr"
+ * Returns flat array of total seconds per zone.
+ */
+export function persistentEngineGetZoneDistribution(
+  sportType: string,
+  zoneType: string,
+): Array</*f64*/ number> {
+  return FfiConverterArrayFloat64.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_zone_distribution(
+          FfiConverterString.lower(sportType),
+          FfiConverterString.lower(zoneType),
           callStatus,
         );
       },
@@ -1104,7 +1343,7 @@ export function persistentEngineQueryViewport(
 }
 /**
  * Get the name for a section.
- * Set activity metrics for performance calculations.
+ * Set activity metrics for performance calculations (with extended fields for aggregation).
  */
 export function persistentEngineSetActivityMetrics(
   metrics: Array<FfiActivityMetrics>,
@@ -1113,6 +1352,20 @@ export function persistentEngineSetActivityMetrics(
     /*caller:*/ (callStatus) => {
       nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_activity_metrics(
         FfiConverterArrayTypeFfiActivityMetrics.lower(metrics),
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift,
+  );
+}
+/**
+ * Store athlete profile JSON blob in SQLite for instant startup rendering.
+ */
+export function persistentEngineSetAthleteProfile(json: string): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_athlete_profile(
+        FfiConverterString.lower(json),
         callStatus,
       );
     },
@@ -1174,6 +1427,20 @@ export function persistentEngineSetSectionName(
       nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_section_name(
         FfiConverterString.lower(sectionId),
         FfiConverterString.lower(name),
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift,
+  );
+}
+/**
+ * Store sport settings JSON blob in SQLite for instant startup rendering.
+ */
+export function persistentEngineSetSportSettings(json: string): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_sport_settings(
+        FfiConverterString.lower(json),
         callStatus,
       );
     },
@@ -1988,6 +2255,22 @@ export type FfiActivityMetrics = {
    * Sport type (e.g., "Ride", "Run")
    */
   sportType: string;
+  /**
+   * Training load / TSS (optional)
+   */
+  trainingLoad: /*f64*/ number | undefined;
+  /**
+   * FTP used for this activity (optional)
+   */
+  ftp: /*u16*/ number | undefined;
+  /**
+   * Power zone times as JSON array string: "[secs, secs, ...]" (optional)
+   */
+  powerZoneTimes: string | undefined;
+  /**
+   * HR zone times as JSON array string: "[secs, secs, ...]" (optional)
+   */
+  hrZoneTimes: string | undefined;
 };
 
 /**
@@ -2035,6 +2318,10 @@ const FfiConverterTypeFfiActivityMetrics = (() => {
         avgHr: FfiConverterOptionalUInt16.read(from),
         avgPower: FfiConverterOptionalUInt16.read(from),
         sportType: FfiConverterString.read(from),
+        trainingLoad: FfiConverterOptionalFloat64.read(from),
+        ftp: FfiConverterOptionalUInt16.read(from),
+        powerZoneTimes: FfiConverterOptionalString.read(from),
+        hrZoneTimes: FfiConverterOptionalString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -2048,6 +2335,10 @@ const FfiConverterTypeFfiActivityMetrics = (() => {
       FfiConverterOptionalUInt16.write(value.avgHr, into);
       FfiConverterOptionalUInt16.write(value.avgPower, into);
       FfiConverterString.write(value.sportType, into);
+      FfiConverterOptionalFloat64.write(value.trainingLoad, into);
+      FfiConverterOptionalUInt16.write(value.ftp, into);
+      FfiConverterOptionalString.write(value.powerZoneTimes, into);
+      FfiConverterOptionalString.write(value.hrZoneTimes, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -2060,7 +2351,75 @@ const FfiConverterTypeFfiActivityMetrics = (() => {
         FfiConverterFloat64.allocationSize(value.elevationGain) +
         FfiConverterOptionalUInt16.allocationSize(value.avgHr) +
         FfiConverterOptionalUInt16.allocationSize(value.avgPower) +
-        FfiConverterString.allocationSize(value.sportType)
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterOptionalFloat64.allocationSize(value.trainingLoad) +
+        FfiConverterOptionalUInt16.allocationSize(value.ftp) +
+        FfiConverterOptionalString.allocationSize(value.powerZoneTimes) +
+        FfiConverterOptionalString.allocationSize(value.hrZoneTimes)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Batch trace result: one activity's extracted section trace as flat coords.
+ */
+export type FfiBatchTrace = {
+  activityId: string;
+  /**
+   * Flat coordinates [lat, lng, lat, lng, ...]
+   */
+  coords: Array</*f64*/ number>;
+};
+
+/**
+ * Generated factory for {@link FfiBatchTrace} record objects.
+ */
+export const FfiBatchTrace = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiBatchTrace, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiBatchTrace}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiBatchTrace}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiBatchTrace>,
+  });
+})();
+
+const FfiConverterTypeFfiBatchTrace = (() => {
+  type TypeName = FfiBatchTrace;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityId: FfiConverterString.read(from),
+        coords: FfiConverterArrayFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.activityId, into);
+      FfiConverterArrayFloat64.write(value.coords, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterArrayFloat64.allocationSize(value.coords)
       );
     }
   }
@@ -2417,6 +2776,87 @@ const FfiConverterTypeFfiFrequentSection = (() => {
 })();
 
 /**
+ * FTP trend data.
+ */
+export type FfiFtpTrend = {
+  /**
+   * Most recent FTP value
+   */
+  latestFtp: /*u16*/ number | undefined;
+  /**
+   * Date of most recent FTP (Unix timestamp seconds)
+   */
+  latestDate: /*i64*/ bigint | undefined;
+  /**
+   * Previous different FTP value
+   */
+  previousFtp: /*u16*/ number | undefined;
+  /**
+   * Date of previous FTP (Unix timestamp seconds)
+   */
+  previousDate: /*i64*/ bigint | undefined;
+};
+
+/**
+ * Generated factory for {@link FfiFtpTrend} record objects.
+ */
+export const FfiFtpTrend = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiFtpTrend, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiFtpTrend}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiFtpTrend}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiFtpTrend>,
+  });
+})();
+
+const FfiConverterTypeFfiFtpTrend = (() => {
+  type TypeName = FfiFtpTrend;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        latestFtp: FfiConverterOptionalUInt16.read(from),
+        latestDate: FfiConverterOptionalInt64.read(from),
+        previousFtp: FfiConverterOptionalUInt16.read(from),
+        previousDate: FfiConverterOptionalInt64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterOptionalUInt16.write(value.latestFtp, into);
+      FfiConverterOptionalInt64.write(value.latestDate, into);
+      FfiConverterOptionalUInt16.write(value.previousFtp, into);
+      FfiConverterOptionalInt64.write(value.previousDate, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalUInt16.allocationSize(value.latestFtp) +
+        FfiConverterOptionalInt64.allocationSize(value.latestDate) +
+        FfiConverterOptionalUInt16.allocationSize(value.previousFtp) +
+        FfiConverterOptionalInt64.allocationSize(value.previousDate)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * GPS point for FFI
  */
 export type FfiGpsPoint = {
@@ -2475,6 +2915,233 @@ const FfiConverterTypeFfiGpsPoint = (() => {
         FfiConverterFloat64.allocationSize(value.latitude) +
         FfiConverterFloat64.allocationSize(value.longitude) +
         FfiConverterOptionalFloat64.allocationSize(value.elevation)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Group summary with embedded consensus polyline for the Routes screen.
+ * Avoids N separate getConsensusRoute() calls.
+ */
+export type FfiGroupWithPolyline = {
+  groupId: string;
+  representativeId: string;
+  sportType: string;
+  activityCount: /*u32*/ number;
+  customName: string | undefined;
+  bounds: FfiBounds | undefined;
+  /**
+   * Distance in meters (from representative activity's metrics)
+   */
+  distanceMeters: /*f64*/ number;
+  /**
+   * Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
+   */
+  consensusPolyline: Array</*f64*/ number>;
+};
+
+/**
+ * Generated factory for {@link FfiGroupWithPolyline} record objects.
+ */
+export const FfiGroupWithPolyline = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiGroupWithPolyline,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiGroupWithPolyline}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiGroupWithPolyline}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiGroupWithPolyline>,
+  });
+})();
+
+const FfiConverterTypeFfiGroupWithPolyline = (() => {
+  type TypeName = FfiGroupWithPolyline;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        groupId: FfiConverterString.read(from),
+        representativeId: FfiConverterString.read(from),
+        sportType: FfiConverterString.read(from),
+        activityCount: FfiConverterUInt32.read(from),
+        customName: FfiConverterOptionalString.read(from),
+        bounds: FfiConverterOptionalTypeFfiBounds.read(from),
+        distanceMeters: FfiConverterFloat64.read(from),
+        consensusPolyline: FfiConverterArrayFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.groupId, into);
+      FfiConverterString.write(value.representativeId, into);
+      FfiConverterString.write(value.sportType, into);
+      FfiConverterUInt32.write(value.activityCount, into);
+      FfiConverterOptionalString.write(value.customName, into);
+      FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
+      FfiConverterFloat64.write(value.distanceMeters, into);
+      FfiConverterArrayFloat64.write(value.consensusPolyline, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.groupId) +
+        FfiConverterString.allocationSize(value.representativeId) +
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterOptionalString.allocationSize(value.customName) +
+        FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterArrayFloat64.allocationSize(value.consensusPolyline)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Activity heatmap day entry.
+ */
+export type FfiHeatmapDay = {
+  /**
+   * Date string "YYYY-MM-DD"
+   */
+  date: string;
+  /**
+   * Intensity level (0-4)
+   */
+  intensity: /*u8*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiHeatmapDay} record objects.
+ */
+export const FfiHeatmapDay = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiHeatmapDay, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiHeatmapDay}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiHeatmapDay}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiHeatmapDay>,
+  });
+})();
+
+const FfiConverterTypeFfiHeatmapDay = (() => {
+  type TypeName = FfiHeatmapDay;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        date: FfiConverterString.read(from),
+        intensity: FfiConverterUInt8.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.date, into);
+      FfiConverterUInt8.write(value.intensity, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.date) +
+        FfiConverterUInt8.allocationSize(value.intensity)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Monthly aggregate value.
+ */
+export type FfiMonthlyAggregate = {
+  /**
+   * Month (0-11)
+   */
+  month: /*u8*/ number;
+  /**
+   * Aggregated value (hours, distance in meters, or TSS)
+   */
+  value: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiMonthlyAggregate} record objects.
+ */
+export const FfiMonthlyAggregate = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMonthlyAggregate, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiMonthlyAggregate}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiMonthlyAggregate}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMonthlyAggregate>,
+  });
+})();
+
+const FfiConverterTypeFfiMonthlyAggregate = (() => {
+  type TypeName = FfiMonthlyAggregate;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        month: FfiConverterUInt8.read(from),
+        value: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt8.write(value.month, into);
+      FfiConverterFloat64.write(value.value, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt8.allocationSize(value.month) +
+        FfiConverterFloat64.allocationSize(value.value)
       );
     }
   }
@@ -2544,6 +3211,87 @@ const FfiConverterTypeFfiMultiScaleSectionResult = (() => {
           value.potentials,
         ) +
         FfiConverterTypeFfiDetectionStats.allocationSize(value.stats)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Aggregated stats for a date range.
+ */
+export type FfiPeriodStats = {
+  /**
+   * Number of activities
+   */
+  count: /*u32*/ number;
+  /**
+   * Total moving time in seconds
+   */
+  totalDuration: /*i64*/ bigint;
+  /**
+   * Total distance in meters
+   */
+  totalDistance: /*f64*/ number;
+  /**
+   * Total training load (TSS)
+   */
+  totalTss: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiPeriodStats} record objects.
+ */
+export const FfiPeriodStats = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiPeriodStats, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiPeriodStats}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiPeriodStats}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiPeriodStats>,
+  });
+})();
+
+const FfiConverterTypeFfiPeriodStats = (() => {
+  type TypeName = FfiPeriodStats;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        count: FfiConverterUInt32.read(from),
+        totalDuration: FfiConverterInt64.read(from),
+        totalDistance: FfiConverterFloat64.read(from),
+        totalTss: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.count, into);
+      FfiConverterInt64.write(value.totalDuration, into);
+      FfiConverterFloat64.write(value.totalDistance, into);
+      FfiConverterFloat64.write(value.totalTss, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.count) +
+        FfiConverterInt64.allocationSize(value.totalDuration) +
+        FfiConverterFloat64.allocationSize(value.totalDistance) +
+        FfiConverterFloat64.allocationSize(value.totalTss)
       );
     }
   }
@@ -3060,6 +3808,104 @@ const FfiConverterTypeFfiRouteSignature = (() => {
         FfiConverterTypeFfiGpsPoint.allocationSize(value.endPoint) +
         FfiConverterTypeFfiBounds.allocationSize(value.bounds) +
         FfiConverterTypeFfiGpsPoint.allocationSize(value.center)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * All data needed by the Routes screen in a single FFI call.
+ * Supports pagination via limit/offset for groups and sections.
+ */
+export type FfiRoutesScreenData = {
+  activityCount: /*u32*/ number;
+  groupCount: /*u32*/ number;
+  sectionCount: /*u32*/ number;
+  oldestDate: /*i64*/ bigint | undefined;
+  newestDate: /*i64*/ bigint | undefined;
+  groups: Array<FfiGroupWithPolyline>;
+  sections: Array<FfiSectionWithPolyline>;
+  /**
+   * Whether more groups are available beyond the current page
+   */
+  hasMoreGroups: boolean;
+  /**
+   * Whether more sections are available beyond the current page
+   */
+  hasMoreSections: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiRoutesScreenData} record objects.
+ */
+export const FfiRoutesScreenData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRoutesScreenData, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiRoutesScreenData}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiRoutesScreenData}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRoutesScreenData>,
+  });
+})();
+
+const FfiConverterTypeFfiRoutesScreenData = (() => {
+  type TypeName = FfiRoutesScreenData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityCount: FfiConverterUInt32.read(from),
+        groupCount: FfiConverterUInt32.read(from),
+        sectionCount: FfiConverterUInt32.read(from),
+        oldestDate: FfiConverterOptionalInt64.read(from),
+        newestDate: FfiConverterOptionalInt64.read(from),
+        groups: FfiConverterArrayTypeFfiGroupWithPolyline.read(from),
+        sections: FfiConverterArrayTypeFfiSectionWithPolyline.read(from),
+        hasMoreGroups: FfiConverterBool.read(from),
+        hasMoreSections: FfiConverterBool.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.activityCount, into);
+      FfiConverterUInt32.write(value.groupCount, into);
+      FfiConverterUInt32.write(value.sectionCount, into);
+      FfiConverterOptionalInt64.write(value.oldestDate, into);
+      FfiConverterOptionalInt64.write(value.newestDate, into);
+      FfiConverterArrayTypeFfiGroupWithPolyline.write(value.groups, into);
+      FfiConverterArrayTypeFfiSectionWithPolyline.write(value.sections, into);
+      FfiConverterBool.write(value.hasMoreGroups, into);
+      FfiConverterBool.write(value.hasMoreSections, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterUInt32.allocationSize(value.groupCount) +
+        FfiConverterUInt32.allocationSize(value.sectionCount) +
+        FfiConverterOptionalInt64.allocationSize(value.oldestDate) +
+        FfiConverterOptionalInt64.allocationSize(value.newestDate) +
+        FfiConverterArrayTypeFfiGroupWithPolyline.allocationSize(value.groups) +
+        FfiConverterArrayTypeFfiSectionWithPolyline.allocationSize(
+          value.sections,
+        ) +
+        FfiConverterBool.allocationSize(value.hasMoreGroups) +
+        FfiConverterBool.allocationSize(value.hasMoreSections)
       );
     }
   }
@@ -3807,6 +4653,105 @@ const FfiConverterTypeFfiSectionPortion = (() => {
 })();
 
 /**
+ * Section summary with embedded polyline for the Routes screen.
+ * Avoids N separate getSectionPolyline() calls.
+ */
+export type FfiSectionWithPolyline = {
+  id: string;
+  name: string | undefined;
+  sportType: string;
+  visitCount: /*u32*/ number;
+  distanceMeters: /*f64*/ number;
+  activityCount: /*u32*/ number;
+  confidence: /*f64*/ number;
+  scale: string | undefined;
+  bounds: FfiBounds | undefined;
+  /**
+   * Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
+   */
+  polyline: Array</*f64*/ number>;
+};
+
+/**
+ * Generated factory for {@link FfiSectionWithPolyline} record objects.
+ */
+export const FfiSectionWithPolyline = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiSectionWithPolyline,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiSectionWithPolyline}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiSectionWithPolyline}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiSectionWithPolyline>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionWithPolyline = (() => {
+  type TypeName = FfiSectionWithPolyline;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        id: FfiConverterString.read(from),
+        name: FfiConverterOptionalString.read(from),
+        sportType: FfiConverterString.read(from),
+        visitCount: FfiConverterUInt32.read(from),
+        distanceMeters: FfiConverterFloat64.read(from),
+        activityCount: FfiConverterUInt32.read(from),
+        confidence: FfiConverterFloat64.read(from),
+        scale: FfiConverterOptionalString.read(from),
+        bounds: FfiConverterOptionalTypeFfiBounds.read(from),
+        polyline: FfiConverterArrayFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.id, into);
+      FfiConverterOptionalString.write(value.name, into);
+      FfiConverterString.write(value.sportType, into);
+      FfiConverterUInt32.write(value.visitCount, into);
+      FfiConverterFloat64.write(value.distanceMeters, into);
+      FfiConverterUInt32.write(value.activityCount, into);
+      FfiConverterFloat64.write(value.confidence, into);
+      FfiConverterOptionalString.write(value.scale, into);
+      FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
+      FfiConverterArrayFloat64.write(value.polyline, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterOptionalString.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterUInt32.allocationSize(value.visitCount) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterFloat64.allocationSize(value.confidence) +
+        FfiConverterOptionalString.allocationSize(value.scale) +
+        FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
+        FfiConverterArrayFloat64.allocationSize(value.polyline)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Lightweight group metadata for list views.
  * Used to avoid loading full group data with activity ID arrays when only summary info is needed.
  */
@@ -4363,6 +5308,11 @@ const FfiConverterOptionalTypeFfiRoutePerformance = new FfiConverterOptional(
   FfiConverterTypeFfiRoutePerformance,
 );
 
+// FfiConverter for FfiRoutesScreenData | undefined
+const FfiConverterOptionalTypeFfiRoutesScreenData = new FfiConverterOptional(
+  FfiConverterTypeFfiRoutesScreenData,
+);
+
 // FfiConverter for FfiSectionPerformanceRecord | undefined
 const FfiConverterOptionalTypeFfiSectionPerformanceRecord =
   new FfiConverterOptional(FfiConverterTypeFfiSectionPerformanceRecord);
@@ -4404,6 +5354,11 @@ const FfiConverterArrayTypeFfiActivityMetrics = new FfiConverterArray(
   FfiConverterTypeFfiActivityMetrics,
 );
 
+// FfiConverter for Array<FfiBatchTrace>
+const FfiConverterArrayTypeFfiBatchTrace = new FfiConverterArray(
+  FfiConverterTypeFfiBatchTrace,
+);
+
 // FfiConverter for Array<FfiFrequentSection>
 const FfiConverterArrayTypeFfiFrequentSection = new FfiConverterArray(
   FfiConverterTypeFfiFrequentSection,
@@ -4412,6 +5367,21 @@ const FfiConverterArrayTypeFfiFrequentSection = new FfiConverterArray(
 // FfiConverter for Array<FfiGpsPoint>
 const FfiConverterArrayTypeFfiGpsPoint = new FfiConverterArray(
   FfiConverterTypeFfiGpsPoint,
+);
+
+// FfiConverter for Array<FfiGroupWithPolyline>
+const FfiConverterArrayTypeFfiGroupWithPolyline = new FfiConverterArray(
+  FfiConverterTypeFfiGroupWithPolyline,
+);
+
+// FfiConverter for Array<FfiHeatmapDay>
+const FfiConverterArrayTypeFfiHeatmapDay = new FfiConverterArray(
+  FfiConverterTypeFfiHeatmapDay,
+);
+
+// FfiConverter for Array<FfiMonthlyAggregate>
+const FfiConverterArrayTypeFfiMonthlyAggregate = new FfiConverterArray(
+  FfiConverterTypeFfiMonthlyAggregate,
 );
 
 // FfiConverter for Array<FfiPotentialSection>
@@ -4452,6 +5422,11 @@ const FfiConverterArrayTypeFfiSectionPerformanceRecord = new FfiConverterArray(
 // FfiConverter for Array<FfiSectionPortion>
 const FfiConverterArrayTypeFfiSectionPortion = new FfiConverterArray(
   FfiConverterTypeFfiSectionPortion,
+);
+
+// FfiConverter for Array<FfiSectionWithPolyline>
+const FfiConverterArrayTypeFfiSectionWithPolyline = new FfiConverterArray(
+  FfiConverterTypeFfiSectionWithPolyline,
 );
 
 // FfiConverter for Array<GroupSummary>
@@ -4509,6 +5484,14 @@ function uniffiEnsureInitialized() {
     throw new UniffiInternalError.ContractVersionMismatch(
       scaffoldingContractVersion,
       bindingsContractVersion,
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap() !==
+    29438
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_compute_polyline_overlap",
     );
   }
   if (
@@ -4693,6 +5676,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_extract_section_traces_batch() !==
+    6539
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_extract_section_traces_batch",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activities_missing_time_streams() !==
     17851
   ) {
@@ -4709,11 +5700,27 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_heatmap() !==
+    32573
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_activity_heatmap",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_ids() !==
     41837
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_persistent_engine_get_activity_ids",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids() !==
+    44538
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids",
     );
   }
   if (
@@ -4741,11 +5748,35 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_athlete_profile() !==
+    58998
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_athlete_profile",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_available_sport_types() !==
+    20801
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_available_sport_types",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_consensus_route() !==
     41984
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_persistent_engine_get_consensus_route",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_ftp_trend() !==
+    15108
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_ftp_trend",
     );
   }
   if (
@@ -4797,6 +5828,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_monthly_aggregates() !==
+    58996
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_monthly_aggregates",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_period_stats() !==
+    18491
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_period_stats",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_route_name() !==
     13569
   ) {
@@ -4810,6 +5857,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_persistent_engine_get_route_performances",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_routes_screen_data() !==
+    32474
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_routes_screen_data",
     );
   }
   if (
@@ -4877,11 +5932,27 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_sport_settings() !==
+    44569
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_sport_settings",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_stats() !==
     61109
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_persistent_engine_get_stats",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_zone_distribution() !==
+    40466
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_zone_distribution",
     );
   }
   if (
@@ -4926,10 +5997,18 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_activity_metrics() !==
-    4488
+    42378
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_persistent_engine_set_activity_metrics",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_athlete_profile() !==
+    8308
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_set_athlete_profile",
     );
   }
   if (
@@ -4954,6 +6033,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_persistent_engine_set_section_name",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_sport_settings() !==
+    45199
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_set_sport_settings",
     );
   }
   if (
@@ -5049,17 +6136,24 @@ export default Object.freeze({
     FfiConverterTypeFetchAndStoreResult,
     FfiConverterTypeFfiActivityMapResult,
     FfiConverterTypeFfiActivityMetrics,
+    FfiConverterTypeFfiBatchTrace,
     FfiConverterTypeFfiBounds,
     FfiConverterTypeFfiDetectionStats,
     FfiConverterTypeFfiDirectionStats,
     FfiConverterTypeFfiFrequentSection,
+    FfiConverterTypeFfiFtpTrend,
     FfiConverterTypeFfiGpsPoint,
+    FfiConverterTypeFfiGroupWithPolyline,
+    FfiConverterTypeFfiHeatmapDay,
+    FfiConverterTypeFfiMonthlyAggregate,
     FfiConverterTypeFfiMultiScaleSectionResult,
+    FfiConverterTypeFfiPeriodStats,
     FfiConverterTypeFfiPotentialSection,
     FfiConverterTypeFfiRouteGroup,
     FfiConverterTypeFfiRoutePerformance,
     FfiConverterTypeFfiRoutePerformanceResult,
     FfiConverterTypeFfiRouteSignature,
+    FfiConverterTypeFfiRoutesScreenData,
     FfiConverterTypeFfiScalePreset,
     FfiConverterTypeFfiSection,
     FfiConverterTypeFfiSectionConfig,
@@ -5067,6 +6161,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionPerformanceRecord,
     FfiConverterTypeFfiSectionPerformanceResult,
     FfiConverterTypeFfiSectionPortion,
+    FfiConverterTypeFfiSectionWithPolyline,
     FfiConverterTypeGroupSummary,
     FfiConverterTypeMapActivityComplete,
     FfiConverterTypeMapActivityData,

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useCallback, useState } from 'react';
+import React, { memo, useMemo, useRef, useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
@@ -98,7 +98,10 @@ function formatFullDateLocal(dateStr: string): string {
   return formatShortDateWithWeekday(dateStr);
 }
 
-export function FitnessFormChart({
+const FITNESS_CHART_PADDING = { left: 0, right: 0, top: 8, bottom: 0 } as const;
+const FORM_CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 16 } as const;
+
+export const FitnessFormChart = memo(function FitnessFormChart({
   data,
   fitnessHeight = 160,
   formHeight = 100,
@@ -335,7 +338,7 @@ export function FitnessFormChart({
               xKey="x"
               yKeys={['fitness', 'fatigue', 'load']}
               domain={{ y: [0, maxFitness * 1.15] }}
-              padding={{ left: 0, right: 0, top: 8, bottom: 0 }}
+              padding={FITNESS_CHART_PADDING}
             >
               {({ points, chartBounds }) => {
                 // Sync chartBounds and point coordinates
@@ -348,12 +351,12 @@ export function FitnessFormChart({
                     right: chartBounds.right,
                   };
                 }
-                const newCoords = points.fitness.map((p) => p.x);
+                // Guard before .map() to avoid allocating a temporary array every frame
                 if (
-                  newCoords.length !== pointXCoordsShared.value.length ||
-                  newCoords[0] !== pointXCoordsShared.value[0]
+                  points.fitness.length !== pointXCoordsShared.value.length ||
+                  points.fitness[0]?.x !== pointXCoordsShared.value[0]
                 ) {
-                  pointXCoordsShared.value = newCoords;
+                  pointXCoordsShared.value = points.fitness.map((p) => p.x);
                 }
 
                 return (
@@ -411,7 +414,7 @@ export function FitnessFormChart({
                 xKey="x"
                 yKeys={['form']}
                 domain={formDomain}
-                padding={{ left: 0, right: 0, top: 4, bottom: 16 }}
+                padding={FORM_CHART_PADDING}
               >
                 {({ points, chartBounds }) => {
                   const chartHeight = chartBounds.bottom - chartBounds.top;
@@ -551,7 +554,7 @@ export function FitnessFormChart({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {},

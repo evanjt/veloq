@@ -1,16 +1,11 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  PanResponder,
-  LayoutChangeEvent,
-  findNodeHandle,
-  UIManager,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, LayoutChangeEvent } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
+import { CHART_CONFIG } from '@/constants';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
@@ -33,13 +28,14 @@ interface MonthData {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// Aggregate activities by month
+// Aggregate activities by month from the activity array.
+// Engine SQL is not used here because activity_metrics only covers the GPS sync window (~90 days),
+// while SeasonComparison needs a full year of data from the API.
 function aggregateByMonth(
   activities: Activity[] | undefined,
   metric: 'hours' | 'distance' | 'tss'
 ): number[] {
   const monthlyTotals = new Array(12).fill(0);
-
   if (!activities) return monthlyTotals;
 
   for (const activity of activities) {
@@ -62,6 +58,10 @@ function aggregateByMonth(
   return monthlyTotals.map((v) => Math.round(v * 10) / 10);
 }
 
+const BAR_WIDTH = 8;
+const BAR_GAP = 2;
+const BAR_RADIUS = 4; // spacing.xs
+
 export function SeasonComparison({
   height = 200,
   currentYearActivities,
@@ -71,61 +71,43 @@ export function SeasonComparison({
   const { isDark } = useTheme();
   const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
-  const chartWidth = useRef(0);
-  const chartPageX = useRef(0);
-  const chartRef = useRef<View>(null);
+  const [measuredWidth, setMeasuredWidth] = useState(0);
+  const chartWidthRef = useRef(0);
 
-  // Handle chart layout to get width and absolute position for touch calculations
+  // Handle chart layout to get width
   const onChartLayout = useCallback((event: LayoutChangeEvent) => {
-    chartWidth.current = event.nativeEvent.layout.width;
-    // Measure absolute position after layout
-    if (chartRef.current) {
-      const nodeHandle = findNodeHandle(chartRef.current);
-      if (nodeHandle) {
-        UIManager.measure(nodeHandle, (_x, _y, _width, _height, pageX) => {
-          chartPageX.current = pageX;
-        });
-      }
-    }
+    const w = event.nativeEvent.layout.width;
+    chartWidthRef.current = w;
+    setMeasuredWidth(w);
   }, []);
 
   // Calculate month index from x position relative to chart
   const getMonthFromX = useCallback((x: number) => {
-    if (chartWidth.current === 0) return 0;
-    const monthIndex = Math.floor((x / chartWidth.current) * 12);
+    if (chartWidthRef.current === 0) return 0;
+    const monthIndex = Math.floor((x / chartWidthRef.current) * 12);
     return Math.max(0, Math.min(11, monthIndex));
   }, []);
 
-  // Pan responder for scrubbing
-  // Uses pageX (absolute screen coordinates) to avoid issues with touch target
-  // being a child element (bars) where locationX would be relative to that child
-  const panResponder = useMemo(
+  // Gesture.Pan for scrubbing (replaces PanResponder — requires long press to activate)
+  const panGesture = useMemo(
     () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        // Prevent parent ScrollView from stealing the gesture while scrubbing
-        onPanResponderTerminationRequest: () => false,
-        onPanResponderGrant: (evt) => {
-          // Use pageX (absolute) and subtract chart's absolute position
-          // This avoids issues where locationX is relative to a child element
-          const relativeX = evt.nativeEvent.pageX - chartPageX.current;
-          const monthIndex = getMonthFromX(relativeX);
+      Gesture.Pan()
+        .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION)
+        .minDistance(0)
+        .onStart((e) => {
+          const monthIndex = getMonthFromX(e.x);
           setSelectedMonth(monthIndex);
-        },
-        onPanResponderMove: (evt) => {
-          // Use pageX for consistent coordinate calculation
-          const relativeX = evt.nativeEvent.pageX - chartPageX.current;
-          const monthIndex = getMonthFromX(relativeX);
+        })
+        .onUpdate((e) => {
+          const monthIndex = getMonthFromX(e.x);
           setSelectedMonth(monthIndex);
-        },
-        onPanResponderRelease: () => {
+        })
+        .onEnd(() => {
           setSelectedMonth(null);
-        },
-        onPanResponderTerminate: () => {
+        })
+        .onFinalize(() => {
           setSelectedMonth(null);
-        },
-      }),
+        }),
     [getMonthFromX]
   );
 
@@ -171,11 +153,11 @@ export function SeasonComparison({
 
   const now = new Date();
 
-  // Color constants - simplified to 2 colors
+  // Color constants
   const colorCurrent = colors.primary;
   const colorPrevious = isDark ? 'rgba(100, 149, 237, 0.8)' : 'rgba(70, 130, 220, 0.7)';
 
-  // Calculate totals - round to 1 decimal place
+  // Calculate totals
   const totals = useMemo(() => {
     const currentTotal = Math.round(data.reduce((sum, d) => sum + d.current, 0) * 10) / 10;
     const previousTotal = Math.round(data.reduce((sum, d) => sum + d.previous, 0) * 10) / 10;
@@ -183,9 +165,6 @@ export function SeasonComparison({
     const pctChange = previousTotal > 0 ? ((diff / previousTotal) * 100).toFixed(0) : 0;
     return { currentTotal, previousTotal, diff, pctChange };
   }, [data]);
-
-  const barWidth = 8;
-  const barGap = 2;
 
   const metricLabels = {
     hours: { label: t('stats.hours'), unit: 'h' },
@@ -196,11 +175,6 @@ export function SeasonComparison({
   // Current month for highlighting
   const currentMonth = now.getMonth();
 
-  // Simplified bar colors - one color per period
-  const getBarColor = (_monthIdx: number, isPrevious: boolean) => {
-    return isPrevious ? colorPrevious : colorCurrent;
-  };
-
   // Get selected month data for tooltip
   const selectedMonthData = selectedMonth !== null ? data[selectedMonth] : null;
   const selectedMonthDiff =
@@ -208,6 +182,125 @@ export function SeasonComparison({
       ? ((selectedMonthData.current - selectedMonthData.previous) / selectedMonthData.previous) *
         100
       : 0;
+
+  // Build the bar chart as a single Skia Picture
+  const chartPicture = useMemo(() => {
+    const w = measuredWidth;
+    if (w === 0 || maxValue === 0) return null;
+
+    const chartHeight = height;
+    const labelSpace = 20; // space for month labels below bars
+    const barAreaHeight = chartHeight - labelSpace;
+    const groupWidth = w / 12;
+
+    const recorder = Skia.PictureRecorder();
+    const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, w, chartHeight));
+
+    const barPaint = Skia.Paint();
+    barPaint.setAntiAlias(true);
+
+    const highlightPaint = Skia.Paint();
+    highlightPaint.setAntiAlias(true);
+
+    const labelPaint = Skia.Paint();
+    labelPaint.setAntiAlias(true);
+
+    const dotPaint = Skia.Paint();
+    dotPaint.setAntiAlias(true);
+    dotPaint.setColor(Skia.Color(colors.primary));
+
+    for (let idx = 0; idx < 12; idx++) {
+      const d = data[idx];
+      const groupCenterX = groupWidth * idx + groupWidth / 2;
+      const isCurrentMonth = idx === currentMonth;
+      const isSelected = idx === selectedMonth;
+
+      // Draw highlight background for current month or selected month
+      if (isCurrentMonth || isSelected) {
+        const hlColor = isSelected
+          ? isDark
+            ? 'rgba(255, 255, 255, 0.15)'
+            : 'rgba(0, 0, 0, 0.08)'
+          : isDark
+            ? 'rgba(255, 255, 255, 0.08)'
+            : 'rgba(252, 76, 2, 0.08)';
+        highlightPaint.setColor(Skia.Color(hlColor));
+        canvas.drawRRect(
+          Skia.RRectXY(
+            Skia.XYWHRect(
+              groupCenterX - (BAR_WIDTH + BAR_GAP / 2) - 4,
+              0,
+              BAR_WIDTH * 2 + BAR_GAP + 8,
+              chartHeight
+            ),
+            layout.borderRadiusSm,
+            layout.borderRadiusSm
+          ),
+          highlightPaint
+        );
+      }
+
+      // Opacity for non-selected months when a month is selected
+      const barOpacity = selectedMonth !== null && !isSelected ? 0.4 : 1.0;
+
+      // Draw current bar
+      const currentHeight = maxValue > 0 ? (d.current / maxValue) * (barAreaHeight - 10) : 0;
+      barPaint.setColor(Skia.Color(colorCurrent));
+      barPaint.setAlphaf(barOpacity);
+      if (currentHeight > 0) {
+        const barX = groupCenterX - BAR_WIDTH - BAR_GAP / 2;
+        const barY = barAreaHeight - currentHeight;
+        canvas.drawRRect(
+          Skia.RRectXY(Skia.XYWHRect(barX, barY, BAR_WIDTH, currentHeight), BAR_RADIUS, BAR_RADIUS),
+          barPaint
+        );
+      }
+
+      // Draw previous bar
+      const previousHeight = maxValue > 0 ? (d.previous / maxValue) * (barAreaHeight - 10) : 0;
+      barPaint.setColor(Skia.Color(colorPrevious));
+      barPaint.setAlphaf(barOpacity);
+      if (previousHeight > 0) {
+        const barX = groupCenterX + BAR_GAP / 2;
+        const barY = barAreaHeight - previousHeight;
+        canvas.drawRRect(
+          Skia.RRectXY(
+            Skia.XYWHRect(barX, barY, BAR_WIDTH, previousHeight),
+            BAR_RADIUS,
+            BAR_RADIUS
+          ),
+          barPaint
+        );
+      }
+
+      // Draw current month indicator dot (below label area)
+      if (isCurrentMonth && !isSelected) {
+        dotPaint.setColor(Skia.Color(colors.primary));
+        canvas.drawCircle(groupCenterX, chartHeight - 2, 2, dotPaint);
+      }
+    }
+
+    return recorder.finishRecordingAsPicture();
+  }, [
+    data,
+    maxValue,
+    height,
+    isDark,
+    selectedMonth,
+    currentMonth,
+    colorCurrent,
+    colorPrevious,
+    measuredWidth,
+  ]);
+
+  // Month labels — kept as native Text for proper font rendering
+  const monthLabels = useMemo(() => {
+    return data.map((d, idx) => ({
+      letter: d.month.charAt(0),
+      isCurrentMonth: idx === currentMonth,
+      isSelected: idx === selectedMonth,
+    }));
+  }, [data, currentMonth, selectedMonth]);
 
   return (
     <View style={styles.container}>
@@ -258,18 +351,14 @@ export function SeasonComparison({
             </Text>
             <View style={styles.tooltipValues}>
               <View style={styles.tooltipItem}>
-                <View
-                  style={[styles.legendDot, { backgroundColor: getBarColor(selectedMonth, false) }]}
-                />
+                <View style={[styles.legendDot, { backgroundColor: colorCurrent }]} />
                 <Text style={[styles.tooltipValue, isDark && styles.textLight]}>
                   {selectedMonthData.current}
                   {metricLabels[metric].unit}
                 </Text>
               </View>
               <View style={styles.tooltipItem}>
-                <View
-                  style={[styles.legendDot, { backgroundColor: getBarColor(selectedMonth, true) }]}
-                />
+                <View style={[styles.legendDot, { backgroundColor: colorPrevious }]} />
                 <Text style={[styles.tooltipValue, isDark && styles.textLight]}>
                   {selectedMonthData.previous}
                   {metricLabels[metric].unit}
@@ -323,84 +412,32 @@ export function SeasonComparison({
         )}
       </View>
 
-      {/* Chart */}
-      <View
-        ref={chartRef}
-        style={[styles.chartContainer, { height }]}
-        onLayout={onChartLayout}
-        {...panResponder.panHandlers}
-      >
-        <View style={styles.chart}>
-          {data.map((d, idx) => {
-            const currentHeight = maxValue > 0 ? (d.current / maxValue) * (height - 30) : 0;
-            const previousHeight = maxValue > 0 ? (d.previous / maxValue) * (height - 30) : 0;
-            const isCurrentMonth = idx === currentMonth;
-            const isSelected = idx === selectedMonth;
-
-            return (
-              <View key={idx} style={styles.barGroup}>
-                {/* Current month or selected highlight background */}
-                {(isCurrentMonth || isSelected) && (
-                  <View
-                    style={[
-                      styles.currentMonthHighlight,
-                      {
-                        backgroundColor: isSelected
-                          ? isDark
-                            ? 'rgba(255, 255, 255, 0.15)'
-                            : 'rgba(0, 0, 0, 0.08)'
-                          : isDark
-                            ? 'rgba(255, 255, 255, 0.08)'
-                            : 'rgba(252, 76, 2, 0.08)',
-                      },
-                    ]}
-                  />
-                )}
-                {/* Current period bar */}
-                <View
-                  style={[
-                    styles.bar,
-                    {
-                      width: barWidth,
-                      height: currentHeight,
-                      backgroundColor: getBarColor(idx, false),
-                      marginRight: barGap,
-                      opacity: selectedMonth !== null && !isSelected ? 0.4 : 1,
-                    },
-                  ]}
-                />
-                {/* Previous period bar */}
-                <View
-                  style={[
-                    styles.bar,
-                    {
-                      width: barWidth,
-                      height: previousHeight,
-                      backgroundColor: getBarColor(idx, true),
-                      opacity: selectedMonth !== null && !isSelected ? 0.4 : 1,
-                    },
-                  ]}
-                />
-                {/* Month label */}
-                <Text
-                  style={[
-                    styles.monthLabel,
-                    isDark && styles.textDark,
-                    isCurrentMonth && styles.currentMonthLabel,
-                    isSelected && styles.selectedMonthLabel,
-                  ]}
-                >
-                  {d.month.charAt(0)}
-                </Text>
-                {/* Current month indicator dot */}
-                {isCurrentMonth && !isSelected && (
-                  <View style={[styles.currentMonthDot, { backgroundColor: colors.primary }]} />
-                )}
-              </View>
-            );
-          })}
+      {/* Chart — Skia Picture + gesture overlay */}
+      <GestureDetector gesture={panGesture}>
+        <View style={{ height }} onLayout={onChartLayout}>
+          {chartPicture && (
+            <Canvas style={{ width: '100%', height }}>
+              <Picture picture={chartPicture} />
+            </Canvas>
+          )}
+          {/* Month labels overlay */}
+          <View style={styles.monthLabelsRow} pointerEvents="none">
+            {monthLabels.map((m, idx) => (
+              <Text
+                key={idx}
+                style={[
+                  styles.monthLabel,
+                  isDark && styles.textDark,
+                  m.isCurrentMonth && styles.currentMonthLabel,
+                  m.isSelected && styles.selectedMonthLabel,
+                ]}
+              >
+                {m.letter}
+              </Text>
+            ))}
+          </View>
         </View>
-      </View>
+      </GestureDetector>
     </View>
   );
 }
@@ -518,29 +555,19 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
   },
-  chartContainer: {
-    justifyContent: 'flex-end',
-  },
-  chart: {
+  monthLabelsRow: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    paddingBottom: 20,
-  },
-  barGroup: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  bar: {
-    borderRadius: spacing.xs,
+    justifyContent: 'space-around',
   },
   monthLabel: {
-    position: 'absolute',
-    bottom: -16,
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
+    textAlign: 'center',
+    flex: 1,
   },
   currentMonthLabel: {
     fontWeight: '700',
@@ -549,21 +576,6 @@ const styles = StyleSheet.create({
   selectedMonthLabel: {
     fontWeight: '700',
     color: colors.textPrimary,
-  },
-  currentMonthHighlight: {
-    position: 'absolute',
-    top: -8,
-    bottom: -24,
-    left: -4,
-    right: -4,
-    borderRadius: layout.borderRadiusSm,
-  },
-  currentMonthDot: {
-    position: 'absolute',
-    bottom: -24,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
   },
   emptyState: {
     alignItems: 'center',

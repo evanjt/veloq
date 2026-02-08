@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   Alert,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
@@ -33,6 +34,8 @@ import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
 import { useDisabledSections } from '@/providers/DisabledSectionsStore';
 import { debug } from '@/lib';
 import type { UnifiedSection, FrequentSection } from '@/types';
+import type { SectionWithPolyline } from 'veloqrs';
+import { generateSectionName } from '@/hooks/routes/useUnifiedSections';
 
 const log = debug.create('SectionsList');
 
@@ -50,6 +53,12 @@ interface SectionsListProps {
     isLoading: boolean;
     error: Error | null;
   };
+  /** Pre-loaded engine sections with polylines from batch FFI call */
+  batchSections?: SectionWithPolyline[];
+  /** Callback to load more sections (pagination) */
+  onLoadMore?: () => void;
+  /** Whether more sections are available to load */
+  hasMore?: boolean;
 }
 
 type HiddenFilters = {
@@ -58,7 +67,44 @@ type HiddenFilters = {
   disabled: boolean;
 };
 
-export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
+/**
+ * Convert batch SectionWithPolyline to FrequentSection for useUnifiedSections.
+ * Pre-populates polylines so SectionRow doesn't need per-row FFI calls.
+ */
+function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection {
+  // Convert flat coords [lat1, lng1, lat2, lng2, ...] to RoutePoint[]
+  const polyline: Array<{ lat: number; lng: number }> = [];
+  for (let i = 0; i < s.polyline.length - 1; i += 2) {
+    polyline.push({ lat: s.polyline[i], lng: s.polyline[i + 1] });
+  }
+  const section: FrequentSection = {
+    id: s.id,
+    sectionType: 'auto',
+    sportType: s.sportType,
+    polyline,
+    activityIds: [],
+    routeIds: [],
+    visitCount: s.visitCount,
+    distanceMeters: s.distanceMeters,
+    confidence: s.confidence,
+    scale: s.scale ?? undefined,
+    name: s.name ?? undefined,
+    createdAt: new Date().toISOString(),
+  };
+  // Generate display name using same logic as useFrequentSections
+  if (!section.name) {
+    section.name = generateSectionName(section);
+  }
+  return section;
+}
+
+export function SectionsList({
+  sportType,
+  prefetchedData,
+  batchSections,
+  onLoadMore,
+  hasMore = false,
+}: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const [hiddenFilters, setHiddenFilters] = useState<HiddenFilters>({
@@ -67,12 +113,20 @@ export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
     disabled: true, // Hidden sections are hidden by default
   });
 
+  // Convert batch sections to FrequentSection[] for preloading into useUnifiedSections
+  const preloadedEngineSections = useMemo(() => {
+    if (!batchSections) return undefined;
+    return batchSections.map(batchSectionToFrequentSection);
+  }, [batchSections]);
+
   // Only call hook if data not pre-fetched from parent
-  // This avoids duplicate FFI calls when parent already fetched data
+  // When batch sections are available, skip engine FFI calls but keep custom/potential loading
   const hookData = useUnifiedSections({
     sportType,
     includeCustom: true,
     includePotentials: true,
+    enabled: !prefetchedData,
+    preloadedEngineSections,
   });
 
   // Use pre-fetched data if provided, otherwise use hook data
@@ -258,7 +312,9 @@ export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
               <Text
                 style={[
                   styles.countText,
-                  { color: hiddenFilters.custom ? colors.textDisabled : colors.primary },
+                  {
+                    color: hiddenFilters.custom ? colors.textDisabled : colors.primary,
+                  },
                   hiddenFilters.custom && styles.countTextHidden,
                 ]}
               >
@@ -284,7 +340,9 @@ export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
               <Text
                 style={[
                   styles.countText,
-                  { color: hiddenFilters.auto ? colors.textDisabled : colors.success },
+                  {
+                    color: hiddenFilters.auto ? colors.textDisabled : colors.success,
+                  },
                   hiddenFilters.auto && styles.countTextHidden,
                 ]}
               >
@@ -309,7 +367,9 @@ export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
               <Text
                 style={[
                   styles.countText,
-                  { color: hiddenFilters.disabled ? colors.primary : colors.warning },
+                  {
+                    color: hiddenFilters.disabled ? colors.primary : colors.warning,
+                  },
                 ]}
               >
                 {hiddenFilters.disabled
@@ -342,7 +402,7 @@ export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
 
   // Convert UnifiedSection to FrequentSection-like object for SectionRow
   const toFrequentSection = useCallback((section: UnifiedSection): FrequentSection => {
-    // If we have engineData, use it directly
+    // If we have engineData, use it directly (polylines pre-populated from batch data)
     if (section.engineData) {
       return section.engineData;
     }
@@ -515,7 +575,16 @@ export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
 
   const renderFooter = () => {
     if (regularSections.length === 0) return null;
-    return <DataRangeFooter days={cacheDays} isDark={isDark} />;
+    return (
+      <View>
+        {hasMore && (
+          <View style={styles.loadingMore}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        )}
+        <DataRangeFooter days={cacheDays} isDark={isDark} />
+      </View>
+    );
   };
 
   return (
@@ -530,6 +599,8 @@ export function SectionsList({ sportType, prefetchedData }: SectionsListProps) {
       contentContainerStyle={regularSections.length === 0 ? styles.emptyList : styles.list}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      onEndReached={hasMore ? onLoadMore : undefined}
+      onEndReachedThreshold={0.5}
       // Performance optimizations
       removeClippedSubviews={Platform.OS === 'ios'}
       maxToRenderPerBatch={10}
@@ -709,5 +780,9 @@ const styles = StyleSheet.create({
   },
   showAction: {
     backgroundColor: colors.success,
+  },
+  loadingMore: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
   },
 });

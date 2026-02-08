@@ -19,7 +19,7 @@
 //!    - Computed route groups
 //!    - Detected sections
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::mpsc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
@@ -173,7 +173,7 @@ pub struct MapActivityComplete {
 
 #[derive(Debug, Clone)]
 pub struct SectionDetectionProgress {
-    /// Current phase: "loading", "building_rtrees", "finding_overlaps", "clustering", "building_sections", "postprocessing"
+    /// Current phase: "loading", "building_rtrees", "finding_overlaps", "postprocessing"
     pub phase: Arc<std::sync::Mutex<String>>,
     /// Number of items completed in current phase
     pub completed: Arc<AtomicU32>,
@@ -214,6 +214,15 @@ impl SectionDetectionProgress {
     }
 }
 
+impl tracematch::DetectionProgressCallback for SectionDetectionProgress {
+    fn on_phase(&self, phase: tracematch::DetectionPhase, total: u32) {
+        self.set_phase(phase.as_str(), total);
+    }
+
+    fn on_progress(&self) {
+        self.increment();
+    }
+}
 
 impl Default for SectionDetectionProgress {
     fn default() -> Self {
@@ -559,6 +568,10 @@ impl PersistentRouteEngine {
             M::up(include_str!("migrations/002_unified_sections.sql")),
             // M3: Drop legacy section_names table (names now in sections.name column)
             M::up(include_str!("migrations/003_drop_section_names.sql")),
+            // M4: Extend activity_metrics with training_load, ftp, zone times for aggregation
+            M::up(include_str!("migrations/004_extend_activity_metrics.sql")),
+            // M5: Athlete profile and sport settings cache tables
+            M::up(include_str!("migrations/005_profile_and_settings.sql")),
         ])
     }
 
@@ -1436,7 +1449,8 @@ impl PersistentRouteEngine {
     /// Clear all data.
     pub fn clear(&mut self) -> SqlResult<()> {
         self.db.execute_batch(
-            "DELETE FROM sections;
+            "DELETE FROM section_activities;
+             DELETE FROM sections;
              DELETE FROM route_groups;
              DELETE FROM gps_tracks;
              DELETE FROM signatures;
@@ -2793,19 +2807,35 @@ impl PersistentRouteEngine {
             return Some(section.clone());
         }
 
-        // Get activity IDs from junction table
-        let activity_ids: Vec<String> = {
+        // Load full activity portions from junction table (matching load_sections pattern)
+        let portions: Vec<SectionPortion> = {
             let mut stmt = match self.db.prepare(
-                "SELECT activity_id FROM section_activities WHERE section_id = ?"
+                "SELECT activity_id, direction, start_index, end_index, distance_meters
+                 FROM section_activities WHERE section_id = ? ORDER BY start_index"
             ) {
                 Ok(s) => s,
                 Err(_) => return None,
             };
-            stmt.query_map(params![section_id], |row| row.get(0))
-                .ok()?
-                .filter_map(|r| r.ok())
-                .collect()
+            stmt.query_map(params![section_id], |row| {
+                Ok(SectionPortion {
+                    activity_id: row.get(0)?,
+                    direction: row.get(1)?,
+                    start_index: row.get(2)?,
+                    end_index: row.get(3)?,
+                    distance_meters: row.get(4)?,
+                })
+            })
+            .ok()?
+            .filter_map(|r| r.ok())
+            .collect()
         };
+        // Derive activity_ids from portions (deduplicated)
+        let activity_ids: Vec<String> = portions.iter()
+            .map(|p| p.activity_id.clone())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+        let visit_count = portions.len() as u32;
 
         // Query SQLite with new schema
         let result: Option<FrequentSection> = self
@@ -2836,9 +2866,9 @@ impl PersistentRouteEngine {
                         polyline,
                         representative_activity_id: representative_activity_id.unwrap_or_default(),
                         activity_ids: activity_ids.clone(),
-                        activity_portions: vec![],
+                        activity_portions: portions.clone(),
                         route_ids: vec![],
-                        visit_count: activity_ids.len() as u32,
+                        visit_count,
                         distance_meters: row.get(5)?,
                         activity_traces: std::collections::HashMap::new(),
                         confidence: row.get::<_, Option<f64>>(7)?.unwrap_or(0.0),
@@ -3023,34 +3053,26 @@ impl PersistentRouteEngine {
         let progress_clone = progress.clone();
 
         // Ensure groups are computed before section detection.
-        // This is necessary because:
-        // 1. Route groups are a core feature - users expect to see their routes
-        // 2. Sections need groups to be linked to activities
-        // 3. Without groups, the Routes tab shows "0 routes"
-        //
-        // This call may trigger recomputation if groups_dirty = true (after addActivities).
-        // The recomputation loads signatures and runs grouping algorithm.
-        // For 54 activities, this typically takes < 1 second.
         if self.groups_dirty {
             log::info!(
                 "tracematch: [SectionDetection] Computing route groups before section detection..."
             );
             let start = std::time::Instant::now();
-            let _ = self.get_groups(); // This triggers recomputation and saves to DB
+            let _ = self.get_groups();
             log::info!(
                 "tracematch: [SectionDetection] Route groups computed in {:?}",
                 start.elapsed()
             );
         }
 
-        // Build sport type map - lightweight, just copying metadata
+        // Build sport type map
         let sport_map: HashMap<String, String> = self
             .activity_metadata
             .values()
             .map(|m| (m.id.clone(), m.sport_type.clone()))
             .collect();
 
-        // Filter activity IDs by sport - lightweight
+        // Filter activity IDs by sport
         let activity_ids: Vec<String> = if let Some(ref sport) = sport_filter {
             self.activity_metadata
                 .values()
@@ -3061,16 +3083,61 @@ impl PersistentRouteEngine {
             self.activity_metadata.keys().cloned().collect()
         };
 
+        // Determine if incremental detection is possible:
+        // - Must have existing sections
+        // - New (unprocessed) activities must be < 30% of total
+        let existing_sections = self.sections.clone();
+        let processed_activity_ids: HashSet<String> = {
+            let mut processed = HashSet::new();
+            for section in &self.sections {
+                for aid in &section.activity_ids {
+                    processed.insert(aid.clone());
+                }
+            }
+            processed
+        };
+
+        let new_activity_ids: Vec<String> = activity_ids
+            .iter()
+            .filter(|id| !processed_activity_ids.contains(*id))
+            .cloned()
+            .collect();
+
+        let use_incremental = !existing_sections.is_empty()
+            && !new_activity_ids.is_empty()
+            && (new_activity_ids.len() as f64) < (activity_ids.len() as f64 * 0.3);
+
+        if use_incremental {
+            log::info!(
+                "tracematch: [SectionDetection] Using INCREMENTAL mode: {} new of {} total activities, {} existing sections",
+                new_activity_ids.len(),
+                activity_ids.len(),
+                existing_sections.len()
+            );
+        } else if !new_activity_ids.is_empty() && !existing_sections.is_empty() {
+            log::info!(
+                "tracematch: [SectionDetection] Using FULL mode: {} new of {} total activities (>{:.0}% threshold)",
+                new_activity_ids.len(),
+                activity_ids.len(),
+                30.0
+            );
+        }
+
         // Set initial loading phase
-        progress.set_phase("loading", activity_ids.len() as u32);
+        let ids_to_load = if use_incremental {
+            // Only load new tracks for incremental (plus existing for consensus recalc)
+            activity_ids.clone()
+        } else {
+            activity_ids.clone()
+        };
+        progress.set_phase("loading", ids_to_load.len() as u32);
 
         thread::spawn(move || {
             log::info!(
                 "tracematch: [SectionDetection] Background thread started with {} activity IDs",
-                activity_ids.len()
+                ids_to_load.len()
             );
 
-            // Open separate connection for background thread
             let conn = match Connection::open(&db_path) {
                 Ok(c) => c,
                 Err(e) => {
@@ -3080,20 +3147,18 @@ impl PersistentRouteEngine {
                 }
             };
 
-            // Load groups from DB inside the thread (non-blocking on main thread)
             let groups = load_groups_from_db(&conn);
             log::info!(
                 "tracematch: [SectionDetection] Loaded {} groups from DB",
                 groups.len()
             );
 
-            // Set loading phase with total count
-            progress_clone.set_phase("loading", activity_ids.len() as u32);
+            progress_clone.set_phase("loading", ids_to_load.len() as u32);
 
-            // Load GPS tracks from DB with progress updates
+            // Load GPS tracks from DB
             let mut tracks_loaded = 0;
             let mut tracks_empty = 0;
-            let tracks: Vec<(String, Vec<GpsPoint>)> = activity_ids
+            let tracks: Vec<(String, Vec<GpsPoint>)> = ids_to_load
                 .iter()
                 .filter_map(|id| {
                     progress_clone.increment();
@@ -3108,7 +3173,7 @@ impl PersistentRouteEngine {
                         .ok()?;
                     if track.is_empty() {
                         tracks_empty += 1;
-                        return None; // Skip empty tracks
+                        return None;
                     }
                     tracks_loaded += 1;
                     Some((id.clone(), track))
@@ -3119,7 +3184,7 @@ impl PersistentRouteEngine {
                 "tracematch: [SectionDetection] Loaded {} tracks ({} empty/missing) from {} activity IDs",
                 tracks_loaded,
                 tracks_empty,
-                activity_ids.len()
+                ids_to_load.len()
             );
 
             if tracks.is_empty() {
@@ -3129,7 +3194,6 @@ impl PersistentRouteEngine {
                 return;
             }
 
-            // Log track point counts for debugging
             let total_points: usize = tracks.iter().map(|(_, t)| t.len()).sum();
             log::info!(
                 "tracematch: [SectionDetection] Total GPS points: {}, avg per track: {}",
@@ -3137,23 +3201,149 @@ impl PersistentRouteEngine {
                 total_points / tracks.len().max(1)
             );
 
-            // Detect sections using multi-scale algorithm
-            progress_clone.set_phase("detecting", tracks.len() as u32);
-            let result = tracematch::sections::detect_sections_multiscale(
-                &tracks,
-                &sport_map,
-                &groups,
-                &section_config,
-            );
+            if use_incremental {
+                // Incremental mode: match new activities against existing sections
+                let new_set: HashSet<String> = new_activity_ids.into_iter().collect();
+                let new_tracks: Vec<(String, Vec<GpsPoint>)> = tracks
+                    .iter()
+                    .filter(|(id, _)| new_set.contains(id))
+                    .cloned()
+                    .collect();
 
-            log::info!(
-                "tracematch: [SectionDetection] Detection complete: {} sections, {} potentials",
-                result.sections.len(),
-                result.potentials.len()
-            );
+                log::info!(
+                    "tracematch: [SectionDetection] Incremental: {} new tracks to match against {} sections",
+                    new_tracks.len(),
+                    existing_sections.len()
+                );
 
-            progress_clone.set_phase("complete", 0);
-            tx.send(result.sections).ok();
+                let result = tracematch::sections::incremental::detect_sections_incremental(
+                    &new_tracks,
+                    &existing_sections,
+                    &tracks, // all tracks for consensus recalc
+                    &sport_map,
+                    &groups,
+                    &section_config,
+                    Arc::new(progress_clone.clone()),
+                );
+
+                log::info!(
+                    "tracematch: [SectionDetection] Incremental complete: {} updated, {} new, {} matched, {} unmatched",
+                    result.updated_sections.len(),
+                    result.new_sections.len(),
+                    result.matched_activity_ids.len(),
+                    result.unmatched_activity_ids.len(),
+                );
+
+                // Merge: updated existing + newly discovered
+                let mut all_sections = result.updated_sections;
+                all_sections.extend(result.new_sections);
+
+                progress_clone.set_phase("complete", 0);
+                tx.send(all_sections).ok();
+            } else {
+                // Full detection mode with batching for large datasets.
+                // Cap full pairwise detection at BATCH_CAP activities per batch.
+                // Subsequent batches use incremental detection against results from prior batches.
+                const BATCH_CAP: usize = 500;
+
+                if tracks.len() <= BATCH_CAP {
+                    // Small enough for single-pass full detection
+                    let result = tracematch::detect_sections_multiscale_with_progress(
+                        &tracks,
+                        &sport_map,
+                        &groups,
+                        &section_config,
+                        Arc::new(progress_clone.clone()),
+                    );
+
+                    log::info!(
+                        "tracematch: [SectionDetection] Detection complete: {} sections, {} potentials",
+                        result.sections.len(),
+                        result.potentials.len()
+                    );
+
+                    progress_clone.set_phase("complete", 0);
+                    tx.send(result.sections).ok();
+                } else {
+                    // Large dataset: process in batches
+                    let num_batches = (tracks.len() + BATCH_CAP - 1) / BATCH_CAP;
+                    log::info!(
+                        "tracematch: [SectionDetection] Batched mode: {} activities in {} batches of up to {}",
+                        tracks.len(),
+                        num_batches,
+                        BATCH_CAP
+                    );
+
+                    // Batch 1: full detection on first BATCH_CAP activities
+                    let batch1_tracks = &tracks[..BATCH_CAP.min(tracks.len())];
+                    let result = tracematch::detect_sections_multiscale_with_progress(
+                        batch1_tracks,
+                        &sport_map,
+                        &groups,
+                        &section_config,
+                        Arc::new(progress_clone.clone()),
+                    );
+
+                    let mut accumulated_sections = result.sections;
+                    log::info!(
+                        "tracematch: [SectionDetection] Batch 1/{}: {} sections from {} activities",
+                        num_batches,
+                        accumulated_sections.len(),
+                        batch1_tracks.len()
+                    );
+
+                    // Subsequent batches: incremental detection against accumulated sections
+                    let mut batch_start = BATCH_CAP;
+                    let mut batch_num = 2;
+                    while batch_start < tracks.len() {
+                        let batch_end = (batch_start + BATCH_CAP).min(tracks.len());
+                        let batch_tracks = &tracks[batch_start..batch_end];
+
+                        log::info!(
+                            "tracematch: [SectionDetection] Batch {}/{}: {} new activities against {} sections",
+                            batch_num,
+                            num_batches,
+                            batch_tracks.len(),
+                            accumulated_sections.len()
+                        );
+
+                        let incr_result =
+                            tracematch::sections::incremental::detect_sections_incremental(
+                                batch_tracks,
+                                &accumulated_sections,
+                                &tracks, // all tracks for consensus
+                                &sport_map,
+                                &groups,
+                                &section_config,
+                                Arc::new(progress_clone.clone()),
+                            );
+
+                        // Replace accumulated with updated + new
+                        accumulated_sections = incr_result.updated_sections;
+                        accumulated_sections.extend(incr_result.new_sections);
+
+                        log::info!(
+                            "tracematch: [SectionDetection] Batch {}/{}: now {} total sections ({} matched, {} unmatched)",
+                            batch_num,
+                            num_batches,
+                            accumulated_sections.len(),
+                            incr_result.matched_activity_ids.len(),
+                            incr_result.unmatched_activity_ids.len(),
+                        );
+
+                        batch_start = batch_end;
+                        batch_num += 1;
+                    }
+
+                    log::info!(
+                        "tracematch: [SectionDetection] Batched detection complete: {} sections",
+                        accumulated_sections.len()
+                    );
+
+                    progress_clone.set_phase("complete", 0);
+                    tx.send(accumulated_sections).ok();
+                }
+            }
         });
 
         SectionDetectionHandle {
@@ -3163,29 +3353,40 @@ impl PersistentRouteEngine {
     }
 
     /// Apply completed section detection results.
+    /// Saves to DB first, only updates in-memory state on success.
     pub fn apply_sections(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
-        self.sections = sections;
-        self.save_sections()?;
-        self.sections_dirty = false;
-
-        // Clear activity_traces to prevent memory leak.
-        // These GPS traces were used for consensus computation but are not persisted
-        // to SQLite, so keeping them in memory is wasteful.
-        for section in &mut self.sections {
-            section.activity_traces.clear();
+        let old_sections = std::mem::replace(&mut self.sections, sections);
+        match self.save_sections() {
+            Ok(()) => {
+                self.sections_dirty = false;
+                // Clear activity_traces to prevent memory leak.
+                // These GPS traces were used for consensus computation but are not persisted
+                // to SQLite, so keeping them in memory is wasteful.
+                for section in &mut self.sections {
+                    section.activity_traces.clear();
+                }
+                // Invalidate section LRU cache since sections changed
+                self.section_cache.clear();
+                Ok(())
+            }
+            Err(e) => {
+                // Rollback in-memory state on DB failure
+                self.sections = old_sections;
+                Err(e)
+            }
         }
-
-        Ok(())
     }
 
     fn save_sections(&self) -> SqlResult<()> {
+        let tx = self.db.unchecked_transaction()?;
+
         // Clear existing auto sections (keep custom sections)
-        self.db.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto')", [])?;
-        self.db.execute("DELETE FROM sections WHERE section_type = 'auto'", [])?;
+        tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto')", [])?;
+        tx.execute("DELETE FROM sections WHERE section_type = 'auto'", [])?;
 
         // Load existing section names to preserve user-set names (from custom sections)
         let existing_names: HashMap<String, String> = {
-            let mut stmt = self.db.prepare("SELECT id, name FROM sections WHERE name IS NOT NULL")?;
+            let mut stmt = tx.prepare("SELECT id, name FROM sections WHERE name IS NOT NULL")?;
             stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
                 .filter_map(|r| r.ok())
                 .collect()
@@ -3207,15 +3408,14 @@ impl PersistentRouteEngine {
         }
 
         // Insert auto-detected sections with new schema
-        let mut section_stmt = self.db.prepare(
+        let mut section_stmt = tx.prepare(
             "INSERT INTO sections (
                 id, section_type, name, sport_type, polyline_json, distance_meters,
                 representative_activity_id, confidence, observation_count, average_spread,
                 point_density_json, scale, version, is_user_defined, stability, created_at, updated_at
             ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )?;
-        let mut junction_stmt = self
-            .db
+        let mut junction_stmt = tx
             .prepare("INSERT INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters) VALUES (?, ?, ?, ?, ?, ?)")?;
 
         // Sort sections by sport type and activity count for consistent numbering
@@ -3299,6 +3499,11 @@ impl PersistentRouteEngine {
                 ])?;
             }
         }
+
+        // Drop prepared statements before committing (they hold borrows on tx)
+        drop(section_stmt);
+        drop(junction_stmt);
+        tx.commit()?;
 
         Ok(())
     }
@@ -3875,7 +4080,7 @@ impl PersistentRouteEngine {
     /// Set activity metrics for performance calculations.
     /// This persists the metrics to the database and keeps them in memory.
     pub fn set_activity_metrics(&mut self, metrics: Vec<ActivityMetrics>) -> SqlResult<()> {
-        // Insert or replace in database
+        // Insert or replace in database (core fields only, no extended metrics)
         let mut stmt = self.db.prepare(
             "INSERT OR REPLACE INTO activity_metrics
              (activity_id, name, date, distance, moving_time, elapsed_time,
@@ -3906,9 +4111,314 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Set activity metrics with extended fields (training load, FTP, zone times).
+    /// Persists all fields to the database. Extended fields are only used for SQL aggregate queries.
+    pub fn set_activity_metrics_extended(&mut self, metrics: Vec<crate::FfiActivityMetrics>) -> SqlResult<()> {
+        let mut stmt = self.db.prepare(
+            "INSERT OR REPLACE INTO activity_metrics
+             (activity_id, name, date, distance, moving_time, elapsed_time,
+              elevation_gain, avg_hr, avg_power, sport_type,
+              training_load, ftp, power_zone_times, hr_zone_times)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )?;
+
+        for m in &metrics {
+            stmt.execute(params![
+                &m.activity_id,
+                &m.name,
+                m.date,
+                m.distance,
+                m.moving_time,
+                m.elapsed_time,
+                m.elevation_gain,
+                m.avg_hr.map(|v| v as i32),
+                m.avg_power.map(|v| v as i32),
+                &m.sport_type,
+                m.training_load,
+                m.ftp.map(|v| v as i32),
+                m.power_zone_times.as_deref(),
+                m.hr_zone_times.as_deref(),
+            ])?;
+        }
+
+        // Update in-memory cache (core fields only)
+        for m in metrics {
+            let core: ActivityMetrics = m.into();
+            self.activity_metrics.insert(core.activity_id.clone(), core);
+        }
+
+        Ok(())
+    }
+
     /// Get activity metrics for a specific activity.
     pub fn get_activity_metrics(&self, activity_id: &str) -> Option<&ActivityMetrics> {
         self.activity_metrics.get(activity_id)
+    }
+
+    // ========================================================================
+    // Aggregate Queries (SQL-based, for dashboard/stats/charts)
+    // ========================================================================
+
+    /// Get aggregated stats for a date range: count, total duration, distance, TSS.
+    pub fn get_period_stats(&self, start_ts: i64, end_ts: i64) -> crate::FfiPeriodStats {
+        self.db
+            .query_row(
+                "SELECT COUNT(*), COALESCE(SUM(moving_time), 0), COALESCE(SUM(distance), 0),
+                        COALESCE(SUM(training_load), 0)
+                 FROM activity_metrics WHERE date BETWEEN ?1 AND ?2",
+                params![start_ts, end_ts],
+                |row| {
+                    Ok(crate::FfiPeriodStats {
+                        count: row.get::<_, i64>(0)? as u32,
+                        total_duration: row.get(1)?,
+                        total_distance: row.get(2)?,
+                        total_tss: row.get(3)?,
+                    })
+                },
+            )
+            .unwrap_or(crate::FfiPeriodStats {
+                count: 0,
+                total_duration: 0,
+                total_distance: 0.0,
+                total_tss: 0.0,
+            })
+    }
+
+    /// Get monthly aggregates for a given year and metric.
+    /// metric: "hours" | "distance" | "tss"
+    pub fn get_monthly_aggregates(&self, year: i32, metric: &str) -> Vec<crate::FfiMonthlyAggregate> {
+        let sql_expr = match metric {
+            "hours" => "COALESCE(SUM(moving_time), 0) / 3600.0",
+            "distance" => "COALESCE(SUM(distance), 0)",
+            "tss" => "COALESCE(SUM(training_load), 0)",
+            _ => return Vec::new(),
+        };
+
+        // Convert year to date range as Unix timestamps
+        let start = chrono::NaiveDate::from_ymd_opt(year, 1, 1)
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc()
+            .timestamp();
+        let end = chrono::NaiveDate::from_ymd_opt(year, 12, 31)
+            .unwrap()
+            .and_hms_opt(23, 59, 59)
+            .unwrap()
+            .and_utc()
+            .timestamp();
+
+        let query = format!(
+            "SELECT CAST(strftime('%m', date, 'unixepoch') AS INTEGER) - 1 as month, {}
+             FROM activity_metrics
+             WHERE date BETWEEN ?1 AND ?2
+             GROUP BY month
+             ORDER BY month",
+            sql_expr
+        );
+
+        let mut stmt = match self.db.prepare(&query) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        stmt.query_map(params![start, end], |row| {
+            Ok(crate::FfiMonthlyAggregate {
+                month: row.get::<_, i64>(0)? as u8,
+                value: row.get(1)?,
+            })
+        })
+        .ok()
+        .map(|iter| iter.flatten().collect())
+        .unwrap_or_default()
+    }
+
+    /// Get activity heatmap data: date string + intensity (0-4) based on moving_time.
+    pub fn get_activity_heatmap(&self, start_ts: i64, end_ts: i64) -> Vec<crate::FfiHeatmapDay> {
+        let mut stmt = match self.db.prepare(
+            "SELECT date, MAX(moving_time) as max_time
+             FROM activity_metrics
+             WHERE date BETWEEN ?1 AND ?2
+             GROUP BY date(date, 'unixepoch')
+             ORDER BY date",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        stmt.query_map(params![start_ts, end_ts], |row| {
+            let ts: i64 = row.get(0)?;
+            let max_time: i64 = row.get(1)?;
+            let intensity = match max_time {
+                t if t > 7200 => 4,  // > 2h
+                t if t > 5400 => 3,  // > 1.5h
+                t if t > 3600 => 2,  // > 1h
+                t if t > 0 => 1,     // any activity
+                _ => 0,
+            };
+            // Format date string from timestamp
+            let date_str = chrono::DateTime::from_timestamp(ts, 0)
+                .map(|dt| dt.format("%Y-%m-%d").to_string())
+                .unwrap_or_default();
+            Ok(crate::FfiHeatmapDay {
+                date: date_str,
+                intensity: intensity as u8,
+            })
+        })
+        .ok()
+        .map(|iter| iter.flatten().collect())
+        .unwrap_or_default()
+    }
+
+    /// Get aggregated zone distribution for a sport type and zone type.
+    /// zone_type: "power" | "hr"
+    pub fn get_zone_distribution(&self, sport_type: &str, zone_type: &str) -> Vec<f64> {
+        let column = match zone_type {
+            "power" => "power_zone_times",
+            "hr" => "hr_zone_times",
+            _ => return Vec::new(),
+        };
+
+        let query = format!(
+            "SELECT {} FROM activity_metrics WHERE sport_type = ?1 AND {} IS NOT NULL",
+            column, column,
+        );
+
+        let mut stmt = match self.db.prepare(&query) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        let mut totals: Vec<f64> = Vec::new();
+
+        let _ = stmt.query_map(params![sport_type], |row| {
+            let json_str: String = row.get(0)?;
+            Ok(json_str)
+        })
+        .ok()
+        .map(|iter| {
+            for json_result in iter.flatten() {
+                if let Ok(zones) = serde_json::from_str::<Vec<f64>>(&json_result) {
+                    // Extend totals vector if needed
+                    if totals.len() < zones.len() {
+                        totals.resize(zones.len(), 0.0);
+                    }
+                    for (i, &val) in zones.iter().enumerate() {
+                        totals[i] += val;
+                    }
+                }
+            }
+        });
+
+        totals
+    }
+
+    /// Get FTP trend: latest and previous FTP values with dates.
+    pub fn get_ftp_trend(&self) -> crate::FfiFtpTrend {
+        let default = crate::FfiFtpTrend {
+            latest_ftp: None,
+            latest_date: None,
+            previous_ftp: None,
+            previous_date: None,
+        };
+
+        // Get the two most recent distinct FTP values
+        let mut stmt = match self.db.prepare(
+            "SELECT ftp, date FROM activity_metrics
+             WHERE ftp IS NOT NULL
+             ORDER BY date DESC",
+        ) {
+            Ok(s) => s,
+            Err(_) => return default,
+        };
+
+        let rows: Vec<(i32, i64)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .ok()
+            .map(|iter| iter.flatten().collect())
+            .unwrap_or_default();
+
+        if rows.is_empty() {
+            return default;
+        }
+
+        let latest_ftp = rows[0].0 as u16;
+        let latest_date = rows[0].1;
+
+        // Find the first row with a different FTP value
+        let previous = rows.iter().find(|(ftp, _)| *ftp as u16 != latest_ftp);
+
+        crate::FfiFtpTrend {
+            latest_ftp: Some(latest_ftp),
+            latest_date: Some(latest_date),
+            previous_ftp: previous.map(|(ftp, _)| *ftp as u16),
+            previous_date: previous.map(|(_, date)| *date),
+        }
+    }
+
+    /// Get distinct sport types from stored activities.
+    pub fn get_available_sport_types(&self) -> Vec<String> {
+        let mut stmt = match self.db.prepare(
+            "SELECT DISTINCT sport_type FROM activity_metrics ORDER BY sport_type",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        stmt.query_map([], |row| row.get(0))
+            .ok()
+            .map(|iter| iter.flatten().collect())
+            .unwrap_or_default()
+    }
+
+    // =========================================================================
+    // Athlete Profile & Sport Settings Cache
+    // =========================================================================
+
+    /// Store athlete profile JSON blob for instant startup rendering.
+    pub fn set_athlete_profile(&self, json: &str) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        let _ = self.db.execute(
+            "INSERT OR REPLACE INTO athlete_profile (id, data, updated_at) VALUES ('current', ?1, ?2)",
+            rusqlite::params![json, now],
+        );
+    }
+
+    /// Get cached athlete profile JSON blob. Returns None if not cached.
+    pub fn get_athlete_profile(&self) -> Option<String> {
+        self.db
+            .query_row(
+                "SELECT data FROM athlete_profile WHERE id = 'current'",
+                [],
+                |row| row.get(0),
+            )
+            .ok()
+    }
+
+    /// Store sport settings JSON blob for instant startup rendering.
+    pub fn set_sport_settings(&self, json: &str) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        let _ = self.db.execute(
+            "INSERT OR REPLACE INTO sport_settings (id, data, updated_at) VALUES ('current', ?1, ?2)",
+            rusqlite::params![json, now],
+        );
+    }
+
+    /// Get cached sport settings JSON blob. Returns None if not cached.
+    pub fn get_sport_settings(&self) -> Option<String> {
+        self.db
+            .query_row(
+                "SELECT data FROM sport_settings WHERE id = 'current'",
+                [],
+                |row| row.get(0),
+            )
+            .ok()
     }
 
     /// Set time streams for activities from flat buffer.
@@ -4403,6 +4913,115 @@ impl PersistentRouteEngine {
             newest_date,
         }
     }
+
+    /// Get all data needed by the Routes screen in a single call.
+    /// Returns group summaries with consensus polylines, section summaries with polylines,
+    /// and aggregate counts/stats — all in one mutex acquisition.
+    /// Supports pagination via limit/offset for both groups and sections.
+    pub fn get_routes_screen_data(
+        &mut self,
+        group_limit: u32,
+        group_offset: u32,
+        section_limit: u32,
+        section_offset: u32,
+    ) -> crate::FfiRoutesScreenData {
+        // Get date range from activity_metrics
+        let (oldest_date, newest_date): (Option<i64>, Option<i64>) = self
+            .db
+            .query_row(
+                "SELECT MIN(date), MAX(date) FROM activity_metrics",
+                [],
+                |row| Ok((row.get(0).ok(), row.get(1).ok())),
+            )
+            .unwrap_or((None, None));
+
+        // Get group summaries, sort by activity_count DESC, apply limit/offset
+        let mut raw_summaries = self.get_group_summaries();
+        raw_summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count));
+        let total_groups = raw_summaries.len();
+        let paged_summaries: Vec<_> = raw_summaries
+            .into_iter()
+            .skip(group_offset as usize)
+            .take(group_limit as usize)
+            .collect();
+        let has_more_groups = total_groups > (group_offset as usize + paged_summaries.len());
+
+        let groups: Vec<crate::FfiGroupWithPolyline> = paged_summaries
+            .into_iter()
+            .map(|g| {
+                let consensus_polyline = self
+                    .get_consensus_route(&g.group_id)
+                    .map(|points| {
+                        points
+                            .iter()
+                            .flat_map(|p| vec![p.latitude, p.longitude])
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                // Look up distance from representative activity's metrics
+                let distance_meters = self
+                    .activity_metrics
+                    .get(&g.representative_id)
+                    .map(|m| m.distance)
+                    .unwrap_or(0.0);
+                crate::FfiGroupWithPolyline {
+                    group_id: g.group_id,
+                    representative_id: g.representative_id,
+                    sport_type: g.sport_type,
+                    activity_count: g.activity_count,
+                    custom_name: g.custom_name,
+                    bounds: g.bounds,
+                    distance_meters,
+                    consensus_polyline,
+                }
+            })
+            .collect();
+
+        // Get section summaries, sort by visit_count DESC, apply limit/offset
+        let mut raw_sections = self.get_section_summaries();
+        raw_sections.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
+        let total_sections = raw_sections.len();
+        let paged_sections: Vec<_> = raw_sections
+            .into_iter()
+            .skip(section_offset as usize)
+            .take(section_limit as usize)
+            .collect();
+        let has_more_sections =
+            total_sections > (section_offset as usize + paged_sections.len());
+
+        let sections: Vec<crate::FfiSectionWithPolyline> = paged_sections
+            .into_iter()
+            .map(|s| {
+                let polyline = self.get_section_polyline(&s.id);
+                crate::FfiSectionWithPolyline {
+                    id: s.id,
+                    name: s.name,
+                    sport_type: s.sport_type,
+                    visit_count: s.visit_count,
+                    distance_meters: s.distance_meters,
+                    activity_count: s.activity_count,
+                    confidence: s.confidence,
+                    scale: s.scale,
+                    bounds: s.bounds,
+                    polyline,
+                }
+            })
+            .collect();
+
+        let activity_count = self.activity_metadata.len() as u32;
+
+        crate::FfiRoutesScreenData {
+            activity_count,
+            group_count: total_groups as u32,
+            section_count: total_sections as u32,
+            oldest_date,
+            newest_date,
+            groups,
+            sections,
+            has_more_groups,
+            has_more_sections,
+        }
+    }
 }
 
 /// Statistics for the persistent engine.
@@ -4659,12 +5278,11 @@ pub mod persistent_engine_ffi {
     }
 
     /// Get the name for a section.
-    /// Set activity metrics for performance calculations.
+    /// Set activity metrics for performance calculations (with extended fields for aggregation).
     #[uniffi::export]
     pub fn persistent_engine_set_activity_metrics(metrics: Vec<crate::FfiActivityMetrics>) {
         with_persistent_engine(|e| {
-            let metrics: Vec<ActivityMetrics> = metrics.into_iter().map(|m| m.into()).collect();
-            e.set_activity_metrics(metrics).ok();
+            e.set_activity_metrics_extended(metrics).ok();
         });
     }
 
@@ -4894,6 +5512,20 @@ pub mod persistent_engine_ffi {
         with_persistent_engine(|e| e.stats())
     }
 
+    /// Get all data for the Routes screen in a single FFI call.
+    /// Supports pagination via limit/offset for groups and sections.
+    #[uniffi::export]
+    pub fn persistent_engine_get_routes_screen_data(
+        group_limit: u32,
+        group_offset: u32,
+        section_limit: u32,
+        section_offset: u32,
+    ) -> Option<crate::FfiRoutesScreenData> {
+        with_persistent_engine(|e| {
+            e.get_routes_screen_data(group_limit, group_offset, section_limit, section_offset)
+        })
+    }
+
     // ========================================================================
     // Background Section Detection
     // ========================================================================
@@ -5091,9 +5723,10 @@ pub mod persistent_engine_ffi {
                 return vec![];
             }
 
-            // Build a track map with just this activity
-            let mut track_map = std::collections::HashMap::new();
-            track_map.insert(activity_id.clone(), track);
+            // Build a track map with just this activity — borrow to match tracematch API
+            let mut track_map: std::collections::HashMap<&str, &[tracematch::GpsPoint]> =
+                std::collections::HashMap::new();
+            track_map.insert(activity_id.as_str(), track.as_slice());
 
             // Use the existing trace extraction algorithm
             let traces = tracematch::sections::extract_all_activity_traces(
@@ -5113,6 +5746,69 @@ pub mod persistent_engine_ffi {
                 }
                 None => vec![],
             }
+        })
+        .unwrap_or_default()
+    }
+
+    /// Extract section traces for multiple activities in a single FFI call.
+    /// Builds the R-tree from the section polyline ONCE, then processes each activity
+    /// sequentially — only one GPS track in memory at a time.
+    /// Returns flat coords per activity: Vec<(activity_id, [lat, lng, lat, lng, ...])>
+    #[uniffi::export]
+    pub fn persistent_engine_extract_section_traces_batch(
+        activity_ids: Vec<String>,
+        section_polyline_json: String,
+    ) -> Vec<crate::FfiBatchTrace> {
+        with_persistent_engine(|engine| {
+            let polyline: Vec<GpsPoint> = match serde_json::from_str(&section_polyline_json) {
+                Ok(p) => p,
+                Err(_) => return vec![],
+            };
+
+            if polyline.len() < 2 {
+                return vec![];
+            }
+
+            // Build R-tree ONCE for the section polyline
+            let polyline_tree = tracematch::sections::build_rtree(&polyline);
+
+            activity_ids
+                .iter()
+                .filter_map(|id| {
+                    let track = engine.get_gps_track(id)?;
+                    if track.len() < 3 {
+                        return None;
+                    }
+                    let trace =
+                        tracematch::sections::extract_activity_trace(&track, &polyline, &polyline_tree);
+                    // track is dropped here — only one in memory at a time
+                    if trace.is_empty() {
+                        return None;
+                    }
+                    Some(crate::FfiBatchTrace {
+                        activity_id: id.clone(),
+                        coords: trace
+                            .iter()
+                            .flat_map(|p| vec![p.latitude, p.longitude])
+                            .collect(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+    }
+
+    /// Get activity metrics for a list of activity IDs.
+    /// Returns metrics from the in-memory HashMap (O(1) per lookup).
+    #[uniffi::export]
+    pub fn persistent_engine_get_activity_metrics_for_ids(
+        ids: Vec<String>,
+    ) -> Vec<crate::FfiActivityMetrics> {
+        with_persistent_engine(|engine| {
+            ids.iter()
+                .filter_map(|id| engine.activity_metrics.get(id).cloned())
+                .map(crate::FfiActivityMetrics::from)
+                .collect()
         })
         .unwrap_or_default()
     }
@@ -5252,6 +5948,159 @@ pub mod persistent_engine_ffi {
             .unwrap_or_default()
     }
 
+    // ========================================================================
+    // Aggregate Query FFI (Phase 2: SQL-based dashboard/stats queries)
+    // ========================================================================
+
+    /// Get aggregated stats for a date range.
+    /// Returns count, total duration (seconds), total distance (meters), total TSS.
+    #[uniffi::export]
+    pub fn persistent_engine_get_period_stats(start_ts: i64, end_ts: i64) -> crate::FfiPeriodStats {
+        with_persistent_engine(|e| e.get_period_stats(start_ts, end_ts)).unwrap_or(
+            crate::FfiPeriodStats {
+                count: 0,
+                total_duration: 0,
+                total_distance: 0.0,
+                total_tss: 0.0,
+            },
+        )
+    }
+
+    /// Get monthly aggregates for a year.
+    /// metric: "hours" | "distance" | "tss"
+    /// Returns Vec of (month 0-11, value).
+    #[uniffi::export]
+    pub fn persistent_engine_get_monthly_aggregates(
+        year: i32,
+        metric: String,
+    ) -> Vec<crate::FfiMonthlyAggregate> {
+        with_persistent_engine(|e| e.get_monthly_aggregates(year, &metric)).unwrap_or_default()
+    }
+
+    /// Get activity heatmap data for a date range.
+    /// Returns Vec of (date string, intensity 0-4).
+    #[uniffi::export]
+    pub fn persistent_engine_get_activity_heatmap(
+        start_ts: i64,
+        end_ts: i64,
+    ) -> Vec<crate::FfiHeatmapDay> {
+        with_persistent_engine(|e| e.get_activity_heatmap(start_ts, end_ts)).unwrap_or_default()
+    }
+
+    /// Get aggregated zone distribution for a sport type.
+    /// zone_type: "power" | "hr"
+    /// Returns flat array of total seconds per zone.
+    #[uniffi::export]
+    pub fn persistent_engine_get_zone_distribution(
+        sport_type: String,
+        zone_type: String,
+    ) -> Vec<f64> {
+        with_persistent_engine(|e| e.get_zone_distribution(&sport_type, &zone_type))
+            .unwrap_or_default()
+    }
+
+    /// Get FTP trend: latest and previous distinct FTP values with dates.
+    #[uniffi::export]
+    pub fn persistent_engine_get_ftp_trend() -> crate::FfiFtpTrend {
+        with_persistent_engine(|e| e.get_ftp_trend()).unwrap_or(crate::FfiFtpTrend {
+            latest_ftp: None,
+            latest_date: None,
+            previous_ftp: None,
+            previous_date: None,
+        })
+    }
+
+    /// Get distinct sport types from stored activities.
+    #[uniffi::export]
+    pub fn persistent_engine_get_available_sport_types() -> Vec<String> {
+        with_persistent_engine(|e| e.get_available_sport_types()).unwrap_or_default()
+    }
+
+    /// Store athlete profile JSON blob in SQLite for instant startup rendering.
+    #[uniffi::export]
+    pub fn persistent_engine_set_athlete_profile(json: String) {
+        with_persistent_engine(|e| e.set_athlete_profile(&json));
+    }
+
+    /// Get cached athlete profile JSON blob. Returns empty string if not cached.
+    #[uniffi::export]
+    pub fn persistent_engine_get_athlete_profile() -> String {
+        with_persistent_engine(|e| e.get_athlete_profile())
+            .flatten()
+            .unwrap_or_default()
+    }
+
+    /// Store sport settings JSON blob in SQLite for instant startup rendering.
+    #[uniffi::export]
+    pub fn persistent_engine_set_sport_settings(json: String) {
+        with_persistent_engine(|e| e.set_sport_settings(&json));
+    }
+
+    /// Get cached sport settings JSON blob. Returns empty string if not cached.
+    #[uniffi::export]
+    pub fn persistent_engine_get_sport_settings() -> String {
+        with_persistent_engine(|e| e.get_sport_settings())
+            .flatten()
+            .unwrap_or_default()
+    }
+
+}
+
+/// Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB.
+/// Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...].
+/// Uses an R-tree on polylineB for O(n log m) instead of O(n*m).
+/// Returns 0.0-1.0.
+#[uniffi::export]
+pub fn compute_polyline_overlap(
+    coords_a: Vec<f64>,
+    coords_b: Vec<f64>,
+    threshold_meters: f64,
+) -> f64 {
+    use rstar::{RTree, AABB};
+
+    if coords_a.len() < 2 || coords_b.len() < 2 {
+        return 0.0;
+    }
+
+    let points_a_count = coords_a.len() / 2;
+
+    // Build R-tree from polyline B
+    let points_b: Vec<[f64; 2]> = coords_b
+        .chunks_exact(2)
+        .map(|c| [c[0], c[1]])
+        .collect();
+    let rtree = RTree::bulk_load(points_b);
+
+    // Approximate threshold in degrees (rough: 1 degree ≈ 111km at equator)
+    // Use a generous buffer and verify with haversine
+    let threshold_deg = threshold_meters / 111_000.0 * 1.5; // 1.5x safety factor
+
+    let mut matched = 0u32;
+    for chunk in coords_a.chunks_exact(2) {
+        let lat_a = chunk[0];
+        let lng_a = chunk[1];
+
+        let envelope = AABB::from_corners(
+            [lat_a - threshold_deg, lng_a - threshold_deg],
+            [lat_a + threshold_deg, lng_a + threshold_deg],
+        );
+
+        let mut found = false;
+        for &[lat_b, lng_b] in rtree.locate_in_envelope(&envelope) {
+            let pa = tracematch::GpsPoint { latitude: lat_a, longitude: lng_a, elevation: None };
+            let pb = tracematch::GpsPoint { latitude: lat_b, longitude: lng_b, elevation: None };
+            let dist = tracematch::geo_utils::haversine_distance(&pa, &pb);
+            if dist <= threshold_meters {
+                found = true;
+                break;
+            }
+        }
+        if found {
+            matched += 1;
+        }
+    }
+
+    matched as f64 / points_a_count as f64
 }
 
 // ============================================================================

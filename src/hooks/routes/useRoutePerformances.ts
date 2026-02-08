@@ -1,16 +1,16 @@
 /**
  * Hook for getting performance data for all activities in a route group.
- * Uses API-provided metrics (average_speed, etc.) instead of recalculating.
+ * Uses engine-cached metrics instead of API calls.
  * Match direction and percentage come from Rust engine's AMD-based matching.
  */
 
 import { useMemo } from 'react';
 import { useEngineGroups } from './useRouteEngine';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import type { Activity, RouteGroup, MatchDirection, DirectionStats } from '@/types';
+import type { RouteGroup, MatchDirection, DirectionStats } from '@/types';
 import { toActivityType } from '@/types';
 import type { RoutePerformanceResult } from 'veloqrs';
-import { toDirectionStats } from '@/lib/utils/ffiConversions';
+import { toDirectionStats, fromUnixSeconds } from '@/lib/utils/ffiConversions';
 
 /** Match info returned from the Rust engine (uses camelCase from serde) */
 interface RustMatchInfo {
@@ -23,9 +23,9 @@ export interface RoutePerformancePoint {
   activityId: string;
   date: Date;
   name: string;
-  /** Speed in m/s (from API's average_speed) */
+  /** Speed in m/s (computed from engine metrics: distance / movingTime) */
   speed: number;
-  /** Duration in seconds (elapsed_time from API) */
+  /** Duration in seconds (elapsed_time from engine) */
   duration: number;
   /** Moving time in seconds */
   movingTime: number;
@@ -75,8 +75,7 @@ interface UseRoutePerformancesResult {
 
 export function useRoutePerformances(
   activityId: string | undefined,
-  routeGroupId?: string,
-  activities?: Activity[]
+  routeGroupId?: string
 ): UseRoutePerformancesResult {
   const { groups } = useEngineGroups({ minActivities: 1 });
 
@@ -170,9 +169,9 @@ export function useRoutePerformances(
 
   const { matchInfoMap, forwardStats: rustForwardStats, reverseStats: rustReverseStats } = rustData;
 
-  // Build performances from Activity objects (API data) + match info from Rust
+  // Build performances from engine metrics (no API call needed) + match info from Rust
   const { performances, best, bestForwardRecord, bestReverseRecord } = useMemo(() => {
-    if (!engineGroup || !activities || activities.length === 0) {
+    if (!engineGroup || engineGroup.activityIds.length === 0) {
       return {
         performances: [],
         best: null,
@@ -181,38 +180,46 @@ export function useRoutePerformances(
       };
     }
 
-    // Filter to activities in this route group
-    const groupActivityIds = new Set(engineGroup.activityIds);
-    const groupActivities = activities.filter((a) => groupActivityIds.has(a.id));
+    // Get activity metrics from engine (in-memory HashMap, O(1) per lookup)
+    const engine = getRouteEngine();
+    if (!engine) {
+      return {
+        performances: [],
+        best: null,
+        bestForwardRecord: null,
+        bestReverseRecord: null,
+      };
+    }
 
-    // Build performance points from API data
+    const metrics = engine.getActivityMetricsForIds(engineGroup.activityIds);
+
+    // Build performance points from engine metrics
     // Filter out activities with invalid speed (would crash chart)
-    const validActivities = groupActivities.filter(
-      (a) => Number.isFinite(a.average_speed) && a.average_speed > 0
-    );
+    const points: RoutePerformancePoint[] = [];
+    for (const m of metrics) {
+      const speed = m.movingTime > 0 ? m.distance / m.movingTime : 0;
+      if (!Number.isFinite(speed) || speed <= 0) continue;
 
-    const points: RoutePerformancePoint[] = validActivities.map((activity) => {
-      // Get match info from Rust engine - no fallbacks
-      const matchInfo = matchInfoMap.get(activity.id);
-      const matchPercentage = matchInfo?.matchPercentage; // undefined if no match data
+      const matchInfo = matchInfoMap.get(m.activityId);
+      const matchPercentage = matchInfo?.matchPercentage;
       const direction = (matchInfo?.direction ?? 'same') as MatchDirection;
 
-      return {
-        activityId: activity.id,
-        date: new Date(activity.start_date_local),
-        name: activity.name,
-        speed: activity.average_speed, // Direct from API!
-        duration: activity.elapsed_time,
-        movingTime: activity.moving_time,
-        distance: activity.distance || 0,
-        elevationGain: activity.total_elevation_gain || 0,
-        avgHr: activity.average_heartrate ?? activity.icu_average_hr,
-        avgPower: activity.average_watts ?? activity.icu_average_watts,
-        isCurrent: activity.id === activityId,
+      points.push({
+        activityId: m.activityId,
+        date: fromUnixSeconds(m.date) ?? new Date(),
+        name: m.name,
+        speed,
+        duration: m.elapsedTime,
+        movingTime: m.movingTime,
+        distance: m.distance || 0,
+        elevationGain: m.elevationGain || 0,
+        avgHr: m.avgHr ?? undefined,
+        avgPower: m.avgPower ?? undefined,
+        isCurrent: m.activityId === activityId,
         direction,
         matchPercentage,
-      };
-    });
+      });
+    }
 
     // Sort by date (oldest first for charting)
     points.sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -257,7 +264,7 @@ export function useRoutePerformances(
       bestForwardRecord: bestForward,
       bestReverseRecord: bestReverse,
     };
-  }, [engineGroup, activities, activityId, matchInfoMap]);
+  }, [engineGroup, activityId, matchInfoMap]);
 
   // Compute average speed for each direction (for pace display in routes)
   const augmentedForwardStats = useMemo(() => {

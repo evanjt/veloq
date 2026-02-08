@@ -1,15 +1,43 @@
 import { useQuery } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { useAuthStore, useUnitPreference } from '@/providers';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import { getRouteEngine } from '@/lib/native/routeEngine';
+import type { Athlete } from '@/types';
 
 export function useAthlete() {
   const setAthlete = useAuthStore((state) => state.setAthlete);
   const setIntervalsPreferences = useUnitPreference((state) => state.setIntervalsPreferences);
 
+  // Load cached athlete profile from engine for instant first render
+  const cachedAthlete = useMemo<Athlete | undefined>(() => {
+    const engine = getRouteEngine();
+    if (!engine) return undefined;
+    const json = engine.getAthleteProfile();
+    if (!json) return undefined;
+    try {
+      return JSON.parse(json) as Athlete;
+    } catch {
+      return undefined;
+    }
+  }, []);
+
   const query = useQuery({
     queryKey: ['athlete'],
-    queryFn: () => intervalsApi.getAthlete(),
+    queryFn: async () => {
+      const profile = await intervalsApi.getAthlete();
+      // Update engine cache on successful fetch
+      const engine = getRouteEngine();
+      if (engine) {
+        try {
+          engine.setAthleteProfile(JSON.stringify(profile));
+        } catch {
+          // Ignore engine cache errors
+        }
+      }
+      return profile;
+    },
+    initialData: cachedAthlete,
     staleTime: 1000 * 60 * 60, // 1 hour
     gcTime: 1000 * 60 * 60 * 24, // 24 hours
   });

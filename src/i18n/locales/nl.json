@@ -137,6 +137,8 @@
     }
   },
   "alerts": {
+    "cacheCleared": "Cache gewist",
+    "cacheCorruptionMessage": "De lokale datacache was beschadigd en is gewist. Je gegevens worden bijgewerkt vanaf de server.",
     "clearCacheMessage": "Dit wist alle gecachte activiteitsgegevens, sporen en route-matching gegevens, en start het herladen. Dit kan enkele minuten duren.",
     "clearCacheTitle": "Cache wissen & herladen",
     "clearReload": "Wissen & herladen",
@@ -212,6 +214,7 @@
     "loadingMore": "Meer laden...",
     "next": "Volgende",
     "noResults": "Geen resultaten",
+    "ok": "OK",
     "or": "of",
     "pullToRefresh": "Trek om te vernieuwen",
     "reset": "Resetten",
@@ -334,6 +337,9 @@
     "fresh": "fris",
     "highRiskZone": "hoog-risico zone",
     "learnMore": "Meer informatie",
+    "linkFitnessPage": "intervals.icu Fitnesspagina",
+    "linkTSBManagement": "Managing Training Using TSB (Joe Friel)",
+    "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "loadingData": "Fitheidsgegevens laden...",
     "optimalZone": "optimale zone",
     "title": "Fitheid & Vorm",
@@ -352,6 +358,14 @@
   "licenses": {
     "footer": "Tik op een licentiebadge om de volledige licentietekst te bekijken. Tik op het linkpictogram om de projectrepository te bezoeken.",
     "intro": "Veloq is gebouwd met open-source software. Dit scherm toont de bibliotheken van derden en hun licenties.",
+    "sectionCoreFramework": "Kernframework",
+    "sectionMapData": "Kaartgegevens",
+    "sectionMapsGraphics": "Kaarten & grafiek",
+    "sectionNativeEngine": "Native engine (tracematch)",
+    "sectionNetworkingUtilities": "Netwerk & hulpprogramma's",
+    "sectionSpecialLicenses": "Speciale licenties",
+    "sectionStateManagement": "Statusbeheer",
+    "sectionUIComponents": "UI-componenten",
     "title": "Licenties van Derden"
   },
   "login": {
@@ -420,6 +434,7 @@
     "goToLocation": "Naar mijn locatie",
     "hideActivities": "Verberg activiteiten",
     "hideRoutes": "Verberg routes",
+    "hideSections": "Secties verbergen",
     "loadingRoute": "Route laden...",
     "notSynced": "Niet gesynchroniseerd",
     "rangePercent": "{{start}}% - {{end}}%",
@@ -427,13 +442,18 @@
     "sectionSelected": "Sectie geselecteerd",
     "selected": "Geselecteerd",
     "showActivities": "Toon activiteiten",
+    "showMyLocation": "Mijn locatie tonen",
+    "showMyLocationHint": "Animeert de kaart naar je huidige GPS-positie",
     "showRoutes": "Toon routes",
+    "showSections": "Secties tonen",
     "startPercent": "Start: {{percent}}%",
     "syncingActivities": "{{completed}}/{{total}} activiteiten synchroniseren",
     "tapSelectEnd": "Tik om eindpunt te selecteren",
     "tapSelectStart": "Tik om startpunt te selecteren",
     "toggleStyle": "Kaartstijl wisselen",
     "viewDetails": "Details bekijken",
+    "viewRouteDetails": "Routedetails bekijken",
+    "viewSectionDetails": "Sectiedetails bekijken",
     "zoomToActivity": "Inzoomen op activiteit"
   },
   "metrics": {
@@ -577,6 +597,7 @@
   },
   "sections": {
     "activities": "Activiteiten",
+    "activitiesCount": "{{count}} activiteiten",
     "avg": "Gem",
     "averagePace": "Gem. tempo",
     "averageTime": "Gemiddelde tijd",
@@ -601,6 +622,7 @@
     "performanceOverTime": "Prestaties door de tijd",
     "reverse": "Omgekeerd",
     "routesCount": "routes",
+    "routesCountLabel": "{{count}} routes",
     "same": "Zelfde",
     "scrubHint": "Houd vast om door activiteiten te bladeren",
     "scrubHintScrollable": "Veeg om te scrollen • Houd vast om te bladeren",
@@ -608,13 +630,15 @@
     "sectionNotFound": "Sectie niet gevonden",
     "totalTraversals": "Totaal doorkruisingen",
     "traversals": "doorgangen",
+    "traversalsCount": "{{count}} passages",
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Deze activiteit als referentie gebruiken?\n\nDe sectie wordt opnieuw gematcht met al je activiteiten. Dit kan activiteiten toevoegen aan of verwijderen uit deze sectie.",
     "setReferenceError": "Referentie instellen mislukt. De sectie of activiteit is mogelijk gewijzigd. Probeer het opnieuw.",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Terugzetten naar automatische referentieselectie?\n\nDe sectie wordt opnieuw gematcht met al je activiteiten. Dit kan activiteiten toevoegen aan of verwijderen uit deze sectie.",
-    "referenceUpdated": "Reference activity updated"
+    "referenceUpdated": "Reference activity updated",
+    "visitsCount": "{{count}} bezoeken"
   },
   "settings": {
     "account": "Account",
@@ -781,6 +805,7 @@
     "days42": "42 Dagen",
     "decoupling": "Aerobe efficiëntie",
     "eFTPTrend": "eFTP-trend",
+    "ftpLabel": "FTP {{value}}w",
     "garminNote": "Grafieken kunnen gegevens van Garmin-apparaten bevatten",
     "heartRate": "Hartslag",
     "lactateThreshold": "Lactaatdrempel",
@@ -800,6 +825,7 @@
   },
   "time": {
     "current": "Huidig",
+    "dayAbbrev": "{{count}}d",
     "days": "Days",
     "daysAgo": "{{count}} dagen geleden",
     "daysCount": "{{count}} days",

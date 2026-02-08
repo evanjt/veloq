@@ -5,9 +5,11 @@
  */
 import { useRef } from 'react';
 import { Tabs } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { PERF_DEBUG } from '@/lib/debug/renderTimer';
 
 export default function TabsLayout() {
+  const { t } = useTranslation();
   // Performance: Track render count
   const renderCount = useRef(0);
   renderCount.current++;
@@ -23,11 +25,11 @@ export default function TabsLayout() {
         tabBarStyle: { display: 'none' },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Feed' }} />
-      <Tabs.Screen name="fitness" options={{ title: 'Fitness' }} />
-      <Tabs.Screen name="map" options={{ title: 'Map' }} />
-      <Tabs.Screen name="routes" options={{ title: 'Routes' }} />
-      <Tabs.Screen name="training" options={{ title: 'Health' }} />
+      <Tabs.Screen name="index" options={{ title: t('navigation.feed') }} />
+      <Tabs.Screen name="fitness" options={{ title: t('navigation.fitness') }} />
+      <Tabs.Screen name="map" options={{ title: t('navigation.map') }} />
+      <Tabs.Screen name="routes" options={{ title: t('navigation.routes') }} />
+      <Tabs.Screen name="training" options={{ title: t('navigation.health') }} />
     </Tabs>
   );
 }

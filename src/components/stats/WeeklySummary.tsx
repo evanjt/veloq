@@ -1,6 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme, useMetricSystem, useAthleteSummary, getISOWeekNumber } from '@/hooks';
+import { View, StyleSheet, TouchableOpacity, Text as RNText } from 'react-native';
+import {
+  useTheme,
+  useMetricSystem,
+  useAthleteSummary,
+  getISOWeekNumber,
+  formatWeekRange,
+  type WeeklySummaryData,
+} from '@/hooks';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity } from '@/theme/colors';
@@ -14,22 +21,14 @@ type TimeRange = 'week' | 'month' | '3m' | '6m' | 'year';
 interface WeeklySummaryProps {
   /** All activities (component will filter based on selected time range) */
   activities?: Activity[];
+  /** Pre-fetched athlete summary data (lifted from parent for data call visibility) */
+  summaryData?: WeeklySummaryData;
+  /** Whether summary data is loading */
+  summaryLoading?: boolean;
 }
 
 const TIME_RANGE_IDS: TimeRange[] = ['week', 'month', '3m', '6m', 'year'];
 
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) {
-    return `${hours}h ${mins}m`;
-  }
-  return `${mins}m`;
-}
-
-/**
- * Get the Monday of the week for a given date (ISO week: Monday-Sunday)
- */
 function getMonday(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();
@@ -39,9 +38,6 @@ function getMonday(date: Date): Date {
   return d;
 }
 
-/**
- * Get the Sunday of the week for a given date
- */
 function getSunday(date: Date): Date {
   const monday = getMonday(date);
   const sunday = new Date(monday);
@@ -49,18 +45,13 @@ function getSunday(date: Date): Date {
   return sunday;
 }
 
-/**
- * Format week range for display (e.g., "Jan 20-26")
- */
-function formatWeekRange(monday: Date): string {
-  const sunday = getSunday(monday);
-  const mondayMonth = monday.toLocaleString('en-US', { month: 'short' });
-  const sundayMonth = sunday.toLocaleString('en-US', { month: 'short' });
-
-  if (mondayMonth === sundayMonth) {
-    return `${mondayMonth} ${monday.getDate()}-${sunday.getDate()}`;
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) {
+    return `${hours}h ${mins}m`;
   }
-  return `${mondayMonth} ${monday.getDate()} - ${sundayMonth} ${sunday.getDate()}`;
+  return `${mins}m`;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -172,68 +163,84 @@ function getDateRanges(range: TimeRange): {
   }
 }
 
-// Optimized: Single-pass computation of stats for both periods
+// Compute period stats from the activity array (JS iteration).
+// Engine SQL is not used here because activity_metrics only covers the GPS sync window (~90 days),
+// while time ranges like 6m/year need full historical data from the API.
 function computeStatsForPeriods(
-  activities: Activity[],
+  _activities: Activity[] | undefined,
   currentStart: Date,
   currentEnd: Date,
   previousStart: Date,
   previousEnd: Date
 ) {
+  const activities = _activities ?? [];
   const currentStartTs = currentStart.getTime();
-  const currentEndTs = currentEnd.getTime() + 24 * 60 * 60 * 1000 - 1; // End of day
+  const currentEndTs = currentEnd.getTime() + 86400000 - 1;
   const previousStartTs = previousStart.getTime();
-  const previousEndTs = previousEnd.getTime() + 24 * 60 * 60 * 1000 - 1;
+  const previousEndTs = previousEnd.getTime() + 86400000 - 1;
 
-  let currentCount = 0,
-    currentDuration = 0,
-    currentDistance = 0,
-    currentTss = 0;
-  let previousCount = 0,
-    previousDuration = 0,
-    previousDistance = 0,
-    previousTss = 0;
+  let cCount = 0,
+    cDuration = 0,
+    cDistance = 0,
+    cTss = 0;
+  let pCount = 0,
+    pDuration = 0,
+    pDistance = 0,
+    pTss = 0;
 
-  for (const activity of activities) {
-    const activityTs = new Date(activity.start_date_local).getTime();
-
-    if (activityTs >= currentStartTs && activityTs <= currentEndTs) {
-      currentCount++;
-      currentDuration += activity.moving_time || 0;
-      currentDistance += activity.distance || 0;
-      currentTss += activity.icu_training_load || 0;
-    } else if (activityTs >= previousStartTs && activityTs <= previousEndTs) {
-      previousCount++;
-      previousDuration += activity.moving_time || 0;
-      previousDistance += activity.distance || 0;
-      previousTss += activity.icu_training_load || 0;
+  for (const a of activities) {
+    const ts = new Date(a.start_date_local).getTime();
+    if (ts >= currentStartTs && ts <= currentEndTs) {
+      cCount++;
+      cDuration += a.moving_time || 0;
+      cDistance += a.distance || 0;
+      cTss += a.icu_training_load || 0;
+    } else if (ts >= previousStartTs && ts <= previousEndTs) {
+      pCount++;
+      pDuration += a.moving_time || 0;
+      pDistance += a.distance || 0;
+      pTss += a.icu_training_load || 0;
     }
   }
 
   return {
     currentStats: {
-      count: currentCount,
-      duration: currentDuration,
-      distance: currentDistance,
-      tss: Math.round(currentTss),
+      count: cCount,
+      duration: cDuration,
+      distance: cDistance,
+      tss: Math.round(cTss),
     },
     previousStats: {
-      count: previousCount,
-      duration: previousDuration,
-      distance: previousDistance,
-      tss: Math.round(previousTss),
+      count: pCount,
+      duration: pDuration,
+      distance: pDistance,
+      tss: Math.round(pTss),
     },
   };
 }
 
-export function WeeklySummary({ activities }: WeeklySummaryProps) {
+function pctChange(current: number, previous: number): string {
+  if (previous === 0) return '';
+  const pct = Math.round(Math.abs(((current - previous) / previous) * 100));
+  return ` ${pct}%`;
+}
+
+export function WeeklySummary({
+  activities,
+  summaryData: externalSummaryData,
+  summaryLoading: externalSummaryLoading,
+}: WeeklySummaryProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
 
-  // Fetch athlete summary for calendar week view
-  const { data: summaryData, isLoading: isLoadingSummary } = useAthleteSummary(4);
+  // Use externally-provided summary data if available, otherwise fetch internally.
+  // When parent provides data, the internal hook still runs but TanStack Query
+  // deduplicates — same queryKey means zero extra network requests.
+  const { data: internalSummaryData, isLoading: internalSummaryLoading } = useAthleteSummary(4);
+  const summaryData = externalSummaryData ?? internalSummaryData;
+  const isLoadingSummary = externalSummaryLoading ?? internalSummaryLoading;
 
   // Compute stats based on time range
   const { currentStats, previousStats, labels } = useMemo(() => {
@@ -392,6 +399,9 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
                     ]}
                   >
                     {currentStats.count > previousStats.count ? '↑' : '↓'}
+                    <RNText style={styles.trendPct}>
+                      {pctChange(currentStats.count, previousStats.count)}
+                    </RNText>
                   </Text>
                 )}
               </View>
@@ -422,6 +432,9 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
                       ]}
                     >
                       {currentStats.duration > previousStats.duration ? '↑' : '↓'}
+                      <RNText style={styles.trendPct}>
+                        {pctChange(currentStats.duration, previousStats.duration)}
+                      </RNText>
                     </Text>
                   )}
               </View>
@@ -452,6 +465,9 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
                       ]}
                     >
                       {currentStats.distance > previousStats.distance ? '↑' : '↓'}
+                      <RNText style={styles.trendPct}>
+                        {pctChange(currentStats.distance, previousStats.distance)}
+                      </RNText>
                     </Text>
                   )}
               </View>
@@ -479,6 +495,9 @@ export function WeeklySummary({ activities }: WeeklySummaryProps) {
                     ]}
                   >
                     {currentStats.tss > previousStats.tss ? '↑' : '↓'}
+                    <RNText style={styles.trendPct}>
+                      {pctChange(currentStats.tss, previousStats.tss)}
+                    </RNText>
                   </Text>
                 )}
               </View>
@@ -558,8 +577,12 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   trendArrow: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
+  },
+  trendPct: {
+    fontSize: typography.micro.fontSize,
+    fontWeight: '400',
   },
   statLabel: {
     fontSize: typography.caption.fontSize,

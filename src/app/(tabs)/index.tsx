@@ -142,8 +142,11 @@ export default function FeedScreen() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const renderActivity = ({ item, index }: { item: Activity; index: number }) => (
-    <ActivityCard activity={item} index={index} />
+  const renderActivity = useCallback(
+    ({ item, index }: { item: Activity; index: number }) => (
+      <ActivityCard activity={item} index={index} />
+    ),
+    []
   );
 
   // Notify map previews when items become visible for lazy loading
@@ -200,15 +203,20 @@ export default function FeedScreen() {
     [isDark, searchQuery, selectedTypeGroup, filteredActivities.length, t]
   );
 
-  const renderEmpty = () => (
-    <View testID="home-empty-state" style={styles.emptyContainer}>
-      <Text style={[styles.emptyText, isDark && styles.textLight]}>
-        {searchQuery || selectedTypeGroup ? t('feed.noMatchingActivities') : t('feed.noActivities')}
-      </Text>
-    </View>
+  const renderEmpty = useCallback(
+    () => (
+      <View testID="home-empty-state" style={styles.emptyContainer}>
+        <Text style={[styles.emptyText, isDark && styles.textLight]}>
+          {searchQuery || selectedTypeGroup
+            ? t('feed.noMatchingActivities')
+            : t('feed.noActivities')}
+        </Text>
+      </View>
+    ),
+    [isDark, searchQuery, selectedTypeGroup, t]
   );
 
-  const renderError = () => {
+  const renderError = useCallback(() => {
     // Check if this is a network error (axios error codes)
     const axiosError = error as { code?: string };
     const isNetworkError =
@@ -226,9 +234,9 @@ export default function FeedScreen() {
         onRetry={() => refetch()}
       />
     );
-  };
+  }, [error, refetch, t]);
 
-  const renderFooter = () => {
+  const renderFooter = useCallback(() => {
     if (!isFetchingNextPage) return null;
     return (
       <View style={styles.footerLoader}>
@@ -238,7 +246,7 @@ export default function FeedScreen() {
         </Text>
       </View>
     );
-  };
+  }, [isFetchingNextPage, isDark, t]);
 
   if (isLoading && !allActivities.length) {
     return (

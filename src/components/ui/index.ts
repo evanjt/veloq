@@ -6,7 +6,6 @@ export {
   WellnessCardSkeleton,
 } from './Shimmer';
 export { GradientText, GlowText, AnimatedNumber } from './GradientText';
-export { GradientCard, GlassCard } from './GradientCard';
 export { BottomTabBar, TAB_BAR_HEIGHT, TAB_BAR_SAFE_PADDING } from './BottomTabBar';
 export { CompassArrow } from './CompassArrow';
 export {
@@ -24,7 +23,6 @@ export {
   NoDataState,
   OfflineState,
 } from './EmptyState';
-export { CacheLoadingBanner } from './CacheLoadingBanner';
 export { GarminAttribution, DeviceAttribution, isGarminDevice } from './GarminAttribution';
 export { DemoBanner } from './DemoBanner';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';

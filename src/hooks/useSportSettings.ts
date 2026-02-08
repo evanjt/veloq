@@ -1,11 +1,39 @@
 import { useQuery } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
+import { useMemo } from 'react';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { SportSettings, Zone } from '@/types';
 
 export function useSportSettings() {
+  // Load cached sport settings from engine for instant first render
+  const cachedSettings = useMemo<SportSettings[] | undefined>(() => {
+    const engine = getRouteEngine();
+    if (!engine) return undefined;
+    const json = engine.getSportSettings();
+    if (!json) return undefined;
+    try {
+      return JSON.parse(json) as SportSettings[];
+    } catch {
+      return undefined;
+    }
+  }, []);
+
   return useQuery<SportSettings[]>({
     queryKey: ['sportSettings'],
-    queryFn: () => intervalsApi.getSportSettings(),
+    queryFn: async () => {
+      const settings = await intervalsApi.getSportSettings();
+      // Update engine cache on successful fetch
+      const engine = getRouteEngine();
+      if (engine) {
+        try {
+          engine.setSportSettings(JSON.stringify(settings));
+        } catch {
+          // Ignore engine cache errors
+        }
+      }
+      return settings;
+    },
+    initialData: cachedSettings,
     staleTime: 1000 * 60 * 30, // 30 minutes - settings don't change often
   });
 }

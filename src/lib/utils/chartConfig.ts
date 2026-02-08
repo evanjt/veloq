@@ -18,9 +18,7 @@ export type ChartTypeId =
   | 'pace'
   | 'elevation'
   | 'distance'
-  | 'altitude'
   | 'temp'
-  | 'watts'
   | 'moving_time'
   | 'elapsed_time';
 
@@ -137,18 +135,6 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     convertToImperial: (v) => v * 0.621371,
     formatValue: (v) => v.toFixed(2),
   },
-  altitude: {
-    id: 'altitude',
-    label: 'Alt',
-    icon: 'image-filter-hdr',
-    color: '#8B7355',
-    streamKey: 'altitude',
-    unit: 'm',
-    unitImperial: 'ft',
-    getStream: (streams) => streams.altitude,
-    convertToImperial: (v) => v * 3.28084,
-    formatValue: (v) => Math.round(v).toString(),
-  },
   temp: {
     id: 'temp',
     label: 'Temp',
@@ -157,16 +143,6 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     unit: '°C',
     unitImperial: '°F',
     convertToImperial: (v) => v * 1.8 + 32,
-    formatValue: (v) => Math.round(v).toString(),
-  },
-  watts: {
-    id: 'watts',
-    label: 'Watts',
-    icon: 'lightning-bolt',
-    color: '#FBBF24', // Amber (power)
-    streamKey: 'watts',
-    unit: 'W',
-    getStream: (streams) => streams.watts,
     formatValue: (v) => Math.round(v).toString(),
   },
   moving_time: {
@@ -183,7 +159,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
   },
 };
 
-// Primary chart types to show in selector (excludes duplicates like watts/altitude)
+// Primary chart types to show in selector
 const PRIMARY_CHART_IDS: ChartTypeId[] = [
   'power',
   'heartrate',

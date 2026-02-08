@@ -4,6 +4,7 @@ import { useTheme } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, typography, layout, spacing } from '@/theme';
+import { CHART_CONFIG } from '@/constants';
 import type { ChartConfig, ChartTypeId } from '@/lib';
 
 /** Chart type translation key type */
@@ -23,8 +24,6 @@ const CHART_LABEL_KEYS: Partial<Record<ChartTypeId, ChartTypeKey>> = {
   speed: 'chartTypes.speed',
   pace: 'chartTypes.pace',
   elevation: 'chartTypes.elev',
-  altitude: 'chartTypes.elev',
-  watts: 'chartTypes.power',
 };
 
 interface ChartTypeSelectorProps {
@@ -118,7 +117,7 @@ export function ChartTypeSelector({
             onPress={() => handlePress(config.id)}
             onLongPress={() => handleLongPress(config.id)}
             onPressOut={handlePressOut}
-            delayLongPress={300}
+            delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
           >
             <MaterialCommunityIcons name={config.icon} size={12} color={textColor} />
             <Text style={[styles.chipLabel, { color: textColor }]}>{label}</Text>

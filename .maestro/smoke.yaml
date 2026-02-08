@@ -4,24 +4,20 @@
 appId: com.veloq.app
 ---
 - launchApp:
-    clearState: true
+    clearState: false
 
 # Debug: capture initial state
 - takeScreenshot: "01-app-launched"
 
-# Wait for app to finish loading (either loading screen disappears or login appears)
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 60000
-
-- takeScreenshot: "02-login-visible"
-
-# Enter demo mode
-- tapOn:
-    id: "login-demo-button"
-
-- takeScreenshot: "03-demo-tapped"
+# Handle both states: already logged in (home-screen) or logged out (login-screen)
+- runFlow:
+    when:
+      visible:
+        id: "login-screen"
+    commands:
+      - takeScreenshot: "02-login-visible"
+      - tapOn:
+          id: "login-demo-button"
 
 # Verify home screen loads
 - extendedWaitUntil:
@@ -29,4 +25,4 @@ appId: com.veloq.app
       id: "home-screen"
     timeout: 30000
 
-- takeScreenshot: "04-smoke-complete"
+- takeScreenshot: "03-smoke-complete"

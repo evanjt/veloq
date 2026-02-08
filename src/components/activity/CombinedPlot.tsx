@@ -55,6 +55,9 @@ interface ChartBounds {
   bottom: number;
 }
 
+const CHART_PADDING = { left: 0, right: 0, top: 2, bottom: 20 } as const;
+const NORMALIZED_DOMAIN = { y: [0, 1] as [number, number] };
+
 export const CombinedPlot = React.memo(function CombinedPlot({
   streams,
   selectedCharts,
@@ -426,8 +429,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
               data={chartData}
               xKey="x"
               yKeys={yKeys as string[]}
-              domain={{ y: [0, 1] }}
-              padding={{ left: 0, right: 0, top: 2, bottom: 20 }}
+              domain={NORMALIZED_DOMAIN}
+              padding={CHART_PADDING}
             >
               {({
                 points,

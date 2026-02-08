@@ -582,6 +582,53 @@ function generateActivities(): ApiActivity[] {
     lastRoute = template.route;
   }
 
+  // === STRESS TEST: High-traversal section ===
+  // Add 200 short runs on the same route to test section detail at scale.
+  // All use identical GPS coordinates so section detection groups them together.
+  const stressRoute = templates[5]; // route-rio-run-1 (3km short run)
+  const stressLocation = getRouteLocation(stressRoute.route!);
+  for (let i = 0; i < 200; i++) {
+    const daysAgo = Math.floor((i / 200) * 365);
+    const date = new Date(referenceDate);
+    date.setDate(date.getDate() - daysAgo);
+    date.setHours(6, 30, 0, 0);
+    const activityId = `demo-stress-${i}`;
+
+    activities.push({
+      id: activityId,
+      start_date_local: formatLocalISOString(date),
+      type: stressRoute.type,
+      name: `Morning Run #${i + 1}`,
+      description: null,
+      distance: stressRoute.dist + (i % 10) * 50,
+      moving_time: stressRoute.time + (i % 10) * 20,
+      elapsed_time: Math.round(stressRoute.time * 1.05) + (i % 10) * 20,
+      total_elevation_gain: stressRoute.elev,
+      total_elevation_loss: Math.round(stressRoute.elev * 0.95),
+      average_speed: stressRoute.speed * (0.95 + (i % 5) * 0.02),
+      max_speed: stressRoute.speed * 1.3,
+      average_heartrate: stressRoute.hr + (i % 8) - 4,
+      max_heartrate: Math.round(stressRoute.hr * 1.2),
+      average_cadence: 85 + (i % 10),
+      average_temp: 22,
+      calories: stressRoute.tss * 8,
+      device_name: 'Demo Device',
+      trainer: false,
+      commute: true,
+      icu_training_load: stressRoute.tss,
+      icu_intensity: null,
+      icu_ftp: 250,
+      icu_atl: 35,
+      icu_ctl: 35,
+      icu_hr_zones: [130, 145, 160, 170, 180, 190],
+      icu_power_zones: [125, 170, 210, 250, 290, 350],
+      stream_types: ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'velocity_smooth'],
+      locality: stressLocation.locality,
+      country: stressLocation.country,
+      _routeId: stressRoute.route,
+    } as ApiActivity & { _routeId: string | null });
+  }
+
   return activities;
 }
 

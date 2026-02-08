@@ -37,14 +37,16 @@ export const SectionPopup = memo(function SectionPopup({
             {displayName}
           </Text>
           <Text style={styles.popupDate}>
-            {section.visitCount} visits • {Math.round(section.distanceMeters)}m
+            {t('sections.visitsCount', { count: section.visitCount })} •{' '}
+            {Math.round(section.distanceMeters)}
+            {t('units.m')}
           </Text>
         </View>
         <TouchableOpacity
           testID="section-popup-close"
           onPress={onClose}
           style={styles.popupIconButton}
-          accessibilityLabel="Close section popup"
+          accessibilityLabel={t('maps.closeSectionPopup')}
           accessibilityRole="button"
         >
           <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
@@ -62,11 +64,15 @@ export const SectionPopup = memo(function SectionPopup({
         </View>
         <View style={styles.popupStat}>
           <MaterialCommunityIcons name="run" size={20} color={colors.chartBlue} />
-          <Text style={styles.popupStatValue}>{section.activityIds.length} activities</Text>
+          <Text style={styles.popupStatValue}>
+            {t('sections.activitiesCount', { count: section.activityIds.length })}
+          </Text>
         </View>
         <View style={styles.popupStat}>
           <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.chartAmber} />
-          <Text style={styles.popupStatValue}>{section.routeIds?.length ?? 0} routes</Text>
+          <Text style={styles.popupStatValue}>
+            {t('sections.routesCountLabel', { count: section.routeIds?.length ?? 0 })}
+          </Text>
         </View>
       </View>
 
@@ -75,7 +81,7 @@ export const SectionPopup = memo(function SectionPopup({
           testID="section-popup-view-details"
           onPress={onViewDetails}
           style={styles.viewDetailsButton}
-          accessibilityLabel="View section details"
+          accessibilityLabel={t('maps.viewSectionDetails')}
           accessibilityRole="button"
         >
           <Text style={styles.viewDetailsText}>{t('maps.viewDetails')}</Text>

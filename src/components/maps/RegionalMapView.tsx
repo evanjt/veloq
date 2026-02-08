@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { useTheme } from '@/hooks';
 import {
   MapView,
@@ -136,8 +136,11 @@ export function RegionalMapView({
     }
   }, [mapStyle, mapKey]);
 
-  // Get route signatures from Rust engine for trace rendering
-  const routeSignatures = useRouteSignatures();
+  // Only load route signatures when the map tab is focused
+  // This prevents 80+ getGpsTrack FFI calls when switching to other tabs
+  const pathname = usePathname();
+  const isMapFocused = pathname === '/map' || pathname.endsWith('/map');
+  const routeSignatures = useRouteSignatures(isMapFocused);
 
   // Frequent sections from route matching (with polylines loaded)
   // useEngineSections loads full section data from Rust engine including polylines
@@ -416,8 +419,8 @@ export function RegionalMapView({
 
   // Filter activities to only those visible in viewport (for performance)
   // Only enable viewport culling for large activity counts to avoid marker flashing
-  // With < 500 activities, showing all is fast enough and provides better UX
-  const VIEWPORT_CULLING_THRESHOLD = 500;
+  // With < 150 activities, showing all is fast enough and provides better UX
+  const VIEWPORT_CULLING_THRESHOLD = 150;
   const visibleActivities = useMemo(() => {
     // Skip viewport culling for small activity counts - prevents marker flashing during pan
     if (activities.length < VIEWPORT_CULLING_THRESHOLD) {

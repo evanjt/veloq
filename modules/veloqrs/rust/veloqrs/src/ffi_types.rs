@@ -9,6 +9,14 @@ use serde::{Deserialize, Serialize};
 // Core Types
 // ============================================================================
 
+/// Batch trace result: one activity's extracted section trace as flat coords.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiBatchTrace {
+    pub activity_id: String,
+    /// Flat coordinates [lat, lng, lat, lng, ...]
+    pub coords: Vec<f64>,
+}
+
 /// GPS point for FFI
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct FfiGpsPoint {
@@ -89,6 +97,14 @@ pub struct FfiActivityMetrics {
     pub avg_power: Option<u16>,
     /// Sport type (e.g., "Ride", "Run")
     pub sport_type: String,
+    /// Training load / TSS (optional)
+    pub training_load: Option<f64>,
+    /// FTP used for this activity (optional)
+    pub ftp: Option<u16>,
+    /// Power zone times as JSON array string: "[secs, secs, ...]" (optional)
+    pub power_zone_times: Option<String>,
+    /// HR zone times as JSON array string: "[secs, secs, ...]" (optional)
+    pub hr_zone_times: Option<String>,
 }
 
 impl From<tracematch::ActivityMetrics> for FfiActivityMetrics {
@@ -104,6 +120,10 @@ impl From<tracematch::ActivityMetrics> for FfiActivityMetrics {
             avg_hr: m.avg_hr,
             avg_power: m.avg_power,
             sport_type: m.sport_type,
+            training_load: None,
+            ftp: None,
+            power_zone_times: None,
+            hr_zone_times: None,
         }
     }
 }
@@ -123,6 +143,54 @@ impl From<FfiActivityMetrics> for tracematch::ActivityMetrics {
             sport_type: m.sport_type,
         }
     }
+}
+
+// ============================================================================
+// Aggregate Query Result Types
+// ============================================================================
+
+/// Aggregated stats for a date range.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiPeriodStats {
+    /// Number of activities
+    pub count: u32,
+    /// Total moving time in seconds
+    pub total_duration: i64,
+    /// Total distance in meters
+    pub total_distance: f64,
+    /// Total training load (TSS)
+    pub total_tss: f64,
+}
+
+/// Monthly aggregate value.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMonthlyAggregate {
+    /// Month (0-11)
+    pub month: u8,
+    /// Aggregated value (hours, distance in meters, or TSS)
+    pub value: f64,
+}
+
+/// Activity heatmap day entry.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiHeatmapDay {
+    /// Date string "YYYY-MM-DD"
+    pub date: String,
+    /// Intensity level (0-4)
+    pub intensity: u8,
+}
+
+/// FTP trend data.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiFtpTrend {
+    /// Most recent FTP value
+    pub latest_ftp: Option<u16>,
+    /// Date of most recent FTP (Unix timestamp seconds)
+    pub latest_date: Option<i64>,
+    /// Previous different FTP value
+    pub previous_ftp: Option<u16>,
+    /// Date of previous FTP (Unix timestamp seconds)
+    pub previous_date: Option<i64>,
 }
 
 // ============================================================================
@@ -781,6 +849,60 @@ impl From<tracematch::RoutePerformanceResult> for FfiRoutePerformanceResult {
             current_rank: r.current_rank,
         }
     }
+}
+
+// ============================================================================
+// Batch Screen Data Types
+// ============================================================================
+
+/// Group summary with embedded consensus polyline for the Routes screen.
+/// Avoids N separate getConsensusRoute() calls.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiGroupWithPolyline {
+    pub group_id: String,
+    pub representative_id: String,
+    pub sport_type: String,
+    pub activity_count: u32,
+    pub custom_name: Option<String>,
+    pub bounds: Option<FfiBounds>,
+    /// Distance in meters (from representative activity's metrics)
+    pub distance_meters: f64,
+    /// Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
+    pub consensus_polyline: Vec<f64>,
+}
+
+/// Section summary with embedded polyline for the Routes screen.
+/// Avoids N separate getSectionPolyline() calls.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionWithPolyline {
+    pub id: String,
+    pub name: Option<String>,
+    pub sport_type: String,
+    pub visit_count: u32,
+    pub distance_meters: f64,
+    pub activity_count: u32,
+    pub confidence: f64,
+    pub scale: Option<String>,
+    pub bounds: Option<FfiBounds>,
+    /// Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
+    pub polyline: Vec<f64>,
+}
+
+/// All data needed by the Routes screen in a single FFI call.
+/// Supports pagination via limit/offset for groups and sections.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiRoutesScreenData {
+    pub activity_count: u32,
+    pub group_count: u32,
+    pub section_count: u32,
+    pub oldest_date: Option<i64>,
+    pub newest_date: Option<i64>,
+    pub groups: Vec<FfiGroupWithPolyline>,
+    pub sections: Vec<FfiSectionWithPolyline>,
+    /// Whether more groups are available beyond the current page
+    pub has_more_groups: bool,
+    /// Whether more sections are available beyond the current page
+    pub has_more_sections: bool,
 }
 
 // ============================================================================

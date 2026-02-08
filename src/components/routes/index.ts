@@ -1,7 +1,5 @@
 export { RoutesList } from './RoutesList';
-export { MatchQualityIndicator } from './MatchQualityIndicator';
 export { CacheScopeNotice } from './CacheScopeNotice';
-export { ProcessingBanner } from './ProcessingBanner';
 export { RouteRow } from './RouteRow';
 export { RoutePerformanceSection } from './performance';
 export { RouteMapView } from './RouteMapView';

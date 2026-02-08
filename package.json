@@ -44,6 +44,7 @@
     "maestro:stress:timeline": "maestro test .maestro/stress-timeline-scrub.yaml",
     "maestro:stress:activities": "maestro test .maestro/stress-activity-cycling.yaml",
     "maestro:stress:markers": "maestro test .maestro/stress-map-marker-taps.yaml",
+    "maestro:critical": "maestro test .maestro/critical-path.yaml",
     "maestro:all": "maestro test .maestro/",
     "maestro:all:seq": "for f in .maestro/smoke.yaml .maestro/auth-*.yaml .maestro/navigation-*.yaml .maestro/home-*.yaml .maestro/fitness-*.yaml .maestro/wellness-*.yaml .maestro/routes-*.yaml .maestro/sections-*.yaml .maestro/stats-*.yaml .maestro/activity-*.yaml .maestro/map-*.yaml .maestro/settings-*.yaml .maestro/data-*.yaml; do maestro test \"$f\" || exit 1; done",
     "store:changelog": "npx tsx scripts/store-metadata.ts changelog",

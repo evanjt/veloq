@@ -137,6 +137,8 @@
     }
   },
   "alerts": {
+    "cacheCleared": "キャッシュをクリアしました",
+    "cacheCorruptionMessage": "ローカルデータキャッシュが破損していたためクリアされました。サーバーからデータが更新されます。",
     "clearCacheMessage": "キャッシュされたすべてのアクティビティデータ、アクティビティトラック、ルートマッチングデータをクリアし、再読み込みを開始します。数分かかる場合があります。",
     "clearCacheTitle": "キャッシュをクリアして再読み込み",
     "clearReload": "クリアして再読み込み",
@@ -211,6 +213,7 @@
     "loading": "読み込み中...",
     "loadingMore": "さらに読み込み中...",
     "next": "次へ",
+    "ok": "OK",
     "noResults": "結果なし",
     "or": "または",
     "pullToRefresh": "下に引いて更新",
@@ -334,6 +337,9 @@
     "fresh": "フレッシュ",
     "highRiskZone": "高リスクゾーン",
     "learnMore": "詳細を見る",
+    "linkFitnessPage": "intervals.icu フィットネスページ",
+    "linkTSBManagement": "Managing Training Using TSB (Joe Friel)",
+    "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "loadingData": "フィットネスデータを読み込み中...",
     "optimalZone": "最適ゾーン",
     "title": "フィットネスとフォーム",
@@ -352,6 +358,14 @@
   "licenses": {
     "footer": "ライセンスバッジをタップすると、完全なライセンステキストが表示されます。リンクアイコンをタップすると、プロジェクトリポジトリにアクセスできます。",
     "intro": "Veloqはオープンソースソフトウェアで構築されています。この画面では、サードパーティライブラリとそのライセンスを一覧表示しています。",
+    "sectionCoreFramework": "コアフレームワーク",
+    "sectionMapData": "地図データ",
+    "sectionMapsGraphics": "地図とグラフィック",
+    "sectionNativeEngine": "ネイティブエンジン (tracematch)",
+    "sectionNetworkingUtilities": "ネットワークとユーティリティ",
+    "sectionSpecialLicenses": "特別ライセンス",
+    "sectionStateManagement": "状態管理",
+    "sectionUIComponents": "UIコンポーネント",
     "title": "サードパーティライセンス"
   },
   "login": {
@@ -420,6 +434,7 @@
     "goToLocation": "現在地へ移動",
     "hideActivities": "アクティビティを非表示",
     "hideRoutes": "ルートを非表示",
+    "hideSections": "セクションを非表示",
     "loadingRoute": "ルートを読み込み中...",
     "notSynced": "未同期",
     "rangePercent": "{{start}}% - {{end}}%",
@@ -427,13 +442,18 @@
     "sectionSelected": "区間が選択されました",
     "selected": "選択中",
     "showActivities": "アクティビティを表示",
+    "showMyLocation": "現在地を表示",
+    "showMyLocationHint": "現在のGPS位置にマップをアニメーションします",
     "showRoutes": "ルートを表示",
+    "showSections": "セクションを表示",
     "startPercent": "開始: {{percent}}%",
     "syncingActivities": "{{completed}}/{{total}}件のアクティビティを同期中",
     "tapSelectEnd": "タップして終了点を選択",
     "tapSelectStart": "タップして開始点を選択",
     "toggleStyle": "マップスタイルを切り替え",
     "viewDetails": "詳細を表示",
+    "viewRouteDetails": "ルートの詳細を表示",
+    "viewSectionDetails": "セクションの詳細を表示",
     "zoomToActivity": "アクティビティにズーム"
   },
   "metrics": {
@@ -577,6 +597,7 @@
   },
   "sections": {
     "activities": "アクティビティ",
+    "activitiesCount": "{{count}}件のアクティビティ",
     "avg": "平均",
     "averagePace": "平均ペース",
     "averageTime": "平均タイム",
@@ -601,6 +622,7 @@
     "performanceOverTime": "時系列パフォーマンス",
     "reverse": "逆方向",
     "routesCount": "ルート",
+    "routesCountLabel": "{{count}}件のルート",
     "same": "同じ",
     "scrubHint": "長押しでアクティビティをスクラブ",
     "scrubHintScrollable": "スワイプでスクロール - 長押しでスクラブ",
@@ -608,13 +630,15 @@
     "sectionNotFound": "区間が見つかりません",
     "totalTraversals": "合計通過回数",
     "traversals": "通過回数",
+    "traversalsCount": "{{count}}回の走行",
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "このアクティビティを基準として使用しますか？\n\nこの区間はすべてのアクティビティと再照合されます。これにより、この区間のアクティビティが追加または削除される場合があります。",
     "setReferenceError": "リファレンスの設定に失敗しました。セクションまたはアクティビティが変更された可能性があります。もう一度お試しください。",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "自動基準選択にリセットしますか？\n\nこの区間はすべてのアクティビティと再照合されます。これにより、この区間のアクティビティが追加または削除される場合があります。",
-    "referenceUpdated": "Reference activity updated"
+    "referenceUpdated": "Reference activity updated",
+    "visitsCount": "{{count}}回の訪問"
   },
   "settings": {
     "account": "アカウント",
@@ -781,6 +805,7 @@
     "days42": "42日",
     "decoupling": "有酸素効率",
     "eFTPTrend": "eFTPトレンド",
+    "ftpLabel": "FTP {{value}}w",
     "garminNote": "チャートにはGarminデバイスからのデータが含まれる場合があります",
     "heartRate": "心拍数",
     "lactateThreshold": "乳酸閾値",
@@ -800,6 +825,7 @@
   },
   "time": {
     "current": "現在",
+    "dayAbbrev": "{{count}}日",
     "days": "Days",
     "daysAgo": "{{count}}日前",
     "daysCount": "{{count}} days",

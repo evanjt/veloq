@@ -2,7 +2,14 @@
 export { useActivities, useActivityBoundsCache, useEFTPHistory } from './activities';
 
 // Fitness & Wellness hooks
-export { useWellness, useZoneDistribution, useAthleteSummary, getISOWeekNumber } from './fitness';
+export {
+  useWellness,
+  useZoneDistribution,
+  useAthleteSummary,
+  getISOWeekNumber,
+  formatWeekRange,
+  type WeeklySummaryData,
+} from './fitness';
 
 export {
   calculateTSB,
@@ -88,6 +95,7 @@ export {
 } from './routes/useRouteEngine';
 export { useRouteDataSync } from './routes/useRouteDataSync';
 export { useRouteReoptimization } from './routes/useRouteReoptimization';
+export { useRoutesScreenData } from './routes/useRoutesScreenData';
 export { useRetentionCleanup } from './routes/useRetentionCleanup';
 
 // Section detail hook from route engine

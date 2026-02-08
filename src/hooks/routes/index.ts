@@ -14,3 +14,4 @@ export {
 export { useCustomSections, useCustomSection } from './useCustomSections';
 export { useUnifiedSections, useUnifiedSection } from './useUnifiedSections';
 export { useRouteDataSync } from './useRouteDataSync';
+export { useRoutesScreenData } from './useRoutesScreenData';

@@ -41,6 +41,7 @@ import {
   getActivityColor,
   formatShortDate as formatShortDateLib,
 } from '@/lib';
+import { CHART_CONFIG } from '@/constants';
 import { colors, darkColors } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 
@@ -135,6 +136,8 @@ interface LaneData {
   minSpeed: number;
   maxSpeed: number;
 }
+
+const CHART_PADDING = { left: 40, right: 20, top: 16, bottom: 12 } as const;
 
 export function UnifiedPerformanceChart({
   chartData,
@@ -675,7 +678,7 @@ export function UnifiedPerformanceChart({
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
-        .activateAfterLongPress(150) // 150ms long press to activate
+        .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION)
         .onStart((e) => {
           'worklet';
           touchX.value = e.x;
@@ -765,7 +768,7 @@ export function UnifiedPerformanceChart({
                 x: [0, 1], // Normalized date range (0-1)
                 y: [lane.minSpeed, lane.maxSpeed],
               }}
-              padding={{ left: 40, right: 20, top: 16, bottom: 12 }}
+              padding={CHART_PADDING}
             >
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {
@@ -1147,11 +1150,11 @@ export function UnifiedPerformanceChart({
                   <Text style={[styles.headerStatText, isDark && styles.headerStatTextDark]}>
                     {showPace
                       ? sectionDistance > 0
-                        ? `${formatPace(sectionDistance / forwardStats.avgTime)} avg`
+                        ? `${formatPace(sectionDistance / forwardStats.avgTime)} ${t('sections.avg')}`
                         : forwardStats.avgSpeed
-                          ? `${formatPace(forwardStats.avgSpeed)} avg`
-                          : `${formatDuration(forwardStats.avgTime)} avg`
-                      : `${formatDuration(forwardStats.avgTime)} avg`}
+                          ? `${formatPace(forwardStats.avgSpeed)} ${t('sections.avg')}`
+                          : `${formatDuration(forwardStats.avgTime)} ${t('sections.avg')}`
+                      : `${formatDuration(forwardStats.avgTime)} ${t('sections.avg')}`}
                   </Text>
                 )}
               </View>
@@ -1246,11 +1249,11 @@ export function UnifiedPerformanceChart({
                   <Text style={[styles.headerStatText, isDark && styles.headerStatTextDark]}>
                     {showPace
                       ? sectionDistance > 0
-                        ? `${formatPace(sectionDistance / reverseStats.avgTime)} avg`
+                        ? `${formatPace(sectionDistance / reverseStats.avgTime)} ${t('sections.avg')}`
                         : reverseStats.avgSpeed
-                          ? `${formatPace(reverseStats.avgSpeed)} avg`
-                          : `${formatDuration(reverseStats.avgTime)} avg`
-                      : `${formatDuration(reverseStats.avgTime)} avg`}
+                          ? `${formatPace(reverseStats.avgSpeed)} ${t('sections.avg')}`
+                          : `${formatDuration(reverseStats.avgTime)} ${t('sections.avg')}`
+                      : `${formatDuration(reverseStats.avgTime)} ${t('sections.avg')}`}
                   </Text>
                 )}
               </View>
@@ -1372,7 +1375,7 @@ export function UnifiedPerformanceChart({
                       isDark && styles.gapMarkerExpandedTextDark,
                     ]}
                   >
-                    {gap.gapDays}d
+                    {t('time.dayAbbrev', { count: gap.gapDays })}
                   </Text>
                   <MaterialCommunityIcons
                     name="arrow-collapse-horizontal"
@@ -1401,7 +1404,7 @@ export function UnifiedPerformanceChart({
                     color={isDark ? darkColors.textMuted : colors.textMuted}
                   />
                   <Text style={[styles.gapMarkerText, isDark && styles.gapMarkerTextDark]}>
-                    {gap.gapDays}d
+                    {t('time.dayAbbrev', { count: gap.gapDays })}
                   </Text>
                 </Pressable>
               );

@@ -19,13 +19,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  useActivities,
   useConsensusRoute,
   useRoutePerformances,
   useTheme,
   useMetricSystem,
   useCacheDays,
 } from '@/hooks';
+import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { useGroupDetail } from '@/hooks/routes/useRouteEngine';
 import { getAllRouteDisplayNames, getRouteDisplayName } from '@/hooks/routes/useRouteGroups';
 import { createSharedStyles } from '@/styles';
@@ -344,15 +344,8 @@ export default function RouteDetailScreen() {
     // Engine fires 'groups' event which triggers subscribers to refresh
   }, []);
 
-  // Fetch activities for 3 years (route groups can contain older activities)
-  // Moved up so we can pass to useRoutePerformances
-  const { data: allActivities, isLoading } = useActivities({
-    days: 365 * 3,
-    includeStats: false,
-  });
-
-  // Get performance data using API metrics (average_speed, etc.)
-  // No Rust calculation needed - we use the intervals.icu API data directly
+  // Get performance data from engine metrics (no API call needed)
+  // Activity metrics are cached in Rust engine's in-memory HashMap
   const {
     performances,
     best: bestPerformance,
@@ -361,7 +354,7 @@ export default function RouteDetailScreen() {
     forwardStats,
     reverseStats,
     currentRank,
-  } = useRoutePerformances(id, engineGroup?.groupId, allActivities);
+  } = useRoutePerformances(id, engineGroup?.groupId);
 
   // Get consensus route points from Rust engine
   const { points: consensusPoints } = useConsensusRoute(id);
@@ -483,20 +476,42 @@ export default function RouteDetailScreen() {
     }
   }, [engineGroup?.activityIds]);
 
-  // Filter to only activities in this route group (deduplicated), sorted by fastest pace
+  // Build activity list from engine metrics (no API call needed), sorted by fastest pace
   const routeActivities = React.useMemo(() => {
-    if (!routeGroupBase || !allActivities) return [];
-    const idsSet = new Set(routeGroupBase.activityIds);
-    // Filter and deduplicate by ID (in case API returns duplicates)
-    const seen = new Set<string>();
-    const filtered = allActivities.filter((a) => {
-      if (!idsSet.has(a.id) || seen.has(a.id)) return false;
-      seen.add(a.id);
-      return true;
-    });
+    if (!routeGroupBase) return [];
+    const engine = getRouteEngine();
+    if (!engine) return [];
+
+    const metrics: {
+      activityId: string;
+      name: string;
+      sportType: string;
+      date: number;
+      distance: number;
+      movingTime: number;
+      elapsedTime: number;
+      elevationGain: number;
+      avgHr: number | null;
+    }[] = engine.getActivityMetricsForIds(routeGroupBase.activityIds);
+
+    // Convert engine metrics to Activity-compatible objects
+    const activities: Activity[] = metrics.map(
+      (m): Activity => ({
+        id: m.activityId,
+        name: m.name,
+        type: m.sportType as ActivityType,
+        start_date_local: fromUnixSeconds(m.date)?.toISOString() ?? '',
+        distance: m.distance,
+        moving_time: m.movingTime,
+        elapsed_time: m.elapsedTime,
+        total_elevation_gain: m.elevationGain,
+        average_speed: m.movingTime > 0 ? m.distance / m.movingTime : 0,
+        max_speed: 0,
+        average_heartrate: m.avgHr ?? undefined,
+      })
+    );
 
     // Build speed/pace lookup from performances
-    // Speed = distance/time, so higher speed = faster pace
     const speedMap = new Map<string, number>();
     for (const perf of performances) {
       if (Number.isFinite(perf.speed)) {
@@ -505,16 +520,15 @@ export default function RouteDetailScreen() {
     }
 
     // Sort by fastest pace (highest speed first = PR at top)
-    return filtered.sort((a, b) => {
+    return activities.sort((a, b) => {
       const speedA = speedMap.get(a.id);
       const speedB = speedMap.get(b.id);
-      // Activities without speed go to the bottom
       if (speedA === undefined && speedB === undefined) return 0;
       if (speedA === undefined) return 1;
       if (speedB === undefined) return -1;
-      return speedB - speedA; // Descending (fastest/highest speed first)
+      return speedB - speedA;
     });
-  }, [routeGroupBase, allActivities, performances]);
+  }, [routeGroupBase, performances]);
 
   // Prepare chart data for UnifiedPerformanceChart using Rust engine performance data
   // This provides precise segment times instead of approximate activity averages
@@ -825,11 +839,7 @@ export default function RouteDetailScreen() {
               </View>
             </View>
 
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            ) : routeActivities.length === 0 ? (
+            {routeActivities.length === 0 ? (
               <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
                 {t('feed.noActivities')}
               </Text>

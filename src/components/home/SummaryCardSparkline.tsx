@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { CartesianChart, Line } from 'victory-native';
 import { Shadow } from '@shopify/react-native-skia';
@@ -32,7 +32,7 @@ interface Segment {
  * Sparkline for Summary Card displaying trend.
  * Supports zone-colored segments for form data.
  */
-export function SummaryCardSparkline({
+export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   data,
   color,
   width = 140,
@@ -152,7 +152,7 @@ export function SummaryCardSparkline({
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

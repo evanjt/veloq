@@ -15,6 +15,7 @@ export interface GpsSyncProgress {
   status: 'idle' | 'fetching' | 'processing' | 'computing' | 'complete' | 'error';
   completed: number;
   total: number;
+  percent: number;
   message: string;
 }
 
@@ -80,6 +81,7 @@ const defaultGpsSyncProgress: GpsSyncProgress = {
   status: 'idle',
   completed: 0,
   total: 0,
+  percent: 0,
   message: '',
 };
 

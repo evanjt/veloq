@@ -18,6 +18,8 @@ interface UsePotentialSectionsOptions {
   minActivities?: number;
   /** Whether to run detection automatically (default: true) */
   autoDetect?: boolean;
+  /** Whether to run the hook (default: true). When false, returns empty defaults. */
+  enabled?: boolean;
 }
 
 interface UsePotentialSectionsResult {
@@ -61,7 +63,7 @@ interface UsePotentialSectionsResult {
 export function usePotentialSections(
   options: UsePotentialSectionsOptions = {}
 ): UsePotentialSectionsResult {
-  const { sportType, minActivities = 10, autoDetect = true } = options;
+  const { sportType, minActivities = 10, autoDetect = true, enabled = true } = options;
 
   const {
     potentials: storedPotentials,
@@ -163,7 +165,9 @@ export function usePotentialSections(
   }, []);
 
   return {
-    potentials: storedPotentials.filter((p) => !sportType || p.sportType === sportType),
+    potentials: enabled
+      ? storedPotentials.filter((p) => !sportType || p.sportType === sportType)
+      : [],
     isDetecting,
     isLoaded,
     detect,

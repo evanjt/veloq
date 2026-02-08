@@ -33,6 +33,7 @@ interface LicenseEntry {
 
 interface LicenseSection {
   title: string;
+  titleKey?: string;
   description?: string;
   entries: LicenseEntry[];
 }
@@ -41,6 +42,7 @@ interface LicenseSection {
 const LICENSE_DATA: LicenseSection[] = [
   {
     title: 'Core Framework',
+    titleKey: 'licenses.sectionCoreFramework',
     entries: [
       { name: 'React', license: 'MIT', repository: 'https://github.com/facebook/react' },
       {
@@ -53,6 +55,7 @@ const LICENSE_DATA: LicenseSection[] = [
   },
   {
     title: 'Maps & Graphics',
+    titleKey: 'licenses.sectionMapsGraphics',
     entries: [
       {
         name: 'MapLibre React Native',
@@ -83,6 +86,7 @@ const LICENSE_DATA: LicenseSection[] = [
   },
   {
     title: 'State Management',
+    titleKey: 'licenses.sectionStateManagement',
     entries: [
       { name: 'TanStack Query', license: 'MIT', repository: 'https://github.com/TanStack/query' },
       { name: 'Zustand', license: 'MIT', repository: 'https://github.com/pmndrs/zustand' },
@@ -91,6 +95,7 @@ const LICENSE_DATA: LicenseSection[] = [
   },
   {
     title: 'UI Components',
+    titleKey: 'licenses.sectionUIComponents',
     entries: [
       {
         name: 'React Native Paper',
@@ -116,6 +121,7 @@ const LICENSE_DATA: LicenseSection[] = [
   },
   {
     title: 'Networking & Utilities',
+    titleKey: 'licenses.sectionNetworkingUtilities',
     entries: [
       { name: 'Axios', license: 'MIT', repository: 'https://github.com/axios/axios' },
       { name: 'i18next', license: 'MIT', repository: 'https://github.com/i18next/i18next' },
@@ -123,6 +129,7 @@ const LICENSE_DATA: LicenseSection[] = [
   },
   {
     title: 'Native Engine (tracematch)',
+    titleKey: 'licenses.sectionNativeEngine',
     description: 'Rust dependencies compiled into the native route matching engine.',
     entries: [
       {
@@ -172,6 +179,7 @@ const LICENSE_DATA: LicenseSection[] = [
   },
   {
     title: 'Special Licenses',
+    titleKey: 'licenses.sectionSpecialLicenses',
     description: 'Dependencies with non-MIT/Apache licenses.',
     entries: [
       {
@@ -212,6 +220,7 @@ const LICENSE_DATA: LicenseSection[] = [
   },
   {
     title: 'Map Data',
+    titleKey: 'licenses.sectionMapData',
     description: 'Map tiles and geographic data providers.',
     entries: [
       {
@@ -285,6 +294,7 @@ interface CollapsibleSectionProps {
 
 function CollapsibleSection({ section, isDark }: CollapsibleSectionProps) {
   const [expanded, setExpanded] = useState(false);
+  const { t } = useTranslation();
   const themeColors = isDark ? darkColors : colors;
 
   const toggleExpanded = () => {
@@ -297,7 +307,7 @@ function CollapsibleSection({ section, isDark }: CollapsibleSectionProps) {
       <TouchableOpacity style={styles.sectionHeader} onPress={toggleExpanded} activeOpacity={0.7}>
         <View style={styles.sectionTitleRow}>
           <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
-            {section.title}
+            {section.titleKey ? t(section.titleKey as any) : section.title}
           </Text>
           <Text style={[styles.entryCount, { color: themeColors.textSecondary }]}>
             {section.entries.length}

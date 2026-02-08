@@ -55,6 +55,8 @@ function formatDate(dateStr: string): string {
   return formatShortDate(dateStr);
 }
 
+const CHART_PADDING = { left: 0, right: 0, top: 8, bottom: 20 } as const;
+
 export const FitnessChart = React.memo(function FitnessChart({
   data,
   height = 200,
@@ -337,7 +339,7 @@ export const FitnessChart = React.memo(function FitnessChart({
               xKey="x"
               yKeys={['fitness', 'fatigue']}
               domain={{ y: [0, maxFitness * 1.1] }}
-              padding={{ left: 0, right: 0, top: 8, bottom: 20 }}
+              padding={CHART_PADDING}
             >
               {({ points, chartBounds }) => {
                 // Sync chartBounds and point coordinates for UI thread crosshair
@@ -351,12 +353,12 @@ export const FitnessChart = React.memo(function FitnessChart({
                   };
                 }
                 // Sync actual point x-coordinates for accurate crosshair positioning
-                const newCoords = points.fitness.map((p) => p.x);
+                // Guard before .map() to avoid allocating a temporary array every frame
                 if (
-                  newCoords.length !== pointXCoordsShared.value.length ||
-                  newCoords[0] !== pointXCoordsShared.value[0]
+                  points.fitness.length !== pointXCoordsShared.value.length ||
+                  points.fitness[0]?.x !== pointXCoordsShared.value[0]
                 ) {
-                  pointXCoordsShared.value = newCoords;
+                  pointXCoordsShared.value = points.fitness.map((p) => p.x);
                 }
 
                 return (

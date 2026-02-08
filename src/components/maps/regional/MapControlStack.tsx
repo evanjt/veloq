@@ -213,7 +213,9 @@ export function MapControlStack({
                 ]}
                 onPress={onToggleActivities}
                 activeOpacity={0.8}
-                accessibilityLabel={showActivities ? 'Hide activities' : 'Show activities'}
+                accessibilityLabel={
+                  showActivities ? t('maps.hideActivities') : t('maps.showActivities')
+                }
                 accessibilityRole="button"
               >
                 <MaterialCommunityIcons
@@ -248,7 +250,7 @@ export function MapControlStack({
                 ]}
                 onPress={onToggleSections}
                 activeOpacity={0.8}
-                accessibilityLabel={showSections ? 'Hide sections' : 'Show sections'}
+                accessibilityLabel={showSections ? t('maps.hideSections') : t('maps.showSections')}
                 accessibilityRole="button"
               >
                 <MaterialCommunityIcons

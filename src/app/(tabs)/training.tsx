@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -10,14 +10,14 @@ import {
 } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
-import { logScreenRender } from '@/lib/debug/renderTimer';
 import { useTranslation } from 'react-i18next';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/components/stats';
 import { WellnessDashboard, WellnessTrendsChart } from '@/components/wellness';
-import { useActivities, useWellness, useTheme, type TimeRange } from '@/hooks';
+import { useActivities, useWellness, useAthleteSummary, useTheme, type TimeRange } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import { SMOOTHING_PRESETS, getSmoothingDescription, type SmoothingWindow } from '@/lib';
+import { logScreenRender } from '@/lib/debug/renderTimer';
 
 const TIME_RANGES: { id: TimeRange; label: string }[] = [
   { id: '7d', label: '1W' },
@@ -28,16 +28,22 @@ const TIME_RANGES: { id: TimeRange; label: string }[] = [
 ];
 
 export default function HealthScreen() {
-  // Performance timing
-  const perfEndRef = useRef<(() => void) | null>(null);
-  perfEndRef.current = logScreenRender('HealthScreen');
-  useEffect(() => {
-    perfEndRef.current?.();
-  });
-
+  const perfEnd = logScreenRender('HealthScreen');
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
+
+  // Log render time (JS phase only)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    perfEnd();
+  });
+
+  // Defer below-fold cards by one frame to reduce first-frame native view count
+  const [belowFoldReady, setBelowFoldReady] = useState(false);
+  useEffect(() => {
+    requestAnimationFrame(() => setBelowFoldReady(true));
+  }, []);
 
   // Refresh state for pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -69,6 +75,9 @@ export default function HealthScreen() {
     isFetching: wellnessFetching,
     refetch: refetchWellness,
   } = useWellness(timeRange);
+
+  // Fetch athlete summary for WeeklySummary (lifted from child component)
+  const { data: summaryData, isLoading: summaryLoading } = useAthleteSummary(4);
 
   // Combined loading states
   const isLoading = activitiesLoading || wellnessLoading;
@@ -202,92 +211,103 @@ export default function HealthScreen() {
           )}
         </View>
 
-        {/* Summary with time range selector */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          {activitiesLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.primary} />
+        {/* Below-fold cards — deferred by one frame to reduce first-frame view count */}
+        {belowFoldReady && (
+          <>
+            {/* Summary with time range selector */}
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              {activitiesLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : (
+                <WeeklySummary
+                  activities={activities}
+                  summaryData={summaryData}
+                  summaryLoading={summaryLoading}
+                />
+              )}
             </View>
-          ) : (
-            <WeeklySummary activities={activities} />
-          )}
-        </View>
 
-        {/* Activity Heatmap - using real activities data */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          {activitiesLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.primary} />
+            {/* Activity Heatmap */}
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              {activitiesLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : (
+                <ActivityHeatmap activities={activities} />
+              )}
             </View>
-          ) : (
-            <ActivityHeatmap activities={activities} />
-          )}
-        </View>
 
-        {/* Season Comparison */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          {activitiesLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.primary} />
+            {/* Season Comparison */}
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              {activitiesLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : (
+                <SeasonComparison
+                  height={180}
+                  currentYearActivities={currentYearActivities}
+                  previousYearActivities={previousYearActivities}
+                />
+              )}
             </View>
-          ) : (
-            <SeasonComparison
-              height={180}
-              currentYearActivities={currentYearActivities}
-              previousYearActivities={previousYearActivities}
-            />
-          )}
-        </View>
+          </>
+        )}
       </ScrollView>
 
-      {/* Smoothing Config Modal */}
-      <Modal
-        visible={showSmoothingModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowSmoothingModal(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowSmoothingModal(false)}>
-          <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
-            <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
-              {t('wellness.smoothingTitle' as never)}
-            </Text>
-            <Text style={[styles.modalDescription, isDark && styles.modalDescriptionDark]}>
-              {t('wellness.smoothingDescription' as never)}
-            </Text>
-            <View style={styles.smoothingOptions}>
-              {SMOOTHING_PRESETS.map((preset) => (
-                <TouchableOpacity
-                  key={String(preset.value)}
-                  style={[
-                    styles.smoothingOption,
-                    isDark && styles.smoothingOptionDark,
-                    smoothingWindow === preset.value && styles.smoothingOptionActive,
-                  ]}
-                  onPress={() => {
-                    setSmoothingWindow(preset.value);
-                    setShowSmoothingModal(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text
+      {/* Smoothing Config Modal — only mount children when visible */}
+      {showSmoothingModal && (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowSmoothingModal(false)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setShowSmoothingModal(false)}>
+            <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
+              <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
+                {t('wellness.smoothingTitle' as never)}
+              </Text>
+              <Text style={[styles.modalDescription, isDark && styles.modalDescriptionDark]}>
+                {t('wellness.smoothingDescription' as never)}
+              </Text>
+              <View style={styles.smoothingOptions}>
+                {SMOOTHING_PRESETS.map((preset) => (
+                  <TouchableOpacity
+                    key={String(preset.value)}
                     style={[
-                      styles.smoothingOptionText,
-                      isDark && styles.smoothingOptionTextDark,
-                      smoothingWindow === preset.value && styles.smoothingOptionTextActive,
+                      styles.smoothingOption,
+                      isDark && styles.smoothingOptionDark,
+                      smoothingWindow === preset.value && styles.smoothingOptionActive,
                     ]}
+                    onPress={() => {
+                      setSmoothingWindow(preset.value);
+                      setShowSmoothingModal(false);
+                    }}
+                    activeOpacity={0.7}
                   >
-                    {preset.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.smoothingOptionText,
+                        isDark && styles.smoothingOptionTextDark,
+                        smoothingWindow === preset.value && styles.smoothingOptionTextActive,
+                      ]}
+                    >
+                      {preset.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={[styles.modalHint, isDark && styles.modalHintDark]}>
+                {t('wellness.smoothingHint' as never)}
+              </Text>
             </View>
-            <Text style={[styles.modalHint, isDark && styles.modalHintDark]}>
-              {t('wellness.smoothingHint' as never)}
-            </Text>
-          </View>
-        </Pressable>
-      </Modal>
+          </Pressable>
+        </Modal>
+      )}
     </ScreenSafeAreaView>
   );
 }

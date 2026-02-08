@@ -3,7 +3,7 @@
  * Extracts handler logic from the main component for better organization.
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
@@ -95,6 +95,18 @@ export function useMapHandlers({
   // This keeps callbacks stable for React.memo optimization
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
+
+  // Debounce timers for region change handlers
+  const visibleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const zoomCenterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      if (visibleDebounceRef.current) clearTimeout(visibleDebounceRef.current);
+      if (zoomCenterDebounceRef.current) clearTimeout(zoomCenterDebounceRef.current);
+    };
+  }, []);
 
   // Handle marker tap - no auto-zoom to prevent jarring camera movements
   // Uses local cached GPS data from Rust engine for instant response
@@ -242,6 +254,8 @@ export function useMapHandlers({
   );
 
   // Handle region change end - track zoom level, center, and update visible activities
+  // Zoom/center are debounced (drives attribution recalculation which is expensive for satellite)
+  // Visible activity IDs are debounced to batch rapid pan/zoom sequences
   const handleRegionDidChange = useCallback(
     (feature: GeoJSON.Feature) => {
       const properties = feature.properties as
@@ -253,30 +267,35 @@ export function useMapHandlers({
           ? (feature.geometry.coordinates as [number, number])
           : undefined;
 
+      // Always update ref immediately for other handlers that read it synchronously
       if (zoomLevel !== undefined) {
         currentZoomLevel.current = zoomLevel;
-        setCurrentZoom(zoomLevel);
       }
 
-      // v10: center is from feature.geometry.coordinates [lng, lat]
-      if (center) {
-        setCurrentCenter(center);
-      }
+      // Debounce zoom/center state updates (triggers attribution recalculation)
+      if (zoomCenterDebounceRef.current) clearTimeout(zoomCenterDebounceRef.current);
+      zoomCenterDebounceRef.current = setTimeout(() => {
+        if (zoomLevel !== undefined) setCurrentZoom(zoomLevel);
+        if (center) setCurrentCenter(center);
+      }, 300);
 
       // v10: visibleBounds is [northEast, southWest] where each is [lng, lat]
       if (visibleBounds) {
-        const [northEast, southWest] = visibleBounds;
-        const [east, north] = northEast;
-        const [west, south] = southWest;
+        if (visibleDebounceRef.current) clearTimeout(visibleDebounceRef.current);
+        visibleDebounceRef.current = setTimeout(() => {
+          const [northEast, southWest] = visibleBounds;
+          const [east, north] = northEast;
+          const [west, south] = southWest;
 
-        if (activitySpatialIndex.ready) {
-          const viewport = mapBoundsToViewport([west, south], [east, north]);
-          const visibleIds = activitySpatialIndex.queryViewport(viewport);
+          if (activitySpatialIndex.ready) {
+            const viewport = mapBoundsToViewport([west, south], [east, north]);
+            const visibleIds = activitySpatialIndex.queryViewport(viewport);
 
-          if (visibleIds.length > 0 || activitySpatialIndex.size === 0) {
-            setVisibleActivityIds(new Set(visibleIds));
+            if (visibleIds.length > 0 || activitySpatialIndex.size === 0) {
+              setVisibleActivityIds(new Set(visibleIds));
+            }
           }
-        }
+        }, 200);
       }
     },
     [currentZoomLevel, setCurrentZoom, setCurrentCenter, setVisibleActivityIds]

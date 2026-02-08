@@ -217,7 +217,7 @@ export function formatSpeed(metersPerSecond: number, isMetric = true): string {
  * @returns Formatted elevation string (e.g., "150 m", "492 ft")
  */
 export function formatElevation(meters: number | undefined | null, isMetric = true): string {
-  if (meters == null || isNaN(meters)) return isMetric ? '0 m' : '0 ft';
+  if (meters == null || !Number.isFinite(meters)) return isMetric ? '0 m' : '0 ft';
 
   if (isMetric) {
     return `${Math.round(meters)} m`;
@@ -241,28 +241,6 @@ export function formatTemperature(celsius: number | undefined | null, isMetric =
   } else {
     const fahrenheit = celsius * 1.8 + 32;
     return `${Math.round(fahrenheit)}°F`;
-  }
-}
-
-/**
- * Format wind speed in m/s (metric) or mph (imperial).
- *
- * @param metersPerSecond - Wind speed in meters per second
- * @param isMetric - Whether to use metric units (default: true)
- * @returns Formatted wind speed string (e.g., "5 m/s", "11 mph")
- */
-export function formatWindSpeed(
-  metersPerSecond: number | undefined | null,
-  isMetric = true
-): string {
-  if (metersPerSecond == null || !Number.isFinite(metersPerSecond) || metersPerSecond < 0) {
-    return isMetric ? '0 m/s' : '0 mph';
-  }
-
-  if (isMetric) {
-    return `${Math.round(metersPerSecond)} m/s`;
-  } else {
-    return `${Math.round(metersPerSecond * MPS_TO_MPH)} mph`;
   }
 }
 
@@ -414,17 +392,18 @@ export function formatFullDateWithWeekday(date: Date | string): string {
 }
 
 export function formatTSS(load: number): string {
-  return `${Math.round(load)}`;
+  if (!Number.isFinite(load) || load < 0) return '0 TSS';
+  return `${Math.round(load)} TSS`;
 }
 
 export function formatCalories(kcal: number): string {
   if (!Number.isFinite(kcal) || kcal < 0) {
-    return '0';
+    return '0 cal';
   }
   if (kcal >= 1000) {
-    return `${(kcal / 1000).toFixed(1)}k`;
+    return `${(kcal / 1000).toFixed(1)}k cal`;
   }
-  return `${Math.round(kcal)}`;
+  return `${Math.round(kcal)} cal`;
 }
 
 /**
@@ -436,13 +415,6 @@ export function formatLocalDate(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
-
-/**
- * Get today's date as YYYY-MM-DD in local timezone
- */
-export function getTodayLocalDate(): string {
-  return formatLocalDate(new Date());
 }
 
 /**

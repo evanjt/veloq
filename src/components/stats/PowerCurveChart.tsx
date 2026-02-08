@@ -62,6 +62,8 @@ interface ChartPoint {
   [key: string]: unknown;
 }
 
+const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 0 } as const;
+
 export const PowerCurveChart = React.memo(function PowerCurveChart({
   sport,
   days = 365,
@@ -295,7 +297,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
             xKey="x"
             yKeys={['y']}
             domain={{ y: yDomain }}
-            padding={{ left: 0, right: 0, top: 4, bottom: 0 }}
+            padding={CHART_PADDING}
           >
             {({ points, chartBounds }) => {
               // Sync bounds for gesture
@@ -380,7 +382,9 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       {ftpValue && (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: FTP_LINE_COLOR }]} />
-          <Text style={[styles.legendText, isDark && styles.textDark]}>FTP {ftpValue}w</Text>
+          <Text style={[styles.legendText, isDark && styles.textDark]}>
+            {t('statsScreen.ftpLabel', { value: ftpValue })}
+          </Text>
         </View>
       )}
     </View>

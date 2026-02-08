@@ -37,7 +37,7 @@ export default function MapScreen() {
   const [attribution, setAttribution] = useState('© OpenFreeMap © OpenMapTiles © OpenStreetMap');
 
   // Get route settings
-  const { settings: routeSettings } = useRouteSettings();
+  const routeSettings = useRouteSettings((s) => s.settings);
 
   // Get the sync date range from global store
   const syncOldest = useSyncDateRange((s) => s.oldest);

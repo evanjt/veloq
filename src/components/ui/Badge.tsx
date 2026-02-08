@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { StyleSheet, Text, View, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -24,7 +24,7 @@ interface BadgeProps {
   textStyle?: StyleProp<TextStyle>;
 }
 
-export function Badge({
+export const Badge = memo(function Badge({
   children,
   variant = 'primary',
   size = 'medium',
@@ -49,7 +49,7 @@ export function Badge({
       <Text style={labelStyle}>{children}</Text>
     </View>
   );
-}
+});
 
 function getVariantStyle(variant: BadgeVariant, isDark: boolean): ViewStyle {
   switch (variant) {
