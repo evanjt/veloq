@@ -779,7 +779,7 @@ export default function FitnessScreen() {
               onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/fitness')}
               activeOpacity={0.7}
             >
-              <Text style={styles.infoLink}>intervals.icu Fitness Page</Text>
+              <Text style={styles.infoLink}>{t('fitnessScreen.linkFitnessPage')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() =>
@@ -789,7 +789,7 @@ export default function FitnessScreen() {
               }
               activeOpacity={0.7}
             >
-              <Text style={styles.infoLink}>Monitoring Training Load (Science2Sport)</Text>
+              <Text style={styles.infoLink}>{t('fitnessScreen.linkTrainingLoad')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() =>
@@ -799,7 +799,7 @@ export default function FitnessScreen() {
               }
               activeOpacity={0.7}
             >
-              <Text style={styles.infoLink}>Managing Training Using TSB (Joe Friel)</Text>
+              <Text style={styles.infoLink}>{t('fitnessScreen.linkTSBManagement')}</Text>
             </TouchableOpacity>
           </View>
         </View>

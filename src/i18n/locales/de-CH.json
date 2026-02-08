@@ -137,6 +137,8 @@
     }
   },
   "alerts": {
+    "cacheCleared": "Cache gleert",
+    "cacheCorruptionMessage": "De lokal Date-Cache isch kaputt gsi und isch gleert worde. Dini Date werded vom Server aktualisiert.",
     "clearCacheMessage": "Löscht alls und started nöi. Cha es bitzeli gaa.",
     "clearCacheTitle": "Cache lösche?",
     "clearReload": "Jetzt lösche!",
@@ -211,6 +213,7 @@
     "loading": "Momäntli, Siech...",
     "loadingMore": "Lade no meh...",
     "next": "Witer",
+    "ok": "OK",
     "noResults": "Nüüt gfunde, Siech!",
     "or": "oder",
     "pullToRefresh": "Züüch abe zum Lade",
@@ -334,6 +337,9 @@
     "fresh": "fit",
     "highRiskZone": "Gfahrezone",
     "learnMore": "Meh erfahre",
+    "linkFitnessPage": "intervals.icu Fitness-Siite",
+    "linkTSBManagement": "Managing Training Using TSB (Joe Friel)",
+    "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "loadingData": "Momäntli...",
     "optimalZone": "optimale Zone",
     "title": "Fitness & Form",
@@ -352,6 +358,14 @@
   "licenses": {
     "footer": "Tipp uf es Lizenz-Badge um de voll Text z gseh. Tipp ufs Link-Symbol um s Projekt-Repository z bsueche.",
     "intro": "Veloq isch mit Open-Source-Software baut. Die Siite zeigt d Drittabieter-Bibliotheke und ihri Lizenze.",
+    "sectionCoreFramework": "Kern-Framework",
+    "sectionMapData": "Chartedate",
+    "sectionMapsGraphics": "Charte & Grafik",
+    "sectionNativeEngine": "Native Engine (tracematch)",
+    "sectionNetworkingUtilities": "Netzwärk & Hilfsprogramm",
+    "sectionSpecialLicenses": "Spezielli Lizänze",
+    "sectionStateManagement": "Zustandsverwautig",
+    "sectionUIComponents": "UI-Komponänte",
     "title": "Drittabieter-Lizenze"
   },
   "login": {
@@ -420,6 +434,7 @@
     "goToLocation": "Zu mim Standort",
     "hideActivities": "Aktivitäte verberge",
     "hideRoutes": "Route verberge",
+    "hideSections": "Abschnitt usblende",
     "loadingRoute": "Route lade...",
     "notSynced": "Nöd gsynced",
     "rangePercent": "{{start}}% - {{end}}%",
@@ -427,13 +442,18 @@
     "sectionSelected": "Abschnitt usgwählt",
     "selected": "Usgwählt",
     "showActivities": "Aktivitäte zeige",
+    "showMyLocation": "Min Standort aazeige",
+    "showMyLocationHint": "Animiert d'Charte zu dinere aktuelle GPS-Position",
     "showRoutes": "Route zeige",
+    "showSections": "Abschnitt iiblende",
     "startPercent": "Start: {{percent}}%",
     "syncingActivities": "Sync: {{completed}}/{{total}}",
     "tapSelectEnd": "Tipp für Endpunkt",
     "tapSelectStart": "Tipp für Startpunkt",
     "toggleStyle": "Stil wächsle",
     "viewDetails": "Details luege",
+    "viewRouteDetails": "Routedetails aazeige",
+    "viewSectionDetails": "Abschnittsdetails aazeige",
     "zoomToActivity": "Uf Aktivität zoome"
   },
   "metrics": {
@@ -577,6 +597,7 @@
   },
   "sections": {
     "activities": "Aktivitäte",
+    "activitiesCount": "{{count}} Aktivitäte",
     "avg": "Ø",
     "averagePace": "Schnitt-Tempo",
     "averageTime": "Schnitt-Ziit",
@@ -601,6 +622,7 @@
     "performanceOverTime": "Leistig über Ziit",
     "reverse": "Andersrum",
     "routesCount": "Route",
+    "routesCountLabel": "{{count}} Route",
     "same": "Gliich",
     "scrubHint": "Halte zum Blättre",
     "scrubHintScrollable": "Wüsche zum Scrolle • Halte zum Blättre",
@@ -608,13 +630,15 @@
     "sectionNotFound": "Abschnitt nöd gfunde",
     "totalTraversals": "Total Durchfahrte",
     "traversals": "Durchfahrte",
+    "traversalsCount": "{{count}} Durchfahrte",
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Die Aktivität als Referänz bruuche?\n\nDe Abschnitt wird neu mit allne dine Aktivitäte abgliche. Das chan Aktivitäte dezuetuä oder ussenäh.",
     "setReferenceError": "Referenz konnte nicht gesetzt werden. Der Abschnitt oder die Aktivität hat sich möglicherweise geändert. Bitte versuchen Sie es erneut.",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Zrugg uf automatischi Referänzuswahl?\n\nDe Abschnitt wird neu mit allne dine Aktivitäte abgliche. Das chan Aktivitäte dezuetuä oder ussenäh.",
-    "referenceUpdated": "Reference activity updated"
+    "referenceUpdated": "Reference activity updated",
+    "visitsCount": "{{count}} Bsüech"
   },
   "settings": {
     "account": "Konto",
@@ -781,6 +805,7 @@
     "days42": "42 Täg",
     "decoupling": "Aerobi Effizienz",
     "eFTPTrend": "eFTP-Trend",
+    "ftpLabel": "FTP {{value}}w",
     "garminNote": "Cha Date vo Garmin enthalte",
     "heartRate": "Puls",
     "lactateThreshold": "Schwelle",
@@ -800,6 +825,7 @@
   },
   "time": {
     "current": "Jetzt",
+    "dayAbbrev": "{{count}}T",
     "days": "Days",
     "daysAgo": "vor {{count}} Täg",
     "daysCount": "{{count}} days",

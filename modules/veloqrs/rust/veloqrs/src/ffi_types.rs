@@ -865,6 +865,8 @@ pub struct FfiGroupWithPolyline {
     pub activity_count: u32,
     pub custom_name: Option<String>,
     pub bounds: Option<FfiBounds>,
+    /// Distance in meters (from representative activity's metrics)
+    pub distance_meters: f64,
     /// Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
     pub consensus_polyline: Vec<f64>,
 }
@@ -887,6 +889,7 @@ pub struct FfiSectionWithPolyline {
 }
 
 /// All data needed by the Routes screen in a single FFI call.
+/// Supports pagination via limit/offset for groups and sections.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiRoutesScreenData {
     pub activity_count: u32,
@@ -896,6 +899,10 @@ pub struct FfiRoutesScreenData {
     pub newest_date: Option<i64>,
     pub groups: Vec<FfiGroupWithPolyline>,
     pub sections: Vec<FfiSectionWithPolyline>,
+    /// Whether more groups are available beyond the current page
+    pub has_more_groups: bool,
+    /// Whether more sections are available beyond the current page
+    pub has_more_sections: bool,
 }
 
 // ============================================================================

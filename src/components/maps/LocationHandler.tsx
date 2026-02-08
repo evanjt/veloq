@@ -8,6 +8,7 @@
 import React, { useCallback } from 'react';
 import { TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import type { Camera } from '@maplibre/maplibre-react-native';
 import { colors } from '@/theme/colors';
@@ -41,6 +42,7 @@ interface LocationHandlerProps {
  * ```
  */
 export function LocationHandler({ cameraRef, onLocationUpdate, style }: LocationHandlerProps) {
+  const { t } = useTranslation();
   // Get user location (one-time jump, no tracking)
   // Shows location dot and zooms once - dot stays visible until component unmounts
   const handleGetLocation = useCallback(async () => {
@@ -75,8 +77,8 @@ export function LocationHandler({ cameraRef, onLocationUpdate, style }: Location
       style={[styles.button, style]}
       onPress={handleGetLocation}
       activeOpacity={0.7}
-      accessibilityLabel="Show my location"
-      accessibilityHint="Animates map to your current GPS position"
+      accessibilityLabel={t('maps.showMyLocation')}
+      accessibilityHint={t('maps.showMyLocationHint')}
     >
       <MaterialCommunityIcons name="crosshairs-gps" size={28} color={colors.textPrimary} />
     </TouchableOpacity>

@@ -137,6 +137,8 @@
     }
   },
   "alerts": {
+    "cacheCleared": "缓存已清除",
+    "cacheCorruptionMessage": "本地数据缓存已损坏并已清除。您的数据将从服务器重新加载。",
     "clearCacheMessage": "这将清除所有缓存的活动数据、活动轨迹和路线匹配数据，然后开始重新加载。这可能需要几分钟。",
     "clearCacheTitle": "清除并重新加载缓存",
     "clearReload": "清除并重新加载",
@@ -211,6 +213,7 @@
     "loading": "加载中...",
     "loadingMore": "加载更多...",
     "next": "下一步",
+    "ok": "确定",
     "noResults": "无结果",
     "or": "或",
     "pullToRefresh": "下拉刷新",
@@ -334,6 +337,9 @@
     "fresh": "恢复良好",
     "highRiskZone": "高风险区间",
     "learnMore": "了解更多",
+    "linkFitnessPage": "intervals.icu 体能页面",
+    "linkTSBManagement": "Managing Training Using TSB (Joe Friel)",
+    "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "loadingData": "加载体能数据...",
     "optimalZone": "最佳区间",
     "title": "体能与状态",
@@ -352,6 +358,14 @@
   "licenses": {
     "footer": "点击任何许可证徽章查看完整许可证文本。点击链接图标访问项目仓库。",
     "intro": "Veloq使用开源软件构建。此屏幕列出了第三方库及其许可证。",
+    "sectionCoreFramework": "核心框架",
+    "sectionMapData": "地图数据",
+    "sectionMapsGraphics": "地图与图形",
+    "sectionNativeEngine": "原生引擎 (tracematch)",
+    "sectionNetworkingUtilities": "网络与工具",
+    "sectionSpecialLicenses": "特殊许可证",
+    "sectionStateManagement": "状态管理",
+    "sectionUIComponents": "UI 组件",
     "title": "第三方许可证"
   },
   "login": {
@@ -420,6 +434,7 @@
     "goToLocation": "前往我的位置",
     "hideActivities": "隐藏活动",
     "hideRoutes": "隐藏路线",
+    "hideSections": "隐藏路段",
     "loadingRoute": "加载路线中...",
     "notSynced": "未同步",
     "rangePercent": "{{start}}% - {{end}}%",
@@ -427,13 +442,18 @@
     "sectionSelected": "已选择路段",
     "selected": "已选择",
     "showActivities": "显示活动",
+    "showMyLocation": "显示我的位置",
+    "showMyLocationHint": "将地图动画移至您当前的GPS位置",
     "showRoutes": "显示路线",
+    "showSections": "显示路段",
     "startPercent": "起点: {{percent}}%",
     "syncingActivities": "正在同步 {{completed}}/{{total}} 个活动",
     "tapSelectEnd": "点击选择终点",
     "tapSelectStart": "点击选择起点",
     "toggleStyle": "切换地图样式",
     "viewDetails": "查看详情",
+    "viewRouteDetails": "查看路线详情",
+    "viewSectionDetails": "查看路段详情",
     "zoomToActivity": "缩放至活动"
   },
   "metrics": {
@@ -577,6 +597,7 @@
   },
   "sections": {
     "activities": "活动",
+    "activitiesCount": "{{count}} 个活动",
     "avg": "平均",
     "averagePace": "平均配速",
     "averageTime": "平均时间",
@@ -601,6 +622,7 @@
     "performanceOverTime": "历史表现",
     "reverse": "反向",
     "routesCount": "条路线",
+    "routesCountLabel": "{{count}} 条路线",
     "same": "相同",
     "scrubHint": "长按拖动查看活动",
     "scrubHintScrollable": "滑动滚动 • 长按拖动",
@@ -608,13 +630,15 @@
     "sectionNotFound": "未找到路段",
     "totalTraversals": "总通过次数",
     "traversals": "次通过",
+    "traversalsCount": "{{count}} 次通过",
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "将此活动用作参考？\n\n该路段将与您的所有活动重新匹配。这可能会从该路段中添加或删除活动。",
     "setReferenceError": "设置参考失败。路段或活动可能已更改。请重试。",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "重置为自动参考选择？\n\n该路段将与您的所有活动重新匹配。这可能会从该路段中添加或删除活动。",
-    "referenceUpdated": "Reference activity updated"
+    "referenceUpdated": "Reference activity updated",
+    "visitsCount": "{{count}} 次访问"
   },
   "settings": {
     "account": "账户",
@@ -781,6 +805,7 @@
     "days42": "42 天",
     "decoupling": "有氧效率",
     "eFTPTrend": "eFTP趋势",
+    "ftpLabel": "FTP {{value}}w",
     "garminNote": "图表可能包含来自 Garmin 设备的数据",
     "heartRate": "心率",
     "lactateThreshold": "乳酸阈值",
@@ -800,6 +825,7 @@
   },
   "time": {
     "current": "当前",
+    "dayAbbrev": "{{count}}天",
     "days": "Days",
     "daysAgo": "{{count}} 天前",
     "daysCount": "{{count}} days",

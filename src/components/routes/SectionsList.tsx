@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   Alert,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
@@ -54,6 +55,10 @@ interface SectionsListProps {
   };
   /** Pre-loaded engine sections with polylines from batch FFI call */
   batchSections?: SectionWithPolyline[];
+  /** Callback to load more sections (pagination) */
+  onLoadMore?: () => void;
+  /** Whether more sections are available to load */
+  hasMore?: boolean;
 }
 
 type HiddenFilters = {
@@ -93,7 +98,13 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
   return section;
 }
 
-export function SectionsList({ sportType, prefetchedData, batchSections }: SectionsListProps) {
+export function SectionsList({
+  sportType,
+  prefetchedData,
+  batchSections,
+  onLoadMore,
+  hasMore = false,
+}: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const [hiddenFilters, setHiddenFilters] = useState<HiddenFilters>({
@@ -301,7 +312,9 @@ export function SectionsList({ sportType, prefetchedData, batchSections }: Secti
               <Text
                 style={[
                   styles.countText,
-                  { color: hiddenFilters.custom ? colors.textDisabled : colors.primary },
+                  {
+                    color: hiddenFilters.custom ? colors.textDisabled : colors.primary,
+                  },
                   hiddenFilters.custom && styles.countTextHidden,
                 ]}
               >
@@ -327,7 +340,9 @@ export function SectionsList({ sportType, prefetchedData, batchSections }: Secti
               <Text
                 style={[
                   styles.countText,
-                  { color: hiddenFilters.auto ? colors.textDisabled : colors.success },
+                  {
+                    color: hiddenFilters.auto ? colors.textDisabled : colors.success,
+                  },
                   hiddenFilters.auto && styles.countTextHidden,
                 ]}
               >
@@ -352,7 +367,9 @@ export function SectionsList({ sportType, prefetchedData, batchSections }: Secti
               <Text
                 style={[
                   styles.countText,
-                  { color: hiddenFilters.disabled ? colors.primary : colors.warning },
+                  {
+                    color: hiddenFilters.disabled ? colors.primary : colors.warning,
+                  },
                 ]}
               >
                 {hiddenFilters.disabled
@@ -558,7 +575,16 @@ export function SectionsList({ sportType, prefetchedData, batchSections }: Secti
 
   const renderFooter = () => {
     if (regularSections.length === 0) return null;
-    return <DataRangeFooter days={cacheDays} isDark={isDark} />;
+    return (
+      <View>
+        {hasMore && (
+          <View style={styles.loadingMore}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        )}
+        <DataRangeFooter days={cacheDays} isDark={isDark} />
+      </View>
+    );
   };
 
   return (
@@ -573,6 +599,8 @@ export function SectionsList({ sportType, prefetchedData, batchSections }: Secti
       contentContainerStyle={regularSections.length === 0 ? styles.emptyList : styles.list}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      onEndReached={hasMore ? onLoadMore : undefined}
+      onEndReachedThreshold={0.5}
       // Performance optimizations
       removeClippedSubviews={Platform.OS === 'ios'}
       maxToRenderPerBatch={10}
@@ -752,5 +780,9 @@ const styles = StyleSheet.create({
   },
   showAction: {
     backgroundColor: colors.success,
+  },
+  loadingMore: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
   },
 });

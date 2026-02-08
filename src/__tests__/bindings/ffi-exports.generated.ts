@@ -278,7 +278,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'persistent_engine_get_routes_screen_data',
     camelName: 'persistentEngineGetRoutesScreenData',
     file: 'persistence.rs',
-    line: 5480,
+    line: 5518,
   },
   {
     name: 'persistent_engine_start_section_detection',

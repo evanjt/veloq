@@ -137,6 +137,8 @@
     }
   },
   "alerts": {
+    "cacheCleared": "Cache ryddet",
+    "cacheCorruptionMessage": "Det lokale datacache var beskadiget og er blevet ryddet. Dine data vil blive opdateret fra serveren.",
     "clearCacheMessage": "Dette vil rydde alle cachelagrede aktivitetsdata, aktivitetsspor og rutematchningsdata og derefter starte genindlæsning. Dette kan tage et par minutter.",
     "clearCacheTitle": "Ryd og genindlæs cache",
     "clearReload": "Ryd og genindlæs",
@@ -211,6 +213,7 @@
     "loading": "Indlæser...",
     "loadingMore": "Indlæser flere...",
     "next": "Næste",
+    "ok": "OK",
     "noResults": "Ingen resultater",
     "or": "eller",
     "pullToRefresh": "Træk ned for at opdatere",
@@ -334,6 +337,9 @@
     "fresh": "frisk",
     "highRiskZone": "højrisikozone",
     "learnMore": "Lær mere",
+    "linkFitnessPage": "intervals.icu Fitness-side",
+    "linkTSBManagement": "Managing Training Using TSB (Joe Friel)",
+    "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "loadingData": "Indlæser fitnessdata...",
     "optimalZone": "optimale zone",
     "title": "Fitness og form",
@@ -352,6 +358,14 @@
   "licenses": {
     "footer": "Tryk pa et licensmærke for at se den fulde licenstekst. Tryk pa linkikonet for at besøge projektets repository.",
     "intro": "Veloq er bygget med open source-software. Denne skærm viser tredjepartsbiblioteker og deres licenser.",
+    "sectionCoreFramework": "Kernerammeværk",
+    "sectionMapData": "Kortdata",
+    "sectionMapsGraphics": "Kort og grafik",
+    "sectionNativeEngine": "Nativ motor (tracematch)",
+    "sectionNetworkingUtilities": "Netværk og værktøjer",
+    "sectionSpecialLicenses": "Særlige licenser",
+    "sectionStateManagement": "Tilstandshåndtering",
+    "sectionUIComponents": "UI-komponenter",
     "title": "Tredjepartslicenser"
   },
   "login": {
@@ -420,6 +434,7 @@
     "goToLocation": "Gå til min placering",
     "hideActivities": "Skjul aktiviteter",
     "hideRoutes": "Skjul ruter",
+    "hideSections": "Skjul sektioner",
     "loadingRoute": "Indlæser rute...",
     "notSynced": "Ikke synkroniseret",
     "rangePercent": "{{start}}% - {{end}}%",
@@ -427,13 +442,18 @@
     "sectionSelected": "Sektion valgt",
     "selected": "Valgt",
     "showActivities": "Vis aktiviteter",
+    "showMyLocation": "Vis min placering",
+    "showMyLocationHint": "Animerer kortet til din aktuelle GPS-position",
     "showRoutes": "Vis ruter",
+    "showSections": "Vis sektioner",
     "startPercent": "Start: {{percent}}%",
     "syncingActivities": "Synkroniserer {{completed}}/{{total}} aktiviteter",
     "tapSelectEnd": "Tryk for at vælge slutpunkt",
     "tapSelectStart": "Tryk for at vælge startpunkt",
     "toggleStyle": "Skift kortstil",
     "viewDetails": "Vis detaljer",
+    "viewRouteDetails": "Vis rutedetaljer",
+    "viewSectionDetails": "Vis sektionsdetaljer",
     "zoomToActivity": "Zoom til aktivitet"
   },
   "metrics": {
@@ -577,6 +597,7 @@
   },
   "sections": {
     "activities": "Aktiviteter",
+    "activitiesCount": "{{count}} aktiviteter",
     "avg": "Gns",
     "averagePace": "Gns. tempo",
     "averageTime": "Gennemsnitstid",
@@ -601,6 +622,7 @@
     "performanceOverTime": "Præstation over tid",
     "reverse": "Omvendt",
     "routesCount": "ruter",
+    "routesCountLabel": "{{count}} ruter",
     "same": "Samme",
     "scrubHint": "Hold for at skrubbe gennem aktiviteter",
     "scrubHintScrollable": "Stryg for at rulle • Hold for at skrubbe",
@@ -608,13 +630,15 @@
     "sectionNotFound": "Sektion ikke fundet",
     "totalTraversals": "Samlede gennemkørsler",
     "traversals": "gennemkørsler",
+    "traversalsCount": "{{count}} gennemkørsler",
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Brug denne aktivitet som reference?\n\nSektionen vil blive matchet igen mod alle dine aktiviteter. Dette kan tilføje eller fjerne aktiviteter fra denne sektion.",
     "setReferenceError": "Kunne ikke angive reference. Afsnittet eller aktiviteten kan have ændret sig. Prøv igen.",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Nulstil til automatisk referencevalg?\n\nSektionen vil blive matchet igen mod alle dine aktiviteter. Dette kan tilføje eller fjerne aktiviteter fra denne sektion.",
-    "referenceUpdated": "Reference activity updated"
+    "referenceUpdated": "Reference activity updated",
+    "visitsCount": "{{count}} besøg"
   },
   "settings": {
     "account": "Konto",
@@ -781,6 +805,7 @@
     "days42": "42 dage",
     "decoupling": "Aerob effektivitet",
     "eFTPTrend": "eFTP-trend",
+    "ftpLabel": "FTP {{value}}w",
     "garminNote": "Grafer kan indeholde data fra Garmin-enheder",
     "heartRate": "Puls",
     "lactateThreshold": "Laktatterskel",
@@ -800,6 +825,7 @@
   },
   "time": {
     "current": "Nuværende",
+    "dayAbbrev": "{{count}}d",
     "days": "Days",
     "daysAgo": "{{count}} dage siden",
     "daysCount": "{{count}} days",

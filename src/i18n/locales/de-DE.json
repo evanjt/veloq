@@ -137,6 +137,8 @@
     }
   },
   "alerts": {
+    "cacheCleared": "Cache geleert",
+    "cacheCorruptionMessage": "Der lokale Datencache war beschädigt und wurde geleert. Ihre Daten werden vom Server aktualisiert.",
     "clearCacheMessage": "Dies löscht alle zwischengespeicherten Aktivitätsdaten, Aktivitätsspuren und Routenabgleich-Daten und startet das Neuladen. Dies kann einige Minuten dauern.",
     "clearCacheTitle": "Cache löschen & neu laden",
     "clearReload": "Löschen & neu laden",
@@ -212,6 +214,7 @@
     "loadingMore": "Mehr laden...",
     "next": "Weiter",
     "noResults": "Keine Ergebnisse",
+    "ok": "OK",
     "or": "oder",
     "pullToRefresh": "Zum Aktualisieren ziehen",
     "reset": "Zurücksetzen",
@@ -334,6 +337,9 @@
     "fresh": "erholt",
     "highRiskZone": "Hochrisikozone",
     "learnMore": "Mehr erfahren",
+    "linkFitnessPage": "intervals.icu Fitness-Seite",
+    "linkTSBManagement": "Managing Training Using TSB (Joe Friel)",
+    "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "loadingData": "Lade Fitnessdaten...",
     "optimalZone": "optimalen Zone",
     "title": "Fitness & Form",
@@ -352,6 +358,14 @@
   "licenses": {
     "footer": "Tippe auf ein Lizenz-Badge um den vollständigen Lizenztext anzuzeigen. Tippe auf das Link-Symbol um das Projekt-Repository zu besuchen.",
     "intro": "Veloq basiert auf Open-Source-Software. Dieser Bildschirm listet die verwendeten Drittanbieter-Bibliotheken und deren Lizenzen auf.",
+    "sectionCoreFramework": "Kern-Framework",
+    "sectionMapData": "Kartendaten",
+    "sectionMapsGraphics": "Karten & Grafik",
+    "sectionNativeEngine": "Native Engine (tracematch)",
+    "sectionNetworkingUtilities": "Netzwerk & Hilfsprogramme",
+    "sectionSpecialLicenses": "Spezielle Lizenzen",
+    "sectionStateManagement": "Zustandsverwaltung",
+    "sectionUIComponents": "UI-Komponenten",
     "title": "Drittanbieter-Lizenzen"
   },
   "login": {
@@ -420,6 +434,7 @@
     "goToLocation": "Zu meinem Standort",
     "hideActivities": "Aktivitäten ausblenden",
     "hideRoutes": "Routen ausblenden",
+    "hideSections": "Abschnitte ausblenden",
     "loadingRoute": "Lade Route...",
     "notSynced": "Nicht synchronisiert",
     "rangePercent": "{{start}}% - {{end}}%",
@@ -427,13 +442,18 @@
     "sectionSelected": "Abschnitt ausgewählt",
     "selected": "Ausgewählt",
     "showActivities": "Aktivitäten anzeigen",
+    "showMyLocation": "Meinen Standort anzeigen",
+    "showMyLocationHint": "Animiert die Karte zu Ihrer aktuellen GPS-Position",
     "showRoutes": "Routen anzeigen",
+    "showSections": "Abschnitte einblenden",
     "startPercent": "Start: {{percent}}%",
     "syncingActivities": "Synchronisiere {{completed}}/{{total}} Aktivitäten",
     "tapSelectEnd": "Tippen, um Endpunkt zu wählen",
     "tapSelectStart": "Tippen, um Startpunkt zu wählen",
     "toggleStyle": "Kartenstil wechseln",
     "viewDetails": "Details anzeigen",
+    "viewRouteDetails": "Routendetails anzeigen",
+    "viewSectionDetails": "Abschnittsdetails anzeigen",
     "zoomToActivity": "Auf Aktivität zoomen"
   },
   "metrics": {
@@ -577,6 +597,7 @@
   },
   "sections": {
     "activities": "Aktivitäten",
+    "activitiesCount": "{{count}} Aktivitäten",
     "avg": "Ø",
     "averagePace": "Durchschnittstempo",
     "averageTime": "Durchschnittszeit",
@@ -601,6 +622,7 @@
     "performanceOverTime": "Leistung über Zeit",
     "reverse": "Umgekehrt",
     "routesCount": "Routen",
+    "routesCountLabel": "{{count}} Routen",
     "same": "Gleich",
     "scrubHint": "Halten zum Durchblättern der Aktivitäten",
     "scrubHintScrollable": "Wischen zum Scrollen • Halten zum Durchblättern",
@@ -608,13 +630,15 @@
     "sectionNotFound": "Abschnitt nicht gefunden",
     "totalTraversals": "Gesamte Durchquerungen",
     "traversals": "Durchfahrten",
+    "traversalsCount": "{{count}} Durchfahrten",
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Diese Aktivität als Referenz verwenden?\n\nDer Abschnitt wird erneut mit all deinen Aktivitäten abgeglichen. Dabei können Aktivitäten hinzugefügt oder entfernt werden.",
     "setReferenceError": "Referenz konnte nicht gesetzt werden. Der Abschnitt oder die Aktivität hat sich möglicherweise geändert. Bitte versuchen Sie es erneut.",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Auf automatische Referenzauswahl zurücksetzen?\n\nDer Abschnitt wird erneut mit all deinen Aktivitäten abgeglichen. Dabei können Aktivitäten hinzugefügt oder entfernt werden.",
-    "referenceUpdated": "Reference activity updated"
+    "referenceUpdated": "Reference activity updated",
+    "visitsCount": "{{count}} Besuche"
   },
   "settings": {
     "account": "Konto",
@@ -781,6 +805,7 @@
     "days42": "42 Tage",
     "decoupling": "Aerobe Effizienz",
     "eFTPTrend": "eFTP-Trend",
+    "ftpLabel": "FTP {{value}}w",
     "garminNote": "Diagramme können Daten von Garmin-Geräten enthalten",
     "heartRate": "Herzfrequenz",
     "lactateThreshold": "Laktatschwelle",
@@ -800,6 +825,7 @@
   },
   "time": {
     "current": "Aktuell",
+    "dayAbbrev": "{{count}}T",
     "days": "Tage",
     "daysAgo": "vor {{count}} Tagen",
     "daysCount": "{{count}} days",

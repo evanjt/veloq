@@ -67,7 +67,7 @@ function extractGeneratedImports(): Set<string> {
  */
 function hasWildcardReexport(): boolean {
   const content = fs.readFileSync(VELOQRS_INDEX_PATH, 'utf-8');
-  return content.includes("export * from './generated/veloqrs'");
+  return /export \* from ['"]\.\/generated\/veloqrs['"]/.test(content);
 }
 
 /**

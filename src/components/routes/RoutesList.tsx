@@ -14,6 +14,7 @@ import {
   RefreshControl,
   LayoutAnimation,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useTheme, useRouteProcessing, useCacheDays } from '@/hooks';
 import type { GroupWithPolyline } from 'veloqrs';
@@ -39,6 +40,10 @@ interface RoutesListProps {
   endDate?: Date;
   /** Pre-loaded groups with consensus polylines from batch FFI call */
   batchGroups: GroupWithPolyline[];
+  /** Callback to load more groups (pagination) */
+  onLoadMore?: () => void;
+  /** Whether more groups are available to load */
+  hasMore?: boolean;
 }
 
 // Memoized routes list - only updates when route count changes
@@ -113,7 +118,10 @@ function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteG
   // Convert flat coords [lat1, lng1, lat2, lng2, ...] to RoutePoint[]
   const consensusPoints: Array<{ lat: number; lng: number }> = [];
   for (let i = 0; i < group.consensusPolyline.length - 1; i += 2) {
-    consensusPoints.push({ lat: group.consensusPolyline[i], lng: group.consensusPolyline[i + 1] });
+    consensusPoints.push({
+      lat: group.consensusPolyline[i],
+      lng: group.consensusPolyline[i + 1],
+    });
   }
   return {
     id: group.groupId,
@@ -123,6 +131,7 @@ function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteG
     activityIds: [],
     signature: null,
     consensusPoints,
+    distance: group.distanceMeters > 0 ? group.distanceMeters : undefined,
   };
 }
 
@@ -132,6 +141,8 @@ export function RoutesList({
   startDate,
   endDate,
   batchGroups,
+  onLoadMore,
+  hasMore = false,
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -293,7 +304,16 @@ export function RoutesList({
 
   const renderFooter = () => {
     if (groups.length === 0) return null;
-    return <DataRangeFooter days={cacheDays} isDark={isDark} />;
+    return (
+      <View>
+        {hasMore && (
+          <View style={styles.loadingMore}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        )}
+        <DataRangeFooter days={cacheDays} isDark={isDark} />
+      </View>
+    );
   };
 
   return (
@@ -307,6 +327,8 @@ export function RoutesList({
       ListFooterComponent={renderFooter}
       contentContainerStyle={groups.length === 0 ? styles.emptyList : styles.list}
       showsVerticalScrollIndicator={false}
+      onEndReached={hasMore ? onLoadMore : undefined}
+      onEndReachedThreshold={0.5}
       // Performance optimizations
       removeClippedSubviews={Platform.OS === 'ios'}
       maxToRenderPerBatch={10}
@@ -415,5 +437,9 @@ const styles = StyleSheet.create({
   },
   infoTextDark: {
     color: darkColors.textSecondary,
+  },
+  loadingMore: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
   },
 });

@@ -372,15 +372,12 @@ export const SectionRow = memo(function SectionRow({
           <Text style={[styles.metaText, isDark && styles.textMuted]}>
             {formatDistance(section.distanceMeters, isMetric)}
           </Text>
-          <Text style={[styles.metaText, isDark && styles.textMuted]}>
-            {section.visitCount}× {t('sections.traversals')}
-          </Text>
         </View>
       </View>
 
-      {/* Activity count badge */}
+      {/* Visit count badge */}
       <View style={styles.countBadge}>
-        <Text style={styles.countText}>{section.activityCount}</Text>
+        <Text style={styles.countText}>{section.visitCount}</Text>
         <MaterialCommunityIcons name="chevron-right" size={16} color="#FFFFFF" />
       </View>
     </TouchableOpacity>

@@ -309,7 +309,7 @@ const ActivityRow = memo(function ActivityRow({
           </Text>
           {showLapCount && (
             <Text style={[styles.traversalCount, isDark && styles.textMuted]}>
-              · {lapCount} traversals
+              · {t('sections.traversalsCount', { count: lapCount })}
             </Text>
           )}
         </View>

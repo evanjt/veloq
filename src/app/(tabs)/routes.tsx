@@ -40,7 +40,13 @@ export default function RoutesScreen() {
   const { clearCache: clearRouteCache } = useRouteProcessing();
 
   // Single FFI call for all routes screen data (groups, sections, counts)
-  const routesData = useRoutesScreenData();
+  const {
+    data: routesData,
+    loadMoreGroups,
+    loadMoreSections,
+    hasMoreGroups,
+    hasMoreSections,
+  } = useRoutesScreenData({ groupLimit: 20, sectionLimit: 20 });
 
   // Derive counts from batch data
   const routeGroupCount = routesData?.groupCount ?? 0;
@@ -162,7 +168,11 @@ export default function RoutesScreen() {
     const count = routesData?.activityCount ?? 0;
 
     if (count === 0) {
-      return { oldestSyncedDate: null, newestSyncedDate: null, activityCount: 0 };
+      return {
+        oldestSyncedDate: null,
+        newestSyncedDate: null,
+        activityCount: 0,
+      };
     }
 
     return {
@@ -268,7 +278,7 @@ export default function RoutesScreen() {
         oldestDate={oldestSyncedDate}
         newestDate={newestSyncedDate}
         isDark={isDark}
-        isLoading={isSyncing}
+        isLoading={!routesData}
         syncMessage={timelineSyncProgress?.message || null}
       />
 
@@ -284,8 +294,14 @@ export default function RoutesScreen() {
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
           batchGroups={routesData?.groups ?? []}
+          onLoadMore={loadMoreGroups}
+          hasMore={hasMoreGroups}
         />
-        <SectionsList batchSections={routesData?.sections} />
+        <SectionsList
+          batchSections={routesData?.sections}
+          onLoadMore={loadMoreSections}
+          hasMore={hasMoreSections}
+        />
       </SwipeableTabs>
     </ScreenSafeAreaView>
   );

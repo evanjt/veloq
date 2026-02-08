@@ -743,7 +743,7 @@ export default function ActivityDetailScreen() {
     const s = Math.floor(absDelta % 60);
     const timeStr = m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${s}s`;
     if (delta <= 0) {
-      return { text: delta === 0 ? 'PR' : `-${timeStr}`, isAhead: true };
+      return { text: delta === 0 ? t('routes.pr') : `-${timeStr}`, isAhead: true };
     }
     return { text: `+${timeStr}`, isAhead: false };
   };

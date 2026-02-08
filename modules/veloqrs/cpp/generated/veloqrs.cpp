@@ -224,7 +224,8 @@ RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_route_performances(
     RustBuffer route_group_id, RustBuffer current_activity_id,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_routes_screen_data(
-    RustCallStatus *uniffi_out_err);
+    uint32_t group_limit, uint32_t group_offset, uint32_t section_limit,
+    uint32_t section_offset, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_section_by_id(
     RustBuffer section_id, RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_func_persistent_engine_get_section_count(
@@ -2802,7 +2803,7 @@ NativeVeloqrs::NativeVeloqrs(
       rt,
       jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_func_persistent_"
                                     "engine_get_routes_screen_data"),
-      0,
+      4,
       [this](jsi::Runtime &rt, const jsi::Value &thisVal,
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
@@ -4908,8 +4909,12 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value =
-      uniffi_veloqrs_fn_func_persistent_engine_get_routes_screen_data(&status);
+  auto value = uniffi_veloqrs_fn_func_persistent_engine_get_routes_screen_data(
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[3]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 

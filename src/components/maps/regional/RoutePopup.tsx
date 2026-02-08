@@ -52,13 +52,15 @@ export const RoutePopup = memo(function RoutePopup({
           <Text style={styles.popupTitle} numberOfLines={1}>
             {displayName}
           </Text>
-          <Text style={styles.popupDate}>{route.activityCount} activities</Text>
+          <Text style={styles.popupDate}>
+            {t('sections.activitiesCount', { count: route.activityCount })}
+          </Text>
         </View>
         <TouchableOpacity
           testID="route-popup-close"
           onPress={onClose}
           style={styles.popupIconButton}
-          accessibilityLabel="Close route popup"
+          accessibilityLabel={t('maps.closeRoutePopup')}
           accessibilityRole="button"
         >
           <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
@@ -87,7 +89,7 @@ export const RoutePopup = memo(function RoutePopup({
           testID="route-popup-view-details"
           onPress={onViewDetails}
           style={styles.viewDetailsButton}
-          accessibilityLabel="View route details"
+          accessibilityLabel={t('maps.viewRouteDetails')}
           accessibilityRole="button"
         >
           <Text style={styles.viewDetailsText}>{t('maps.viewDetails')}</Text>

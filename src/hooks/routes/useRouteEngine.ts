@@ -49,7 +49,7 @@ type EngineEvent = 'activities' | 'groups' | 'sections';
  * Hook to subscribe to engine events and trigger re-renders.
  * Returns a trigger value that changes when any subscribed event fires.
  */
-function useEngineSubscription(events: EngineEvent[]): number {
+export function useEngineSubscription(events: EngineEvent[]): number {
   const [trigger, setTrigger] = useState(0);
 
   useEffect(() => {

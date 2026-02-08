@@ -171,6 +171,7 @@ export interface TranslationResource {
     confirm: string;
     back: string;
     next: string;
+    ok: string;
     done: string;
     search: string;
     clearSearch: string;
@@ -363,6 +364,8 @@ export interface TranslationResource {
   };
 
   alerts: {
+    cacheCleared: string;
+    cacheCorruptionMessage: string;
     error: string;
     clearCacheTitle: string;
     clearCacheMessage: string;
@@ -499,6 +502,7 @@ export interface TranslationResource {
   };
 
   time: {
+    dayAbbrev: string;
     today: string;
     yesterday: string;
     daysAgo: string;
@@ -550,6 +554,9 @@ export interface TranslationResource {
     highRiskZone: string;
     toPreventOvertraining: string;
     learnMore: string;
+    linkFitnessPage: string;
+    linkTSBManagement: string;
+    linkTrainingLoad: string;
   };
 
   wellnessScreen: {
@@ -608,6 +615,7 @@ export interface TranslationResource {
     swimPaceCurve: string;
     trainingZones: string;
     eFTPTrend: string;
+    ftpLabel: string;
     decoupling: string;
   };
 
@@ -615,6 +623,14 @@ export interface TranslationResource {
     title: string;
     intro: string;
     footer: string;
+    sectionCoreFramework: string;
+    sectionMapData: string;
+    sectionMapsGraphics: string;
+    sectionNativeEngine: string;
+    sectionNetworkingUtilities: string;
+    sectionSpecialLicenses: string;
+    sectionStateManagement: string;
+    sectionUIComponents: string;
   };
 
   mapScreen: {
@@ -706,6 +722,7 @@ export interface TranslationResource {
   };
 
   sections: {
+    activitiesCount: string;
     performanceOverTime: string;
     best: string;
     current: string;
@@ -719,6 +736,7 @@ export interface TranslationResource {
     sectionNotFound: string;
     traversals: string;
     routesCount: string;
+    routesCountLabel: string;
     activities: string;
     noActivitiesFound: string;
     sectionNamePlaceholder: string;
@@ -744,6 +762,8 @@ export interface TranslationResource {
     resetReference: string;
     resetReferenceConfirm: string;
     referenceUpdated: string;
+    traversalsCount: string;
+    visitsCount: string;
   };
 
   errorState: {
@@ -974,8 +994,12 @@ export interface TranslationResource {
     fitAll: string;
     zoomToActivity: string;
     closePopup: string;
+    closeRoutePopup: string;
+    closeSectionPopup: string;
     loadingRoute: string;
     viewDetails: string;
+    viewRouteDetails: string;
+    viewSectionDetails: string;
     allClear: string;
     clear: string;
     syncingActivities: string;
@@ -983,8 +1007,14 @@ export interface TranslationResource {
     selected: string;
     cached: string;
     notSynced: string;
+    showActivities: string;
+    showMyLocation: string;
+    showMyLocationHint: string;
     showRoutes: string;
+    showSections: string;
+    hideActivities: string;
     hideRoutes: string;
+    hideSections: string;
     activityTypes: {
       gym: string;
       hike: string;

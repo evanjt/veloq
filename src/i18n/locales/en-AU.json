@@ -137,6 +137,8 @@
     }
   },
   "alerts": {
+    "cacheCleared": "Cache Cleared",
+    "cacheCorruptionMessage": "Local data cache was corrupted and has been cleared. Your data will be refreshed from the server.",
     "clearCacheMessage": "This'll clear all your cached data, tracks, and route matching stuff, then reload. Might take a few minutes.",
     "clearCacheTitle": "Chuck it all & Reload",
     "clearReload": "Chuck it & Reload",
@@ -212,6 +214,7 @@
     "loadingMore": "Grabbing more...",
     "next": "Onwards",
     "noResults": "Nothing doing",
+    "ok": "OK",
     "or": "or",
     "pullToRefresh": "Give it a tug",
     "reset": "Start fresh",
@@ -322,6 +325,9 @@
     "fresh": "firing",
     "highRiskZone": "danger zone",
     "learnMore": "Suss it out",
+    "linkFitnessPage": "intervals.icu Fitness Page",
+    "linkTSBManagement": "Managing Training Using TSB (Joe Friel)",
+    "linkTrainingLoad": "Monitoring Training Load (Science2Sport)",
     "loadingData": "Grabbing fitness data...",
     "optimalZone": "sweet spot",
     "title": "Fitness & Form",
@@ -340,6 +346,14 @@
   "licenses": {
     "footer": "Tap any licence badge to suss out the full licence text. Tap the link icon to check out the project repo.",
     "intro": "Veloq is built with open-source software. This screen lists the third-party libraries and their licences.",
+    "sectionCoreFramework": "Core Framework",
+    "sectionMapData": "Map Data",
+    "sectionMapsGraphics": "Maps & Graphics",
+    "sectionNativeEngine": "Native Engine (tracematch)",
+    "sectionNetworkingUtilities": "Networking & Utilities",
+    "sectionSpecialLicenses": "Special Licenses",
+    "sectionStateManagement": "State Management",
+    "sectionUIComponents": "UI Components",
     "title": "Third-Party Licences"
   },
   "login": {
@@ -408,6 +422,7 @@
     "fitAllHint": "Long press to fit all activities",
     "hideActivities": "Hide activities",
     "hideRoutes": "Hide routes",
+    "hideSections": "Hide sections",
     "loadingRoute": "Grabbing route...",
     "notSynced": "Not synced yet",
     "rangePercent": "{{start}}% - {{end}}%",
@@ -415,13 +430,18 @@
     "sectionSelected": "Section picked",
     "selected": "Picked",
     "showActivities": "Show activities",
+    "showMyLocation": "Show my location",
+    "showMyLocationHint": "Animates map to your current GPS position",
     "showRoutes": "Show routes",
+    "showSections": "Show sections",
     "startPercent": "Start: {{percent}}%",
     "syncingActivities": "Syncing {{completed}}/{{total}} activities",
     "tapSelectEnd": "Tap to pick the end",
     "tapSelectStart": "Tap to pick the start",
     "toggleStyle": "Switch up the map style",
     "viewDetails": "Have a look",
+    "viewRouteDetails": "View route details",
+    "viewSectionDetails": "View section details",
     "zoomToActivity": "Zoom in on that"
   },
   "metrics": {
@@ -565,6 +585,7 @@
   },
   "sections": {
     "activities": "Activities",
+    "activitiesCount": "{{count}} activities",
     "avg": "Avg",
     "averagePace": "Average Pace",
     "averageTime": "Average Time",
@@ -589,6 +610,7 @@
     "performanceOverTime": "How you're tracking",
     "reverse": "Other way",
     "routesCount": "routes",
+    "routesCountLabel": "{{count}} routes",
     "same": "Same way",
     "scrubHint": "Hold to flick through activities",
     "scrubHintScrollable": "Swipe to scroll • Hold to flick through",
@@ -596,13 +618,16 @@
     "sectionNotFound": "Can't find that section",
     "totalTraversals": "Total Traversals",
     "traversals": "times through",
+    "traversalsCount": "{{count}} traversals",
     "reference": "Reference",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Use this activity as the reference?\n\nThe section will be re-matched against all your activities. This may add or remove activities from this section.",
     "setReferenceError": "Failed to set reference. The section or activity may have changed. Please try again.",
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Reset to automatic reference selection?\n\nThe section will be re-matched against all your activities. This may add or remove activities from this section.",
-    "referenceUpdated": "Reference activity updated"
+    "referenceUpdated": "Reference activity updated",
+    "visits": "visits",
+    "visitsCount": "{{count}} visits"
   },
   "settings": {
     "account": "Your Account",
@@ -769,6 +794,7 @@
     "days42": "42 days",
     "decoupling": "Aerobic Efficiency",
     "eFTPTrend": "eFTP Trend",
+    "ftpLabel": "FTP {{value}}w",
     "garminNote": "Charts may include data from Garmin devices",
     "heartRate": "Ticker",
     "lactateThreshold": "Lactate Threshold",
@@ -788,6 +814,7 @@
   },
   "time": {
     "current": "Right now",
+    "dayAbbrev": "{{count}}d",
     "days": "Days",
     "daysAgo": "{{count}} days back",
     "daysCount": "{{count}} days",

@@ -4917,7 +4917,14 @@ impl PersistentRouteEngine {
     /// Get all data needed by the Routes screen in a single call.
     /// Returns group summaries with consensus polylines, section summaries with polylines,
     /// and aggregate counts/stats — all in one mutex acquisition.
-    pub fn get_routes_screen_data(&mut self) -> crate::FfiRoutesScreenData {
+    /// Supports pagination via limit/offset for both groups and sections.
+    pub fn get_routes_screen_data(
+        &mut self,
+        group_limit: u32,
+        group_offset: u32,
+        section_limit: u32,
+        section_offset: u32,
+    ) -> crate::FfiRoutesScreenData {
         // Get date range from activity_metrics
         let (oldest_date, newest_date): (Option<i64>, Option<i64>) = self
             .db
@@ -4928,9 +4935,18 @@ impl PersistentRouteEngine {
             )
             .unwrap_or((None, None));
 
-        // Get group summaries with embedded consensus polylines
-        let raw_summaries = self.get_group_summaries();
-        let groups: Vec<crate::FfiGroupWithPolyline> = raw_summaries
+        // Get group summaries, sort by activity_count DESC, apply limit/offset
+        let mut raw_summaries = self.get_group_summaries();
+        raw_summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count));
+        let total_groups = raw_summaries.len();
+        let paged_summaries: Vec<_> = raw_summaries
+            .into_iter()
+            .skip(group_offset as usize)
+            .take(group_limit as usize)
+            .collect();
+        let has_more_groups = total_groups > (group_offset as usize + paged_summaries.len());
+
+        let groups: Vec<crate::FfiGroupWithPolyline> = paged_summaries
             .into_iter()
             .map(|g| {
                 let consensus_polyline = self
@@ -4942,6 +4958,12 @@ impl PersistentRouteEngine {
                             .collect()
                     })
                     .unwrap_or_default();
+                // Look up distance from representative activity's metrics
+                let distance_meters = self
+                    .activity_metrics
+                    .get(&g.representative_id)
+                    .map(|m| m.distance)
+                    .unwrap_or(0.0);
                 crate::FfiGroupWithPolyline {
                     group_id: g.group_id,
                     representative_id: g.representative_id,
@@ -4949,14 +4971,25 @@ impl PersistentRouteEngine {
                     activity_count: g.activity_count,
                     custom_name: g.custom_name,
                     bounds: g.bounds,
+                    distance_meters,
                     consensus_polyline,
                 }
             })
             .collect();
 
-        // Get section summaries with embedded polylines
-        let raw_sections = self.get_section_summaries();
-        let sections: Vec<crate::FfiSectionWithPolyline> = raw_sections
+        // Get section summaries, sort by visit_count DESC, apply limit/offset
+        let mut raw_sections = self.get_section_summaries();
+        raw_sections.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
+        let total_sections = raw_sections.len();
+        let paged_sections: Vec<_> = raw_sections
+            .into_iter()
+            .skip(section_offset as usize)
+            .take(section_limit as usize)
+            .collect();
+        let has_more_sections =
+            total_sections > (section_offset as usize + paged_sections.len());
+
+        let sections: Vec<crate::FfiSectionWithPolyline> = paged_sections
             .into_iter()
             .map(|s| {
                 let polyline = self.get_section_polyline(&s.id);
@@ -4976,17 +5009,17 @@ impl PersistentRouteEngine {
             .collect();
 
         let activity_count = self.activity_metadata.len() as u32;
-        let group_count = groups.len() as u32;
-        let section_count = sections.len() as u32;
 
         crate::FfiRoutesScreenData {
             activity_count,
-            group_count,
-            section_count,
+            group_count: total_groups as u32,
+            section_count: total_sections as u32,
             oldest_date,
             newest_date,
             groups,
             sections,
+            has_more_groups,
+            has_more_sections,
         }
     }
 }
@@ -5480,9 +5513,17 @@ pub mod persistent_engine_ffi {
     }
 
     /// Get all data for the Routes screen in a single FFI call.
+    /// Supports pagination via limit/offset for groups and sections.
     #[uniffi::export]
-    pub fn persistent_engine_get_routes_screen_data() -> Option<crate::FfiRoutesScreenData> {
-        with_persistent_engine(|e| e.get_routes_screen_data())
+    pub fn persistent_engine_get_routes_screen_data(
+        group_limit: u32,
+        group_offset: u32,
+        section_limit: u32,
+        section_offset: u32,
+    ) -> Option<crate::FfiRoutesScreenData> {
+        with_persistent_engine(|e| {
+            e.get_routes_screen_data(group_limit, group_offset, section_limit, section_offset)
+        })
     }
 
     // ========================================================================

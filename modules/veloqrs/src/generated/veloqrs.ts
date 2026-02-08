@@ -1039,14 +1039,22 @@ export function persistentEngineGetRoutePerformances(
 }
 /**
  * Get all data for the Routes screen in a single FFI call.
+ * Supports pagination via limit/offset for groups and sections.
  */
-export function persistentEngineGetRoutesScreenData():
-  | FfiRoutesScreenData
-  | undefined {
+export function persistentEngineGetRoutesScreenData(
+  groupLimit: /*u32*/ number,
+  groupOffset: /*u32*/ number,
+  sectionLimit: /*u32*/ number,
+  sectionOffset: /*u32*/ number,
+): FfiRoutesScreenData | undefined {
   return FfiConverterOptionalTypeFfiRoutesScreenData.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_routes_screen_data(
+          FfiConverterUInt32.lower(groupLimit),
+          FfiConverterUInt32.lower(groupOffset),
+          FfiConverterUInt32.lower(sectionLimit),
+          FfiConverterUInt32.lower(sectionOffset),
           callStatus,
         );
       },
@@ -2925,6 +2933,10 @@ export type FfiGroupWithPolyline = {
   customName: string | undefined;
   bounds: FfiBounds | undefined;
   /**
+   * Distance in meters (from representative activity's metrics)
+   */
+  distanceMeters: /*f64*/ number;
+  /**
    * Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
    */
   consensusPolyline: Array</*f64*/ number>;
@@ -2972,6 +2984,7 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
         activityCount: FfiConverterUInt32.read(from),
         customName: FfiConverterOptionalString.read(from),
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
+        distanceMeters: FfiConverterFloat64.read(from),
         consensusPolyline: FfiConverterArrayFloat64.read(from),
       };
     }
@@ -2982,6 +2995,7 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
       FfiConverterUInt32.write(value.activityCount, into);
       FfiConverterOptionalString.write(value.customName, into);
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
+      FfiConverterFloat64.write(value.distanceMeters, into);
       FfiConverterArrayFloat64.write(value.consensusPolyline, into);
     }
     allocationSize(value: TypeName): number {
@@ -2992,6 +3006,7 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
         FfiConverterUInt32.allocationSize(value.activityCount) +
         FfiConverterOptionalString.allocationSize(value.customName) +
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
         FfiConverterArrayFloat64.allocationSize(value.consensusPolyline)
       );
     }
@@ -3801,6 +3816,7 @@ const FfiConverterTypeFfiRouteSignature = (() => {
 
 /**
  * All data needed by the Routes screen in a single FFI call.
+ * Supports pagination via limit/offset for groups and sections.
  */
 export type FfiRoutesScreenData = {
   activityCount: /*u32*/ number;
@@ -3810,6 +3826,14 @@ export type FfiRoutesScreenData = {
   newestDate: /*i64*/ bigint | undefined;
   groups: Array<FfiGroupWithPolyline>;
   sections: Array<FfiSectionWithPolyline>;
+  /**
+   * Whether more groups are available beyond the current page
+   */
+  hasMoreGroups: boolean;
+  /**
+   * Whether more sections are available beyond the current page
+   */
+  hasMoreSections: boolean;
 };
 
 /**
@@ -3854,6 +3878,8 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
         newestDate: FfiConverterOptionalInt64.read(from),
         groups: FfiConverterArrayTypeFfiGroupWithPolyline.read(from),
         sections: FfiConverterArrayTypeFfiSectionWithPolyline.read(from),
+        hasMoreGroups: FfiConverterBool.read(from),
+        hasMoreSections: FfiConverterBool.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -3864,6 +3890,8 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
       FfiConverterOptionalInt64.write(value.newestDate, into);
       FfiConverterArrayTypeFfiGroupWithPolyline.write(value.groups, into);
       FfiConverterArrayTypeFfiSectionWithPolyline.write(value.sections, into);
+      FfiConverterBool.write(value.hasMoreGroups, into);
+      FfiConverterBool.write(value.hasMoreSections, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3875,7 +3903,9 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
         FfiConverterArrayTypeFfiGroupWithPolyline.allocationSize(value.groups) +
         FfiConverterArrayTypeFfiSectionWithPolyline.allocationSize(
           value.sections,
-        )
+        ) +
+        FfiConverterBool.allocationSize(value.hasMoreGroups) +
+        FfiConverterBool.allocationSize(value.hasMoreSections)
       );
     }
   }
@@ -5831,7 +5861,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_routes_screen_data() !==
-    5195
+    32474
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_persistent_engine_get_routes_screen_data",

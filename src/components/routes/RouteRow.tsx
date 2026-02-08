@@ -207,8 +207,7 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
   };
 
   // Get distance from either type
-  // Note: RouteGroup no longer has signature.distance since we lazy-load consensus
-  const distance = isRouteGroup(route) ? undefined : route.distance;
+  const distance = isRouteGroup(route) ? route.distance : route.distance;
 
   // Get match percentage (only available on DiscoveredRouteInfo)
   const avgMatchPercentage = isRouteGroup(route)

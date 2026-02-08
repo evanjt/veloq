@@ -148,6 +148,8 @@ export interface RouteGroup {
   lastDate?: string;
   /** Activity type (Ride, Run, etc.) */
   type: ActivityType;
+  /** Distance in meters (from representative activity) */
+  distance?: number;
   /** Average match quality for grouped activities (0-100) - optional for engine groups */
   averageMatchQuality?: number;
   /** Best moving time in seconds (fastest completion) */

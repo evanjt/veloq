@@ -1150,11 +1150,11 @@ export function UnifiedPerformanceChart({
                   <Text style={[styles.headerStatText, isDark && styles.headerStatTextDark]}>
                     {showPace
                       ? sectionDistance > 0
-                        ? `${formatPace(sectionDistance / forwardStats.avgTime)} avg`
+                        ? `${formatPace(sectionDistance / forwardStats.avgTime)} ${t('sections.avg')}`
                         : forwardStats.avgSpeed
-                          ? `${formatPace(forwardStats.avgSpeed)} avg`
-                          : `${formatDuration(forwardStats.avgTime)} avg`
-                      : `${formatDuration(forwardStats.avgTime)} avg`}
+                          ? `${formatPace(forwardStats.avgSpeed)} ${t('sections.avg')}`
+                          : `${formatDuration(forwardStats.avgTime)} ${t('sections.avg')}`
+                      : `${formatDuration(forwardStats.avgTime)} ${t('sections.avg')}`}
                   </Text>
                 )}
               </View>
@@ -1249,11 +1249,11 @@ export function UnifiedPerformanceChart({
                   <Text style={[styles.headerStatText, isDark && styles.headerStatTextDark]}>
                     {showPace
                       ? sectionDistance > 0
-                        ? `${formatPace(sectionDistance / reverseStats.avgTime)} avg`
+                        ? `${formatPace(sectionDistance / reverseStats.avgTime)} ${t('sections.avg')}`
                         : reverseStats.avgSpeed
-                          ? `${formatPace(reverseStats.avgSpeed)} avg`
-                          : `${formatDuration(reverseStats.avgTime)} avg`
-                      : `${formatDuration(reverseStats.avgTime)} avg`}
+                          ? `${formatPace(reverseStats.avgSpeed)} ${t('sections.avg')}`
+                          : `${formatDuration(reverseStats.avgTime)} ${t('sections.avg')}`
+                      : `${formatDuration(reverseStats.avgTime)} ${t('sections.avg')}`}
                   </Text>
                 )}
               </View>
@@ -1375,7 +1375,7 @@ export function UnifiedPerformanceChart({
                       isDark && styles.gapMarkerExpandedTextDark,
                     ]}
                   >
-                    {gap.gapDays}d
+                    {t('time.dayAbbrev', { count: gap.gapDays })}
                   </Text>
                   <MaterialCommunityIcons
                     name="arrow-collapse-horizontal"
@@ -1404,7 +1404,7 @@ export function UnifiedPerformanceChart({
                     color={isDark ? darkColors.textMuted : colors.textMuted}
                   />
                   <Text style={[styles.gapMarkerText, isDark && styles.gapMarkerTextDark]}>
-                    {gap.gapDays}d
+                    {t('time.dayAbbrev', { count: gap.gapDays })}
                   </Text>
                 </Pressable>
               );

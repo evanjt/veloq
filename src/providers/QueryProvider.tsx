@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Alert, AppState, Platform, type AppStateStatus } from 'react-native';
+import { i18n } from '@/i18n';
 import { QueryClient, focusManager, onlineManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
@@ -103,11 +104,9 @@ export function QueryProvider({ children }: QueryProviderProps) {
             // Reset query client to ensure consistent state
             queryClient.clear();
             // Notify user that cache was cleared
-            Alert.alert(
-              'Cache Cleared',
-              'Local data cache was corrupted and has been cleared. Your data will be refreshed from the server.',
-              [{ text: 'OK' }]
-            );
+            Alert.alert(i18n.t('alerts.cacheCleared'), i18n.t('alerts.cacheCorruptionMessage'), [
+              { text: i18n.t('common.ok') },
+            ]);
           })
           .catch((clearError) => {
             if (__DEV__) {

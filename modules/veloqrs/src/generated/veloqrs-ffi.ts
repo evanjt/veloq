@@ -227,6 +227,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_routes_screen_data(
+    groupLimit: number,
+    groupOffset: number,
+    sectionLimit: number,
+    sectionOffset: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_by_id(

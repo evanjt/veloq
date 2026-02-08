@@ -382,7 +382,9 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       {ftpValue && (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: FTP_LINE_COLOR }]} />
-          <Text style={[styles.legendText, isDark && styles.textDark]}>FTP {ftpValue}w</Text>
+          <Text style={[styles.legendText, isDark && styles.textDark]}>
+            {t('statsScreen.ftpLabel', { value: ftpValue })}
+          </Text>
         </View>
       )}
     </View>
