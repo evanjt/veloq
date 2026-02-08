@@ -143,13 +143,13 @@ describe('formatPower', () => {
 
 describe('formatCalories', () => {
   it('shows raw number below 1000, abbreviated above', () => {
-    expect(formatCalories(500)).toBe('500');
-    expect(formatCalories(1500)).toBe('1.5k');
+    expect(formatCalories(500)).toBe('500 cal');
+    expect(formatCalories(1500)).toBe('1.5k cal');
   });
 
   it('handles invalid inputs', () => {
-    expect(formatCalories(NaN)).toBe('0');
-    expect(formatCalories(-100)).toBe('0');
+    expect(formatCalories(NaN)).toBe('0 cal');
+    expect(formatCalories(-100)).toBe('0 cal');
   });
 });
 

@@ -392,18 +392,18 @@ export function formatFullDateWithWeekday(date: Date | string): string {
 }
 
 export function formatTSS(load: number): string {
-  if (!Number.isFinite(load) || load < 0) return '0';
-  return `${Math.round(load)}`;
+  if (!Number.isFinite(load) || load < 0) return '0 TSS';
+  return `${Math.round(load)} TSS`;
 }
 
 export function formatCalories(kcal: number): string {
   if (!Number.isFinite(kcal) || kcal < 0) {
-    return '0';
+    return '0 cal';
   }
   if (kcal >= 1000) {
-    return `${(kcal / 1000).toFixed(1)}k`;
+    return `${(kcal / 1000).toFixed(1)}k cal`;
   }
-  return `${Math.round(kcal)}`;
+  return `${Math.round(kcal)} cal`;
 }
 
 /**

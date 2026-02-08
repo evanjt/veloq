@@ -159,8 +159,8 @@ describe('Data Pipeline', () => {
     expect(formatSpeed(RIDE.average_speed)).toBe('29.9 km/h');
     expect(formatPower(RIDE.average_watts)).toBe('210 W');
     expect(formatHeartRate(RIDE.average_heartrate)).toBe('142 bpm');
-    expect(formatTSS(RIDE.icu_training_load)).toBe('85');
-    expect(formatCalories(RIDE.calories)).toBe('1.2k');
+    expect(formatTSS(RIDE.icu_training_load)).toBe('85 TSS');
+    expect(formatCalories(RIDE.calories)).toBe('1.2k cal');
   });
 
   // Test 2: Ride imperial display values
@@ -418,10 +418,10 @@ describe('Resilience', () => {
   });
 
   // Test 18: formatCalories at compact format boundaries
-  it('formatCalories: 999→"999", 1000→"1.0k", 1500→"1.5k"', () => {
-    expect(formatCalories(999)).toBe('999');
-    expect(formatCalories(1000)).toBe('1.0k');
-    expect(formatCalories(1500)).toBe('1.5k');
+  it('formatCalories: 999→"999 cal", 1000→"1.0k cal", 1500→"1.5k cal"', () => {
+    expect(formatCalories(999)).toBe('999 cal');
+    expect(formatCalories(1000)).toBe('1.0k cal');
+    expect(formatCalories(1500)).toBe('1.5k cal');
   });
 
   // Test 19: formatDuration at hour/minute boundaries
