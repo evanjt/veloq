@@ -457,7 +457,7 @@ function generateBindings(quiet) {
   execSync(
     `npx uniffi-bindgen-react-native generate jsi bindings` +
       ` --ts-dir "${tsDir}" --cpp-dir "${cppDir}" --library "${libPath}"`,
-    { cwd: PROJECT_ROOT, stdio: quiet ? "pipe" : "inherit" }
+    { cwd: RUST_DIR, stdio: quiet ? "pipe" : "inherit" }
   );
 
   if (!quiet) console.log("    Bindings generated successfully");

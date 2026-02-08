@@ -286,12 +286,12 @@ export const FormZoneChart = React.memo(function FormZoneChart({
                 };
               }
               // Sync actual point x-coordinates for accurate crosshair positioning
-              const newCoords = points.form.map((p) => p.x);
+              // Guard before .map() to avoid allocating a temporary array every frame
               if (
-                newCoords.length !== pointXCoordsShared.value.length ||
-                newCoords[0] !== pointXCoordsShared.value[0]
+                points.form.length !== pointXCoordsShared.value.length ||
+                points.form[0]?.x !== pointXCoordsShared.value[0]
               ) {
-                pointXCoordsShared.value = newCoords;
+                pointXCoordsShared.value = points.form.map((p) => p.x);
               }
 
               const chartHeight = chartBounds.bottom - chartBounds.top;

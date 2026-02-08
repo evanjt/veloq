@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, CollapsibleSection } from '@/components/ui';
-import { logScreenRender } from '@/lib/debug/renderTimer';
+import { logScreenRender, logMemory } from '@/lib/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
@@ -84,8 +84,15 @@ export default function FitnessScreen() {
   const [chartInteracting, setChartInteracting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Collapsible section state - performance expanded by default
-  const [performanceExpanded, setPerformanceExpanded] = useState(true);
+  // Defer secondary charts by one frame to reduce simultaneous Metal shader compilation
+  const [chartsReady, setChartsReady] = useState(false);
+  useEffect(() => {
+    logMemory('FitnessScreen:mount');
+    requestAnimationFrame(() => setChartsReady(true));
+  }, []);
+
+  // Collapsible section state - performance collapsed by default to reduce initial render load
+  const [performanceExpanded, setPerformanceExpanded] = useState(false);
   const [zonesExpanded, setZonesExpanded] = useState(false);
   const [trendsExpanded, setTrendsExpanded] = useState(false);
   const [efficiencyExpanded, setEfficiencyExpanded] = useState(false);
@@ -109,6 +116,14 @@ export default function FitnessScreen() {
   }, [timeRange]);
 
   const { data: wellness, isLoading, isFetching, isError, error, refetch } = useWellness(timeRange);
+
+  // Memory profiling for crash investigation
+  useEffect(() => {
+    if (wellness) logMemory('FitnessScreen:wellnessLoaded');
+  }, [wellness]);
+  useEffect(() => {
+    if (chartsReady) logMemory('FitnessScreen:chartsReady');
+  }, [chartsReady]);
   const { isOnline } = useNetwork();
   const { primarySport } = useSportPreference();
 
@@ -428,33 +443,37 @@ export default function FitnessScreen() {
             onInteractionChange={handleInteractionChange}
           />
 
-          {/* Activity dots chart */}
-          <View style={[styles.dotsSection, isDark && styles.dotsSectionDark]}>
-            <ActivityDotsChart
-              data={wellness}
-              activities={activities || []}
-              height={32}
-              selectedDate={selectedDate}
-              sharedSelectedIdx={sharedSelectedIdx}
-              onDateSelect={handleDateSelect}
-              onInteractionChange={handleInteractionChange}
-            />
-          </View>
+          {/* Activity dots chart - deferred to reduce simultaneous shader compilation */}
+          {chartsReady && (
+            <View style={[styles.dotsSection, isDark && styles.dotsSectionDark]}>
+              <ActivityDotsChart
+                data={wellness}
+                activities={activities || []}
+                height={32}
+                selectedDate={selectedDate}
+                sharedSelectedIdx={sharedSelectedIdx}
+                onDateSelect={handleDateSelect}
+                onInteractionChange={handleInteractionChange}
+              />
+            </View>
+          )}
 
-          {/* Form zone chart */}
-          <View style={[styles.formSection, isDark && styles.formSectionDark]}>
-            <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
-              {t('metrics.form')}
-            </Text>
-            <FormZoneChart
-              data={wellness}
-              height={140}
-              selectedDate={selectedDate}
-              sharedSelectedIdx={sharedSelectedIdx}
-              onDateSelect={handleDateSelect}
-              onInteractionChange={handleInteractionChange}
-            />
-          </View>
+          {/* Form zone chart - deferred to reduce simultaneous shader compilation */}
+          {chartsReady && (
+            <View style={[styles.formSection, isDark && styles.formSectionDark]}>
+              <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
+                {t('metrics.form')}
+              </Text>
+              <FormZoneChart
+                data={wellness}
+                height={140}
+                selectedDate={selectedDate}
+                sharedSelectedIdx={sharedSelectedIdx}
+                onDateSelect={handleDateSelect}
+                onInteractionChange={handleInteractionChange}
+              />
+            </View>
+          )}
         </View>
 
         {/* Sport Toggle - compact pill selector */}

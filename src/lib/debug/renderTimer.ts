@@ -148,6 +148,20 @@ export function getRenderCountSummary(): Record<string, number> {
   return Object.fromEntries(renderCounts);
 }
 
+/**
+ * Log Hermes JS heap stats for memory pressure investigation.
+ * Usage: logMemory('FitnessScreen:mount');
+ */
+export function logMemory(label: string): void {
+  if (!PERF_DEBUG) return;
+  const stats = (global as any).HermesInternal?.getInstrumentedStats?.();
+  if (!stats) return;
+  const heapMB = (stats['js_heapSize'] / 1024 / 1024).toFixed(1);
+  const allocMB = (stats['js_totalAllocatedBytes'] / 1024 / 1024).toFixed(1);
+  const gcCount = stats['js_numGCs'];
+  console.log(`🧠 [MEM] ${label}: heap=${heapMB}MB alloc=${allocMB}MB GCs=${gcCount}`);
+}
+
 // ============================================================================
 // FFI Metrics Accumulator
 // ============================================================================

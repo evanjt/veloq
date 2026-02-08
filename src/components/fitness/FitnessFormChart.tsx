@@ -351,12 +351,12 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                     right: chartBounds.right,
                   };
                 }
-                const newCoords = points.fitness.map((p) => p.x);
+                // Guard before .map() to avoid allocating a temporary array every frame
                 if (
-                  newCoords.length !== pointXCoordsShared.value.length ||
-                  newCoords[0] !== pointXCoordsShared.value[0]
+                  points.fitness.length !== pointXCoordsShared.value.length ||
+                  points.fitness[0]?.x !== pointXCoordsShared.value[0]
                 ) {
-                  pointXCoordsShared.value = newCoords;
+                  pointXCoordsShared.value = points.fitness.map((p) => p.x);
                 }
 
                 return (
