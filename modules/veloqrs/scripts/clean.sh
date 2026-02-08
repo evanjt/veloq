@@ -67,4 +67,4 @@ if [ -d "$MODULE_DIR/ios/build" ]; then
   rm -rf "$MODULE_DIR/ios/build"
 fi
 
-echo "✅ Clean complete. Run 'npx expo run:android' or 'npx expo run:ios' to rebuild from scratch."
+echo "✅ Clean complete. Run 'npx expo run:android' or 'npx expo run:ios' to rebuild everything (bindings + binaries)."

@@ -425,6 +425,45 @@ function allPatchesApplied(platform) {
 }
 
 /**
+ * Generate UniFFI bindings (TypeScript + C++) from the Rust library.
+ * Builds Rust for the host platform first to extract UniFFI metadata,
+ * then runs uniffi-bindgen-react-native to produce bindings.
+ */
+function generateBindings(quiet) {
+  if (!quiet) console.log("\n  Generating UniFFI bindings...");
+
+  // Build Rust for host platform (needed by uniffi-bindgen to extract metadata)
+  if (!quiet) console.log("    Building Rust for host platform...");
+  execSync("cargo build --release -p veloqrs", {
+    cwd: RUST_DIR,
+    stdio: quiet ? "pipe" : "inherit",
+  });
+
+  // Detect host library
+  const libExt = process.platform === "darwin" ? "dylib" : "so";
+  const libPath = path.join(RUST_DIR, "target/release", `libveloqrs.${libExt}`);
+
+  if (!existsSync(libPath)) {
+    throw new Error(`Host library not found at ${libPath} — cargo build may have failed`);
+  }
+
+  // Generate TypeScript and C++ bindings
+  const tsDir = path.join(MODULE_DIR, "src/generated");
+  const cppDir = path.join(MODULE_DIR, "cpp/generated");
+  mkdirSync(tsDir, { recursive: true });
+  mkdirSync(cppDir, { recursive: true });
+
+  if (!quiet) console.log("    Running uniffi-bindgen-react-native...");
+  execSync(
+    `npx uniffi-bindgen-react-native generate jsi bindings` +
+      ` --ts-dir "${tsDir}" --cpp-dir "${cppDir}" --library "${libPath}"`,
+    { cwd: PROJECT_ROOT, stdio: quiet ? "pipe" : "inherit" }
+  );
+
+  if (!quiet) console.log("    Bindings generated successfully");
+}
+
+/**
  * Run the pre-build setup.
  */
 async function runPreBuildSetup(platform) {
@@ -447,15 +486,18 @@ async function runPreBuildSetup(platform) {
     console.log(`  Local Rust: ${hasLocalRust()}`);
   }
 
-  // Bindings are now committed to the repo - never regenerate them during local dev.
-  // Only build platform binaries if they're missing.
+  // Generate bindings if missing (after clean:rust or first build)
   if (!hasBindings) {
-    // Bindings should be committed. If missing, user needs to run generate-bindings.sh
-    console.error("\n  ERROR: UniFFI bindings not found!");
-    console.error("  Bindings should be committed to the repo.");
-    console.error("  Run: ./scripts/generate-bindings.sh");
-    console.error("  Then: git add modules/veloqrs/src/generated modules/veloqrs/cpp");
-    throw new Error("Bindings not found - run ./scripts/generate-bindings.sh");
+    if (hasLocalRust()) {
+      generateBindings(quiet);
+    } else if (isCI()) {
+      throw new Error("Bindings not found in CI — they should be committed to the repo");
+    } else {
+      throw new Error(
+        "Bindings not found and no Rust toolchain available.\n" +
+          "  Install Rust (https://rustup.rs) or run ./scripts/generate-bindings.sh on a machine with Rust."
+      );
+    }
   }
 
   if (!hasBinaries) {
@@ -463,8 +505,8 @@ async function runPreBuildSetup(platform) {
       // In CI, binaries should be pre-built by separate workflow jobs
       console.log("  Warning: Binaries not found in CI - they should be pre-built");
     } else if (hasLocalRust()) {
-      // Only build platform binaries, don't regenerate bindings
-      if (!quiet) console.log("\n  Building platform binaries (bindings already committed)...");
+      // Only build platform binaries
+      if (!quiet) console.log("\n  Building platform binaries...");
       if (platform === "android") {
         const arch = detectAndroidArch() || "arm64-v8a";
         if (!quiet) console.log(`  Target architecture: ${arch}`);
