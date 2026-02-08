@@ -83,9 +83,11 @@ export function useFrequentSections(
   } = options;
 
   // Use lightweight summaries - no polylines loaded, queries SQLite on-demand
+  // Pass enabled to skip FFI calls when batch data is available
   const { count: totalCount, summaries } = useSectionSummaries({
     sportType,
     minVisits: 1,
+    enabled,
   });
   const isReady = true;
 

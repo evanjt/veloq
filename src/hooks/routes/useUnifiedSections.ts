@@ -28,6 +28,8 @@ export interface UseUnifiedSectionsOptions {
   includePotentials?: boolean;
   /** Whether to run the hook (default: true). When false, returns empty defaults without FFI calls. */
   enabled?: boolean;
+  /** Pre-loaded engine sections from batch FFI call. When provided, skips useSectionSummaries FFI calls. */
+  preloadedEngineSections?: FrequentSection[];
 }
 
 export interface UseUnifiedSectionsResult {
@@ -55,7 +57,13 @@ export interface UseUnifiedSectionsResult {
 export function useUnifiedSections(
   options: UseUnifiedSectionsOptions = {}
 ): UseUnifiedSectionsResult {
-  const { sportType, includeCustom = true, includePotentials = true, enabled = true } = options;
+  const {
+    sportType,
+    includeCustom = true,
+    includePotentials = true,
+    enabled = true,
+    preloadedEngineSections,
+  } = options;
 
   // Get pre-computed superseded sections (computed when custom sections are created)
   // NOTE: Select raw data, not the Set - calling getAllSuperseded() in selector
@@ -73,11 +81,14 @@ export function useUnifiedSections(
 
   // Load auto-detected sections from engine
   // Pass excludeDisabled: false because we handle disabled sections ourselves (sort to bottom with visual indicator)
-  const { sections: engineSections } = useFrequentSections({
+  // Skip FFI calls when preloaded engine sections are available from batch data
+  const skipEngineFetch = !!preloadedEngineSections;
+  const { sections: hookEngineSections } = useFrequentSections({
     sportType,
     excludeDisabled: false,
-    enabled,
+    enabled: enabled && !skipEngineFetch,
   });
+  const engineSections = skipEngineFetch ? preloadedEngineSections! : hookEngineSections;
 
   // Load custom sections
   const {

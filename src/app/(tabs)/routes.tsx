@@ -283,7 +283,7 @@ export default function RoutesScreen() {
         <RoutesList
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
-          batchGroups={routesData?.groups}
+          batchGroups={routesData?.groups ?? []}
         />
         <SectionsList batchSections={routesData?.sections} />
       </SwipeableTabs>

@@ -58,6 +58,7 @@ import {
 } from '@/lib';
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { CHART_CONFIG } from '@/constants';
 import type {
   Activity,
   ActivityType,
@@ -231,7 +232,7 @@ const ActivityRow = memo(function ActivityRow({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onLongPress={handleLongPress}
-      delayLongPress={500}
+      delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
       style={({ pressed }) => [
         styles.activityRow,
         isDark && styles.activityRowDark,

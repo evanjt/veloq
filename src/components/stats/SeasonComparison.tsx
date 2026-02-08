@@ -1,17 +1,11 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  PanResponder,
-  LayoutChangeEvent,
-  findNodeHandle,
-  UIManager,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, LayoutChangeEvent } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
+import { CHART_CONFIG } from '@/constants';
 import { colors, darkColors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
@@ -79,23 +73,12 @@ export function SeasonComparison({
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [measuredWidth, setMeasuredWidth] = useState(0);
   const chartWidthRef = useRef(0);
-  const chartPageX = useRef(0);
-  const chartRef = useRef<View>(null);
 
-  // Handle chart layout to get width and absolute position for touch calculations
+  // Handle chart layout to get width
   const onChartLayout = useCallback((event: LayoutChangeEvent) => {
     const w = event.nativeEvent.layout.width;
     chartWidthRef.current = w;
     setMeasuredWidth(w);
-    // Measure absolute position after layout
-    if (chartRef.current) {
-      const nodeHandle = findNodeHandle(chartRef.current);
-      if (nodeHandle) {
-        UIManager.measure(nodeHandle, (_x, _y, _width, _height, pageX) => {
-          chartPageX.current = pageX;
-        });
-      }
-    }
   }, []);
 
   // Calculate month index from x position relative to chart
@@ -105,30 +88,26 @@ export function SeasonComparison({
     return Math.max(0, Math.min(11, monthIndex));
   }, []);
 
-  // Pan responder for scrubbing
-  const panResponder = useMemo(
+  // Gesture.Pan for scrubbing (replaces PanResponder — requires long press to activate)
+  const panGesture = useMemo(
     () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderTerminationRequest: () => false,
-        onPanResponderGrant: (evt) => {
-          const relativeX = evt.nativeEvent.pageX - chartPageX.current;
-          const monthIndex = getMonthFromX(relativeX);
+      Gesture.Pan()
+        .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION)
+        .minDistance(0)
+        .onStart((e) => {
+          const monthIndex = getMonthFromX(e.x);
           setSelectedMonth(monthIndex);
-        },
-        onPanResponderMove: (evt) => {
-          const relativeX = evt.nativeEvent.pageX - chartPageX.current;
-          const monthIndex = getMonthFromX(relativeX);
+        })
+        .onUpdate((e) => {
+          const monthIndex = getMonthFromX(e.x);
           setSelectedMonth(monthIndex);
-        },
-        onPanResponderRelease: () => {
+        })
+        .onEnd(() => {
           setSelectedMonth(null);
-        },
-        onPanResponderTerminate: () => {
+        })
+        .onFinalize(() => {
           setSelectedMonth(null);
-        },
-      }),
+        }),
     [getMonthFromX]
   );
 
@@ -433,35 +412,32 @@ export function SeasonComparison({
         )}
       </View>
 
-      {/* Chart — Skia Picture + transparent PanResponder overlay */}
-      <View
-        ref={chartRef}
-        style={{ height }}
-        onLayout={onChartLayout}
-        {...panResponder.panHandlers}
-      >
-        {chartPicture && (
-          <Canvas style={{ width: '100%', height }}>
-            <Picture picture={chartPicture} />
-          </Canvas>
-        )}
-        {/* Month labels overlay */}
-        <View style={styles.monthLabelsRow} pointerEvents="none">
-          {monthLabels.map((m, idx) => (
-            <Text
-              key={idx}
-              style={[
-                styles.monthLabel,
-                isDark && styles.textDark,
-                m.isCurrentMonth && styles.currentMonthLabel,
-                m.isSelected && styles.selectedMonthLabel,
-              ]}
-            >
-              {m.letter}
-            </Text>
-          ))}
+      {/* Chart — Skia Picture + gesture overlay */}
+      <GestureDetector gesture={panGesture}>
+        <View style={{ height }} onLayout={onChartLayout}>
+          {chartPicture && (
+            <Canvas style={{ width: '100%', height }}>
+              <Picture picture={chartPicture} />
+            </Canvas>
+          )}
+          {/* Month labels overlay */}
+          <View style={styles.monthLabelsRow} pointerEvents="none">
+            {monthLabels.map((m, idx) => (
+              <Text
+                key={idx}
+                style={[
+                  styles.monthLabel,
+                  isDark && styles.textDark,
+                  m.isCurrentMonth && styles.currentMonthLabel,
+                  m.isSelected && styles.selectedMonthLabel,
+                ]}
+              >
+                {m.letter}
+              </Text>
+            ))}
+          </View>
         </View>
-      </View>
+      </GestureDetector>
     </View>
   );
 }

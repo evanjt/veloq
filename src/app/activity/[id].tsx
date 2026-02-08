@@ -74,6 +74,7 @@ import {
   getSectionStyle,
 } from '@/lib';
 import { colors, darkColors, spacing, typography, layout, opacity } from '@/theme';
+import { CHART_CONFIG } from '@/constants';
 import { DeviceAttribution, ComponentErrorBoundary } from '@/components/ui';
 import type { ChartTypeId } from '@/lib';
 
@@ -174,7 +175,7 @@ export default function ActivityDetailScreen() {
   const cacheDays = useCacheDays();
 
   // Long press threshold for section highlighting (in ms)
-  const LONG_PRESS_THRESHOLD = 200;
+  const LONG_PRESS_THRESHOLD = CHART_CONFIG.LONG_PRESS_DURATION;
 
   // Track the last highlighted section to detect changes for haptic feedback
   const lastHighlightedIdRef = useRef<string | null>(null);

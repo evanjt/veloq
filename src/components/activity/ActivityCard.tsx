@@ -21,6 +21,7 @@ import {
   getActivityColor,
 } from '@/lib';
 import { colors, darkColors, opacity, typography, spacing, layout, shadows } from '@/theme';
+import { CHART_CONFIG } from '@/constants';
 import { ActivityMapPreview } from './ActivityMapPreview';
 
 function formatLocation(activity: Activity): string | null {
@@ -115,7 +116,7 @@ export const ActivityCard = React.memo(function ActivityCard({
           testID={`activity-card-${activity.id}`}
           onPress={handlePress}
           onLongPress={handleLongPress}
-          delayLongPress={500}
+          delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
         >

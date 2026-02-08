@@ -336,6 +336,8 @@ interface UseSectionSummariesOptions {
   sportType?: string;
   /** Minimum visit count */
   minVisits?: number;
+  /** Whether to run the hook (default: true). When false, skips FFI calls and returns empty defaults. */
+  enabled?: boolean;
 }
 
 interface UseSectionSummariesResult {
@@ -353,10 +355,11 @@ interface UseSectionSummariesResult {
 export function useSectionSummaries(
   options: UseSectionSummariesOptions = {}
 ): UseSectionSummariesResult {
-  const { sportType, minVisits = 1 } = options;
+  const { sportType, minVisits = 1, enabled = true } = options;
   const trigger = useEngineSubscription(['sections']);
 
   return useMemo(() => {
+    if (!enabled) return { count: 0, summaries: [] };
     try {
       const engine = getRouteEngine();
       if (!engine) return { count: 0, summaries: [] };
@@ -379,7 +382,7 @@ export function useSectionSummaries(
     } catch {
       return { count: 0, summaries: [] };
     }
-  }, [trigger, sportType, minVisits]);
+  }, [trigger, sportType, minVisits, enabled]);
 }
 
 interface UseGroupSummariesOptions {

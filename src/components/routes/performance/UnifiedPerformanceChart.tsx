@@ -41,6 +41,7 @@ import {
   getActivityColor,
   formatShortDate as formatShortDateLib,
 } from '@/lib';
+import { CHART_CONFIG } from '@/constants';
 import { colors, darkColors } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 
@@ -677,7 +678,7 @@ export function UnifiedPerformanceChart({
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
-        .activateAfterLongPress(150) // 150ms long press to activate
+        .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION)
         .onStart((e) => {
           'worklet';
           touchX.value = e.x;
