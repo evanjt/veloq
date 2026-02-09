@@ -16,8 +16,9 @@ import {
   Keyboard,
   Alert,
   InteractionManager,
+  Modal,
 } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text, ActivityIndicator, IconButton } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -99,6 +100,28 @@ const RANGE_DAYS: Record<SectionTimeRange, number> = {
   all: 0,
 };
 const BUCKET_THRESHOLD = 100;
+
+type BucketType = 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+const BUCKET_TYPES: {
+  id: BucketType;
+  labelKey:
+    | 'sections.bestPerWeek'
+    | 'sections.bestPerMonth'
+    | 'sections.bestPerQuarter'
+    | 'sections.bestPerYear';
+}[] = [
+  { id: 'weekly', labelKey: 'sections.bestPerWeek' },
+  { id: 'monthly', labelKey: 'sections.bestPerMonth' },
+  { id: 'quarterly', labelKey: 'sections.bestPerQuarter' },
+  { id: 'yearly', labelKey: 'sections.bestPerYear' },
+];
+const DEFAULT_BUCKET_TYPE: Record<SectionTimeRange, BucketType> = {
+  '1m': 'weekly',
+  '3m': 'monthly',
+  '6m': 'monthly',
+  '1y': 'quarterly',
+  all: 'yearly',
+};
 
 interface ActivityRowProps {
   activity: Activity;
@@ -411,6 +434,13 @@ export default function SectionDetailScreen() {
 
   // Time range for bucketed performance chart
   const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>('1y');
+  const [bucketType, setBucketType] = useState<BucketType>(DEFAULT_BUCKET_TYPE['1y']);
+  const [showBucketModal, setShowBucketModal] = useState(false);
+
+  // Auto-update bucket type when time range changes
+  useEffect(() => {
+    setBucketType(DEFAULT_BUCKET_TYPE[sectionTimeRange]);
+  }, [sectionTimeRange]);
 
   // State for section renaming
   const [isEditing, setIsEditing] = useState(false);
@@ -945,7 +975,6 @@ export default function SectionDetailScreen() {
   const useBucketedChart = activityCount >= BUCKET_THRESHOLD;
 
   // Get bucketed chart data from Rust FFI (instant, no API fetch needed)
-  const bucketType = sectionTimeRange === '1m' || sectionTimeRange === '3m' ? 'weekly' : 'monthly';
   const bucketResult = useMemo(() => {
     if (!useBucketedChart || !section?.id) return null;
     const engine = getRouteEngine();
@@ -953,7 +982,7 @@ export default function SectionDetailScreen() {
     return engine.getSectionPerformanceBuckets(
       section.id,
       RANGE_DAYS[sectionTimeRange],
-      bucketType as 'weekly' | 'monthly'
+      bucketType
     );
   }, [useBucketedChart, section?.id, sectionTimeRange, bucketType]);
 
@@ -1581,36 +1610,54 @@ export default function SectionDetailScreen() {
               {/* Performance chart - bucketed for large sections, full for small */}
               {useBucketedChart && bucketChartData.length >= 1 && (
                 <View style={styles.chartSection}>
-                  {/* Time range selector */}
+                  {/* Time range selector with grouping config */}
                   <View style={styles.timeRangeRow}>
-                    <View style={styles.timeRangeContainer}>
-                      {SECTION_TIME_RANGES.map((range) => (
-                        <TouchableOpacity
-                          key={range.id}
-                          style={[
-                            styles.timeRangeButton,
-                            isDark && styles.timeRangeButtonDark,
-                            sectionTimeRange === range.id && styles.timeRangeButtonActive,
-                          ]}
-                          onPress={() => setSectionTimeRange(range.id)}
-                          activeOpacity={0.7}
-                        >
-                          <Text
+                    <View style={styles.timeRangeWithButton}>
+                      <View style={styles.timeRangeContainer}>
+                        {SECTION_TIME_RANGES.map((range) => (
+                          <TouchableOpacity
+                            key={range.id}
                             style={[
-                              styles.timeRangeText,
-                              isDark && styles.timeRangeTextDark,
-                              sectionTimeRange === range.id && styles.timeRangeTextActive,
+                              styles.timeRangeButton,
+                              isDark && styles.timeRangeButtonDark,
+                              sectionTimeRange === range.id && styles.timeRangeButtonActive,
                             ]}
+                            onPress={() => setSectionTimeRange(range.id)}
+                            activeOpacity={0.7}
                           >
-                            {range.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                            <Text
+                              style={[
+                                styles.timeRangeText,
+                                isDark && styles.timeRangeTextDark,
+                                sectionTimeRange === range.id && styles.timeRangeTextActive,
+                              ]}
+                            >
+                              {range.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.groupingButton, isDark && styles.groupingButtonDark]}
+                        onPress={() => setShowBucketModal(true)}
+                        activeOpacity={0.7}
+                      >
+                        <IconButton
+                          icon="chart-timeline-variant"
+                          iconColor={
+                            bucketType !== DEFAULT_BUCKET_TYPE[sectionTimeRange]
+                              ? colors.primary
+                              : isDark
+                                ? darkColors.textSecondary
+                                : colors.textSecondary
+                          }
+                          size={18}
+                          style={{ margin: 0 }}
+                        />
+                      </TouchableOpacity>
                     </View>
                     <Text style={[styles.bucketSubtitle, isDark && styles.textMuted]}>
-                      {bucketType === 'weekly'
-                        ? t('sections.bestPerWeek')
-                        : t('sections.bestPerMonth')}
+                      {t(BUCKET_TYPES.find((bt) => bt.id === bucketType)!.labelKey)}
                       {' · '}
                       {t('sections.traversalsCount', { count: bucketResult?.totalTraversals ?? 0 })}
                     </Text>
@@ -1632,6 +1679,7 @@ export default function SectionDetailScreen() {
                     bestReverseRecord={bucketBestReverse ?? computedBestReverse}
                     forwardStats={bucketForwardStats ?? computedForwardStats}
                     reverseStats={bucketReverseStats ?? computedReverseStats}
+                    linearTimeAxis
                   />
                 </View>
               )}
@@ -1802,6 +1850,54 @@ export default function SectionDetailScreen() {
           </View>
         }
       />
+
+      {/* Bucket grouping modal */}
+      {showBucketModal && (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowBucketModal(false)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setShowBucketModal(false)}>
+            <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
+              <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
+                {t('sections.groupingTitle')}
+              </Text>
+              <Text style={[styles.modalDescription, isDark && styles.modalDescriptionDark]}>
+                {t('sections.groupingDescription')}
+              </Text>
+              <View style={styles.groupingOptions}>
+                {BUCKET_TYPES.map((bt) => (
+                  <TouchableOpacity
+                    key={bt.id}
+                    style={[
+                      styles.groupingOption,
+                      isDark && styles.groupingOptionDark,
+                      bucketType === bt.id && styles.groupingOptionActive,
+                    ]}
+                    onPress={() => {
+                      setBucketType(bt.id);
+                      setShowBucketModal(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.groupingOptionText,
+                        isDark && styles.groupingOptionTextDark,
+                        bucketType === bt.id && styles.groupingOptionTextActive,
+                      ]}
+                    >
+                      {t(bt.labelKey)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </Pressable>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -2056,6 +2152,88 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  timeRangeWithButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  groupingButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: opacity.overlay.light,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  groupingButtonDark: {
+    backgroundColor: opacity.overlayDark.medium,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: opacity.overlay.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadius + 4,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 320,
+  },
+  modalContentDark: {
+    backgroundColor: darkColors.surface,
+  },
+  modalTitle: {
+    ...typography.cardTitle,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  modalTitleDark: {
+    color: darkColors.textPrimary,
+  },
+  modalDescription: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  modalDescriptionDark: {
+    color: darkColors.textSecondary,
+  },
+  groupingOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  groupingOption: {
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: 14,
+    backgroundColor: opacity.overlay.light,
+  },
+  groupingOptionDark: {
+    backgroundColor: opacity.overlayDark.medium,
+  },
+  groupingOptionActive: {
+    backgroundColor: colors.primary,
+  },
+  groupingOptionText: {
+    ...typography.caption,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  groupingOptionTextDark: {
+    color: darkColors.textSecondary,
+  },
+  groupingOptionTextActive: {
+    color: colors.textOnDark,
   },
   activitiesSection: {
     marginBottom: spacing.xl,

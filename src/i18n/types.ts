@@ -766,6 +766,10 @@ export interface TranslationResource {
     visitsCount: string;
     bestPerWeek: string;
     bestPerMonth: string;
+    bestPerQuarter: string;
+    bestPerYear: string;
+    groupingTitle: string;
+    groupingDescription: string;
   };
 
   errorState: {

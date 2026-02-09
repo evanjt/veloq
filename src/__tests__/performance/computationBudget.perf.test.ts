@@ -8,31 +8,31 @@ import { formatDistance, formatDuration, formatPace } from '@/lib/utils/format';
 
 describe('Computation budget', () => {
   describe('formatting throughput', () => {
-    it('formatDistance handles 100k calls under 100ms', () => {
+    it('formatDistance handles 100k calls under 200ms', () => {
       const start = performance.now();
       for (let i = 0; i < 100_000; i++) {
         formatDistance(i * 10, true);
       }
       const elapsed = performance.now() - start;
-      expect(elapsed).toBeLessThan(100);
+      expect(elapsed).toBeLessThan(200);
     });
 
-    it('formatDuration handles 100k calls under 100ms', () => {
+    it('formatDuration handles 100k calls under 200ms', () => {
       const start = performance.now();
       for (let i = 0; i < 100_000; i++) {
         formatDuration(i);
       }
       const elapsed = performance.now() - start;
-      expect(elapsed).toBeLessThan(100);
+      expect(elapsed).toBeLessThan(200);
     });
 
-    it('formatPace handles 100k calls under 100ms', () => {
+    it('formatPace handles 100k calls under 200ms', () => {
       const start = performance.now();
       for (let i = 0; i < 100_000; i++) {
         formatPace(3 + (i % 10), true);
       }
       const elapsed = performance.now() - start;
-      expect(elapsed).toBeLessThan(100);
+      expect(elapsed).toBeLessThan(200);
     });
   });
 

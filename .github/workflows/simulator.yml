@@ -2,13 +2,13 @@ name: Build & Test Simulator Apps
 
 on:
   push:
-    branches: ['**']  # Run on all branch pushes
+    branches: ["**"] # Run on all branch pushes
   pull_request:
     branches: [main]
   workflow_dispatch:
     inputs:
       skip_e2e:
-        description: 'Skip E2E tests'
+        description: "Skip E2E tests"
         required: false
         default: false
         type: boolean
@@ -101,7 +101,7 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '26.2'
+          xcode-version: "26.2"
 
       - uses: actions/setup-node@v4
         with:
@@ -456,7 +456,7 @@ jobs:
     name: E2E iOS (Maestro)
     runs-on: macos-26
     timeout-minutes: 30
-    continue-on-error: true  # Don't fail the workflow on E2E test failures
+    continue-on-error: true # Don't fail the workflow on E2E test failures
     steps:
       - uses: actions/checkout@v4
 
@@ -480,8 +480,10 @@ jobs:
 
       - name: Install Maestro
         run: |
+          export MAESTRO_VERSION=1.39.14
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+          "$HOME/.maestro/bin/maestro" --version
 
       - name: Find and boot simulator
         id: simulator
@@ -496,23 +498,50 @@ jobs:
           xcrun simctl boot "$UDID" || true
           echo "udid=$UDID" >> $GITHUB_OUTPUT
 
+      - name: Wait for simulator readiness
+        run: |
+          # Wait for SpringBoard to be running (indicates simulator is fully loaded)
+          for i in $(seq 1 30); do
+            if xcrun simctl spawn "${{ steps.simulator.outputs.udid }}" launchctl list 2>/dev/null | grep -q SpringBoard; then
+              echo "SpringBoard is running"
+              break
+            fi
+            echo "Waiting for SpringBoard... ($i/30)"
+            sleep 2
+          done
+          sleep 5
+
       - name: Install app on simulator
         run: |
           xcrun simctl install "${{ steps.simulator.outputs.udid }}" ios/build/Build/Products/Release-iphonesimulator/Veloq.app
+
+      - name: Verify environment
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro --version
+          xcrun simctl list devices booted
+          xcrun simctl get_app_container "${{ steps.simulator.outputs.udid }}" com.veloq.app || echo "App not found in container"
 
       - name: Run Maestro tests
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
-
-          # Wait for simulator to be fully ready
-          sleep 5
-
-          # Run smoke test
           mkdir -p screenshots
-          maestro test .maestro/smoke.yaml --format junit --output maestro-report-smoke.xml --no-ansi
-          maestro test .maestro/critical-path.yaml --format junit --output maestro-report-critical.xml --no-ansi
+
+          # Run smoke test with retry
+          for attempt in 1 2; do
+            maestro test .maestro/smoke.yaml --format junit --output maestro-report-smoke.xml --no-ansi && break
+            echo "Smoke attempt $attempt failed, retrying in 10s..."
+            sleep 10
+          done
+
+          # Run critical path with retry
+          for attempt in 1 2; do
+            maestro test .maestro/critical-path.yaml --format junit --output maestro-report-critical.xml --no-ansi && break
+            echo "Critical path attempt $attempt failed, retrying in 10s..."
+            sleep 10
+          done
 
       - name: Collect screenshots
         if: always()
@@ -549,7 +578,7 @@ jobs:
     name: E2E Android (Maestro)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    continue-on-error: true  # Don't fail the workflow on E2E test failures
+    continue-on-error: true # Don't fail the workflow on E2E test failures
     steps:
       - uses: actions/checkout@v4
 
@@ -566,14 +595,38 @@ jobs:
 
       - name: Install Maestro
         run: |
+          export MAESTRO_VERSION=1.39.14
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+          "$HOME/.maestro/bin/maestro" --version
 
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+
+      - name: AVD cache
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-api29-x86_64-v1
+
+      - name: Create AVD and generate snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          ram-size: 4096M
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "Generated AVD snapshot for caching."
 
       - name: Run Maestro tests
         uses: reactivecircus/android-emulator-runner@v2
@@ -582,22 +635,37 @@ jobs:
           target: default
           arch: x86_64
           ram-size: 4096M
+          force-avd-creation: false
           emulator-boot-timeout: 600
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -accel on
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save -accel on
           disable-animations: true
           script: |
             export PATH="$HOME/.maestro/bin:$PATH"
 
+            # Wait for emulator to fully boot
+            adb wait-for-device
+            adb shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 2; done'
+            adb shell 'while [[ -z $(getprop init.svc.bootanim | grep stopped) ]]; do sleep 2; done' || true
+            sleep 5
+
             # Install APK
             adb install /tmp/android-artifact/app-release.apk
+            sleep 10
 
-            # Give emulator time to stabilize after install
-            sleep 20
-
-            # Run smoke test
+            # Run smoke test with retry
             mkdir -p screenshots
-            maestro test .maestro/smoke.yaml --format junit --output maestro-report-smoke.xml --no-ansi
-            maestro test .maestro/critical-path.yaml --format junit --output maestro-report-critical.xml --no-ansi
+            for attempt in 1 2; do
+              maestro test .maestro/smoke.yaml --format junit --output maestro-report-smoke.xml --no-ansi && break
+              echo "Smoke attempt $attempt failed, retrying in 10s..."
+              sleep 10
+            done
+
+            # Run critical path with retry
+            for attempt in 1 2; do
+              maestro test .maestro/critical-path.yaml --format junit --output maestro-report-critical.xml --no-ansi && break
+              echo "Critical path attempt $attempt failed, retrying in 10s..."
+              sleep 10
+            done
 
       - name: Collect screenshots
         if: always()

@@ -1032,6 +1032,72 @@ export const ActivityMapView = memo(function ActivityMapView({
       };
     }, [sectionOverlays]);
 
+  // IMPORTANT: Memoize section markers so they are completely stable across re-renders.
+  // MapLibre MarkerView has a bug where ANY child re-render (even identical output)
+  // can permanently break the native position binding, snapping markers to screen (0,0).
+  // By memoizing with only sectionOverlaysGeoJSON as dependency, highlight state changes
+  // won't create new element references, so React skips native updates entirely.
+  const sectionMarkerElements = useMemo(() => {
+    if (!sectionOverlaysGeoJSON) return null;
+    return sectionOverlaysGeoJSON.map((overlay, index) => {
+      const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
+      const portionGeom = overlay.portionGeo?.geometry as GeoJSON.LineString | undefined;
+      const coords = sectionGeom?.coordinates || portionGeom?.coordinates;
+      const hasValidCoords = coords && coords.length >= 2;
+
+      let markerLng = 0;
+      let markerLat = 0;
+      let hasValidMarkerPosition = false;
+
+      if (hasValidCoords) {
+        const midIndex = Math.floor(coords.length / 2);
+        const midCoord = coords[midIndex];
+        if (
+          midCoord &&
+          typeof midCoord[0] === 'number' &&
+          typeof midCoord[1] === 'number' &&
+          Number.isFinite(midCoord[0]) &&
+          Number.isFinite(midCoord[1])
+        ) {
+          const prevIndex = Math.max(0, midIndex - 1);
+          const nextIndex = Math.min(coords.length - 1, midIndex + 1);
+          const prevCoord = coords[prevIndex];
+          const nextCoord = coords[nextIndex];
+
+          const dx = nextCoord[0] - prevCoord[0];
+          const dy = nextCoord[1] - prevCoord[1];
+          const len = Math.sqrt(dx * dx + dy * dy);
+
+          const offsetDistance = 0.00035; // ~35 meters at equator
+          const offsetLng = len > 0 ? (-dy / len) * offsetDistance : 0;
+          const offsetLat = len > 0 ? (dx / len) * offsetDistance : 0;
+
+          markerLng = midCoord[0] + offsetLng;
+          markerLat = midCoord[1] + offsetLat;
+          hasValidMarkerPosition = Number.isFinite(markerLng) && Number.isFinite(markerLat);
+        }
+      }
+
+      const sectionStyle = getSectionStyle(index);
+
+      return (
+        <MarkerView
+          key={`sectionMarker-${overlay.id}`}
+          coordinate={[markerLng, markerLat]}
+          anchor={{ x: 0.5, y: 0.5 }}
+        >
+          {hasValidMarkerPosition ? (
+            <View style={[styles.sectionNumberMarker, { borderColor: sectionStyle.color }]}>
+              <Text style={styles.sectionNumberText}>{index + 1}</Text>
+            </View>
+          ) : (
+            <View />
+          )}
+        </MarkerView>
+      );
+    });
+  }, [sectionOverlaysGeoJSON]);
+
   // Route coordinates for BaseMapView/Map3DWebView [lng, lat] format
   const routeCoords = useMemo(() => {
     return validCoordinates.map((c) => [c.longitude, c.latitude] as [number, number]);
@@ -1344,7 +1410,13 @@ export const ActivityMapView = memo(function ActivityMapView({
                   lineWidth: 4,
                   lineCap: 'round',
                   lineJoin: 'round',
-                  lineOpacity: sectionOverlaysGeoJSON ? 0.8 : overlayHasData ? 0.85 : 1,
+                  lineOpacity: sectionOverlaysGeoJSON
+                    ? highlightedSectionId
+                      ? 0.25
+                      : 0.8
+                    : overlayHasData
+                      ? 0.85
+                      : 1,
                 }}
               />
             </ShapeSource>
@@ -1357,17 +1429,17 @@ export const ActivityMapView = memo(function ActivityMapView({
                 id="section-overlays-line"
                 style={{
                   lineColor: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#F59E0B', '#DC2626']
-                    : '#DC2626',
+                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#FFAB00', '#00BCD4']
+                    : '#00BCD4',
                   lineWidth: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 5, 6]
-                    : 6,
+                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 7, 4]
+                    : 5,
                   lineCap: 'round',
                   lineJoin: 'round',
                   lineOpacity: sectionOverlaysGeoJSON
                     ? highlightedSectionId
-                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 0.5, 0.3]
-                      : 0.8
+                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.15]
+                      : 0.7
                     : 0,
                 }}
               />
@@ -1377,16 +1449,16 @@ export const ActivityMapView = memo(function ActivityMapView({
                 id="portion-overlays-line"
                 style={{
                   lineColor: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#F59E0B', '#DC2626']
-                    : '#DC2626',
+                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#FFAB00', '#E91E63']
+                    : '#E91E63',
                   lineWidth: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 4, 4]
+                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 5, 3]
                     : 4,
                   lineCap: 'round',
                   lineJoin: 'round',
                   lineOpacity: sectionOverlaysGeoJSON
                     ? highlightedSectionId
-                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 0.6, 0.3]
+                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.15]
                       : 1
                     : 0,
                 }}
@@ -1504,87 +1576,8 @@ export const ActivityMapView = memo(function ActivityMapView({
             </MarkerView>
 
             {/* Numbered markers at center of each section, offset to the side */}
-            {/* CRITICAL: Always render ALL markers - never return null to avoid iOS Fabric crash */}
-            {/* iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207) */}
-            {sectionOverlaysGeoJSON &&
-              sectionOverlaysGeoJSON.map((overlay, index) => {
-                // Get coordinates from sectionGeo or portionGeo (both are LineString)
-                const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
-                const portionGeom = overlay.portionGeo?.geometry as GeoJSON.LineString | undefined;
-                const coords = sectionGeom?.coordinates || portionGeom?.coordinates;
-                const hasValidCoords = coords && coords.length >= 2;
-
-                // Calculate marker position only if we have valid coords
-                let markerLng = 0;
-                let markerLat = 0;
-                let hasValidMarkerPosition = false;
-
-                if (hasValidCoords) {
-                  // Use midpoint of the trace
-                  const midIndex = Math.floor(coords.length / 2);
-                  const midCoord = coords[midIndex];
-                  if (
-                    midCoord &&
-                    typeof midCoord[0] === 'number' &&
-                    typeof midCoord[1] === 'number' &&
-                    Number.isFinite(midCoord[0]) &&
-                    Number.isFinite(midCoord[1])
-                  ) {
-                    // Calculate perpendicular offset from trace direction
-                    const prevIndex = Math.max(0, midIndex - 1);
-                    const nextIndex = Math.min(coords.length - 1, midIndex + 1);
-                    const prevCoord = coords[prevIndex];
-                    const nextCoord = coords[nextIndex];
-
-                    // Direction vector along the trace
-                    const dx = nextCoord[0] - prevCoord[0];
-                    const dy = nextCoord[1] - prevCoord[1];
-                    const len = Math.sqrt(dx * dx + dy * dy);
-
-                    // Perpendicular offset (to the right of travel direction)
-                    const offsetDistance = 0.00035; // ~35 meters at equator
-                    const offsetLng = len > 0 ? (-dy / len) * offsetDistance : 0;
-                    const offsetLat = len > 0 ? (dx / len) * offsetDistance : 0;
-
-                    markerLng = midCoord[0] + offsetLng;
-                    markerLat = midCoord[1] + offsetLat;
-                    hasValidMarkerPosition =
-                      Number.isFinite(markerLng) && Number.isFinite(markerLat);
-                  }
-                }
-
-                const sectionStyle = getSectionStyle(index);
-                const isHighlighted = highlightedSectionId === overlay.id;
-                const isDimmed = highlightedSectionId && !isHighlighted;
-
-                return (
-                  <MarkerView
-                    key={`sectionMarker-${overlay.id}`}
-                    coordinate={[markerLng, markerLat]}
-                    anchor={{ x: 0.5, y: 0.5 }}
-                  >
-                    <View
-                      style={[
-                        styles.sectionNumberMarker,
-                        { borderColor: sectionStyle.color },
-                        isDimmed && styles.sectionNumberMarkerDimmed,
-                        isHighlighted && styles.sectionNumberMarkerHighlighted,
-                        // Hide marker if position is invalid
-                        !hasValidMarkerPosition && { opacity: 0 },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.sectionNumberText,
-                          isHighlighted && styles.sectionNumberTextHighlighted,
-                        ]}
-                      >
-                        {index + 1}
-                      </Text>
-                    </View>
-                  </MarkerView>
-                );
-              })}
+            {/* Memoized to prevent re-renders when highlight state changes (see sectionMarkerElements) */}
+            {sectionMarkerElements}
           </MapView>
         </View>
 
@@ -1612,7 +1605,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         )}
 
         {/* Route overlay legend */}
-        {overlayGeoJSON && !isFullscreen && (
+        {overlayHasData && !isFullscreen && (
           <View style={styles.overlayLegend}>
             <View style={styles.legendRow}>
               <View style={[styles.legendLine, { backgroundColor: '#00E5FF' }]} />
@@ -1743,11 +1736,11 @@ export const ActivityMapView = memo(function ActivityMapView({
             <LineLayer
               id="fs-section-overlays-line"
               style={{
-                lineColor: '#DC2626',
-                lineWidth: 6,
+                lineColor: '#00BCD4',
+                lineWidth: 5,
                 lineCap: 'round',
                 lineJoin: 'round',
-                lineOpacity: sectionOverlaysGeoJSON ? 0.8 : 0,
+                lineOpacity: sectionOverlaysGeoJSON ? 0.7 : 0,
               }}
             />
           </ShapeSource>
@@ -1755,7 +1748,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             <LineLayer
               id="fs-portion-overlays-line"
               style={{
-                lineColor: '#DC2626',
+                lineColor: '#E91E63',
                 lineWidth: 4,
                 lineCap: 'round',
                 lineJoin: 'round',
@@ -1799,16 +1792,13 @@ export const ActivityMapView = memo(function ActivityMapView({
                   key={`fs-sectionMarker-${overlay.id}`}
                   coordinate={[centerLng, centerLat]}
                 >
-                  <View
-                    style={[
-                      styles.sectionNumberMarker,
-                      { borderColor: style.color },
-                      // Hide marker if position is invalid
-                      !hasValidCenter && { opacity: 0 },
-                    ]}
-                  >
-                    <Text style={styles.sectionNumberText}>{index + 1}</Text>
-                  </View>
+                  {hasValidCenter ? (
+                    <View style={[styles.sectionNumberMarker, { borderColor: style.color }]}>
+                      <Text style={styles.sectionNumberText}>{index + 1}</Text>
+                    </View>
+                  ) : (
+                    <View />
+                  )}
                 </MarkerView>
               );
             })}
@@ -1992,22 +1982,10 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 4,
   },
-  sectionNumberMarkerDimmed: {
-    opacity: 0.2,
-  },
-  sectionNumberMarkerHighlighted: {
-    backgroundColor: '#FFD700',
-    borderColor: '#FF8C00',
-    borderWidth: 3,
-    transform: [{ scale: 1.2 }],
-  },
   sectionNumberText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',
-  },
-  sectionNumberTextHighlighted: {
-    color: '#000000',
   },
 });

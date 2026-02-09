@@ -4501,20 +4501,23 @@ impl PersistentRouteEngine {
     pub fn get_section_performances(&mut self, section_id: &str) -> SectionPerformanceResult {
         log::info!("[DEBUG] get_section_performances called for section_id: {}", section_id);
 
-        // Find the section (both auto-detected and custom are now in unified sections table)
+        // Find the section (in-memory for auto, fallback to DB for custom)
         let section = match self.sections.iter().find(|s| s.id == section_id) {
             Some(s) => s.clone(),
-            None => {
-                log::warn!("[DEBUG] Section not found: {}", section_id);
-                return SectionPerformanceResult {
-                    records: vec![],
-                    best_record: None,
-                    best_forward_record: None,
-                    best_reverse_record: None,
-                    forward_stats: None,
-                    reverse_stats: None,
-                };
-            }
+            None => match self.get_section_by_id(section_id) {
+                Some(s) => s,
+                None => {
+                    log::warn!("[DEBUG] Section not found: {}", section_id);
+                    return SectionPerformanceResult {
+                        records: vec![],
+                        best_record: None,
+                        best_forward_record: None,
+                        best_reverse_record: None,
+                        forward_stats: None,
+                        reverse_stats: None,
+                    };
+                }
+            },
         };
 
         log::info!(
@@ -4746,10 +4749,13 @@ impl PersistentRouteEngine {
             reverse_stats: None,
         };
 
-        // Find the section
+        // Find the section (in-memory for auto, fallback to DB for custom)
         let section = match self.sections.iter().find(|s| s.id == section_id) {
             Some(s) => s.clone(),
-            None => return empty,
+            None => match self.get_section_by_id(section_id) {
+                Some(s) => s,
+                None => return empty,
+            },
         };
 
         if section.activity_portions.is_empty() {
@@ -4779,10 +4785,12 @@ impl PersistentRouteEngine {
         };
 
         // Bucket size in seconds
-        let bucket_seconds: i64 = if bucket_type == "weekly" {
-            7 * 86400
-        } else {
-            30 * 86400
+        let bucket_seconds: i64 = match bucket_type {
+            "weekly" => 7 * 86400,
+            "monthly" => 30 * 86400,
+            "quarterly" => 91 * 86400,
+            "yearly" => 365 * 86400,
+            _ => 30 * 86400,
         };
 
         // Group portions by activity

@@ -86,7 +86,7 @@ import {
   type FfiHeatmapDay,
   type FfiFtpTrend,
   type FfiRoutesScreenData,
-} from "./generated/veloqrs";
+} from './generated/veloqrs';
 
 import {
   flatCoordsToPoints,
@@ -96,7 +96,7 @@ import {
   type SectionDetectionProgress,
   type FetchProgressEvent,
   type RawPotentialSection,
-} from "./conversions";
+} from './conversions';
 
 import {
   fetchActivityMaps,
@@ -104,7 +104,7 @@ import {
   getDownloadProgress as ffiGetDownloadProgress,
   type FfiActivityMapResult,
   type DownloadProgressResult,
-} from "./generated/veloqrs";
+} from './generated/veloqrs';
 
 class RouteEngineClient {
   private static instance: RouteEngineClient;
@@ -120,15 +120,14 @@ class RouteEngineClient {
    * When debug mode enabled: records to FFI metrics ring buffer.
    */
   private timed<T>(name: string, fn: () => T): T {
-    const shouldLog = typeof __DEV__ !== "undefined" && __DEV__;
+    const shouldLog = typeof __DEV__ !== 'undefined' && __DEV__;
     const shouldRecord = RouteEngineClient.debugEnabled;
     if (!shouldLog && !shouldRecord) return fn();
     const start = performance.now();
     const result = fn();
     const ms = performance.now() - start;
     if (shouldLog) {
-      const icon =
-        ms > 100 ? "\u{1F534}" : ms > 50 ? "\u{1F7E1}" : "\u{1F7E2}";
+      const icon = ms > 100 ? '\u{1F534}' : ms > 50 ? '\u{1F7E1}' : '\u{1F7E2}';
       console.log(`${icon} [FFI] ${name}: ${ms.toFixed(1)}ms`);
     }
     if (shouldRecord) {
@@ -152,9 +151,7 @@ class RouteEngineClient {
   /**
    * Set the metric recording function. Call once during app initialization.
    */
-  static setMetricRecorder(
-    recorder: (name: string, ms: number) => void,
-  ): void {
+  static setMetricRecorder(recorder: (name: string, ms: number) => void): void {
     RouteEngineClient.recordMetric = recorder;
   }
 
@@ -170,9 +167,7 @@ class RouteEngineClient {
    */
   initWithPath(dbPath: string): boolean {
     if (this.initialized && this.dbPath === dbPath) return true;
-    const result = this.timed("initWithPath", () =>
-      persistentEngineInit(dbPath),
-    );
+    const result = this.timed('initWithPath', () => persistentEngineInit(dbPath));
     if (result) {
       this.initialized = true;
       this.dbPath = dbPath;
@@ -198,8 +193,8 @@ class RouteEngineClient {
    * Clear all engine state.
    */
   clear(): void {
-    this.timed("clear", () => persistentEngineClear());
-    this.notifyAll("activities", "groups", "sections", "syncReset");
+    this.timed('clear', () => persistentEngineClear());
+    this.notifyAll('activities', 'groups', 'sections', 'syncReset');
   }
 
   /**
@@ -209,45 +204,38 @@ class RouteEngineClient {
     activityIds: string[],
     allCoords: number[],
     offsets: number[],
-    sportTypes: string[],
+    sportTypes: string[]
   ): Promise<void> {
-    this.timed("addActivities", () =>
-      persistentEngineAddActivities(
-        activityIds,
-        allCoords,
-        offsets,
-        sportTypes,
-      ),
+    this.timed('addActivities', () =>
+      persistentEngineAddActivities(activityIds, allCoords, offsets, sportTypes)
     );
     // Notify activities and groups (groups are computed lazily)
-    this.notifyAll("activities", "groups");
+    this.notifyAll('activities', 'groups');
   }
 
   /**
    * Get all activity IDs in the engine.
    */
   getActivityIds(): string[] {
-    return this.timed("getActivityIds", () => persistentEngineGetActivityIds());
+    return this.timed('getActivityIds', () => persistentEngineGetActivityIds());
   }
 
   /**
    * Get the number of activities.
    */
   getActivityCount(): number {
-    return this.timed("getActivityCount", () =>
-      persistentEngineGetActivityCount(),
-    );
+    return this.timed('getActivityCount', () => persistentEngineGetActivityCount());
   }
 
   /**
    * Cleanup old activities.
    */
   cleanupOldActivities(retentionDays: number): number {
-    const deleted = this.timed("cleanupOldActivities", () =>
-      persistentEngineCleanupOldActivities(retentionDays),
+    const deleted = this.timed('cleanupOldActivities', () =>
+      persistentEngineCleanupOldActivities(retentionDays)
     );
     if (deleted > 0) {
-      this.notifyAll("activities", "groups", "sections");
+      this.notifyAll('activities', 'groups', 'sections');
     }
     return deleted;
   }
@@ -256,17 +244,15 @@ class RouteEngineClient {
    * Mark for recomputation.
    */
   markForRecomputation(): void {
-    this.timed("markForRecomputation", () =>
-      persistentEngineMarkForRecomputation(),
-    );
+    this.timed('markForRecomputation', () => persistentEngineMarkForRecomputation());
   }
 
   /**
    * Start section detection.
    */
   startSectionDetection(sportFilter?: string): boolean {
-    return this.timed("startSectionDetection", () =>
-      persistentEngineStartSectionDetection(sportFilter),
+    return this.timed('startSectionDetection', () =>
+      persistentEngineStartSectionDetection(sportFilter)
     );
   }
 
@@ -275,12 +261,10 @@ class RouteEngineClient {
    * When detection completes, automatically notifies 'sections' subscribers.
    */
   pollSectionDetection(): string {
-    const status = this.timed("pollSectionDetection", () =>
-      persistentEnginePollSections(),
-    );
+    const status = this.timed('pollSectionDetection', () => persistentEnginePollSections());
     // Notify subscribers when section detection completes
-    if (status === "complete") {
-      this.notify("sections");
+    if (status === 'complete') {
+      this.notify('sections');
     }
     return status;
   }
@@ -294,19 +278,16 @@ class RouteEngineClient {
     // Import dynamically to handle case where function doesn't exist yet
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const generated = require("./generated/veloqrs");
-      if (
-        typeof generated.persistentEngineGetSectionDetectionProgress !==
-        "function"
-      ) {
+      const generated = require('./generated/veloqrs');
+      if (typeof generated.persistentEngineGetSectionDetectionProgress !== 'function') {
         return null;
       }
       const json = this.timed(
-        "getSectionDetectionProgress",
-        () => generated.persistentEngineGetSectionDetectionProgress() as string,
+        'getSectionDetectionProgress',
+        () => generated.persistentEngineGetSectionDetectionProgress() as string
       );
 
-      if (!json || json === "{}") {
+      if (!json || json === '{}') {
         return null;
       }
       const data = JSON.parse(json) as {
@@ -332,7 +313,7 @@ class RouteEngineClient {
    * Returns structured types directly from Rust (no JSON serialization).
    */
   getGroups(): FfiRouteGroup[] {
-    return this.timed("getGroups", () => persistentEngineGetGroups());
+    return this.timed('getGroups', () => persistentEngineGetGroups());
   }
 
   /**
@@ -340,7 +321,7 @@ class RouteEngineClient {
    * Returns structured types directly from Rust (no JSON serialization).
    */
   getSections(): FfiFrequentSection[] {
-    return this.timed("getSections", () => persistentEngineGetSections());
+    return this.timed('getSections', () => persistentEngineGetSections());
   }
 
   // ========================================================================
@@ -352,9 +333,7 @@ class RouteEngineClient {
    * This is O(1) and doesn't require loading sections into memory.
    */
   getSectionCount(): number {
-    return this.timed("getSectionCount", () =>
-      persistentEngineGetSectionCount(),
-    );
+    return this.timed('getSectionCount', () => persistentEngineGetSectionCount());
   }
 
   /**
@@ -363,9 +342,7 @@ class RouteEngineClient {
    * Much faster than getSections() when you only need sections for one activity.
    */
   getSectionsForActivity(activityId: string): FfiSection[] {
-    return this.timed("getSectionsForActivity", () =>
-      ffiGetSectionsForActivity(activityId),
-    );
+    return this.timed('getSectionsForActivity', () => ffiGetSectionsForActivity(activityId));
   }
 
   /**
@@ -373,7 +350,7 @@ class RouteEngineClient {
    * This is O(1) and doesn't require loading groups into memory.
    */
   getGroupCount(): number {
-    return this.timed("getGroupCount", () => persistentEngineGetGroupCount());
+    return this.timed('getGroupCount', () => persistentEngineGetGroupCount());
   }
 
   /**
@@ -381,9 +358,7 @@ class RouteEngineClient {
    * Returns structured types directly from Rust (no JSON serialization).
    */
   getSectionSummaries(): SectionSummary[] {
-    return this.timed("getSectionSummaries", () =>
-      persistentEngineGetSectionSummaries(),
-    );
+    return this.timed('getSectionSummaries', () => persistentEngineGetSectionSummaries());
   }
 
   /**
@@ -391,8 +366,8 @@ class RouteEngineClient {
    * Returns structured types directly from Rust (no JSON serialization).
    */
   getSectionSummariesForSport(sportType: string): SectionSummary[] {
-    return this.timed("getSectionSummariesForSport", () =>
-      persistentEngineGetSectionSummariesForSport(sportType),
+    return this.timed('getSectionSummariesForSport', () =>
+      persistentEngineGetSectionSummariesForSport(sportType)
     );
   }
 
@@ -401,9 +376,7 @@ class RouteEngineClient {
    * Returns structured types directly from Rust (no JSON serialization).
    */
   getGroupSummaries(): GroupSummary[] {
-    return this.timed("getGroupSummaries", () =>
-      persistentEngineGetGroupSummaries(),
-    );
+    return this.timed('getGroupSummaries', () => persistentEngineGetGroupSummaries());
   }
 
   /**
@@ -411,12 +384,8 @@ class RouteEngineClient {
    * Returns structured type directly from Rust (no JSON serialization).
    */
   getSectionById(sectionId: string): FfiFrequentSection | null {
-    validateId(sectionId, "section ID");
-    return (
-      this.timed("getSectionById", () =>
-        persistentEngineGetSectionById(sectionId),
-      ) ?? null
-    );
+    validateId(sectionId, 'section ID');
+    return this.timed('getSectionById', () => persistentEngineGetSectionById(sectionId)) ?? null;
   }
 
   /**
@@ -424,11 +393,8 @@ class RouteEngineClient {
    * Returns structured type directly from Rust (no JSON serialization).
    */
   getGroupById(groupId: string): FfiRouteGroup | null {
-    validateId(groupId, "group ID");
-    return (
-      this.timed("getGroupById", () => persistentEngineGetGroupById(groupId)) ??
-      null
-    );
+    validateId(groupId, 'group ID');
+    return this.timed('getGroupById', () => persistentEngineGetGroupById(groupId)) ?? null;
   }
 
   /**
@@ -436,9 +402,9 @@ class RouteEngineClient {
    * Returns array of GpsPoint or empty array if not found.
    */
   getSectionPolyline(sectionId: string): FfiGpsPoint[] {
-    validateId(sectionId, "section ID");
-    const flatCoords = this.timed("getSectionPolyline", () =>
-      persistentEngineGetSectionPolyline(sectionId),
+    validateId(sectionId, 'section ID');
+    const flatCoords = this.timed('getSectionPolyline', () =>
+      persistentEngineGetSectionPolyline(sectionId)
     );
     return flatCoordsToPoints(flatCoords);
   }
@@ -448,8 +414,8 @@ class RouteEngineClient {
    * Returns activities with bounds, name, date, distance, duration, sportType.
    */
   getAllMapActivitiesComplete(): MapActivityComplete[] {
-    return this.timed("getAllMapActivitiesComplete", () =>
-      persistentEngineGetAllMapActivitiesComplete(),
+    return this.timed('getAllMapActivitiesComplete', () =>
+      persistentEngineGetAllMapActivitiesComplete()
     );
   }
 
@@ -460,15 +426,13 @@ class RouteEngineClient {
   getMapActivitiesFiltered(
     startDate: Date,
     endDate: Date,
-    sportTypesArray?: string[],
+    sportTypesArray?: string[]
   ): MapActivityComplete[] {
     const startTs = BigInt(Math.floor(startDate.getTime() / 1000));
     const endTs = BigInt(Math.floor(endDate.getTime() / 1000));
-    const sportTypesJson = sportTypesArray?.length
-      ? JSON.stringify(sportTypesArray)
-      : "";
-    return this.timed("getMapActivitiesFiltered", () =>
-      persistentEngineGetMapActivitiesFiltered(startTs, endTs, sportTypesJson),
+    const sportTypesJson = sportTypesArray?.length ? JSON.stringify(sportTypesArray) : '';
+    return this.timed('getMapActivitiesFiltered', () =>
+      persistentEngineGetMapActivitiesFiltered(startTs, endTs, sportTypesJson)
     );
   }
 
@@ -477,12 +441,10 @@ class RouteEngineClient {
    * @throws Error if routeId or name fails validation
    */
   setRouteName(routeId: string, name: string): void {
-    validateId(routeId, "route ID");
-    validateName(name, "route name");
-    this.timed("setRouteName", () =>
-      persistentEngineSetRouteName(routeId, name),
-    );
-    this.notify("groups");
+    validateId(routeId, 'route ID');
+    validateName(name, 'route name');
+    this.timed('setRouteName', () => persistentEngineSetRouteName(routeId, name));
+    this.notify('groups');
   }
 
   /**
@@ -490,12 +452,10 @@ class RouteEngineClient {
    * @throws Error if sectionId or name fails validation
    */
   setSectionName(sectionId: string, name: string): void {
-    validateId(sectionId, "section ID");
-    validateName(name, "section name");
-    this.timed("setSectionName", () =>
-      persistentEngineSetSectionName(sectionId, name),
-    );
-    this.notify("sections");
+    validateId(sectionId, 'section ID');
+    validateName(name, 'section name');
+    this.timed('setSectionName', () => persistentEngineSetSectionName(sectionId, name));
+    this.notify('sections');
   }
 
   /**
@@ -503,8 +463,8 @@ class RouteEngineClient {
    * Called after i18n initialization and when language changes.
    */
   setNameTranslations(routeWord: string, sectionWord: string): void {
-    this.timed("setNameTranslations", () =>
-      persistentEngineSetNameTranslations(routeWord, sectionWord),
+    this.timed('setNameTranslations', () =>
+      persistentEngineSetNameTranslations(routeWord, sectionWord)
     );
   }
 
@@ -512,10 +472,8 @@ class RouteEngineClient {
    * Get route name.
    */
   getRouteName(routeId: string): string {
-    validateId(routeId, "route ID");
-    return this.timed("getRouteName", () =>
-      persistentEngineGetRouteName(routeId),
-    );
+    validateId(routeId, 'route ID');
+    return this.timed('getRouteName', () => persistentEngineGetRouteName(routeId));
   }
 
   /**
@@ -523,9 +481,7 @@ class RouteEngineClient {
    * Returns a map of routeId -> customName for all routes with custom names.
    */
   getAllRouteNames(): Record<string, string> {
-    const map = this.timed("getAllRouteNames", () =>
-      persistentEngineGetAllRouteNames(),
-    );
+    const map = this.timed('getAllRouteNames', () => persistentEngineGetAllRouteNames());
     return Object.fromEntries(map);
   }
 
@@ -534,9 +490,7 @@ class RouteEngineClient {
    * Returns a map of sectionId -> customName for all sections with custom names.
    */
   getAllSectionNames(): Record<string, string> {
-    const map = this.timed("getAllSectionNames", () =>
-      persistentEngineGetAllSectionNames(),
-    );
+    const map = this.timed('getAllSectionNames', () => persistentEngineGetAllSectionNames());
     return Object.fromEntries(map);
   }
 
@@ -545,10 +499,8 @@ class RouteEngineClient {
    * Returns flat array of coordinates [lat1, lng1, lat2, lng2, ...]
    */
   getGpsTrack(activityId: string): FfiGpsPoint[] {
-    validateId(activityId, "activity ID");
-    const flatCoords = this.timed("getGpsTrack", () =>
-      persistentEngineGetGpsTrack(activityId),
-    );
+    validateId(activityId, 'activity ID');
+    const flatCoords = this.timed('getGpsTrack', () => persistentEngineGetGpsTrack(activityId));
     return flatCoordsToPoints(flatCoords);
   }
 
@@ -557,9 +509,9 @@ class RouteEngineClient {
    * Returns flat array of coordinates [lat1, lng1, lat2, lng2, ...]
    */
   getConsensusRoute(groupId: string): FfiGpsPoint[] {
-    validateId(groupId, "group ID");
-    const flatCoords = this.timed("getConsensusRoute", () =>
-      persistentEngineGetConsensusRoute(groupId),
+    validateId(groupId, 'group ID');
+    const flatCoords = this.timed('getConsensusRoute', () =>
+      persistentEngineGetConsensusRoute(groupId)
     );
     return flatCoordsToPoints(flatCoords);
   }
@@ -568,19 +520,13 @@ class RouteEngineClient {
    * Get route performances.
    * Returns structured performance data directly (no JSON parsing).
    */
-  getRoutePerformances(
-    routeGroupId: string,
-    currentActivityId: string,
-  ): FfiRoutePerformanceResult {
-    validateId(routeGroupId, "route group ID");
-    if (currentActivityId !== "") {
-      validateId(currentActivityId, "activity ID");
+  getRoutePerformances(routeGroupId: string, currentActivityId: string): FfiRoutePerformanceResult {
+    validateId(routeGroupId, 'route group ID');
+    if (currentActivityId !== '') {
+      validateId(currentActivityId, 'activity ID');
     }
-    return this.timed("getRoutePerformances", () =>
-      persistentEngineGetRoutePerformances(
-        routeGroupId,
-        currentActivityId || undefined,
-      ),
+    return this.timed('getRoutePerformances', () =>
+      persistentEngineGetRoutePerformances(routeGroupId, currentActivityId || undefined)
     );
   }
 
@@ -591,8 +537,8 @@ class RouteEngineClient {
    * Returns structured performance data directly (no JSON parsing).
    */
   getSectionPerformances(sectionId: string): FfiSectionPerformanceResult {
-    return this.timed("getSectionPerformances", () =>
-      persistentEngineGetSectionPerformances(sectionId),
+    return this.timed('getSectionPerformances', () =>
+      persistentEngineGetSectionPerformances(sectionId)
     );
   }
 
@@ -604,10 +550,10 @@ class RouteEngineClient {
   getSectionPerformanceBuckets(
     sectionId: string,
     rangeDays: number,
-    bucketType: 'weekly' | 'monthly',
+    bucketType: 'weekly' | 'monthly' | 'quarterly' | 'yearly'
   ): FfiSectionPerformanceBucketResult {
-    return this.timed("getSectionPerformanceBuckets", () =>
-      persistentEngineGetSectionPerformanceBuckets(sectionId, rangeDays, bucketType),
+    return this.timed('getSectionPerformanceBuckets', () =>
+      persistentEngineGetSectionPerformanceBuckets(sectionId, rangeDays, bucketType)
     );
   }
 
@@ -616,11 +562,9 @@ class RouteEngineClient {
    * Also notifies 'activities' subscribers since stats (including date range) depend on metrics table.
    */
   setActivityMetrics(metrics: FfiActivityMetrics[]): void {
-    this.timed("setActivityMetrics", () =>
-      persistentEngineSetActivityMetrics(metrics),
-    );
+    this.timed('setActivityMetrics', () => persistentEngineSetActivityMetrics(metrics));
     // Notify activities subscribers - getStats() reads dates from activity_metrics table
-    this.notify("activities");
+    this.notify('activities');
   }
 
   /**
@@ -628,9 +572,7 @@ class RouteEngineClient {
    * Time streams are cumulative seconds at each GPS point, used for section performance calculations.
    * @param streams - Array of { activityId, times } objects where times is cumulative seconds
    */
-  setTimeStreams(
-    streams: Array<{ activityId: string; times: number[] }>,
-  ): void {
+  setTimeStreams(streams: Array<{ activityId: string; times: number[] }>): void {
     if (streams.length === 0) return;
 
     // Convert to flat format for FFI
@@ -644,8 +586,8 @@ class RouteEngineClient {
       offsets.push(allTimes.length);
     }
 
-    this.timed("setTimeStreams", () =>
-      persistentEngineSetTimeStreamsFlat(activityIds, allTimes, offsets),
+    this.timed('setTimeStreams', () =>
+      persistentEngineSetTimeStreamsFlat(activityIds, allTimes, offsets)
     );
   }
 
@@ -657,22 +599,17 @@ class RouteEngineClient {
    */
   getActivitiesMissingTimeStreams(activityIds: string[]): string[] {
     if (activityIds.length === 0) return [];
-    return this.timed("getActivitiesMissingTimeStreams", () =>
-      persistentEngineGetActivitiesMissingTimeStreams(activityIds),
+    return this.timed('getActivitiesMissingTimeStreams', () =>
+      persistentEngineGetActivitiesMissingTimeStreams(activityIds)
     );
   }
 
   /**
    * Query activities in viewport.
    */
-  queryViewport(
-    minLat: number,
-    maxLat: number,
-    minLng: number,
-    maxLng: number,
-  ): string[] {
-    return this.timed("queryViewport", () =>
-      persistentEngineQueryViewport(minLat, maxLat, minLng, maxLng),
+  queryViewport(minLat: number, maxLat: number, minLng: number, maxLng: number): string[] {
+    return this.timed('queryViewport', () =>
+      persistentEngineQueryViewport(minLat, maxLat, minLng, maxLng)
     );
   }
 
@@ -680,7 +617,7 @@ class RouteEngineClient {
    * Get engine stats.
    */
   getStats(): PersistentEngineStats | undefined {
-    return this.timed("getStats", () => persistentEngineGetStats());
+    return this.timed('getStats', () => persistentEngineGetStats());
   }
 
   /**
@@ -693,16 +630,16 @@ class RouteEngineClient {
     groupOffset = 0,
     sectionLimit = 20,
     sectionOffset = 0,
-    minGroupActivityCount = 2,
+    minGroupActivityCount = 2
   ): FfiRoutesScreenData | undefined {
-    return this.timed("getRoutesScreenData", () =>
+    return this.timed('getRoutesScreenData', () =>
       persistentEngineGetRoutesScreenData(
         groupLimit,
         groupOffset,
         sectionLimit,
         sectionOffset,
-        minGroupActivityCount,
-      ),
+        minGroupActivityCount
+      )
     );
   }
 
@@ -716,8 +653,8 @@ class RouteEngineClient {
    * @param endTs - End Unix timestamp (seconds)
    */
   getPeriodStats(startTs: number, endTs: number): FfiPeriodStats {
-    return this.timed("getPeriodStats", () =>
-      persistentEngineGetPeriodStats(BigInt(startTs), BigInt(endTs)),
+    return this.timed('getPeriodStats', () =>
+      persistentEngineGetPeriodStats(BigInt(startTs), BigInt(endTs))
     );
   }
 
@@ -727,8 +664,8 @@ class RouteEngineClient {
    * @param metric - "hours" | "distance" | "tss"
    */
   getMonthlyAggregates(year: number, metric: string): FfiMonthlyAggregate[] {
-    return this.timed("getMonthlyAggregates", () =>
-      persistentEngineGetMonthlyAggregates(year, metric),
+    return this.timed('getMonthlyAggregates', () =>
+      persistentEngineGetMonthlyAggregates(year, metric)
     );
   }
 
@@ -738,8 +675,8 @@ class RouteEngineClient {
    * @param endTs - End Unix timestamp (seconds)
    */
   getActivityHeatmap(startTs: number, endTs: number): FfiHeatmapDay[] {
-    return this.timed("getActivityHeatmap", () =>
-      persistentEngineGetActivityHeatmap(BigInt(startTs), BigInt(endTs)),
+    return this.timed('getActivityHeatmap', () =>
+      persistentEngineGetActivityHeatmap(BigInt(startTs), BigInt(endTs))
     );
   }
 
@@ -750,8 +687,8 @@ class RouteEngineClient {
    * @returns Array of total seconds per zone
    */
   getZoneDistribution(sportType: string, zoneType: string): number[] {
-    return this.timed("getZoneDistribution", () =>
-      persistentEngineGetZoneDistribution(sportType, zoneType),
+    return this.timed('getZoneDistribution', () =>
+      persistentEngineGetZoneDistribution(sportType, zoneType)
     );
   }
 
@@ -759,16 +696,14 @@ class RouteEngineClient {
    * Get FTP trend: latest and previous distinct FTP values with dates.
    */
   getFtpTrend(): FfiFtpTrend {
-    return this.timed("getFtpTrend", () => persistentEngineGetFtpTrend());
+    return this.timed('getFtpTrend', () => persistentEngineGetFtpTrend());
   }
 
   /**
    * Get distinct sport types from stored activities.
    */
   getAvailableSportTypes(): string[] {
-    return this.timed("getAvailableSportTypes", () =>
-      persistentEngineGetAvailableSportTypes(),
-    );
+    return this.timed('getAvailableSportTypes', () => persistentEngineGetAvailableSportTypes());
   }
 
   // ==========================================================================
@@ -779,36 +714,28 @@ class RouteEngineClient {
    * Store athlete profile JSON in SQLite for instant startup rendering.
    */
   setAthleteProfile(json: string): void {
-    this.timed("setAthleteProfile", () =>
-      persistentEngineSetAthleteProfile(json),
-    );
+    this.timed('setAthleteProfile', () => persistentEngineSetAthleteProfile(json));
   }
 
   /**
    * Get cached athlete profile JSON. Returns empty string if not cached.
    */
   getAthleteProfile(): string {
-    return this.timed("getAthleteProfile", () =>
-      persistentEngineGetAthleteProfile(),
-    );
+    return this.timed('getAthleteProfile', () => persistentEngineGetAthleteProfile());
   }
 
   /**
    * Store sport settings JSON in SQLite for instant startup rendering.
    */
   setSportSettings(json: string): void {
-    this.timed("setSportSettings", () =>
-      persistentEngineSetSportSettings(json),
-    );
+    this.timed('setSportSettings', () => persistentEngineSetSportSettings(json));
   }
 
   /**
    * Get cached sport settings JSON. Returns empty string if not cached.
    */
   getSportSettings(): string {
-    return this.timed("getSportSettings", () =>
-      persistentEngineGetSportSettings(),
-    );
+    return this.timed('getSportSettings', () => persistentEngineGetSportSettings());
   }
 
   // ==========================================================================
@@ -823,13 +750,9 @@ class RouteEngineClient {
    * @param thresholdMeters - Distance threshold (default 50m)
    * @returns 0.0-1.0 overlap ratio
    */
-  computePolylineOverlap(
-    coordsA: number[],
-    coordsB: number[],
-    thresholdMeters = 50,
-  ): number {
-    return this.timed("computePolylineOverlap", () =>
-      ffiComputePolylineOverlap(coordsA, coordsB, thresholdMeters),
+  computePolylineOverlap(coordsA: number[], coordsB: number[], thresholdMeters = 50): number {
+    return this.timed('computePolylineOverlap', () =>
+      ffiComputePolylineOverlap(coordsA, coordsB, thresholdMeters)
     );
   }
 
@@ -841,8 +764,8 @@ class RouteEngineClient {
    * Get sections by type.
    * @param sectionType - 'auto', 'custom', or undefined for all sections
    */
-  getSectionsByType(sectionType?: "auto" | "custom"): FfiSection[] {
-    return this.timed("getSectionsByType", () => ffiGetSections(sectionType));
+  getSectionsByType(sectionType?: 'auto' | 'custom'): FfiSection[] {
+    return this.timed('getSectionsByType', () => ffiGetSections(sectionType));
   }
 
   /**
@@ -855,9 +778,9 @@ class RouteEngineClient {
     startIndex: number,
     endIndex: number,
     sportType: string,
-    name?: string,
+    name?: string
   ): string {
-    validateId(activityId, "activity ID");
+    validateId(activityId, 'activity ID');
 
     // Load GPS track to compute polyline
     const track = this.getGpsTrack(activityId);
@@ -868,11 +791,11 @@ class RouteEngineClient {
     // Extract the section of the track
     const sectionTrack = track.slice(startIndex, endIndex + 1);
     if (sectionTrack.length < 2) {
-      throw new Error("Section must have at least 2 points");
+      throw new Error('Section must have at least 2 points');
     }
 
     // Create section via unified FFI (distance computed in Rust from polyline)
-    const sectionId = this.timed("createSection", () =>
+    const sectionId = this.timed('createSection', () =>
       ffiCreateSection(
         sportType,
         JSON.stringify(sectionTrack),
@@ -880,12 +803,12 @@ class RouteEngineClient {
         name || undefined,
         activityId,
         startIndex,
-        endIndex,
-      ),
+        endIndex
+      )
     );
 
     if (sectionId) {
-      this.notify("sections");
+      this.notify('sections');
     }
 
     return sectionId;
@@ -895,12 +818,10 @@ class RouteEngineClient {
    * Delete a section (works for both auto and custom sections).
    */
   deleteSection(sectionId: string): boolean {
-    validateId(sectionId, "section ID");
-    const result = this.timed("deleteSection", () =>
-      ffiDeleteSection(sectionId),
-    );
+    validateId(sectionId, 'section ID');
+    const result = this.timed('deleteSection', () => ffiDeleteSection(sectionId));
     if (result) {
-      this.notify("sections");
+      this.notify('sections');
     }
     return result;
   }
@@ -911,8 +832,8 @@ class RouteEngineClient {
    * Returns raw potentials with GpsPoint polylines.
    */
   detectPotentials(sportFilter?: string): RawPotentialSection[] {
-    const json = this.timed("detectPotentials", () =>
-      persistentEngineDetectPotentials(sportFilter),
+    const json = this.timed('detectPotentials', () =>
+      persistentEngineDetectPotentials(sportFilter)
     );
     if (!json) return [];
     try {
@@ -925,13 +846,10 @@ class RouteEngineClient {
   /**
    * Extract section trace from an activity.
    */
-  extractSectionTrace(
-    activityId: string,
-    sectionPolylineJson: string,
-  ): FfiGpsPoint[] {
-    validateId(activityId, "activity ID");
-    const flatCoords = this.timed("extractSectionTrace", () =>
-      persistentEngineExtractSectionTrace(activityId, sectionPolylineJson),
+  extractSectionTrace(activityId: string, sectionPolylineJson: string): FfiGpsPoint[] {
+    validateId(activityId, 'activity ID');
+    const flatCoords = this.timed('extractSectionTrace', () =>
+      persistentEngineExtractSectionTrace(activityId, sectionPolylineJson)
     );
     return flatCoordsToPoints(flatCoords);
   }
@@ -944,14 +862,11 @@ class RouteEngineClient {
    */
   extractSectionTracesBatch(
     activityIds: string[],
-    sectionPolylineJson: string,
+    sectionPolylineJson: string
   ): Record<string, RoutePoint[]> {
     if (activityIds.length === 0) return {};
-    const results = this.timed("extractSectionTracesBatch", () =>
-      persistentEngineExtractSectionTracesBatch(
-        activityIds,
-        sectionPolylineJson,
-      ),
+    const results = this.timed('extractSectionTracesBatch', () =>
+      persistentEngineExtractSectionTracesBatch(activityIds, sectionPolylineJson)
     );
     const traces: Record<string, RoutePoint[]> = {};
     for (const batch of results) {
@@ -972,8 +887,8 @@ class RouteEngineClient {
    */
   getActivityMetricsForIds(ids: string[]): FfiActivityMetrics[] {
     if (ids.length === 0) return [];
-    return this.timed("getActivityMetricsForIds", () =>
-      persistentEngineGetActivityMetricsForIds(ids),
+    return this.timed('getActivityMetricsForIds', () =>
+      persistentEngineGetActivityMetricsForIds(ids)
     );
   }
 
@@ -988,16 +903,16 @@ class RouteEngineClient {
    * @returns true if successful, false otherwise
    */
   setSectionReference(sectionId: string, activityId: string): boolean {
-    validateId(sectionId, "section ID");
-    validateId(activityId, "activity ID");
+    validateId(sectionId, 'section ID');
+    validateId(activityId, 'activity ID');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const generated = require("./generated/veloqrs");
+    const generated = require('./generated/veloqrs');
     const result = this.timed(
-      "setSectionReference",
-      () => generated.setSectionReference(sectionId, activityId) as boolean,
+      'setSectionReference',
+      () => generated.setSectionReference(sectionId, activityId) as boolean
     );
     if (result) {
-      this.notify("sections");
+      this.notify('sections');
     }
     return result;
   }
@@ -1007,15 +922,15 @@ class RouteEngineClient {
    * @returns true if successful, false otherwise
    */
   resetSectionReference(sectionId: string): boolean {
-    validateId(sectionId, "section ID");
+    validateId(sectionId, 'section ID');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const generated = require("./generated/veloqrs");
+    const generated = require('./generated/veloqrs');
     const result = this.timed(
-      "resetSectionReference",
-      () => generated.resetSectionReference(sectionId) as boolean,
+      'resetSectionReference',
+      () => generated.resetSectionReference(sectionId) as boolean
     );
     if (result) {
-      this.notify("sections");
+      this.notify('sections');
     }
     return result;
   }
@@ -1025,12 +940,12 @@ class RouteEngineClient {
    * @returns The activity ID that is the current reference (medoid), or undefined if not found
    */
   getSectionReference(sectionId: string): string | undefined {
-    validateId(sectionId, "section ID");
+    validateId(sectionId, 'section ID');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const generated = require("./generated/veloqrs");
+    const generated = require('./generated/veloqrs');
     return this.timed(
-      "getSectionReference",
-      () => generated.getSectionReference(sectionId) as string | undefined,
+      'getSectionReference',
+      () => generated.getSectionReference(sectionId) as string | undefined
     );
   }
 
@@ -1039,12 +954,12 @@ class RouteEngineClient {
    * @returns true if user manually set the reference, false if algorithm-selected
    */
   isSectionReferenceUserDefined(sectionId: string): boolean {
-    validateId(sectionId, "section ID");
+    validateId(sectionId, 'section ID');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const generated = require("./generated/veloqrs");
+    const generated = require('./generated/veloqrs');
     return this.timed(
-      "isSectionReferenceUserDefined",
-      () => generated.isSectionReferenceUserDefined(sectionId) as boolean,
+      'isSectionReferenceUserDefined',
+      () => generated.isSectionReferenceUserDefined(sectionId) as boolean
     );
   }
 
@@ -1054,7 +969,7 @@ class RouteEngineClient {
   async fetchActivityMapsWithProgress(
     authHeader: string,
     activityIds: string[],
-    onProgress?: (event: FetchProgressEvent) => void,
+    onProgress?: (event: FetchProgressEvent) => void
   ): Promise<FfiActivityMapResult[]> {
     if (!onProgress) {
       return fetchActivityMaps(authHeader, activityIds);
@@ -1082,12 +997,13 @@ class RouteEngineClient {
    */
   debugCloneActivity(sourceId: string, count: number): number {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const generated = require("./generated/veloqrs");
-    const created = this.timed("debugCloneActivity", () =>
-      generated.persistentEngineDebugCloneActivity(sourceId, count) as number,
+    const generated = require('./generated/veloqrs');
+    const created = this.timed(
+      'debugCloneActivity',
+      () => generated.persistentEngineDebugCloneActivity(sourceId, count) as number
     );
     if (created > 0) {
-      this.notifyAll("activities", "groups", "sections");
+      this.notifyAll('activities', 'groups', 'sections');
     }
     return created;
   }
@@ -1110,7 +1026,7 @@ class RouteEngineClient {
    * Manually trigger a refresh for subscribers of the given event type.
    * Use this to refresh UI after navigating back from a detail page.
    */
-  triggerRefresh(event: "groups" | "sections" | "activities"): void {
+  triggerRefresh(event: 'groups' | 'sections' | 'activities'): void {
     this.notify(event);
   }
 
