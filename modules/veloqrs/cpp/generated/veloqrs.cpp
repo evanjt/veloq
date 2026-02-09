@@ -152,6 +152,8 @@ uint32_t uniffi_veloqrs_fn_func_persistent_engine_cleanup_old_activities(
     uint32_t retention_days, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_func_persistent_engine_clear(
     RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_func_persistent_engine_debug_clone_activity(
+    RustBuffer source_id, uint32_t count, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_detect_potentials(
     RustBuffer sport_filter, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_extract_section_trace(
@@ -212,7 +214,8 @@ RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_route_performances(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_routes_screen_data(
     uint32_t group_limit, uint32_t group_offset, uint32_t section_limit,
-    uint32_t section_offset, RustCallStatus *uniffi_out_err);
+    uint32_t section_offset, uint32_t min_group_activity_count,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_section_by_id(
     RustBuffer section_id, RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_func_persistent_engine_get_section_count(
@@ -430,6 +433,7 @@ uint16_t uniffi_veloqrs_checksum_func_persistent_engine_add_activities();
 uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_cleanup_old_activities();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_clear();
+uint16_t uniffi_veloqrs_checksum_func_persistent_engine_debug_clone_activity();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_detect_potentials();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_extract_section_trace();
 uint16_t
@@ -2395,6 +2399,19 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_func_persistent_engine_clear(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_debug_clone_activity"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_uniffi_veloqrs_fn_func_persistent_"
+                                    "engine_debug_clone_activity"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_func_persistent_engine_debug_clone_activity(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_detect_potentials"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2715,7 +2732,7 @@ NativeVeloqrs::NativeVeloqrs(
       rt,
       jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_func_persistent_"
                                     "engine_get_routes_screen_data"),
-      4,
+      5,
       [this](jsi::Runtime &rt, const jsi::Value &thisVal,
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
@@ -3283,6 +3300,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_clear(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_debug_clone_"
+        "activity"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
+                                    "persistent_engine_debug_clone_activity"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_debug_clone_activity(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_detect_"
         "potentials"] = jsi::Function::createFromHostFunction(
       rt,
@@ -4311,6 +4340,21 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_clear(
 
   return jsi::Value::undefined();
 }
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_func_persistent_engine_debug_clone_activity(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_persistent_engine_debug_clone_activity(
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_detect_potentials(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -4676,6 +4720,7 @@ jsi::Value NativeVeloqrs::
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[3]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[4]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -5231,6 +5276,15 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_persistent_engine_clear(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_func_persistent_engine_clear();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_debug_clone_activity(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_debug_clone_activity();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

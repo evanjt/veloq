@@ -46,7 +46,7 @@ export default function RoutesScreen() {
     loadMoreSections,
     hasMoreGroups,
     hasMoreSections,
-  } = useRoutesScreenData({ groupLimit: 20, sectionLimit: 20 });
+  } = useRoutesScreenData({ groupLimit: 50, sectionLimit: 100 });
 
   // Derive counts from batch data
   const routeGroupCount = routesData?.groupCount ?? 0;
@@ -186,7 +186,8 @@ export default function RoutesScreen() {
   // Phases: 1) Loading activities, 2) Downloading GPS, 3) Analyzing routes
   const timelineSyncProgress = useMemo(() => {
     // Phase 1: Loading activities from API / extending date range
-    if (isFetchingExtended) {
+    // Only show when we don't have data yet (avoid showing during background refetches)
+    if (isFetchingExtended && !routesData?.activityCount) {
       return {
         message: t('mapScreen.loadingActivities') as string,
         phase: 1,
@@ -223,7 +224,14 @@ export default function RoutesScreen() {
     }
 
     return null;
-  }, [isFetchingExtended, syncProgress, isDataSyncing, dataSyncProgress, t]);
+  }, [
+    isFetchingExtended,
+    syncProgress,
+    isDataSyncing,
+    dataSyncProgress,
+    routesData?.activityCount,
+    t,
+  ]);
 
   // Show disabled state if route matching is not enabled
   if (!isRouteMatchingEnabled) {

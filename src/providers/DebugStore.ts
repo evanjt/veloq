@@ -15,7 +15,7 @@ interface DebugState {
   setEnabled: (enabled: boolean) => Promise<void>;
 }
 
-export const useDebugStore = create<DebugState>((set, get) => ({
+export const useDebugStore = create<DebugState>((set) => ({
   unlocked: false,
   enabled: false,
   isLoaded: false,
@@ -25,9 +25,10 @@ export const useDebugStore = create<DebugState>((set, get) => ({
       const stored = await AsyncStorage.getItem(DEBUG_MODE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
+        const enabled = parsed.enabled === true;
         set({
-          unlocked: parsed.unlocked === true,
-          enabled: parsed.enabled === true,
+          unlocked: enabled,
+          enabled,
           isLoaded: true,
         });
       } else {
@@ -39,16 +40,12 @@ export const useDebugStore = create<DebugState>((set, get) => ({
   },
 
   unlock: async () => {
-    const state = get();
-    const next = { unlocked: true, enabled: state.enabled };
-    await AsyncStorage.setItem(DEBUG_MODE_KEY, JSON.stringify(next));
     set({ unlocked: true });
   },
 
   setEnabled: async (enabled: boolean) => {
-    const next = { unlocked: true, enabled };
-    await AsyncStorage.setItem(DEBUG_MODE_KEY, JSON.stringify(next));
-    set({ enabled });
+    await AsyncStorage.setItem(DEBUG_MODE_KEY, JSON.stringify({ enabled }));
+    set({ enabled, unlocked: enabled });
   },
 }));
 
@@ -57,7 +54,23 @@ export function isDebugEnabled(): boolean {
   return useDebugStore.getState().enabled;
 }
 
-/** Initialize debug store (call during app startup) */
+/** Initialize debug store and wire up FFI metric recording */
 export async function initializeDebugStore(): Promise<void> {
   await useDebugStore.getState().initialize();
+  syncDebugToFFI();
+}
+
+/** Sync debug enabled state to RouteEngineClient for FFI metric recording */
+function syncDebugToFFI(): void {
+  try {
+    const { RouteEngineClient } = require('veloqrs');
+    const { recordFFIMetric } = require('@/lib/debug/renderTimer');
+    RouteEngineClient.setMetricRecorder(recordFFIMetric);
+    RouteEngineClient.setDebugEnabled(useDebugStore.getState().enabled);
+    useDebugStore.subscribe((state) => {
+      RouteEngineClient.setDebugEnabled(state.enabled);
+    });
+  } catch {
+    // Native module not available (web/Expo Go)
+  }
 }

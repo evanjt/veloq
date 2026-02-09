@@ -4859,6 +4859,142 @@ impl PersistentRouteEngine {
     }
 
     // ========================================================================
+    // Debug Utilities
+    // ========================================================================
+
+    /// Clone an activity N times for scale testing.
+    /// Copies activity metadata and metrics with synthetic IDs.
+    /// Copies all section_activities entries for the source activity.
+    /// Does NOT copy GPS tracks (saves memory).
+    /// Returns the number of clones created.
+    pub fn debug_clone_activity(&mut self, source_id: &str, count: u32) -> u32 {
+        let mut created = 0u32;
+
+        // Check source exists in metadata
+        let source_meta = match self.activity_metadata.get(source_id) {
+            Some(m) => m.clone(),
+            None => return 0,
+        };
+
+        // Get source metrics if available
+        let source_metrics = self.activity_metrics.get(source_id).cloned();
+
+        // Get section_activities entries for source
+        let section_entries: Vec<(String, String, i32, i32, f64)> = self
+            .db
+            .prepare(
+                "SELECT section_id, direction, start_index, end_index, distance_meters
+                 FROM section_activities WHERE activity_id = ?",
+            )
+            .and_then(|mut stmt| {
+                stmt.query_map([source_id], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, i32>(2)?,
+                        row.get::<_, i32>(3)?,
+                        row.get::<_, f64>(4)?,
+                    ))
+                })
+                .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            })
+            .unwrap_or_default();
+
+        // Use epoch millis to ensure unique IDs across invocations
+        let batch_ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+
+        for n in 0..count {
+            let clone_id = format!("{}_clone_{}_{}", source_id, batch_ts, n);
+
+            // Skip if clone already exists
+            if self.activity_metadata.contains_key(&clone_id) {
+                continue;
+            }
+
+            // Insert activity record
+            let _ = self.db.execute(
+                "INSERT OR IGNORE INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+                 VALUES (?, ?, ?, ?, ?, ?)",
+                rusqlite::params![
+                    clone_id,
+                    source_meta.sport_type,
+                    source_meta.bounds.min_lat,
+                    source_meta.bounds.max_lat,
+                    source_meta.bounds.min_lng,
+                    source_meta.bounds.max_lng,
+                ],
+            );
+
+            // Insert activity metrics if available
+            if let Some(ref metrics) = source_metrics {
+                let _ = self.db.execute(
+                    "INSERT OR IGNORE INTO activity_metrics
+                     (activity_id, name, date, distance, moving_time, elapsed_time,
+                      elevation_gain, avg_hr, avg_power, sport_type)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    rusqlite::params![
+                        clone_id,
+                        metrics.name,
+                        metrics.date,
+                        metrics.distance,
+                        metrics.moving_time,
+                        metrics.elapsed_time,
+                        metrics.elevation_gain,
+                        metrics.avg_hr,
+                        metrics.avg_power,
+                        metrics.sport_type,
+                    ],
+                );
+
+                // Add to in-memory metrics
+                let mut clone_metrics = metrics.clone();
+                clone_metrics.activity_id = clone_id.clone();
+                self.activity_metrics.insert(clone_id.clone(), clone_metrics);
+            }
+
+            // Copy section_activities entries
+            for (section_id, direction, start_idx, end_idx, distance) in &section_entries {
+                let _ = self.db.execute(
+                    "INSERT OR IGNORE INTO section_activities
+                     (section_id, activity_id, direction, start_index, end_index, distance_meters)
+                     VALUES (?, ?, ?, ?, ?, ?)",
+                    rusqlite::params![section_id, clone_id, direction, start_idx, end_idx, distance],
+                );
+            }
+
+            // Add to in-memory metadata
+            self.activity_metadata.insert(
+                clone_id.clone(),
+                ActivityMetadata {
+                    id: clone_id,
+                    sport_type: source_meta.sport_type.clone(),
+                    bounds: source_meta.bounds,
+                },
+            );
+
+            created += 1;
+        }
+
+        // Rebuild spatial index if we added any clones
+        if created > 0 {
+            let entries: Vec<ActivityBoundsEntry> = self
+                .activity_metadata
+                .values()
+                .map(|m| ActivityBoundsEntry {
+                    activity_id: m.id.clone(),
+                    bounds: m.bounds,
+                })
+                .collect();
+            self.spatial_index = rstar::RTree::bulk_load(entries);
+        }
+
+        created
+    }
+
+    // ========================================================================
     // Statistics
     // ========================================================================
 
@@ -4904,6 +5040,7 @@ impl PersistentRouteEngine {
         group_offset: u32,
         section_limit: u32,
         section_offset: u32,
+        min_group_activity_count: u32,
     ) -> crate::FfiRoutesScreenData {
         // Get date range from activity_metrics
         let (oldest_date, newest_date): (Option<i64>, Option<i64>) = self
@@ -4915,8 +5052,11 @@ impl PersistentRouteEngine {
             )
             .unwrap_or((None, None));
 
-        // Get group summaries, sort by activity_count DESC, apply limit/offset
+        // Get group summaries, filter by min activity count, sort by activity_count DESC, apply limit/offset
         let mut raw_summaries = self.get_group_summaries();
+        if min_group_activity_count > 0 {
+            raw_summaries.retain(|g| g.activity_count >= min_group_activity_count);
+        }
         raw_summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count));
         let total_groups = raw_summaries.len();
         let paged_summaries: Vec<_> = raw_summaries
@@ -5486,6 +5626,14 @@ pub mod persistent_engine_ffi {
         .unwrap_or_default()
     }
 
+    /// Clone an activity N times for scale testing (debug only).
+    /// Copies metadata, metrics, and section_activities. Does NOT copy GPS tracks.
+    /// Returns the number of clones created.
+    #[uniffi::export]
+    pub fn persistent_engine_debug_clone_activity(source_id: String, count: u32) -> u32 {
+        with_persistent_engine(|e| e.debug_clone_activity(&source_id, count)).unwrap_or(0)
+    }
+
     /// Get engine statistics.
     #[uniffi::export]
     pub fn persistent_engine_get_stats() -> Option<PersistentEngineStats> {
@@ -5500,9 +5648,10 @@ pub mod persistent_engine_ffi {
         group_offset: u32,
         section_limit: u32,
         section_offset: u32,
+        min_group_activity_count: u32,
     ) -> Option<crate::FfiRoutesScreenData> {
         with_persistent_engine(|e| {
-            e.get_routes_screen_data(group_limit, group_offset, section_limit, section_offset)
+            e.get_routes_screen_data(group_limit, group_offset, section_limit, section_offset, min_group_activity_count)
         })
     }
 

@@ -7,7 +7,7 @@
  * When using summaries, the polyline is lazy-loaded on-demand.
  */
 
-import React, { memo, useMemo, useId } from 'react';
+import React, { memo, useCallback, useMemo, useId } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme, useSectionPolyline, useMetricSystem } from '@/hooks';
 import { Text } from 'react-native-paper';
@@ -15,11 +15,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { debug, formatDistance, getBoundsFromPoints, getActivityColor } from '@/lib';
+import { formatDistance, getBoundsFromPoints, getActivityColor } from '@/lib';
 import type { ActivityType, FrequentSection, RoutePoint } from '@/types';
 import type { SectionSummary } from 'veloqrs';
-
-const log = debug.create('SectionRow');
 
 /** A single activity's trace through the section */
 export interface ActivityTrace {
@@ -49,7 +47,7 @@ interface SectionRowProps {
   section: FrequentSection | SectionSummary | SectionRowData;
   /** Optional pre-loaded activity traces for this section */
   activityTraces?: ActivityTrace[];
-  onPress?: () => void;
+  onPress?: (id: string) => void;
 }
 
 /**
@@ -141,19 +139,9 @@ export const SectionRow = memo(function SectionRow({
   // Note: Check length, not truthiness - empty array [] is truthy
   const polyline = section.polyline?.length ? section.polyline : lazyPolyline;
 
-  // Debug: log touch events
-  const handlePressIn = () => {
-    log.log('PressIn! Section:', section.id);
-  };
-
-  const handlePressOut = () => {
-    log.log('PressOut! Section:', section.id);
-  };
-
-  const handlePress = () => {
-    log.log('Press! Section:', section.id, 'onPress defined:', !!onPress);
-    onPress?.();
-  };
+  const handlePress = useCallback(() => {
+    onPress?.(section.id);
+  }, [onPress, section.id]);
 
   // Compute bounds from section polyline only (not activity traces)
   // This ensures the thumbnail accurately represents the section geometry
@@ -240,8 +228,6 @@ export const SectionRow = memo(function SectionRow({
     <TouchableOpacity
       testID={`section-row-${section.id}`}
       style={[styles.container, isDark && styles.containerDark]}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
       onPress={handlePress}
       activeOpacity={0.7}
     >

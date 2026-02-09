@@ -1107,7 +1107,7 @@ export default function SettingsScreen() {
           </Text>
         </Pressable>
 
-        {debugUnlocked && (
+        {(debugUnlocked || debugEnabled) && (
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
               <Text style={[styles.toggleLabel, isDark && styles.textLight]}>Debug Mode</Text>
@@ -1117,6 +1117,27 @@ export default function SettingsScreen() {
             </View>
             <Switch value={debugEnabled} onValueChange={setDebugEnabled} color={colors.primary} />
           </View>
+        )}
+        {debugEnabled && (
+          <TouchableOpacity
+            style={styles.toggleRow}
+            onPress={() => router.push('/debug' as Href)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.toggleInfo}>
+              <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
+                Developer Dashboard
+              </Text>
+              <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
+                Engine stats, FFI performance, memory
+              </Text>
+            </View>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={24}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            />
+          </TouchableOpacity>
         )}
       </ScrollView>
     </ScreenSafeAreaView>

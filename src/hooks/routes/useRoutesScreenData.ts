@@ -12,7 +12,7 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useEngineSubscription } from './useRouteEngine';
 import type { RoutesScreenData, GroupWithPolyline, SectionWithPolyline } from 'veloqrs';
 
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 50;
 
 interface PaginatedRoutesData extends RoutesScreenData {
   /** Accumulated groups across all loaded pages */
@@ -49,8 +49,15 @@ export function useRoutesScreenData(opts?: {
   const hasMoreGroupsRef = useRef(false);
   const hasMoreSectionsRef = useRef(false);
 
+  // Loading guards — prevent onEndReached from firing multiple times between renders
+  const isLoadingGroupsRef = useRef(false);
+  const isLoadingSectionsRef = useRef(false);
+
   // Track the trigger value that last reset the refs
   const lastTriggerRef = useRef(trigger);
+
+  // Track last successful result for error recovery
+  const lastResultRef = useRef<PaginatedRoutesData | null>(null);
 
   // Reset pagination on engine events (new sync, etc.)
   useEffect(() => {
@@ -58,6 +65,8 @@ export function useRoutesScreenData(opts?: {
       lastTriggerRef.current = trigger;
       groupsRef.current = [];
       sectionsRef.current = [];
+      isLoadingGroupsRef.current = false;
+      isLoadingSectionsRef.current = false;
       setGroupOffset(0);
       setSectionOffset(0);
     }
@@ -67,7 +76,7 @@ export function useRoutesScreenData(opts?: {
   const data = useMemo(() => {
     try {
       const engine = getRouteEngine();
-      if (!engine) return null;
+      if (!engine) return lastResultRef.current;
 
       const result = engine.getRoutesScreenData(
         groupLimit,
@@ -75,43 +84,36 @@ export function useRoutesScreenData(opts?: {
         sectionLimit,
         sectionOffset
       );
-      if (!result) return null;
+      if (!result) return lastResultRef.current;
 
-      if (groupOffset === 0 && sectionOffset === 0) {
-        // First page: replace
+      // Accumulate groups
+      if (groupOffset === 0) {
         groupsRef.current = result.groups;
+      } else {
+        const existingGroupIds = new Set(groupsRef.current.map((g) => g.groupId));
+        for (const g of result.groups) {
+          if (!existingGroupIds.has(g.groupId)) {
+            groupsRef.current.push(g);
+          }
+        }
+      }
+
+      // Accumulate sections
+      if (sectionOffset === 0) {
         sectionsRef.current = result.sections;
       } else {
-        // Subsequent pages: append, dedup by ID
-        if (groupOffset > 0) {
-          const existingGroupIds = new Set(groupsRef.current.map((g) => g.groupId));
-          for (const g of result.groups) {
-            if (!existingGroupIds.has(g.groupId)) {
-              groupsRef.current.push(g);
-            }
+        const existingSectionIds = new Set(sectionsRef.current.map((s) => s.id));
+        for (const s of result.sections) {
+          if (!existingSectionIds.has(s.id)) {
+            sectionsRef.current.push(s);
           }
-        }
-        if (sectionOffset > 0) {
-          const existingSectionIds = new Set(sectionsRef.current.map((s) => s.id));
-          for (const s of result.sections) {
-            if (!existingSectionIds.has(s.id)) {
-              sectionsRef.current.push(s);
-            }
-          }
-        }
-        // When only one offset advanced, keep the other from the ref
-        if (groupOffset === 0) {
-          groupsRef.current = result.groups;
-        }
-        if (sectionOffset === 0) {
-          sectionsRef.current = result.sections;
         }
       }
 
       hasMoreGroupsRef.current = result.hasMoreGroups;
       hasMoreSectionsRef.current = result.hasMoreSections;
 
-      return {
+      const data = {
         activityCount: result.activityCount,
         groupCount: result.groupCount,
         sectionCount: result.sectionCount,
@@ -122,20 +124,32 @@ export function useRoutesScreenData(opts?: {
         hasMoreGroups: result.hasMoreGroups,
         hasMoreSections: result.hasMoreSections,
       } as PaginatedRoutesData;
+
+      lastResultRef.current = data;
+      return data;
     } catch {
-      return null;
+      // On error, stop pagination to prevent infinite loops
+      hasMoreGroupsRef.current = false;
+      hasMoreSectionsRef.current = false;
+      return lastResultRef.current;
+    } finally {
+      // Always clear loading guards so next page can be requested
+      isLoadingGroupsRef.current = false;
+      isLoadingSectionsRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trigger, groupOffset, sectionOffset, groupLimit, sectionLimit]);
 
   const loadMoreGroups = useCallback(() => {
-    if (hasMoreGroupsRef.current) {
+    if (hasMoreGroupsRef.current && !isLoadingGroupsRef.current) {
+      isLoadingGroupsRef.current = true;
       setGroupOffset((prev) => prev + groupLimit);
     }
   }, [groupLimit]);
 
   const loadMoreSections = useCallback(() => {
-    if (hasMoreSectionsRef.current) {
+    if (hasMoreSectionsRef.current && !isLoadingSectionsRef.current) {
+      isLoadingSectionsRef.current = true;
       setSectionOffset((prev) => prev + sectionLimit);
     }
   }, [sectionLimit]);

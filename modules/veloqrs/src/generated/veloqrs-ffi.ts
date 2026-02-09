@@ -106,6 +106,11 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_clear(
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_debug_clone_activity(
+    sourceId: Uint8Array,
+    count: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_detect_potentials(
     sportFilter: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
@@ -208,6 +213,7 @@ interface NativeModuleInterface {
     groupOffset: number,
     sectionLimit: number,
     sectionOffset: number,
+    minGroupActivityCount: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_by_id(
@@ -353,6 +359,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_add_activities(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_cleanup_old_activities(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_clear(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_debug_clone_activity(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_detect_potentials(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_extract_section_trace(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_extract_section_traces_batch(): number;

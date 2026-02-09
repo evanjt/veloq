@@ -87,12 +87,17 @@ export function SwipeableTabs({
     [onTabChange]
   );
 
+  // Mark current tab as visited synchronously during render
+  // (must happen before the lazy check in the JSX below)
+  const currentIndex = getTabIndex(activeTab);
+  if (currentIndex >= 0) {
+    visitedRef.current.add(currentIndex);
+  }
+
   // Sync animation with activeTab state changes (e.g., from tab press)
   useEffect(() => {
     const targetIndex = getTabIndex(activeTab);
     if (targetIndex < 0) return;
-    // Mark this tab as visited for lazy rendering
-    visitedRef.current.add(targetIndex);
     const targetX = -SCREEN_WIDTH * targetIndex;
     activeTabIndex.value = targetIndex;
     translateX.value = withTiming(targetX, TIMING_CONFIG);

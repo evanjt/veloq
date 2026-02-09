@@ -6,7 +6,7 @@
  * so no expensive on-the-fly computation is needed here.
  */
 
-import React, { useCallback, useMemo, useState, useRef } from 'react';
+import React, { memo, useCallback, useMemo, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -97,6 +97,121 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
   }
   return section;
 }
+
+interface SectionListItemProps {
+  item: UnifiedSection;
+  isDark: boolean;
+  isDisabled: boolean;
+  onPress: (id: string) => void;
+  onSwipeableOpen: (id: string) => void;
+  onDelete: (item: UnifiedSection) => void;
+  onToggleHide: (item: UnifiedSection) => void;
+  swipeableRefs: React.MutableRefObject<Map<string, Swipeable | null>>;
+  t: ReturnType<typeof useTranslation>['t'];
+}
+
+const SectionListItem = memo(function SectionListItem({
+  item,
+  isDark,
+  isDisabled,
+  onPress,
+  onSwipeableOpen,
+  onDelete,
+  onToggleHide,
+  swipeableRefs,
+  t,
+}: SectionListItemProps) {
+  const renderRightActions = useCallback(
+    (
+      _progress: Animated.AnimatedInterpolation<number>,
+      dragX: Animated.AnimatedInterpolation<number>
+    ) => {
+      const isCustom = item.sectionType === 'custom';
+
+      const opacity = dragX.interpolate({
+        inputRange: [-80, -40, 0],
+        outputRange: [1, 0.8, 0],
+        extrapolate: 'clamp',
+      });
+
+      if (isCustom) {
+        return (
+          <Animated.View style={[styles.swipeAction, styles.deleteAction, { opacity }]}>
+            <RectButton style={styles.swipeActionButton} onPress={() => onDelete(item)}>
+              <MaterialCommunityIcons name="delete" size={24} color={colors.textOnDark} />
+              <Text style={styles.swipeActionText}>{t('common.delete')}</Text>
+            </RectButton>
+          </Animated.View>
+        );
+      }
+
+      return (
+        <Animated.View
+          style={[
+            styles.swipeAction,
+            isDisabled ? styles.showAction : styles.hideAction,
+            { opacity },
+          ]}
+        >
+          <RectButton style={styles.swipeActionButton} onPress={() => onToggleHide(item)}>
+            <MaterialCommunityIcons
+              name={isDisabled ? 'eye' : 'eye-off'}
+              size={24}
+              color={colors.textOnDark}
+            />
+            <Text style={styles.swipeActionText}>
+              {isDisabled ? t('common.show') : t('common.hide')}
+            </Text>
+          </RectButton>
+        </Animated.View>
+      );
+    },
+    [item, isDisabled, onDelete, onToggleHide, t]
+  );
+
+  return (
+    <Swipeable
+      ref={(ref) => {
+        swipeableRefs.current.set(item.id, ref);
+      }}
+      renderRightActions={renderRightActions}
+      onSwipeableOpen={() => onSwipeableOpen(item.id)}
+      overshootRight={false}
+      friction={2}
+    >
+      <View
+        style={[
+          styles.swipeableContent,
+          isDark && styles.swipeableContentDark,
+          isDisabled && styles.disabledSection,
+        ]}
+      >
+        <SectionRow section={item} onPress={onPress} />
+        {item.sectionType === 'custom' && (
+          <View style={styles.sourceBadge}>
+            <Text style={styles.sourceBadgeText}>{t('routes.custom')}</Text>
+          </View>
+        )}
+        {isDisabled && (
+          <View style={styles.disabledIndicator}>
+            <MaterialCommunityIcons name="eye-off" size={12} color={colors.warning} />
+            <Text style={styles.disabledIndicatorText}>{t('sections.disabled')}</Text>
+          </View>
+        )}
+      </View>
+    </Swipeable>
+  );
+}, (prev, next) => {
+  // Custom comparator: skip re-render if actual data hasn't changed
+  if (prev.item !== next.item) {
+    if (prev.item.id !== next.item.id
+      || prev.item.visitCount !== next.item.visitCount
+      || prev.item.distanceMeters !== next.item.distanceMeters
+      || prev.item.name !== next.item.name
+      || prev.item.sectionType !== next.item.sectionType) return false;
+  }
+  return prev.isDisabled === next.isDisabled && prev.isDark === next.isDark;
+});
 
 export function SectionsList({
   sportType,
@@ -194,9 +309,8 @@ export function SectionsList({
   // Polylines are now lazy-loaded via useSectionPolyline in SectionRow
 
   // Navigate to section detail page
-  const handleSectionPress = useCallback((section: UnifiedSection) => {
-    log.log('Section pressed:', section.id);
-    router.push(`/section/${section.id}` as Href);
+  const handleSectionPress = useCallback((id: string) => {
+    router.push(`/section/${id}` as Href);
   }, []);
 
   // Handle promoting a potential section to a custom section
@@ -449,99 +563,21 @@ export function SectionsList({
     [removeSection, t]
   );
 
-  // Render swipe actions (right side)
-  const renderRightActions = useCallback(
-    (
-      item: UnifiedSection,
-      _progress: Animated.AnimatedInterpolation<number>,
-      dragX: Animated.AnimatedInterpolation<number>
-    ) => {
-      const isCustom = item.sectionType === 'custom';
-      const isDisabled = disabledIds.has(item.id);
-
-      // Animate opacity based on drag distance
-      const opacity = dragX.interpolate({
-        inputRange: [-80, -40, 0],
-        outputRange: [1, 0.8, 0],
-        extrapolate: 'clamp',
-      });
-
-      if (isCustom) {
-        // Delete action for custom sections
-        return (
-          <Animated.View style={[styles.swipeAction, styles.deleteAction, { opacity }]}>
-            <RectButton style={styles.swipeActionButton} onPress={() => handleDelete(item)}>
-              <MaterialCommunityIcons name="delete" size={24} color={colors.textOnDark} />
-              <Text style={styles.swipeActionText}>{t('common.delete')}</Text>
-            </RectButton>
-          </Animated.View>
-        );
-      }
-
-      // Hide/Show action for auto sections
-      return (
-        <Animated.View
-          style={[
-            styles.swipeAction,
-            isDisabled ? styles.showAction : styles.hideAction,
-            { opacity },
-          ]}
-        >
-          <RectButton style={styles.swipeActionButton} onPress={() => handleToggleHide(item)}>
-            <MaterialCommunityIcons
-              name={isDisabled ? 'eye' : 'eye-off'}
-              size={24}
-              color={colors.textOnDark}
-            />
-            <Text style={styles.swipeActionText}>
-              {isDisabled ? t('common.show') : t('common.hide')}
-            </Text>
-          </RectButton>
-        </Animated.View>
-      );
-    },
-    [handleDelete, handleToggleHide, t]
-  );
-
   const renderItem = useCallback(
-    ({ item }: { item: UnifiedSection }) => {
-      const itemDisabled = disabledIds.has(item.id);
-      return (
-        <Swipeable
-          ref={(ref) => {
-            swipeableRefs.current.set(item.id, ref);
-          }}
-          renderRightActions={(progress, dragX) => renderRightActions(item, progress, dragX)}
-          onSwipeableOpen={() => handleSwipeableOpen(item.id)}
-          overshootRight={false}
-          friction={2}
-        >
-          <View
-            style={[
-              styles.swipeableContent,
-              isDark && styles.swipeableContentDark,
-              itemDisabled && styles.disabledSection,
-            ]}
-          >
-            <SectionRow section={item} onPress={() => handleSectionPress(item)} />
-            {/* Show source badge for custom sections */}
-            {item.sectionType === 'custom' && (
-              <View style={styles.sourceBadge}>
-                <Text style={styles.sourceBadgeText}>{t('routes.custom')}</Text>
-              </View>
-            )}
-            {/* Show disabled badge */}
-            {itemDisabled && (
-              <View style={styles.disabledIndicator}>
-                <MaterialCommunityIcons name="eye-off" size={12} color={colors.warning} />
-                <Text style={styles.disabledIndicatorText}>{t('sections.disabled')}</Text>
-              </View>
-            )}
-          </View>
-        </Swipeable>
-      );
-    },
-    [handleSectionPress, handleSwipeableOpen, renderRightActions, disabledIds, t]
+    ({ item }: { item: UnifiedSection }) => (
+      <SectionListItem
+        item={item}
+        isDark={isDark}
+        isDisabled={disabledIds.has(item.id)}
+        onPress={handleSectionPress}
+        onSwipeableOpen={handleSwipeableOpen}
+        onDelete={handleDelete}
+        onToggleHide={handleToggleHide}
+        swipeableRefs={swipeableRefs}
+        t={t}
+      />
+    ),
+    [isDark, disabledIds, handleSectionPress, handleSwipeableOpen, handleDelete, handleToggleHide, t]
   );
 
   const renderFooter = () => {

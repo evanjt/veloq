@@ -74,7 +74,6 @@
  * - StyleSwitcher component
  * - SectionCreationFlow component
  * - LocationHandler component
- * - HighlightRenderer component
  *
  * @example
  * ```tsx
@@ -116,7 +115,7 @@ import React, {
   memo,
   useImperativeHandle,
   forwardRef,
-} from 'react';
+} from "react";
 import {
   View,
   StyleSheet,
@@ -127,37 +126,37 @@ import {
   Text,
   Platform,
   ActivityIndicator,
-} from 'react-native';
-import { useTranslation } from 'react-i18next';
+} from "react-native";
+import { useTranslation } from "react-i18next";
 import {
   MapView,
   Camera,
   ShapeSource,
   LineLayer,
   MarkerView,
-} from '@maplibre/maplibre-react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
+} from "@maplibre/maplibre-react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Location from "expo-location";
 import {
   decodePolyline,
   LatLng,
   getActivityColor,
   getMapLibreBounds,
   getSectionStyle,
-} from '@/lib';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing, layout } from '@/theme/spacing';
-import { shadows } from '@/theme/shadows';
-import { useMapPreferences } from '@/providers';
-import { BaseMapView } from './BaseMapView';
-import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { CompassArrow } from '@/components/ui';
+} from "@/lib";
+import { colors, darkColors } from "@/theme/colors";
+import { typography } from "@/theme/typography";
+import { spacing, layout } from "@/theme/spacing";
+import { shadows } from "@/theme/shadows";
+import { useMapPreferences } from "@/providers";
+import { BaseMapView } from "./BaseMapView";
+import { Map3DWebView, type Map3DWebViewRef } from "./Map3DWebView";
+import { CompassArrow } from "@/components/ui";
 import {
   SectionCreationOverlay,
   type CreationState,
   type SectionCreationError,
-} from './SectionCreationOverlay';
+} from "./SectionCreationOverlay";
 import {
   type MapStyleType,
   getMapStyle,
@@ -167,8 +166,8 @@ import {
   MAP_ATTRIBUTIONS,
   TERRAIN_ATTRIBUTION,
   getCombinedSatelliteAttribution,
-} from './mapStyles';
-import type { ActivityType, RoutePoint } from '@/types';
+} from "./mapStyles";
+import type { ActivityType, RoutePoint } from "@/types";
 
 /** Attribution overlay component that manages its own state to avoid parent re-renders */
 interface AttributionOverlayRef {
@@ -191,7 +190,10 @@ const AttributionOverlay = memo(
 
       return (
         <View
-          style={[attributionStyles.attribution, isFullscreen && attributionStyles.attributionPill]}
+          style={[
+            attributionStyles.attribution,
+            isFullscreen && attributionStyles.attributionPill,
+          ]}
         >
           <Text
             style={[
@@ -203,38 +205,38 @@ const AttributionOverlay = memo(
           </Text>
         </View>
       );
-    }
-  )
+    },
+  ),
 );
 
 const attributionStyles = StyleSheet.create({
   attribution: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 4,
     left: 0,
     right: 0,
-    alignItems: 'center',
+    alignItems: "center",
     zIndex: 5,
   },
   attributionPill: {
-    left: 'auto',
+    left: "auto",
     right: spacing.sm,
     bottom: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: spacing.sm,
   },
   attributionText: {
     fontSize: 9,
-    color: 'rgba(255, 255, 255, 0.5)',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    color: "rgba(255, 255, 255, 0.5)",
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   attributionTextPill: {
     color: colors.textSecondary,
-    textShadowColor: 'transparent',
+    textShadowColor: "transparent",
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 0,
   },
@@ -251,7 +253,12 @@ export interface SectionOverlay {
 }
 
 /** Calculate distance between two coordinates using Haversine formula */
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+function haversineDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
   const R = 6371000; // Earth's radius in meters
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
@@ -266,7 +273,7 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 }
 
 // Re-export SectionCreationError for consumers
-export type { SectionCreationError } from './SectionCreationOverlay';
+export type { SectionCreationError } from "./SectionCreationOverlay";
 
 /** Result of section creation */
 export interface SectionCreationResult {
@@ -345,7 +352,9 @@ export const ActivityMapView = memo(function ActivityMapView({
   const { t } = useTranslation();
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType);
-  const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
+  const [mapStyle, setMapStyle] = useState<MapStyleType>(
+    initialStyle ?? preferredStyle,
+  );
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
@@ -354,7 +363,8 @@ export const ActivityMapView = memo(function ActivityMapView({
   const map3DOpacity = useRef(new Animated.Value(0)).current;
 
   // Section creation state
-  const [creationState, setCreationState] = useState<CreationState>('selectingStart');
+  const [creationState, setCreationState] =
+    useState<CreationState>("selectingStart");
   const [startIndex, setStartIndex] = useState<number | null>(null);
   const [endIndex, setEndIndex] = useState<number | null>(null);
 
@@ -375,10 +385,10 @@ export const ActivityMapView = memo(function ActivityMapView({
   renderCountRef.current += 1;
 
   const handleMapLoadError = useCallback(() => {
-    if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
+    if (Platform.OS === "ios" && retryCountRef.current < MAX_RETRIES) {
       retryCountRef.current += 1;
       console.log(
-        `[ActivityMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
+        `[ActivityMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`,
       );
       setMapReady(false); // Reset ready state before retry
       setTimeout(() => {
@@ -393,7 +403,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   // Also restore camera position if we saved one before style change
   const handleMapFinishLoading = useCallback(() => {
     if (__DEV__) {
-      console.log('[ActivityMapView:Camera] handleMapFinishLoading called', {
+      console.log("[ActivityMapView:Camera] handleMapFinishLoading called", {
         hasPendingRestore: !!pendingCameraRestoreRef.current,
         pendingCenter: pendingCameraRestoreRef.current?.center,
         pendingZoom: pendingCameraRestoreRef.current?.zoom,
@@ -403,26 +413,32 @@ export const ActivityMapView = memo(function ActivityMapView({
     if (pendingCameraRestoreRef.current) {
       const { center, zoom } = pendingCameraRestoreRef.current;
       if (__DEV__) {
-        console.log('[ActivityMapView:Camera] RESTORING position via setCamera', { center, zoom });
+        console.log(
+          "[ActivityMapView:Camera] RESTORING position via setCamera",
+          { center, zoom },
+        );
       }
       cameraRef.current?.setCamera({
         centerCoordinate: center,
         zoomLevel: zoom,
         animationDuration: 0,
-        animationMode: 'moveTo',
+        animationMode: "moveTo",
       });
       pendingCameraRestoreRef.current = null;
     }
     // Initial bounds are applied via effect when mapReady becomes true
     // Small delay to let camera settle before showing map
     if (__DEV__) {
-      console.log('[ActivityMapView:Camera] Setting mapReady=true in 50ms');
+      console.log("[ActivityMapView:Camera] Setting mapReady=true in 50ms");
     }
     setTimeout(() => setMapReady(true), 50);
   }, []);
 
   // Track if we need to restore camera after style change
-  const pendingCameraRestoreRef = useRef<{ center: [number, number]; zoom: number } | null>(null);
+  const pendingCameraRestoreRef = useRef<{
+    center: [number, number];
+    zoom: number;
+  } | null>(null);
 
   // Track if this is the initial mount (used to skip position save on first render)
   const isInitialMountRef = useRef(true);
@@ -431,7 +447,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   // Save current camera position to restore after reload (only if we have a position)
   useEffect(() => {
     if (__DEV__) {
-      console.log('[ActivityMapView:Camera] Style/Key change effect', {
+      console.log("[ActivityMapView:Camera] Style/Key change effect", {
         mapStyle,
         mapKey,
         isInitialMount: isInitialMountRef.current,
@@ -443,15 +459,19 @@ export const ActivityMapView = memo(function ActivityMapView({
 
     // On style change (not initial mount), save current position for restoration
     // This preserves user's zoom/pan when switching map styles
-    if (!isInitialMountRef.current && currentCenterRef.current && currentZoomRef.current) {
+    if (
+      !isInitialMountRef.current &&
+      currentCenterRef.current &&
+      currentZoomRef.current
+    ) {
       pendingCameraRestoreRef.current = {
         center: currentCenterRef.current,
         zoom: currentZoomRef.current,
       };
       if (__DEV__) {
         console.log(
-          '[ActivityMapView:Camera] Saved position for restore',
-          pendingCameraRestoreRef.current
+          "[ActivityMapView:Camera] Saved position for restore",
+          pendingCameraRestoreRef.current,
         );
       }
     }
@@ -459,7 +479,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     // Mark initial mount as done after first effect run
     isInitialMountRef.current = false;
     if (__DEV__) {
-      console.log('[ActivityMapView:Camera] Setting mapReady=false');
+      console.log("[ActivityMapView:Camera] Setting mapReady=false");
     }
     setMapReady(false);
   }, [mapStyle, mapKey]);
@@ -488,18 +508,20 @@ export const ActivityMapView = memo(function ActivityMapView({
   }, [userOverride, initialStyle, mapStyle, preferredStyle]);
 
   // Track previous external creation state to detect transitions
-  const prevExternalCreationStateRef = useRef<CreationState | undefined>(externalCreationState);
+  const prevExternalCreationStateRef = useRef<CreationState | undefined>(
+    externalCreationState,
+  );
 
   // Reset section creation state when mode changes
   useEffect(() => {
     if (__DEV__) {
-      console.log('[ActivityMapView:Camera] creationMode effect', {
+      console.log("[ActivityMapView:Camera] creationMode effect", {
         creationMode,
         renderCount: renderCountRef.current,
       });
     }
     if (creationMode) {
-      setCreationState('selectingStart');
+      setCreationState("selectingStart");
       setStartIndex(null);
       setEndIndex(null);
     }
@@ -508,15 +530,17 @@ export const ActivityMapView = memo(function ActivityMapView({
   // Reset internal state ONLY when transitioning from 'error' to undefined (user clicked retry)
   // Do NOT reset when transitioning from 'creating' to undefined (success path)
   useEffect(() => {
-    const wasError = prevExternalCreationStateRef.current === 'error';
+    const wasError = prevExternalCreationStateRef.current === "error";
     const nowUndefined = externalCreationState === undefined;
 
     if (creationMode && wasError && nowUndefined) {
       // External error state was cleared (user dismissed error), reset to allow new selection
       if (__DEV__) {
-        console.log('[ActivityMapView] Resetting selection after error dismissal');
+        console.log(
+          "[ActivityMapView] Resetting selection after error dismissal",
+        );
       }
-      setCreationState('selectingStart');
+      setCreationState("selectingStart");
       setStartIndex(null);
       setEndIndex(null);
     }
@@ -569,7 +593,7 @@ export const ActivityMapView = memo(function ActivityMapView({
       setLocationLoading(true);
 
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      if (status !== "granted") {
         setLocationLoading(false);
         return;
       }
@@ -578,7 +602,10 @@ export const ActivityMapView = memo(function ActivityMapView({
         accuracy: Location.Accuracy.Balanced,
       });
 
-      const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
+      const coords: [number, number] = [
+        location.coords.longitude,
+        location.coords.latitude,
+      ];
       setLocationLoading(false);
 
       cameraRef.current?.setCamera({
@@ -607,14 +634,14 @@ export const ActivityMapView = memo(function ActivityMapView({
   const handleMapPress = useCallback(
     (feature: GeoJSON.Feature) => {
       if (__DEV__) {
-        console.log('[ActivityMapView:Camera] handleMapPress', {
+        console.log("[ActivityMapView:Camera] handleMapPress", {
           creationMode,
           creationState,
           featureType: feature?.geometry?.type,
         });
       }
       // In creation mode, handle point selection
-      if (creationMode && feature?.geometry?.type === 'Point') {
+      if (creationMode && feature?.geometry?.type === "Point") {
         const [lng, lat] = feature.geometry.coordinates as [number, number];
 
         // Find nearest point on the route
@@ -634,18 +661,20 @@ export const ActivityMapView = memo(function ActivityMapView({
           }
         }
 
-        if (creationState === 'selectingStart') {
+        if (creationState === "selectingStart") {
           if (__DEV__) {
-            console.log('[ActivityMapView:Camera] Setting startIndex', { nearestIndex });
+            console.log("[ActivityMapView:Camera] Setting startIndex", {
+              nearestIndex,
+            });
           }
           setStartIndex(nearestIndex);
-          setCreationState('selectingEnd');
-        } else if (creationState === 'selectingEnd') {
+          setCreationState("selectingEnd");
+        } else if (creationState === "selectingEnd") {
           // Ensure end is after start
           if (nearestIndex <= (startIndex ?? 0)) {
             // Swap them
             if (__DEV__) {
-              console.log('[ActivityMapView:Camera] Swapping start/end', {
+              console.log("[ActivityMapView:Camera] Swapping start/end", {
                 nearestIndex,
                 startIndex,
               });
@@ -654,11 +683,13 @@ export const ActivityMapView = memo(function ActivityMapView({
             setStartIndex(nearestIndex);
           } else {
             if (__DEV__) {
-              console.log('[ActivityMapView:Camera] Setting endIndex', { nearestIndex });
+              console.log("[ActivityMapView:Camera] Setting endIndex", {
+                nearestIndex,
+              });
             }
             setEndIndex(nearestIndex);
           }
-          setCreationState('complete');
+          setCreationState("complete");
         }
         return;
       }
@@ -667,7 +698,14 @@ export const ActivityMapView = memo(function ActivityMapView({
         openFullscreen();
       }
     },
-    [enableFullscreen, openFullscreen, creationMode, creationState, startIndex, validCoordinates]
+    [
+      enableFullscreen,
+      openFullscreen,
+      creationMode,
+      creationState,
+      startIndex,
+      validCoordinates,
+    ],
   );
 
   // iOS tap handler - converts screen coordinates to map coordinates
@@ -678,15 +716,18 @@ export const ActivityMapView = memo(function ActivityMapView({
 
       try {
         // Convert screen coordinates to map coordinates [lng, lat]
-        const coords = await mapRef.current.getCoordinateFromView([screenX, screenY]);
+        const coords = await mapRef.current.getCoordinateFromView([
+          screenX,
+          screenY,
+        ]);
         if (!coords || coords.length < 2) return;
 
         // Create a GeoJSON feature and call handleMapPress
         const feature: GeoJSON.Feature = {
-          type: 'Feature',
+          type: "Feature",
           properties: {},
           geometry: {
-            type: 'Point',
+            type: "Point",
             coordinates: coords,
           },
         };
@@ -696,7 +737,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         // Silently fail - tap handling is best effort
       }
     },
-    [handleMapPress]
+    [handleMapPress],
   );
 
   // Section creation handlers
@@ -715,7 +756,12 @@ export const ActivityMapView = memo(function ActivityMapView({
     for (let i = 1; i < sectionCoords.length; i++) {
       const prev = sectionCoords[i - 1];
       const curr = sectionCoords[i];
-      distance += haversineDistance(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
+      distance += haversineDistance(
+        prev.latitude,
+        prev.longitude,
+        curr.latitude,
+        curr.longitude,
+      );
     }
 
     onSectionCreated?.({
@@ -726,20 +772,20 @@ export const ActivityMapView = memo(function ActivityMapView({
     });
 
     // Reset state
-    setCreationState('selectingStart');
+    setCreationState("selectingStart");
     setStartIndex(null);
     setEndIndex(null);
   }, [startIndex, endIndex, validCoordinates, onSectionCreated]);
 
   const handleCreationCancel = useCallback(() => {
-    setCreationState('selectingStart');
+    setCreationState("selectingStart");
     setStartIndex(null);
     setEndIndex(null);
     onCreationCancelled?.();
   }, [onCreationCancelled]);
 
   const handleCreationReset = useCallback(() => {
-    setCreationState('selectingStart');
+    setCreationState("selectingStart");
     setStartIndex(null);
     setEndIndex(null);
   }, []);
@@ -752,7 +798,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     (bearing: number) => {
       bearingAnim.setValue(-bearing);
     },
-    [bearingAnim]
+    [bearingAnim],
   );
 
   // Handle map region change to update compass
@@ -763,7 +809,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         bearingAnim.setValue(-properties.heading);
       }
     },
-    [bearingAnim]
+    [bearingAnim],
   );
 
   // Camera ref for programmatic control
@@ -773,7 +819,9 @@ export const ActivityMapView = memo(function ActivityMapView({
   const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
 
   // Track touch start for iOS tap detection (MapView.onPress doesn't fire on iOS with Fabric)
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
+    null,
+  );
 
   // Reset bearing to north
   const resetOrientation = useCallback(() => {
@@ -792,7 +840,10 @@ export const ActivityMapView = memo(function ActivityMapView({
     }).start();
   }, [bearingAnim, is3DMode, is3DReady]);
 
-  const bounds = useMemo(() => getMapLibreBounds(validCoordinates), [validCoordinates]);
+  const bounds = useMemo(
+    () => getMapLibreBounds(validCoordinates),
+    [validCoordinates],
+  );
 
   // Track if initial camera position has been applied (prevents re-centering on re-renders)
   // This is the key to preventing the camera from snapping back when entering creation mode
@@ -800,7 +851,7 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // DEBUG: Log render with key state
   if (__DEV__) {
-    console.log('[ActivityMapView] RENDER #' + renderCountRef.current, {
+    console.log("[ActivityMapView] RENDER #" + renderCountRef.current, {
       mapReady,
       creationMode,
       creationState,
@@ -817,7 +868,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   // This avoids MapLibre's re-render behavior that can reset camera position
   useEffect(() => {
     if (__DEV__) {
-      console.log('[ActivityMapView:Camera] Initial bounds effect check', {
+      console.log("[ActivityMapView:Camera] Initial bounds effect check", {
         alreadyApplied: initialCameraAppliedRef.current,
         mapReady,
         hasBounds: !!bounds,
@@ -826,13 +877,16 @@ export const ActivityMapView = memo(function ActivityMapView({
     }
     if (initialCameraAppliedRef.current) {
       if (__DEV__) {
-        console.log('[ActivityMapView:Camera] Skipping - already applied');
+        console.log("[ActivityMapView:Camera] Skipping - already applied");
       }
       return;
     }
     if (mapReady && bounds && cameraRef.current) {
       if (__DEV__) {
-        console.log('[ActivityMapView:Camera] APPLYING initial bounds via setCamera', bounds);
+        console.log(
+          "[ActivityMapView:Camera] APPLYING initial bounds via setCamera",
+          bounds,
+        );
       }
       cameraRef.current.setCamera({
         bounds: { ne: bounds.ne, sw: bounds.sw },
@@ -843,7 +897,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           paddingLeft: 50,
         },
         animationDuration: 0,
-        animationMode: 'moveTo',
+        animationMode: "moveTo",
       });
       initialCameraAppliedRef.current = true;
     }
@@ -852,45 +906,52 @@ export const ActivityMapView = memo(function ActivityMapView({
   // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
   // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
   // CRITICAL: Always return valid GeoJSON to avoid add/remove cycles that crash iOS MapLibre
-  const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
+  const routeGeoJSON = useMemo(():
+    | GeoJSON.FeatureCollection
+    | GeoJSON.Feature => {
     if (validCoordinates.length < 2) {
       if (__DEV__) {
         console.warn(
-          `[ActivityMapView] routeGeoJSON: insufficient coordinates (${validCoordinates.length})`
+          `[ActivityMapView] routeGeoJSON: insufficient coordinates (${validCoordinates.length})`,
         );
       }
-      return { type: 'FeatureCollection' as const, features: [] };
+      return { type: "FeatureCollection" as const, features: [] };
     }
     return {
-      type: 'Feature' as const,
+      type: "Feature" as const,
       properties: {},
       geometry: {
-        type: 'LineString' as const,
+        type: "LineString" as const,
         coordinates: validCoordinates.map((c) => [c.longitude, c.latitude]),
       },
     };
   }, [validCoordinates]);
 
   const routeHasData =
-    routeGeoJSON.type === 'Feature' ||
-    (routeGeoJSON.type === 'FeatureCollection' && routeGeoJSON.features.length > 0);
+    routeGeoJSON.type === "Feature" ||
+    (routeGeoJSON.type === "FeatureCollection" &&
+      routeGeoJSON.features.length > 0);
 
   // Route overlay GeoJSON (for showing matched route trace)
   // CRITICAL: Always return a valid GeoJSON to avoid add/remove cycles that crash iOS MapLibre
   // When there's no data, return an empty FeatureCollection instead of null
-  const overlayGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
+  const overlayGeoJSON = useMemo(():
+    | GeoJSON.FeatureCollection
+    | GeoJSON.Feature => {
     if (!routeOverlay || routeOverlay.length < 2) {
-      return { type: 'FeatureCollection' as const, features: [] };
+      return { type: "FeatureCollection" as const, features: [] };
     }
-    const validOverlay = routeOverlay.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
+    const validOverlay = routeOverlay.filter(
+      (c) => !isNaN(c.latitude) && !isNaN(c.longitude),
+    );
     if (validOverlay.length < 2) {
-      return { type: 'FeatureCollection' as const, features: [] };
+      return { type: "FeatureCollection" as const, features: [] };
     }
     return {
-      type: 'Feature' as const,
+      type: "Feature" as const,
       properties: {},
       geometry: {
-        type: 'LineString' as const,
+        type: "LineString" as const,
         coordinates: validOverlay.map((c) => [c.longitude, c.latitude]),
       },
     };
@@ -898,137 +959,152 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // Helper to check if overlay has data (for logging)
   const overlayHasData =
-    overlayGeoJSON.type === 'Feature' ||
-    (overlayGeoJSON.type === 'FeatureCollection' && overlayGeoJSON.features.length > 0);
+    overlayGeoJSON.type === "Feature" ||
+    (overlayGeoJSON.type === "FeatureCollection" &&
+      overlayGeoJSON.features.length > 0);
 
   // Section overlays GeoJSON (for showing all matched sections)
   // CRITICAL: Returns both sectionOverlaysGeoJSON (for markers) and consolidated GeoJSONs (for rendering)
   // The consolidated GeoJSONs always have valid geometry to prevent Fabric add/remove crashes
-  const { sectionOverlaysGeoJSON, consolidatedSectionsGeoJSON, consolidatedPortionsGeoJSON } =
-    useMemo(() => {
-      // Minimal valid geometry for when there are no overlays
-      const minimalLine: GeoJSON.FeatureCollection = {
-        type: 'FeatureCollection',
-        features: [
-          {
-            type: 'Feature',
-            properties: { _placeholder: true },
-            geometry: {
-              type: 'LineString',
-              coordinates: [
-                [0, 0],
-                [0, 0.0001],
-              ],
-            },
+  const {
+    sectionOverlaysGeoJSON,
+    consolidatedSectionsGeoJSON,
+    consolidatedPortionsGeoJSON,
+  } = useMemo(() => {
+    // Minimal valid geometry for when there are no overlays
+    const minimalLine: GeoJSON.FeatureCollection = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: { _placeholder: true },
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              [0, 0],
+              [0, 0.0001],
+            ],
           },
-        ],
-      };
+        },
+      ],
+    };
 
-      if (!sectionOverlays || sectionOverlays.length === 0) {
-        return {
-          sectionOverlaysGeoJSON: null,
-          consolidatedSectionsGeoJSON: minimalLine,
-          consolidatedPortionsGeoJSON: minimalLine,
-        };
-      }
-
-      let skippedSections = 0;
-      let skippedPortions = 0;
-      const sectionFeatures: GeoJSON.Feature[] = [];
-      const portionFeatures: GeoJSON.Feature[] = [];
-      const overlayData: Array<{
-        id: string;
-        sectionGeo: GeoJSON.Feature | null;
-        portionGeo: GeoJSON.Feature | null;
-      }> = [];
-
-      sectionOverlays.forEach((overlay) => {
-        // Build section polyline GeoJSON - also filter Infinity values
-        const validSectionPoints = overlay.sectionPolyline.filter(
-          (c) =>
-            Number.isFinite(c.latitude) &&
-            Number.isFinite(c.longitude) &&
-            !isNaN(c.latitude) &&
-            !isNaN(c.longitude)
-        );
-
-        let sectionGeo: GeoJSON.Feature | null = null;
-        if (validSectionPoints.length >= 2) {
-          sectionGeo = {
-            type: 'Feature',
-            properties: { id: overlay.id, type: 'section' },
-            geometry: {
-              type: 'LineString',
-              coordinates: validSectionPoints.map((c) => [c.longitude, c.latitude]),
-            },
-          };
-          sectionFeatures.push(sectionGeo);
-        } else if (overlay.sectionPolyline.length > 0) {
-          skippedSections++;
-          if (__DEV__) {
-            console.warn(
-              `[ActivityMapView] INVALID SECTION OVERLAY: id=${overlay.id} originalPoints=${overlay.sectionPolyline.length} validPoints=${validSectionPoints.length}`
-            );
-          }
-        }
-
-        // Build activity portion GeoJSON - also filter Infinity values
-        const validPortionPoints = overlay.activityPortion?.filter(
-          (c) =>
-            Number.isFinite(c.latitude) &&
-            Number.isFinite(c.longitude) &&
-            !isNaN(c.latitude) &&
-            !isNaN(c.longitude)
-        );
-
-        let portionGeo: GeoJSON.Feature | null = null;
-        if (validPortionPoints && validPortionPoints.length >= 2) {
-          portionGeo = {
-            type: 'Feature',
-            properties: { id: overlay.id, type: 'portion' },
-            geometry: {
-              type: 'LineString',
-              coordinates: validPortionPoints.map((c) => [c.longitude, c.latitude]),
-            },
-          };
-          portionFeatures.push(portionGeo);
-        } else if (overlay.activityPortion && overlay.activityPortion.length > 0) {
-          skippedPortions++;
-          if (__DEV__) {
-            console.warn(
-              `[ActivityMapView] INVALID PORTION OVERLAY: id=${overlay.id} originalPoints=${overlay.activityPortion.length} validPoints=${validPortionPoints?.length ?? 0}`
-            );
-          }
-        }
-
-        // iOS CRASH FIX: Always push to maintain stable child count
-        // MapLibre Fabric crashes when child count changes between renders
-        // Rendering handles invalid markers with opacity: 0
-        overlayData.push({ id: overlay.id, sectionGeo, portionGeo });
-      });
-
-      if (__DEV__ && (skippedSections > 0 || skippedPortions > 0)) {
-        console.warn(
-          `[ActivityMapView] sectionOverlaysGeoJSON: skipped ${skippedSections} sections, ${skippedPortions} portions with invalid polylines`
-        );
-      }
-
+    if (!sectionOverlays || sectionOverlays.length === 0) {
       return {
-        sectionOverlaysGeoJSON: overlayData.length > 0 ? overlayData : null,
-        consolidatedSectionsGeoJSON:
-          sectionFeatures.length > 0
-            ? { type: 'FeatureCollection' as const, features: sectionFeatures }
-            : minimalLine,
-        consolidatedPortionsGeoJSON:
-          portionFeatures.length > 0
-            ? { type: 'FeatureCollection' as const, features: portionFeatures }
-            : minimalLine,
+        sectionOverlaysGeoJSON: null,
+        consolidatedSectionsGeoJSON: minimalLine,
+        consolidatedPortionsGeoJSON: minimalLine,
       };
-    }, [sectionOverlays]);
+    }
+
+    let skippedSections = 0;
+    let skippedPortions = 0;
+    const sectionFeatures: GeoJSON.Feature[] = [];
+    const portionFeatures: GeoJSON.Feature[] = [];
+    const overlayData: Array<{
+      id: string;
+      sectionGeo: GeoJSON.Feature | null;
+      portionGeo: GeoJSON.Feature | null;
+    }> = [];
+
+    sectionOverlays.forEach((overlay) => {
+      // Build section polyline GeoJSON - also filter Infinity values
+      const validSectionPoints = overlay.sectionPolyline.filter(
+        (c) =>
+          Number.isFinite(c.latitude) &&
+          Number.isFinite(c.longitude) &&
+          !isNaN(c.latitude) &&
+          !isNaN(c.longitude),
+      );
+
+      let sectionGeo: GeoJSON.Feature | null = null;
+      if (validSectionPoints.length >= 2) {
+        sectionGeo = {
+          type: "Feature",
+          properties: { id: overlay.id, type: "section" },
+          geometry: {
+            type: "LineString",
+            coordinates: validSectionPoints.map((c) => [
+              c.longitude,
+              c.latitude,
+            ]),
+          },
+        };
+        sectionFeatures.push(sectionGeo);
+      } else if (overlay.sectionPolyline.length > 0) {
+        skippedSections++;
+        if (__DEV__) {
+          console.warn(
+            `[ActivityMapView] INVALID SECTION OVERLAY: id=${overlay.id} originalPoints=${overlay.sectionPolyline.length} validPoints=${validSectionPoints.length}`,
+          );
+        }
+      }
+
+      // Build activity portion GeoJSON - also filter Infinity values
+      const validPortionPoints = overlay.activityPortion?.filter(
+        (c) =>
+          Number.isFinite(c.latitude) &&
+          Number.isFinite(c.longitude) &&
+          !isNaN(c.latitude) &&
+          !isNaN(c.longitude),
+      );
+
+      let portionGeo: GeoJSON.Feature | null = null;
+      if (validPortionPoints && validPortionPoints.length >= 2) {
+        portionGeo = {
+          type: "Feature",
+          properties: { id: overlay.id, type: "portion" },
+          geometry: {
+            type: "LineString",
+            coordinates: validPortionPoints.map((c) => [
+              c.longitude,
+              c.latitude,
+            ]),
+          },
+        };
+        portionFeatures.push(portionGeo);
+      } else if (
+        overlay.activityPortion &&
+        overlay.activityPortion.length > 0
+      ) {
+        skippedPortions++;
+        if (__DEV__) {
+          console.warn(
+            `[ActivityMapView] INVALID PORTION OVERLAY: id=${overlay.id} originalPoints=${overlay.activityPortion.length} validPoints=${validPortionPoints?.length ?? 0}`,
+          );
+        }
+      }
+
+      // iOS CRASH FIX: Always push to maintain stable child count
+      // MapLibre Fabric crashes when child count changes between renders
+      // Rendering handles invalid markers with opacity: 0
+      overlayData.push({ id: overlay.id, sectionGeo, portionGeo });
+    });
+
+    if (__DEV__ && (skippedSections > 0 || skippedPortions > 0)) {
+      console.warn(
+        `[ActivityMapView] sectionOverlaysGeoJSON: skipped ${skippedSections} sections, ${skippedPortions} portions with invalid polylines`,
+      );
+    }
+
+    return {
+      sectionOverlaysGeoJSON: overlayData.length > 0 ? overlayData : null,
+      consolidatedSectionsGeoJSON:
+        sectionFeatures.length > 0
+          ? { type: "FeatureCollection" as const, features: sectionFeatures }
+          : minimalLine,
+      consolidatedPortionsGeoJSON:
+        portionFeatures.length > 0
+          ? { type: "FeatureCollection" as const, features: portionFeatures }
+          : minimalLine,
+    };
+  }, [sectionOverlays]);
 
   // Route coordinates for BaseMapView/Map3DWebView [lng, lat] format
   const routeCoords = useMemo(() => {
-    return validCoordinates.map((c) => [c.longitude, c.latitude] as [number, number]);
+    return validCoordinates.map(
+      (c) => [c.longitude, c.latitude] as [number, number],
+    );
   }, [validCoordinates]);
 
   const activityColor = getActivityColor(activityType);
@@ -1037,7 +1113,11 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // Get the highlighted point from elevation chart selection
   const highlightPoint = useMemo(() => {
-    if (highlightIndex != null && highlightIndex >= 0 && highlightIndex < coordinates.length) {
+    if (
+      highlightIndex != null &&
+      highlightIndex >= 0 &&
+      highlightIndex < coordinates.length
+    ) {
       const coord = coordinates[highlightIndex];
       if (coord && !isNaN(coord.latitude) && !isNaN(coord.longitude)) {
         return coord;
@@ -1054,7 +1134,12 @@ export const ActivityMapView = memo(function ActivityMapView({
     for (let i = 1; i < sectionCoords.length; i++) {
       const prev = sectionCoords[i - 1];
       const curr = sectionCoords[i];
-      distance += haversineDistance(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
+      distance += haversineDistance(
+        prev.latitude,
+        prev.longitude,
+        curr.latitude,
+        curr.longitude,
+      );
     }
     return distance;
   }, [creationMode, startIndex, endIndex, validCoordinates]);
@@ -1067,33 +1152,37 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // Section creation: GeoJSON for selected portion
   // CRITICAL: Always return valid GeoJSON to avoid add/remove cycles that crash iOS MapLibre
-  const sectionGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
+  const sectionGeoJSON = useMemo(():
+    | GeoJSON.FeatureCollection
+    | GeoJSON.Feature => {
     if (!creationMode || startIndex === null) {
-      return { type: 'FeatureCollection' as const, features: [] };
+      return { type: "FeatureCollection" as const, features: [] };
     }
     const end = endIndex ?? startIndex;
     const sectionCoords = validCoordinates.slice(startIndex, end + 1);
     if (sectionCoords.length < 2) {
-      return { type: 'FeatureCollection' as const, features: [] };
+      return { type: "FeatureCollection" as const, features: [] };
     }
     return {
-      type: 'Feature' as const,
+      type: "Feature" as const,
       properties: {},
       geometry: {
-        type: 'LineString' as const,
+        type: "LineString" as const,
         coordinates: sectionCoords.map((c) => [c.longitude, c.latitude]),
       },
     };
   }, [creationMode, startIndex, endIndex, validCoordinates]);
 
   const sectionHasData =
-    sectionGeoJSON.type === 'Feature' ||
-    (sectionGeoJSON.type === 'FeatureCollection' && sectionGeoJSON.features.length > 0);
+    sectionGeoJSON.type === "Feature" ||
+    (sectionGeoJSON.type === "FeatureCollection" &&
+      sectionGeoJSON.features.length > 0);
 
   // Section creation: get selected start/end points for markers
   const sectionStartPoint =
     creationMode && startIndex !== null ? validCoordinates[startIndex] : null;
-  const sectionEndPoint = creationMode && endIndex !== null ? validCoordinates[endIndex] : null;
+  const sectionEndPoint =
+    creationMode && endIndex !== null ? validCoordinates[endIndex] : null;
 
   const mapStyleValue = getMapStyle(mapStyle);
   const isDark = isDarkStyle(mapStyle);
@@ -1117,13 +1206,15 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // DEBUG: Log camera ref values
   if (__DEV__) {
-    console.log('[ActivityMapView:Camera] Camera ref values', {
+    console.log("[ActivityMapView:Camera] Camera ref values", {
       center: currentCenterRef.current,
       zoom: currentZoomRef.current,
       boundsCenter,
     });
   }
-  const attributionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const attributionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   // Ref to update attribution without causing parent re-render
   const attributionRef = useRef<AttributionOverlayRef>(null);
   const initialAttributionRef = useRef(MAP_ATTRIBUTIONS[mapStyle]);
@@ -1142,23 +1233,30 @@ export const ActivityMapView = memo(function ActivityMapView({
     const style = mapStyleRef.current;
     const is3D = is3DModeRef.current;
 
-    if (style === 'satellite' && center) {
+    if (style === "satellite" && center) {
       const satAttribution = getCombinedSatelliteAttribution(
         center[1], // lat
         center[0], // lng
-        zoom
+        zoom,
       );
-      return is3D ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
+      return is3D
+        ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}`
+        : satAttribution;
     }
     const baseAttribution = MAP_ATTRIBUTIONS[style];
-    return is3D ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
+    return is3D
+      ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}`
+      : baseAttribution;
   }, []);
 
   // Handle region change end - update refs only, debounce attribution callback
   const handleRegionDidChange = useCallback(
     (feature: GeoJSON.Feature) => {
       const properties = feature.properties as
-        | { zoomLevel?: number; visibleBounds?: [[number, number], [number, number]] }
+        | {
+            zoomLevel?: number;
+            visibleBounds?: [[number, number], [number, number]];
+          }
         | undefined;
       const { zoomLevel, visibleBounds } = properties ?? {};
 
@@ -1168,8 +1266,11 @@ export const ActivityMapView = memo(function ActivityMapView({
 
       // v10: center is from feature.geometry.coordinates [lng, lat]
       // v10: visibleBounds is [[swLng, swLat], [neLng, neLat]]
-      if (feature.geometry?.type === 'Point') {
-        currentCenterRef.current = feature.geometry.coordinates as [number, number];
+      if (feature.geometry?.type === "Point") {
+        currentCenterRef.current = feature.geometry.coordinates as [
+          number,
+          number,
+        ];
       } else if (visibleBounds) {
         const [[swLng, swLat], [neLng, neLat]] = visibleBounds;
         const centerLng = (swLng + neLng) / 2;
@@ -1179,7 +1280,7 @@ export const ActivityMapView = memo(function ActivityMapView({
 
       // DEBUG: Log significant zoom changes (to track camera resets)
       if (__DEV__ && zoomLevel !== undefined) {
-        console.log('[ActivityMapView:Camera] onRegionDidChange', {
+        console.log("[ActivityMapView:Camera] onRegionDidChange", {
           zoomLevel: zoomLevel.toFixed(2),
           center: currentCenterRef.current,
         });
@@ -1197,7 +1298,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         onAttributionChangeRef.current?.(newAttribution);
       }, 300);
     },
-    [computeAttributionFromRefs]
+    [computeAttributionFromRefs],
   );
 
   // Update attribution when mapStyle or is3DMode changes (immediate, not debounced)
@@ -1225,7 +1326,11 @@ export const ActivityMapView = memo(function ActivityMapView({
   if (!bounds || validCoordinates.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <MaterialCommunityIcons name="map-marker-off" size={48} color={colors.textSecondary} />
+        <MaterialCommunityIcons
+          name="map-marker-off"
+          size={48}
+          color={colors.textSecondary}
+        />
       </View>
     );
   }
@@ -1237,7 +1342,7 @@ export const ActivityMapView = memo(function ActivityMapView({
       <View
         style={styles.container}
         onTouchStart={
-          Platform.OS === 'ios'
+          Platform.OS === "ios"
             ? (e) => {
                 touchStartRef.current = {
                   x: e.nativeEvent.locationX,
@@ -1248,7 +1353,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             : undefined
         }
         onTouchEnd={
-          Platform.OS === 'ios'
+          Platform.OS === "ios"
             ? (e) => {
                 const start = touchStartRef.current;
                 if (!start) return;
@@ -1263,7 +1368,10 @@ export const ActivityMapView = memo(function ActivityMapView({
                 const shouldHandle = !isFullscreen && !(is3DMode && is3DReady);
 
                 if (isTap && shouldHandle) {
-                  handleiOSTap(e.nativeEvent.locationX, e.nativeEvent.locationY);
+                  handleiOSTap(
+                    e.nativeEvent.locationX,
+                    e.nativeEvent.locationY,
+                  );
                 }
                 touchStartRef.current = null;
               }
@@ -1292,7 +1400,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             pitchEnabled={false}
             onRegionIsChanging={handleRegionIsChanging}
             onRegionDidChange={handleRegionDidChange}
-            onPress={Platform.OS === 'android' ? handleMapPress : undefined}
+            onPress={Platform.OS === "android" ? handleMapPress : undefined}
             onDidFailLoadingMap={handleMapLoadError}
             onDidFinishLoadingMap={handleMapFinishLoading}
           >
@@ -1316,10 +1424,10 @@ export const ActivityMapView = memo(function ActivityMapView({
               <LineLayer
                 id="overlayLine"
                 style={{
-                  lineColor: '#00E5FF',
+                  lineColor: "#00E5FF",
                   lineWidth: 5,
-                  lineCap: 'round',
-                  lineJoin: 'round',
+                  lineCap: "round",
+                  lineJoin: "round",
                   lineOpacity: 0.5,
                 }}
               />
@@ -1333,9 +1441,13 @@ export const ActivityMapView = memo(function ActivityMapView({
                 style={{
                   lineColor: activityColor,
                   lineWidth: 4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                  lineOpacity: sectionOverlaysGeoJSON ? 0.8 : overlayHasData ? 0.85 : 1,
+                  lineCap: "round",
+                  lineJoin: "round",
+                  lineOpacity: sectionOverlaysGeoJSON
+                    ? 0.8
+                    : overlayHasData
+                      ? 0.85
+                      : 1,
                 }}
               />
             </ShapeSource>
@@ -1343,41 +1455,77 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* Section overlays - render after route line so they appear on top */}
             {/* CRITICAL: Always render stable ShapeSources to avoid Fabric crash */}
             {/* Using consolidated GeoJSONs prevents add/remove cycles during state changes */}
-            <ShapeSource id="section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
+            <ShapeSource
+              id="section-overlays-consolidated"
+              shape={consolidatedSectionsGeoJSON}
+            >
               <LineLayer
                 id="section-overlays-line"
                 style={{
                   lineColor: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#F59E0B', '#DC2626']
-                    : '#DC2626',
+                    ? [
+                        "case",
+                        ["==", ["get", "id"], highlightedSectionId],
+                        "#F59E0B",
+                        "#DC2626",
+                      ]
+                    : "#DC2626",
                   lineWidth: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 5, 6]
+                    ? [
+                        "case",
+                        ["==", ["get", "id"], highlightedSectionId],
+                        5,
+                        6,
+                      ]
                     : 6,
-                  lineCap: 'round',
-                  lineJoin: 'round',
+                  lineCap: "round",
+                  lineJoin: "round",
                   lineOpacity: sectionOverlaysGeoJSON
                     ? highlightedSectionId
-                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 0.5, 0.3]
+                      ? [
+                          "case",
+                          ["==", ["get", "id"], highlightedSectionId],
+                          0.5,
+                          0.3,
+                        ]
                       : 0.8
                     : 0,
                 }}
               />
             </ShapeSource>
-            <ShapeSource id="portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
+            <ShapeSource
+              id="portion-overlays-consolidated"
+              shape={consolidatedPortionsGeoJSON}
+            >
               <LineLayer
                 id="portion-overlays-line"
                 style={{
                   lineColor: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#F59E0B', '#DC2626']
-                    : '#DC2626',
+                    ? [
+                        "case",
+                        ["==", ["get", "id"], highlightedSectionId],
+                        "#F59E0B",
+                        "#DC2626",
+                      ]
+                    : "#DC2626",
                   lineWidth: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 4, 4]
+                    ? [
+                        "case",
+                        ["==", ["get", "id"], highlightedSectionId],
+                        4,
+                        4,
+                      ]
                     : 4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
+                  lineCap: "round",
+                  lineJoin: "round",
                   lineOpacity: sectionOverlaysGeoJSON
                     ? highlightedSectionId
-                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 0.6, 0.3]
+                      ? [
+                          "case",
+                          ["==", ["get", "id"], highlightedSectionId],
+                          0.6,
+                          0.3,
+                        ]
                       : 1
                     : 0,
                 }}
@@ -1387,19 +1535,38 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* Start marker */}
             {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
             <MarkerView
-              coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
+              coordinate={
+                startPoint
+                  ? [startPoint.longitude, startPoint.latitude]
+                  : [0, 0]
+              }
             >
-              <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
+              <View
+                style={[
+                  styles.markerContainer,
+                  { opacity: startPoint ? 1 : 0 },
+                ]}
+              >
                 <View style={[styles.marker, styles.startMarker]}>
-                  <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
+                  <MaterialCommunityIcons
+                    name="play"
+                    size={14}
+                    color={colors.textOnDark}
+                  />
                 </View>
               </View>
             </MarkerView>
 
             {/* End marker */}
             {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
-            <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
-              <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
+            <MarkerView
+              coordinate={
+                endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]
+              }
+            >
+              <View
+                style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}
+              >
                 <View style={[styles.marker, styles.endMarker]}>
                   <MaterialCommunityIcons
                     name="flag-checkered"
@@ -1414,12 +1581,19 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
             {/* Key includes highlightIndex to force position update (stable when null) */}
             <MarkerView
-              key={`highlight-${highlightIndex ?? 'none'}`}
+              key={`highlight-${highlightIndex ?? "none"}`}
               coordinate={
-                highlightPoint ? [highlightPoint.longitude, highlightPoint.latitude] : [0, 0]
+                highlightPoint
+                  ? [highlightPoint.longitude, highlightPoint.latitude]
+                  : [0, 0]
               }
             >
-              <View style={[styles.markerContainer, { opacity: highlightPoint ? 1 : 0 }]}>
+              <View
+                style={[
+                  styles.markerContainer,
+                  { opacity: highlightPoint ? 1 : 0 },
+                ]}
+              >
                 <View style={styles.highlightMarker}>
                   <View style={styles.highlightMarkerInner} />
                 </View>
@@ -1434,8 +1608,8 @@ export const ActivityMapView = memo(function ActivityMapView({
                 style={{
                   lineColor: colors.success,
                   lineWidth: 6,
-                  lineCap: 'round',
-                  lineJoin: 'round',
+                  lineCap: "round",
+                  lineJoin: "round",
                 }}
               />
             </ShapeSource>
@@ -1445,7 +1619,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* Use activity start as fallback to stay within map bounds (not [0,0]) */}
             {/* Key includes startIndex to force position update (stable when null) */}
             <MarkerView
-              key={`section-start-${startIndex ?? 'none'}`}
+              key={`section-start-${startIndex ?? "none"}`}
               coordinate={
                 sectionStartPoint
                   ? [sectionStartPoint.longitude, sectionStartPoint.latitude]
@@ -1462,7 +1636,11 @@ export const ActivityMapView = memo(function ActivityMapView({
                 ]}
               >
                 <View style={[styles.marker, styles.sectionStartMarker]}>
-                  <MaterialCommunityIcons name="flag-outline" size={14} color={colors.textOnDark} />
+                  <MaterialCommunityIcons
+                    name="flag-outline"
+                    size={14}
+                    color={colors.textOnDark}
+                  />
                 </View>
               </View>
             </MarkerView>
@@ -1472,7 +1650,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* Use activity end as fallback to stay within map bounds (not [0,0]) */}
             {/* Key includes endIndex to force position update (stable when null) */}
             <MarkerView
-              key={`section-end-${endIndex ?? 'none'}`}
+              key={`section-end-${endIndex ?? "none"}`}
               coordinate={
                 sectionEndPoint
                   ? [sectionEndPoint.longitude, sectionEndPoint.latitude]
@@ -1489,7 +1667,11 @@ export const ActivityMapView = memo(function ActivityMapView({
                 ]}
               >
                 <View style={[styles.marker, styles.sectionEndMarker]}>
-                  <MaterialCommunityIcons name="flag" size={14} color={colors.textOnDark} />
+                  <MaterialCommunityIcons
+                    name="flag"
+                    size={14}
+                    color={colors.textOnDark}
+                  />
                 </View>
               </View>
             </MarkerView>
@@ -1500,9 +1682,14 @@ export const ActivityMapView = memo(function ActivityMapView({
             {sectionOverlaysGeoJSON &&
               sectionOverlaysGeoJSON.map((overlay, index) => {
                 // Get coordinates from sectionGeo or portionGeo (both are LineString)
-                const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
-                const portionGeom = overlay.portionGeo?.geometry as GeoJSON.LineString | undefined;
-                const coords = sectionGeom?.coordinates || portionGeom?.coordinates;
+                const sectionGeom = overlay.sectionGeo?.geometry as
+                  | GeoJSON.LineString
+                  | undefined;
+                const portionGeom = overlay.portionGeo?.geometry as
+                  | GeoJSON.LineString
+                  | undefined;
+                const coords =
+                  sectionGeom?.coordinates || portionGeom?.coordinates;
                 const hasValidCoords = coords && coords.length >= 2;
 
                 // Calculate marker position only if we have valid coords
@@ -1516,8 +1703,8 @@ export const ActivityMapView = memo(function ActivityMapView({
                   const midCoord = coords[midIndex];
                   if (
                     midCoord &&
-                    typeof midCoord[0] === 'number' &&
-                    typeof midCoord[1] === 'number' &&
+                    typeof midCoord[0] === "number" &&
+                    typeof midCoord[1] === "number" &&
                     Number.isFinite(midCoord[0]) &&
                     Number.isFinite(midCoord[1])
                   ) {
@@ -1534,7 +1721,8 @@ export const ActivityMapView = memo(function ActivityMapView({
 
                     // Perpendicular offset (to the right of travel direction)
                     const offsetDistance = 0.00035; // ~35 meters at equator
-                    const offsetLng = len > 0 ? (-dy / len) * offsetDistance : 0;
+                    const offsetLng =
+                      len > 0 ? (-dy / len) * offsetDistance : 0;
                     const offsetLat = len > 0 ? (dx / len) * offsetDistance : 0;
 
                     markerLng = midCoord[0] + offsetLng;
@@ -1581,7 +1769,13 @@ export const ActivityMapView = memo(function ActivityMapView({
 
         {/* 3D Map layer */}
         {is3DMode && hasRoute && !isFullscreen && (
-          <Animated.View style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}>
+          <Animated.View
+            style={[
+              styles.mapLayer,
+              styles.map3DLayer,
+              { opacity: map3DOpacity },
+            ]}
+          >
             <Map3DWebView
               ref={map3DRef}
               coordinates={routeCoords}
@@ -1606,33 +1800,54 @@ export const ActivityMapView = memo(function ActivityMapView({
         {overlayGeoJSON && !isFullscreen && (
           <View style={styles.overlayLegend}>
             <View style={styles.legendRow}>
-              <View style={[styles.legendLine, { backgroundColor: '#00E5FF' }]} />
-              <Text style={styles.legendText}>{t('routes.legendRoute')}</Text>
+              <View
+                style={[styles.legendLine, { backgroundColor: "#00E5FF" }]}
+              />
+              <Text style={styles.legendText}>{t("routes.legendRoute")}</Text>
             </View>
             <View style={styles.legendRow}>
-              <View style={[styles.legendLine, { backgroundColor: activityColor }]} />
-              <Text style={styles.legendText}>{t('routes.thisActivity')}</Text>
+              <View
+                style={[styles.legendLine, { backgroundColor: activityColor }]}
+              />
+              <Text style={styles.legendText}>{t("routes.thisActivity")}</Text>
             </View>
           </View>
         )}
 
         {/* Section overlays legend */}
-        {sectionOverlaysGeoJSON && sectionOverlaysGeoJSON.length > 0 && !isFullscreen && (
-          <View style={styles.overlayLegend}>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendLine, { backgroundColor: '#00BCD4' }]} />
-              <Text style={styles.legendText}>{t('routes.legendSection')}</Text>
+        {sectionOverlaysGeoJSON &&
+          sectionOverlaysGeoJSON.length > 0 &&
+          !isFullscreen && (
+            <View style={styles.overlayLegend}>
+              <View style={styles.legendRow}>
+                <View
+                  style={[styles.legendLine, { backgroundColor: "#00BCD4" }]}
+                />
+                <Text style={styles.legendText}>
+                  {t("routes.legendSection")}
+                </Text>
+              </View>
+              <View style={styles.legendRow}>
+                <View
+                  style={[styles.legendLine, { backgroundColor: "#E91E63" }]}
+                />
+                <Text style={styles.legendText}>
+                  {t("routes.legendYourEffort")}
+                </Text>
+              </View>
+              <View style={styles.legendRow}>
+                <View
+                  style={[
+                    styles.legendLine,
+                    { backgroundColor: activityColor },
+                  ]}
+                />
+                <Text style={styles.legendText}>
+                  {t("routes.legendFullActivity")}
+                </Text>
+              </View>
             </View>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendLine, { backgroundColor: '#E91E63' }]} />
-              <Text style={styles.legendText}>{t('routes.legendYourEffort')}</Text>
-            </View>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendLine, { backgroundColor: activityColor }]} />
-              <Text style={styles.legendText}>{t('routes.legendFullActivity')}</Text>
-            </View>
-          </View>
-        )}
+          )}
       </View>
 
       {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}
@@ -1668,7 +1883,11 @@ export const ActivityMapView = memo(function ActivityMapView({
                 name="terrain"
                 size={22}
                 color={
-                  is3DMode ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
+                  is3DMode
+                    ? colors.textOnDark
+                    : isDark
+                      ? colors.textOnDark
+                      : colors.textSecondary
                 }
               />
             </TouchableOpacity>
@@ -1720,7 +1939,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         statusBarTranslucent
         onRequestClose={closeFullscreen}
       >
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
         <BaseMapView
           routeCoordinates={routeCoords}
           routeColor={activityColor}
@@ -1730,26 +1949,32 @@ export const ActivityMapView = memo(function ActivityMapView({
         >
           {/* Section overlays in fullscreen */}
           {/* CRITICAL: Always render stable ShapeSources to avoid Fabric crash */}
-          <ShapeSource id="fs-section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
+          <ShapeSource
+            id="fs-section-overlays-consolidated"
+            shape={consolidatedSectionsGeoJSON}
+          >
             <LineLayer
               id="fs-section-overlays-line"
               style={{
-                lineColor: '#DC2626',
+                lineColor: "#DC2626",
                 lineWidth: 6,
-                lineCap: 'round',
-                lineJoin: 'round',
+                lineCap: "round",
+                lineJoin: "round",
                 lineOpacity: sectionOverlaysGeoJSON ? 0.8 : 0,
               }}
             />
           </ShapeSource>
-          <ShapeSource id="fs-portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
+          <ShapeSource
+            id="fs-portion-overlays-consolidated"
+            shape={consolidatedPortionsGeoJSON}
+          >
             <LineLayer
               id="fs-portion-overlays-line"
               style={{
-                lineColor: '#DC2626',
+                lineColor: "#DC2626",
                 lineWidth: 4,
-                lineCap: 'round',
-                lineJoin: 'round',
+                lineCap: "round",
+                lineJoin: "round",
                 lineOpacity: sectionOverlaysGeoJSON ? 1 : 0,
               }}
             />
@@ -1760,7 +1985,9 @@ export const ActivityMapView = memo(function ActivityMapView({
           {/* iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207) */}
           {sectionOverlaysGeoJSON &&
             sectionOverlaysGeoJSON.map((overlay, index) => {
-              const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
+              const sectionGeom = overlay.sectionGeo?.geometry as
+                | GeoJSON.LineString
+                | undefined;
               const coords = sectionGeom?.coordinates;
               const hasValidCoords = coords && coords.length > 0;
 
@@ -1807,21 +2034,39 @@ export const ActivityMapView = memo(function ActivityMapView({
           {/* Start marker */}
           {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
           <MarkerView
-            coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
+            coordinate={
+              startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]
+            }
           >
-            <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
+            <View
+              style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}
+            >
               <View style={[styles.marker, styles.startMarker]}>
-                <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
+                <MaterialCommunityIcons
+                  name="play"
+                  size={14}
+                  color={colors.textOnDark}
+                />
               </View>
             </View>
           </MarkerView>
 
           {/* End marker */}
           {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
-          <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
-            <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
+          <MarkerView
+            coordinate={
+              endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]
+            }
+          >
+            <View
+              style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}
+            >
               <View style={[styles.marker, styles.endMarker]}>
-                <MaterialCommunityIcons name="flag-checkered" size={14} color={colors.textOnDark} />
+                <MaterialCommunityIcons
+                  name="flag-checkered"
+                  size={14}
+                  color={colors.textOnDark}
+                />
               </View>
             </View>
           </MarkerView>
@@ -1850,12 +2095,12 @@ export const ActivityMapView = memo(function ActivityMapView({
 
 const styles = StyleSheet.create({
   outerContainer: {
-    position: 'relative',
+    position: "relative",
   },
   container: {
     flex: 1,
     borderRadius: layout.borderRadius,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   mapLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -1865,27 +2110,27 @@ const styles = StyleSheet.create({
   },
   hiddenLayer: {
     opacity: 0,
-    pointerEvents: 'none',
+    pointerEvents: "none",
   },
   map: {
     flex: 1,
   },
   placeholder: {
     backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderRadius: layout.borderRadius,
   },
   markerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   marker: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 3,
     borderColor: colors.textOnDark,
     ...shadows.elevated,
@@ -1897,18 +2142,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.error,
   },
   sectionStartMarker: {
-    backgroundColor: '#00BCD4', // Cyan - distinct from activity start (green)
+    backgroundColor: "#00BCD4", // Cyan - distinct from activity start (green)
   },
   sectionEndMarker: {
-    backgroundColor: '#9C27B0', // Purple - distinct from activity end (red)
+    backgroundColor: "#9C27B0", // Purple - distinct from activity end (red)
   },
   highlightMarker: {
     width: 24,
     height: 24,
     borderRadius: 12,
     backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 3,
     borderColor: colors.textOnDark,
     ...shadows.elevated,
@@ -1920,7 +2165,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textOnDark,
   },
   controlsContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 48,
     right: layout.cardMargin,
     gap: spacing.sm,
@@ -1931,9 +2176,9 @@ const styles = StyleSheet.create({
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    justifyContent: "center",
+    alignItems: "center",
     ...shadows.modal,
   },
   controlButtonDark: {
@@ -1943,10 +2188,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   overlayLegend: {
-    position: 'absolute',
+    position: "absolute",
     bottom: spacing.sm + 36,
     right: spacing.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: spacing.sm,
@@ -1954,8 +2199,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   legendLine: {
@@ -1966,18 +2211,18 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 11,
     color: colors.textOnDark,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   sectionNumberMarker: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: "#1A1A1A",
     borderWidth: 2.5,
-    borderColor: '#00BCD4',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
+    borderColor: "#00BCD4",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.4,
     shadowRadius: 3,
@@ -1987,18 +2232,18 @@ const styles = StyleSheet.create({
     opacity: 0.2,
   },
   sectionNumberMarkerHighlighted: {
-    backgroundColor: '#FFD700',
-    borderColor: '#FF8C00',
+    backgroundColor: "#FFD700",
+    borderColor: "#FF8C00",
     borderWidth: 3,
     transform: [{ scale: 1.2 }],
   },
   sectionNumberText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: "700",
+    textAlign: "center",
   },
   sectionNumberTextHighlighted: {
-    color: '#000000',
+    color: "#000000",
   },
 });

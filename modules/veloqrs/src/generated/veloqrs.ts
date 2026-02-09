@@ -463,6 +463,28 @@ export function persistentEngineClear(): void {
   );
 }
 /**
+ * Clone an activity N times for scale testing (debug only).
+ * Copies metadata, metrics, and section_activities. Does NOT copy GPS tracks.
+ * Returns the number of clones created.
+ */
+export function persistentEngineDebugCloneActivity(
+  sourceId: string,
+  count: /*u32*/ number,
+): /*u32*/ number {
+  return FfiConverterUInt32.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_debug_clone_activity(
+          FfiConverterString.lower(sourceId),
+          FfiConverterUInt32.lower(count),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Detect potential sections using GPS tracks from SQLite.
  * This eliminates the N+1 FFI call pattern - single call, all loading internal.
  * Returns JSON array of potential sections.
@@ -926,6 +948,7 @@ export function persistentEngineGetRoutesScreenData(
   groupOffset: /*u32*/ number,
   sectionLimit: /*u32*/ number,
   sectionOffset: /*u32*/ number,
+  minGroupActivityCount: /*u32*/ number,
 ): FfiRoutesScreenData | undefined {
   return FfiConverterOptionalTypeFfiRoutesScreenData.lift(
     uniffiCaller.rustCall(
@@ -935,6 +958,7 @@ export function persistentEngineGetRoutesScreenData(
           FfiConverterUInt32.lower(groupOffset),
           FfiConverterUInt32.lower(sectionLimit),
           FfiConverterUInt32.lower(sectionOffset),
+          FfiConverterUInt32.lower(minGroupActivityCount),
           callStatus,
         );
       },
@@ -5492,6 +5516,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_debug_clone_activity() !==
+    14020
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_debug_clone_activity",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_detect_potentials() !==
     14751
   ) {
@@ -5693,7 +5725,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_routes_screen_data() !==
-    32474
+    46385
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_persistent_engine_get_routes_screen_data",

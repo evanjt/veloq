@@ -149,10 +149,7 @@ export function RoutesList({
 
   // Convert batch groups to RouteGroup format for RouteRow
   const groups = useMemo(() => {
-    return batchGroups
-      .filter((g) => g.activityCount >= 2)
-      .sort((a, b) => b.activityCount - a.activityCount)
-      .map((g, i) => batchGroupToRouteGroup(g, i));
+    return batchGroups.map((g, i) => batchGroupToRouteGroup(g, i));
   }, [batchGroups]);
 
   // Calculate processed count

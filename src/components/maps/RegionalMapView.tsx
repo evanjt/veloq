@@ -1,7 +1,20 @@
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
-import { useRouter, usePathname } from 'expo-router';
-import { useTheme } from '@/hooks';
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+} from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+  Platform,
+} from "react-native";
+import { useRouter, usePathname } from "expo-router";
+import { useTheme } from "@/hooks";
 import {
   MapView,
   Camera,
@@ -11,18 +24,18 @@ import {
   LineLayer,
   CircleLayer,
   type MapViewRef,
-} from '@maplibre/maplibre-react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing, layout } from '@/theme/spacing';
-import { shadows } from '@/theme/shadows';
-import { convertLatLngTuples, normalizeBounds, getBoundsCenter } from '@/lib';
-import { getActivityTypeConfig } from './ActivityTypeFilter';
-import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
+} from "@maplibre/maplibre-react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
+import { colors, darkColors } from "@/theme/colors";
+import { typography } from "@/theme/typography";
+import { spacing, layout } from "@/theme/spacing";
+import { shadows } from "@/theme/shadows";
+import { convertLatLngTuples, normalizeBounds, getBoundsCenter } from "@/lib";
+import { getActivityTypeConfig } from "./ActivityTypeFilter";
+import { Map3DWebView, type Map3DWebViewRef } from "./Map3DWebView";
 import {
   type MapStyleType,
   getMapStyle,
@@ -32,10 +45,14 @@ import {
   MAP_ATTRIBUTIONS,
   TERRAIN_ATTRIBUTION,
   getCombinedSatelliteAttribution,
-} from './mapStyles';
-import type { ActivityBoundsItem } from '@/types';
-import { useEngineSections, useRouteSignatures, useRouteGroups } from '@/hooks/routes';
-import type { FrequentSection, ActivityType } from '@/types';
+} from "./mapStyles";
+import type { ActivityBoundsItem } from "@/types";
+import {
+  useEngineSections,
+  useRouteSignatures,
+  useRouteGroups,
+} from "@/hooks/routes";
+import type { FrequentSection, ActivityType } from "@/types";
 import {
   ActivityPopup,
   SectionPopup,
@@ -44,7 +61,7 @@ import {
   getMarkerSize,
   useMapHandlers,
   type SelectedActivity,
-} from './regional';
+} from "./regional";
 
 /**
  * 120Hz OPTIMIZATION SUMMARY:
@@ -87,18 +104,24 @@ export function RegionalMapView({
   const { isDark: systemIsDark } = useTheme();
   const [showActivities, setShowActivities] = useState(true);
   const insets = useSafeAreaInsets();
-  const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
+  const systemStyle: MapStyleType = systemIsDark ? "dark" : "light";
   const [mapStyle, setMapStyle] = useState<MapStyleType>(systemStyle);
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
   const [is3DMode, setIs3DMode] = useState(false);
   const [showSections, setShowSections] = useState(false);
   const [showRoutes, setShowRoutes] = useState(false);
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(
+    null,
+  );
   const [locationLoading, setLocationLoading] = useState(false);
-  const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
+  const [visibleActivityIds, setVisibleActivityIds] =
+    useState<Set<string> | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
-  const [currentCenter, setCurrentCenter] = useState<[number, number] | null>(null);
-  const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
+  const [currentCenter, setCurrentCenter] = useState<[number, number] | null>(
+    null,
+  );
+  const [selectedSection, setSelectedSection] =
+    useState<FrequentSection | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<{
     id: string;
     name: string;
@@ -116,10 +139,10 @@ export function RegionalMapView({
   const RETRY_DELAY_MS = 1000;
 
   const handleMapLoadError = useCallback(() => {
-    if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
+    if (Platform.OS === "ios" && retryCountRef.current < MAX_RETRIES) {
       retryCountRef.current += 1;
       console.log(
-        `[RegionalMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
+        `[RegionalMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`,
       );
       setTimeout(() => {
         setMapKey((k) => k + 1);
@@ -139,7 +162,7 @@ export function RegionalMapView({
   // Only load route signatures when the map tab is focused
   // This prevents 80+ getGpsTrack FFI calls when switching to other tabs
   const pathname = usePathname();
-  const isMapFocused = pathname === '/map' || pathname.endsWith('/map');
+  const isMapFocused = pathname === "/map" || pathname.endsWith("/map");
   const routeSignatures = useRouteSignatures(isMapFocused);
 
   // Frequent sections from route matching (with polylines loaded)
@@ -177,7 +200,7 @@ export function RegionalMapView({
     // DEBUG: Log first few centers to diagnose positioning issue
     if (__DEV__ && activities.length > 0) {
       const first3 = activities.slice(0, 3);
-      console.log('[RegionalMapView] Activity centers debug:');
+      console.log("[RegionalMapView] Activity centers debug:");
       for (const a of first3) {
         const center = centers[a.id];
         const sig = routeSignatures[a.id];
@@ -187,10 +210,12 @@ export function RegionalMapView({
             fromSignature: !!sig?.center,
             bounds: a.bounds,
             sigCenter: sig?.center,
-          }
+          },
         );
       }
-      console.log(`  Sources: ${fromSignature} from signature, ${fromBounds} from bounds`);
+      console.log(
+        `  Sources: ${fromSignature} from signature, ${fromBounds} from bounds`,
+      );
     }
 
     return centers;
@@ -227,16 +252,20 @@ export function RegionalMapView({
   // Dynamic attribution based on visible satellite sources at current location
   const attributionText = useMemo(() => {
     let result: string;
-    if (mapStyle === 'satellite' && currentCenter) {
+    if (mapStyle === "satellite" && currentCenter) {
       const satAttribution = getCombinedSatelliteAttribution(
         currentCenter[1],
         currentCenter[0],
-        currentZoom
+        currentZoom,
       );
-      result = is3DMode ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
+      result = is3DMode
+        ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}`
+        : satAttribution;
     } else {
       const baseAttribution = MAP_ATTRIBUTIONS[mapStyle];
-      result = is3DMode ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
+      result = is3DMode
+        ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}`
+        : baseAttribution;
     }
     return result;
   }, [mapStyle, currentCenter, currentZoom, is3DMode]);
@@ -249,50 +278,53 @@ export function RegionalMapView({
   // Calculate bounds from activities (used for initial camera position)
   // Uses normalizeBounds to auto-detect coordinate format from API
   // Returns bounds AND centers on the most recent activity's location
-  const calculateBoundsAndCenter = useCallback((activityList: ActivityBoundsItem[]) => {
-    if (activityList.length === 0) return null;
+  const calculateBoundsAndCenter = useCallback(
+    (activityList: ActivityBoundsItem[]) => {
+      if (activityList.length === 0) return null;
 
-    let minLat = Infinity,
-      maxLat = -Infinity;
-    let minLng = Infinity,
-      maxLng = -Infinity;
+      let minLat = Infinity,
+        maxLat = -Infinity;
+      let minLng = Infinity,
+        maxLng = -Infinity;
 
-    for (const activity of activityList) {
-      const normalized = normalizeBounds(activity.bounds);
-      minLat = Math.min(minLat, normalized.minLat);
-      maxLat = Math.max(maxLat, normalized.maxLat);
-      minLng = Math.min(minLng, normalized.minLng);
-      maxLng = Math.max(maxLng, normalized.maxLng);
-    }
+      for (const activity of activityList) {
+        const normalized = normalizeBounds(activity.bounds);
+        minLat = Math.min(minLat, normalized.minLat);
+        maxLat = Math.max(maxLat, normalized.maxLat);
+        minLng = Math.min(minLng, normalized.minLng);
+        maxLng = Math.max(maxLng, normalized.maxLng);
+      }
 
-    // Find the most recent activity and center on it
-    const sortedByDate = [...activityList].sort((a, b) =>
-      (b.date || '').localeCompare(a.date || '')
-    );
-    const mostRecent = sortedByDate[0];
-    const recentBounds = normalizeBounds(mostRecent.bounds);
-    const centerLng = (recentBounds.minLng + recentBounds.maxLng) / 2;
-    const centerLat = (recentBounds.minLat + recentBounds.maxLat) / 2;
+      // Find the most recent activity and center on it
+      const sortedByDate = [...activityList].sort((a, b) =>
+        (b.date || "").localeCompare(a.date || ""),
+      );
+      const mostRecent = sortedByDate[0];
+      const recentBounds = normalizeBounds(mostRecent.bounds);
+      const centerLng = (recentBounds.minLng + recentBounds.maxLng) / 2;
+      const centerLat = (recentBounds.minLat + recentBounds.maxLat) / 2;
 
-    // Calculate zoom level based on full bounds span
-    // Using Mercator projection formula: zoom = log2(360 / lonSpan) or log2(180 / latSpan)
-    const latSpan = maxLat - minLat;
-    const lngSpan = maxLng - minLng;
-    // Add padding factor to ensure some margin around activities
-    const latZoom = Math.log2(180 / (latSpan || 1)) - 0.5;
-    const lngZoom = Math.log2(360 / (lngSpan || 1)) - 0.5;
-    // Use the smaller zoom (shows more area) to fit all activities
-    const zoomLevel = Math.max(1, Math.min(latZoom, lngZoom));
+      // Calculate zoom level based on full bounds span
+      // Using Mercator projection formula: zoom = log2(360 / lonSpan) or log2(180 / latSpan)
+      const latSpan = maxLat - minLat;
+      const lngSpan = maxLng - minLng;
+      // Add padding factor to ensure some margin around activities
+      const latZoom = Math.log2(180 / (latSpan || 1)) - 0.5;
+      const lngZoom = Math.log2(360 / (lngSpan || 1)) - 0.5;
+      // Use the smaller zoom (shows more area) to fit all activities
+      const zoomLevel = Math.max(1, Math.min(latZoom, lngZoom));
 
-    return {
-      bounds: {
-        ne: [maxLng, maxLat] as [number, number],
-        sw: [minLng, minLat] as [number, number],
-      },
-      center: [centerLng, centerLat] as [number, number],
-      zoomLevel,
-    };
-  }, []);
+      return {
+        bounds: {
+          ne: [maxLng, maxLat] as [number, number],
+          sw: [minLng, minLat] as [number, number],
+        },
+        center: [centerLng, centerLat] as [number, number],
+        zoomLevel,
+      };
+    },
+    [],
+  );
 
   // Set initial bounds once when we first have activities
   // This prevents the zoom from jumping during background sync
@@ -456,7 +488,7 @@ export function RegionalMapView({
   const tracesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
     // Empty collection when no activities (ShapeSource stays mounted, avoiding Fabric crash)
     const emptyCollection: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
+      type: "FeatureCollection",
       features: [],
     };
 
@@ -480,21 +512,21 @@ export function RegionalMapView({
           skippedCount++;
           if (__DEV__) {
             console.warn(
-              `[RegionalMapView] INVALID TRACE: activity=${activity.id} originalPoints=${originalCount} validPoints=${coordinates.length}`
+              `[RegionalMapView] INVALID TRACE: activity=${activity.id} originalPoints=${originalCount} validPoints=${coordinates.length}`,
             );
           }
           return null;
         }
 
         return {
-          type: 'Feature' as const,
+          type: "Feature" as const,
           id: `trace-${activity.id}`,
           properties: {
             id: activity.id,
             color: config.color,
           },
           geometry: {
-            type: 'LineString' as const,
+            type: "LineString" as const,
             coordinates,
           },
         };
@@ -503,14 +535,14 @@ export function RegionalMapView({
 
     if (__DEV__ && skippedCount > 0) {
       console.warn(
-        `[RegionalMapView] tracesGeoJSON: skipped ${skippedCount} traces with insufficient coordinates`
+        `[RegionalMapView] tracesGeoJSON: skipped ${skippedCount} traces with insufficient coordinates`,
       );
     }
 
     // Return minimal geometry only if no features at all
     if (features.length === 0) return emptyCollection;
 
-    return { type: 'FeatureCollection', features };
+    return { type: "FeatureCollection", features };
   }, [visibleActivities, routeSignatures]); // Removed showTraces dependency - always build all traces
 
   // ===========================================
@@ -519,7 +551,7 @@ export function RegionalMapView({
   // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
   const sectionsGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
     const emptyCollection: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
+      type: "FeatureCollection",
       features: [],
     };
     if (sections.length === 0) return emptyCollection;
@@ -530,11 +562,13 @@ export function RegionalMapView({
         // Filter out NaN coordinates and validate polyline has at least 2 points
         // GeoJSON LineString requires minimum 2 coordinates to be valid
         const originalCount = section.polyline.length;
-        const validPoints = section.polyline.filter((pt) => !isNaN(pt.lat) && !isNaN(pt.lng));
+        const validPoints = section.polyline.filter(
+          (pt) => !isNaN(pt.lat) && !isNaN(pt.lng),
+        );
 
         // Also filter Infinity values
         const finitePoints = validPoints.filter(
-          (pt) => Number.isFinite(pt.lat) && Number.isFinite(pt.lng)
+          (pt) => Number.isFinite(pt.lat) && Number.isFinite(pt.lng),
         );
 
         // Skip sections with insufficient valid coordinates
@@ -542,7 +576,7 @@ export function RegionalMapView({
           skippedCount++;
           if (__DEV__) {
             console.warn(
-              `[RegionalMapView] INVALID SECTION: id=${section.id} name="${section.name}" originalPoints=${originalCount} validPoints=${validPoints.length} finitePoints=${finitePoints.length}`
+              `[RegionalMapView] INVALID SECTION: id=${section.id} name="${section.name}" originalPoints=${originalCount} validPoints=${validPoints.length} finitePoints=${finitePoints.length}`,
             );
           }
           return null;
@@ -552,18 +586,20 @@ export function RegionalMapView({
         const config = getActivityTypeConfig(section.sportType);
 
         return {
-          type: 'Feature' as const,
+          type: "Feature" as const,
           id: section.id,
           properties: {
             id: section.id,
-            name: section.name || t('sections.defaultName', { number: section.id.slice(-6) }),
+            name:
+              section.name ||
+              t("sections.defaultName", { number: section.id.slice(-6) }),
             sportType: section.sportType,
             visitCount: section.visitCount,
             distanceMeters: section.distanceMeters,
             color: config.color,
           },
           geometry: {
-            type: 'LineString' as const,
+            type: "LineString" as const,
             coordinates,
           },
         };
@@ -572,11 +608,11 @@ export function RegionalMapView({
 
     if (__DEV__ && skippedCount > 0) {
       console.warn(
-        `[RegionalMapView] sectionsGeoJSON: skipped ${skippedCount}/${sections.length} sections with invalid polylines`
+        `[RegionalMapView] sectionsGeoJSON: skipped ${skippedCount}/${sections.length} sections with invalid polylines`,
       );
     }
 
-    return { type: 'FeatureCollection', features };
+    return { type: "FeatureCollection", features };
   }, [sections, t]);
 
   // ===========================================
@@ -585,7 +621,7 @@ export function RegionalMapView({
   // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
   const routesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
     const emptyCollection: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
+      type: "FeatureCollection",
       features: [],
     };
     if (!showRoutes || routeGroups.length === 0) return emptyCollection;
@@ -607,14 +643,14 @@ export function RegionalMapView({
           skippedCount++;
           if (__DEV__) {
             console.warn(
-              `[RegionalMapView] INVALID ROUTE: groupId=${group.id} name="${group.name}" originalPoints=${originalCount} validPoints=${coordinates.length}`
+              `[RegionalMapView] INVALID ROUTE: groupId=${group.id} name="${group.name}" originalPoints=${originalCount} validPoints=${coordinates.length}`,
             );
           }
           return null;
         }
 
         return {
-          type: 'Feature' as const,
+          type: "Feature" as const,
           id: group.id,
           properties: {
             id: group.id,
@@ -625,7 +661,7 @@ export function RegionalMapView({
             bestTime: group.bestTime,
           },
           geometry: {
-            type: 'LineString' as const,
+            type: "LineString" as const,
             coordinates,
           },
         };
@@ -634,11 +670,11 @@ export function RegionalMapView({
 
     if (__DEV__ && skippedCount > 0) {
       console.warn(
-        `[RegionalMapView] routesGeoJSON: skipped ${skippedCount}/${routeGroups.length} routes with invalid polylines`
+        `[RegionalMapView] routesGeoJSON: skipped ${skippedCount}/${routeGroups.length} routes with invalid polylines`,
       );
     }
 
-    return { type: 'FeatureCollection', features };
+    return { type: "FeatureCollection", features };
   }, [showRoutes, routeGroups, routeSignatures]);
 
   // ===========================================
@@ -647,7 +683,7 @@ export function RegionalMapView({
   // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
   const routeMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
     const emptyCollection: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
+      type: "FeatureCollection",
       features: [],
     };
     if (!showRoutes || routeGroups.length === 0) return emptyCollection;
@@ -660,18 +696,22 @@ export function RegionalMapView({
         const startPoint = signature.points[0];
 
         // Skip if no start point or invalid coordinates
-        if (!startPoint || !Number.isFinite(startPoint.lng) || !Number.isFinite(startPoint.lat)) {
+        if (
+          !startPoint ||
+          !Number.isFinite(startPoint.lng) ||
+          !Number.isFinite(startPoint.lat)
+        ) {
           skippedCount++;
           if (__DEV__) {
             console.warn(
-              `[RegionalMapView] INVALID ROUTE MARKER: groupId=${group.id} startPoint=${JSON.stringify(startPoint)}`
+              `[RegionalMapView] INVALID ROUTE MARKER: groupId=${group.id} startPoint=${JSON.stringify(startPoint)}`,
             );
           }
           return null;
         }
 
         return {
-          type: 'Feature' as const,
+          type: "Feature" as const,
           id: `marker-${group.id}`,
           properties: {
             id: group.id,
@@ -679,7 +719,7 @@ export function RegionalMapView({
             activityCount: group.activityCount,
           },
           geometry: {
-            type: 'Point' as const,
+            type: "Point" as const,
             coordinates: [startPoint.lng, startPoint.lat],
           },
         };
@@ -688,11 +728,11 @@ export function RegionalMapView({
 
     if (__DEV__ && skippedCount > 0) {
       console.warn(
-        `[RegionalMapView] routeMarkersGeoJSON: skipped ${skippedCount} route markers with invalid start points`
+        `[RegionalMapView] routeMarkersGeoJSON: skipped ${skippedCount} route markers with invalid start points`,
       );
     }
 
-    return { type: 'FeatureCollection', features };
+    return { type: "FeatureCollection", features };
   }, [showRoutes, routeGroups, routeSignatures]);
 
   // ===========================================
@@ -707,7 +747,11 @@ export function RegionalMapView({
       .map((section) => {
         // Get first point of section polyline
         const startPoint = section.polyline[0];
-        if (!startPoint || !Number.isFinite(startPoint.lng) || !Number.isFinite(startPoint.lat)) {
+        if (
+          !startPoint ||
+          !Number.isFinite(startPoint.lng) ||
+          !Number.isFinite(startPoint.lat)
+        ) {
           return null;
         }
 
@@ -735,7 +779,11 @@ export function RegionalMapView({
       .map((group) => {
         const signature = routeSignatures[group.representativeId];
         const startPoint = signature.points[0];
-        if (!startPoint || !Number.isFinite(startPoint.lng) || !Number.isFinite(startPoint.lat)) {
+        if (
+          !startPoint ||
+          !Number.isFinite(startPoint.lng) ||
+          !Number.isFinite(startPoint.lat)
+        ) {
           return null;
         }
 
@@ -758,16 +806,16 @@ export function RegionalMapView({
   const userLocationGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
     // Return empty collection when no location - visibility controlled via layer opacity
     if (!userLocation) {
-      return { type: 'FeatureCollection', features: [] };
+      return { type: "FeatureCollection", features: [] };
     }
     return {
-      type: 'FeatureCollection',
+      type: "FeatureCollection",
       features: [
         {
-          type: 'Feature',
+          type: "Feature",
           properties: { hasLocation: true },
           geometry: {
-            type: 'Point',
+            type: "Point",
             coordinates: userLocation,
           },
         },
@@ -794,7 +842,7 @@ export function RegionalMapView({
         }
       }
     },
-    [routeGroups]
+    [routeGroups],
   );
 
   // ===========================================
@@ -832,7 +880,7 @@ export function RegionalMapView({
           skippedCount++;
           if (__DEV__) {
             console.warn(
-              `[RegionalMapView] INVALID MARKER: activity=${activity.id} center=${JSON.stringify(center)}`
+              `[RegionalMapView] INVALID MARKER: activity=${activity.id} center=${JSON.stringify(center)}`,
             );
           }
           return null;
@@ -841,7 +889,7 @@ export function RegionalMapView({
         const size = getMarkerSize(activity.distance);
 
         return {
-          type: 'Feature' as const,
+          type: "Feature" as const,
           id: activity.id,
           properties: {
             id: activity.id,
@@ -850,7 +898,7 @@ export function RegionalMapView({
             size: size,
           },
           geometry: {
-            type: 'Point' as const,
+            type: "Point" as const,
             coordinates: center,
           },
         };
@@ -859,12 +907,12 @@ export function RegionalMapView({
 
     if (__DEV__ && skippedCount > 0) {
       console.warn(
-        `[RegionalMapView] markersGeoJSON: skipped ${skippedCount}/${visibleActivities.length} activities with invalid centers`
+        `[RegionalMapView] markersGeoJSON: skipped ${skippedCount}/${visibleActivities.length} activities with invalid centers`,
       );
     }
 
     return {
-      type: 'FeatureCollection' as const,
+      type: "FeatureCollection" as const,
       features: features as GeoJSON.Feature[],
     };
   }, [visibleActivities, activityCenters]);
@@ -875,19 +923,21 @@ export function RegionalMapView({
   // Build route GeoJSON for selected activity
   // Uses pre-computed routeCoords (from Rust engine) if available, falls back to mapData.latlngs (from API)
   // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
-  const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
+  const routeGeoJSON = useMemo(():
+    | GeoJSON.FeatureCollection
+    | GeoJSON.Feature => {
     const emptyCollection: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
+      type: "FeatureCollection",
       features: [],
     };
 
     // Priority 1: Use pre-computed routeCoords from Rust engine (already in [lng, lat] format)
     if (selected?.routeCoords && selected.routeCoords.length >= 2) {
       return {
-        type: 'Feature' as const,
+        type: "Feature" as const,
         properties: {},
         geometry: {
-          type: 'LineString' as const,
+          type: "LineString" as const,
           coordinates: selected.routeCoords,
         },
       };
@@ -897,12 +947,14 @@ export function RegionalMapView({
     if (!selected?.mapData?.latlngs) return emptyCollection;
 
     // Filter out null values first
-    const nonNullCoords = selected.mapData.latlngs.filter((c): c is [number, number] => c !== null);
+    const nonNullCoords = selected.mapData.latlngs.filter(
+      (c): c is [number, number] => c !== null,
+    );
 
     if (nonNullCoords.length === 0) {
       if (__DEV__) {
         console.warn(
-          `[RegionalMapView] routeGeoJSON: no non-null coords for activity=${selected.activity.id}`
+          `[RegionalMapView] routeGeoJSON: no non-null coords for activity=${selected.activity.id}`,
         );
       }
       return emptyCollection;
@@ -918,24 +970,24 @@ export function RegionalMapView({
           Number.isFinite(c.latitude) &&
           Number.isFinite(c.longitude) &&
           !isNaN(c.latitude) &&
-          !isNaN(c.longitude)
+          !isNaN(c.longitude),
       )
       .map((c) => [c.longitude, c.latitude]);
 
     if (validCoords.length < 2) {
       if (__DEV__) {
         console.warn(
-          `[RegionalMapView] routeGeoJSON: insufficient valid coords for activity=${selected.activity.id} original=${nonNullCoords.length} valid=${validCoords.length}`
+          `[RegionalMapView] routeGeoJSON: insufficient valid coords for activity=${selected.activity.id} original=${nonNullCoords.length} valid=${validCoords.length}`,
         );
       }
       return emptyCollection;
     }
 
     return {
-      type: 'Feature' as const,
+      type: "Feature" as const,
       properties: {},
       geometry: {
-        type: 'LineString' as const,
+        type: "LineString" as const,
         coordinates: validCoords,
       },
     };
@@ -943,8 +995,9 @@ export function RegionalMapView({
 
   // Helper to check if routeGeoJSON has data
   const routeHasData =
-    routeGeoJSON.type === 'Feature' ||
-    (routeGeoJSON.type === 'FeatureCollection' && routeGeoJSON.features.length > 0);
+    routeGeoJSON.type === "Feature" ||
+    (routeGeoJSON.type === "FeatureCollection" &&
+      routeGeoJSON.features.length > 0);
 
   // Get 3D route coordinates from selected activity (if any)
   // Uses pre-computed routeCoords if available, falls back to mapData.latlngs
@@ -995,15 +1048,16 @@ export function RegionalMapView({
         // Expand query rect based on zoom (matches CircleLayer radius interpolation)
         // Use different hit radius for points vs lines - lines are thin and need bigger area
         // Matches CircleLayer: zoom 0→16, 4→14, 8→12, 12→8, 16→6
-        const pointHitRadius = zoom < 4 ? 16 : zoom < 8 ? 14 : zoom < 12 ? 12 : zoom < 16 ? 8 : 6;
+        const pointHitRadius =
+          zoom < 4 ? 16 : zoom < 8 ? 14 : zoom < 12 ? 12 : zoom < 16 ? 8 : 6;
         // Lines need 3x the hit area since they're only a few pixels wide
         const lineHitRadius = Math.max(pointHitRadius * 3, 20); // Minimum 20px for lines
 
         // Build list of layers to query based on visibility
         const layersToQuery: string[] = [];
-        if (showActivities) layersToQuery.push('marker-hitarea');
-        if (showSections) layersToQuery.push('sectionsLine');
-        if (showRoutes) layersToQuery.push('routesLine');
+        if (showActivities) layersToQuery.push("marker-hitarea");
+        if (showSections) layersToQuery.push("sectionsLine");
+        if (showRoutes) layersToQuery.push("routesLine");
 
         if (layersToQuery.length === 0) {
           if (selected) setSelected(null);
@@ -1027,7 +1081,7 @@ export function RegionalMapView({
         let features = await mapRef.current?.queryRenderedFeaturesAtPoint(
           [screenX, screenY],
           undefined,
-          layersToQuery
+          layersToQuery,
         );
 
         // If no hit at point, try with expanded bbox
@@ -1035,7 +1089,7 @@ export function RegionalMapView({
           features = await mapRef.current?.queryRenderedFeaturesInRect(
             bbox,
             undefined,
-            layersToQuery
+            layersToQuery,
           );
         }
 
@@ -1045,31 +1099,34 @@ export function RegionalMapView({
           const featureId = feature.properties?.id;
 
           // Determine feature type by checking geometry and properties
-          if (feature.geometry?.type === 'Point' && showActivities) {
+          if (feature.geometry?.type === "Point" && showActivities) {
             // Activity marker hit
             const activity = activities.find((a) => a.id === featureId);
             if (activity) {
-              console.log('[iOS tap] HIT activity:', featureId);
+              console.log("[iOS tap] HIT activity:", featureId);
               handleMarkerTap(activity);
               return;
             }
-          } else if (feature.geometry?.type === 'LineString') {
+          } else if (feature.geometry?.type === "LineString") {
             // Could be section or route - check properties to determine
             if (feature.properties?.visitCount !== undefined && showSections) {
               // Section hit (has visitCount property)
               const section = sections.find((s) => s.id === featureId);
               if (section) {
-                console.log('[iOS tap] HIT section:', featureId);
+                console.log("[iOS tap] HIT section:", featureId);
                 setSelectedSection(section);
                 setSelected(null);
                 setSelectedRoute(null);
                 return;
               }
-            } else if (feature.properties?.activityCount !== undefined && showRoutes) {
+            } else if (
+              feature.properties?.activityCount !== undefined &&
+              showRoutes
+            ) {
               // Route hit (has activityCount property)
               const route = routeGroups.find((g) => g.id === featureId);
               if (route) {
-                console.log('[iOS tap] HIT route:', featureId);
+                console.log("[iOS tap] HIT route:", featureId);
                 setSelectedRoute({
                   id: route.id,
                   name: route.name,
@@ -1093,7 +1150,7 @@ export function RegionalMapView({
       } catch (error) {
         // Log error but don't crash - gracefully handle MapLibre query failures
         if (__DEV__) {
-          console.warn('[iOS tap] Error during tap handling:', error);
+          console.warn("[iOS tap] Error during tap handling:", error);
         }
       }
     },
@@ -1112,17 +1169,19 @@ export function RegionalMapView({
       showSections,
       showRoutes,
       currentZoomLevel,
-    ]
+    ],
   );
 
   // Track touch start for iOS tap detection (to distinguish taps from gestures)
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
+    null,
+  );
 
   return (
     <View
       style={styles.container}
       onTouchStart={
-        Platform.OS === 'ios'
+        Platform.OS === "ios"
           ? (e) => {
               touchStartRef.current = {
                 x: e.nativeEvent.locationX,
@@ -1133,7 +1192,7 @@ export function RegionalMapView({
           : undefined
       }
       onTouchEnd={
-        Platform.OS === 'ios'
+        Platform.OS === "ios"
           ? (e) => {
               const start = touchStartRef.current;
               if (!start) return;
@@ -1159,13 +1218,21 @@ export function RegionalMapView({
           ref={map3DRef}
           coordinates={route3DCoords.length > 0 ? route3DCoords : undefined}
           mapStyle={mapStyle}
-          routeColor={selected ? getActivityTypeConfig(selected.activity.type).color : undefined}
+          routeColor={
+            selected
+              ? getActivityTypeConfig(selected.activity.type).color
+              : undefined
+          }
           initialCenter={currentCenter ?? mapCenter ?? undefined}
           initialZoom={currentZoom}
           routesGeoJSON={showRoutes ? (routesGeoJSON ?? undefined) : undefined}
-          sectionsGeoJSON={showSections ? (sectionsGeoJSON ?? undefined) : undefined}
+          sectionsGeoJSON={
+            showSections ? (sectionsGeoJSON ?? undefined) : undefined
+          }
           // In 3D mode, use showActivities directly (no zoom check - 3D doesn't track zoom)
-          tracesGeoJSON={showActivities ? (tracesGeoJSON ?? undefined) : undefined}
+          tracesGeoJSON={
+            showActivities ? (tracesGeoJSON ?? undefined) : undefined
+          }
         />
       ) : (
         <MapView
@@ -1176,7 +1243,7 @@ export function RegionalMapView({
           logoEnabled={false}
           attributionEnabled={false}
           compassEnabled={false}
-          onPress={Platform.OS === 'android' ? handleMapPress : undefined}
+          onPress={Platform.OS === "android" ? handleMapPress : undefined}
           onRegionIsChanging={handleRegionIsChanging}
           onRegionDidChange={handleRegionDidChange}
           onDidFailLoadingMap={handleMapLoadError}
@@ -1196,10 +1263,10 @@ export function RegionalMapView({
           {/* CRITICAL: Always render MarkerViews to avoid iOS crash during reconciliation */}
           {/* Use opacity to hide instead of conditional rendering */}
           {/* pointerEvents="none" ensures these don't intercept touches (fixes Android rendering) */}
-          {/* iOS CRASH FIX: Use stable order (visibleActivities) instead of sortedVisibleActivities */}
-          {/* Re-ordering markers causes NSRangeException in MLRNMapView insertReactSubview:atIndex: */}
-          {/* iOS CRASH FIX: Never return null - always render with fallback coordinate and opacity: 0 */}
-          {visibleActivities.map((activity) => {
+          {/* iOS CRASH FIX: Render ALL activities as MarkerViews (stable count) */}
+          {/* Changing MarkerView count triggers NSRangeException in MLRNMapView insertReactSubview:atIndex: */}
+          {/* Use opacity to hide off-viewport markers instead of filtering the array */}
+          {activities.map((activity) => {
             const config = getActivityTypeConfig(activity.type);
             // Use pre-computed center (no format detection during render!)
             const center = activityCenters[activity.id];
@@ -1208,8 +1275,12 @@ export function RegionalMapView({
             const markerSize = isSelected ? size + 8 : size;
             // Larger icon ratio to fill more of the marker
             const iconSize = isSelected ? size * 0.75 : size * 0.7;
-            // Hide markers when activities toggle is off, in heatmap mode, or center not computed
-            const isVisible = showActivities && !!center;
+            // Viewport culling via opacity - MarkerView stays mounted but hidden
+            const isInViewport =
+              activities.length < VIEWPORT_CULLING_THRESHOLD ||
+              !visibleActivityIds ||
+              visibleActivityIds.has(activity.id);
+            const isVisible = showActivities && !!center && isInViewport;
 
             return (
               <MarkerView
@@ -1228,9 +1299,11 @@ export function RegionalMapView({
                     borderRadius: markerSize / 2,
                     backgroundColor: config.color,
                     borderWidth: isSelected ? 2 : 1.5,
-                    borderColor: isSelected ? colors.primary : colors.textOnDark,
-                    justifyContent: 'center',
-                    alignItems: 'center',
+                    borderColor: isSelected
+                      ? colors.primary
+                      : colors.textOnDark,
+                    justifyContent: "center",
+                    alignItems: "center",
                     opacity: isVisible ? 1 : 0,
                     ...shadows.elevated,
                   }}
@@ -1251,7 +1324,11 @@ export function RegionalMapView({
           <ShapeSource
             id="activity-markers-hitarea"
             shape={markersGeoJSON}
-            onPress={Platform.OS === 'android' && showActivities ? handleMarkerPress : undefined}
+            onPress={
+              Platform.OS === "android" && showActivities
+                ? handleMarkerPress
+                : undefined
+            }
             hitbox={{ width: 36, height: 36 }}
           >
             {/* Invisible circles for hit detection - sized to match visual markers */}
@@ -1261,9 +1338,9 @@ export function RegionalMapView({
               style={{
                 circleRadius: showActivities
                   ? [
-                      'interpolate',
-                      ['linear'],
-                      ['zoom'],
+                      "interpolate",
+                      ["linear"],
+                      ["zoom"],
                       0,
                       16, // World view: modest hitarea
                       4,
@@ -1276,14 +1353,14 @@ export function RegionalMapView({
                       6, // Neighborhood - minimal, just for touch tolerance
                     ]
                   : 0,
-                circleColor: '#000000',
+                circleColor: "#000000",
                 // iOS requires higher opacity than Android to be queryable
                 // Scale opacity down at higher zoom so halos are less visible
                 circleOpacity: showActivities
                   ? [
-                      'interpolate',
-                      ['linear'],
-                      ['zoom'],
+                      "interpolate",
+                      ["linear"],
+                      ["zoom"],
                       0,
                       0.05, // World view - slightly visible for queryability
                       8,
@@ -1310,23 +1387,23 @@ export function RegionalMapView({
             <LineLayer
               id="routesLine"
               style={{
-                visibility: showRoutes ? 'visible' : 'none',
-                lineColor: '#9C27B0',
+                visibility: showRoutes ? "visible" : "none",
+                lineColor: "#9C27B0",
                 lineWidth: [
-                  'case',
-                  ['==', ['get', 'id'], selectedRoute?.id ?? ''],
+                  "case",
+                  ["==", ["get", "id"], selectedRoute?.id ?? ""],
                   6, // Bold when selected
                   3,
                 ],
                 lineOpacity: [
-                  'case',
-                  ['==', ['get', 'id'], selectedRoute?.id ?? ''],
+                  "case",
+                  ["==", ["get", "id"], selectedRoute?.id ?? ""],
                   1, // Full opacity when selected
                   0.7,
                 ],
                 lineDasharray: [3, 2],
-                lineCap: 'round',
-                lineJoin: 'round',
+                lineCap: "round",
+                lineJoin: "round",
               }}
             />
           </ShapeSource>
@@ -1357,29 +1434,29 @@ export function RegionalMapView({
             <LineLayer
               id="sectionsLine"
               style={{
-                lineColor: ['get', 'color'],
+                lineColor: ["get", "color"],
                 // Note: zoom expressions cannot be nested inside case expressions
                 // Use fixed widths when selection is active to avoid MapLibre crash
                 lineWidth: selectedSection
                   ? [
-                      'case',
-                      ['==', ['get', 'id'], selectedSection.id],
+                      "case",
+                      ["==", ["get", "id"], selectedSection.id],
                       8, // Bold when selected
                       4, // Fixed width for unselected (can't use zoom interpolate here)
                     ]
-                  : ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 5, 18, 7],
+                  : ["interpolate", ["linear"], ["zoom"], 10, 3, 14, 5, 18, 7],
                 lineOpacity: showSections
                   ? selectedSection
                     ? [
-                        'case',
-                        ['==', ['get', 'id'], selectedSection.id],
+                        "case",
+                        ["==", ["get", "id"], selectedSection.id],
                         1, // Full opacity when selected
                         0.85,
                       ]
                     : 0.85
                   : 0,
-                lineCap: 'round',
-                lineJoin: 'round',
+                lineCap: "round",
+                lineJoin: "round",
               }}
             />
             {/* Section outline for better visibility */}
@@ -1391,24 +1468,24 @@ export function RegionalMapView({
                 // Use fixed widths when selection is active to avoid MapLibre crash
                 lineWidth: selectedSection
                   ? [
-                      'case',
-                      ['==', ['get', 'id'], selectedSection.id],
+                      "case",
+                      ["==", ["get", "id"], selectedSection.id],
                       10, // Bold when selected
                       6, // Fixed width for unselected (can't use zoom interpolate here)
                     ]
-                  : ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 7, 18, 9],
+                  : ["interpolate", ["linear"], ["zoom"], 10, 5, 14, 7, 18, 9],
                 lineOpacity: showSections
                   ? selectedSection
                     ? [
-                        'case',
-                        ['==', ['get', 'id'], selectedSection.id],
+                        "case",
+                        ["==", ["get", "id"], selectedSection.id],
                         0.6, // More visible when selected
                         0.4,
                       ]
                     : 0.4
                   : 0,
-                lineCap: 'round',
-                lineJoin: 'round',
+                lineCap: "round",
+                lineJoin: "round",
               }}
               belowLayerID="sectionsLine"
             />
@@ -1420,19 +1497,19 @@ export function RegionalMapView({
             <LineLayer
               id="tracesLine"
               style={{
-                lineColor: ['get', 'color'],
+                lineColor: ["get", "color"],
                 lineWidth: [
-                  'case',
+                  "case",
                   // Hide selected trace (full route shown instead)
                   // Uses selectedActivityId variable instead of isSelected property for 120Hz
-                  ['==', ['get', 'id'], selectedActivityId ?? ''],
+                  ["==", ["get", "id"], selectedActivityId ?? ""],
                   0,
                   2,
                 ],
                 // Fabric crash fix: Control visibility via opacity, not feature count
                 lineOpacity: showTraces ? 0.4 : 0,
-                lineCap: 'round',
-                lineJoin: 'round',
+                lineCap: "round",
+                lineJoin: "round",
               }}
             />
           </ShapeSource>
@@ -1446,18 +1523,20 @@ export function RegionalMapView({
               style={{
                 lineColor: colors.textOnDark,
                 lineWidth: 8,
-                lineCap: 'round',
-                lineJoin: 'round',
+                lineCap: "round",
+                lineJoin: "round",
                 lineOpacity: routeHasData ? 0.5 : 0,
               }}
             />
             <LineLayer
               id="selected-routeLine"
               style={{
-                lineColor: selected ? getActivityTypeConfig(selected.activity.type).color : '#000',
+                lineColor: selected
+                  ? getActivityTypeConfig(selected.activity.type).color
+                  : "#000",
                 lineWidth: 5,
-                lineCap: 'round',
-                lineJoin: 'round',
+                lineCap: "round",
+                lineJoin: "round",
                 lineOpacity: routeHasData ? 1 : 0,
               }}
             />
@@ -1485,16 +1564,20 @@ export function RegionalMapView({
                     width: 32,
                     height: 32,
                     borderRadius: 16,
-                    backgroundColor: isSelected ? colors.primary : '#4CAF50',
+                    backgroundColor: isSelected ? colors.primary : "#4CAF50",
                     borderWidth: 2,
                     borderColor: colors.textOnDark,
-                    justifyContent: 'center',
-                    alignItems: 'center',
+                    justifyContent: "center",
+                    alignItems: "center",
                     opacity: isVisible ? 1 : 0,
                     ...shadows.elevated,
                   }}
                 >
-                  <MaterialCommunityIcons name="road-variant" size={18} color={colors.textOnDark} />
+                  <MaterialCommunityIcons
+                    name="road-variant"
+                    size={18}
+                    color={colors.textOnDark}
+                  />
                 </View>
               </MarkerView>
             );
@@ -1522,11 +1605,11 @@ export function RegionalMapView({
                     width: 32,
                     height: 32,
                     borderRadius: 16,
-                    backgroundColor: isSelected ? colors.primary : '#9C27B0',
+                    backgroundColor: isSelected ? colors.primary : "#9C27B0",
                     borderWidth: 2,
                     borderColor: colors.textOnDark,
-                    justifyContent: 'center',
-                    alignItems: 'center',
+                    justifyContent: "center",
+                    alignItems: "center",
                     opacity: isVisible ? 1 : 0,
                     ...shadows.elevated,
                   }}
@@ -1577,7 +1660,7 @@ export function RegionalMapView({
         ]}
         onPress={toggleStyle}
         activeOpacity={0.8}
-        accessibilityLabel={t('maps.toggleStyle')}
+        accessibilityLabel={t("maps.toggleStyle")}
         accessibilityRole="button"
       >
         <MaterialCommunityIcons
@@ -1611,7 +1694,12 @@ export function RegionalMapView({
       />
       {/* Attribution */}
       {showAttribution && (
-        <View style={[styles.attribution, { bottom: insets.bottom + attributionBottomOffset }]}>
+        <View
+          style={[
+            styles.attribution,
+            { bottom: insets.bottom + attributionBottomOffset },
+          ]}
+        >
           <Text style={styles.attributionText}>{attributionText}</Text>
         </View>
       )}
@@ -1662,13 +1750,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   button: {
-    position: 'absolute',
+    position: "absolute",
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    justifyContent: "center",
+    alignItems: "center",
     ...shadows.mapOverlay,
   },
   buttonDark: {
@@ -1681,9 +1769,9 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(66, 165, 245, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(66, 165, 245, 0.3)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   userLocationDot: {
     width: 12,
@@ -1694,12 +1782,12 @@ const styles = StyleSheet.create({
     borderColor: colors.textOnDark,
   },
   markerWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   marker: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderColor: colors.textOnDark,
     ...shadows.elevated,
   },
@@ -1708,10 +1796,10 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   attribution: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     right: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderTopLeftRadius: spacing.sm,

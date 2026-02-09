@@ -4,6 +4,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   Dimensions,
   Modal,
   StatusBar,
@@ -48,7 +49,14 @@ import {
   RoutePerformanceSection,
   MiniTraceView,
 } from '@/components';
-import { DataRangeFooter, SectionMiniPreview } from '@/components/routes';
+import {
+  DataRangeFooter,
+  SectionMiniPreview,
+  DebugInfoPanel,
+  DebugWarningBanner,
+} from '@/components/routes';
+import { useDebugStore } from '@/providers';
+import { useFFITimer } from '@/hooks/debug/useFFITimer';
 import type { SectionOverlay } from '@/components/maps/ActivityMapView';
 import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import type {
@@ -116,6 +124,8 @@ export default function ActivityDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isDark, colors: themeColors } = useTheme();
   const isMetric = useMetricSystem();
+  const debugEnabled = useDebugStore((s) => s.enabled);
+  const { getPageMetrics } = useFFITimer();
   const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
   // Use dynamic dimensions for fullscreen chart (updates after rotation)
@@ -595,7 +605,10 @@ export default function ActivityDetailScreen() {
       // First try computed traces
       const computedTrace = computedActivityTraces[sectionId];
       if (computedTrace && computedTrace.length > 0) {
-        return computedTrace.map((c) => ({ lat: c.latitude, lng: c.longitude }));
+        return computedTrace.map((c) => ({
+          lat: c.latitude,
+          lng: c.longitude,
+        }));
       }
       // Fall back to portion indices
       if (portion?.startIndex == null || portion?.endIndex == null) return undefined;
@@ -740,7 +753,10 @@ export default function ActivityDetailScreen() {
     const s = Math.floor(absDelta % 60);
     const timeStr = m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${s}s`;
     if (delta <= 0) {
-      return { text: delta === 0 ? t('routes.pr') : `-${timeStr}`, isAhead: true };
+      return {
+        text: delta === 0 ? t('routes.pr') : `-${timeStr}`,
+        isAhead: true,
+      };
     }
     return { text: `+${timeStr}`, isAhead: false };
   };
@@ -868,7 +884,9 @@ export default function ActivityDetailScreen() {
               const reductionKm = Math.ceil(reductionMeters / 1000);
               const reductionDisplay =
                 reductionKm > 1 ? `${reductionKm} km` : `${reductionMeters} m`;
-              message = t('routes.sectionTooLargeWithHint', { reduction: reductionDisplay });
+              message = t('routes.sectionTooLargeWithHint', {
+                reduction: reductionDisplay,
+              });
             } else {
               message = t('routes.sectionTooLarge');
             }
@@ -989,9 +1007,40 @@ export default function ActivityDetailScreen() {
 
         {/* Activity info overlay at bottom */}
         <View style={styles.infoOverlay}>
-          <Text style={styles.activityName} numberOfLines={1}>
-            {activity.name}
-          </Text>
+          <Pressable
+            onLongPress={
+              debugEnabled
+                ? () => {
+                    const doClone = (n: number) => {
+                      const created = routeEngine.debugCloneActivity(id, n);
+                      Alert.alert('Done', `Created ${created} clones`);
+                    };
+                    Alert.alert(
+                      'Clone for Testing',
+                      `Clone "${activity.name}" to stress test sections and routes.`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: '10 clones', onPress: () => doClone(10) },
+                        {
+                          text: 'More...',
+                          onPress: () => {
+                            Alert.alert('Clone Amount', 'Choose number of clones:', [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: '50 clones', onPress: () => doClone(50) },
+                              { text: '100 clones', onPress: () => doClone(100) },
+                            ]);
+                          },
+                        },
+                      ]
+                    );
+                  }
+                : undefined
+            }
+          >
+            <Text style={styles.activityName} numberOfLines={1}>
+              {activity.name}
+            </Text>
+          </Pressable>
 
           {/* Date and inline stats */}
           <View style={styles.metaRow}>
@@ -1169,6 +1218,82 @@ export default function ActivityDetailScreen() {
               <DeviceAttribution deviceName={activity.device_name} />
             </View>
           )}
+
+          {debugEnabled &&
+            activity &&
+            (() => {
+              const pageMetrics = getPageMetrics();
+              const ffiEntries =
+                pageMetrics.length > 0
+                  ? pageMetrics.reduce<
+                      Record<string, { calls: number; totalMs: number; maxMs: number }>
+                    >((acc, m) => {
+                      if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
+                      acc[m.name].calls++;
+                      acc[m.name].totalMs += m.durationMs;
+                      acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
+                      return acc;
+                    }, {})
+                  : {};
+              const warnings: Array<{
+                level: 'warn' | 'error';
+                message: string;
+              }> = [];
+              if (streams?.latlng && streams.latlng.length > 2000) {
+                warnings.push({
+                  level: 'warn',
+                  message: `Polyline points: ${streams.latlng.length}`,
+                });
+              }
+              for (const [name, m] of Object.entries(ffiEntries)) {
+                if (m.maxMs > 200) {
+                  warnings.push({
+                    level: 'error',
+                    message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
+                  });
+                }
+              }
+              return (
+                <>
+                  {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
+                  <DebugInfoPanel
+                    isDark={isDark}
+                    entries={[
+                      { label: 'Activity ID', value: id?.slice(0, 24) ?? '-' },
+                      { label: 'Sport', value: activity.sport_type ?? '-' },
+                      {
+                        label: 'GPS Points',
+                        value: streams?.latlng ? String(streams.latlng.length) : '-',
+                      },
+                      {
+                        label: 'HR Samples',
+                        value: streams?.heartrate ? String(streams.heartrate.length) : '-',
+                      },
+                      {
+                        label: 'Power Samples',
+                        value: streams?.watts ? String(streams.watts.length) : '-',
+                      },
+                      {
+                        label: 'Cadence Samples',
+                        value: streams?.cadence ? String(streams.cadence.length) : '-',
+                      },
+                      {
+                        label: 'Sections Matched',
+                        value: String(engineSectionCount),
+                      },
+                      {
+                        label: 'Custom Sections',
+                        value: String(customMatchedSections.length),
+                      },
+                      ...Object.entries(ffiEntries).map(([name, m]) => ({
+                        label: name,
+                        value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
+                      })),
+                    ]}
+                  />
+                </>
+              );
+            })()}
         </ScrollView>
 
         {/* Tab 2: Routes */}

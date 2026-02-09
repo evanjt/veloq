@@ -124,10 +124,18 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
       });
     }
 
-    // Sort by visit count (most popular first)
-    matches.sort((a, b) => b.section.visitCount - a.section.visitCount);
+    // Deduplicate by section ID (cloned activities can cause duplicate junction entries)
+    const seen = new Set<string>();
+    const unique = matches.filter((m) => {
+      if (seen.has(m.section.id)) return false;
+      seen.add(m.section.id);
+      return true;
+    });
 
-    return matches;
+    // Sort by visit count (most popular first)
+    unique.sort((a, b) => b.section.visitCount - a.section.visitCount);
+
+    return unique;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityId, disabledIds, refreshTrigger]);
 

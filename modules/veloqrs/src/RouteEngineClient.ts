@@ -113,18 +113,47 @@ class RouteEngineClient {
   private constructor() {}
 
   /**
-   * Wrap an FFI call with dev-mode timing instrumentation.
-   * Logs color-coded duration: green (<50ms), yellow (50-100ms), red (>100ms).
-   * No-op in production builds.
+   * Wrap an FFI call with timing instrumentation.
+   * In __DEV__: logs color-coded duration to console.
+   * When debug mode enabled: records to FFI metrics ring buffer.
    */
   private timed<T>(name: string, fn: () => T): T {
-    if (typeof __DEV__ === "undefined" || !__DEV__) return fn();
+    const shouldLog = typeof __DEV__ !== "undefined" && __DEV__;
+    const shouldRecord = RouteEngineClient.debugEnabled;
+    if (!shouldLog && !shouldRecord) return fn();
     const start = performance.now();
     const result = fn();
     const ms = performance.now() - start;
-    const icon = ms > 100 ? "\u{1F534}" : ms > 50 ? "\u{1F7E1}" : "\u{1F7E2}";
-    console.log(`${icon} [FFI] ${name}: ${ms.toFixed(1)}ms`);
+    if (shouldLog) {
+      const icon =
+        ms > 100 ? "\u{1F534}" : ms > 50 ? "\u{1F7E1}" : "\u{1F7E2}";
+      console.log(`${icon} [FFI] ${name}: ${ms.toFixed(1)}ms`);
+    }
+    if (shouldRecord) {
+      RouteEngineClient.recordMetric(name, ms);
+    }
     return result;
+  }
+
+  /** Cached debug enabled state — updated by setDebugEnabled() */
+  private static debugEnabled = false;
+  /** Callback to record FFI metrics — set by setMetricRecorder() */
+  private static recordMetric: (name: string, ms: number) => void = () => {};
+
+  /**
+   * Set the debug enabled flag. Call when debug mode changes.
+   */
+  static setDebugEnabled(enabled: boolean): void {
+    RouteEngineClient.debugEnabled = enabled;
+  }
+
+  /**
+   * Set the metric recording function. Call once during app initialization.
+   */
+  static setMetricRecorder(
+    recorder: (name: string, ms: number) => void,
+  ): void {
+    RouteEngineClient.recordMetric = recorder;
   }
 
   static getInstance(): RouteEngineClient {
@@ -647,6 +676,7 @@ class RouteEngineClient {
     groupOffset = 0,
     sectionLimit = 20,
     sectionOffset = 0,
+    minGroupActivityCount = 2,
   ): FfiRoutesScreenData | undefined {
     return this.timed("getRoutesScreenData", () =>
       persistentEngineGetRoutesScreenData(
@@ -654,6 +684,7 @@ class RouteEngineClient {
         groupOffset,
         sectionLimit,
         sectionOffset,
+        minGroupActivityCount,
       ),
     );
   }
@@ -1026,6 +1057,22 @@ class RouteEngineClient {
    */
   getDownloadProgress(): DownloadProgressResult {
     return ffiGetDownloadProgress();
+  }
+
+  /**
+   * Clone an activity N times for scale testing (debug only).
+   * Copies metadata, metrics, and section_activities. Does NOT copy GPS tracks.
+   */
+  debugCloneActivity(sourceId: string, count: number): number {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const generated = require("./generated/veloqrs");
+    const created = this.timed("debugCloneActivity", () =>
+      generated.persistentEngineDebugCloneActivity(sourceId, count) as number,
+    );
+    if (created > 0) {
+      this.notifyAll("activities", "groups", "sections");
+    }
+    return created;
   }
 
   /**

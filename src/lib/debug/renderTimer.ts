@@ -239,6 +239,25 @@ export function getFFIMetricsSummary(): Record<string, FFIMethodSummary> {
 }
 
 /**
+ * Get the total number of FFI metrics recorded (monotonically increasing).
+ * Used by useFFITimer to snapshot the count on mount and diff on read.
+ */
+export function getFFIMetricsCount(): number {
+  return ffiMetricsCount;
+}
+
+/**
+ * Get FFI metrics recorded since a given count snapshot.
+ * Returns only entries added after the snapshot.
+ */
+export function getFFIMetricsSince(sinceCount: number): FFIMetricEntry[] {
+  const added = ffiMetricsCount - sinceCount;
+  if (added <= 0) return [];
+  const all = getFFIMetrics();
+  return all.slice(Math.max(0, all.length - added));
+}
+
+/**
  * Clear all FFI metrics. Useful for isolating measurements.
  */
 export function clearFFIMetrics(): void {

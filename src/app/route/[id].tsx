@@ -49,8 +49,15 @@ function gpsPointsToRoutePoints(
     lng: p.longitude,
   }));
 }
-import { RouteMapView, MiniTraceView, DataRangeFooter, DebugInfoPanel } from '@/components/routes';
+import {
+  RouteMapView,
+  MiniTraceView,
+  DataRangeFooter,
+  DebugInfoPanel,
+  DebugWarningBanner,
+} from '@/components/routes';
 import { useDebugStore } from '@/providers';
+import { useFFITimer } from '@/hooks/debug/useFFITimer';
 import {
   UnifiedPerformanceChart,
   type DirectionSummaryStats,
@@ -300,6 +307,7 @@ export default function RouteDetailScreen() {
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays();
   const debugEnabled = useDebugStore((s) => s.enabled);
+  const { getPageMetrics } = useFFITimer();
 
   // State for highlighted activity
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
@@ -907,34 +915,70 @@ export default function RouteDetailScreen() {
           {/* Data range footer */}
           <DataRangeFooter days={cacheDays} isDark={isDark} />
 
-          {debugEnabled && engineGroup && (
-            <DebugInfoPanel
-              isDark={isDark}
-              entries={[
-                {
-                  label: 'ID',
-                  value:
-                    engineGroup.groupId.length > 20
-                      ? engineGroup.groupId.slice(0, 20) + '...'
-                      : engineGroup.groupId,
-                },
-                { label: 'Type', value: engineGroup.sportType || '-' },
-                { label: 'Activities', value: String(engineGroup.activityIds.length) },
-                {
-                  label: 'Avg Distance',
-                  value:
-                    routeStats.distance > 0 ? formatDistance(routeStats.distance, isMetric) : '-',
-                },
-                {
-                  label: 'Best Time',
-                  value:
-                    bestPerformance?.duration != null
-                      ? formatDuration(bestPerformance.duration)
-                      : '-',
-                },
-              ]}
-            />
-          )}
+          {debugEnabled &&
+            engineGroup &&
+            (() => {
+              const pageMetrics = getPageMetrics();
+              const ffiEntries = pageMetrics.reduce<
+                Record<string, { calls: number; totalMs: number; maxMs: number }>
+              >((acc, m) => {
+                if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
+                acc[m.name].calls++;
+                acc[m.name].totalMs += m.durationMs;
+                acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
+                return acc;
+              }, {});
+              const warnings: Array<{ level: 'warn' | 'error'; message: string }> = [];
+              const actCount = engineGroup.activityIds.length;
+              if (actCount > 500)
+                warnings.push({ level: 'error', message: `${actCount} activities (>500)` });
+              else if (actCount > 100)
+                warnings.push({ level: 'warn', message: `${actCount} activities (>100)` });
+              for (const [name, m] of Object.entries(ffiEntries)) {
+                if (m.maxMs > 200)
+                  warnings.push({
+                    level: 'error',
+                    message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
+                  });
+              }
+              return (
+                <>
+                  {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
+                  <DebugInfoPanel
+                    isDark={isDark}
+                    entries={[
+                      {
+                        label: 'ID',
+                        value:
+                          engineGroup.groupId.length > 20
+                            ? engineGroup.groupId.slice(0, 20) + '...'
+                            : engineGroup.groupId,
+                      },
+                      { label: 'Type', value: engineGroup.sportType || '-' },
+                      { label: 'Activities', value: String(actCount) },
+                      {
+                        label: 'Avg Distance',
+                        value:
+                          routeStats.distance > 0
+                            ? formatDistance(routeStats.distance, isMetric)
+                            : '-',
+                      },
+                      {
+                        label: 'Best Time',
+                        value:
+                          bestPerformance?.duration != null
+                            ? formatDuration(bestPerformance.duration)
+                            : '-',
+                      },
+                      ...Object.entries(ffiEntries).map(([name, m]) => ({
+                        label: name,
+                        value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
+                      })),
+                    ]}
+                  />
+                </>
+              );
+            })()}
         </View>
       </ScrollView>
     </View>
