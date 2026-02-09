@@ -764,6 +764,8 @@ export interface TranslationResource {
     referenceUpdated: string;
     traversalsCount: string;
     visitsCount: string;
+    bestPerWeek: string;
+    bestPerMonth: string;
   };
 
   errorState: {

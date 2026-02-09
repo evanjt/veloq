@@ -603,6 +603,8 @@
     "averageTime": "平均タイム",
     "best": "ベスト",
     "bestPace": "ベストペース",
+    "bestPerMonth": "月間ベスト",
+    "bestPerWeek": "週間ベスト",
     "bestSpeed": "ベスト速度",
     "bestTime": "ベストタイム",
     "current": "Current",

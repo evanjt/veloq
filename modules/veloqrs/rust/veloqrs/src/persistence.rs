@@ -30,7 +30,8 @@ use rstar::{AABB, RTree, RTreeObject};
 use crate::{
     ActivityMatchInfo, ActivityMetrics, Bounds, Direction, DirectionStats, FrequentSection,
     GpsPoint, MatchConfig, RouteGroup, RoutePerformance, RoutePerformanceResult, RouteSignature,
-    SectionConfig, SectionLap, SectionPerformanceRecord, SectionPerformanceResult,
+    SectionConfig, SectionLap, SectionPerformanceBucket, SectionPerformanceBucketResult,
+    SectionPerformanceRecord, SectionPerformanceResult,
     SectionPortion, geo_utils,
 };
 use lru::LruCache;
@@ -233,7 +234,7 @@ impl Default for SectionDetectionProgress {
 /// Handle for background section detection.
 
 pub struct SectionDetectionHandle {
-    receiver: mpsc::Receiver<Vec<FrequentSection>>,
+    receiver: mpsc::Receiver<(Vec<FrequentSection>, Vec<String>)>,
     /// Shared progress state
     pub progress: SectionDetectionProgress,
 }
@@ -241,7 +242,8 @@ pub struct SectionDetectionHandle {
 
 impl SectionDetectionHandle {
     /// Check if detection is complete (non-blocking).
-    pub fn try_recv(&self) -> Option<Vec<FrequentSection>> {
+    /// Returns (sections, all_activity_ids_in_detection_run).
+    pub fn try_recv(&self) -> Option<(Vec<FrequentSection>, Vec<String>)> {
         self.receiver.try_recv().ok()
     }
 
@@ -255,7 +257,7 @@ impl SectionDetectionHandle {
     }
 
     /// Wait for detection to complete (blocking).
-    pub fn recv(self) -> Option<Vec<FrequentSection>> {
+    pub fn recv(self) -> Option<(Vec<FrequentSection>, Vec<String>)> {
         self.receiver.recv().ok()
     }
 }
@@ -461,6 +463,9 @@ pub struct PersistentRouteEngine {
     /// Cached sections (loaded from DB)
     sections: Vec<FrequentSection>,
 
+    /// Activities that have been through section detection (persisted in SQLite)
+    processed_activity_ids: HashSet<String>,
+
     /// Dirty tracking
     groups_dirty: bool,
     sections_dirty: bool,
@@ -495,6 +500,7 @@ impl PersistentRouteEngine {
             activity_metrics: HashMap::new(),
             time_streams: HashMap::new(),
             sections: Vec::new(),
+            processed_activity_ids: HashSet::new(),
             groups_dirty: false,
             sections_dirty: false,
             match_config: MatchConfig::default(),
@@ -525,6 +531,8 @@ impl PersistentRouteEngine {
             M::up(include_str!("migrations/004_extend_activity_metrics.sql")),
             // M5: Athlete profile and sport settings cache tables
             M::up(include_str!("migrations/005_profile_and_settings.sql")),
+            // M6: Processed activities tracking for incremental section detection
+            M::up(include_str!("migrations/006_processed_activities.sql")),
         ])
     }
 
@@ -830,6 +838,7 @@ impl PersistentRouteEngine {
         self.load_metadata()?;
         self.load_groups()?;
         self.load_sections()?;
+        self.load_processed_activity_ids()?;
         self.load_activity_metrics()?;
         Ok(())
     }
@@ -1245,6 +1254,41 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Load processed activity IDs from database (for incremental section detection).
+    fn load_processed_activity_ids(&mut self) -> SqlResult<()> {
+        self.processed_activity_ids.clear();
+        let mut stmt = self.db.prepare(
+            "SELECT activity_id FROM processed_activities"
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        for row in rows.flatten() {
+            self.processed_activity_ids.insert(row);
+        }
+        log::info!(
+            "tracematch: [PersistentEngine] Loaded {} processed activity IDs",
+            self.processed_activity_ids.len()
+        );
+        Ok(())
+    }
+
+    /// Save processed activity IDs to database after section detection.
+    fn save_processed_activity_ids(&mut self, activity_ids: &[String]) -> SqlResult<()> {
+        let tx = self.db.unchecked_transaction()?;
+        let mut stmt = tx.prepare(
+            "INSERT OR IGNORE INTO processed_activities (activity_id) VALUES (?)"
+        )?;
+        for id in activity_ids {
+            stmt.execute(params![id])?;
+        }
+        drop(stmt);
+        tx.commit()?;
+        // Update in-memory set
+        for id in activity_ids {
+            self.processed_activity_ids.insert(id.clone());
+        }
+        Ok(())
+    }
+
     /// Migration: Generate names for sections that don't have names.
     fn migrate_section_names(&mut self) -> SqlResult<()> {
         let sections_without_names: Vec<(String, String)> = self
@@ -1411,7 +1455,8 @@ impl PersistentRouteEngine {
              DELETE FROM activity_metrics;
              DELETE FROM activity_matches;
              DELETE FROM time_streams;
-             DELETE FROM overlap_cache;",
+             DELETE FROM overlap_cache;
+             DELETE FROM processed_activities;",
         )?;
 
         self.activity_metadata.clear();
@@ -1421,6 +1466,7 @@ impl PersistentRouteEngine {
         self.consensus_cache.clear();
         self.groups.clear();
         self.sections.clear();
+        self.processed_activity_ids.clear();
         self.groups_dirty = false;
         self.sections_dirty = false;
 
@@ -3038,27 +3084,34 @@ impl PersistentRouteEngine {
 
         // Determine if incremental detection is possible:
         // - Must have existing sections
-        // - New (unprocessed) activities must be < 30% of total
+        // - New (unprocessed) activities must be < 50% of total
+        // Use persistent tracking table (includes activities that didn't match any section)
         let existing_sections = self.sections.clone();
-        let processed_activity_ids: HashSet<String> = {
-            let mut processed = HashSet::new();
-            for section in &self.sections {
-                for aid in &section.activity_ids {
-                    processed.insert(aid.clone());
-                }
-            }
-            processed
-        };
 
         let new_activity_ids: Vec<String> = activity_ids
             .iter()
-            .filter(|id| !processed_activity_ids.contains(*id))
+            .filter(|id| !self.processed_activity_ids.contains(*id))
             .cloned()
             .collect();
 
+        // Short-circuit: no new activities means nothing to detect
+        if new_activity_ids.is_empty() && !existing_sections.is_empty() {
+            log::info!(
+                "tracematch: [SectionDetection] No new activities, skipping detection ({} already processed)",
+                self.processed_activity_ids.len()
+            );
+            let sections_copy = existing_sections.clone();
+            let all_ids = activity_ids.clone();
+            tx.send((sections_copy, all_ids)).ok();
+            return SectionDetectionHandle {
+                receiver: rx,
+                progress,
+            };
+        }
+
         let use_incremental = !existing_sections.is_empty()
             && !new_activity_ids.is_empty()
-            && (new_activity_ids.len() as f64) < (activity_ids.len() as f64 * 0.3);
+            && (new_activity_ids.len() as f64) < (activity_ids.len() as f64 * 0.5);
 
         if use_incremental {
             log::info!(
@@ -3072,18 +3125,26 @@ impl PersistentRouteEngine {
                 "tracematch: [SectionDetection] Using FULL mode: {} new of {} total activities (>{:.0}% threshold)",
                 new_activity_ids.len(),
                 activity_ids.len(),
-                30.0
+                50.0
             );
         }
 
-        // Set initial loading phase
+        // For incremental mode, only load tracks for new activities + section-referenced activities
         let ids_to_load = if use_incremental {
-            // Only load new tracks for incremental (plus existing for consensus recalc)
-            activity_ids.clone()
+            let mut needed: HashSet<String> = new_activity_ids.iter().cloned().collect();
+            for section in &existing_sections {
+                for aid in &section.activity_ids {
+                    needed.insert(aid.clone());
+                }
+            }
+            needed.into_iter().collect()
         } else {
             activity_ids.clone()
         };
         progress.set_phase("loading", ids_to_load.len() as u32);
+
+        // Clone activity_ids for the background thread (to persist as processed after detection)
+        let all_activity_ids = activity_ids.clone();
 
         thread::spawn(move || {
             log::info!(
@@ -3095,7 +3156,7 @@ impl PersistentRouteEngine {
                 Ok(c) => c,
                 Err(e) => {
                     log::info!("tracematch: [SectionDetection] Failed to open DB: {:?}", e);
-                    tx.send(Vec::new()).ok();
+                    tx.send((Vec::new(), Vec::new())).ok();
                     return;
                 }
             };
@@ -3143,7 +3204,7 @@ impl PersistentRouteEngine {
             if tracks.is_empty() {
                 log::info!("tracematch: [SectionDetection] No tracks loaded, skipping detection");
                 progress_clone.set_phase("complete", 0);
-                tx.send(Vec::new()).ok();
+                tx.send((Vec::new(), all_activity_ids)).ok();
                 return;
             }
 
@@ -3192,7 +3253,7 @@ impl PersistentRouteEngine {
                 all_sections.extend(result.new_sections);
 
                 progress_clone.set_phase("complete", 0);
-                tx.send(all_sections).ok();
+                tx.send((all_sections, all_activity_ids)).ok();
             } else {
                 // Full detection mode with batching for large datasets.
                 // Cap full pairwise detection at BATCH_CAP activities per batch.
@@ -3216,7 +3277,7 @@ impl PersistentRouteEngine {
                     );
 
                     progress_clone.set_phase("complete", 0);
-                    tx.send(result.sections).ok();
+                    tx.send((result.sections, all_activity_ids)).ok();
                 } else {
                     // Large dataset: process in batches
                     let num_batches = (tracks.len() + BATCH_CAP - 1) / BATCH_CAP;
@@ -3294,7 +3355,7 @@ impl PersistentRouteEngine {
                     );
 
                     progress_clone.set_phase("complete", 0);
-                    tx.send(accumulated_sections).ok();
+                    tx.send((accumulated_sections, all_activity_ids)).ok();
                 }
             }
         });
@@ -4668,6 +4729,280 @@ impl PersistentRouteEngine {
         }
     }
 
+    /// Get time-bucketed best performances for chart display.
+    /// Returns one data point per time bucket (weekly or monthly), keeping only the
+    /// fastest traversal per bucket. Uses estimates for activities missing time streams.
+    pub fn get_section_performance_buckets(
+        &mut self,
+        section_id: &str,
+        range_days: u32,
+        bucket_type: &str,
+    ) -> SectionPerformanceBucketResult {
+        let empty = SectionPerformanceBucketResult {
+            buckets: vec![],
+            total_traversals: 0,
+            pr_bucket: None,
+            forward_stats: None,
+            reverse_stats: None,
+        };
+
+        // Find the section
+        let section = match self.sections.iter().find(|s| s.id == section_id) {
+            Some(s) => s.clone(),
+            None => return empty,
+        };
+
+        if section.activity_portions.is_empty() {
+            return empty;
+        }
+
+        // Collect unique activity IDs from portions
+        let activity_ids: Vec<String> = section
+            .activity_portions
+            .iter()
+            .map(|p| p.activity_id.clone())
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        // Auto-load time streams from SQLite (won't fetch from API)
+        for activity_id in &activity_ids {
+            self.ensure_time_stream_loaded(activity_id);
+        }
+
+        // Compute cutoff timestamp
+        let now = Utc::now().timestamp();
+        let cutoff = if range_days == 0 {
+            0i64
+        } else {
+            now - (range_days as i64) * 86400
+        };
+
+        // Bucket size in seconds
+        let bucket_seconds: i64 = if bucket_type == "weekly" {
+            7 * 86400
+        } else {
+            30 * 86400
+        };
+
+        // Group portions by activity
+        let mut portions_by_activity: HashMap<&str, Vec<&crate::SectionPortion>> = HashMap::new();
+        for portion in &section.activity_portions {
+            portions_by_activity
+                .entry(&portion.activity_id)
+                .or_default()
+                .push(portion);
+        }
+
+        // Build per-activity best performance (one entry per activity)
+        struct ActivityPerf {
+            activity_id: String,
+            activity_name: String,
+            activity_date: i64,
+            best_time: f64,
+            best_pace: f64,
+            direction: String,
+            section_distance: f64,
+            is_estimated: bool,
+        }
+
+        let mut all_perfs: Vec<ActivityPerf> = Vec::new();
+
+        for (activity_id, portions) in &portions_by_activity {
+            let metrics = match self.activity_metrics.get(*activity_id) {
+                Some(m) => m,
+                None => continue,
+            };
+
+            let times = self.time_streams.get(*activity_id);
+
+            // Try to compute actual performance from time stream
+            let mut best_time = f64::MAX;
+            let mut best_pace = 0.0f64;
+            let mut best_direction = String::new();
+            let mut is_estimated = false;
+
+            if let Some(time_data) = times {
+                // Use actual time stream data
+                for portion in portions {
+                    let start_idx = portion.start_index as usize;
+                    let end_idx = portion.end_index as usize;
+                    if start_idx >= time_data.len() || end_idx >= time_data.len() {
+                        continue;
+                    }
+                    let lap_time = (time_data[end_idx] as f64 - time_data[start_idx] as f64).abs();
+                    if lap_time <= 0.0 {
+                        continue;
+                    }
+                    let pace = portion.distance_meters / lap_time;
+                    if lap_time < best_time {
+                        best_time = lap_time;
+                        best_pace = pace;
+                        best_direction = portion.direction.to_string();
+                    }
+                }
+            }
+
+            // Fall back to proportional estimate if no time stream
+            if best_time == f64::MAX {
+                is_estimated = true;
+                // Use best portion by distance ratio
+                if let Some(best_portion) = portions.first() {
+                    let dist = best_portion.distance_meters;
+                    if metrics.distance > 0.0 && metrics.moving_time > 0 {
+                        let ratio = dist / metrics.distance;
+                        let est_time = (metrics.moving_time as f64) * ratio;
+                        if est_time > 0.0 {
+                            best_time = est_time;
+                            best_pace = dist / est_time;
+                            best_direction = best_portion.direction.to_string();
+                        }
+                    }
+                }
+            }
+
+            if best_time == f64::MAX || best_pace <= 0.0 {
+                continue;
+            }
+
+            all_perfs.push(ActivityPerf {
+                activity_id: activity_id.to_string(),
+                activity_name: metrics.name.clone(),
+                activity_date: metrics.date,
+                best_time,
+                best_pace,
+                direction: best_direction,
+                section_distance: section.distance_meters,
+                is_estimated,
+            });
+        }
+
+        // Filter by date range
+        let in_range: Vec<&ActivityPerf> = all_perfs
+            .iter()
+            .filter(|p| p.activity_date >= cutoff)
+            .collect();
+
+        let total_traversals = in_range.len() as u32;
+
+        // Find overall PR (fastest across ALL time, not just range)
+        let pr_bucket = all_perfs
+            .iter()
+            .min_by(|a, b| a.best_time.partial_cmp(&b.best_time).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|p| SectionPerformanceBucket {
+                activity_id: p.activity_id.clone(),
+                activity_name: p.activity_name.clone(),
+                activity_date: p.activity_date,
+                best_time: p.best_time,
+                best_pace: p.best_pace,
+                direction: p.direction.clone(),
+                section_distance: p.section_distance,
+                is_estimated: p.is_estimated,
+                bucket_count: 1,
+            });
+
+        // Group in-range performances into time buckets, keeping best per bucket per direction
+        let mut bucket_map: HashMap<(i64, String), (SectionPerformanceBucket, u32)> = HashMap::new();
+
+        for perf in &in_range {
+            let bucket_key = perf.activity_date / bucket_seconds;
+            let dir_key = if perf.direction == "reverse" || perf.direction == "backward" {
+                "reverse".to_string()
+            } else {
+                "same".to_string()
+            };
+            let key = (bucket_key, dir_key.clone());
+
+            let entry = bucket_map.entry(key).or_insert_with(|| {
+                (
+                    SectionPerformanceBucket {
+                        activity_id: perf.activity_id.clone(),
+                        activity_name: perf.activity_name.clone(),
+                        activity_date: perf.activity_date,
+                        best_time: perf.best_time,
+                        best_pace: perf.best_pace,
+                        direction: dir_key,
+                        section_distance: perf.section_distance,
+                        is_estimated: perf.is_estimated,
+                        bucket_count: 0,
+                    },
+                    0,
+                )
+            });
+
+            entry.1 += 1; // count
+            // Keep the fastest (lowest time)
+            if perf.best_time < entry.0.best_time {
+                entry.0.activity_id = perf.activity_id.clone();
+                entry.0.activity_name = perf.activity_name.clone();
+                entry.0.activity_date = perf.activity_date;
+                entry.0.best_time = perf.best_time;
+                entry.0.best_pace = perf.best_pace;
+                entry.0.is_estimated = perf.is_estimated;
+            }
+        }
+
+        let mut buckets: Vec<SectionPerformanceBucket> = bucket_map
+            .into_iter()
+            .map(|(_, (mut bucket, count))| {
+                bucket.bucket_count = count;
+                bucket
+            })
+            .collect();
+
+        // Sort by date
+        buckets.sort_by_key(|b| b.activity_date);
+
+        // Compute direction stats from in-range data
+        let forward_perfs: Vec<&&ActivityPerf> = in_range
+            .iter()
+            .filter(|p| p.direction == "same" || p.direction == "forward")
+            .collect();
+        let forward_stats = if forward_perfs.is_empty() {
+            None
+        } else {
+            let count = forward_perfs.len() as u32;
+            let avg_time = forward_perfs.iter().map(|p| p.best_time).sum::<f64>() / count as f64;
+            let last_activity = forward_perfs
+                .iter()
+                .max_by_key(|p| p.activity_date)
+                .map(|p| p.activity_date);
+            Some(DirectionStats {
+                avg_time: Some(avg_time),
+                last_activity,
+                count,
+            })
+        };
+
+        let reverse_perfs: Vec<&&ActivityPerf> = in_range
+            .iter()
+            .filter(|p| p.direction == "reverse" || p.direction == "backward")
+            .collect();
+        let reverse_stats = if reverse_perfs.is_empty() {
+            None
+        } else {
+            let count = reverse_perfs.len() as u32;
+            let avg_time = reverse_perfs.iter().map(|p| p.best_time).sum::<f64>() / count as f64;
+            let last_activity = reverse_perfs
+                .iter()
+                .max_by_key(|p| p.activity_date)
+                .map(|p| p.activity_date);
+            Some(DirectionStats {
+                avg_time: Some(avg_time),
+                last_activity,
+                count,
+            })
+        };
+
+        SectionPerformanceBucketResult {
+            buckets,
+            total_traversals,
+            pr_bucket,
+            forward_stats,
+            reverse_stats,
+        }
+    }
+
     /// Get route performances for all activities in a group.
     /// Uses stored activity_matches for match percentages instead of hardcoding 100%.
     pub fn get_route_performances(
@@ -5470,6 +5805,28 @@ pub mod persistent_engine_ffi {
         })
     }
 
+    /// Get time-bucketed best section performances for chart display.
+    /// Returns one data point per time bucket, keeping the fastest traversal per bucket.
+    #[uniffi::export]
+    pub fn persistent_engine_get_section_performance_buckets(
+        section_id: String,
+        range_days: u32,
+        bucket_type: String,
+    ) -> crate::FfiSectionPerformanceBucketResult {
+        with_persistent_engine(|e| {
+            crate::FfiSectionPerformanceBucketResult::from(
+                e.get_section_performance_buckets(&section_id, range_days, &bucket_type),
+            )
+        })
+        .unwrap_or_else(|| crate::FfiSectionPerformanceBucketResult {
+            buckets: vec![],
+            total_traversals: 0,
+            pr_bucket: None,
+            forward_stats: None,
+            reverse_stats: None,
+        })
+    }
+
     /// Get route performances.
     /// Returns structured data instead of JSON string.
     #[uniffi::export]
@@ -5709,9 +6066,13 @@ pub mod persistent_engine_ffi {
         let result = handle_guard.as_ref().unwrap().try_recv();
 
         match result {
-            Some(sections) => {
-                // Detection complete - apply results
-                let applied = with_persistent_engine(|e| e.apply_sections(sections).ok());
+            Some((sections, detection_activity_ids)) => {
+                // Detection complete - apply results and persist processed IDs
+                let applied = with_persistent_engine(|e| {
+                    e.apply_sections(sections).ok()?;
+                    e.save_processed_activity_ids(&detection_activity_ids).ok();
+                    Some(())
+                });
 
                 // Clear the handle
                 *handle_guard = None;
@@ -6347,7 +6708,7 @@ mod tests {
                     start_index: 0,
                     end_index: 49,
                     distance_meters: 5000.0,
-                    direction: "same".to_string(),
+                    direction: Direction::Same,
                 })
                 .collect(),
             route_ids: vec![],
@@ -6358,7 +6719,7 @@ mod tests {
             observation_count: activity_ids.len() as u32,
             average_spread: 10.0,
             point_density: vec![activity_ids.len() as u32; 50],
-            scale: Some("medium".to_string()),
+            scale: Some(tracematch::sections::ScaleName::Medium),
             is_user_defined: false,
             stability: 0.0,
             version: 1,

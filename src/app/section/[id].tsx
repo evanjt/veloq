@@ -82,6 +82,24 @@ const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45);
 const REVERSE_COLOR = colors.reverseDirection;
 const SAME_COLOR_DEFAULT = colors.sameDirection;
 
+// Time range selector for bucketed chart
+type SectionTimeRange = '1m' | '3m' | '6m' | '1y' | 'all';
+const SECTION_TIME_RANGES: { id: SectionTimeRange; label: string }[] = [
+  { id: '1m', label: '1M' },
+  { id: '3m', label: '3M' },
+  { id: '6m', label: '6M' },
+  { id: '1y', label: '1Y' },
+  { id: 'all', label: 'All' },
+];
+const RANGE_DAYS: Record<SectionTimeRange, number> = {
+  '1m': 30,
+  '3m': 90,
+  '6m': 180,
+  '1y': 365,
+  all: 0,
+};
+const BUCKET_THRESHOLD = 100;
+
 interface ActivityRowProps {
   activity: Activity;
   isDark: boolean;
@@ -390,6 +408,9 @@ export default function SectionDetailScreen() {
   >({});
   // Defer map loading until after first paint for faster perceived load
   const [mapReady, setMapReady] = useState(false);
+
+  // Time range for bucketed performance chart
+  const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>('1y');
 
   // State for section renaming
   const [isEditing, setIsEditing] = useState(false);
@@ -919,6 +940,141 @@ export default function SectionDetailScreen() {
     return new Map(section.activityPortions.map((p: { activityId: string }) => [p.activityId, p]));
   }, [section?.activityPortions]);
 
+  // Determine if this section has enough traversals to use bucketed chart
+  const activityCount = section?.activityIds?.length ?? 0;
+  const useBucketedChart = activityCount >= BUCKET_THRESHOLD;
+
+  // Get bucketed chart data from Rust FFI (instant, no API fetch needed)
+  const bucketType = sectionTimeRange === '1m' || sectionTimeRange === '3m' ? 'weekly' : 'monthly';
+  const bucketResult = useMemo(() => {
+    if (!useBucketedChart || !section?.id) return null;
+    const engine = getRouteEngine();
+    if (!engine) return null;
+    return engine.getSectionPerformanceBuckets(
+      section.id,
+      RANGE_DAYS[sectionTimeRange],
+      bucketType as 'weekly' | 'monthly'
+    );
+  }, [useBucketedChart, section?.id, sectionTimeRange, bucketType]);
+
+  // Build chart data from buckets (for sections with many traversals)
+  const { bucketChartData, bucketMinSpeed, bucketMaxSpeed, bucketBestIndex, bucketHasReverseRuns } =
+    useMemo(() => {
+      if (!bucketResult || bucketResult.buckets.length === 0) {
+        return {
+          bucketChartData: [] as (PerformanceDataPoint & { x: number })[],
+          bucketMinSpeed: 0,
+          bucketMaxSpeed: 1,
+          bucketBestIndex: 0,
+          bucketHasReverseRuns: false,
+        };
+      }
+
+      let hasAnyReverse = false;
+      const dataPoints = bucketResult.buckets.map((b, idx) => {
+        if (b.direction === 'reverse') hasAnyReverse = true;
+        return {
+          x: idx,
+          id: b.activityId,
+          activityId: b.activityId,
+          speed: b.bestPace,
+          date: fromUnixSeconds(b.activityDate) ?? new Date(),
+          activityName: b.activityName,
+          direction: b.direction as 'same' | 'reverse',
+          sectionTime: Math.round(b.bestTime),
+          sectionDistance: b.sectionDistance,
+          lapCount: b.bucketCount,
+        };
+      });
+
+      const speeds = dataPoints.map((d) => d.speed);
+      const min = Math.min(...speeds);
+      const max = Math.max(...speeds);
+      const padding = (max - min) * 0.15 || 0.5;
+
+      let bestIdx = 0;
+      for (let i = 1; i < dataPoints.length; i++) {
+        if (dataPoints[i].speed > dataPoints[bestIdx].speed) bestIdx = i;
+      }
+
+      return {
+        bucketChartData: dataPoints,
+        bucketMinSpeed: Math.max(0, min - padding),
+        bucketMaxSpeed: max + padding,
+        bucketBestIndex: bestIdx,
+        bucketHasReverseRuns: hasAnyReverse,
+      };
+    }, [bucketResult]);
+
+  // Bucketed chart summary stats
+  const bucketSummaryStats = useMemo((): ChartSummaryStats | null => {
+    if (!bucketResult) return null;
+    const pr = bucketResult.prBucket;
+    const allTimes = bucketResult.buckets.map((b) => b.bestTime).filter((t) => t > 0);
+    const avgTime =
+      allTimes.length > 0 ? allTimes.reduce((a, b) => a + b, 0) / allTimes.length : null;
+    const lastDate =
+      bucketResult.buckets.length > 0
+        ? fromUnixSeconds(bucketResult.buckets[bucketResult.buckets.length - 1].activityDate)
+        : null;
+    return {
+      bestTime: pr?.bestTime ?? null,
+      avgTime,
+      totalActivities: bucketResult.totalTraversals,
+      lastActivity: lastDate,
+    };
+  }, [bucketResult]);
+
+  // Bucketed direction stats
+  const bucketForwardStats = useMemo((): DirectionSummaryStats | null => {
+    if (!bucketResult?.forwardStats) return null;
+    const s = bucketResult.forwardStats;
+    return {
+      avgTime: s.avgTime ?? null,
+      lastActivity: s.lastActivity ? fromUnixSeconds(s.lastActivity) : null,
+      count: s.count,
+    };
+  }, [bucketResult?.forwardStats]);
+
+  const bucketReverseStats = useMemo((): DirectionSummaryStats | null => {
+    if (!bucketResult?.reverseStats) return null;
+    const s = bucketResult.reverseStats;
+    return {
+      avgTime: s.avgTime ?? null,
+      lastActivity: s.lastActivity ? fromUnixSeconds(s.lastActivity) : null,
+      count: s.count,
+    };
+  }, [bucketResult?.reverseStats]);
+
+  // Best records from bucket PR data
+  const bucketBestForward = useMemo(() => {
+    if (!bucketResult?.prBucket) return null;
+    const pr = bucketResult.prBucket;
+    if (pr.direction !== 'same' && pr.direction !== 'forward') return null;
+    const date = fromUnixSeconds(pr.activityDate);
+    if (!date) return null;
+    return {
+      bestTime: pr.bestTime,
+      bestPace: pr.bestPace,
+      activityName: pr.activityName,
+      activityDate: date,
+    };
+  }, [bucketResult?.prBucket]);
+
+  const bucketBestReverse = useMemo(() => {
+    if (!bucketResult?.prBucket) return null;
+    const pr = bucketResult.prBucket;
+    if (pr.direction !== 'reverse' && pr.direction !== 'backward') return null;
+    const date = fromUnixSeconds(pr.activityDate);
+    if (!date) return null;
+    return {
+      bestTime: pr.bestTime,
+      bestPace: pr.bestPace,
+      activityName: pr.activityName,
+      activityDate: date,
+    };
+  }, [bucketResult?.prBucket]);
+
   // Map of performance records for fast lookup (avoid .find() in render loop)
   const performanceRecordMap = useMemo(() => {
     if (!performanceRecords) return new Map<string, ActivitySectionRecord>();
@@ -1400,7 +1556,7 @@ export default function SectionDetailScreen() {
                   </Text>
                   <Text style={styles.heroStatDivider}>·</Text>
                   <Text style={styles.heroStat}>
-                    {chartData.length} {t('sections.traversals')}
+                    {activityCount} {t('sections.traversals')}
                   </Text>
                 </View>
               </View>
@@ -1422,8 +1578,64 @@ export default function SectionDetailScreen() {
                 </TouchableOpacity>
               )}
 
-              {/* Performance chart with embedded stats - only show when data is ready */}
-              {!isLoadingRecords && chartData.length >= 1 && (
+              {/* Performance chart - bucketed for large sections, full for small */}
+              {useBucketedChart && bucketChartData.length >= 1 && (
+                <View style={styles.chartSection}>
+                  {/* Time range selector */}
+                  <View style={styles.timeRangeRow}>
+                    <View style={styles.timeRangeContainer}>
+                      {SECTION_TIME_RANGES.map((range) => (
+                        <TouchableOpacity
+                          key={range.id}
+                          style={[
+                            styles.timeRangeButton,
+                            isDark && styles.timeRangeButtonDark,
+                            sectionTimeRange === range.id && styles.timeRangeButtonActive,
+                          ]}
+                          onPress={() => setSectionTimeRange(range.id)}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.timeRangeText,
+                              isDark && styles.timeRangeTextDark,
+                              sectionTimeRange === range.id && styles.timeRangeTextActive,
+                            ]}
+                          >
+                            {range.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <Text style={[styles.bucketSubtitle, isDark && styles.textMuted]}>
+                      {bucketType === 'weekly'
+                        ? t('sections.bestPerWeek')
+                        : t('sections.bestPerMonth')}
+                      {' · '}
+                      {t('sections.traversalsCount', { count: bucketResult?.totalTraversals ?? 0 })}
+                    </Text>
+                  </View>
+                  <UnifiedPerformanceChart
+                    chartData={bucketChartData}
+                    activityType={section.sportType as ActivityType}
+                    isDark={isDark}
+                    minSpeed={bucketMinSpeed}
+                    maxSpeed={bucketMaxSpeed}
+                    bestIndex={bucketBestIndex}
+                    hasReverseRuns={bucketHasReverseRuns}
+                    tooltipBadgeType="time"
+                    onActivitySelect={handleActivitySelect}
+                    onScrubChange={handleScrubChange}
+                    selectedActivityId={highlightedActivityId}
+                    summaryStats={bucketSummaryStats ?? summaryStats}
+                    bestForwardRecord={bucketBestForward ?? computedBestForward}
+                    bestReverseRecord={bucketBestReverse ?? computedBestReverse}
+                    forwardStats={bucketForwardStats ?? computedForwardStats}
+                    reverseStats={bucketReverseStats ?? computedReverseStats}
+                  />
+                </View>
+              )}
+              {!useBucketedChart && chartData.length >= 1 && (
                 <View style={styles.chartSection}>
                   <UnifiedPerformanceChart
                     chartData={chartData}
@@ -1806,6 +2018,44 @@ const styles = StyleSheet.create({
   },
   chartSection: {
     marginBottom: spacing.lg,
+  },
+  timeRangeRow: {
+    marginBottom: spacing.sm,
+  },
+  timeRangeContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  timeRangeButton: {
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.xs,
+    borderRadius: 14,
+    backgroundColor: opacity.overlay.light,
+  },
+  timeRangeButtonDark: {
+    backgroundColor: opacity.overlayDark.medium,
+  },
+  timeRangeButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  timeRangeText: {
+    ...typography.caption,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  timeRangeTextDark: {
+    color: darkColors.textSecondary,
+  },
+  timeRangeTextActive: {
+    color: colors.textOnDark,
+  },
+  bucketSubtitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   activitiesSection: {
     marginBottom: spacing.xl,

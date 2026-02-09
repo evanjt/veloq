@@ -1260,7 +1260,7 @@ export default function ActivityDetailScreen() {
                     isDark={isDark}
                     entries={[
                       { label: 'Activity ID', value: id?.slice(0, 24) ?? '-' },
-                      { label: 'Sport', value: activity.sport_type ?? '-' },
+                      { label: 'Sport', value: activity.type ?? '-' },
                       {
                         label: 'GPS Points',
                         value: streams?.latlng ? String(streams.latlng.length) : '-',

@@ -591,6 +591,8 @@
     "averageTime": "Average Time",
     "best": "PB",
     "bestPace": "Best pace",
+    "bestPerMonth": "Best per month",
+    "bestPerWeek": "Best per week",
     "bestSpeed": "Best speed",
     "bestTime": "Best Time",
     "current": "Current",

@@ -66,6 +66,7 @@ import {
   persistentEngineGetAllSectionNames,
   persistentEngineGetRoutePerformances,
   persistentEngineGetSectionPerformances,
+  persistentEngineGetSectionPerformanceBuckets,
   persistentEngineGetRoutesScreenData,
   type FetchProgressCallback,
   type PersistentEngineStats,
@@ -75,6 +76,7 @@ import {
   type FfiFrequentSection,
   type FfiSection,
   type FfiSectionPerformanceResult,
+  type FfiSectionPerformanceBucketResult,
   type FfiRoutePerformanceResult,
   type SectionSummary,
   type GroupSummary,
@@ -591,6 +593,21 @@ class RouteEngineClient {
   getSectionPerformances(sectionId: string): FfiSectionPerformanceResult {
     return this.timed("getSectionPerformances", () =>
       persistentEngineGetSectionPerformances(sectionId),
+    );
+  }
+
+  /**
+   * Get time-bucketed best section performances for chart display.
+   * Returns one data point per time bucket, keeping the fastest traversal per bucket.
+   * Uses estimates for activities missing time streams — no API fetch required.
+   */
+  getSectionPerformanceBuckets(
+    sectionId: string,
+    rangeDays: number,
+    bucketType: 'weekly' | 'monthly',
+  ): FfiSectionPerformanceBucketResult {
+    return this.timed("getSectionPerformanceBuckets", () =>
+      persistentEngineGetSectionPerformanceBuckets(sectionId, rangeDays, bucketType),
     );
   }
 

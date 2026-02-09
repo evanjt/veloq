@@ -603,6 +603,8 @@
     "averageTime": "平均时间",
     "best": "最佳",
     "bestPace": "最佳配速",
+    "bestPerMonth": "月度最佳",
+    "bestPerWeek": "周最佳",
     "bestSpeed": "最佳速度",
     "bestTime": "最佳时间",
     "current": "Current",

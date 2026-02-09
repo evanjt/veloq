@@ -15,6 +15,7 @@ import {
   Platform,
   UIManager,
   Dimensions,
+  PixelRatio,
   ScrollView,
 } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -50,6 +51,8 @@ const CHART_PADDING_LEFT = 40;
 const CHART_PADDING_RIGHT = 20;
 const MIN_POINT_SPACING = 50; // Minimum pixels between points
 const BASE_CHART_WIDTH = SCREEN_WIDTH - 32; // Default chart width
+// Metal/GPU texture limit is 8192px — Skia canvas backing texture is scaled by pixelRatio
+const MAX_CHART_WIDTH = Math.floor(8192 / PixelRatio.get()) - 1;
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -126,6 +129,8 @@ export interface UnifiedPerformanceChartProps {
   forwardStats?: DirectionSummaryStats | null;
   /** Summary stats for reverse direction (avgTime, lastActivity, count) */
   reverseStats?: DirectionSummaryStats | null;
+  /** Force linear time axis with regular ticks (no gap compression) */
+  linearTimeAxis?: boolean;
 }
 
 interface LaneData {
@@ -156,6 +161,7 @@ export function UnifiedPerformanceChart({
   bestReverseRecord,
   forwardStats,
   reverseStats,
+  linearTimeAxis = false,
 }: UnifiedPerformanceChartProps) {
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
@@ -255,7 +261,7 @@ export function UnifiedPerformanceChart({
 
   // Detect gaps in data globally (must be before chartWidth calculation)
   const detectedGaps = useMemo(() => {
-    if (chartData.length < 2) return [];
+    if (chartData.length < 2 || linearTimeAxis) return [];
 
     const sortedDates = [...chartData].sort((a, b) => a.date.getTime() - b.date.getTime());
     const GAP_THRESHOLD_MS = GAP_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
@@ -315,7 +321,7 @@ export function UnifiedPerformanceChart({
       pointsWidth += totalExpandedGapDays * 2; // ~2 pixels per extra day
     }
 
-    return Math.max(minWidth, pointsWidth);
+    return Math.min(MAX_CHART_WIDTH, Math.max(minWidth, pointsWidth));
   }, [chartData.length, detectedGaps, expandedGaps]);
 
   const chartContentWidth = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
@@ -352,10 +358,15 @@ export function UnifiedPerformanceChart({
         return 0.05 + ((t - firstTime) / totalRange) * 0.9;
       };
 
-      // Generate monthly labels
+      // Generate regular time labels at appropriate intervals
       const labels: { date: Date; position: number }[] = [];
       const firstDate = sortedDates[0].date;
       const lastDate = sortedDates[sortedDates.length - 1].date;
+      const monthsInRange =
+        (lastDate.getFullYear() - firstDate.getFullYear()) * 12 +
+        (lastDate.getMonth() - firstDate.getMonth());
+      // Step: quarterly for >18 months, bimonthly for >6 months, monthly otherwise
+      const monthStep = monthsInRange > 18 ? 3 : monthsInRange > 6 ? 2 : 1;
 
       const currentMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
       while (currentMonth <= lastDate) {
@@ -365,7 +376,7 @@ export function UnifiedPerformanceChart({
             position: convertDateToX(currentMonth),
           });
         }
-        currentMonth.setMonth(currentMonth.getMonth() + 1);
+        currentMonth.setMonth(currentMonth.getMonth() + monthStep);
       }
 
       // Filter out labels that are too close together
@@ -478,8 +489,14 @@ export function UnifiedPerformanceChart({
     gapsWithPositions.forEach((gap, idx) => {
       const gapInfo = detectedGaps[idx];
       if (gapInfo) {
-        labels.push({ date: gapInfo.startDate, position: convertDateToX(gapInfo.startDate) });
-        labels.push({ date: gapInfo.endDate, position: convertDateToX(gapInfo.endDate) });
+        labels.push({
+          date: gapInfo.startDate,
+          position: convertDateToX(gapInfo.startDate),
+        });
+        labels.push({
+          date: gapInfo.endDate,
+          position: convertDateToX(gapInfo.endDate),
+        });
       }
     });
 
@@ -490,7 +507,10 @@ export function UnifiedPerformanceChart({
     if (monthsInRange > 3) {
       const currentMonth = new Date(firstDate.getFullYear(), firstDate.getMonth() + 1, 1);
       while (currentMonth <= lastDate) {
-        labels.push({ date: new Date(currentMonth), position: convertDateToX(currentMonth) });
+        labels.push({
+          date: new Date(currentMonth),
+          position: convertDateToX(currentMonth),
+        });
         currentMonth.setMonth(currentMonth.getMonth() + 1);
       }
     }
@@ -506,7 +526,11 @@ export function UnifiedPerformanceChart({
           idx === 0 || Math.abs(label.position - arr[idx - 1].position) >= minSpacing
       );
 
-    return { dateToX: convertDateToX, gaps: gapsWithPositions, timeAxisLabels: uniqueLabels };
+    return {
+      dateToX: convertDateToX,
+      gaps: gapsWithPositions,
+      timeAxisLabels: uniqueLabels,
+    };
   }, [chartData, detectedGaps, expandedGaps]);
 
   // Split data by direction, using date-based X positioning
@@ -743,7 +767,10 @@ export function UnifiedPerformanceChart({
     if (daysDiff < 7) return null;
     if (daysDiff < 60) return { value: `${daysDiff}`, label: t('time.days') };
     if (daysDiff < 365) return { value: `${Math.round(daysDiff / 30)}`, label: t('time.months') };
-    return { value: `${Math.round((daysDiff / 365) * 10) / 10}`, label: t('time.years') };
+    return {
+      value: `${Math.round((daysDiff / 365) * 10) / 10}`,
+      label: t('time.years'),
+    };
   }, [chartData, t]);
 
   if (chartData.length < 1) return null;
@@ -829,27 +856,24 @@ export function UnifiedPerformanceChart({
             </CartesianChart>
           </View>
 
-          {/* Tap targets for each point */}
-          <View style={styles.tapTargetContainer} pointerEvents="box-none">
-            {lane.points.map((point, idx) => {
-              // Use the point's normalized X position (0-1 range based on date)
-              const xPercent = point.x;
-              return (
-                <Pressable
-                  key={`tap-${idx}`}
-                  style={[
-                    styles.tapTarget,
-                    {
-                      left: `${xPercent * 100}%`,
-                      transform: [{ translateX: -20 }],
-                    },
-                  ]}
-                  onPress={() => handlePointPress(point)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                />
-              );
-            })}
-          </View>
+          {/* Single tap target — finds nearest point by X coordinate */}
+          <Pressable
+            style={styles.tapTargetContainer}
+            onPress={(e) => {
+              const tapX = e.nativeEvent.locationX - CHART_PADDING_LEFT;
+              const normalizedX = Math.max(0, Math.min(1, tapX / chartContentWidth));
+              let closest = lane.points[0];
+              let closestDist = Infinity;
+              for (const pt of lane.points) {
+                const dist = Math.abs(pt.x - normalizedX);
+                if (dist < closestDist) {
+                  closestDist = dist;
+                  closest = pt;
+                }
+              }
+              if (closest) handlePointPress(closest);
+            }}
+          />
 
           {/* Y-axis labels */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
@@ -912,7 +936,7 @@ export function UnifiedPerformanceChart({
         </View>
       );
     },
-    [handlePointPress, formatSpeedValue, isDark, gaps, chartWidth, selectedPoint]
+    [handlePointPress, formatSpeedValue, isDark, gaps, chartWidth, chartContentWidth, selectedPoint]
   );
 
   // Single direction mode (no swim lanes needed)
@@ -1777,13 +1801,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     paddingLeft: 40,
     paddingRight: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tapTarget: {
-    position: 'absolute',
-    width: 40,
-    height: '100%',
   },
   yAxisOverlay: {
     position: 'absolute',

@@ -904,6 +904,76 @@ pub struct FfiRoutesScreenData {
 }
 
 // ============================================================================
+// Section Performance Bucket Types
+// ============================================================================
+
+/// A time-bucketed best performance for chart display.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionPerformanceBucket {
+    pub activity_id: String,
+    pub activity_name: String,
+    /// Unix timestamp (seconds since epoch)
+    pub activity_date: i64,
+    /// Best time in seconds
+    pub best_time: f64,
+    /// Best pace in m/s
+    pub best_pace: f64,
+    /// Direction: "same" or "reverse"
+    pub direction: String,
+    /// Section distance in meters
+    pub section_distance: f64,
+    /// True if no time stream was available (proportional estimate)
+    pub is_estimated: bool,
+    /// Number of traversals in this bucket
+    pub bucket_count: u32,
+}
+
+impl From<crate::SectionPerformanceBucket> for FfiSectionPerformanceBucket {
+    fn from(b: crate::SectionPerformanceBucket) -> Self {
+        Self {
+            activity_id: b.activity_id,
+            activity_name: b.activity_name,
+            activity_date: b.activity_date,
+            best_time: b.best_time,
+            best_pace: b.best_pace,
+            direction: b.direction,
+            section_distance: b.section_distance,
+            is_estimated: b.is_estimated,
+            bucket_count: b.bucket_count,
+        }
+    }
+}
+
+/// Result of bucketed section performance query.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionPerformanceBucketResult {
+    /// Best-per-bucket data points for chart display
+    pub buckets: Vec<FfiSectionPerformanceBucket>,
+    /// Total traversals in the date range
+    pub total_traversals: u32,
+    /// Overall PR bucket
+    pub pr_bucket: Option<FfiSectionPerformanceBucket>,
+    /// Summary stats for forward/same direction
+    pub forward_stats: Option<FfiDirectionStats>,
+    /// Summary stats for reverse direction
+    pub reverse_stats: Option<FfiDirectionStats>,
+}
+
+impl From<crate::SectionPerformanceBucketResult> for FfiSectionPerformanceBucketResult {
+    fn from(r: crate::SectionPerformanceBucketResult) -> Self {
+        Self {
+            buckets: r.buckets.into_iter().map(FfiSectionPerformanceBucket::from).collect(),
+            total_traversals: r.total_traversals,
+            pr_bucket: r.pr_bucket.map(FfiSectionPerformanceBucket::from),
+            forward_stats: r.forward_stats.map(FfiDirectionStats::from),
+            reverse_stats: r.reverse_stats.map(FfiDirectionStats::from),
+        }
+    }
+}
+
+// ============================================================================
 // Helper functions
 // ============================================================================
 

@@ -107,111 +107,117 @@ interface SectionListItemProps {
   onDelete: (item: UnifiedSection) => void;
   onToggleHide: (item: UnifiedSection) => void;
   swipeableRefs: React.MutableRefObject<Map<string, Swipeable | null>>;
-  t: ReturnType<typeof useTranslation>['t'];
+  t: (key: string) => string;
 }
 
-const SectionListItem = memo(function SectionListItem({
-  item,
-  isDark,
-  isDisabled,
-  onPress,
-  onSwipeableOpen,
-  onDelete,
-  onToggleHide,
-  swipeableRefs,
-  t,
-}: SectionListItemProps) {
-  const renderRightActions = useCallback(
-    (
-      _progress: Animated.AnimatedInterpolation<number>,
-      dragX: Animated.AnimatedInterpolation<number>
-    ) => {
-      const isCustom = item.sectionType === 'custom';
+const SectionListItem = memo(
+  function SectionListItem({
+    item,
+    isDark,
+    isDisabled,
+    onPress,
+    onSwipeableOpen,
+    onDelete,
+    onToggleHide,
+    swipeableRefs,
+    t,
+  }: SectionListItemProps) {
+    const renderRightActions = useCallback(
+      (
+        _progress: Animated.AnimatedInterpolation<number>,
+        dragX: Animated.AnimatedInterpolation<number>
+      ) => {
+        const isCustom = item.sectionType === 'custom';
 
-      const opacity = dragX.interpolate({
-        inputRange: [-80, -40, 0],
-        outputRange: [1, 0.8, 0],
-        extrapolate: 'clamp',
-      });
+        const opacity = dragX.interpolate({
+          inputRange: [-80, -40, 0],
+          outputRange: [1, 0.8, 0],
+          extrapolate: 'clamp',
+        });
 
-      if (isCustom) {
+        if (isCustom) {
+          return (
+            <Animated.View style={[styles.swipeAction, styles.deleteAction, { opacity }]}>
+              <RectButton style={styles.swipeActionButton} onPress={() => onDelete(item)}>
+                <MaterialCommunityIcons name="delete" size={24} color={colors.textOnDark} />
+                <Text style={styles.swipeActionText}>{t('common.delete')}</Text>
+              </RectButton>
+            </Animated.View>
+          );
+        }
+
         return (
-          <Animated.View style={[styles.swipeAction, styles.deleteAction, { opacity }]}>
-            <RectButton style={styles.swipeActionButton} onPress={() => onDelete(item)}>
-              <MaterialCommunityIcons name="delete" size={24} color={colors.textOnDark} />
-              <Text style={styles.swipeActionText}>{t('common.delete')}</Text>
+          <Animated.View
+            style={[
+              styles.swipeAction,
+              isDisabled ? styles.showAction : styles.hideAction,
+              { opacity },
+            ]}
+          >
+            <RectButton style={styles.swipeActionButton} onPress={() => onToggleHide(item)}>
+              <MaterialCommunityIcons
+                name={isDisabled ? 'eye' : 'eye-off'}
+                size={24}
+                color={colors.textOnDark}
+              />
+              <Text style={styles.swipeActionText}>
+                {isDisabled ? t('common.show') : t('common.hide')}
+              </Text>
             </RectButton>
           </Animated.View>
         );
-      }
+      },
+      [item, isDisabled, onDelete, onToggleHide, t]
+    );
 
-      return (
-        <Animated.View
+    return (
+      <Swipeable
+        ref={(ref) => {
+          swipeableRefs.current.set(item.id, ref);
+        }}
+        renderRightActions={renderRightActions}
+        onSwipeableOpen={() => onSwipeableOpen(item.id)}
+        overshootRight={false}
+        friction={2}
+      >
+        <View
           style={[
-            styles.swipeAction,
-            isDisabled ? styles.showAction : styles.hideAction,
-            { opacity },
+            styles.swipeableContent,
+            isDark && styles.swipeableContentDark,
+            isDisabled && styles.disabledSection,
           ]}
         >
-          <RectButton style={styles.swipeActionButton} onPress={() => onToggleHide(item)}>
-            <MaterialCommunityIcons
-              name={isDisabled ? 'eye' : 'eye-off'}
-              size={24}
-              color={colors.textOnDark}
-            />
-            <Text style={styles.swipeActionText}>
-              {isDisabled ? t('common.show') : t('common.hide')}
-            </Text>
-          </RectButton>
-        </Animated.View>
-      );
-    },
-    [item, isDisabled, onDelete, onToggleHide, t]
-  );
-
-  return (
-    <Swipeable
-      ref={(ref) => {
-        swipeableRefs.current.set(item.id, ref);
-      }}
-      renderRightActions={renderRightActions}
-      onSwipeableOpen={() => onSwipeableOpen(item.id)}
-      overshootRight={false}
-      friction={2}
-    >
-      <View
-        style={[
-          styles.swipeableContent,
-          isDark && styles.swipeableContentDark,
-          isDisabled && styles.disabledSection,
-        ]}
-      >
-        <SectionRow section={item} onPress={onPress} />
-        {item.sectionType === 'custom' && (
-          <View style={styles.sourceBadge}>
-            <Text style={styles.sourceBadgeText}>{t('routes.custom')}</Text>
-          </View>
-        )}
-        {isDisabled && (
-          <View style={styles.disabledIndicator}>
-            <MaterialCommunityIcons name="eye-off" size={12} color={colors.warning} />
-            <Text style={styles.disabledIndicatorText}>{t('sections.disabled')}</Text>
-          </View>
-        )}
-      </View>
-    </Swipeable>
-  );
-}, (prev, next) => {
-  // Custom comparator: skip re-render if actual data hasn't changed
-  if (prev.item !== next.item) {
-    if (prev.item.id !== next.item.id
-      || prev.item.visitCount !== next.item.visitCount
-      || prev.item.distanceMeters !== next.item.distanceMeters
-      || prev.item.name !== next.item.name
-      || prev.item.sectionType !== next.item.sectionType) return false;
+          <SectionRow section={item} onPress={onPress} />
+          {item.sectionType === 'custom' && (
+            <View style={styles.sourceBadge}>
+              <Text style={styles.sourceBadgeText}>{t('routes.custom')}</Text>
+            </View>
+          )}
+          {isDisabled && (
+            <View style={styles.disabledIndicator}>
+              <MaterialCommunityIcons name="eye-off" size={12} color={colors.warning} />
+              <Text style={styles.disabledIndicatorText}>{t('sections.disabled')}</Text>
+            </View>
+          )}
+        </View>
+      </Swipeable>
+    );
+  },
+  (prev, next) => {
+    // Custom comparator: skip re-render if actual data hasn't changed
+    if (prev.item !== next.item) {
+      if (
+        prev.item.id !== next.item.id ||
+        prev.item.visitCount !== next.item.visitCount ||
+        prev.item.distanceMeters !== next.item.distanceMeters ||
+        prev.item.name !== next.item.name ||
+        prev.item.sectionType !== next.item.sectionType
+      )
+        return false;
+    }
+    return prev.isDisabled === next.isDisabled && prev.isDark === next.isDark;
   }
-  return prev.isDisabled === next.isDisabled && prev.isDark === next.isDark;
-});
+);
 
 export function SectionsList({
   sportType,
@@ -574,10 +580,18 @@ export function SectionsList({
         onDelete={handleDelete}
         onToggleHide={handleToggleHide}
         swipeableRefs={swipeableRefs}
-        t={t}
+        t={t as unknown as (key: string) => string}
       />
     ),
-    [isDark, disabledIds, handleSectionPress, handleSwipeableOpen, handleDelete, handleToggleHide, t]
+    [
+      isDark,
+      disabledIds,
+      handleSectionPress,
+      handleSwipeableOpen,
+      handleDelete,
+      handleToggleHide,
+      t,
+    ]
   );
 
   const renderFooter = () => {
