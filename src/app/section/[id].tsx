@@ -33,6 +33,7 @@ import {
   useTheme,
   useMetricSystem,
   useCacheDays,
+  useGpxExport,
   type ActivitySectionRecord,
 } from '@/hooks';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
@@ -410,6 +411,7 @@ export default function SectionDetailScreen() {
   const cacheDays = useCacheDays();
   const debugEnabled = useDebugStore((s) => s.enabled);
   const { getPageMetrics } = useFFITimer();
+  const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
@@ -1513,6 +1515,30 @@ export default function SectionDetailScreen() {
                   <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
                 </TouchableOpacity>
                 <View style={styles.headerSpacer} />
+                {section?.polyline?.length > 0 && (
+                  <TouchableOpacity
+                    testID="section-export-gpx"
+                    style={styles.deleteButton}
+                    onPress={() =>
+                      exportGpx({
+                        name: section.name || 'Section',
+                        points: section.polyline.map((p: RoutePoint) => ({
+                          latitude: p.lat,
+                          longitude: p.lng,
+                        })),
+                        sport: section.sportType,
+                      })
+                    }
+                    disabled={gpxExporting}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name={gpxExporting ? 'progress-download' : 'download'}
+                      size={24}
+                      color={colors.textOnDark}
+                    />
+                  </TouchableOpacity>
+                )}
                 {isCustomId ? (
                   <TouchableOpacity
                     style={styles.deleteButton}

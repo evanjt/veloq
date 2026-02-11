@@ -24,6 +24,7 @@ import {
   useTheme,
   useMetricSystem,
   useCacheDays,
+  useGpxExport,
 } from '@/hooks';
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { useGroupDetail } from '@/hooks/routes/useRouteEngine';
@@ -308,6 +309,7 @@ export default function RouteDetailScreen() {
   const cacheDays = useCacheDays();
   const debugEnabled = useDebugStore((s) => s.enabled);
   const { getPageMetrics } = useFFITimer();
+  const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
   // State for highlighted activity
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
@@ -736,7 +738,7 @@ export default function RouteDetailScreen() {
             pointerEvents="none"
           />
 
-          {/* Floating header - just back button */}
+          {/* Floating header - back button and export */}
           <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
             <TouchableOpacity
               style={styles.backButton}
@@ -745,6 +747,31 @@ export default function RouteDetailScreen() {
             >
               <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
             </TouchableOpacity>
+            <View style={{ flex: 1 }} />
+            {consensusPoints && consensusPoints.length > 0 && (
+              <TouchableOpacity
+                testID="route-export-gpx"
+                style={styles.backButton}
+                onPress={() =>
+                  exportGpx({
+                    name: customName || routeGroup?.name || 'Route',
+                    points: consensusPoints.map((p) => ({
+                      latitude: p.lat,
+                      longitude: p.lng,
+                    })),
+                    sport: engineGroup?.sportType,
+                  })
+                }
+                disabled={gpxExporting}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name={gpxExporting ? 'progress-download' : 'download'}
+                  size={24}
+                  color={colors.textOnDark}
+                />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Route info overlay at bottom */}

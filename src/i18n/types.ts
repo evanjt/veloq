@@ -382,6 +382,27 @@ export interface TranslationResource {
     failedToDisconnect: string;
   };
 
+  export: {
+    gpx: string;
+    exporting: string;
+    error: string;
+  };
+
+  backup: {
+    exportBackup: string;
+    importBackup: string;
+    exporting: string;
+    importing: string;
+    exportError: string;
+    importError: string;
+    restoreComplete: string;
+    nothingToRestore: string;
+    sectionsRestored: string;
+    namesRestored: string;
+    preferencesRestored: string;
+    sectionsSkipped: string;
+  };
+
   about: {
     title: string;
     version: string;

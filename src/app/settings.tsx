@@ -27,6 +27,8 @@ import {
   useTheme,
   useUnifiedSections,
   useSummaryCardData,
+  useExportBackup,
+  useImportBackup,
 } from '@/hooks';
 import * as FileSystem from 'expo-file-system/legacy';
 import { TimelineSlider } from '@/components/maps';
@@ -144,6 +146,8 @@ export default function SettingsScreen() {
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
   const [showLanguages, setShowLanguages] = useState(false);
   const [showActivityStyles, setShowActivityStyles] = useState(false);
+  const { exportBackup, exporting: backupExporting } = useExportBackup();
+  const { importBackup, importing: backupImporting } = useImportBackup();
 
   // Scroll-to-anchor support
   const { scrollTo } = useLocalSearchParams<{ scrollTo?: string }>();
@@ -820,6 +824,46 @@ export default function SettingsScreen() {
             />
           </TouchableOpacity>
 
+          <View style={[styles.divider, isDark && styles.dividerDark]} />
+
+          {/* Backup & Restore */}
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={exportBackup}
+            disabled={backupExporting}
+            activeOpacity={0.2}
+          >
+            <MaterialCommunityIcons name="cloud-upload-outline" size={22} color={colors.primary} />
+            <Text style={[styles.actionText, isDark && styles.textLight]}>
+              {backupExporting ? t('backup.exporting') : t('backup.exportBackup')}
+            </Text>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={20}
+              color={isDark ? darkColors.textMuted : colors.textSecondary}
+            />
+          </TouchableOpacity>
+          <View style={[styles.divider, isDark && styles.dividerDark]} />
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={importBackup}
+            disabled={backupImporting}
+            activeOpacity={0.2}
+          >
+            <MaterialCommunityIcons
+              name="cloud-download-outline"
+              size={22}
+              color={colors.primary}
+            />
+            <Text style={[styles.actionText, isDark && styles.textLight]}>
+              {backupImporting ? t('backup.importing') : t('backup.importBackup')}
+            </Text>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={20}
+              color={isDark ? darkColors.textMuted : colors.textSecondary}
+            />
+          </TouchableOpacity>
           <View style={[styles.divider, isDark && styles.dividerDark]} />
 
           {/* Cache Stats - inline */}

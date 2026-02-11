@@ -103,3 +103,7 @@ export { useSectionDetail } from './routes/useRouteEngine';
 
 // Home hooks
 export { useSummaryCardData, type SummaryCardData } from './home';
+
+// Export hooks
+export { useGpxExport } from './export';
+export { useExportBackup, useImportBackup } from './export';

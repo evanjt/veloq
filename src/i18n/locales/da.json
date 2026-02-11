@@ -159,6 +159,20 @@
     "garminTrademark": "Garmin og Garmin-logoet er varemærker tilhørende Garmin Ltd.",
     "recordedWith": "Optaget med {{device}}"
   },
+  "backup": {
+    "exportBackup": "Eksporter sikkerhedskopi",
+    "importBackup": "Importer sikkerhedskopi",
+    "exporting": "Eksporterer...",
+    "importing": "Importerer...",
+    "exportError": "Kunne ikke eksportere sikkerhedskopi.",
+    "importError": "Kunne ikke importere sikkerhedskopi.",
+    "restoreComplete": "Gendannelse fuldfort",
+    "nothingToRestore": "Ingen data fundet i sikkerhedskopifilen.",
+    "sectionsRestored": "{{count}} brugerdefinerede sektioner gendannet",
+    "namesRestored": "{{count}} navne gendannet",
+    "preferencesRestored": "{{count}} praeferencer gendannet",
+    "sectionsSkipped": "{{count}} sektioner sprunget over (synkroniser aktiviteter forst)"
+  },
   "cache": {
     "addingActivities": "Tilføjer aktiviteter...",
     "allActivitiesSynced": "Alle aktiviteter synkroniseret",
@@ -282,6 +296,11 @@
     "defaultMessage": "Kunne ikke indlæse data. Prøv venligst igen.",
     "defaultTitle": "Noget gik galt",
     "tryAgain": "Prøv igen"
+  },
+  "export": {
+    "gpx": "Eksporter GPX",
+    "exporting": "Eksporterer...",
+    "error": "Kunne ikke eksportere GPX-fil."
   },
   "feed": {
     "activitiesCount": "{{count}} aktiviteter",

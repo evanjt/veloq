@@ -159,6 +159,20 @@
     "garminTrademark": "Garmin en het Garmin-logo zijn handelsmerken van Garmin Ltd.",
     "recordedWith": "Opgenomen met {{device}}"
   },
+  "backup": {
+    "exportBackup": "Back-up exporteren",
+    "importBackup": "Back-up importeren",
+    "exporting": "Exporteren...",
+    "importing": "Importeren...",
+    "exportError": "Back-up exporteren mislukt.",
+    "importError": "Back-up importeren mislukt.",
+    "restoreComplete": "Herstel voltooid",
+    "nothingToRestore": "Geen gegevens gevonden in back-upbestand.",
+    "sectionsRestored": "{{count}} aangepaste secties hersteld",
+    "namesRestored": "{{count}} namen hersteld",
+    "preferencesRestored": "{{count}} voorkeuren hersteld",
+    "sectionsSkipped": "{{count}} secties overgeslagen (synchroniseer eerst activiteiten)"
+  },
   "cache": {
     "addingActivities": "Activiteiten toevoegen...",
     "allActivitiesSynced": "Alle activiteiten gesynchroniseerd",
@@ -282,6 +296,11 @@
     "defaultMessage": "Gegevens laden mislukt. Probeer opnieuw.",
     "defaultTitle": "Er ging iets mis",
     "tryAgain": "Opnieuw proberen"
+  },
+  "export": {
+    "gpx": "GPX exporteren",
+    "exporting": "Exporteren...",
+    "error": "GPX-bestand exporteren mislukt."
   },
   "feed": {
     "activitiesCount": "{{count}} Activiteiten",

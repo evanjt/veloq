@@ -159,6 +159,20 @@
     "garminTrademark": "Garmin und s Garmin-Logo sind Marke vo Garmin Ltd.",
     "recordedWith": "Ufgnoh mit {{device}}"
   },
+  "backup": {
+    "exportBackup": "Sicherig exportiere",
+    "importBackup": "Sicherig importiere",
+    "exporting": "Am Exportiere...",
+    "importing": "Am Importiere...",
+    "exportError": "Sicherig exportiere hät nöd klappet.",
+    "importError": "Sicherig importiere hät nöd klappet.",
+    "restoreComplete": "Wiederherstellig fertig",
+    "nothingToRestore": "Kei Date i de Sicherigsdatei gfunde.",
+    "sectionsRestored": "{{count}} eigeni Abschnitt wiederhergestellt",
+    "namesRestored": "{{count}} Name wiederhergestellt",
+    "preferencesRestored": "{{count}} Iistellige wiederhergestellt",
+    "sectionsSkipped": "{{count}} Abschnitt übersprunge (zersch Aktivitäte synce)"
+  },
   "cache": {
     "addingActivities": "Aktivitäte werdid hinzuegfüegt...",
     "allActivitiesSynced": "Alli Aktivitäte synchronisiert",
@@ -282,6 +296,11 @@
     "defaultMessage": "Hät nöd klappet. Nomol probiere!",
     "defaultTitle": "Gopferteckel!",
     "tryAgain": "Nomol!"
+  },
+  "export": {
+    "gpx": "GPX exportiere",
+    "exporting": "Am Exportiere...",
+    "error": "GPX-Datei exportiere hät nöd klappet."
   },
   "feed": {
     "activitiesCount": "{{count}} Aktivitäte",

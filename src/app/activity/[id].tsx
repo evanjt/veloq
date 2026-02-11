@@ -32,6 +32,7 @@ import {
   useTheme,
   useMetricSystem,
   useCacheDays,
+  useGpxExport,
 } from '@/hooks';
 import { useDisabledSections } from '@/providers';
 import { createSharedStyles } from '@/styles';
@@ -133,6 +134,7 @@ export default function ActivityDetailScreen() {
 
   const { data: activity, isLoading, error } = useActivity(id || '');
   const { data: streams } = useActivityStreams(id || '');
+  const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
   // Get the activity date for wellness lookup
   const activityDate = activity?.start_date_local?.split('T')[0];
@@ -1021,7 +1023,7 @@ export default function ActivityDetailScreen() {
           pointerEvents="none"
         />
 
-        {/* Floating header - just back button */}
+        {/* Floating header - back button and export */}
         <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
           <TouchableOpacity
             testID="activity-detail-back"
@@ -1031,6 +1033,29 @@ export default function ActivityDetailScreen() {
           >
             <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
           </TouchableOpacity>
+          <View style={{ flex: 1 }} />
+          {coordinates.length > 0 && (
+            <TouchableOpacity
+              testID="activity-export-gpx"
+              style={styles.backButton}
+              onPress={() =>
+                exportGpx({
+                  name: activity?.name || 'Activity',
+                  points: coordinates,
+                  time: activity?.start_date_local,
+                  sport: activity?.type,
+                })
+              }
+              disabled={gpxExporting}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={gpxExporting ? 'progress-download' : 'download'}
+                size={24}
+                color={colors.textOnDark}
+              />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Activity info overlay at bottom */}

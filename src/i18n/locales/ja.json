@@ -159,6 +159,20 @@
     "garminTrademark": "GarminとGarminロゴはGarmin Ltd.の商標です。",
     "recordedWith": "{{device}}で記録"
   },
+  "backup": {
+    "exportBackup": "バックアップをエクスポート",
+    "importBackup": "バックアップをインポート",
+    "exporting": "エクスポート中...",
+    "importing": "インポート中...",
+    "exportError": "バックアップのエクスポートに失敗しました。",
+    "importError": "バックアップのインポートに失敗しました。",
+    "restoreComplete": "復元完了",
+    "nothingToRestore": "バックアップファイルにデータが見つかりません。",
+    "sectionsRestored": "{{count}}件のカスタムセクションを復元しました",
+    "namesRestored": "{{count}}件の名前を復元しました",
+    "preferencesRestored": "{{count}}件の設定を復元しました",
+    "sectionsSkipped": "{{count}}件のセクションをスキップしました（先にアクティビティを同期してください）"
+  },
   "cache": {
     "addingActivities": "アクティビティを追加中...",
     "allActivitiesSynced": "すべてのアクティビティが同期されました",
@@ -282,6 +296,11 @@
     "defaultMessage": "データの読み込みに失敗しました。再試行してください。",
     "defaultTitle": "問題が発生しました",
     "tryAgain": "再試行"
+  },
+  "export": {
+    "gpx": "GPXをエクスポート",
+    "exporting": "エクスポート中...",
+    "error": "GPXファイルのエクスポートに失敗しました。"
   },
   "feed": {
     "activitiesCount": "{{count}}件のアクティビティ",

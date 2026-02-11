@@ -159,6 +159,20 @@
     "garminTrademark": "Garmin et le logo Garmin sont des marques déposées de Garmin Ltd.",
     "recordedWith": "Enregistré avec {{device}}"
   },
+  "backup": {
+    "exportBackup": "Exporter la sauvegarde",
+    "importBackup": "Importer la sauvegarde",
+    "exporting": "Exportation...",
+    "importing": "Importation...",
+    "exportError": "Echec de l'exportation de la sauvegarde.",
+    "importError": "Echec de l'importation de la sauvegarde.",
+    "restoreComplete": "Restauration terminee",
+    "nothingToRestore": "Aucune donnee trouvee dans le fichier de sauvegarde.",
+    "sectionsRestored": "{{count}} sections personnalisees restaurees",
+    "namesRestored": "{{count}} noms restaures",
+    "preferencesRestored": "{{count}} preferences restaurees",
+    "sectionsSkipped": "{{count}} sections ignorees (synchronisez d'abord les activites)"
+  },
   "cache": {
     "addingActivities": "Ajout des activités...",
     "allActivitiesSynced": "Toutes les activités synchronisées",
@@ -282,6 +296,11 @@
     "defaultMessage": "Échec du chargement des données. Veuillez réessayer.",
     "defaultTitle": "Une erreur s'est produite",
     "tryAgain": "Réessayer"
+  },
+  "export": {
+    "gpx": "Exporter GPX",
+    "exporting": "Exportation...",
+    "error": "Echec de l'exportation du fichier GPX."
   },
   "feed": {
     "activitiesCount": "{{count}} Activités",

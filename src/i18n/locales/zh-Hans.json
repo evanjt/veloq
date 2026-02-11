@@ -159,6 +159,20 @@
     "garminTrademark": "Garmin 和 Garmin 标志是 Garmin Ltd. 的商标。",
     "recordedWith": "使用 {{device}} 记录"
   },
+  "backup": {
+    "exportBackup": "导出备份",
+    "importBackup": "导入备份",
+    "exporting": "正在导出...",
+    "importing": "正在导入...",
+    "exportError": "导出备份失败。",
+    "importError": "导入备份失败。",
+    "restoreComplete": "恢复完成",
+    "nothingToRestore": "备份文件中未找到数据。",
+    "sectionsRestored": "已恢复 {{count}} 个自定义路段",
+    "namesRestored": "已恢复 {{count}} 个名称",
+    "preferencesRestored": "已恢复 {{count}} 个偏好设置",
+    "sectionsSkipped": "已跳过 {{count}} 个路段（请先同步活动）"
+  },
   "cache": {
     "addingActivities": "正在添加活动...",
     "allActivitiesSynced": "所有活动已同步",
@@ -282,6 +296,11 @@
     "defaultMessage": "加载数据失败。请重试。",
     "defaultTitle": "出错了",
     "tryAgain": "重试"
+  },
+  "export": {
+    "gpx": "导出 GPX",
+    "exporting": "正在导出...",
+    "error": "导出 GPX 文件失败。"
   },
   "feed": {
     "activitiesCount": "{{count}} 个活动",
