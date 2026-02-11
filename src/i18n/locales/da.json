@@ -644,6 +644,9 @@
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Nulstil til automatisk referencevalg?\n\nSektionen vil blive matchet igen mod alle dine aktiviteter. Dette kan tilføje eller fjerne aktiviteter fra denne sektion.",
     "referenceUpdated": "Reference activity updated",
+    "performanceHistory": "Præstationshistorik",
+    "traversalsSummary": "{{count}} gennemkørsler · bedste {{time}}",
+    "yearPr": "Års-PR",
     "visitsCount": "{{count}} besøg"
   },
   "settings": {

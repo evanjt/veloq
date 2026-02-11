@@ -16,6 +16,7 @@ import { logScreenRender, PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { useInfiniteActivities, useTheme, useSummaryCardData } from '@/hooks';
 import type { Activity } from '@/types';
 import { useDashboardPreferences } from '@/providers';
@@ -60,6 +61,7 @@ export default function FeedScreen() {
   });
 
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
   const [searchQuery, setSearchQuery] = useState('');
@@ -130,9 +132,20 @@ export default function FeedScreen() {
     return filtered;
   }, [allActivities, searchQuery, selectedTypeGroup]);
 
-  // Combined refresh handler - fetches fresh data
+  // Comprehensive refresh: resets feed, triggers route engine sync, refreshes all data
+  // - resetQueries forces fresh initialPageParam with today's date (fixes stale cache)
+  // - Invalidating ['activities'] triggers GlobalDataSync → route engine GPS sync
+  // - Invalidating wellness/curves/summary refreshes fitness and stats data
   const handleRefresh = async () => {
-    await Promise.all([refetch(), refetchSummary()]);
+    await Promise.all([
+      queryClient.resetQueries({ queryKey: ['activities-infinite'] }),
+      queryClient.invalidateQueries({ queryKey: ['activities'] }),
+      queryClient.invalidateQueries({ queryKey: ['wellness'] }),
+      queryClient.invalidateQueries({ queryKey: ['athlete-summary'] }),
+      queryClient.invalidateQueries({ queryKey: ['powerCurve'] }),
+      queryClient.invalidateQueries({ queryKey: ['paceCurve'] }),
+      refetchSummary(),
+    ]);
   };
 
   // Load more when scrolling to the end

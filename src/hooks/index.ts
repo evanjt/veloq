@@ -82,6 +82,7 @@ export { useEngineMapActivities } from './maps';
 // Route Engine hooks (stateful Rust backend)
 export {
   useRouteEngine,
+  useEngineSubscription,
   useEngineGroups,
   useEngineSections,
   useViewportActivities,

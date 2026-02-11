@@ -40,6 +40,8 @@ interface SectionRowData {
   activityCount: number;
   /** Polyline (optional - will be lazy-loaded if not provided) */
   polyline?: RoutePoint[];
+  /** Section type (auto, custom, potential) */
+  sectionType?: string;
 }
 
 interface SectionRowProps {
@@ -47,6 +49,8 @@ interface SectionRowProps {
   section: FrequentSection | SectionSummary | SectionRowData;
   /** Optional pre-loaded activity traces for this section */
   activityTraces?: ActivityTrace[];
+  /** Whether this section is disabled/hidden */
+  isDisabled?: boolean;
   onPress?: (id: string) => void;
 }
 
@@ -73,6 +77,8 @@ function normalizeSectionData(
       visitCount: section.visitCount,
       activityCount,
       polyline: section.polyline,
+      sectionType:
+        'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
     };
   }
   // Check if it's a SectionSummary (has activityCount number)
@@ -85,6 +91,8 @@ function normalizeSectionData(
       visitCount: section.visitCount,
       activityCount: section.activityCount,
       polyline: undefined, // Will be lazy-loaded
+      sectionType:
+        'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
     };
   }
   // Already normalized
@@ -117,6 +125,7 @@ const PREVIEW_PADDING = 4;
 export const SectionRow = memo(function SectionRow({
   section: rawSection,
   activityTraces,
+  isDisabled,
   onPress,
 }: SectionRowProps) {
   const { t } = useTranslation();
@@ -358,6 +367,25 @@ export const SectionRow = memo(function SectionRow({
           <Text style={[styles.metaText, isDark && styles.textMuted]}>
             {formatDistance(section.distanceMeters, isMetric)}
           </Text>
+          {section.sectionType === 'custom' && (
+            <View style={[styles.customTag, isDark && styles.customTagDark]}>
+              <Text style={[styles.customTagText, isDark && styles.customTagTextDark]}>
+                {t('routes.custom')}
+              </Text>
+            </View>
+          )}
+          {isDisabled && (
+            <View style={[styles.disabledTag, isDark && styles.disabledTagDark]}>
+              <MaterialCommunityIcons
+                name="eye-off"
+                size={10}
+                color={isDark ? '#FBBF24' : '#D97706'}
+              />
+              <Text style={[styles.disabledTagText, isDark && styles.disabledTagTextDark]}>
+                {t('sections.disabled')}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -444,5 +472,42 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: darkColors.textSecondary,
+  },
+  customTag: {
+    backgroundColor: 'rgba(168, 85, 247, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  customTagDark: {
+    backgroundColor: 'rgba(192, 132, 252, 0.15)',
+  },
+  customTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#A855F7',
+  },
+  customTagTextDark: {
+    color: '#C084FC',
+  },
+  disabledTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(217, 119, 6, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  disabledTagDark: {
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+  },
+  disabledTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#D97706',
+  },
+  disabledTagTextDark: {
+    color: '#FBBF24',
   },
 });

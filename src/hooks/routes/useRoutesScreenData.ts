@@ -19,6 +19,8 @@ interface PaginatedRoutesData extends RoutesScreenData {
   groups: GroupWithPolyline[];
   /** Accumulated sections across all loaded pages */
   sections: SectionWithPolyline[];
+  /** Whether route groups need recomputation */
+  groupsDirty: boolean;
 }
 
 interface UseRoutesScreenDataResult {
@@ -123,6 +125,7 @@ export function useRoutesScreenData(opts?: {
         sections: [...sectionsRef.current],
         hasMoreGroups: result.hasMoreGroups,
         hasMoreSections: result.hasMoreSections,
+        groupsDirty: result.groupsDirty ?? false,
       } as PaginatedRoutesData;
 
       lastResultRef.current = data;

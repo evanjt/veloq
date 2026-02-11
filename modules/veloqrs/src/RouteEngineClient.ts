@@ -67,6 +67,7 @@ import {
   persistentEngineGetRoutePerformances,
   persistentEngineGetSectionPerformances,
   persistentEngineGetSectionPerformanceBuckets,
+  persistentEngineGetSectionCalendarSummary,
   persistentEngineGetRoutesScreenData,
   type FetchProgressCallback,
   type PersistentEngineStats,
@@ -77,6 +78,7 @@ import {
   type FfiSection,
   type FfiSectionPerformanceResult,
   type FfiSectionPerformanceBucketResult,
+  type FfiCalendarSummary,
   type FfiRoutePerformanceResult,
   type SectionSummary,
   type GroupSummary,
@@ -558,6 +560,16 @@ class RouteEngineClient {
   }
 
   /**
+   * Get calendar-aligned Year > Month performance summary for a section.
+   * Returns full history with nested year/month structure, or null if no data.
+   */
+  getSectionCalendarSummary(sectionId: string): FfiCalendarSummary | null {
+    return this.timed('getSectionCalendarSummary', () =>
+      persistentEngineGetSectionCalendarSummary(sectionId) ?? null
+    );
+  }
+
+  /**
    * Set activity metrics.
    * Also notifies 'activities' subscribers since stats (including date range) depend on metrics table.
    */
@@ -992,12 +1004,37 @@ class RouteEngineClient {
   }
 
   /**
+   * Remove a single activity from the engine (debug only).
+   * Returns true if the activity was removed successfully.
+   */
+  removeActivity(activityId: string): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const generated = require('./generated/veloqrs');
+    if (typeof generated.persistentEngineRemoveActivity !== 'function') {
+      console.error('[RouteEngine] persistentEngineRemoveActivity not available — regenerate bindings');
+      return false;
+    }
+    const removed = this.timed(
+      'removeActivity',
+      () => generated.persistentEngineRemoveActivity(activityId) as boolean
+    );
+    if (removed) {
+      this.notifyAll('activities', 'groups', 'sections');
+    }
+    return removed;
+  }
+
+  /**
    * Clone an activity N times for scale testing (debug only).
    * Copies metadata, metrics, and section_activities. Does NOT copy GPS tracks.
    */
   debugCloneActivity(sourceId: string, count: number): number {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const generated = require('./generated/veloqrs');
+    if (typeof generated.persistentEngineDebugCloneActivity !== 'function') {
+      console.error('[RouteEngine] persistentEngineDebugCloneActivity not available — regenerate bindings');
+      return 0;
+    }
     const created = this.timed(
       'debugCloneActivity',
       () => generated.persistentEngineDebugCloneActivity(sourceId, count) as number
@@ -1026,7 +1063,7 @@ class RouteEngineClient {
    * Manually trigger a refresh for subscribers of the given event type.
    * Use this to refresh UI after navigating back from a detail page.
    */
-  triggerRefresh(event: 'groups' | 'sections' | 'activities'): void {
+  triggerRefresh(event: 'groups' | 'sections' | 'activities' | 'syncReset'): void {
     this.notify(event);
   }
 

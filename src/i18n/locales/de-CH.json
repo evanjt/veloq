@@ -644,6 +644,9 @@
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Zrugg uf automatischi Referänzuswahl?\n\nDe Abschnitt wird neu mit allne dine Aktivitäte abgliche. Das chan Aktivitäte dezuetuä oder ussenäh.",
     "referenceUpdated": "Reference activity updated",
+    "performanceHistory": "Leistigshistorie",
+    "traversalsSummary": "{{count}} Durchfahrte · bescht {{time}}",
+    "yearPr": "Jahres-PR",
     "visitsCount": "{{count}} Bsüech"
   },
   "settings": {

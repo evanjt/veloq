@@ -32,6 +32,7 @@ import { DataRangeFooter } from './DataRangeFooter';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
 import { useDisabledSections } from '@/providers/DisabledSectionsStore';
+import { useSupersededSections } from '@/providers/SupersededSectionsStore';
 import { debug } from '@/lib';
 import type { UnifiedSection, FrequentSection } from '@/types';
 import type { SectionWithPolyline } from 'veloqrs';
@@ -59,6 +60,8 @@ interface SectionsListProps {
   onLoadMore?: () => void;
   /** Whether more sections are available to load */
   hasMore?: boolean;
+  /** Total section count from engine (for accurate filter badge counts) */
+  totalSectionCount?: number;
 }
 
 type HiddenFilters = {
@@ -187,18 +190,7 @@ const SectionListItem = memo(
             isDisabled && styles.disabledSection,
           ]}
         >
-          <SectionRow section={item} onPress={onPress} />
-          {item.sectionType === 'custom' && (
-            <View style={styles.sourceBadge}>
-              <Text style={styles.sourceBadgeText}>{t('routes.custom')}</Text>
-            </View>
-          )}
-          {isDisabled && (
-            <View style={styles.disabledIndicator}>
-              <MaterialCommunityIcons name="eye-off" size={12} color={colors.warning} />
-              <Text style={styles.disabledIndicatorText}>{t('sections.disabled')}</Text>
-            </View>
-          )}
+          <SectionRow section={item} isDisabled={isDisabled} onPress={onPress} />
         </View>
       </Swipeable>
     );
@@ -225,6 +217,7 @@ export function SectionsList({
   batchSections,
   onLoadMore,
   hasMore = false,
+  totalSectionCount,
 }: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -265,6 +258,22 @@ export function SectionsList({
   const { createSection, removeSection } = useCustomSections();
   const disabledIds = useDisabledSections((s) => s.disabledIds);
   const { disable, enable } = useDisabledSections();
+
+  // Compute true total counts for filter badges (independent of pagination)
+  const supersededBy = useSupersededSections((s) => s.supersededBy);
+  const supersededCount = useMemo(() => {
+    let count = 0;
+    for (const ids of Object.values(supersededBy)) {
+      count += ids.length;
+    }
+    return count;
+  }, [supersededBy]);
+
+  const trueAutoCount =
+    totalSectionCount != null
+      ? Math.max(0, totalSectionCount - supersededCount - disabledIds.size)
+      : autoCount;
+  const trueDisabledCount = totalSectionCount != null ? disabledIds.size : disabledCount;
 
   // Track open swipeable refs to close them when another opens
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
@@ -413,7 +422,7 @@ export function SectionsList({
       </View>
 
       {/* Section type counts - clickable to hide/show types */}
-      {(customCount > 0 || autoCount > 0 || disabledCount > 0) && (
+      {(customCount > 0 || trueAutoCount > 0 || trueDisabledCount > 0) && (
         <View style={styles.sectionCounts}>
           {customCount > 0 && (
             <TouchableOpacity
@@ -443,7 +452,7 @@ export function SectionsList({
               </Text>
             </TouchableOpacity>
           )}
-          {autoCount > 0 && (
+          {trueAutoCount > 0 && (
             <TouchableOpacity
               style={[
                 styles.countBadge,
@@ -467,11 +476,11 @@ export function SectionsList({
                   hiddenFilters.auto && styles.countTextHidden,
                 ]}
               >
-                {autoCount} {t('routes.autoDetected')}
+                {trueAutoCount} {t('routes.autoDetected')}
               </Text>
             </TouchableOpacity>
           )}
-          {disabledCount > 0 && (
+          {trueDisabledCount > 0 && (
             <TouchableOpacity
               style={[
                 styles.countBadge,
@@ -494,8 +503,8 @@ export function SectionsList({
                 ]}
               >
                 {hiddenFilters.disabled
-                  ? t('routes.showHidden', { count: disabledCount })
-                  : `${disabledCount} ${t('sections.disabled')}`}
+                  ? t('routes.showHidden', { count: trueDisabledCount })
+                  : `${trueDisabledCount} ${t('sections.disabled')}`}
               </Text>
             </TouchableOpacity>
           )}
@@ -736,39 +745,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
-  sourceBadge: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.md + spacing.lg,
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  sourceBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.textOnDark,
-  },
   disabledSection: {
     opacity: 0.6,
-  },
-  disabledIndicator: {
-    position: 'absolute',
-    top: spacing.sm,
-    left: spacing.md + spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.warning + '30',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  disabledIndicatorText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.warning,
   },
   swipeableContent: {
     backgroundColor: colors.surface,

@@ -89,6 +89,9 @@ export function QueryProvider({ children }: QueryProviderProps) {
             if (key === 'activity-streams-v3') return false;
             // Also skip individual activity data (we persist the list, not each activity)
             if (key === 'activity') return false;
+            // Skip activity queries - page params / date ranges become stale across
+            // sessions. Fresh fetch on startup ensures engine-API alignment.
+            if (key === 'activities-infinite' || key === 'activities') return false;
             return true;
           },
         },

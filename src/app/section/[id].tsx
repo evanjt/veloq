@@ -48,7 +48,7 @@ import {
 } from '@/components/routes';
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
-import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { TAB_BAR_SAFE_PADDING, CollapsibleSection } from '@/components/ui';
 import {
   UnifiedPerformanceChart,
   type ChartSummaryStats,
@@ -1104,6 +1104,46 @@ export default function SectionDetailScreen() {
     };
   }, [bucketResult?.prBucket]);
 
+  // Calendar summary: Year > Month performance history
+  const [showHistory, setShowHistory] = useState(false);
+  const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
+
+  const calendarSummary = useMemo(() => {
+    if (!section?.id) return null;
+    try {
+      const engine = getRouteEngine();
+      if (!engine) return null;
+      const result = engine.getSectionCalendarSummary(section.id);
+      if (result && result.years.length > 0 && expandedYears.size === 0) {
+        // Auto-expand the most recent year on first load
+        setExpandedYears(new Set([result.years[0].year]));
+      }
+      return result;
+    } catch {
+      return null;
+    }
+  }, [section?.id]);
+
+  const isRunning = section ? isRunningActivity(section.sportType) : false;
+
+  const toggleYear = useCallback((year: number) => {
+    setExpandedYears((prev) => {
+      const next = new Set(prev);
+      if (next.has(year)) {
+        next.delete(year);
+      } else {
+        next.add(year);
+      }
+      return next;
+    });
+  }, []);
+
+  // Month names for display
+  const monthNames = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat(undefined, { month: 'short' });
+    return Array.from({ length: 12 }, (_, i) => formatter.format(new Date(2024, i, 1)));
+  }, []);
+
   // Map of performance records for fast lookup (avoid .find() in render loop)
   const performanceRecordMap = useMemo(() => {
     if (!performanceRecords) return new Map<string, ActivitySectionRecord>();
@@ -1706,6 +1746,195 @@ export default function SectionDetailScreen() {
                 </View>
               )}
 
+              {/* Calendar performance history */}
+              {calendarSummary && calendarSummary.years.length >= 1 && (
+                <CollapsibleSection
+                  title={t('sections.performanceHistory')}
+                  icon="calendar-clock"
+                  expanded={showHistory}
+                  onToggle={setShowHistory}
+                  estimatedHeight={calendarSummary.years.length * 200}
+                  style={styles.calendarSection}
+                >
+                  {calendarSummary.years.map((yearData) => {
+                    const isYearExpanded = expandedYears.has(yearData.year);
+                    // Show best from either direction for the year subtitle
+                    const yearFwd = yearData.forward;
+                    const yearRev = yearData.reverse;
+                    const yearBest =
+                      yearFwd && yearRev
+                        ? yearFwd.bestTime <= yearRev.bestTime
+                          ? yearFwd
+                          : yearRev
+                        : (yearFwd ?? yearRev);
+                    const yearBestDisplay = yearBest
+                      ? isRunning
+                        ? formatPace(yearBest.bestPace)
+                        : formatDuration(yearBest.bestTime)
+                      : '';
+                    const isYearFwdPr =
+                      yearFwd &&
+                      calendarSummary.forwardPr &&
+                      yearFwd.bestActivityId === calendarSummary.forwardPr.bestActivityId;
+                    const isYearRevPr =
+                      yearRev &&
+                      calendarSummary.reversePr &&
+                      yearRev.bestActivityId === calendarSummary.reversePr.bestActivityId;
+
+                    return (
+                      <View key={yearData.year}>
+                        <Pressable
+                          style={[styles.calendarYearRow, isDark && styles.calendarYearRowDark]}
+                          onPress={() => toggleYear(yearData.year)}
+                        >
+                          <MaterialCommunityIcons
+                            name={isYearExpanded ? 'chevron-down' : 'chevron-right'}
+                            size={20}
+                            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                          />
+                          <Text style={[styles.calendarYearText, isDark && styles.textLight]}>
+                            {yearData.year}
+                          </Text>
+                          <Text style={[styles.calendarYearSubtitle, isDark && styles.textMuted]}>
+                            {t('sections.traversalsSummary', {
+                              count: yearData.traversalCount,
+                              time: yearBestDisplay,
+                            })}
+                          </Text>
+                          {isYearFwdPr && (
+                            <MaterialCommunityIcons
+                              name="trophy"
+                              size={14}
+                              color={SAME_COLOR_DEFAULT}
+                              style={styles.calendarTrophy}
+                            />
+                          )}
+                          {isYearRevPr && (
+                            <MaterialCommunityIcons
+                              name="trophy"
+                              size={14}
+                              color={REVERSE_COLOR}
+                              style={styles.calendarTrophy}
+                            />
+                          )}
+                        </Pressable>
+                        {isYearExpanded &&
+                          yearData.months.map((monthData) => {
+                            const fwd = monthData.forward;
+                            const rev = monthData.reverse;
+                            // Is this month's forward best the year's forward best?
+                            const isMonthFwdYearBest =
+                              fwd && yearFwd && fwd.bestActivityId === yearFwd.bestActivityId;
+                            // Is this month's reverse best the year's reverse best?
+                            const isMonthRevYearBest =
+                              rev && yearRev && rev.bestActivityId === yearRev.bestActivityId;
+                            // Is this the overall PR in either direction?
+                            const isMonthFwdOverallPr =
+                              fwd &&
+                              calendarSummary.forwardPr &&
+                              fwd.bestActivityId === calendarSummary.forwardPr.bestActivityId;
+                            const isMonthRevOverallPr =
+                              rev &&
+                              calendarSummary.reversePr &&
+                              rev.bestActivityId === calendarSummary.reversePr.bestActivityId;
+
+                            return (
+                              <View
+                                key={monthData.month}
+                                style={[
+                                  styles.calendarMonthRow,
+                                  isDark && styles.calendarMonthRowDark,
+                                ]}
+                              >
+                                <Text
+                                  style={[styles.calendarMonthName, isDark && styles.textMuted]}
+                                >
+                                  {monthNames[monthData.month - 1]}
+                                </Text>
+                                <Text
+                                  style={[styles.calendarMonthCount, isDark && styles.textMuted]}
+                                >
+                                  {monthData.traversalCount}
+                                </Text>
+                                <View style={styles.calendarMonthEntries}>
+                                  {fwd && (
+                                    <Pressable
+                                      style={styles.calendarMonthEntry}
+                                      onPress={() => router.push(`/activity/${fwd.bestActivityId}`)}
+                                    >
+                                      <View
+                                        style={[
+                                          styles.calendarDirDot,
+                                          { backgroundColor: SAME_COLOR_DEFAULT },
+                                        ]}
+                                      />
+                                      <Text
+                                        style={[
+                                          styles.calendarMonthTime,
+                                          isDark && styles.textLight,
+                                          isMonthFwdYearBest && { fontWeight: '700' },
+                                        ]}
+                                      >
+                                        {isRunning
+                                          ? formatPace(fwd.bestPace)
+                                          : formatDuration(fwd.bestTime)}
+                                      </Text>
+                                      {(isMonthFwdYearBest || isMonthFwdOverallPr) && (
+                                        <MaterialCommunityIcons
+                                          name="trophy"
+                                          size={12}
+                                          color={
+                                            isMonthFwdOverallPr
+                                              ? colors.chartGold
+                                              : SAME_COLOR_DEFAULT
+                                          }
+                                        />
+                                      )}
+                                    </Pressable>
+                                  )}
+                                  {rev && (
+                                    <Pressable
+                                      style={styles.calendarMonthEntry}
+                                      onPress={() => router.push(`/activity/${rev.bestActivityId}`)}
+                                    >
+                                      <View
+                                        style={[
+                                          styles.calendarDirDot,
+                                          { backgroundColor: REVERSE_COLOR },
+                                        ]}
+                                      />
+                                      <Text
+                                        style={[
+                                          styles.calendarMonthTime,
+                                          isDark && styles.textLight,
+                                          isMonthRevYearBest && { fontWeight: '700' },
+                                        ]}
+                                      >
+                                        {isRunning
+                                          ? formatPace(rev.bestPace)
+                                          : formatDuration(rev.bestTime)}
+                                      </Text>
+                                      {(isMonthRevYearBest || isMonthRevOverallPr) && (
+                                        <MaterialCommunityIcons
+                                          name="trophy"
+                                          size={12}
+                                          color={
+                                            isMonthRevOverallPr ? colors.chartGold : REVERSE_COLOR
+                                          }
+                                        />
+                                      )}
+                                    </Pressable>
+                                  )}
+                                </View>
+                              </View>
+                            );
+                          })}
+                      </View>
+                    );
+                  })}
+                </CollapsibleSection>
+              )}
+
               {/* Activities header */}
               <View style={styles.activitiesSection}>
                 <View style={styles.activitiesHeader}>
@@ -2234,6 +2463,74 @@ const styles = StyleSheet.create({
   },
   groupingOptionTextActive: {
     color: colors.textOnDark,
+  },
+  calendarSection: {
+    marginBottom: spacing.md,
+  },
+  calendarYearRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.xs,
+  },
+  calendarYearRowDark: {
+    // handled by isDark prop
+  },
+  calendarYearText: {
+    fontSize: typography.body.fontSize,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  calendarYearSubtitle: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  calendarTrophy: {
+    marginLeft: spacing.xs,
+  },
+  calendarMonthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    paddingLeft: spacing.md + 20 + spacing.xs,
+    paddingRight: spacing.md,
+    gap: spacing.sm,
+  },
+  calendarMonthRowDark: {
+    // handled by isDark prop
+  },
+  calendarMonthName: {
+    fontSize: typography.bodySmall.fontSize,
+    color: colors.textSecondary,
+    width: 36,
+  },
+  calendarMonthCount: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+    width: 24,
+    textAlign: 'center',
+  },
+  calendarMonthEntries: {
+    flex: 1,
+    gap: 2,
+  },
+  calendarMonthEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  calendarDirDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  calendarMonthTime: {
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '500',
+    color: colors.textPrimary,
+    flex: 1,
   },
   activitiesSection: {
     marginBottom: spacing.xl,

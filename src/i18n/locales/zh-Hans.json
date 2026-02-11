@@ -644,6 +644,9 @@
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "重置为自动参考选择？\n\n该路段将与您的所有活动重新匹配。这可能会从该路段中添加或删除活动。",
     "referenceUpdated": "Reference activity updated",
+    "performanceHistory": "表现历史",
+    "traversalsSummary": "{{count}} 次通过 · 最佳 {{time}}",
+    "yearPr": "年度PR",
     "visitsCount": "{{count}} 次访问"
   },
   "settings": {

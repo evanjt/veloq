@@ -644,6 +644,9 @@
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Repor seleção automática de referência?\n\nO troco será novamente comparado com todas as suas atividades. Isto pode adicionar ou remover atividades deste troco.",
     "referenceUpdated": "Reference activity updated",
+    "performanceHistory": "Histórico de desempenho",
+    "traversalsSummary": "{{count}} travessias · melhor {{time}}",
+    "yearPr": "RP do ano",
     "visitsCount": "{{count}} visitas"
   },
   "settings": {

@@ -291,3 +291,71 @@ pub struct SectionPerformanceBucketResult {
     /// Summary stats for reverse direction
     pub reverse_stats: Option<DirectionStats>,
 }
+
+// ============================================================================
+// Calendar Summary Types
+// ============================================================================
+
+/// Best performance in one direction for a calendar period.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarDirectionBest {
+    /// Number of traversals in this direction
+    pub count: u32,
+    /// Best time in seconds
+    pub best_time: f64,
+    /// Best pace in m/s
+    pub best_pace: f64,
+    /// Activity ID of best traversal
+    pub best_activity_id: String,
+    /// Name of best activity
+    pub best_activity_name: String,
+    /// Unix timestamp of best activity
+    pub best_activity_date: i64,
+    /// True if time was estimated (no time stream)
+    pub is_estimated: bool,
+}
+
+/// Best performance in a calendar month, split by direction.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarMonthSummary {
+    /// Month number (1-12)
+    pub month: u32,
+    /// Total traversals in this month (both directions)
+    pub traversal_count: u32,
+    /// Best forward/same direction performance (None if no forward traversals)
+    pub forward: Option<CalendarDirectionBest>,
+    /// Best reverse direction performance (None if no reverse traversals)
+    pub reverse: Option<CalendarDirectionBest>,
+}
+
+/// Best performance in a calendar year, with monthly breakdown.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarYearSummary {
+    /// Calendar year
+    pub year: i32,
+    /// Total traversals in this year
+    pub traversal_count: u32,
+    /// Best forward/same direction performance this year
+    pub forward: Option<CalendarDirectionBest>,
+    /// Best reverse direction performance this year
+    pub reverse: Option<CalendarDirectionBest>,
+    /// Monthly breakdowns (only months with traversals, sorted 1-12)
+    pub months: Vec<CalendarMonthSummary>,
+}
+
+/// Calendar-aligned performance summary for a section.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarSummary {
+    /// Year summaries (newest first)
+    pub years: Vec<CalendarYearSummary>,
+    /// Overall forward/same PR
+    pub forward_pr: Option<CalendarDirectionBest>,
+    /// Overall reverse PR
+    pub reverse_pr: Option<CalendarDirectionBest>,
+    /// Section distance in meters
+    pub section_distance: f64,
+}

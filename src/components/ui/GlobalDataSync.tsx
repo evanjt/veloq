@@ -20,6 +20,7 @@ import Animated, {
   useSharedValue,
   cancelAnimation,
 } from 'react-native-reanimated';
+import { useQueryClient } from '@tanstack/react-query';
 import { useActivities, useRouteDataSync, useActivityBoundsCache } from '@/hooks';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import { formatGpsSyncProgress, formatBoundsSyncProgress } from '@/lib/utils/syncProgressFormat';
@@ -30,6 +31,7 @@ export function GlobalDataSync() {
   const insets = useSafeAreaInsets();
   const routeParts = useSegments();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { settings: routeSettings } = useRouteSettings();
 
@@ -39,6 +41,16 @@ export function GlobalDataSync() {
   const setFetchingExtended = useSyncDateRange((s) => s.setFetchingExtended);
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
   const delayedUnlockExpansion = useSyncDateRange((s) => s.delayedUnlockExpansion);
+
+  // Startup alignment: invalidate activities on mount to force a fresh API fetch.
+  // This catches any engine-API misalignment regardless of cause (stale cache,
+  // new activities synced while app was closed, engine data loss, etc.).
+  // Cost: one lightweight API call for the activity list metadata.
+  useEffect(() => {
+    if (isAuthenticated && routeSettings.enabled) {
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch activities for GPS sync using dynamic date range
   const { data: activities, isFetching } = useActivities({

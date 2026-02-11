@@ -644,6 +644,9 @@
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Reset to automatic reference selection?\n\nThe section will be re-matched against all your activities. This may add or remove activities from this section.",
     "referenceUpdated": "Reference activity updated",
+    "performanceHistory": "Performance History",
+    "traversalsSummary": "{{count}} traversals · best {{time}}",
+    "yearPr": "Year PR",
     "visits": "visits",
     "visitsCount": "{{count}} visits"
   },

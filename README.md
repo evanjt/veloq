@@ -50,6 +50,48 @@ npm expo run:ios        # Run on iOS
 
 **Stack:** React Native + Expo, TanStack Query, Zustand, Victory Native, MapLibre, Rust (route matching)
 
+## Debugging
+
+### Enabling Debug Mode
+
+1. Open **Settings**
+2. Tap the **version number** 5 times quickly
+3. A **Debug Mode** toggle appears — switch it on
+4. A **Developer Dashboard** link appears below the toggle
+
+### Debug Features
+
+**Developer Dashboard** (Settings > Developer Dashboard)
+- Engine stats: activity count, GPS tracks, route groups, sections, cache sizes
+- FFI performance: per-method call count, average/max/p95 timing, color-coded thresholds
+- Memory: JS heap size, allocated bytes, garbage collection count
+- Share debug snapshot as JSON
+
+**Activity Detail** (long-press activity name when debug enabled)
+- Clone activity for stress testing (10/50/100 copies)
+- Debug info panel: activity ID, GPS point count, HR samples, per-page FFI metrics
+- Warnings for large polylines (>2000 points) or slow FFI calls (>200ms)
+
+**Section Detail / Route Detail**
+- Debug info panel with section/route metadata and FFI call metrics
+
+**Routes Screen > Debug Tab**
+- API vs Engine alignment with traffic light indicator
+- Engine stats (mirrors Developer Dashboard)
+- Sync status: progress, last sync timestamp, date range
+- Actions: Force Sync, Remove N Activities & re-sync, Hard Re-sync
+
+**Console Logging** (requires dev build)
+
+```bash
+adb logcat | grep -E '🔴|🟡|🟢|\[NAV\]|━━━'
+```
+
+- Screen render timing (green <200ms, yellow <500ms, red >500ms)
+- FFI call timing (green <50ms, yellow <100ms, red >100ms)
+- Navigation markers between screens
+- Memory pressure stats with `[MEM]` prefix
+
 ## Privacy
 
 Veloq doesn't store your data — but we have no control over data stored on intervals.icu. All analytics and activity data is sourced from there. OAuth uses a lightweight proxy for token exchange; API key mode is fully serverless.

@@ -6,7 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { RoutesList, SectionsList, DateRangeSummary } from '@/components';
+import { RoutesList, SectionsList, DateRangeSummary, SyncDebugTab } from '@/components';
 import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import {
   useRouteProcessing,
@@ -15,11 +15,11 @@ import {
   useTheme,
   useRoutesScreenData,
 } from '@/hooks';
-import { useRouteSettings, useSyncDateRange } from '@/providers';
+import { useRouteSettings, useSyncDateRange, useDebugStore } from '@/providers';
 import { colors, darkColors, spacing } from '@/theme';
 import type { ActivityType } from '@/types';
 
-type TabType = 'routes' | 'sections';
+type TabType = 'routes' | 'sections' | 'debug';
 
 export default function RoutesScreen() {
   // Performance timing
@@ -37,6 +37,9 @@ export default function RoutesScreen() {
   const routeSettings = useRouteSettings((s) => s.settings);
   const isRouteMatchingEnabled = routeSettings.enabled;
 
+  // Debug mode
+  const debugEnabled = useDebugStore((s) => s.enabled);
+
   const { clearCache: clearRouteCache } = useRouteProcessing();
 
   // Single FFI call for all routes screen data (groups, sections, counts)
@@ -51,6 +54,7 @@ export default function RoutesScreen() {
   // Derive counts from batch data
   const routeGroupCount = routesData?.groupCount ?? 0;
   const totalSections = routesData?.sectionCount ?? 0;
+  const groupsDirty = routesData?.groupsDirty ?? false;
 
   // Fetch the true oldest activity date from API (for timeline extent)
   const { data: apiOldestDate } = useOldestActivityDate();
@@ -80,9 +84,16 @@ export default function RoutesScreen() {
     }
   }, [tab]);
 
+  // Reset to routes if debug tab is active but debug mode was turned off
+  useEffect(() => {
+    if (!debugEnabled && activeTab === 'debug') {
+      setActiveTab('routes');
+    }
+  }, [debugEnabled, activeTab]);
+
   // Tabs configuration for SwipeableTabs
-  const tabs = useMemo<[SwipeableTab, SwipeableTab]>(
-    () => [
+  const tabs = useMemo<SwipeableTab[]>(() => {
+    const result: SwipeableTab[] = [
       {
         key: 'routes',
         label: t('trainingScreen.routes'),
@@ -95,9 +106,12 @@ export default function RoutesScreen() {
         icon: 'road-variant',
         count: totalSections,
       },
-    ],
-    [t, routeGroupCount, totalSections]
-  );
+    ];
+    if (debugEnabled) {
+      result.push({ key: 'debug', label: 'Sync', icon: 'bug-outline' });
+    }
+    return result;
+  }, [t, routeGroupCount, totalSections, debugEnabled]);
 
   // Date range state - default to full cached range (show all data)
   const now = useMemo(() => new Date(), []);
@@ -287,7 +301,9 @@ export default function RoutesScreen() {
         newestDate={newestSyncedDate}
         isDark={isDark}
         isLoading={!routesData}
-        syncMessage={timelineSyncProgress?.message || null}
+        syncMessage={
+          timelineSyncProgress?.message || (groupsDirty ? t('routesScreen.computingRoutes') : null)
+        }
       />
 
       {/* Swipeable Routes/Sections tabs */}
@@ -309,7 +325,9 @@ export default function RoutesScreen() {
           batchSections={routesData?.sections}
           onLoadMore={loadMoreSections}
           hasMore={hasMoreSections}
+          totalSectionCount={totalSections}
         />
+        {debugEnabled ? <SyncDebugTab /> : null}
       </SwipeableTabs>
     </ScreenSafeAreaView>
   );

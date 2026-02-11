@@ -191,6 +191,12 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 5811,
   },
   {
+    name: 'persistent_engine_get_section_calendar_summary',
+    camelName: 'persistentEngineGetSectionCalendarSummary',
+    file: 'persistence.rs',
+    line: 6076,
+  },
+  {
     name: 'persistent_engine_get_route_performances',
     camelName: 'persistentEngineGetRoutePerformances',
     file: 'persistence.rs',
@@ -506,6 +512,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'persistentEngineGetAllSectionNames',
   'persistentEngineGetSectionPerformances',
   'persistentEngineGetSectionPerformanceBuckets',
+  'persistentEngineGetSectionCalendarSummary',
   'persistentEngineGetRoutePerformances',
   'persistentEngineGetSectionCount',
   'persistentEngineGetGroupCount',
@@ -588,6 +595,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   persistent_engine_get_all_section_names: 'persistentEngineGetAllSectionNames',
   persistent_engine_get_section_performances: 'persistentEngineGetSectionPerformances',
   persistent_engine_get_section_performance_buckets: 'persistentEngineGetSectionPerformanceBuckets',
+  persistent_engine_get_section_calendar_summary: 'persistentEngineGetSectionCalendarSummary',
   persistent_engine_get_route_performances: 'persistentEngineGetRoutePerformances',
   persistent_engine_get_section_count: 'persistentEngineGetSectionCount',
   persistent_engine_get_group_count: 'persistentEngineGetGroupCount',

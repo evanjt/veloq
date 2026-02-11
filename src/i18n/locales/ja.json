@@ -644,6 +644,9 @@
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "自動基準選択にリセットしますか？\n\nこの区間はすべてのアクティビティと再照合されます。これにより、この区間のアクティビティが追加または削除される場合があります。",
     "referenceUpdated": "Reference activity updated",
+    "performanceHistory": "パフォーマンス履歴",
+    "traversalsSummary": "{{count}}回通過 · ベスト {{time}}",
+    "yearPr": "年間PR",
     "visitsCount": "{{count}}回の訪問"
   },
   "settings": {

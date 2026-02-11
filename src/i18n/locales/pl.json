@@ -644,6 +644,9 @@
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Przywrócić automatyczny wybór referencji?\n\nOdcinek zostanie ponownie dopasowany do wszystkich Twoich aktywności. Może to dodać lub usunąć aktywności z tego odcinka.",
     "referenceUpdated": "Reference activity updated",
+    "performanceHistory": "Historia wyników",
+    "traversalsSummary": "{{count}} przejazdów · najlepszy {{time}}",
+    "yearPr": "PR roku",
     "visitsCount": "{{count}} wizyt"
   },
   "settings": {

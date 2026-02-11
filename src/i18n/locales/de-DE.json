@@ -644,6 +644,9 @@
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Auf automatische Referenzauswahl zurücksetzen?\n\nDer Abschnitt wird erneut mit all deinen Aktivitäten abgeglichen. Dabei können Aktivitäten hinzugefügt oder entfernt werden.",
     "referenceUpdated": "Reference activity updated",
+    "performanceHistory": "Leistungshistorie",
+    "traversalsSummary": "{{count}} Durchfahrten · beste {{time}}",
+    "yearPr": "Jahres-PR",
     "visitsCount": "{{count}} Besuche"
   },
   "settings": {

@@ -644,6 +644,9 @@
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "¿Restablecer a selección automática de referencia?\n\nLa sección se volverá a comparar con todas tus actividades. Esto puede añadir o eliminar actividades de esta sección.",
     "referenceUpdated": "Reference activity updated",
+    "performanceHistory": "Historial de rendimiento",
+    "traversalsSummary": "{{count}} recorridos · mejor {{time}}",
+    "yearPr": "RP del año",
     "visitsCount": "{{count}} visitas"
   },
   "settings": {

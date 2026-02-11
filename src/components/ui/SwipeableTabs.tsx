@@ -233,7 +233,7 @@ export function SwipeableTabs({
         <Animated.View
           style={[styles.contentContainer, { width: SCREEN_WIDTH * tabCount }, contentStyle]}
         >
-          {React.Children.map(children, (child, index) => (
+          {React.Children.toArray(children).map((child, index) => (
             <View key={index} style={styles.page}>
               {lazy && !visitedRef.current.has(index) ? null : child}
             </View>

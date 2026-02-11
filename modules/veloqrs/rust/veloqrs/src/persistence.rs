@@ -35,8 +35,36 @@ use crate::{
     SectionPortion, geo_utils,
 };
 use lru::LruCache;
-use chrono::Utc;
+use chrono::{Datelike, DateTime, NaiveDate, Utc};
 use once_cell::sync::Lazy;
+
+// ============================================================================
+// Calendar-Aligned Bucketing
+// ============================================================================
+
+/// Map a Unix timestamp to the start of the calendar period it falls in.
+/// Returns a Unix timestamp for the start of the week/month/quarter/year.
+fn calendar_bucket_key(timestamp: i64, bucket_type: &str) -> i64 {
+    let dt = DateTime::from_timestamp(timestamp, 0)
+        .unwrap_or_default()
+        .naive_utc();
+    let date = match bucket_type {
+        "weekly" => {
+            // ISO week: Monday as first day
+            let weekday = dt.weekday().num_days_from_monday();
+            NaiveDate::from_ymd_opt(dt.year(), dt.month(), dt.day()).unwrap()
+                - chrono::Duration::days(weekday as i64)
+        }
+        "monthly" => NaiveDate::from_ymd_opt(dt.year(), dt.month(), 1).unwrap(),
+        "quarterly" => {
+            let q_month = ((dt.month() - 1) / 3) * 3 + 1;
+            NaiveDate::from_ymd_opt(dt.year(), q_month, 1).unwrap()
+        }
+        "yearly" => NaiveDate::from_ymd_opt(dt.year(), 1, 1).unwrap(),
+        _ => NaiveDate::from_ymd_opt(dt.year(), dt.month(), 1).unwrap(),
+    };
+    date.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp()
+}
 
 // ============================================================================
 // Name Translation Support
@@ -3918,6 +3946,20 @@ impl PersistentRouteEngine {
     // Consensus Routes
     // ========================================================================
 
+    /// Load a group's activity IDs directly from SQLite without triggering recomputation.
+    fn get_group_activity_ids_from_db(&self, group_id: &str) -> Option<Vec<String>> {
+        self.db
+            .query_row(
+                "SELECT activity_ids FROM route_groups WHERE id = ?",
+                params![group_id],
+                |row| {
+                    let json: String = row.get(0)?;
+                    Ok(serde_json::from_str(&json).unwrap_or_default())
+                },
+            )
+            .ok()
+    }
+
     /// Get consensus route for a group, with caching.
     pub fn get_consensus_route(&mut self, group_id: &str) -> Option<Vec<GpsPoint>> {
         // Check cache
@@ -3925,15 +3967,11 @@ impl PersistentRouteEngine {
             return Some(consensus.clone());
         }
 
-        // Find the group and extract activity IDs (to release the mutable borrow)
-        let activity_ids = {
-            let groups = self.get_groups();
-            let group = groups.iter().find(|g| g.group_id == group_id)?;
-            if group.activity_ids.is_empty() {
-                return None;
-            }
-            group.activity_ids.clone()
-        };
+        // Load activity IDs directly from SQLite to avoid triggering recompute_groups()
+        let activity_ids = self.get_group_activity_ids_from_db(group_id)?;
+        if activity_ids.is_empty() {
+            return None;
+        }
 
         // Get tracks for this group (now we can borrow self again)
         let tracks: Vec<Vec<GpsPoint>> = activity_ids
@@ -4658,66 +4696,91 @@ impl PersistentRouteEngine {
             })
             .cloned();
 
-        // Find best forward record (direction is "same" or "forward")
-        let best_forward_record = records
-            .iter()
-            .filter(|r| r.direction == "same" || r.direction == "forward")
-            .min_by(|a, b| {
-                a.best_time
-                    .partial_cmp(&b.best_time)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .cloned();
+        // Scan all laps across all records to find per-direction bests.
+        // This fixes the bug where record-level direction (first lap) and
+        // cross-direction best_time gave wrong per-direction PRs.
+        let mut best_fwd_time = f64::MAX;
+        let mut best_fwd_record_idx: Option<usize> = None;
+        let mut best_fwd_pace = 0.0f64;
+        let mut best_rev_time = f64::MAX;
+        let mut best_rev_record_idx: Option<usize> = None;
+        let mut best_rev_pace = 0.0f64;
 
-        // Find best reverse record
-        let best_reverse_record = records
-            .iter()
-            .filter(|r| r.direction == "reverse" || r.direction == "backward")
-            .min_by(|a, b| {
-                a.best_time
-                    .partial_cmp(&b.best_time)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .cloned();
+        let mut fwd_times: Vec<f64> = Vec::new();
+        let mut fwd_last_date: Option<i64> = None;
+        let mut rev_times: Vec<f64> = Vec::new();
+        let mut rev_last_date: Option<i64> = None;
 
-        // Compute forward direction stats
-        let forward_records: Vec<_> = records
-            .iter()
-            .filter(|r| r.direction == "same" || r.direction == "forward")
-            .collect();
-        let forward_stats = if forward_records.is_empty() {
+        for (i, record) in records.iter().enumerate() {
+            for lap in &record.laps {
+                let is_rev = lap.direction == "reverse" || lap.direction == "backward";
+                if is_rev {
+                    rev_times.push(lap.time);
+                    rev_last_date = Some(
+                        rev_last_date.map_or(record.activity_date, |d: i64| {
+                            d.max(record.activity_date)
+                        }),
+                    );
+                    if lap.time < best_rev_time {
+                        best_rev_time = lap.time;
+                        best_rev_pace = lap.pace;
+                        best_rev_record_idx = Some(i);
+                    }
+                } else {
+                    fwd_times.push(lap.time);
+                    fwd_last_date = Some(
+                        fwd_last_date.map_or(record.activity_date, |d: i64| {
+                            d.max(record.activity_date)
+                        }),
+                    );
+                    if lap.time < best_fwd_time {
+                        best_fwd_time = lap.time;
+                        best_fwd_pace = lap.pace;
+                        best_fwd_record_idx = Some(i);
+                    }
+                }
+            }
+        }
+
+        // Construct per-direction best records with direction-correct times
+        let best_forward_record = best_fwd_record_idx.map(|idx| {
+            let mut r = records[idx].clone();
+            r.best_time = best_fwd_time;
+            r.best_pace = best_fwd_pace;
+            r.direction = "same".to_string();
+            r
+        });
+
+        let best_reverse_record = best_rev_record_idx.map(|idx| {
+            let mut r = records[idx].clone();
+            r.best_time = best_rev_time;
+            r.best_pace = best_rev_pace;
+            r.direction = "reverse".to_string();
+            r
+        });
+
+        // Compute forward direction stats from lap-level data
+        let forward_stats = if fwd_times.is_empty() {
             None
         } else {
-            let count = forward_records.len() as u32;
-            let avg_time = forward_records.iter().map(|r| r.best_time).sum::<f64>() / count as f64;
-            let last_activity = forward_records
-                .iter()
-                .max_by(|a, b| a.activity_date.cmp(&b.activity_date))
-                .map(|r| r.activity_date);
+            let count = fwd_times.len() as u32;
+            let avg_time = fwd_times.iter().sum::<f64>() / count as f64;
             Some(DirectionStats {
                 avg_time: Some(avg_time),
-                last_activity,
+                last_activity: fwd_last_date,
                 count,
             })
         };
 
-        // Compute reverse direction stats
-        let reverse_records: Vec<_> = records
-            .iter()
-            .filter(|r| r.direction == "reverse" || r.direction == "backward")
-            .collect();
-        let reverse_stats = if reverse_records.is_empty() {
+        // Compute reverse direction stats from lap-level data
+        let reverse_stats = if rev_times.is_empty() {
             None
         } else {
-            let count = reverse_records.len() as u32;
-            let avg_time = reverse_records.iter().map(|r| r.best_time).sum::<f64>() / count as f64;
-            let last_activity = reverse_records
-                .iter()
-                .max_by(|a, b| a.activity_date.cmp(&b.activity_date))
-                .map(|r| r.activity_date);
+            let count = rev_times.len() as u32;
+            let avg_time = rev_times.iter().sum::<f64>() / count as f64;
             Some(DirectionStats {
                 avg_time: Some(avg_time),
-                last_activity,
+                last_activity: rev_last_date,
                 count,
             })
         };
@@ -4782,15 +4845,6 @@ impl PersistentRouteEngine {
             0i64
         } else {
             now - (range_days as i64) * 86400
-        };
-
-        // Bucket size in seconds
-        let bucket_seconds: i64 = match bucket_type {
-            "weekly" => 7 * 86400,
-            "monthly" => 30 * 86400,
-            "quarterly" => 91 * 86400,
-            "yearly" => 365 * 86400,
-            _ => 30 * 86400,
         };
 
         // Group portions by activity
@@ -4913,7 +4967,7 @@ impl PersistentRouteEngine {
         let mut bucket_map: HashMap<(i64, String), (SectionPerformanceBucket, u32)> = HashMap::new();
 
         for perf in &in_range {
-            let bucket_key = perf.activity_date / bucket_seconds;
+            let bucket_key = calendar_bucket_key(perf.activity_date, bucket_type);
             let dir_key = if perf.direction == "reverse" || perf.direction == "backward" {
                 "reverse".to_string()
             } else {
@@ -5009,6 +5063,221 @@ impl PersistentRouteEngine {
             forward_stats,
             reverse_stats,
         }
+    }
+
+    /// Get a calendar-aligned Year > Month performance summary for a section.
+    /// Returns full history (no date range filter).
+    pub fn get_section_calendar_summary(
+        &mut self,
+        section_id: &str,
+    ) -> Option<crate::CalendarSummary> {
+        // Reuse get_section_performances — single source of truth for section times.
+        // This ensures calendar values match chart PRs exactly (no proportional estimates
+        // for activities without time streams, matching the strict behavior).
+        let perf_result = self.get_section_performances(section_id);
+
+        if perf_result.records.is_empty() {
+            return None;
+        }
+
+        // Get section distance from the first record
+        let section_distance = perf_result.records.first().map(|r| r.section_distance).unwrap_or(0.0);
+
+        fn is_reverse_dir(dir: &str) -> bool {
+            matches!(dir, "reverse" | "backward")
+        }
+
+        // Each record has laps with per-direction data. Build per-activity, per-direction entries.
+        struct DirPerf {
+            activity_id: String,
+            activity_name: String,
+            activity_date: i64,
+            best_time: f64,
+            best_pace: f64,
+            is_reverse: bool,
+        }
+
+        let mut all_perfs: Vec<DirPerf> = Vec::new();
+
+        for record in &perf_result.records {
+            // Group laps by direction
+            let mut fwd_best_time = f64::MAX;
+            let mut fwd_best_pace = 0.0f64;
+            let mut rev_best_time = f64::MAX;
+            let mut rev_best_pace = 0.0f64;
+            let mut has_fwd = false;
+            let mut has_rev = false;
+
+            for lap in &record.laps {
+                if is_reverse_dir(&lap.direction) {
+                    has_rev = true;
+                    if lap.time < rev_best_time {
+                        rev_best_time = lap.time;
+                        rev_best_pace = lap.pace;
+                    }
+                } else {
+                    has_fwd = true;
+                    if lap.time < fwd_best_time {
+                        fwd_best_time = lap.time;
+                        fwd_best_pace = lap.pace;
+                    }
+                }
+            }
+
+            if has_fwd {
+                all_perfs.push(DirPerf {
+                    activity_id: record.activity_id.clone(),
+                    activity_name: record.activity_name.clone(),
+                    activity_date: record.activity_date,
+                    best_time: fwd_best_time,
+                    best_pace: fwd_best_pace,
+                    is_reverse: false,
+                });
+            }
+            if has_rev {
+                all_perfs.push(DirPerf {
+                    activity_id: record.activity_id.clone(),
+                    activity_name: record.activity_name.clone(),
+                    activity_date: record.activity_date,
+                    best_time: rev_best_time,
+                    best_pace: rev_best_pace,
+                    is_reverse: true,
+                });
+            }
+        }
+
+        if all_perfs.is_empty() {
+            return None;
+        }
+
+        fn to_dir_best(perf: &DirPerf, count: u32) -> crate::CalendarDirectionBest {
+            crate::CalendarDirectionBest {
+                count,
+                best_time: perf.best_time,
+                best_pace: perf.best_pace,
+                best_activity_id: perf.activity_id.clone(),
+                best_activity_name: perf.activity_name.clone(),
+                best_activity_date: perf.activity_date,
+                is_estimated: false,
+            }
+        }
+
+        // Group by year, month, and direction
+        use std::collections::BTreeMap;
+        struct MonthDirData {
+            total_count: u32,
+            fwd_count: u32,
+            fwd_best: Option<usize>,
+            rev_count: u32,
+            rev_best: Option<usize>,
+        }
+        struct YearData {
+            months: BTreeMap<u32, MonthDirData>,
+        }
+
+        let mut years_map: BTreeMap<i32, YearData> = BTreeMap::new();
+
+        for (i, perf) in all_perfs.iter().enumerate() {
+            let dt = DateTime::from_timestamp(perf.activity_date, 0)
+                .unwrap_or_default()
+                .naive_utc();
+            let year = dt.year();
+            let month = dt.month();
+
+            let year_data = years_map.entry(year).or_insert_with(|| YearData {
+                months: BTreeMap::new(),
+            });
+
+            let md = year_data.months.entry(month).or_insert_with(|| MonthDirData {
+                total_count: 0,
+                fwd_count: 0,
+                fwd_best: None,
+                rev_count: 0,
+                rev_best: None,
+            });
+
+            md.total_count += 1;
+            if perf.is_reverse {
+                md.rev_count += 1;
+                match md.rev_best {
+                    Some(idx) if perf.best_time < all_perfs[idx].best_time => md.rev_best = Some(i),
+                    None => md.rev_best = Some(i),
+                    _ => {}
+                }
+            } else {
+                md.fwd_count += 1;
+                match md.fwd_best {
+                    Some(idx) if perf.best_time < all_perfs[idx].best_time => md.fwd_best = Some(i),
+                    None => md.fwd_best = Some(i),
+                    _ => {}
+                }
+            }
+        }
+
+        // Build result (newest year first)
+        let years: Vec<crate::CalendarYearSummary> = years_map
+            .into_iter()
+            .rev()
+            .map(|(year, year_data)| {
+                let months: Vec<crate::CalendarMonthSummary> = year_data
+                    .months
+                    .into_iter()
+                    .map(|(month, md)| {
+                        crate::CalendarMonthSummary {
+                            month,
+                            traversal_count: md.total_count,
+                            forward: md.fwd_best.map(|idx| to_dir_best(&all_perfs[idx], md.fwd_count)),
+                            reverse: md.rev_best.map(|idx| to_dir_best(&all_perfs[idx], md.rev_count)),
+                        }
+                    })
+                    .collect();
+
+                let year_fwd_best = months.iter()
+                    .filter_map(|m| m.forward.as_ref())
+                    .min_by(|a, b| a.best_time.partial_cmp(&b.best_time).unwrap_or(std::cmp::Ordering::Equal));
+                let year_rev_best = months.iter()
+                    .filter_map(|m| m.reverse.as_ref())
+                    .min_by(|a, b| a.best_time.partial_cmp(&b.best_time).unwrap_or(std::cmp::Ordering::Equal));
+
+                let fwd_count: u32 = months.iter().filter_map(|m| m.forward.as_ref()).map(|f| f.count).sum();
+                let rev_count: u32 = months.iter().filter_map(|m| m.reverse.as_ref()).map(|r| r.count).sum();
+                let traversal_count = months.iter().map(|m| m.traversal_count).sum();
+
+                crate::CalendarYearSummary {
+                    year,
+                    traversal_count,
+                    forward: year_fwd_best.map(|b| crate::CalendarDirectionBest {
+                        count: fwd_count,
+                        ..b.clone()
+                    }),
+                    reverse: year_rev_best.map(|b| crate::CalendarDirectionBest {
+                        count: rev_count,
+                        ..b.clone()
+                    }),
+                    months,
+                }
+            })
+            .collect();
+
+        // Overall PRs by direction
+        let fwd_total: u32 = all_perfs.iter().filter(|p| !p.is_reverse).count() as u32;
+        let rev_total: u32 = all_perfs.iter().filter(|p| p.is_reverse).count() as u32;
+
+        let forward_pr = all_perfs
+            .iter()
+            .filter(|p| !p.is_reverse)
+            .min_by(|a, b| a.best_time.partial_cmp(&b.best_time).unwrap_or(std::cmp::Ordering::Equal));
+        let reverse_pr = all_perfs
+            .iter()
+            .filter(|p| p.is_reverse)
+            .min_by(|a, b| a.best_time.partial_cmp(&b.best_time).unwrap_or(std::cmp::Ordering::Equal));
+
+        Some(crate::CalendarSummary {
+            years,
+            forward_pr: forward_pr.map(|p| to_dir_best(p, fwd_total)),
+            reverse_pr: reverse_pr.map(|p| to_dir_best(p, rev_total)),
+            section_distance,
+        })
     }
 
     /// Get route performances for all activities in a group.
@@ -5483,6 +5752,7 @@ impl PersistentRouteEngine {
             sections,
             has_more_groups,
             has_more_sections,
+            groups_dirty: self.groups_dirty,
         }
     }
 }
@@ -5835,6 +6105,19 @@ pub mod persistent_engine_ffi {
         })
     }
 
+    /// Get calendar-aligned Year > Month performance summary for a section.
+    /// Returns full history with nested year/month structure.
+    #[uniffi::export]
+    pub fn persistent_engine_get_section_calendar_summary(
+        section_id: String,
+    ) -> Option<crate::FfiCalendarSummary> {
+        with_persistent_engine(|e| {
+            e.get_section_calendar_summary(&section_id)
+                .map(crate::FfiCalendarSummary::from)
+        })
+        .flatten()
+    }
+
     /// Get route performances.
     /// Returns structured data instead of JSON string.
     #[uniffi::export]
@@ -5989,6 +6272,13 @@ pub mod persistent_engine_ffi {
                 .unwrap_or_default()
         })
         .unwrap_or_default()
+    }
+
+    /// Remove a single activity from the engine (debug only).
+    /// Returns true if the activity was removed successfully.
+    #[uniffi::export]
+    pub fn persistent_engine_remove_activity(activity_id: String) -> bool {
+        with_persistent_engine(|e| e.remove_activity(&activity_id).is_ok()).unwrap_or(false)
     }
 
     /// Clone an activity N times for scale testing (debug only).

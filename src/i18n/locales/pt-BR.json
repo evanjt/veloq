@@ -644,6 +644,9 @@
     "resetReference": "Reset Reference",
     "resetReferenceConfirm": "Restaurar seleção automática de referência?\n\nO trecho será novamente comparado com todas as suas atividades. Isso pode adicionar ou remover atividades deste trecho.",
     "referenceUpdated": "Reference activity updated",
+    "performanceHistory": "Histórico de desempenho",
+    "traversalsSummary": "{{count}} travessias · melhor {{time}}",
+    "yearPr": "RP do ano",
     "visits": "visitas",
     "visitsCount": "{{count}} visitas"
   },
