@@ -770,6 +770,8 @@ export interface TranslationResource {
     bestPerYear: string;
     groupingTitle: string;
     groupingDescription: string;
+    performanceHistory: string;
+    traversalsSummary: string;
   };
 
   errorState: {

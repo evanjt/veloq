@@ -81,7 +81,6 @@ const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45);
 
 // Direction colors - using theme for consistency
 const REVERSE_COLOR = colors.reverseDirection;
-const SAME_COLOR_DEFAULT = colors.sameDirection;
 
 // Time range selector for bucketed chart
 type SectionTimeRange = '1m' | '3m' | '6m' | '1y' | 'all';
@@ -979,11 +978,14 @@ export default function SectionDetailScreen() {
     if (!useBucketedChart || !section?.id) return null;
     const engine = getRouteEngine();
     if (!engine) return null;
-    return engine.getSectionPerformanceBuckets(
+    const t0 = performance.now();
+    const result = engine.getSectionPerformanceBuckets(
       section.id,
       RANGE_DAYS[sectionTimeRange],
       bucketType
     );
+    console.log(`[PERF] getSectionPerformanceBuckets: ${(performance.now() - t0).toFixed(1)}ms`);
+    return result;
   }, [useBucketedChart, section?.id, sectionTimeRange, bucketType]);
 
   // Build chart data from buckets (for sections with many traversals)
@@ -1075,34 +1077,34 @@ export default function SectionDetailScreen() {
     };
   }, [bucketResult?.reverseStats]);
 
-  // Best records from bucket PR data
-  const bucketBestForward = useMemo(() => {
-    if (!bucketResult?.prBucket) return null;
-    const pr = bucketResult.prBucket;
-    if (pr.direction !== 'same' && pr.direction !== 'forward') return null;
-    const date = fromUnixSeconds(pr.activityDate);
-    if (!date) return null;
-    return {
-      bestTime: pr.bestTime,
-      bestPace: pr.bestPace,
-      activityName: pr.activityName,
-      activityDate: date,
+  // Best records per direction from bucket data
+  const { bucketBestForward, bucketBestReverse } = useMemo(() => {
+    if (!bucketResult?.buckets) return { bucketBestForward: null, bucketBestReverse: null };
+    let bestFwd: (typeof bucketResult.buckets)[0] | null = null;
+    let bestRev: (typeof bucketResult.buckets)[0] | null = null;
+    for (const b of bucketResult.buckets) {
+      if (b.bestTime <= 0) continue;
+      if (b.direction === 'same' || b.direction === 'forward') {
+        if (!bestFwd || b.bestPace > bestFwd.bestPace) bestFwd = b;
+      } else if (b.direction === 'reverse' || b.direction === 'backward') {
+        if (!bestRev || b.bestPace > bestRev.bestPace) bestRev = b;
+      }
+    }
+    const toRecord = (b: (typeof bucketResult.buckets)[0]) => {
+      const date = fromUnixSeconds(b.activityDate);
+      if (!date) return null;
+      return {
+        bestTime: b.bestTime,
+        bestPace: b.bestPace,
+        activityName: b.activityName,
+        activityDate: date,
+      };
     };
-  }, [bucketResult?.prBucket]);
-
-  const bucketBestReverse = useMemo(() => {
-    if (!bucketResult?.prBucket) return null;
-    const pr = bucketResult.prBucket;
-    if (pr.direction !== 'reverse' && pr.direction !== 'backward') return null;
-    const date = fromUnixSeconds(pr.activityDate);
-    if (!date) return null;
     return {
-      bestTime: pr.bestTime,
-      bestPace: pr.bestPace,
-      activityName: pr.activityName,
-      activityDate: date,
+      bucketBestForward: bestFwd ? toRecord(bestFwd) : null,
+      bucketBestReverse: bestRev ? toRecord(bestRev) : null,
     };
-  }, [bucketResult?.prBucket]);
+  }, [bucketResult?.buckets]);
 
   // Calendar summary: Year > Month performance history
   const [showHistory, setShowHistory] = useState(false);
@@ -1113,7 +1115,9 @@ export default function SectionDetailScreen() {
     try {
       const engine = getRouteEngine();
       if (!engine) return null;
+      const t0 = performance.now();
       const result = engine.getSectionCalendarSummary(section.id);
+      console.log(`[PERF] getSectionCalendarSummary: ${(performance.now() - t0).toFixed(1)}ms`);
       if (result && result.years.length > 0 && expandedYears.size === 0) {
         // Auto-expand the most recent year on first load
         setExpandedYears(new Set([result.years[0].year]));
@@ -1124,7 +1128,7 @@ export default function SectionDetailScreen() {
     }
   }, [section?.id]);
 
-  const isRunning = section ? isRunningActivity(section.sportType) : false;
+  const isRunning = section ? isRunningActivity(section.sportType as ActivityType) : false;
 
   const toggleYear = useCallback((year: number) => {
     setExpandedYears((prev) => {
@@ -1352,62 +1356,25 @@ export default function SectionDetailScreen() {
     };
   }, [bestTimeValue, averageTime, chartData.length, lastActivityDate]);
 
-  // Compute direction stats from chartData when Rust FFI returns empty
-  const computedForwardStats = useMemo((): DirectionSummaryStats | null => {
-    if (forwardStats) return forwardStats;
-    const forwardPoints = chartData.filter((p) => p.direction === 'same');
-    if (forwardPoints.length === 0) return null;
-    const times = forwardPoints
-      .map((p) => p.sectionTime)
-      .filter((t): t is number => t != null && t > 0);
-    const avgTime = times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : null;
-    const lastDate = forwardPoints.reduce(
-      (latest, p) => (p.date > latest ? p.date : latest),
-      forwardPoints[0].date
-    );
-    return { avgTime, lastActivity: lastDate, count: forwardPoints.length };
-  }, [forwardStats, chartData]);
+  const computedForwardStats = useMemo(
+    (): DirectionSummaryStats | null => forwardStats,
+    [forwardStats]
+  );
 
-  const computedReverseStats = useMemo((): DirectionSummaryStats | null => {
-    if (reverseStats) return reverseStats;
-    const reversePoints = chartData.filter((p) => p.direction === 'reverse');
-    if (reversePoints.length === 0) return null;
-    const times = reversePoints
-      .map((p) => p.sectionTime)
-      .filter((t): t is number => t != null && t > 0);
-    const avgTime = times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : null;
-    const lastDate = reversePoints.reduce(
-      (latest, p) => (p.date > latest ? p.date : latest),
-      reversePoints[0].date
-    );
-    return { avgTime, lastActivity: lastDate, count: reversePoints.length };
-  }, [reverseStats, chartData]);
+  const computedReverseStats = useMemo(
+    (): DirectionSummaryStats | null => reverseStats,
+    [reverseStats]
+  );
 
-  const computedBestForward = useMemo((): { bestTime: number; activityDate: Date } | null => {
-    if (bestForwardRecord) return bestForwardRecord;
-    const forwardPoints = chartData.filter((p) => p.direction === 'same');
-    if (forwardPoints.length === 0) return null;
-    const withTime = forwardPoints.filter((p) => p.sectionTime != null && p.sectionTime > 0);
-    if (withTime.length === 0) return null;
-    const best = withTime.reduce(
-      (min, p) => (p.sectionTime! < min.sectionTime! ? p : min),
-      withTime[0]
-    );
-    return { bestTime: best.sectionTime!, activityDate: best.date };
-  }, [bestForwardRecord, chartData]);
+  const computedBestForward = useMemo(
+    (): { bestTime: number; activityDate: Date } | null => bestForwardRecord ?? null,
+    [bestForwardRecord]
+  );
 
-  const computedBestReverse = useMemo((): { bestTime: number; activityDate: Date } | null => {
-    if (bestReverseRecord) return bestReverseRecord;
-    const reversePoints = chartData.filter((p) => p.direction === 'reverse');
-    if (reversePoints.length === 0) return null;
-    const withTime = reversePoints.filter((p) => p.sectionTime != null && p.sectionTime > 0);
-    if (withTime.length === 0) return null;
-    const best = withTime.reduce(
-      (min, p) => (p.sectionTime! < min.sectionTime! ? p : min),
-      withTime[0]
-    );
-    return { bestTime: best.sectionTime!, activityDate: best.date };
-  }, [bestReverseRecord, chartData]);
+  const computedBestReverse = useMemo(
+    (): { bestTime: number; activityDate: Date } | null => bestReverseRecord ?? null,
+    [bestReverseRecord]
+  );
 
   if (!section) {
     return (
@@ -1805,7 +1772,7 @@ export default function SectionDetailScreen() {
                             <MaterialCommunityIcons
                               name="trophy"
                               size={14}
-                              color={SAME_COLOR_DEFAULT}
+                              color={activityColor}
                               style={styles.calendarTrophy}
                             />
                           )}
@@ -1865,7 +1832,7 @@ export default function SectionDetailScreen() {
                                       <View
                                         style={[
                                           styles.calendarDirDot,
-                                          { backgroundColor: SAME_COLOR_DEFAULT },
+                                          { backgroundColor: activityColor },
                                         ]}
                                       />
                                       <Text
@@ -1884,9 +1851,7 @@ export default function SectionDetailScreen() {
                                           name="trophy"
                                           size={12}
                                           color={
-                                            isMonthFwdOverallPr
-                                              ? colors.chartGold
-                                              : SAME_COLOR_DEFAULT
+                                            isMonthFwdOverallPr ? colors.chartGold : activityColor
                                           }
                                         />
                                       )}

@@ -501,10 +501,22 @@ pub struct PersistentRouteEngine {
     /// Configuration
     match_config: MatchConfig,
     section_config: SectionConfig,
+
+    /// Single-entry cache for get_section_performances (avoids redundant computation
+    /// when buckets + calendar both call it for the same section on detail load)
+    perf_cache_section_id: Option<String>,
+    perf_cache_result: Option<SectionPerformanceResult>,
 }
 
 
 impl PersistentRouteEngine {
+    /// Invalidate the single-entry performance cache.
+    /// Call after any mutation that affects sections, time streams, or activity metrics.
+    fn invalidate_perf_cache(&mut self) {
+        self.perf_cache_section_id = None;
+        self.perf_cache_result = None;
+    }
+
     // ========================================================================
     // Initialization
     // ========================================================================
@@ -533,6 +545,8 @@ impl PersistentRouteEngine {
             sections_dirty: false,
             match_config: MatchConfig::default(),
             section_config: SectionConfig::default(),
+            perf_cache_section_id: None,
+            perf_cache_result: None,
         })
     }
 
@@ -1497,6 +1511,7 @@ impl PersistentRouteEngine {
         self.processed_activity_ids.clear();
         self.groups_dirty = false;
         self.sections_dirty = false;
+        self.invalidate_perf_cache();
 
         Ok(())
     }
@@ -2622,6 +2637,7 @@ impl PersistentRouteEngine {
     /// Call this after deleting a section.
     pub fn remove_section_from_memory(&mut self, section_id: &str) {
         self.sections.retain(|s| s.id != section_id);
+        self.invalidate_perf_cache();
         log::debug!(
             "tracematch: [remove_section_from_memory] Removed section {} from memory",
             section_id
@@ -3409,6 +3425,7 @@ impl PersistentRouteEngine {
                 }
                 // Invalidate section LRU cache since sections changed
                 self.section_cache.clear();
+                self.invalidate_perf_cache();
                 Ok(())
             }
             Err(e) => {
@@ -4160,32 +4177,35 @@ impl PersistentRouteEngine {
     /// This persists the metrics to the database and keeps them in memory.
     pub fn set_activity_metrics(&mut self, metrics: Vec<ActivityMetrics>) -> SqlResult<()> {
         // Insert or replace in database (core fields only, no extended metrics)
-        let mut stmt = self.db.prepare(
-            "INSERT OR REPLACE INTO activity_metrics
-             (activity_id, name, date, distance, moving_time, elapsed_time,
-              elevation_gain, avg_hr, avg_power, sport_type)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        )?;
+        {
+            let mut stmt = self.db.prepare(
+                "INSERT OR REPLACE INTO activity_metrics
+                 (activity_id, name, date, distance, moving_time, elapsed_time,
+                  elevation_gain, avg_hr, avg_power, sport_type)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )?;
 
-        for m in &metrics {
-            stmt.execute(params![
-                &m.activity_id,
-                &m.name,
-                m.date,
-                m.distance,
-                m.moving_time,
-                m.elapsed_time,
-                m.elevation_gain,
-                m.avg_hr.map(|v| v as i32),
-                m.avg_power.map(|v| v as i32),
-                &m.sport_type,
-            ])?;
+            for m in &metrics {
+                stmt.execute(params![
+                    &m.activity_id,
+                    &m.name,
+                    m.date,
+                    m.distance,
+                    m.moving_time,
+                    m.elapsed_time,
+                    m.elevation_gain,
+                    m.avg_hr.map(|v| v as i32),
+                    m.avg_power.map(|v| v as i32),
+                    &m.sport_type,
+                ])?;
+            }
         }
 
         // Update in-memory cache
         for m in metrics {
             self.activity_metrics.insert(m.activity_id.clone(), m);
         }
+        self.invalidate_perf_cache();
 
         Ok(())
     }
@@ -4193,31 +4213,33 @@ impl PersistentRouteEngine {
     /// Set activity metrics with extended fields (training load, FTP, zone times).
     /// Persists all fields to the database. Extended fields are only used for SQL aggregate queries.
     pub fn set_activity_metrics_extended(&mut self, metrics: Vec<crate::FfiActivityMetrics>) -> SqlResult<()> {
-        let mut stmt = self.db.prepare(
-            "INSERT OR REPLACE INTO activity_metrics
-             (activity_id, name, date, distance, moving_time, elapsed_time,
-              elevation_gain, avg_hr, avg_power, sport_type,
-              training_load, ftp, power_zone_times, hr_zone_times)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        )?;
+        {
+            let mut stmt = self.db.prepare(
+                "INSERT OR REPLACE INTO activity_metrics
+                 (activity_id, name, date, distance, moving_time, elapsed_time,
+                  elevation_gain, avg_hr, avg_power, sport_type,
+                  training_load, ftp, power_zone_times, hr_zone_times)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )?;
 
-        for m in &metrics {
-            stmt.execute(params![
-                &m.activity_id,
-                &m.name,
-                m.date,
-                m.distance,
-                m.moving_time,
-                m.elapsed_time,
-                m.elevation_gain,
-                m.avg_hr.map(|v| v as i32),
-                m.avg_power.map(|v| v as i32),
-                &m.sport_type,
-                m.training_load,
-                m.ftp.map(|v| v as i32),
-                m.power_zone_times.as_deref(),
-                m.hr_zone_times.as_deref(),
-            ])?;
+            for m in &metrics {
+                stmt.execute(params![
+                    &m.activity_id,
+                    &m.name,
+                    m.date,
+                    m.distance,
+                    m.moving_time,
+                    m.elapsed_time,
+                    m.elevation_gain,
+                    m.avg_hr.map(|v| v as i32),
+                    m.avg_power.map(|v| v as i32),
+                    &m.sport_type,
+                    m.training_load,
+                    m.ftp.map(|v| v as i32),
+                    m.power_zone_times.as_deref(),
+                    m.hr_zone_times.as_deref(),
+                ])?;
+            }
         }
 
         // Update in-memory cache (core fields only)
@@ -4225,6 +4247,7 @@ impl PersistentRouteEngine {
             let core: ActivityMetrics = m.into();
             self.activity_metrics.insert(core.activity_id.clone(), core);
         }
+        self.invalidate_perf_cache();
 
         Ok(())
     }
@@ -4531,13 +4554,22 @@ impl PersistentRouteEngine {
             activity_ids.len(),
             persisted_count
         );
+        self.invalidate_perf_cache();
     }
 
     /// Get section performances with accurate time calculations.
     /// Uses time streams to calculate actual traversal times.
     /// Auto-loads time streams from SQLite if not in memory.
     pub fn get_section_performances(&mut self, section_id: &str) -> SectionPerformanceResult {
-        log::info!("[DEBUG] get_section_performances called for section_id: {}", section_id);
+        let start = std::time::Instant::now();
+
+        // Return cached result if same section (buckets + calendar both call this)
+        if self.perf_cache_section_id.as_deref() == Some(section_id) {
+            if let Some(ref cached) = self.perf_cache_result {
+                log::info!("[PERF] get_section_performances({}) -> cached in {:?}", section_id, start.elapsed());
+                return cached.clone();
+            }
+        }
 
         // Find the section (in-memory for auto, fallback to DB for custom)
         let section = match self.sections.iter().find(|s| s.id == section_id) {
@@ -4627,7 +4659,9 @@ impl PersistentRouteEngine {
                             return None;
                         }
 
-                        let pace = portion.distance_meters / lap_time;
+                        // Use canonical section distance for pace (not portion distance)
+                        // so all laps use the same denominator for comparison
+                        let pace = section.distance_meters / lap_time;
 
                         Some(SectionLap {
                             id: format!("{}_lap{}", activity_id, i),
@@ -4785,25 +4819,35 @@ impl PersistentRouteEngine {
             })
         };
 
-        SectionPerformanceResult {
+        let result = SectionPerformanceResult {
             records,
             best_record,
             best_forward_record,
             best_reverse_record,
             forward_stats,
             reverse_stats,
-        }
+        };
+
+        log::info!("[PERF] get_section_performances({}) -> {} records in {:?}", section_id, result.records.len(), start.elapsed());
+
+        // Cache for reuse by buckets/calendar
+        self.perf_cache_section_id = Some(section_id.to_string());
+        self.perf_cache_result = Some(result.clone());
+
+        result
     }
 
     /// Get time-bucketed best performances for chart display.
     /// Returns one data point per time bucket (weekly or monthly), keeping only the
-    /// fastest traversal per bucket. Uses estimates for activities missing time streams.
+    /// fastest traversal per bucket. Reuses `get_section_performances()` as single
+    /// source of truth — no proportional estimates, consistent pace formula.
     pub fn get_section_performance_buckets(
         &mut self,
         section_id: &str,
         range_days: u32,
         bucket_type: &str,
     ) -> SectionPerformanceBucketResult {
+        let start = std::time::Instant::now();
         let empty = SectionPerformanceBucketResult {
             buckets: vec![],
             total_traversals: 0,
@@ -4812,167 +4856,113 @@ impl PersistentRouteEngine {
             reverse_stats: None,
         };
 
-        // Find the section (in-memory for auto, fallback to DB for custom)
-        let section = match self.sections.iter().find(|s| s.id == section_id) {
-            Some(s) => s.clone(),
-            None => match self.get_section_by_id(section_id) {
-                Some(s) => s,
-                None => return empty,
-            },
-        };
-
-        if section.activity_portions.is_empty() {
+        let perf_result = self.get_section_performances(section_id);
+        if perf_result.records.is_empty() {
             return empty;
         }
 
-        // Collect unique activity IDs from portions
-        let activity_ids: Vec<String> = section
-            .activity_portions
-            .iter()
-            .map(|p| p.activity_id.clone())
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect();
-
-        // Auto-load time streams from SQLite (won't fetch from API)
-        for activity_id in &activity_ids {
-            self.ensure_time_stream_loaded(activity_id);
-        }
+        let section_distance = perf_result.records.first()
+            .map(|r| r.section_distance)
+            .unwrap_or(0.0);
 
         // Compute cutoff timestamp
         let now = Utc::now().timestamp();
-        let cutoff = if range_days == 0 {
-            0i64
-        } else {
-            now - (range_days as i64) * 86400
-        };
+        let cutoff = if range_days == 0 { 0i64 } else { now - (range_days as i64) * 86400 };
 
-        // Group portions by activity
-        let mut portions_by_activity: HashMap<&str, Vec<&crate::SectionPortion>> = HashMap::new();
-        for portion in &section.activity_portions {
-            portions_by_activity
-                .entry(&portion.activity_id)
-                .or_default()
-                .push(portion);
+        fn is_reverse_dir(dir: &str) -> bool {
+            matches!(dir, "reverse" | "backward")
         }
 
-        // Build per-activity best performance (one entry per activity)
-        struct ActivityPerf {
+        // Flatten records into per-activity, per-direction best laps
+        struct DirPerf {
             activity_id: String,
             activity_name: String,
             activity_date: i64,
             best_time: f64,
             best_pace: f64,
-            direction: String,
+            is_reverse: bool,
             section_distance: f64,
-            is_estimated: bool,
         }
 
-        let mut all_perfs: Vec<ActivityPerf> = Vec::new();
+        let mut all_perfs: Vec<DirPerf> = Vec::new();
 
-        for (activity_id, portions) in &portions_by_activity {
-            let metrics = match self.activity_metrics.get(*activity_id) {
-                Some(m) => m,
-                None => continue,
-            };
+        for record in &perf_result.records {
+            let mut fwd_best_time = f64::MAX;
+            let mut fwd_best_pace = 0.0f64;
+            let mut rev_best_time = f64::MAX;
+            let mut rev_best_pace = 0.0f64;
+            let mut has_fwd = false;
+            let mut has_rev = false;
 
-            let times = self.time_streams.get(*activity_id);
-
-            // Try to compute actual performance from time stream
-            let mut best_time = f64::MAX;
-            let mut best_pace = 0.0f64;
-            let mut best_direction = String::new();
-            let mut is_estimated = false;
-
-            if let Some(time_data) = times {
-                // Use actual time stream data
-                for portion in portions {
-                    let start_idx = portion.start_index as usize;
-                    let end_idx = portion.end_index as usize;
-                    if start_idx >= time_data.len() || end_idx >= time_data.len() {
-                        continue;
+            for lap in &record.laps {
+                if is_reverse_dir(&lap.direction) {
+                    has_rev = true;
+                    if lap.time < rev_best_time {
+                        rev_best_time = lap.time;
+                        rev_best_pace = lap.pace;
                     }
-                    let lap_time = (time_data[end_idx] as f64 - time_data[start_idx] as f64).abs();
-                    if lap_time <= 0.0 {
-                        continue;
-                    }
-                    let pace = portion.distance_meters / lap_time;
-                    if lap_time < best_time {
-                        best_time = lap_time;
-                        best_pace = pace;
-                        best_direction = portion.direction.to_string();
+                } else {
+                    has_fwd = true;
+                    if lap.time < fwd_best_time {
+                        fwd_best_time = lap.time;
+                        fwd_best_pace = lap.pace;
                     }
                 }
             }
 
-            // Fall back to proportional estimate if no time stream
-            if best_time == f64::MAX {
-                is_estimated = true;
-                // Use best portion by distance ratio
-                if let Some(best_portion) = portions.first() {
-                    let dist = best_portion.distance_meters;
-                    if metrics.distance > 0.0 && metrics.moving_time > 0 {
-                        let ratio = dist / metrics.distance;
-                        let est_time = (metrics.moving_time as f64) * ratio;
-                        if est_time > 0.0 {
-                            best_time = est_time;
-                            best_pace = dist / est_time;
-                            best_direction = best_portion.direction.to_string();
-                        }
-                    }
-                }
+            if has_fwd {
+                all_perfs.push(DirPerf {
+                    activity_id: record.activity_id.clone(),
+                    activity_name: record.activity_name.clone(),
+                    activity_date: record.activity_date,
+                    best_time: fwd_best_time,
+                    best_pace: fwd_best_pace,
+                    is_reverse: false,
+                    section_distance,
+                });
             }
-
-            if best_time == f64::MAX || best_pace <= 0.0 {
-                continue;
+            if has_rev {
+                all_perfs.push(DirPerf {
+                    activity_id: record.activity_id.clone(),
+                    activity_name: record.activity_name.clone(),
+                    activity_date: record.activity_date,
+                    best_time: rev_best_time,
+                    best_pace: rev_best_pace,
+                    is_reverse: true,
+                    section_distance,
+                });
             }
-
-            all_perfs.push(ActivityPerf {
-                activity_id: activity_id.to_string(),
-                activity_name: metrics.name.clone(),
-                activity_date: metrics.date,
-                best_time,
-                best_pace,
-                direction: best_direction,
-                section_distance: section.distance_meters,
-                is_estimated,
-            });
         }
 
         // Filter by date range
-        let in_range: Vec<&ActivityPerf> = all_perfs
-            .iter()
+        let in_range: Vec<&DirPerf> = all_perfs.iter()
             .filter(|p| p.activity_date >= cutoff)
             .collect();
 
         let total_traversals = in_range.len() as u32;
 
         // Find overall PR (fastest across ALL time, not just range)
-        let pr_bucket = all_perfs
-            .iter()
-            .min_by(|a, b| a.best_time.partial_cmp(&b.best_time).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|p| SectionPerformanceBucket {
-                activity_id: p.activity_id.clone(),
-                activity_name: p.activity_name.clone(),
-                activity_date: p.activity_date,
-                best_time: p.best_time,
-                best_pace: p.best_pace,
-                direction: p.direction.clone(),
-                section_distance: p.section_distance,
-                is_estimated: p.is_estimated,
-                bucket_count: 1,
-            });
+        let overall_pr = all_perfs.iter()
+            .min_by(|a, b| a.best_time.partial_cmp(&b.best_time).unwrap_or(std::cmp::Ordering::Equal));
+
+        let pr_bucket = overall_pr.map(|p| SectionPerformanceBucket {
+            activity_id: p.activity_id.clone(),
+            activity_name: p.activity_name.clone(),
+            activity_date: p.activity_date,
+            best_time: p.best_time,
+            best_pace: p.best_pace,
+            direction: if p.is_reverse { "reverse".to_string() } else { "same".to_string() },
+            section_distance: p.section_distance,
+            is_estimated: false,
+            bucket_count: 1,
+        });
 
         // Group in-range performances into time buckets, keeping best per bucket per direction
         let mut bucket_map: HashMap<(i64, String), (SectionPerformanceBucket, u32)> = HashMap::new();
 
         for perf in &in_range {
             let bucket_key = calendar_bucket_key(perf.activity_date, bucket_type);
-            let dir_key = if perf.direction == "reverse" || perf.direction == "backward" {
-                "reverse".to_string()
-            } else {
-                "same".to_string()
-            };
+            let dir_key = if perf.is_reverse { "reverse".to_string() } else { "same".to_string() };
             let key = (bucket_key, dir_key.clone());
 
             let entry = bucket_map.entry(key).or_insert_with(|| {
@@ -4985,22 +4975,20 @@ impl PersistentRouteEngine {
                         best_pace: perf.best_pace,
                         direction: dir_key,
                         section_distance: perf.section_distance,
-                        is_estimated: perf.is_estimated,
+                        is_estimated: false,
                         bucket_count: 0,
                     },
                     0,
                 )
             });
 
-            entry.1 += 1; // count
-            // Keep the fastest (lowest time)
+            entry.1 += 1;
             if perf.best_time < entry.0.best_time {
                 entry.0.activity_id = perf.activity_id.clone();
                 entry.0.activity_name = perf.activity_name.clone();
                 entry.0.activity_date = perf.activity_date;
                 entry.0.best_time = perf.best_time;
                 entry.0.best_pace = perf.best_pace;
-                entry.0.is_estimated = perf.is_estimated;
             }
         }
 
@@ -5012,57 +5000,38 @@ impl PersistentRouteEngine {
             })
             .collect();
 
-        // Sort by date
         buckets.sort_by_key(|b| b.activity_date);
 
-        // Compute direction stats from in-range data
-        let forward_perfs: Vec<&&ActivityPerf> = in_range
-            .iter()
-            .filter(|p| p.direction == "same" || p.direction == "forward")
-            .collect();
-        let forward_stats = if forward_perfs.is_empty() {
+        // Direction stats from in-range data
+        let fwd_in_range: Vec<&&DirPerf> = in_range.iter().filter(|p| !p.is_reverse).collect();
+        let forward_stats = if fwd_in_range.is_empty() {
             None
         } else {
-            let count = forward_perfs.len() as u32;
-            let avg_time = forward_perfs.iter().map(|p| p.best_time).sum::<f64>() / count as f64;
-            let last_activity = forward_perfs
-                .iter()
-                .max_by_key(|p| p.activity_date)
-                .map(|p| p.activity_date);
-            Some(DirectionStats {
-                avg_time: Some(avg_time),
-                last_activity,
-                count,
-            })
+            let count = fwd_in_range.len() as u32;
+            let avg_time = fwd_in_range.iter().map(|p| p.best_time).sum::<f64>() / count as f64;
+            let last_activity = fwd_in_range.iter().max_by_key(|p| p.activity_date).map(|p| p.activity_date);
+            Some(DirectionStats { avg_time: Some(avg_time), last_activity, count })
         };
 
-        let reverse_perfs: Vec<&&ActivityPerf> = in_range
-            .iter()
-            .filter(|p| p.direction == "reverse" || p.direction == "backward")
-            .collect();
-        let reverse_stats = if reverse_perfs.is_empty() {
+        let rev_in_range: Vec<&&DirPerf> = in_range.iter().filter(|p| p.is_reverse).collect();
+        let reverse_stats = if rev_in_range.is_empty() {
             None
         } else {
-            let count = reverse_perfs.len() as u32;
-            let avg_time = reverse_perfs.iter().map(|p| p.best_time).sum::<f64>() / count as f64;
-            let last_activity = reverse_perfs
-                .iter()
-                .max_by_key(|p| p.activity_date)
-                .map(|p| p.activity_date);
-            Some(DirectionStats {
-                avg_time: Some(avg_time),
-                last_activity,
-                count,
-            })
+            let count = rev_in_range.len() as u32;
+            let avg_time = rev_in_range.iter().map(|p| p.best_time).sum::<f64>() / count as f64;
+            let last_activity = rev_in_range.iter().max_by_key(|p| p.activity_date).map(|p| p.activity_date);
+            Some(DirectionStats { avg_time: Some(avg_time), last_activity, count })
         };
 
-        SectionPerformanceBucketResult {
+        let result = SectionPerformanceBucketResult {
             buckets,
             total_traversals,
             pr_bucket,
             forward_stats,
             reverse_stats,
-        }
+        };
+        log::info!("[PERF] get_section_performance_buckets({}) -> {} buckets in {:?}", section_id, result.buckets.len(), start.elapsed());
+        result
     }
 
     /// Get a calendar-aligned Year > Month performance summary for a section.
@@ -5071,6 +5040,7 @@ impl PersistentRouteEngine {
         &mut self,
         section_id: &str,
     ) -> Option<crate::CalendarSummary> {
+        let start = std::time::Instant::now();
         // Reuse get_section_performances — single source of truth for section times.
         // This ensures calendar values match chart PRs exactly (no proportional estimates
         // for activities without time streams, matching the strict behavior).
@@ -5272,12 +5242,14 @@ impl PersistentRouteEngine {
             .filter(|p| p.is_reverse)
             .min_by(|a, b| a.best_time.partial_cmp(&b.best_time).unwrap_or(std::cmp::Ordering::Equal));
 
-        Some(crate::CalendarSummary {
+        let result = crate::CalendarSummary {
             years,
             forward_pr: forward_pr.map(|p| to_dir_best(p, fwd_total)),
             reverse_pr: reverse_pr.map(|p| to_dir_best(p, rev_total)),
             section_distance,
-        })
+        };
+        log::info!("[PERF] get_section_calendar_summary({}) -> {} years in {:?}", section_id, result.years.len(), start.elapsed());
+        Some(result)
     }
 
     /// Get route performances for all activities in a group.
