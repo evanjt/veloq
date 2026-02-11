@@ -151,46 +151,32 @@ export function RegionalMapView({
   const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
 
   // ===========================================
-  // 120HZ OPTIMIZATION: Pre-compute and cache activity centers
+  // 120HZ OPTIMIZATION: Pre-compute and cache activity start positions
   // ===========================================
-  // Uses centers from RouteSignature when available (already computed in Rust)
-  // Falls back to computing from bounds for activities without signatures
+  // Uses first point from RouteSignature when available (start of GPS track)
+  // Falls back to first latlng point, then bounds center for activities without GPS data
   // This avoids calling getBoundsCenter() (which does format detection) during render
   const activityCenters = useMemo(() => {
     const centers: Record<string, [number, number]> = {};
     let fromSignature = 0;
+    let fromLatlngs = 0;
     let fromBounds = 0;
 
     for (const activity of activities) {
-      // Try to use pre-computed center from RouteSignature (computed in Rust)
+      // Try to use start point from RouteSignature (first GPS point)
       const signature = routeSignatures[activity.id];
-      if (signature?.center) {
-        centers[activity.id] = [signature.center.lng, signature.center.lat];
+      if (signature?.points?.length > 0) {
+        centers[activity.id] = [signature.points[0].lng, signature.points[0].lat];
         fromSignature++;
+      } else if (activity.latlngs && activity.latlngs.length > 0) {
+        // Fallback: use first latlng from cached GPS data (latlngs is [lat, lng] order)
+        centers[activity.id] = [activity.latlngs[0][1], activity.latlngs[0][0]];
+        fromLatlngs++;
       } else {
-        // Fallback: compute from bounds (only for activities without signatures)
+        // Last resort: compute from bounds center
         centers[activity.id] = getBoundsCenter(activity.bounds);
         fromBounds++;
       }
-    }
-
-    // DEBUG: Log first few centers to diagnose positioning issue
-    if (__DEV__ && activities.length > 0) {
-      const first3 = activities.slice(0, 3);
-      console.log('[RegionalMapView] Activity centers debug:');
-      for (const a of first3) {
-        const center = centers[a.id];
-        const sig = routeSignatures[a.id];
-        console.log(
-          `  ${a.id}: center=[${center[0].toFixed(4)}, ${center[1].toFixed(4)}] (lng, lat)`,
-          {
-            fromSignature: !!sig?.center,
-            bounds: a.bounds,
-            sigCenter: sig?.center,
-          }
-        );
-      }
-      console.log(`  Sources: ${fromSignature} from signature, ${fromBounds} from bounds`);
     }
 
     return centers;
