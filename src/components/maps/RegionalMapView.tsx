@@ -6,21 +6,16 @@ import {
   MapView,
   Camera,
   MarkerView,
-  PointAnnotation,
   ShapeSource,
   LineLayer,
   CircleLayer,
-  type MapViewRef,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { shadows } from '@/theme/shadows';
-import { convertLatLngTuples, normalizeBounds, getBoundsCenter } from '@/lib';
 import { getActivityTypeConfig } from './ActivityTypeFilter';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import {
@@ -35,7 +30,7 @@ import {
 } from './mapStyles';
 import type { ActivityBoundsItem } from '@/types';
 import { useEngineSections, useRouteSignatures, useRouteGroups } from '@/hooks/routes';
-import type { FrequentSection, ActivityType } from '@/types';
+import type { FrequentSection } from '@/types';
 import {
   ActivityPopup,
   SectionPopup,
@@ -43,7 +38,11 @@ import {
   MapControlStack,
   getMarkerSize,
   useMapHandlers,
+  useMapCamera,
+  useMapGeoJSON,
+  useIOSTapHandler,
   type SelectedActivity,
+  type SelectedRoute,
 } from './regional';
 
 /**
@@ -51,7 +50,7 @@ import {
  *
  * This component has been optimized for smooth 120fps pan/zoom by:
  *
- * 1. Pre-computed centers: Activity centers are computed once in a useMemo
+ * 1. Pre-computed centers: Activity centers are computed once in useMapCamera
  *    (using Rust-computed centers from RouteSignature when available),
  *    avoiding getBoundsCenter() format detection during render.
  *
@@ -96,17 +95,8 @@ export function RegionalMapView({
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
-  const [currentZoom, setCurrentZoom] = useState(10);
-  const [currentCenter, setCurrentCenter] = useState<[number, number] | null>(null);
   const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
-  const [selectedRoute, setSelectedRoute] = useState<{
-    id: string;
-    name: string;
-    activityCount: number;
-    sportType: string;
-    type: ActivityType;
-    bestTime?: number;
-  } | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<SelectedRoute | null>(null);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
 
   // iOS simulator tile loading retry mechanism
@@ -127,13 +117,9 @@ export function RegionalMapView({
     }
   }, []);
 
-  // Reset retry count and camera applied flag when style changes or map remounts
+  // Reset retry count when style changes or map remounts
   useEffect(() => {
     retryCountRef.current = 0;
-    // Reset camera flag when map remounts so initial position is applied again
-    if (mapKey > 0) {
-      initialCameraAppliedRef.current = false;
-    }
   }, [mapStyle, mapKey]);
 
   // Only load route signatures when the map tab is focused
@@ -150,57 +136,27 @@ export function RegionalMapView({
   // Route groups for displaying routes on the map
   const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
 
-  // ===========================================
-  // 120HZ OPTIMIZATION: Pre-compute and cache activity start positions
-  // ===========================================
-  // Uses first point from RouteSignature when available (start of GPS track)
-  // Falls back to first latlng point, then bounds center for activities without GPS data
-  // This avoids calling getBoundsCenter() (which does format detection) during render
-  const activityCenters = useMemo(() => {
-    const centers: Record<string, [number, number]> = {};
-    let fromSignature = 0;
-    let fromLatlngs = 0;
-    let fromBounds = 0;
-
-    for (const activity of activities) {
-      // Try to use start point from RouteSignature (first GPS point)
-      const signature = routeSignatures[activity.id];
-      if (signature?.points?.length > 0) {
-        centers[activity.id] = [signature.points[0].lng, signature.points[0].lat];
-        fromSignature++;
-      } else if (activity.latlngs && activity.latlngs.length > 0) {
-        // Fallback: use first latlng from cached GPS data (latlngs is [lat, lng] order)
-        centers[activity.id] = [activity.latlngs[0][1], activity.latlngs[0][0]];
-        fromLatlngs++;
-      } else {
-        // Last resort: compute from bounds center
-        centers[activity.id] = getBoundsCenter(activity.bounds);
-        fromBounds++;
-      }
-    }
-
-    return centers;
-  }, [activities, routeSignatures]);
+  // Camera, bounds, and pre-computed activity centers
+  const {
+    activityCenters,
+    mapCenter,
+    mapZoom,
+    currentCenter,
+    currentZoom,
+    setCurrentCenter,
+    setCurrentZoom,
+    initialCameraSettings,
+  } = useMapCamera({ activities, routeSignatures, mapKey });
 
   // Show GPS traces when zoomed in past this level
   const TRACE_ZOOM_THRESHOLD = 11;
   const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
-  const initialBoundsRef = useRef<{
-    bounds: { ne: [number, number]; sw: [number, number] };
-    center: [number, number];
-    zoomLevel: number;
-  } | null>(null);
-  // Track if initial camera position has been applied (prevents Android re-centering bug)
-  const initialCameraAppliedRef = useRef(false);
 
   // ===========================================
   // GESTURE TRACKING - For compass updates
   // ===========================================
-  // Note: Touch interception is NO LONGER AN ISSUE because we use native CircleLayer
-  // instead of React Pressable. CircleLayer doesn't capture touches - it only responds
-  // to taps AFTER the map's gesture system has processed them.
   const currentZoomLevel = useRef(10); // Track current zoom for compass updates
 
   const isDark = isDarkStyle(mapStyle);
@@ -232,105 +188,51 @@ export function RegionalMapView({
     onAttributionChange?.(attributionText);
   }, [attributionText, onAttributionChange]);
 
-  // Calculate bounds from activities (used for initial camera position)
-  // Uses normalizeBounds to auto-detect coordinate format from API
-  // Returns bounds AND centers on the most recent activity's location
-  const calculateBoundsAndCenter = useCallback((activityList: ActivityBoundsItem[]) => {
-    if (activityList.length === 0) return null;
-
-    let minLat = Infinity,
-      maxLat = -Infinity;
-    let minLng = Infinity,
-      maxLng = -Infinity;
-
-    for (const activity of activityList) {
-      const normalized = normalizeBounds(activity.bounds);
-      minLat = Math.min(minLat, normalized.minLat);
-      maxLat = Math.max(maxLat, normalized.maxLat);
-      minLng = Math.min(minLng, normalized.minLng);
-      maxLng = Math.max(maxLng, normalized.maxLng);
+  // Filter activities to only those visible in viewport (for performance)
+  // Only enable viewport culling for large activity counts to avoid marker flashing
+  // With < 150 activities, showing all is fast enough and provides better UX
+  const VIEWPORT_CULLING_THRESHOLD = 150;
+  const visibleActivities = useMemo(() => {
+    // Skip viewport culling for small activity counts - prevents marker flashing during pan
+    if (activities.length < VIEWPORT_CULLING_THRESHOLD) {
+      return activities;
     }
-
-    // Find the most recent activity and center on it
-    const sortedByDate = [...activityList].sort((a, b) =>
-      (b.date || '').localeCompare(a.date || '')
-    );
-    const mostRecent = sortedByDate[0];
-    const recentBounds = normalizeBounds(mostRecent.bounds);
-    const centerLng = (recentBounds.minLng + recentBounds.maxLng) / 2;
-    const centerLat = (recentBounds.minLat + recentBounds.maxLat) / 2;
-
-    // Calculate zoom level based on full bounds span
-    // Using Mercator projection formula: zoom = log2(360 / lonSpan) or log2(180 / latSpan)
-    const latSpan = maxLat - minLat;
-    const lngSpan = maxLng - minLng;
-    // Add padding factor to ensure some margin around activities
-    const latZoom = Math.log2(180 / (latSpan || 1)) - 0.5;
-    const lngZoom = Math.log2(360 / (lngSpan || 1)) - 0.5;
-    // Use the smaller zoom (shows more area) to fit all activities
-    const zoomLevel = Math.max(1, Math.min(latZoom, lngZoom));
-
-    return {
-      bounds: {
-        ne: [maxLng, maxLat] as [number, number],
-        sw: [minLng, minLat] as [number, number],
-      },
-      center: [centerLng, centerLat] as [number, number],
-      zoomLevel,
-    };
-  }, []);
-
-  // Set initial bounds once when we first have activities
-  // This prevents the zoom from jumping during background sync
-  // But center is always computed fresh to reflect most recent activity
-  useEffect(() => {
-    if (initialBoundsRef.current === null && activities.length > 0) {
-      initialBoundsRef.current = calculateBoundsAndCenter(activities);
+    if (!visibleActivityIds) {
+      // No viewport info yet - show all activities
+      return activities;
     }
-  }, [activities, calculateBoundsAndCenter]);
+    // Filter to only visible activities (only for large datasets)
+    return activities.filter((a) => visibleActivityIds.has(a.id));
+  }, [activities, visibleActivityIds]);
 
-  // Compute center from current activities (always uses most recent activity)
-  // But use cached bounds/zoom to prevent jumping during sync
-  const currentData = calculateBoundsAndCenter(activities);
-  const cachedData = initialBoundsRef.current;
-  const mapBounds = cachedData?.bounds ?? currentData?.bounds ?? null;
-  const mapCenter = currentData?.center ?? cachedData?.center ?? null;
-  const mapZoom = cachedData?.zoomLevel ?? currentData?.zoomLevel ?? 2;
+  // GPS trace visibility: zoomed in + activities visible
+  const showTraces = currentZoom >= TRACE_ZOOM_THRESHOLD && showActivities;
 
-  // Initialize currentCenter from mapCenter for region-aware satellite source detection
-  // This effect runs when mapCenter is computed from activities and currentCenter hasn't been set yet
-  // Also handles the case when mapCenter changes significantly (e.g., new activities loaded)
-  useEffect(() => {
-    if (mapCenter !== null) {
-      if (currentCenter === null) {
-        // First initialization
-        setCurrentCenter(mapCenter);
-        setCurrentZoom(mapZoom);
-      }
-    }
-  }, [currentCenter, mapCenter, mapZoom]);
+  // All GeoJSON data for map layers
+  const {
+    markersGeoJSON,
+    tracesGeoJSON,
+    sectionsGeoJSON,
+    routesGeoJSON,
+    routeMarkersGeoJSON,
+    sectionMarkers,
+    routeMarkers,
+    userLocationGeoJSON,
+    routeGeoJSON,
+    routeHasData,
+  } = useMapGeoJSON({
+    visibleActivities,
+    activityCenters,
+    routeSignatures,
+    sections,
+    routeGroups,
+    showRoutes,
+    userLocation,
+    selected,
+    t,
+  });
 
-  // ANDROID FIX: Compute initial camera settings only once to prevent re-centering on re-renders
-  // MapLibre on Android may reapply defaultSettings when props change, causing unwanted camera jumps
-  // We track this in a ref so it persists across renders but doesn't cause re-renders
-  const initialCameraSettings = useMemo(() => {
-    // Already applied - return undefined to prevent re-centering
-    if (initialCameraAppliedRef.current) {
-      return undefined;
-    }
-    // Not ready yet - return undefined and wait
-    if (!mapCenter) {
-      return undefined;
-    }
-    // First time with valid center - mark as applied and return settings
-    initialCameraAppliedRef.current = true;
-    return {
-      centerCoordinate: mapCenter,
-      zoomLevel: mapZoom,
-    };
-  }, [mapCenter, mapZoom]);
-
-  // Extract handlers to separate hook
+  // Event handlers
   const {
     handleMarkerTap,
     handleClosePopup,
@@ -374,7 +276,6 @@ export function RegionalMapView({
   });
 
   // Clear selections when their corresponding group visibility is turned off
-  // This is a safety net to ensure selections are always cleared when hiding groups
   useEffect(() => {
     if (!showActivities && selected) {
       setSelected(null);
@@ -403,364 +304,6 @@ export function RegionalMapView({
     setIs3DMode((current) => !current);
   };
 
-  // Filter activities to only those visible in viewport (for performance)
-  // Only enable viewport culling for large activity counts to avoid marker flashing
-  // With < 150 activities, showing all is fast enough and provides better UX
-  const VIEWPORT_CULLING_THRESHOLD = 150;
-  const visibleActivities = useMemo(() => {
-    // Skip viewport culling for small activity counts - prevents marker flashing during pan
-    if (activities.length < VIEWPORT_CULLING_THRESHOLD) {
-      return activities;
-    }
-    if (!visibleActivityIds) {
-      // No viewport info yet - show all activities
-      return activities;
-    }
-    // Filter to only visible activities (only for large datasets)
-    return activities.filter((a) => visibleActivityIds.has(a.id));
-  }, [activities, visibleActivityIds]);
-
-  // ===========================================
-  // GPS TRACE RENDERING - Show simplified routes when zoomed in
-  // ===========================================
-  // Uses route signatures (simplified ~100 point tracks) for performance
-  // Only renders when zoom > TRACE_ZOOM_THRESHOLD AND activities are visible
-
-  const showTraces = currentZoom >= TRACE_ZOOM_THRESHOLD && showActivities;
-
-  // ===========================================
-  // 120HZ OPTIMIZATION: Stable traces GeoJSON
-  // ===========================================
-  // Build GeoJSON for GPS traces from route signatures
-  // NOTE: Does NOT include isSelected - use MapLibre expressions with selectedActivityId
-  // CRITICAL: Always return valid FeatureCollection to avoid iOS MapLibre crash
-  // when ShapeSources are conditionally added/removed during React reconciliation
-  // Fabric crash fix: Keep feature count STABLE to avoid "Attempt to recycle a mounted view"
-  // Always include all traces in the GeoJSON - control visibility via layer opacity instead
-  // This prevents Fabric from needing to add/remove views when zoom changes
-  // NOTE: Empty FeatureCollection is valid - control visibility via layer opacity
-  const tracesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    // Empty collection when no activities (ShapeSource stays mounted, avoiding Fabric crash)
-    const emptyCollection: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
-      features: [],
-    };
-
-    // Always build full traces regardless of showTraces - visibility controlled by layer opacity
-    let skippedCount = 0;
-    const features = visibleActivities
-      .filter((activity) => routeSignatures[activity.id]) // Only activities with signatures
-      .map((activity) => {
-        const signature = routeSignatures[activity.id];
-        const config = getActivityTypeConfig(activity.type);
-        const originalCount = signature.points.length;
-
-        // Filter out NaN/Infinity coordinates and convert to GeoJSON [lng, lat]
-        // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash
-        const coordinates = signature.points
-          .filter((pt) => Number.isFinite(pt.lng) && Number.isFinite(pt.lat))
-          .map((pt) => [pt.lng, pt.lat]);
-
-        // Skip traces with insufficient valid coordinates
-        if (coordinates.length < 2) {
-          skippedCount++;
-          if (__DEV__) {
-            console.warn(
-              `[RegionalMapView] INVALID TRACE: activity=${activity.id} originalPoints=${originalCount} validPoints=${coordinates.length}`
-            );
-          }
-          return null;
-        }
-
-        return {
-          type: 'Feature' as const,
-          id: `trace-${activity.id}`,
-          properties: {
-            id: activity.id,
-            color: config.color,
-          },
-          geometry: {
-            type: 'LineString' as const,
-            coordinates,
-          },
-        };
-      })
-      .filter((f): f is NonNullable<typeof f> => f !== null);
-
-    if (__DEV__ && skippedCount > 0) {
-      console.warn(
-        `[RegionalMapView] tracesGeoJSON: skipped ${skippedCount} traces with insufficient coordinates`
-      );
-    }
-
-    // Return minimal geometry only if no features at all
-    if (features.length === 0) return emptyCollection;
-
-    return { type: 'FeatureCollection', features };
-  }, [visibleActivities, routeSignatures]); // Removed showTraces dependency - always build all traces
-
-  // ===========================================
-  // SECTIONS GEOJSON - Frequent road/trail sections
-  // ===========================================
-  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
-  const sectionsGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const emptyCollection: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
-      features: [],
-    };
-    if (sections.length === 0) return emptyCollection;
-
-    let skippedCount = 0;
-    const features = sections
-      .map((section) => {
-        // Filter out NaN coordinates and validate polyline has at least 2 points
-        // GeoJSON LineString requires minimum 2 coordinates to be valid
-        const originalCount = section.polyline.length;
-        const validPoints = section.polyline.filter((pt) => !isNaN(pt.lat) && !isNaN(pt.lng));
-
-        // Also filter Infinity values
-        const finitePoints = validPoints.filter(
-          (pt) => Number.isFinite(pt.lat) && Number.isFinite(pt.lng)
-        );
-
-        // Skip sections with insufficient valid coordinates
-        if (finitePoints.length < 2) {
-          skippedCount++;
-          if (__DEV__) {
-            console.warn(
-              `[RegionalMapView] INVALID SECTION: id=${section.id} name="${section.name}" originalPoints=${originalCount} validPoints=${validPoints.length} finitePoints=${finitePoints.length}`
-            );
-          }
-          return null;
-        }
-
-        const coordinates = finitePoints.map((pt) => [pt.lng, pt.lat]);
-        const config = getActivityTypeConfig(section.sportType);
-
-        return {
-          type: 'Feature' as const,
-          id: section.id,
-          properties: {
-            id: section.id,
-            name: section.name || t('sections.defaultName', { number: section.id.slice(-6) }),
-            sportType: section.sportType,
-            visitCount: section.visitCount,
-            distanceMeters: section.distanceMeters,
-            color: config.color,
-          },
-          geometry: {
-            type: 'LineString' as const,
-            coordinates,
-          },
-        };
-      })
-      .filter((f): f is NonNullable<typeof f> => f !== null);
-
-    if (__DEV__ && skippedCount > 0) {
-      console.warn(
-        `[RegionalMapView] sectionsGeoJSON: skipped ${skippedCount}/${sections.length} sections with invalid polylines`
-      );
-    }
-
-    return { type: 'FeatureCollection', features };
-  }, [sections, t]);
-
-  // ===========================================
-  // ROUTES GEOJSON - Polylines for route groups
-  // ===========================================
-  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
-  const routesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const emptyCollection: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
-      features: [],
-    };
-    if (!showRoutes || routeGroups.length === 0) return emptyCollection;
-
-    let skippedCount = 0;
-    const features = routeGroups
-      .filter((group) => routeSignatures[group.representativeId])
-      .map((group) => {
-        const signature = routeSignatures[group.representativeId];
-        const originalCount = signature.points.length;
-        // Filter out NaN/Infinity coordinates
-        // GeoJSON LineString requires minimum 2 coordinates
-        const coordinates = signature.points
-          .filter((pt) => Number.isFinite(pt.lng) && Number.isFinite(pt.lat))
-          .map((pt) => [pt.lng, pt.lat]);
-
-        // Skip routes with insufficient valid coordinates
-        if (coordinates.length < 2) {
-          skippedCount++;
-          if (__DEV__) {
-            console.warn(
-              `[RegionalMapView] INVALID ROUTE: groupId=${group.id} name="${group.name}" originalPoints=${originalCount} validPoints=${coordinates.length}`
-            );
-          }
-          return null;
-        }
-
-        return {
-          type: 'Feature' as const,
-          id: group.id,
-          properties: {
-            id: group.id,
-            name: group.name,
-            activityCount: group.activityCount,
-            sportType: group.sportType,
-            type: group.type,
-            bestTime: group.bestTime,
-          },
-          geometry: {
-            type: 'LineString' as const,
-            coordinates,
-          },
-        };
-      })
-      .filter((f): f is NonNullable<typeof f> => f !== null);
-
-    if (__DEV__ && skippedCount > 0) {
-      console.warn(
-        `[RegionalMapView] routesGeoJSON: skipped ${skippedCount}/${routeGroups.length} routes with invalid polylines`
-      );
-    }
-
-    return { type: 'FeatureCollection', features };
-  }, [showRoutes, routeGroups, routeSignatures]);
-
-  // ===========================================
-  // ROUTE MARKERS GEOJSON - Start points for routes
-  // ===========================================
-  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
-  const routeMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const emptyCollection: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
-      features: [],
-    };
-    if (!showRoutes || routeGroups.length === 0) return emptyCollection;
-
-    let skippedCount = 0;
-    const features = routeGroups
-      .filter((group) => routeSignatures[group.representativeId])
-      .map((group) => {
-        const signature = routeSignatures[group.representativeId];
-        const startPoint = signature.points[0];
-
-        // Skip if no start point or invalid coordinates
-        if (!startPoint || !Number.isFinite(startPoint.lng) || !Number.isFinite(startPoint.lat)) {
-          skippedCount++;
-          if (__DEV__) {
-            console.warn(
-              `[RegionalMapView] INVALID ROUTE MARKER: groupId=${group.id} startPoint=${JSON.stringify(startPoint)}`
-            );
-          }
-          return null;
-        }
-
-        return {
-          type: 'Feature' as const,
-          id: `marker-${group.id}`,
-          properties: {
-            id: group.id,
-            name: group.name,
-            activityCount: group.activityCount,
-          },
-          geometry: {
-            type: 'Point' as const,
-            coordinates: [startPoint.lng, startPoint.lat],
-          },
-        };
-      })
-      .filter((f): f is NonNullable<typeof f> => f !== null);
-
-    if (__DEV__ && skippedCount > 0) {
-      console.warn(
-        `[RegionalMapView] routeMarkersGeoJSON: skipped ${skippedCount} route markers with invalid start points`
-      );
-    }
-
-    return { type: 'FeatureCollection', features };
-  }, [showRoutes, routeGroups, routeSignatures]);
-
-  // ===========================================
-  // SECTION MARKERS - Start points for sections (for MarkerView rendering)
-  // ===========================================
-  // CRITICAL: Do NOT filter based on showSections - always compute markers
-  // to keep MarkerViews stable and avoid iOS crash during reconciliation
-  const sectionMarkers = useMemo(() => {
-    if (sections.length === 0) return [];
-
-    return sections
-      .map((section) => {
-        // Get first point of section polyline
-        const startPoint = section.polyline[0];
-        if (!startPoint || !Number.isFinite(startPoint.lng) || !Number.isFinite(startPoint.lat)) {
-          return null;
-        }
-
-        return {
-          id: section.id,
-          name: section.name,
-          coordinate: [startPoint.lng, startPoint.lat] as [number, number],
-          sportType: section.sportType,
-          visitCount: section.visitCount,
-        };
-      })
-      .filter((m): m is NonNullable<typeof m> => m !== null);
-  }, [sections]);
-
-  // ===========================================
-  // ROUTE MARKERS - Start points for routes (for MarkerView rendering)
-  // ===========================================
-  // CRITICAL: Do NOT filter based on showRoutes - always compute markers
-  // to keep MarkerViews stable and avoid iOS crash during reconciliation
-  const routeMarkers = useMemo(() => {
-    if (routeGroups.length === 0) return [];
-
-    return routeGroups
-      .filter((group) => routeSignatures[group.representativeId])
-      .map((group) => {
-        const signature = routeSignatures[group.representativeId];
-        const startPoint = signature.points[0];
-        if (!startPoint || !Number.isFinite(startPoint.lng) || !Number.isFinite(startPoint.lat)) {
-          return null;
-        }
-
-        return {
-          id: group.id,
-          name: group.name,
-          coordinate: [startPoint.lng, startPoint.lat] as [number, number],
-          activityCount: group.activityCount,
-          sportType: group.sportType,
-        };
-      })
-      .filter((m): m is NonNullable<typeof m> => m !== null);
-  }, [routeGroups, routeSignatures]);
-
-  // ===========================================
-  // USER LOCATION GEOJSON - Rendered as CircleLayer to avoid Fabric crash
-  // ===========================================
-  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no location
-  // Using CircleLayer instead of MarkerView prevents Fabric view recycling crash
-  const userLocationGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    // Return empty collection when no location - visibility controlled via layer opacity
-    if (!userLocation) {
-      return { type: 'FeatureCollection', features: [] };
-    }
-    return {
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: { hasLocation: true },
-          geometry: {
-            type: 'Point',
-            coordinates: userLocation,
-          },
-        },
-      ],
-    };
-  }, [userLocation]);
-
   // Handle route press - show route popup
   const handleRoutePress = useCallback(
     (event: { features?: GeoJSON.Feature[] }) => {
@@ -783,154 +326,8 @@ export function RegionalMapView({
     [routeGroups]
   );
 
-  // ===========================================
-  // NATIVE MARKER RENDERING - Uses CircleLayer instead of React components
-  // ===========================================
-  // This completely avoids touch interception issues with Pressable
-  // Markers are rendered as native map features, preserving all gestures
-
-  // ===========================================
-  // iOS CRASH FIX: Stable marker order
-  // ===========================================
-  // NOTE: We no longer sort markers by selection. Re-ordering MarkerViews causes
-  // NSRangeException crash in MLRNMapView insertReactSubview:atIndex: on iOS.
-  // The selected marker is visually distinct (larger, border) but may be behind others.
-  // This is acceptable UX to avoid the crash.
-
-  // ===========================================
-  // 120HZ OPTIMIZATION: Stable GeoJSON that doesn't rebuild on selection
-  // ===========================================
-  // Build GeoJSON feature collection for activity markers (only visible ones)
-  // NOTE: Does NOT include isSelected - use MapLibre expressions with selectedActivityId
-  // iOS crash fix: Filter out activities with undefined/invalid centers to prevent
-  // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
-  const markersGeoJSON = useMemo(() => {
-    let skippedCount = 0;
-    const features = visibleActivities
-      .map((activity) => {
-        // Use pre-computed center (no format detection during render!)
-        const center = activityCenters[activity.id];
-        // iOS crash fix: guard against undefined activity centers
-        // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
-        if (!center) return null;
-        // Skip if center has invalid coordinates (prevents iOS crash)
-        if (!Number.isFinite(center[0]) || !Number.isFinite(center[1])) {
-          skippedCount++;
-          if (__DEV__) {
-            console.warn(
-              `[RegionalMapView] INVALID MARKER: activity=${activity.id} center=${JSON.stringify(center)}`
-            );
-          }
-          return null;
-        }
-        const config = getActivityTypeConfig(activity.type);
-        const size = getMarkerSize(activity.distance);
-
-        return {
-          type: 'Feature' as const,
-          id: activity.id,
-          properties: {
-            id: activity.id,
-            type: activity.type,
-            color: config.color,
-            size: size,
-          },
-          geometry: {
-            type: 'Point' as const,
-            coordinates: center,
-          },
-        };
-      })
-      .filter(Boolean);
-
-    if (__DEV__ && skippedCount > 0) {
-      console.warn(
-        `[RegionalMapView] markersGeoJSON: skipped ${skippedCount}/${visibleActivities.length} activities with invalid centers`
-      );
-    }
-
-    return {
-      type: 'FeatureCollection' as const,
-      features: features as GeoJSON.Feature[],
-    };
-  }, [visibleActivities, activityCenters]);
-
   // Selected activity ID for MapLibre expressions (cheap to pass, doesn't trigger GeoJSON rebuild)
   const selectedActivityId = selected?.activity.id ?? null;
-
-  // Build route GeoJSON for selected activity
-  // Uses pre-computed routeCoords (from Rust engine) if available, falls back to mapData.latlngs (from API)
-  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
-  const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    const emptyCollection: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
-      features: [],
-    };
-
-    // Priority 1: Use pre-computed routeCoords from Rust engine (already in [lng, lat] format)
-    if (selected?.routeCoords && selected.routeCoords.length >= 2) {
-      return {
-        type: 'Feature' as const,
-        properties: {},
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: selected.routeCoords,
-        },
-      };
-    }
-
-    // Priority 2: Fall back to mapData.latlngs from API
-    if (!selected?.mapData?.latlngs) return emptyCollection;
-
-    // Filter out null values first
-    const nonNullCoords = selected.mapData.latlngs.filter((c): c is [number, number] => c !== null);
-
-    if (nonNullCoords.length === 0) {
-      if (__DEV__) {
-        console.warn(
-          `[RegionalMapView] routeGeoJSON: no non-null coords for activity=${selected.activity.id}`
-        );
-      }
-      return emptyCollection;
-    }
-
-    // Convert to LatLng objects using the same function as ActivityMapView
-    const latLngCoords = convertLatLngTuples(nonNullCoords);
-
-    // Filter valid coordinates (including Infinity check) and convert to GeoJSON format [lng, lat]
-    const validCoords = latLngCoords
-      .filter(
-        (c) =>
-          Number.isFinite(c.latitude) &&
-          Number.isFinite(c.longitude) &&
-          !isNaN(c.latitude) &&
-          !isNaN(c.longitude)
-      )
-      .map((c) => [c.longitude, c.latitude]);
-
-    if (validCoords.length < 2) {
-      if (__DEV__) {
-        console.warn(
-          `[RegionalMapView] routeGeoJSON: insufficient valid coords for activity=${selected.activity.id} original=${nonNullCoords.length} valid=${validCoords.length}`
-        );
-      }
-      return emptyCollection;
-    }
-
-    return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: validCoords,
-      },
-    };
-  }, [selected?.routeCoords, selected?.mapData, selected?.activity.id]);
-
-  // Helper to check if routeGeoJSON has data
-  const routeHasData =
-    routeGeoJSON.type === 'Feature' ||
-    (routeGeoJSON.type === 'FeatureCollection' && routeGeoJSON.features.length > 0);
 
   // Get 3D route coordinates from selected activity (if any)
   // Uses pre-computed routeCoords if available, falls back to mapData.latlngs
@@ -955,191 +352,29 @@ export function RegionalMapView({
   // Show 3D view when enabled
   const show3D = is3DMode && can3D;
 
-  // Rate limit iOS taps to prevent race conditions that can crash MapLibre
-  const lastTapTimeRef = useRef<number>(0);
-  const TAP_DEBOUNCE_MS = 100; // Minimum time between taps
-
-  // iOS tap handler - uses queryRenderedFeaturesAtPoint for O(1) hit detection
-  // Queries activity markers, section lines, and route lines based on visibility toggles
-  const handleiOSTap = useCallback(
-    async (screenX: number, screenY: number) => {
-      // Rate limiting: ignore taps that are too close together
-      const now = Date.now();
-      if (now - lastTapTimeRef.current < TAP_DEBOUNCE_MS) {
-        return;
-      }
-      lastTapTimeRef.current = now;
-
-      // Wrap in try-catch to prevent unhandled errors from crashing the app
-      try {
-        // Defensive check: ensure map ref is valid before querying
-        if (!mapRef.current) {
-          return;
-        }
-
-        const zoom = currentZoomLevel.current;
-        // Expand query rect based on zoom (matches CircleLayer radius interpolation)
-        // Use different hit radius for points vs lines - lines are thin and need bigger area
-        // Matches CircleLayer: zoom 0→16, 4→14, 8→12, 12→8, 16→6
-        const pointHitRadius = zoom < 4 ? 16 : zoom < 8 ? 14 : zoom < 12 ? 12 : zoom < 16 ? 8 : 6;
-        // Lines need 3x the hit area since they're only a few pixels wide
-        const lineHitRadius = Math.max(pointHitRadius * 3, 20); // Minimum 20px for lines
-
-        // Build list of layers to query based on visibility
-        const layersToQuery: string[] = [];
-        if (showActivities) layersToQuery.push('marker-hitarea');
-        if (showSections) layersToQuery.push('sectionsLine');
-        if (showRoutes) layersToQuery.push('routesLine');
-
-        if (layersToQuery.length === 0) {
-          if (selected) setSelected(null);
-          if (selectedSection) setSelectedSection(null);
-          if (selectedRoute) setSelectedRoute(null);
-          return;
-        }
-
-        // Use line hit radius if querying any line layers (sections or routes)
-        const hasLineLayer = showSections || showRoutes;
-        const hitRadius = hasLineLayer ? lineHitRadius : pointHitRadius;
-        const bbox: [number, number, number, number] = [
-          screenX - hitRadius,
-          screenY - hitRadius,
-          screenX + hitRadius,
-          screenY + hitRadius,
-        ];
-
-        // Try queryRenderedFeaturesAtPoint first (more reliable for single taps on iOS)
-        // Then fall back to queryRenderedFeaturesInRect with expanded bbox
-        let features = await mapRef.current?.queryRenderedFeaturesAtPoint(
-          [screenX, screenY],
-          undefined,
-          layersToQuery
-        );
-
-        // If no hit at point, try with expanded bbox
-        if (!features || features.features.length === 0) {
-          features = await mapRef.current?.queryRenderedFeaturesInRect(
-            bbox,
-            undefined,
-            layersToQuery
-          );
-        }
-
-        if (features && features.features.length > 0) {
-          // Process the first feature found (closest to tap point due to bbox query)
-          const feature = features.features[0];
-          const featureId = feature.properties?.id;
-
-          // Determine feature type by checking geometry and properties
-          if (feature.geometry?.type === 'Point' && showActivities) {
-            // Activity marker hit
-            const activity = activities.find((a) => a.id === featureId);
-            if (activity) {
-              console.log('[iOS tap] HIT activity:', featureId);
-              handleMarkerTap(activity);
-              return;
-            }
-          } else if (feature.geometry?.type === 'LineString') {
-            // Could be section or route - check properties to determine
-            if (feature.properties?.visitCount !== undefined && showSections) {
-              // Section hit (has visitCount property)
-              const section = sections.find((s) => s.id === featureId);
-              if (section) {
-                console.log('[iOS tap] HIT section:', featureId);
-                setSelectedSection(section);
-                setSelected(null);
-                setSelectedRoute(null);
-                return;
-              }
-            } else if (feature.properties?.activityCount !== undefined && showRoutes) {
-              // Route hit (has activityCount property)
-              const route = routeGroups.find((g) => g.id === featureId);
-              if (route) {
-                console.log('[iOS tap] HIT route:', featureId);
-                setSelectedRoute({
-                  id: route.id,
-                  name: route.name,
-                  activityCount: route.activityCount,
-                  sportType: route.sportType,
-                  type: route.type,
-                  bestTime: route.bestTime,
-                });
-                setSelected(null);
-                setSelectedSection(null);
-                return;
-              }
-            }
-          }
-        }
-
-        // No hit - clear appropriate selections
-        if (selected) setSelected(null);
-        if (selectedSection) setSelectedSection(null);
-        if (selectedRoute) setSelectedRoute(null);
-      } catch (error) {
-        // Log error but don't crash - gracefully handle MapLibre query failures
-        if (__DEV__) {
-          console.warn('[iOS tap] Error during tap handling:', error);
-        }
-      }
-    },
-    [
-      activities,
-      sections,
-      routeGroups,
-      handleMarkerTap,
-      selected,
-      setSelected,
-      selectedSection,
-      setSelectedSection,
-      selectedRoute,
-      setSelectedRoute,
-      showActivities,
-      showSections,
-      showRoutes,
-      currentZoomLevel,
-    ]
-  );
-
-  // Track touch start for iOS tap detection (to distinguish taps from gestures)
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  // iOS tap handling (no-op on Android)
+  const { onTouchStart, onTouchEnd } = useIOSTapHandler({
+    mapRef,
+    activities,
+    sections,
+    routeGroups,
+    selected,
+    selectedSection,
+    selectedRoute,
+    setSelected,
+    setSelectedSection,
+    setSelectedRoute,
+    showActivities,
+    showSections,
+    showRoutes,
+    show3D,
+    handleMarkerTap,
+    currentZoomLevel,
+    insetTop: insets.top,
+  });
 
   return (
-    <View
-      style={styles.container}
-      onTouchStart={
-        Platform.OS === 'ios'
-          ? (e) => {
-              touchStartRef.current = {
-                x: e.nativeEvent.locationX,
-                y: e.nativeEvent.locationY,
-                time: Date.now(),
-              };
-            }
-          : undefined
-      }
-      onTouchEnd={
-        Platform.OS === 'ios'
-          ? (e) => {
-              const start = touchStartRef.current;
-              if (!start) return;
-
-              const dx = Math.abs(e.nativeEvent.locationX - start.x);
-              const dy = Math.abs(e.nativeEvent.locationY - start.y);
-              const duration = Date.now() - start.time;
-
-              // Only treat as tap if: short duration, minimal movement, not in button area
-              const isTap = duration < 300 && dx < 10 && dy < 10;
-              const isInMapArea = e.nativeEvent.locationY > insets.top + 60; // Below buttons
-
-              if (isTap && isInMapArea && !show3D) {
-                handleiOSTap(e.nativeEvent.locationX, e.nativeEvent.locationY);
-              }
-              touchStartRef.current = null;
-            }
-          : undefined
-      }
-    >
+    <View style={styles.container} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       {show3D ? (
         <Map3DWebView
           ref={map3DRef}
@@ -1168,7 +403,6 @@ export function RegionalMapView({
           onDidFailLoadingMap={handleMapLoadError}
         >
           {/* Camera with ref for programmatic control */}
-          {/* Uses center biased toward recent activities (longitude from recent, latitude from all) */}
           {/* ANDROID FIX: Only pass defaultSettings once to prevent re-centering on re-renders */}
           {/* CRITICAL: followUserLocation must be explicitly false to prevent auto-centering */}
           <Camera
@@ -1181,10 +415,7 @@ export function RegionalMapView({
           {/* Activity markers - visual only, taps handled by ShapeSource rendered later */}
           {/* CRITICAL: Always render MarkerViews to avoid iOS crash during reconciliation */}
           {/* Use opacity to hide instead of conditional rendering */}
-          {/* pointerEvents="none" ensures these don't intercept touches (fixes Android rendering) */}
           {/* iOS CRASH FIX: Render ALL activities as MarkerViews (stable count) */}
-          {/* Changing MarkerView count triggers NSRangeException in MLRNMapView insertReactSubview:atIndex: */}
-          {/* Use opacity to hide off-viewport markers instead of filtering the array */}
           {activities.map((activity) => {
             const config = getActivityTypeConfig(activity.type);
             // Use pre-computed center (no format detection during render!)
@@ -1237,7 +468,6 @@ export function RegionalMapView({
 
           {/* Activity marker hit detection - invisible circles for queryRenderedFeaturesAtPoint */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS crash during view reconciliation */}
-          {/* Android uses onPress handler, iOS uses queryRenderedFeaturesAtPoint in handleiOSTap */}
           <ShapeSource
             id="activity-markers-hitarea"
             shape={markersGeoJSON}
@@ -1245,7 +475,6 @@ export function RegionalMapView({
             hitbox={{ width: 36, height: 36 }}
           >
             {/* Invisible circles for hit detection - sized to match visual markers */}
-            {/* iOS FIX: Must have non-zero radius and higher opacity for queryRenderedFeaturesAtPoint */}
             <CircleLayer
               id="marker-hitarea"
               style={{
@@ -1268,7 +497,6 @@ export function RegionalMapView({
                   : 0,
                 circleColor: '#000000',
                 // iOS requires higher opacity than Android to be queryable
-                // Scale opacity down at higher zoom so halos are less visible
                 circleOpacity: showActivities
                   ? [
                       'interpolate',
@@ -1323,7 +551,6 @@ export function RegionalMapView({
 
           {/* Route markers - start points for routes */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
-          {/* Visual markers rendered as MarkerViews below for icon support */}
           <ShapeSource id="route-markers" shape={routeMarkersGeoJSON}>
             <CircleLayer
               id="routeMarkerCircle"
@@ -1342,20 +569,17 @@ export function RegionalMapView({
             onPress={handleSectionPress}
             hitbox={{ width: 44, height: 44 }}
           >
-            {/* Section lines - thicker and more prominent than traces */}
-            {/* Note: MapLibre doesn't allow nested zoom-based interpolations in case expressions */}
             <LineLayer
               id="sectionsLine"
               style={{
                 lineColor: ['get', 'color'],
                 // Note: zoom expressions cannot be nested inside case expressions
-                // Use fixed widths when selection is active to avoid MapLibre crash
                 lineWidth: selectedSection
                   ? [
                       'case',
                       ['==', ['get', 'id'], selectedSection.id],
                       8, // Bold when selected
-                      4, // Fixed width for unselected (can't use zoom interpolate here)
+                      4,
                     ]
                   : ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 5, 18, 7],
                 lineOpacity: showSections
@@ -1377,14 +601,12 @@ export function RegionalMapView({
               id="sectionsOutline"
               style={{
                 lineColor: colors.textOnDark,
-                // Note: zoom expressions cannot be nested inside case expressions
-                // Use fixed widths when selection is active to avoid MapLibre crash
                 lineWidth: selectedSection
                   ? [
                       'case',
                       ['==', ['get', 'id'], selectedSection.id],
                       10, // Bold when selected
-                      6, // Fixed width for unselected (can't use zoom interpolate here)
+                      6,
                     ]
                   : ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 7, 18, 9],
                 lineOpacity: showSections
@@ -1414,7 +636,6 @@ export function RegionalMapView({
                 lineWidth: [
                   'case',
                   // Hide selected trace (full route shown instead)
-                  // Uses selectedActivityId variable instead of isSelected property for 120Hz
                   ['==', ['get', 'id'], selectedActivityId ?? ''],
                   0,
                   2,
@@ -1455,8 +676,6 @@ export function RegionalMapView({
 
           {/* Section markers - start points with road icon */}
           {/* CRITICAL: Always render to avoid iOS crash - use opacity to hide */}
-          {/* pointerEvents="none" is CRITICAL for Android - Pressable breaks marker positioning */}
-          {/* Tap the section polyline to select (handled by ShapeSource onPress) */}
           {sectionMarkers.map((marker) => {
             const isVisible = showSections;
             const isSelected = selectedSection?.id === marker.id;
@@ -1492,8 +711,6 @@ export function RegionalMapView({
 
           {/* Route markers - start points with path icon */}
           {/* CRITICAL: Always render to avoid iOS crash - use opacity to hide */}
-          {/* pointerEvents="none" is CRITICAL for Android - Pressable breaks marker positioning */}
-          {/* Tap the route polyline to select (handled by ShapeSource onPress) */}
           {routeMarkers.map((marker) => {
             const isVisible = showRoutes;
             const isSelected = selectedRoute?.id === marker.id;
@@ -1666,36 +883,6 @@ const styles = StyleSheet.create({
   },
   styleButton: {
     right: spacing.md,
-  },
-  userLocationMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(66, 165, 245, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userLocationDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.chartBlue,
-    borderWidth: 2,
-    borderColor: colors.textOnDark,
-  },
-  markerWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  marker: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderColor: colors.textOnDark,
-    ...shadows.elevated,
-  },
-  markerSelected: {
-    borderWidth: 3,
-    borderColor: colors.primary,
   },
   attribution: {
     position: 'absolute',

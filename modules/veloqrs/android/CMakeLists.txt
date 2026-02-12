@@ -29,6 +29,9 @@ add_library(veloqrs_jni            SHARED
     cpp-adapter.cpp
 )
 
+# 16 KB page alignment for Android 15+
+target_link_options(veloqrs_jni PRIVATE "-Wl,-z,max-page-size=16384")
+
 # Set C++ compiler flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
