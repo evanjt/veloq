@@ -40,6 +40,7 @@ const LOCALE_MAPPINGS: LocaleMapping[] = [
   { app: 'de-DE', android: 'de-DE', ios: 'de-DE' },
   // Swiss German variants: de-CH is NOT a valid Play Store locale (causes API errors)
   // Use de-DE for Android, de-CH for iOS only
+  { app: 'de-CH', android: 'de-DE', ios: 'de-CH' },
   { app: 'de-CHB', android: 'de-DE', ios: 'de-CH' },
   { app: 'de-CHZ', android: 'de-DE', ios: 'de-CH' },
 
