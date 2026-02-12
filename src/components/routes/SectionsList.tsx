@@ -82,7 +82,7 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
   }
   const section: FrequentSection = {
     id: s.id,
-    sectionType: 'auto',
+    sectionType: s.id.startsWith('custom_') ? 'custom' : 'auto',
     sportType: s.sportType,
     polyline,
     activityIds: [],

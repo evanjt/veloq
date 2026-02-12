@@ -748,30 +748,6 @@ export default function RouteDetailScreen() {
               <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
             </TouchableOpacity>
             <View style={{ flex: 1 }} />
-            {consensusPoints && consensusPoints.length > 0 && (
-              <TouchableOpacity
-                testID="route-export-gpx"
-                style={styles.backButton}
-                onPress={() =>
-                  exportGpx({
-                    name: customName || routeGroup?.name || 'Route',
-                    points: consensusPoints.map((p) => ({
-                      latitude: p.lat,
-                      longitude: p.lng,
-                    })),
-                    sport: engineGroup?.sportType,
-                  })
-                }
-                disabled={gpxExporting}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name={gpxExporting ? 'progress-download' : 'download'}
-                  size={24}
-                  color={colors.textOnDark}
-                />
-              </TouchableOpacity>
-            )}
           </View>
 
           {/* Route info overlay at bottom */}
@@ -938,6 +914,35 @@ export default function RouteDetailScreen() {
               </View>
             )}
           </View>
+
+          {/* Export GPX button */}
+          {consensusPoints && consensusPoints.length > 0 && (
+            <TouchableOpacity
+              testID="route-export-gpx"
+              style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
+              onPress={() =>
+                exportGpx({
+                  name: customName || routeGroup?.name || 'Route',
+                  points: consensusPoints.map((p) => ({
+                    latitude: p.lat,
+                    longitude: p.lng,
+                  })),
+                  sport: engineGroup?.sportType,
+                })
+              }
+              disabled={gpxExporting}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={gpxExporting ? 'progress-download' : 'download'}
+                size={20}
+                color={colors.textOnPrimary}
+              />
+              <Text style={styles.exportGpxButtonText}>
+                {gpxExporting ? t('export.exporting') : t('export.gpx')}
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* Data range footer */}
           <DataRangeFooter days={cacheDays} isDark={isDark} />
@@ -1146,6 +1151,32 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     color: 'rgba(255, 255, 255, 0.5)',
     marginHorizontal: spacing.xs,
+  },
+  // Export GPX button
+  exportGpxButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 24,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  exportGpxButtonDark: {
+    backgroundColor: colors.primary,
+  },
+  exportGpxButtonText: {
+    color: colors.textOnPrimary,
+    fontSize: 15,
+    fontWeight: '600' as const,
   },
   // Content section below hero
   contentSection: {

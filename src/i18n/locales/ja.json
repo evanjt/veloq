@@ -300,7 +300,13 @@
   "export": {
     "gpx": "GPXをエクスポート",
     "exporting": "エクスポート中...",
-    "error": "GPXファイルのエクスポートに失敗しました。"
+    "error": "GPXファイルのエクスポートに失敗しました。",
+    "bulkExport": "Export All Activities ({{count}})",
+    "bulkExporting": "Generating GPX {{current}}/{{total}}...",
+    "bulkCompressing": "Compressing...",
+    "bulkSharing": "Opening share sheet...",
+    "bulkComplete": "Export Complete",
+    "bulkResult": "{{exported}} GPX files exported, {{skipped}} activities without GPS skipped."
   },
   "feed": {
     "activitiesCount": "{{count}}件のアクティビティ",

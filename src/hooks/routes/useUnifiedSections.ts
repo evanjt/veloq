@@ -139,20 +139,24 @@ export function useUnifiedSections(
       }
     }
 
-    // Add auto-detected sections (excluding those superseded by custom sections)
+    // Add engine sections (auto-detected and custom from batch data)
     // Superseded list is pre-computed when custom sections are created
     // Note: engineSections now use lightweight summaries (empty polyline/activityIds)
     // Polylines are lazy-loaded via useSectionPolyline in SectionRow
     for (const engine of engineSections) {
       if (seenIds.has(engine.id)) continue;
 
+      // Determine actual section type from data or ID prefix
+      const actualType =
+        engine.sectionType === 'custom' || engine.id.startsWith('custom_') ? 'custom' : 'auto';
+
       // Use pre-computed superseded list (instant lookup instead of O(n²) overlap calculation)
       if (!supersededSet.has(engine.id)) {
         seenIds.add(engine.id);
         result.push({
           ...engine,
-          sectionType: 'auto',
-          name: generateSectionName(engine),
+          sectionType: actualType,
+          name: engine.name || generateSectionName(engine),
           activityIds: engine.activityIds || [],
           createdAt: engine.createdAt || new Date().toISOString(),
         });

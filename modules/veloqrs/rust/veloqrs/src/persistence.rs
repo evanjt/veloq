@@ -2747,13 +2747,32 @@ impl PersistentRouteEngine {
                 })
             })
             .ok()
-            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            .map(|iter| iter.filter_map(|r| {
+                r.map_err(|e| {
+                    log::error!(
+                        "tracematch: [PersistentEngine] get_section_summaries row parse error: {}",
+                        e
+                    );
+                    e
+                }).ok()
+            }).collect())
             .unwrap_or_default();
 
+        // Log section type breakdown for debugging
+        let auto_count = results.iter().filter(|s| !s.id.starts_with("custom_")).count();
+        let custom_count = results.len() - auto_count;
         log::info!(
-            "tracematch: [PersistentEngine] get_section_summaries returned {} summaries",
-            results.len()
+            "tracematch: [PersistentEngine] get_section_summaries returned {} summaries ({} auto, {} custom)",
+            results.len(), auto_count, custom_count
         );
+        if custom_count > 0 {
+            for s in results.iter().filter(|s| s.id.starts_with("custom_")) {
+                log::info!(
+                    "tracematch: [PersistentEngine]   custom section: id={}, name={:?}, visits={}, distance={:.0}m",
+                    s.id, s.name, s.visit_count, s.distance_meters
+                );
+            }
+        }
         results
     }
 
@@ -2840,6 +2859,9 @@ impl PersistentRouteEngine {
     /// Get a single section by ID with LRU caching.
     /// Returns the full FrequentSection with polyline data.
     /// Uses LRU cache to avoid repeated SQLite queries for hot sections.
+    ///
+    /// Delegates to crud.rs get_section() which handles both auto and custom sections
+    /// reliably, then loads activity portions from the junction table.
     pub fn get_section_by_id(&mut self, section_id: &str) -> Option<FrequentSection> {
         // Check LRU cache first
         if let Some(section) = self.section_cache.get(&section_id.to_string()) {
@@ -2850,101 +2872,82 @@ impl PersistentRouteEngine {
             return Some(section.clone());
         }
 
-        // Load full activity portions from junction table (matching load_sections pattern)
-        let portions: Vec<SectionPortion> = {
-            let mut stmt = match self.db.prepare(
-                "SELECT activity_id, direction, start_index, end_index, distance_meters
-                 FROM section_activities WHERE section_id = ? ORDER BY start_index"
-            ) {
-                Ok(s) => s,
-                Err(_) => return None,
-            };
-            stmt.query_map(params![section_id], |row| {
-                Ok(SectionPortion {
-                    activity_id: row.get(0)?,
-                    direction: { let s: String = row.get(1)?; s.parse().unwrap_or_default() },
-                    start_index: row.get(2)?,
-                    end_index: row.get(3)?,
-                    distance_meters: row.get(4)?,
-                })
-            })
-            .ok()?
-            .filter_map(|r| r.ok())
-            .collect()
+        // Use crud.rs get_section() which is proven to work for both auto and custom sections
+        let section = match self.get_section(section_id) {
+            Some(s) => s,
+            None => {
+                log::info!(
+                    "tracematch: [PersistentEngine] get_section_by_id: section {} not found in DB",
+                    section_id
+                );
+                return None;
+            }
         };
-        // Derive activity_ids from portions (deduplicated)
-        let activity_ids: Vec<String> = portions.iter()
-            .map(|p| p.activity_id.clone())
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
-            .collect();
-        let visit_count = portions.len() as u32;
 
-        // Query SQLite with new schema
-        let result: Option<FrequentSection> = self
-            .db
-            .query_row(
-                "SELECT id, section_type, name, sport_type, polyline_json, distance_meters,
-                        representative_activity_id, confidence, observation_count, average_spread,
-                        point_density_json, scale, version, is_user_defined, stability,
-                        created_at, updated_at
-                 FROM sections WHERE id = ?",
-                params![section_id],
-                |row| {
-                    let id: String = row.get(0)?;
-                    let polyline_json: String = row.get(4)?;
-                    let point_density_json: Option<String> = row.get(10)?;
-                    let representative_activity_id: Option<String> = row.get(6)?;
+        // Load full activity portions from junction table
+        let portions = self.get_section_portions(section_id);
 
-                    let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
-                        .unwrap_or_default();
-                    let point_density: Vec<u32> = point_density_json
-                        .and_then(|j| serde_json::from_str(&j).ok())
-                        .unwrap_or_default();
-
-                    Ok(FrequentSection {
-                        id,
-                        name: row.get(2)?,
-                        sport_type: row.get(3)?,
-                        polyline,
-                        representative_activity_id: representative_activity_id.unwrap_or_default(),
-                        activity_ids: activity_ids.clone(),
-                        activity_portions: portions.clone(),
-                        route_ids: vec![],
-                        visit_count,
-                        distance_meters: row.get(5)?,
-                        activity_traces: std::collections::HashMap::new(),
-                        confidence: row.get::<_, Option<f64>>(7)?.unwrap_or(0.0),
-                        observation_count: row.get::<_, Option<u32>>(8)?.unwrap_or(0),
-                        average_spread: row.get::<_, Option<f64>>(9)?.unwrap_or(0.0),
-                        point_density,
-                        scale: { let s: Option<String> = row.get(11)?; s.map(|s| s.parse().unwrap_or_default()) },
-                        is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
-                        stability: row.get::<_, Option<f64>>(14)?.unwrap_or(0.0),
-                        version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
-                        updated_at: row.get(16)?,
-                        created_at: row.get(15)?,
-                    })
-                },
-            )
-            .ok();
+        // Convert Section → FrequentSection
+        let frequent = FrequentSection {
+            id: section.id,
+            name: section.name,
+            sport_type: section.sport_type,
+            polyline: section.polyline,
+            representative_activity_id: section.representative_activity_id.unwrap_or_default(),
+            activity_ids: section.activity_ids,
+            activity_portions: portions,
+            route_ids: section.route_ids.unwrap_or_default(),
+            visit_count: section.visit_count,
+            distance_meters: section.distance_meters,
+            activity_traces: std::collections::HashMap::new(),
+            confidence: section.confidence.unwrap_or(0.0),
+            observation_count: section.observation_count.unwrap_or(0),
+            average_spread: section.average_spread.unwrap_or(0.0),
+            point_density: section.point_density.unwrap_or_default(),
+            scale: section.scale.and_then(|s| s.parse().ok()),
+            is_user_defined: section.is_user_defined,
+            stability: section.stability.unwrap_or(0.0),
+            version: section.version.unwrap_or(1),
+            updated_at: section.updated_at,
+            created_at: Some(section.created_at),
+        };
 
         // Cache for future access
-        if let Some(ref section) = result {
-            self.section_cache
-                .put(section_id.to_string(), section.clone());
-            log::info!(
-                "tracematch: [PersistentEngine] get_section_by_id found and cached section {}",
-                section_id
-            );
-        } else {
-            log::info!(
-                "tracematch: [PersistentEngine] get_section_by_id: section {} not found",
-                section_id
-            );
-        }
+        self.section_cache.put(section_id.to_string(), frequent.clone());
+        log::info!(
+            "tracematch: [PersistentEngine] get_section_by_id found and cached section {} (type={:?})",
+            section_id, frequent.is_user_defined
+        );
 
-        result
+        Some(frequent)
+    }
+
+    /// Load activity portions for a section from the junction table.
+    fn get_section_portions(&self, section_id: &str) -> Vec<SectionPortion> {
+        let mut stmt = match self.db.prepare(
+            "SELECT activity_id, direction, start_index, end_index, distance_meters
+             FROM section_activities WHERE section_id = ? ORDER BY start_index"
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!(
+                    "tracematch: [PersistentEngine] get_section_portions query failed for {}: {}",
+                    section_id, e
+                );
+                return Vec::new();
+            }
+        };
+        stmt.query_map(params![section_id], |row| {
+            Ok(SectionPortion {
+                activity_id: row.get(0)?,
+                direction: { let s: String = row.get(1)?; s.parse().unwrap_or_default() },
+                start_index: row.get(2)?,
+                end_index: row.get(3)?,
+                distance_meters: row.get(4)?,
+            })
+        })
+        .map(|iter| iter.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
     }
 
     /// Invalidate a section in the LRU cache.

@@ -14,6 +14,7 @@ import {
   useOldestActivityDate,
   useTheme,
   useRoutesScreenData,
+  useCustomSections,
 } from '@/hooks';
 import { useRouteSettings, useSyncDateRange, useDebugStore } from '@/providers';
 import { colors, darkColors, spacing } from '@/theme';
@@ -53,8 +54,15 @@ export default function RoutesScreen() {
 
   // Derive counts from batch data
   const routeGroupCount = routesData?.groupCount ?? 0;
-  const totalSections = routesData?.sectionCount ?? 0;
   const groupsDirty = routesData?.groupsDirty ?? false;
+
+  // Include custom sections in total count — Rust sectionCount may not include
+  // custom sections added via backup restore if the engine data hasn't refreshed yet
+  const { count: customSectionCount } = useCustomSections();
+  const rustSectionCount = routesData?.sectionCount ?? 0;
+  const batchCustomCount =
+    routesData?.sections?.filter((s) => s.id.startsWith('custom_')).length ?? 0;
+  const totalSections = rustSectionCount + Math.max(0, customSectionCount - batchCustomCount);
 
   // Fetch the true oldest activity date from API (for timeline extent)
   const { data: apiOldestDate } = useOldestActivityDate();

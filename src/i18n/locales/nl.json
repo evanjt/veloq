@@ -300,7 +300,13 @@
   "export": {
     "gpx": "GPX exporteren",
     "exporting": "Exporteren...",
-    "error": "GPX-bestand exporteren mislukt."
+    "error": "GPX-bestand exporteren mislukt.",
+    "bulkExport": "Export All Activities ({{count}})",
+    "bulkExporting": "Generating GPX {{current}}/{{total}}...",
+    "bulkCompressing": "Compressing...",
+    "bulkSharing": "Opening share sheet...",
+    "bulkComplete": "Export Complete",
+    "bulkResult": "{{exported}} GPX files exported, {{skipped}} activities without GPS skipped."
   },
   "feed": {
     "activitiesCount": "{{count}} Activiteiten",

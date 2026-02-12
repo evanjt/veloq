@@ -28,7 +28,6 @@ import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   useSectionPerformances,
-  useCustomSection,
   useCustomSections,
   useTheme,
   useMetricSystem,
@@ -454,20 +453,19 @@ export default function SectionDetailScreen() {
   // Key to force section data refresh after reference change
   const [sectionRefreshKey, setSectionRefreshKey] = useState(0);
 
-  // Get section from engine (auto-detected) or custom sections storage
   // Custom section IDs start with "custom_" (e.g., "custom_1767268142052_qyfoos8")
   const isCustomId = id?.startsWith('custom_');
 
-  // For auto-detected sections, use useSectionDetail
-  // We create a composite key with sectionRefreshKey to force re-fetch when reference changes
-  const sectionIdWithRefresh = !isCustomId && id ? `${id}#${sectionRefreshKey}` : null;
-  const { section: rawEngineSection } = useSectionDetail(!isCustomId ? id : null);
+  // Use useSectionDetail for ALL sections (both auto and custom).
+  // Rust get_section_by_id() handles both types via the unified sections table.
+  const sectionIdWithRefresh = id ? `${id}#${sectionRefreshKey}` : null;
+  const { section: rawEngineSection } = useSectionDetail(id ?? null);
 
   // Force re-computation when refresh key changes by including it in the memo
-  const engineSection = useMemo(() => {
+  const section = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const _forceRefresh = sectionIdWithRefresh;
-    if (!rawEngineSection || isCustomId) return null;
+    if (!rawEngineSection) return null;
 
     // Re-fetch fresh data from engine when refresh key changes
     // IMPORTANT: Use ALL fresh data, not just polyline - activityIds may have changed
@@ -476,9 +474,6 @@ export default function SectionDetailScreen() {
       if (engine && id) {
         const fresh = engine.getSectionById(id);
         if (fresh && fresh.polyline && fresh.polyline.length > 0) {
-          // Map polyline coordinates from lat/lng to RoutePoint format
-          // and use ALL fresh data to get updated activityIds, visitCount, etc.
-          // Also cast activityPortions direction and ensure required fields
           const freshAny = fresh as unknown as Record<string, unknown>;
           const sectionType: 'auto' | 'custom' =
             typeof freshAny.sectionType === 'string' && freshAny.sectionType === 'custom'
@@ -504,68 +499,14 @@ export default function SectionDetailScreen() {
       }
     }
     return rawEngineSection;
-  }, [rawEngineSection, isCustomId, sectionIdWithRefresh, sectionRefreshKey, id]);
+  }, [rawEngineSection, sectionIdWithRefresh, sectionRefreshKey, id]);
 
-  // Pass the full ID - custom sections are stored with the "custom_" prefix
-  const { section: customSection } = useCustomSection(isCustomId ? id : undefined);
   const { removeSection, renameSection } = useCustomSections();
   const queryClient = useQueryClient();
 
   // Disabled sections state
   const { isDisabled, disable, enable } = useDisabledSections();
   const isSectionDisabled = id ? isDisabled(id) : false;
-
-  // Check both sources - custom sections and engine-detected sections
-  const section = useMemo(() => {
-    // First check engine sections (fetched via useSectionDetail)
-    if (!isCustomId && engineSection) {
-      return engineSection;
-    }
-
-    // Check if it's a custom section and convert to FrequentSection shape
-    if (customSection) {
-      // Include source activity if not already in activityIds
-      const allActivityIds = customSection.activityIds ?? [];
-      const includeSourceActivity =
-        customSection.sourceActivityId && !allActivityIds.includes(customSection.sourceActivityId);
-
-      const activityIds = includeSourceActivity
-        ? [customSection.sourceActivityId!, ...allActivityIds]
-        : allActivityIds;
-
-      const activityPortions = [
-        // Include source activity portion
-        ...(includeSourceActivity && customSection.sourceActivityId
-          ? [
-              {
-                activityId: customSection.sourceActivityId,
-                startIndex: customSection.startIndex,
-                endIndex: customSection.endIndex,
-                distanceMeters: customSection.distanceMeters,
-                direction: 'same' as const,
-              },
-            ]
-          : []),
-        // Include existing portions from FFI
-        ...(customSection.activityPortions ?? []),
-      ];
-
-      return {
-        id: customSection.id,
-        sportType: customSection.sportType,
-        polyline: customSection.polyline,
-        activityIds,
-        activityPortions,
-        visitCount: activityIds.length,
-        distanceMeters: customSection.distanceMeters,
-        name: customSection.name,
-        // Custom sections use sourceActivityId as their reference (like representativeActivityId for auto-detected)
-        representativeActivityId: customSection.sourceActivityId,
-      } as FrequentSection;
-    }
-
-    return null;
-  }, [id, engineSection, customSection, isCustomId]);
 
   // Merge computed activity traces into the section
   // Always use computedActivityTraces when available, as they use extractSectionTrace
@@ -734,9 +675,9 @@ export default function SectionDetailScreen() {
                 setOverrideReferenceId(null);
                 // Force section data refresh to get recalculated polyline
                 setSectionRefreshKey((k) => k + 1);
-                // For custom sections, also invalidate the React Query cache
+                // Also invalidate custom sections cache for routes list
                 if (isCustomId) {
-                  queryClient.invalidateQueries({ queryKey: ['customSections'] });
+                  queryClient.invalidateQueries({ queryKey: ['sections'] });
                 }
               }
             },
@@ -763,10 +704,9 @@ export default function SectionDetailScreen() {
                 setOverrideReferenceId(activityId);
                 // Force section data refresh to get updated polyline
                 setSectionRefreshKey((k) => k + 1);
-                // For custom sections, also invalidate the React Query cache
-                // so useCustomSection refetches the updated data from Rust
+                // Also invalidate custom sections cache for routes list
                 if (isCustomId) {
-                  queryClient.invalidateQueries({ queryKey: ['customSections'] });
+                  queryClient.invalidateQueries({ queryKey: ['sections'] });
                 }
               } else {
                 // Show error if operation failed
@@ -1515,30 +1455,6 @@ export default function SectionDetailScreen() {
                   <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
                 </TouchableOpacity>
                 <View style={styles.headerSpacer} />
-                {section?.polyline?.length > 0 && (
-                  <TouchableOpacity
-                    testID="section-export-gpx"
-                    style={styles.deleteButton}
-                    onPress={() =>
-                      exportGpx({
-                        name: section.name || 'Section',
-                        points: section.polyline.map((p: RoutePoint) => ({
-                          latitude: p.lat,
-                          longitude: p.lng,
-                        })),
-                        sport: section.sportType,
-                      })
-                    }
-                    disabled={gpxExporting}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialCommunityIcons
-                      name={gpxExporting ? 'progress-download' : 'download'}
-                      size={24}
-                      color={colors.textOnDark}
-                    />
-                  </TouchableOpacity>
-                )}
                 {isCustomId ? (
                   <TouchableOpacity
                     style={styles.deleteButton}
@@ -1971,6 +1887,33 @@ export default function SectionDetailScreen() {
         }
         ListFooterComponent={
           <View style={styles.listFooterContainer}>
+            {section?.polyline?.length > 0 && (
+              <TouchableOpacity
+                testID="section-export-gpx"
+                style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
+                onPress={() =>
+                  exportGpx({
+                    name: section.name || 'Section',
+                    points: section.polyline.map((p: RoutePoint) => ({
+                      latitude: p.lat,
+                      longitude: p.lng,
+                    })),
+                    sport: section.sportType,
+                  })
+                }
+                disabled={gpxExporting}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name={gpxExporting ? 'progress-download' : 'download'}
+                  size={20}
+                  color={colors.textOnPrimary}
+                />
+                <Text style={styles.exportGpxButtonText}>
+                  {gpxExporting ? t('export.exporting') : t('export.gpx')}
+                </Text>
+              </TouchableOpacity>
+            )}
             <DataRangeFooter days={cacheDays} isDark={isDark} />
             {debugEnabled &&
               section &&
@@ -2167,6 +2110,31 @@ const styles = StyleSheet.create({
   },
   listFooterContainer: {
     marginTop: spacing.md,
+  },
+  exportGpxButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 24,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  exportGpxButtonDark: {
+    backgroundColor: colors.primary,
+  },
+  exportGpxButtonText: {
+    color: colors.textOnPrimary,
+    fontSize: 15,
+    fontWeight: '600' as const,
   },
   heroSection: {
     height: MAP_HEIGHT,

@@ -18,3 +18,21 @@ export async function shareFile({ content, filename, mimeType }: ShareFileParams
   });
   await Sharing.shareAsync(fileUri, { mimeType, UTI: mimeType });
 }
+
+interface ShareFileBase64Params {
+  base64: string;
+  filename: string;
+  mimeType: string;
+}
+
+export async function shareFileBase64({
+  base64,
+  filename,
+  mimeType,
+}: ShareFileBase64Params): Promise<void> {
+  const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+  await FileSystem.writeAsStringAsync(fileUri, base64, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  await Sharing.shareAsync(fileUri, { mimeType, UTI: mimeType });
+}

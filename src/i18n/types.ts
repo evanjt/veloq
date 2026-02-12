@@ -386,6 +386,12 @@ export interface TranslationResource {
     gpx: string;
     exporting: string;
     error: string;
+    bulkExport: string;
+    bulkExporting: string;
+    bulkCompressing: string;
+    bulkSharing: string;
+    bulkComplete: string;
+    bulkResult: string;
   };
 
   backup: {

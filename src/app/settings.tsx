@@ -29,6 +29,7 @@ import {
   useSummaryCardData,
   useExportBackup,
   useImportBackup,
+  useBulkExport,
 } from '@/hooks';
 import * as FileSystem from 'expo-file-system/legacy';
 import { TimelineSlider } from '@/components/maps';
@@ -148,6 +149,14 @@ export default function SettingsScreen() {
   const [showActivityStyles, setShowActivityStyles] = useState(false);
   const { exportBackup, exporting: backupExporting } = useExportBackup();
   const { importBackup, importing: backupImporting } = useImportBackup();
+  const {
+    exportAll,
+    isExporting: bulkExporting,
+    phase: bulkPhase,
+    current: bulkCurrent,
+    total: bulkTotal,
+    sizeBytes: bulkSizeBytes,
+  } = useBulkExport();
 
   // Scroll-to-anchor support
   const { scrollTo } = useLocalSearchParams<{ scrollTo?: string }>();
@@ -865,6 +874,56 @@ export default function SettingsScreen() {
             />
           </TouchableOpacity>
           <View style={[styles.divider, isDark && styles.dividerDark]} />
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={exportAll}
+            disabled={bulkExporting}
+            activeOpacity={0.2}
+          >
+            <MaterialCommunityIcons name="zip-box-outline" size={22} color={colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.actionText, isDark && styles.textLight]}>
+                {bulkExporting
+                  ? bulkPhase === 'compressing'
+                    ? t('export.bulkCompressing')
+                    : bulkPhase === 'sharing'
+                      ? t('export.bulkSharing')
+                      : t('export.bulkExporting', { current: bulkCurrent, total: bulkTotal })
+                  : t('export.bulkExport', { count: cacheStats.totalActivities })}
+              </Text>
+              {bulkExporting && (
+                <>
+                  <View
+                    style={[styles.progressBarContainer, isDark && styles.progressBarContainerDark]}
+                  >
+                    <View
+                      style={[
+                        styles.progressBar,
+                        {
+                          width:
+                            bulkTotal > 0
+                              ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%`
+                              : '0%',
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.progressDetail, isDark && styles.textMuted]}>
+                    {bulkTotal > 0 ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%` : '0%'}
+                    {bulkSizeBytes > 0 && ` · ${formatBytes(bulkSizeBytes)}`}
+                  </Text>
+                </>
+              )}
+            </View>
+            {!bulkExporting && (
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={20}
+                color={isDark ? darkColors.textMuted : colors.textSecondary}
+              />
+            )}
+          </TouchableOpacity>
+          <View style={[styles.divider, isDark && styles.dividerDark]} />
 
           {/* Cache Stats - inline */}
           <View style={styles.statRow}>
@@ -1308,6 +1367,26 @@ const styles = StyleSheet.create({
   },
   actionTextDanger: {
     color: colors.error,
+  },
+  progressBarContainer: {
+    height: 4,
+    backgroundColor: colors.border,
+    borderRadius: 2,
+    marginTop: 6,
+    overflow: 'hidden',
+  },
+  progressBarContainerDark: {
+    backgroundColor: darkColors.border,
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+  },
+  progressDetail: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   divider: {
     height: 1,

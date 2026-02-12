@@ -300,7 +300,13 @@
   "export": {
     "gpx": "导出 GPX",
     "exporting": "正在导出...",
-    "error": "导出 GPX 文件失败。"
+    "error": "导出 GPX 文件失败。",
+    "bulkExport": "Export All Activities ({{count}})",
+    "bulkExporting": "Generating GPX {{current}}/{{total}}...",
+    "bulkCompressing": "Compressing...",
+    "bulkSharing": "Opening share sheet...",
+    "bulkComplete": "Export Complete",
+    "bulkResult": "{{exported}} GPX files exported, {{skipped}} activities without GPS skipped."
   },
   "feed": {
     "activitiesCount": "{{count}} 个活动",

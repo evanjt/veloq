@@ -8,7 +8,7 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 import { shareFile } from './shareFile';
 
 const APP_VERSION = '0.1.1';
-const BACKUP_VERSION = 1;
+const BACKUP_VERSION = 2;
 
 /** AsyncStorage keys that contain user preferences */
 const PREFERENCE_KEYS = [
@@ -34,8 +34,6 @@ interface BackupCustomSection {
   sourceActivityId: string;
   startIndex: number;
   endIndex: number;
-  distanceMeters: number;
-  polyline: { latitude: number; longitude: number; elevation?: number }[];
 }
 
 interface BackupData {
@@ -59,7 +57,7 @@ export interface RestoreResult {
 export async function createBackup(): Promise<string> {
   const engine = getRouteEngine();
 
-  // Collect custom sections
+  // Collect custom sections (slim format — no polyline or distanceMeters)
   const customSections: BackupCustomSection[] = [];
   if (engine) {
     const sections = engine.getSectionsByType('custom');
@@ -70,11 +68,6 @@ export async function createBackup(): Promise<string> {
         sourceActivityId: s.sourceActivityId || '',
         startIndex: s.startIndex ?? 0,
         endIndex: s.endIndex ?? 0,
-        distanceMeters: s.distanceMeters,
-        polyline: s.polyline.map((p) => ({
-          latitude: p.latitude,
-          longitude: p.longitude,
-        })),
       });
     }
   }
@@ -169,13 +162,29 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
           continue;
         }
 
-        engine.createSectionFromIndices(
+        // Validate indices are within track bounds
+        if (cs.startIndex >= track.length || cs.endIndex >= track.length) {
+          result.sectionsFailed.push({
+            name: cs.name || 'Unnamed',
+            reason: `Indices out of range (${cs.startIndex}-${cs.endIndex} vs track length ${track.length})`,
+          });
+          continue;
+        }
+
+        const sectionId = engine.createSectionFromIndices(
           cs.sourceActivityId,
           cs.startIndex,
           cs.endIndex,
           cs.sportType,
           cs.name || undefined
         );
+        if (!sectionId) {
+          result.sectionsFailed.push({
+            name: cs.name || 'Unnamed',
+            reason: 'Engine returned empty section ID',
+          });
+          continue;
+        }
         result.sectionsRestored++;
       } catch {
         result.sectionsFailed.push({

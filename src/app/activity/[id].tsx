@@ -1034,28 +1034,6 @@ export default function ActivityDetailScreen() {
             <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
           </TouchableOpacity>
           <View style={{ flex: 1 }} />
-          {coordinates.length > 0 && (
-            <TouchableOpacity
-              testID="activity-export-gpx"
-              style={styles.backButton}
-              onPress={() =>
-                exportGpx({
-                  name: activity?.name || 'Activity',
-                  points: coordinates,
-                  time: activity?.start_date_local,
-                  sport: activity?.type,
-                })
-              }
-              disabled={gpxExporting}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name={gpxExporting ? 'progress-download' : 'download'}
-                size={24}
-                color={colors.textOnDark}
-              />
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Activity info overlay at bottom */}
@@ -1264,6 +1242,33 @@ export default function ActivityDetailScreen() {
 
           {/* Insightful Stats - Interactive stats with context and explanations */}
           <InsightfulStats activity={activity} wellness={activityWellness} />
+
+          {/* Export GPX button */}
+          {coordinates.length > 0 && (
+            <TouchableOpacity
+              testID="activity-export-gpx"
+              style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
+              onPress={() =>
+                exportGpx({
+                  name: activity?.name || 'Activity',
+                  points: coordinates,
+                  time: activity?.start_date_local,
+                  sport: activity?.type,
+                })
+              }
+              disabled={gpxExporting}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={gpxExporting ? 'progress-download' : 'download'}
+                size={20}
+                color={colors.textOnPrimary}
+              />
+              <Text style={styles.exportGpxButtonText}>
+                {gpxExporting ? t('export.exporting') : t('export.gpx')}
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* Device attribution with Garmin branding when applicable */}
           {activity.device_name && (
@@ -2077,6 +2082,34 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     textAlign: 'center',
     lineHeight: 20,
+  },
+
+  // Export GPX button styles
+  exportGpxButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 24,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  exportGpxButtonDark: {
+    backgroundColor: colors.primary,
+  },
+  exportGpxButtonText: {
+    color: colors.textOnPrimary,
+    fontSize: 15,
+    fontWeight: '600',
   },
 
   // Create Section button styles
