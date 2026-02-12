@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -88,6 +89,18 @@ export function SeasonComparison({
     return Math.max(0, Math.min(11, monthIndex));
   }, []);
 
+  // Select month from x position (called from UI thread via runOnJS)
+  const selectMonthFromX = useCallback(
+    (x: number) => {
+      setSelectedMonth(getMonthFromX(x));
+    },
+    [getMonthFromX]
+  );
+
+  const clearSelection = useCallback(() => {
+    setSelectedMonth(null);
+  }, []);
+
   // Gesture.Pan for scrubbing (replaces PanResponder — requires long press to activate)
   const panGesture = useMemo(
     () =>
@@ -95,20 +108,22 @@ export function SeasonComparison({
         .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION)
         .minDistance(0)
         .onStart((e) => {
-          const monthIndex = getMonthFromX(e.x);
-          setSelectedMonth(monthIndex);
+          'worklet';
+          runOnJS(selectMonthFromX)(e.x);
         })
         .onUpdate((e) => {
-          const monthIndex = getMonthFromX(e.x);
-          setSelectedMonth(monthIndex);
+          'worklet';
+          runOnJS(selectMonthFromX)(e.x);
         })
         .onEnd(() => {
-          setSelectedMonth(null);
+          'worklet';
+          runOnJS(clearSelection)();
         })
         .onFinalize(() => {
-          setSelectedMonth(null);
+          'worklet';
+          runOnJS(clearSelection)();
         }),
-    [getMonthFromX]
+    [selectMonthFromX, clearSelection]
   );
 
   // Show empty state if no activities
