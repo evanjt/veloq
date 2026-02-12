@@ -1,13 +1,9 @@
-Novidades na versão 0.1.0:
+v0.1.2 (Feb 12, 2026)
 
-- Aba fitness reorganizada com curvas de potência/ritmo e zonas de treino
-- Rotas e seções ordenadas por ritmo para atividades de corrida
-- Estatísticas semanais usam semanas do calendário (seg-dom) como intervals.icu
-- Comparações anuais usam anos do calendário em vez de períodos móveis
-- Setas de tendência individuais para cada métrica no resumo semanal
-- Nomes auto-gerados traduzidos para rotas e seções
-- Pré-visualização de configurações para cartão resumo e círculos do mapa
-- Indicador de carregamento GPS no mapa regional
-- Corrigida renderização de polilinhas no mapa 3D
-- Corrigidos valores do eixo Y e navegação nos gráficos de atividade
-- Melhorias de desempenho em todo o aplicativo
+• Export all activities as GPX files in one go
+• Fixed backup restore for custom sections
+• Fixed crash when scrubbing Season Comparison chart
+• Improved Routes screen performance with better pagination
+• Export buttons moved to bottom of detail pages for easier access
+
+Full details: https://github.com/evanjt/veloq/releases/tag/v0.1.2

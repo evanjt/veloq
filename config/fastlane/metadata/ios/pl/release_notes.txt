@@ -1,13 +1,9 @@
-Co nowego w 0.1.0:
+v0.1.2 (Feb 12, 2026)
 
-- Reorganizacja zakładki fitness z krzywymi mocy/tempa i strefami treningowymi
-- Trasy i odcinki sortowane według tempa dla biegania
-- Statystyki tygodniowe używają tygodni kalendarzowych (pon-niedz) jak intervals.icu
-- Porównania roczne używają lat kalendarzowych zamiast okresów kroczących
-- Indywidualne strzałki trendu dla każdej metryki w podsumowaniu tygodnia
-- Przetłumaczone automatycznie generowane nazwy tras i odcinków
-- Podgląd ustawień dla karty podsumowania i kółek na mapie
-- Wskaźnik ładowania GPS na mapie regionalnej
-- Naprawiono renderowanie polilinii mapy 3D
-- Naprawiono wartości osi Y i przewijanie wykresów aktywności
-- Ulepszenia wydajności w całej aplikacji
+• Export all activities as GPX files in one go
+• Fixed backup restore for custom sections
+• Fixed crash when scrubbing Season Comparison chart
+• Improved Routes screen performance with better pagination
+• Export buttons moved to bottom of detail pages for easier access
+
+Full details: https://github.com/evanjt/veloq/releases/tag/v0.1.2

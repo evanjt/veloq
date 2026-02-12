@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { shareFile } from './shareFile';
 
-const APP_VERSION = '0.1.1';
+const APP_VERSION = '0.1.2';
 const BACKUP_VERSION = 2;
 
 /** AsyncStorage keys that contain user preferences */

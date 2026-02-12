@@ -1,13 +1,9 @@
-0.1.0 新功能:
+v0.1.2 (Feb 12, 2026)
 
-- 重新组织健身标签页，包含功率/配速曲线和训练区间
-- 跑步活动的路线和区段按配速排序
-- 周统计使用日历周（周一至周日），与 intervals.icu 一致
-- 年度比较使用日历年而非滚动周期
-- 周摘要中每个指标显示独立的趋势箭头
-- 路线和区段的自动生成名称已翻译
-- 摘要卡片和地图圆圈的设置预览
-- 区域地图上的 GPS 加载指示器
-- 修复 3D 地图折线渲染
-- 修复活动图表的 Y 轴值和滑动问题
-- 全应用性能改进
+• Export all activities as GPX files in one go
+• Fixed backup restore for custom sections
+• Fixed crash when scrubbing Season Comparison chart
+• Improved Routes screen performance with better pagination
+• Export buttons moved to bottom of detail pages for easier access
+
+Full details: https://github.com/evanjt/veloq/releases/tag/v0.1.2

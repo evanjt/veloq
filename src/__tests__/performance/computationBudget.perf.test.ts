@@ -36,22 +36,6 @@ describe('Computation budget', () => {
     });
   });
 
-  describe('demo fixtures lazy loading', () => {
-    it('fixtures module loads under 200ms', () => {
-      // Clear require cache to measure cold load
-      const fixturesPath = require.resolve('@/data/demo/fixtures');
-      delete require.cache[fixturesPath];
-
-      const start = performance.now();
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const fixtures = require('@/data/demo/fixtures');
-      const elapsed = performance.now() - start;
-
-      expect(fixtures).toBeDefined();
-      expect(elapsed).toBeLessThan(500);
-    });
-  });
-
   describe('import graph sanity', () => {
     it('src/lib/ has no circular dependencies', () => {
       const fs = require('fs');

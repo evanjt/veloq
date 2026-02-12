@@ -1,13 +1,9 @@
-What's new in 0.1.0:
+v0.1.2 (Feb 12, 2026)
 
-- Reorganised fitness tab with power/pace curves and training zones
-- Routes and sections now sorted by pace for running activities
-- Weekly stats now use calendar weeks (Mon-Sun) matching intervals.icu
-- Year comparisons use calendar years instead of rolling periods
-- Individual trend arrows for each metric in weekly summary
-- Translated route and section auto-generated names
-- Settings preview for summary card and map circles
-- GPS loading indicator on regional map
-- Fixed 3D map polyline rendering
-- Fixed activity chart y-axis values and scrubbing
-- Performance improvements throughout the app
+• Export all activities as GPX files in one go
+• Fixed backup restore for custom sections
+• Fixed crash when scrubbing Season Comparison chart
+• Improved Routes screen performance with better pagination
+• Export buttons moved to bottom of detail pages for easier access
+
+Full details: https://github.com/evanjt/veloq/releases/tag/v0.1.2

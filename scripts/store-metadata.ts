@@ -38,9 +38,10 @@ const LOCALE_MAPPINGS: LocaleMapping[] = [
 
   // German
   { app: 'de-DE', android: 'de-DE', ios: 'de-DE' },
-  // Swiss German variants map to de-CH on stores
-  { app: 'de-CHB', android: 'de-CH', ios: 'de-CH' },
-  { app: 'de-CHZ', android: 'de-CH', ios: 'de-CH' },
+  // Swiss German variants: de-CH is NOT a valid Play Store locale (causes API errors)
+  // Use de-DE for Android, de-CH for iOS only
+  { app: 'de-CHB', android: 'de-DE', ios: 'de-CH' },
+  { app: 'de-CHZ', android: 'de-DE', ios: 'de-CH' },
 
   // Spanish
   { app: 'es', android: 'es-ES', ios: 'es-ES' },

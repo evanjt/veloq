@@ -1,13 +1,9 @@
-0.1.0の新機能:
+v0.1.2 (Feb 12, 2026)
 
-- フィットネスタブをパワー/ペース曲線とトレーニングゾーンで再編成
-- ランニングアクティビティのルートとセクションをペース順にソート
-- 週間統計がintervals.icuと同様にカレンダー週（月〜日）を使用
-- 年間比較がローリング期間ではなくカレンダー年を使用
-- 週間サマリーの各指標に個別のトレンド矢印
-- ルートとセクションの自動生成名を翻訳
-- サマリーカードとマップサークルの設定プレビュー
-- 地域マップにGPS読み込みインジケーター
-- 3Dマップのポリライン描画を修正
-- アクティビティチャートのY軸値とスクラブを修正
-- アプリ全体のパフォーマンス改善
+• Export all activities as GPX files in one go
+• Fixed backup restore for custom sections
+• Fixed crash when scrubbing Season Comparison chart
+• Improved Routes screen performance with better pagination
+• Export buttons moved to bottom of detail pages for easier access
+
+Full details: https://github.com/evanjt/veloq/releases/tag/v0.1.2
