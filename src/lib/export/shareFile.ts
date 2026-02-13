@@ -1,9 +1,15 @@
 /**
  * Write content to a temp file and share via OS share sheet.
+ * expo-sharing is lazy-loaded to avoid crashing when the native module
+ * isn't linked (e.g. iOS simulator without a full rebuild).
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
+
+async function getSharing() {
+  const Sharing = await import('expo-sharing');
+  return Sharing;
+}
 
 interface ShareFileParams {
   content: string;
@@ -16,6 +22,7 @@ export async function shareFile({ content, filename, mimeType }: ShareFileParams
   await FileSystem.writeAsStringAsync(fileUri, content, {
     encoding: FileSystem.EncodingType.UTF8,
   });
+  const Sharing = await getSharing();
   await Sharing.shareAsync(fileUri, { mimeType, UTI: mimeType });
 }
 
@@ -34,5 +41,6 @@ export async function shareFileBase64({
   await FileSystem.writeAsStringAsync(fileUri, base64, {
     encoding: FileSystem.EncodingType.Base64,
   });
+  const Sharing = await getSharing();
   await Sharing.shareAsync(fileUri, { mimeType, UTI: mimeType });
 }
