@@ -21,7 +21,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           COMMIT_SHA="${{ github.sha }}"
-          MAX_WAIT=1800  # 30 minutes
+          MAX_WAIT=3600  # 1 hour
           POLL_INTERVAL=30
           WAITED=0
 
