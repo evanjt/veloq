@@ -54,7 +54,18 @@ pub(crate) fn init_logging() {
     );
 }
 
-#[cfg(not(target_os = "android"))]
+/// Initialize logging for iOS (Apple unified logging / os_log)
+#[cfg(target_os = "ios")]
 pub(crate) fn init_logging() {
-    // No-op on non-Android platforms
+    use log::LevelFilter;
+
+    oslog::OsLogger::new("com.veloq.app.rust")
+        .level_filter(LevelFilter::Debug)
+        .init()
+        .ok(); // ok() ignores AlreadyInitialized error on repeated calls
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+pub(crate) fn init_logging() {
+    // No-op on other platforms (desktop, tests)
 }

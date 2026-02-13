@@ -116,16 +116,18 @@ export function useRoutePerformances(
     };
   }, [engineGroup, groupIndex]);
 
-  // Get route performance data from Rust engine (typed, no JSON parsing)
-  // This provides match info, direction stats, and current rank
+  // Get route performance data from Rust engine (includes inlined metrics as of Issue C optimization)
+  // This provides match info, direction stats, current rank, AND activity metrics (no separate FFI call)
   const rustData = useMemo((): {
     matchInfoMap: Map<string, RustMatchInfo>;
+    activityMetrics: Map<string, any>; // Activity ID -> metrics
     forwardStats: DirectionStats | null;
     reverseStats: DirectionStats | null;
     currentRank: number | null;
   } => {
     const emptyResult = {
       matchInfoMap: new Map<string, RustMatchInfo>(),
+      activityMetrics: new Map(),
       forwardStats: null,
       reverseStats: null,
       currentRank: null,
@@ -137,7 +139,7 @@ export function useRoutePerformances(
       const engine = getRouteEngine();
       if (!engine) return emptyResult;
 
-      // Get typed performance data directly from Rust engine
+      // Get typed performance data directly from Rust engine (now includes metrics)
       const result: RoutePerformanceResult = engine.getRoutePerformances(
         engineGroup.groupId,
         activityId || ''
@@ -156,8 +158,15 @@ export function useRoutePerformances(
         }
       }
 
+      // Build metrics map from inlined activity_metrics (Issue C optimization - eliminates duplicate FFI call)
+      const metricsMap = new Map();
+      for (const m of result.activityMetrics || []) {
+        metricsMap.set(m.activityId, m);
+      }
+
       return {
         matchInfoMap: map,
+        activityMetrics: metricsMap,
         forwardStats: toDirectionStats(result.forwardStats),
         reverseStats: toDirectionStats(result.reverseStats),
         currentRank: result.currentRank ?? null,
@@ -167,9 +176,14 @@ export function useRoutePerformances(
     }
   }, [engineGroup, activityId]);
 
-  const { matchInfoMap, forwardStats: rustForwardStats, reverseStats: rustReverseStats } = rustData;
+  const {
+    matchInfoMap,
+    activityMetrics,
+    forwardStats: rustForwardStats,
+    reverseStats: rustReverseStats,
+  } = rustData;
 
-  // Build performances from engine metrics (no API call needed) + match info from Rust
+  // Build performances from inlined metrics (Issue C: no separate FFI call) + match info from Rust
   const { performances, best, bestForwardRecord, bestReverseRecord } = useMemo(() => {
     if (!engineGroup || engineGroup.activityIds.length === 0) {
       return {
@@ -180,9 +194,7 @@ export function useRoutePerformances(
       };
     }
 
-    // Get activity metrics from engine (in-memory HashMap, O(1) per lookup)
-    const engine = getRouteEngine();
-    if (!engine) {
+    if (activityMetrics.size === 0) {
       return {
         performances: [],
         best: null,
@@ -191,12 +203,10 @@ export function useRoutePerformances(
       };
     }
 
-    const metrics = engine.getActivityMetricsForIds(engineGroup.activityIds);
-
-    // Build performance points from engine metrics
+    // Build performance points from inlined metrics (already fetched in rustData)
     // Filter out activities with invalid speed (would crash chart)
     const points: RoutePerformancePoint[] = [];
-    for (const m of metrics) {
+    for (const m of activityMetrics.values()) {
       const speed = m.movingTime > 0 ? m.distance / m.movingTime : 0;
       if (!Number.isFinite(speed) || speed <= 0) continue;
 
@@ -264,7 +274,7 @@ export function useRoutePerformances(
       bestForwardRecord: bestForward,
       bestReverseRecord: bestReverse,
     };
-  }, [engineGroup, activityId, matchInfoMap]);
+  }, [engineGroup, activityId, matchInfoMap, activityMetrics]);
 
   // Compute average speed for each direction (for pace display in routes)
   const augmentedForwardStats = useMemo(() => {

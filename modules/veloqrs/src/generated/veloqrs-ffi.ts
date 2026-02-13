@@ -230,12 +230,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_detection_progress(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_performance_buckets(
-    sectionId: Uint8Array,
-    rangeDays: number,
-    bucketType: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_performances(
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
@@ -258,6 +252,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_stats(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_weekly_comparison(
+    weekStartTs: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_zone_distribution(
@@ -404,7 +402,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_calendar_summary(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_count(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_detection_progress(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_performance_buckets(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_performances(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_polyline(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_summaries(): number;
@@ -412,6 +409,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_sections(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_sport_settings(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_stats(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_weekly_comparison(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_zone_distribution(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_init(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_is_initialized(): number;

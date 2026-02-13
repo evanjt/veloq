@@ -1036,29 +1036,6 @@ export function persistentEngineGetSectionDetectionProgress(): string {
   );
 }
 /**
- * Get time-bucketed best section performances for chart display.
- * Returns one data point per time bucket, keeping the fastest traversal per bucket.
- */
-export function persistentEngineGetSectionPerformanceBuckets(
-  sectionId: string,
-  rangeDays: /*u32*/ number,
-  bucketType: string,
-): FfiSectionPerformanceBucketResult {
-  return FfiConverterTypeFfiSectionPerformanceBucketResult.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_performance_buckets(
-          FfiConverterString.lower(sectionId),
-          FfiConverterUInt32.lower(rangeDays),
-          FfiConverterString.lower(bucketType),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
-  );
-}
-/**
  * Get section performances.
  * Returns structured data instead of JSON string.
  */
@@ -1166,6 +1143,25 @@ export function persistentEngineGetStats(): PersistentEngineStats | undefined {
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_stats(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Get weekly comparison (current + previous week + FTP trend).
+ * Bundles 3 FFI calls into 1 for reduced overhead (30ms → 10ms).
+ */
+export function persistentEngineGetWeeklyComparison(
+  weekStartTs: /*i64*/ bigint,
+): FfiWeeklyComparison {
+  return FfiConverterTypeFfiWeeklyComparison.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_weekly_comparison(
+          FfiConverterInt64.lower(weekStartTs),
           callStatus,
         );
       },
@@ -3977,6 +3973,10 @@ export type FfiRoutePerformanceResult = {
    */
   performances: Array<FfiRoutePerformance>;
   /**
+   * Activity metrics for all activities in the route (inlined to avoid duplicate FFI call)
+   */
+  activityMetrics: Array<FfiActivityMetrics>;
+  /**
    * Best performance (fastest speed) - overall regardless of direction
    */
   best: FfiRoutePerformance | undefined;
@@ -4040,6 +4040,7 @@ const FfiConverterTypeFfiRoutePerformanceResult = (() => {
     read(from: RustBuffer): TypeName {
       return {
         performances: FfiConverterArrayTypeFfiRoutePerformance.read(from),
+        activityMetrics: FfiConverterArrayTypeFfiActivityMetrics.read(from),
         best: FfiConverterOptionalTypeFfiRoutePerformance.read(from),
         bestForward: FfiConverterOptionalTypeFfiRoutePerformance.read(from),
         bestReverse: FfiConverterOptionalTypeFfiRoutePerformance.read(from),
@@ -4050,6 +4051,10 @@ const FfiConverterTypeFfiRoutePerformanceResult = (() => {
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterArrayTypeFfiRoutePerformance.write(value.performances, into);
+      FfiConverterArrayTypeFfiActivityMetrics.write(
+        value.activityMetrics,
+        into,
+      );
       FfiConverterOptionalTypeFfiRoutePerformance.write(value.best, into);
       FfiConverterOptionalTypeFfiRoutePerformance.write(
         value.bestForward,
@@ -4067,6 +4072,9 @@ const FfiConverterTypeFfiRoutePerformanceResult = (() => {
       return (
         FfiConverterArrayTypeFfiRoutePerformance.allocationSize(
           value.performances,
+        ) +
+        FfiConverterArrayTypeFfiActivityMetrics.allocationSize(
+          value.activityMetrics,
         ) +
         FfiConverterOptionalTypeFfiRoutePerformance.allocationSize(value.best) +
         FfiConverterOptionalTypeFfiRoutePerformance.allocationSize(
@@ -4689,223 +4697,6 @@ const FfiConverterTypeFfiSectionLap = (() => {
 })();
 
 /**
- * A time-bucketed best performance for chart display.
- */
-export type FfiSectionPerformanceBucket = {
-  activityId: string;
-  activityName: string;
-  /**
-   * Unix timestamp (seconds since epoch)
-   */
-  activityDate: /*i64*/ bigint;
-  /**
-   * Best time in seconds
-   */
-  bestTime: /*f64*/ number;
-  /**
-   * Best pace in m/s
-   */
-  bestPace: /*f64*/ number;
-  /**
-   * Direction: "same" or "reverse"
-   */
-  direction: string;
-  /**
-   * Section distance in meters
-   */
-  sectionDistance: /*f64*/ number;
-  /**
-   * True if no time stream was available (proportional estimate)
-   */
-  isEstimated: boolean;
-  /**
-   * Number of traversals in this bucket
-   */
-  bucketCount: /*u32*/ number;
-};
-
-/**
- * Generated factory for {@link FfiSectionPerformanceBucket} record objects.
- */
-export const FfiSectionPerformanceBucket = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionPerformanceBucket,
-      ReturnType<typeof defaults>
-    >(defaults);
-  })();
-  return Object.freeze({
-    /**
-     * Create a frozen instance of {@link FfiSectionPerformanceBucket}, with defaults specified
-     * in Rust, in the {@link veloqrs} crate.
-     */
-    create,
-
-    /**
-     * Create a frozen instance of {@link FfiSectionPerformanceBucket}, with defaults specified
-     * in Rust, in the {@link veloqrs} crate.
-     */
-    new: create,
-
-    /**
-     * Defaults specified in the {@link veloqrs} crate.
-     */
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiSectionPerformanceBucket>,
-  });
-})();
-
-const FfiConverterTypeFfiSectionPerformanceBucket = (() => {
-  type TypeName = FfiSectionPerformanceBucket;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        activityId: FfiConverterString.read(from),
-        activityName: FfiConverterString.read(from),
-        activityDate: FfiConverterInt64.read(from),
-        bestTime: FfiConverterFloat64.read(from),
-        bestPace: FfiConverterFloat64.read(from),
-        direction: FfiConverterString.read(from),
-        sectionDistance: FfiConverterFloat64.read(from),
-        isEstimated: FfiConverterBool.read(from),
-        bucketCount: FfiConverterUInt32.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterString.write(value.activityId, into);
-      FfiConverterString.write(value.activityName, into);
-      FfiConverterInt64.write(value.activityDate, into);
-      FfiConverterFloat64.write(value.bestTime, into);
-      FfiConverterFloat64.write(value.bestPace, into);
-      FfiConverterString.write(value.direction, into);
-      FfiConverterFloat64.write(value.sectionDistance, into);
-      FfiConverterBool.write(value.isEstimated, into);
-      FfiConverterUInt32.write(value.bucketCount, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterString.allocationSize(value.activityName) +
-        FfiConverterInt64.allocationSize(value.activityDate) +
-        FfiConverterFloat64.allocationSize(value.bestTime) +
-        FfiConverterFloat64.allocationSize(value.bestPace) +
-        FfiConverterString.allocationSize(value.direction) +
-        FfiConverterFloat64.allocationSize(value.sectionDistance) +
-        FfiConverterBool.allocationSize(value.isEstimated) +
-        FfiConverterUInt32.allocationSize(value.bucketCount)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * Result of bucketed section performance query.
- */
-export type FfiSectionPerformanceBucketResult = {
-  /**
-   * Best-per-bucket data points for chart display
-   */
-  buckets: Array<FfiSectionPerformanceBucket>;
-  /**
-   * Total traversals in the date range
-   */
-  totalTraversals: /*u32*/ number;
-  /**
-   * Overall PR bucket
-   */
-  prBucket: FfiSectionPerformanceBucket | undefined;
-  /**
-   * Summary stats for forward/same direction
-   */
-  forwardStats: FfiDirectionStats | undefined;
-  /**
-   * Summary stats for reverse direction
-   */
-  reverseStats: FfiDirectionStats | undefined;
-};
-
-/**
- * Generated factory for {@link FfiSectionPerformanceBucketResult} record objects.
- */
-export const FfiSectionPerformanceBucketResult = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionPerformanceBucketResult,
-      ReturnType<typeof defaults>
-    >(defaults);
-  })();
-  return Object.freeze({
-    /**
-     * Create a frozen instance of {@link FfiSectionPerformanceBucketResult}, with defaults specified
-     * in Rust, in the {@link veloqrs} crate.
-     */
-    create,
-
-    /**
-     * Create a frozen instance of {@link FfiSectionPerformanceBucketResult}, with defaults specified
-     * in Rust, in the {@link veloqrs} crate.
-     */
-    new: create,
-
-    /**
-     * Defaults specified in the {@link veloqrs} crate.
-     */
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiSectionPerformanceBucketResult>,
-  });
-})();
-
-const FfiConverterTypeFfiSectionPerformanceBucketResult = (() => {
-  type TypeName = FfiSectionPerformanceBucketResult;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        buckets: FfiConverterArrayTypeFfiSectionPerformanceBucket.read(from),
-        totalTraversals: FfiConverterUInt32.read(from),
-        prBucket:
-          FfiConverterOptionalTypeFfiSectionPerformanceBucket.read(from),
-        forwardStats: FfiConverterOptionalTypeFfiDirectionStats.read(from),
-        reverseStats: FfiConverterOptionalTypeFfiDirectionStats.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterArrayTypeFfiSectionPerformanceBucket.write(
-        value.buckets,
-        into,
-      );
-      FfiConverterUInt32.write(value.totalTraversals, into);
-      FfiConverterOptionalTypeFfiSectionPerformanceBucket.write(
-        value.prBucket,
-        into,
-      );
-      FfiConverterOptionalTypeFfiDirectionStats.write(value.forwardStats, into);
-      FfiConverterOptionalTypeFfiDirectionStats.write(value.reverseStats, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterArrayTypeFfiSectionPerformanceBucket.allocationSize(
-          value.buckets,
-        ) +
-        FfiConverterUInt32.allocationSize(value.totalTraversals) +
-        FfiConverterOptionalTypeFfiSectionPerformanceBucket.allocationSize(
-          value.prBucket,
-        ) +
-        FfiConverterOptionalTypeFfiDirectionStats.allocationSize(
-          value.forwardStats,
-        ) +
-        FfiConverterOptionalTypeFfiDirectionStats.allocationSize(
-          value.reverseStats,
-        )
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * Section performance record for FFI.
  * Contains all traversals for a single activity on a section.
  */
@@ -5324,6 +5115,72 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
         FfiConverterOptionalString.allocationSize(value.scale) +
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
         FfiConverterArrayFloat64.allocationSize(value.polyline)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Weekly comparison: current week, previous week, and FTP trend bundled.
+ * Reduces FFI overhead from 3 calls to 1 call (30ms → 10ms).
+ */
+export type FfiWeeklyComparison = {
+  currentWeek: FfiPeriodStats;
+  previousWeek: FfiPeriodStats;
+  ftpTrend: FfiFtpTrend;
+};
+
+/**
+ * Generated factory for {@link FfiWeeklyComparison} record objects.
+ */
+export const FfiWeeklyComparison = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiWeeklyComparison, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiWeeklyComparison}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiWeeklyComparison}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiWeeklyComparison>,
+  });
+})();
+
+const FfiConverterTypeFfiWeeklyComparison = (() => {
+  type TypeName = FfiWeeklyComparison;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        currentWeek: FfiConverterTypeFfiPeriodStats.read(from),
+        previousWeek: FfiConverterTypeFfiPeriodStats.read(from),
+        ftpTrend: FfiConverterTypeFfiFtpTrend.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterTypeFfiPeriodStats.write(value.currentWeek, into);
+      FfiConverterTypeFfiPeriodStats.write(value.previousWeek, into);
+      FfiConverterTypeFfiFtpTrend.write(value.ftpTrend, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiPeriodStats.allocationSize(value.currentWeek) +
+        FfiConverterTypeFfiPeriodStats.allocationSize(value.previousWeek) +
+        FfiConverterTypeFfiFtpTrend.allocationSize(value.ftpTrend)
       );
     }
   }
@@ -5901,10 +5758,6 @@ const FfiConverterOptionalTypeFfiRoutesScreenData = new FfiConverterOptional(
   FfiConverterTypeFfiRoutesScreenData,
 );
 
-// FfiConverter for FfiSectionPerformanceBucket | undefined
-const FfiConverterOptionalTypeFfiSectionPerformanceBucket =
-  new FfiConverterOptional(FfiConverterTypeFfiSectionPerformanceBucket);
-
 // FfiConverter for FfiSectionPerformanceRecord | undefined
 const FfiConverterOptionalTypeFfiSectionPerformanceRecord =
   new FfiConverterOptional(FfiConverterTypeFfiSectionPerformanceRecord);
@@ -6014,11 +5867,6 @@ const FfiConverterArrayTypeFfiSection = new FfiConverterArray(
 // FfiConverter for Array<FfiSectionLap>
 const FfiConverterArrayTypeFfiSectionLap = new FfiConverterArray(
   FfiConverterTypeFfiSectionLap,
-);
-
-// FfiConverter for Array<FfiSectionPerformanceBucket>
-const FfiConverterArrayTypeFfiSectionPerformanceBucket = new FfiConverterArray(
-  FfiConverterTypeFfiSectionPerformanceBucket,
 );
 
 // FfiConverter for Array<FfiSectionPerformanceRecord>
@@ -6467,14 +6315,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_performance_buckets() !==
-    46179
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_persistent_engine_get_section_performance_buckets",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_performances() !==
     49656
   ) {
@@ -6528,6 +6368,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_persistent_engine_get_stats",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_weekly_comparison() !==
+    33918
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_weekly_comparison",
     );
   }
   if (
@@ -6753,12 +6601,11 @@ export default Object.freeze({
     FfiConverterTypeFfiSection,
     FfiConverterTypeFfiSectionConfig,
     FfiConverterTypeFfiSectionLap,
-    FfiConverterTypeFfiSectionPerformanceBucket,
-    FfiConverterTypeFfiSectionPerformanceBucketResult,
     FfiConverterTypeFfiSectionPerformanceRecord,
     FfiConverterTypeFfiSectionPerformanceResult,
     FfiConverterTypeFfiSectionPortion,
     FfiConverterTypeFfiSectionWithPolyline,
+    FfiConverterTypeFfiWeeklyComparison,
     FfiConverterTypeGroupSummary,
     FfiConverterTypeMapActivityComplete,
     FfiConverterTypeMapActivityData,

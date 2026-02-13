@@ -75,6 +75,8 @@ pub struct RoutePerformance {
 pub struct RoutePerformanceResult {
     /// Performances sorted by date (oldest first)
     pub performances: Vec<RoutePerformance>,
+    /// Activity metrics for all activities in the route (inlined to avoid duplicate FFI call)
+    pub activity_metrics: Vec<ActivityMetrics>,
     /// Best performance (fastest speed) - overall regardless of direction
     pub best: Option<RoutePerformance>,
     /// Best performance in forward/same direction
@@ -255,43 +257,6 @@ impl Default for CustomSectionMatchConfig {
 
 /// A time-bucketed best performance for chart display.
 /// Each bucket represents the best traversal within a time period (week or month).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SectionPerformanceBucket {
-    pub activity_id: String,
-    pub activity_name: String,
-    /// Unix timestamp (seconds since epoch)
-    pub activity_date: i64,
-    /// Best time in seconds
-    pub best_time: f64,
-    /// Best pace in m/s
-    pub best_pace: f64,
-    /// Direction: "same" or "reverse"
-    pub direction: String,
-    /// Section distance in meters
-    pub section_distance: f64,
-    /// True if no time stream was available (proportional estimate)
-    pub is_estimated: bool,
-    /// Number of traversals in this bucket
-    pub bucket_count: u32,
-}
-
-/// Result of bucketed section performance query.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SectionPerformanceBucketResult {
-    /// Best-per-bucket data points for chart display
-    pub buckets: Vec<SectionPerformanceBucket>,
-    /// Total traversals in the date range (not just bucket count)
-    pub total_traversals: u32,
-    /// Overall PR bucket (always included even if outside date range)
-    pub pr_bucket: Option<SectionPerformanceBucket>,
-    /// Summary stats for forward/same direction
-    pub forward_stats: Option<DirectionStats>,
-    /// Summary stats for reverse direction
-    pub reverse_stats: Option<DirectionStats>,
-}
-
 // ============================================================================
 // Calendar Summary Types
 // ============================================================================

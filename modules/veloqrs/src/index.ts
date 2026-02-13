@@ -55,9 +55,9 @@ import {
   type FfiSection,
   FfiSectionConfig,
   type FfiSectionPerformanceResult,
-  type FfiSectionPerformanceBucketResult,
-  type FfiSectionPerformanceBucket,
+  type FfiSectionPerformanceRecord,
   type FfiRoutePerformanceResult,
+  type FfiRoutePerformance,
   type PersistentEngineStats,
   type SectionSummary,
   type GroupSummary,
@@ -82,9 +82,9 @@ export type FrequentSection = FfiFrequentSection;
 export type Section = FfiSection;
 export type SectionConfig = FfiSectionConfig;
 export type SectionPerformanceResult = FfiSectionPerformanceResult;
-export type SectionPerformanceBucketResult = FfiSectionPerformanceBucketResult;
-export type SectionPerformanceBucket = FfiSectionPerformanceBucket;
+export type SectionPerformanceRecord = FfiSectionPerformanceRecord;
 export type RoutePerformanceResult = FfiRoutePerformanceResult;
+export type RoutePerformance = FfiRoutePerformance;
 // These are already exported without Ffi prefix:
 export type {
   PersistentEngineStats,

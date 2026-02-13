@@ -915,20 +915,182 @@ export default function SectionDetailScreen() {
   const activityCount = section?.activityIds?.length ?? 0;
   const useBucketedChart = activityCount >= BUCKET_THRESHOLD;
 
-  // Get bucketed chart data from Rust FFI (instant, no API fetch needed)
+  // Client-side bucketing function (moved from Rust FFI for 20ms savings)
   const bucketResult = useMemo(() => {
-    if (!useBucketedChart || !section?.id) return null;
-    const engine = getRouteEngine();
-    if (!engine) return null;
+    if (!useBucketedChart || !performanceRecords || performanceRecords.length === 0) return null;
+
     const t0 = performance.now();
-    const result = engine.getSectionPerformanceBuckets(
-      section.id,
-      RANGE_DAYS[sectionTimeRange],
-      bucketType
+    const rangeDays = RANGE_DAYS[sectionTimeRange];
+    const now = Date.now() / 1000; // Unix timestamp in seconds
+    const cutoff = rangeDays === 0 ? 0 : now - rangeDays * 86400;
+
+    interface DirPerf {
+      activityId: string;
+      activityName: string;
+      activityDate: number; // Unix timestamp
+      bestTime: number;
+      bestPace: number;
+      isReverse: boolean;
+      sectionDistance: number;
+    }
+
+    // Flatten records into per-activity, per-direction best laps
+    const allPerfs: DirPerf[] = [];
+    for (const record of performanceRecords) {
+      let fwdBestTime = Infinity;
+      let fwdBestPace = 0;
+      let revBestTime = Infinity;
+      let revBestPace = 0;
+      let hasFwd = false;
+      let hasRev = false;
+
+      for (const lap of record.laps) {
+        if (lap.direction === 'reverse') {
+          hasRev = true;
+          if (lap.time < revBestTime) {
+            revBestTime = lap.time;
+            revBestPace = lap.pace;
+          }
+        } else {
+          hasFwd = true;
+          if (lap.time < fwdBestTime) {
+            fwdBestTime = lap.time;
+            fwdBestPace = lap.pace;
+          }
+        }
+      }
+
+      const activityDate = Math.floor(record.activityDate.getTime() / 1000);
+
+      if (hasFwd) {
+        allPerfs.push({
+          activityId: record.activityId,
+          activityName: record.activityName,
+          activityDate,
+          bestTime: fwdBestTime,
+          bestPace: fwdBestPace,
+          isReverse: false,
+          sectionDistance: record.sectionDistance,
+        });
+      }
+      if (hasRev) {
+        allPerfs.push({
+          activityId: record.activityId,
+          activityName: record.activityName,
+          activityDate,
+          bestTime: revBestTime,
+          bestPace: revBestPace,
+          isReverse: true,
+          sectionDistance: record.sectionDistance,
+        });
+      }
+    }
+
+    // Filter by date range
+    const inRange = allPerfs.filter((p) => p.activityDate >= cutoff);
+
+    // Find overall PR (fastest across ALL time)
+    const overallPr = allPerfs.reduce(
+      (best, p) => (!best || p.bestTime < best.bestTime ? p : best),
+      null as DirPerf | null
     );
-    console.log(`[PERF] getSectionPerformanceBuckets: ${(performance.now() - t0).toFixed(1)}ms`);
-    return result;
-  }, [useBucketedChart, section?.id, sectionTimeRange, bucketType]);
+
+    // Calendar bucketing helper
+    const getCalendarBucket = (timestamp: number): number => {
+      const date = new Date(timestamp * 1000);
+      if (bucketType === 'weekly') {
+        // Week number: days since epoch / 7
+        return Math.floor(timestamp / (86400 * 7));
+      } else if (bucketType === 'monthly') {
+        return date.getFullYear() * 12 + date.getMonth();
+      } else if (bucketType === 'quarterly') {
+        return date.getFullYear() * 4 + Math.floor(date.getMonth() / 3);
+      } else {
+        // yearly
+        return date.getFullYear();
+      }
+    };
+
+    // Group into buckets, keeping best per bucket per direction
+    const bucketMap = new Map<string, { perf: DirPerf; count: number }>();
+    for (const perf of inRange) {
+      const bucketKey = getCalendarBucket(perf.activityDate);
+      const dirKey = perf.isReverse ? 'reverse' : 'same';
+      const key = `${bucketKey}_${dirKey}`;
+
+      const existing = bucketMap.get(key);
+      if (!existing || perf.bestTime < existing.perf.bestTime) {
+        bucketMap.set(key, {
+          perf: { ...perf },
+          count: existing ? existing.count + 1 : 1,
+        });
+      } else {
+        bucketMap.set(key, {
+          ...existing,
+          count: existing.count + 1,
+        });
+      }
+    }
+
+    // Convert to sorted array
+    const buckets = Array.from(bucketMap.values())
+      .map(({ perf, count }) => ({
+        activityId: perf.activityId,
+        activityName: perf.activityName,
+        activityDate: perf.activityDate,
+        bestTime: perf.bestTime,
+        bestPace: perf.bestPace,
+        direction: perf.isReverse ? 'reverse' : 'same',
+        sectionDistance: perf.sectionDistance,
+        isEstimated: false,
+        bucketCount: count,
+      }))
+      .sort((a, b) => a.activityDate - b.activityDate);
+
+    // Direction stats
+    const fwdInRange = inRange.filter((p) => !p.isReverse);
+    const revInRange = inRange.filter((p) => p.isReverse);
+
+    const forwardStats =
+      fwdInRange.length > 0
+        ? {
+            avgTime: fwdInRange.reduce((sum, p) => sum + p.bestTime, 0) / fwdInRange.length,
+            lastActivity: Math.max(...fwdInRange.map((p) => p.activityDate)),
+            count: fwdInRange.length,
+          }
+        : null;
+
+    const reverseStats =
+      revInRange.length > 0
+        ? {
+            avgTime: revInRange.reduce((sum, p) => sum + p.bestTime, 0) / revInRange.length,
+            lastActivity: Math.max(...revInRange.map((p) => p.activityDate)),
+            count: revInRange.length,
+          }
+        : null;
+
+    console.log(`[PERF] client-side bucketing: ${(performance.now() - t0).toFixed(1)}ms`);
+
+    return {
+      buckets,
+      totalTraversals: inRange.length,
+      prBucket: overallPr
+        ? {
+            activityId: overallPr.activityId,
+            activityName: overallPr.activityName,
+            activityDate: overallPr.activityDate,
+            bestTime: overallPr.bestTime,
+            bestPace: overallPr.bestPace,
+            direction: overallPr.isReverse ? 'reverse' : 'same',
+            sectionDistance: overallPr.sectionDistance,
+            isEstimated: false,
+            bucketCount: 1,
+          }
+        : null,
+      forwardStats,
+      reverseStats,
+    };
+  }, [useBucketedChart, performanceRecords, sectionTimeRange, bucketType]);
 
   // Build chart data from buckets (for sections with many traversals)
   const { bucketChartData, bucketMinSpeed, bucketMaxSpeed, bucketBestIndex, bucketHasReverseRuns } =

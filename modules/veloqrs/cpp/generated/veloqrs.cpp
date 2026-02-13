@@ -226,10 +226,6 @@ uint32_t uniffi_veloqrs_fn_func_persistent_engine_get_section_count(
 RustBuffer
 uniffi_veloqrs_fn_func_persistent_engine_get_section_detection_progress(
     RustCallStatus *uniffi_out_err);
-RustBuffer
-uniffi_veloqrs_fn_func_persistent_engine_get_section_performance_buckets(
-    RustBuffer section_id, uint32_t range_days, RustBuffer bucket_type,
-    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_section_performances(
     RustBuffer section_id, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_section_polyline(
@@ -245,6 +241,8 @@ RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_sport_settings(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_stats(
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_weekly_comparison(
+    int64_t week_start_ts, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_zone_distribution(
     RustBuffer sport_type, RustBuffer zone_type,
     RustCallStatus *uniffi_out_err);
@@ -485,8 +483,6 @@ uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_section_count();
 uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_get_section_detection_progress();
 uint16_t
-uniffi_veloqrs_checksum_func_persistent_engine_get_section_performance_buckets();
-uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_get_section_performances();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_section_polyline();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_section_summaries();
@@ -495,6 +491,7 @@ uniffi_veloqrs_checksum_func_persistent_engine_get_section_summaries_for_sport()
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_sections();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_sport_settings();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_stats();
+uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_weekly_comparison();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_zone_distribution();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_init();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_is_initialized();
@@ -2801,18 +2798,6 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_section_detection_progress(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_performance_"
-        "buckets"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_func_persistent_"
-                                    "engine_get_section_performance_buckets"),
-      3,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_section_performance_buckets(
-                rt, thisVal, args, count);
-      });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_"
         "performances"] = jsi::Function::createFromHostFunction(
       rt,
@@ -2897,6 +2882,19 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_stats(
                 rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_weekly_comparison"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_uniffi_veloqrs_fn_func_persistent_"
+                                    "engine_get_weekly_comparison"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_weekly_comparison(
+                    rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_zone_distribution"] =
       jsi::Function::createFromHostFunction(
@@ -3733,19 +3731,6 @@ NativeVeloqrs::NativeVeloqrs(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_"
-        "performance_buckets"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt,
-                                "ubrn_uniffi_veloqrs_checksum_func_persistent_"
-                                "engine_get_section_performance_buckets"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_section_performance_buckets(
-                rt, thisVal, args, count);
-      });
-  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_"
         "performances"] = jsi::Function::createFromHostFunction(
       rt,
       jsi::PropNameID::forAscii(rt,
@@ -3832,6 +3817,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_stats(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_weekly_"
+        "comparison"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
+                                    "persistent_engine_get_weekly_comparison"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_weekly_comparison(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_zone_"
         "distribution"] = jsi::Function::createFromHostFunction(
       rt,
@@ -4874,25 +4871,6 @@ jsi::Value NativeVeloqrs::
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_fn_func_persistent_engine_get_section_performance_buckets(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value =
-      uniffi_veloqrs_fn_func_persistent_engine_get_section_performance_buckets(
-          uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                        args[0]),
-          uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
-          uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                        args[2]),
-          &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_fn_func_persistent_engine_get_section_performances(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -4983,6 +4961,19 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_get_stats(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_func_persistent_engine_get_stats(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_func_persistent_engine_get_weekly_comparison(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_persistent_engine_get_weekly_comparison(
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[0]), &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -5691,15 +5682,6 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_section_performance_buckets(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_veloqrs_checksum_func_persistent_engine_get_section_performance_buckets();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_section_performances(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -5757,6 +5739,15 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_stats(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_func_persistent_engine_get_stats();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_weekly_comparison(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_get_weekly_comparison();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
