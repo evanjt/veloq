@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { exportBackup, restoreBackup, type RestoreResult } from '@/lib/export/backup';
 
@@ -32,6 +31,7 @@ export function useImportBackup() {
     if (importing) return null;
     setImporting(true);
     try {
+      const DocumentPicker = await import('expo-document-picker');
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/json', 'application/octet-stream', '*/*'],
         copyToCacheDirectory: true,
