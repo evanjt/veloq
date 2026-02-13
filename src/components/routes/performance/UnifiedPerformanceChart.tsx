@@ -1189,11 +1189,9 @@ export function UnifiedPerformanceChart({
                     <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
                     <Text style={styles.prBadgeTime}>
                       {showPace
-                        ? sectionDistance > 0
-                          ? formatPace(sectionDistance / bestForwardRecord.bestTime)
-                          : bestForwardRecord.bestSpeed
-                            ? formatPace(bestForwardRecord.bestSpeed)
-                            : formatDuration(bestForwardRecord.bestTime)
+                        ? (bestForwardRecord as any).bestPace
+                          ? formatPace((bestForwardRecord as any).bestPace)
+                          : formatDuration(bestForwardRecord.bestTime)
                         : formatDuration(bestForwardRecord.bestTime)}
                     </Text>
                   </View>
@@ -1288,11 +1286,9 @@ export function UnifiedPerformanceChart({
                     <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
                     <Text style={styles.prBadgeTime}>
                       {showPace
-                        ? sectionDistance > 0
-                          ? formatPace(sectionDistance / bestReverseRecord.bestTime)
-                          : bestReverseRecord.bestSpeed
-                            ? formatPace(bestReverseRecord.bestSpeed)
-                            : formatDuration(bestReverseRecord.bestTime)
+                        ? (bestReverseRecord as any).bestPace
+                          ? formatPace((bestReverseRecord as any).bestPace)
+                          : formatDuration(bestReverseRecord.bestTime)
                         : formatDuration(bestReverseRecord.bestTime)}
                     </Text>
                   </View>

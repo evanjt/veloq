@@ -2571,10 +2571,10 @@ impl PersistentRouteEngine {
             return;
         }
 
-        // Get activity IDs from junction table
+        // Get activity IDs from junction table (deduplicated)
         let activity_ids: Vec<String> = {
             let mut stmt = match self.db.prepare(
-                "SELECT activity_id FROM section_activities WHERE section_id = ?"
+                "SELECT DISTINCT activity_id FROM section_activities WHERE section_id = ?"
             ) {
                 Ok(s) => s,
                 Err(_) => return,
@@ -2590,7 +2590,14 @@ impl PersistentRouteEngine {
             .and_then(|j| serde_json::from_str(&j).ok())
             .unwrap_or_default();
 
-        let visit_count = activity_ids.len() as u32;
+        // Count total traversals (laps), not unique activities
+        let visit_count: u32 = self.db
+            .query_row(
+                "SELECT COUNT(*) FROM section_activities WHERE section_id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(activity_ids.len() as u32);
 
         // Build the FrequentSection
         let updated_section = FrequentSection {
@@ -4662,16 +4669,16 @@ impl PersistentRouteEngine {
                             return None;
                         }
 
-                        // Use canonical section distance for pace (not portion distance)
-                        // so all laps use the same denominator for comparison
-                        let pace = section.distance_meters / lap_time;
+                        // Use actual GPS distance of this section traversal for pace
+                        // This shows the true pace for the distance actually covered
+                        let pace = portion.distance_meters / lap_time;
 
                         Some(SectionLap {
                             id: format!("{}_lap{}", activity_id, i),
                             activity_id: activity_id.to_string(),
                             time: lap_time,
                             pace,
-                            distance: portion.distance_meters,
+                            distance: portion.distance_meters, // Actual GPS distance of this lap
                             direction: portion.direction.to_string(),
                             start_index: portion.start_index,
                             end_index: portion.end_index,
@@ -4684,16 +4691,14 @@ impl PersistentRouteEngine {
                 }
 
                 let lap_count = laps.len() as u32;
-                let best_time = laps
+                // Find the lap with minimum time (best performance)
+                // Use both time and pace from the SAME lap for consistency
+                let best_lap = laps
                     .iter()
-                    .map(|l| l.time)
-                    .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-                    .unwrap_or(0.0);
-                let best_pace = laps
-                    .iter()
-                    .map(|l| l.pace)
-                    .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-                    .unwrap_or(0.0);
+                    .min_by(|a, b| a.time.partial_cmp(&b.time).unwrap_or(std::cmp::Ordering::Equal));
+                let (best_time, best_pace) = best_lap
+                    .map(|lap| (lap.time, lap.pace))
+                    .unwrap_or((0.0, 0.0));
                 let avg_time = laps.iter().map(|l| l.time).sum::<f64>() / lap_count as f64;
                 let avg_pace = laps.iter().map(|l| l.pace).sum::<f64>() / lap_count as f64;
                 let direction = laps

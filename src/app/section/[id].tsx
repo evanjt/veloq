@@ -1170,7 +1170,7 @@ export default function SectionDetailScreen() {
           direction,
           lapPoints: tracePoints,
           sectionTime: Math.round(fastestLap.time),
-          sectionDistance: fastestLap.distance || sectionDistance,
+          sectionDistance, // Use canonical section distance, not lap distance
           lapCount: record.laps.length,
         });
       } else {

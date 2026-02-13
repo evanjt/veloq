@@ -173,14 +173,15 @@ export default function ActivityDetailScreen() {
   // Track whether section scroll should be disabled (during scrubbing)
   const [sectionScrollDisabled, setSectionScrollDisabled] = useState(false);
   // Track press timing and timeout for long-press detection
-  // Track section row View refs for measureInWindow during drag
-  const sectionRowRefsMap = useRef<Map<string, View | null>>(new Map());
-  // Absolute screen positions measured at drag start (stable since scroll is disabled)
-  const sectionRowAbsoluteRef = useRef<Map<string, { y: number; height: number }>>(new Map());
+  // Track section row View refs and their measured positions
+  const sectionViewRefs = useRef<Map<string, View | null>>(new Map());
+  const sectionLayoutsRef = useRef<Map<string, { y: number; height: number }>>(new Map());
+  const measurementsReady = useRef(false);
   // Track open swipeable refs to close them when another opens
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
   const openSwipeableRef = useRef<string | null>(null);
   const isDraggingRef = useRef(false);
+  const lastHighlightedIdRef = useRef<string | null>(null);
 
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays();
@@ -188,50 +189,82 @@ export default function ActivityDetailScreen() {
   // Long press threshold for section highlighting (in ms)
   const LONG_PRESS_THRESHOLD = CHART_CONFIG.LONG_PRESS_DURATION;
 
-  // Track the last highlighted section to detect changes for haptic feedback
-  const lastHighlightedIdRef = useRef<string | null>(null);
+  // Find section at absolute Y position using layout data
+  const findSectionAtY = useCallback((absolutePageY: number): string | null => {
+    // Convert Map to array and sort by Y position to ensure correct order
+    const sortedSections = Array.from(sectionLayoutsRef.current.entries()).sort(
+      (a, b) => a[1].y - b[1].y
+    );
 
-  // Find section at Y position — compares pageY directly against absolute screen positions
-  // measured at drag start via measureInWindow (no offset math needed)
-  const findSectionAtPosition = useCallback((pageY: number): string | null => {
-    for (const [sectionId, rect] of sectionRowAbsoluteRef.current.entries()) {
-      if (pageY >= rect.y && pageY < rect.y + rect.height) {
-        return sectionId;
+    if (sortedSections.length === 0) return null;
+
+    // Find the section whose center is closest to the touch point
+    // This is more robust than checking boundaries
+    let closestSection: string | null = null;
+    let minDistance = Infinity;
+
+    for (const [sectionId, layout] of sortedSections) {
+      const sectionCenterY = layout.y + layout.height / 2;
+      const distance = Math.abs(absolutePageY - sectionCenterY);
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestSection = sectionId;
       }
     }
-    return null;
+
+    return closestSection;
   }, []);
 
   // Handle long press on individual section cards
   const handleSectionLongPress = useCallback((sectionId: string) => {
-    isDraggingRef.current = true;
     lastHighlightedIdRef.current = sectionId;
     setSectionScrollDisabled(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setHighlightedSectionId(sectionId);
 
-    // Measure all row positions now (scroll is disabled so they're stable)
-    sectionRowAbsoluteRef.current.clear();
-    for (const [sid, viewRef] of sectionRowRefsMap.current.entries()) {
+    // Measure all section positions
+    measurementsReady.current = false;
+    sectionLayoutsRef.current.clear();
+
+    const measurements: Array<{ sid: string; y: number; height: number }> = [];
+    let pending = sectionViewRefs.current.size;
+
+    sectionViewRefs.current.forEach((viewRef, sid) => {
       viewRef?.measureInWindow((x, y, width, height) => {
-        sectionRowAbsoluteRef.current.set(sid, { y, height });
+        measurements.push({ sid, y, height });
+        pending--;
+
+        if (pending === 0) {
+          // All measurements complete - sort and store
+          measurements.sort((a, b) => a.y - b.y);
+          measurements.forEach(({ sid, y, height }) => {
+            sectionLayoutsRef.current.set(sid, { y, height });
+          });
+          measurementsReady.current = true;
+          // Now enable dragging
+          isDraggingRef.current = true;
+        }
       });
-    }
+    });
   }, []);
 
-  // Handle touch move on sections container for scrubbing
+  // Handle touch move while scrubbing
   const handleSectionsTouchMove = useCallback(
     (event: { nativeEvent: { pageY: number } }) => {
-      if (!isDraggingRef.current) return;
-      const absoluteY = event.nativeEvent.pageY;
-      const sectionAtY = findSectionAtPosition(absoluteY);
-      if (sectionAtY && sectionAtY !== lastHighlightedIdRef.current) {
-        lastHighlightedIdRef.current = sectionAtY;
+      // Only process if dragging is active AND measurements are ready
+      if (!isDraggingRef.current || !measurementsReady.current) return;
+
+      // Use pageY (absolute screen coordinates) to match measureInWindow
+      const sectionId = findSectionAtY(event.nativeEvent.pageY);
+
+      if (sectionId && sectionId !== lastHighlightedIdRef.current) {
+        lastHighlightedIdRef.current = sectionId;
         Haptics.selectionAsync();
-        setHighlightedSectionId(sectionAtY);
+        setHighlightedSectionId(sectionId);
       }
     },
-    [findSectionAtPosition]
+    [findSectionAtY]
   );
 
   // Handle touch end on sections container
@@ -1414,7 +1447,7 @@ export default function ActivityDetailScreen() {
                     <View
                       key={`section-${sectionId}`}
                       ref={(ref) => {
-                        sectionRowRefsMap.current.set(sectionId, ref);
+                        sectionViewRefs.current.set(sectionId, ref);
                       }}
                     >
                       <Swipeable
@@ -1433,7 +1466,11 @@ export default function ActivityDetailScreen() {
                         }
                       >
                         <TouchableOpacity
-                          style={[styles.sectionCard, isDark && styles.cardDark]}
+                          style={[
+                            styles.sectionCard,
+                            isDark && styles.cardDark,
+                            highlightedSectionId === sectionId && styles.sectionCardHighlighted,
+                          ]}
                           onPress={() => {
                             if (!isDraggingRef.current) {
                               router.push(`/section/${sectionId}` as Href);
@@ -1972,6 +2009,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 2,
     elevation: 1,
+  },
+  sectionCardHighlighted: {
+    backgroundColor: '#FFAB00' + '15', // Golden highlight with low opacity
+    borderWidth: 2,
+    borderColor: '#FFAB00',
+    shadowColor: '#FFAB00',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   sectionHeader: {
     flexDirection: 'row',

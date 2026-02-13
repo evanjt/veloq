@@ -71,11 +71,39 @@ describe('formatPace', () => {
     expect(formatPace(4)).toBe('4:10 /km');
   });
 
+  it('handles rounding edge case where seconds would round to 60', () => {
+    // When seconds are >= 59.5, they round to 60, which should roll over to next minute
+    // Speed that gives exactly 5:59.5 /km: 1000 / (5*60 + 59.5) = 1000 / 359.5 = 2.78164116
+    expect(formatPace(2.78164116)).toBe('6:00 /km');
+    // Speed that gives exactly 5:59.6 /km: 1000 / (5*60 + 59.6) = 1000 / 359.6 = 2.78086420
+    expect(formatPace(2.7808642)).toBe('6:00 /km');
+  });
+
   it('shows placeholder for zero/negative/invalid speed', () => {
     expect(formatPace(0)).toBe('--:--');
     expect(formatPace(-1)).toBe('--:--');
     expect(formatPace(NaN)).toBe('--:--');
     expect(formatPace(Infinity)).toBe('--:--');
+  });
+});
+
+describe('formatPaceCompact', () => {
+  it('converts m/s to min:sec pace without unit', () => {
+    // 5 m/s = 200 seconds/km = 3:20
+    expect(formatPaceCompact(5)).toBe('3:20');
+    // 4 m/s = 250 seconds/km = 4:10
+    expect(formatPaceCompact(4)).toBe('4:10');
+  });
+
+  it('handles rounding edge case where seconds would round to 60', () => {
+    // Same edge case as formatPace, but without the unit
+    expect(formatPaceCompact(2.78164116)).toBe('6:00');
+    expect(formatPaceCompact(2.7808642)).toBe('6:00');
+  });
+
+  it('shows placeholder for invalid speed', () => {
+    expect(formatPaceCompact(0)).toBe('--:--');
+    expect(formatPaceCompact(NaN)).toBe('--:--');
   });
 });
 

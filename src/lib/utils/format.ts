@@ -132,8 +132,15 @@ export function formatPace(metersPerSecond: number, isMetric = true): string {
   // Seconds per mile = seconds per km / KM_TO_MI
   const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
 
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = Math.round(totalSeconds % 60);
+  let minutes = Math.floor(totalSeconds / 60);
+  let seconds = Math.round(totalSeconds % 60);
+
+  // Handle rounding edge case: if seconds rounds to 60, roll over to next minute
+  if (seconds === 60) {
+    minutes += 1;
+    seconds = 0;
+  }
+
   const unit = isMetric ? '/km' : '/mi';
   return `${minutes}:${seconds.toString().padStart(2, '0')} ${unit}`;
 }
@@ -153,8 +160,15 @@ export function formatPaceCompact(metersPerSecond: number, isMetric = true): str
   const secondsPerKm = 1000 / metersPerSecond;
   const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
 
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = Math.round(totalSeconds % 60);
+  let minutes = Math.floor(totalSeconds / 60);
+  let seconds = Math.round(totalSeconds % 60);
+
+  // Handle rounding edge case: if seconds rounds to 60, roll over to next minute
+  if (seconds === 60) {
+    minutes += 1;
+    seconds = 0;
+  }
+
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 

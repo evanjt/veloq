@@ -136,7 +136,8 @@ impl PersistentRouteEngine {
             Ok(iter) => iter
                 .filter_map(|r| r.ok())
                 .map(|mut s| {
-                    s.visit_count = s.activity_ids.len() as u32;
+                    // Count total traversals (laps), not unique activities
+                    s.visit_count = self.get_section_visit_count(&s.id);
                     s
                 })
                 .collect(),
@@ -144,11 +145,11 @@ impl PersistentRouteEngine {
         }
     }
 
-    /// Get activity IDs for a section from the junction table.
+    /// Get activity IDs for a section from the junction table (deduplicated).
     fn get_section_activity_ids(&self, section_id: &str) -> Vec<String> {
         let mut stmt = match self
             .db
-            .prepare("SELECT activity_id FROM section_activities WHERE section_id = ?")
+            .prepare("SELECT DISTINCT activity_id FROM section_activities WHERE section_id = ?")
         {
             Ok(s) => s,
             Err(_) => return Vec::new(),
@@ -157,6 +158,17 @@ impl PersistentRouteEngine {
         stmt.query_map(params![section_id], |row| row.get(0))
             .map(|rows| rows.filter_map(|r| r.ok()).collect())
             .unwrap_or_default()
+    }
+
+    /// Get total visit count (number of traversals/laps) for a section.
+    fn get_section_visit_count(&self, section_id: &str) -> u32 {
+        self.db
+            .query_row(
+                "SELECT COUNT(*) FROM section_activities WHERE section_id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0)
     }
 
     /// Get section count by type.
@@ -637,6 +649,7 @@ impl PersistentRouteEngine {
             let point_density_json: Option<String> = row.get(10)?;
 
             let activity_ids = self.get_section_activity_ids(&id);
+            let visit_count = self.get_section_visit_count(&id);
 
             Ok(Section {
                 id,
@@ -647,7 +660,7 @@ impl PersistentRouteEngine {
                 distance_meters: row.get(5)?,
                 representative_activity_id: row.get(6)?,
                 activity_ids: activity_ids.clone(),
-                visit_count: activity_ids.len() as u32,
+                visit_count,
                 confidence: row.get(7)?,
                 observation_count: row.get(8)?,
                 average_spread: row.get(9)?,
@@ -667,12 +680,12 @@ impl PersistentRouteEngine {
         .ok()
     }
 
-    /// Get sections for a specific activity.
+    /// Get sections for a specific activity (deduplicated).
     pub fn get_sections_for_activity(&self, activity_id: &str) -> Vec<Section> {
         let section_ids: Vec<String> = {
             let mut stmt = match self
                 .db
-                .prepare("SELECT section_id FROM section_activities WHERE activity_id = ?")
+                .prepare("SELECT DISTINCT section_id FROM section_activities WHERE activity_id = ?")
             {
                 Ok(s) => s,
                 Err(_) => return Vec::new(),
