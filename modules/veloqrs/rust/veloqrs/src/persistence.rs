@@ -557,7 +557,7 @@ impl PersistentRouteEngine {
 
     /// Current schema version for app-level tracking.
     /// This is separate from rusqlite_migration and tracks the overall schema state.
-    const SCHEMA_VERSION: i32 = 2; // v0.1.0 schema
+    const SCHEMA_VERSION: i32 = 3; // v0.1.2 schema (cached section performances)
 
     /// Get the database migrations.
     /// Each migration is applied in order, tracked in `__rusqlite_migrations` table.
@@ -575,6 +575,8 @@ impl PersistentRouteEngine {
             M::up(include_str!("migrations/005_profile_and_settings.sql")),
             // M6: Processed activities tracking for incremental section detection
             M::up(include_str!("migrations/006_processed_activities.sql")),
+            // M7: Cache section performance metrics (lap_time, lap_pace) in section_activities
+            M::up(include_str!("migrations/007_cache_section_performances.sql")),
         ])
     }
 
@@ -639,6 +641,24 @@ impl PersistentRouteEngine {
             "tracematch: [Schema] Migration complete. Now at version {}",
             Self::SCHEMA_VERSION
         );
+
+        // Post-migration: populate performance cache if migrating from v2 to v3
+        if current_version < 3 && Self::SCHEMA_VERSION >= 3 {
+            let needs_population: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM section_activities WHERE lap_time IS NULL",
+                [],
+                |row| row.get(0),
+            )?;
+
+            if needs_population > 0 {
+                log::info!(
+                    "tracematch: [Migration] Populating performance cache for {} section portions...",
+                    needs_population
+                );
+                Self::populate_performance_cache(conn)?;
+                log::info!("tracematch: [Migration] Performance cache population complete");
+            }
+        }
 
         Ok(())
     }
@@ -871,6 +891,121 @@ impl PersistentRouteEngine {
             )?;
             log::info!("tracematch: [Migration] Added metadata columns to activities table");
         }
+
+        Ok(())
+    }
+
+    /// Populate performance cache for all existing section portions.
+    /// Called during migration from schema v2 to v3.
+    fn populate_performance_cache(conn: &Connection) -> SqlResult<()> {
+        // Get all unique section IDs that need population
+        let section_ids: Vec<String> = conn
+            .prepare("SELECT DISTINCT section_id FROM section_activities WHERE lap_time IS NULL")?
+            .query_map([], |row| row.get(0))?
+            .collect::<Result<Vec<String>, _>>()?;
+
+        let total_sections = section_ids.len();
+        log::info!(
+            "tracematch: [Migration] Found {} sections needing performance cache population",
+            total_sections
+        );
+
+        let mut total_portions = 0;
+        let mut populated_portions = 0;
+
+        for (section_idx, section_id) in section_ids.iter().enumerate() {
+            if section_idx % 10 == 0 && section_idx > 0 {
+                log::info!(
+                    "tracematch: [Migration] Progress: {}/{} sections, {} portions populated",
+                    section_idx,
+                    total_sections,
+                    populated_portions
+                );
+            }
+
+            // Get all portions for this section that need population
+            let portions: Vec<(String, u32, u32, f64)> = conn
+                .prepare(
+                    "SELECT activity_id, start_index, end_index, distance_meters
+                     FROM section_activities
+                     WHERE section_id = ? AND lap_time IS NULL"
+                )?
+                .query_map([section_id], |row| {
+                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+
+            total_portions += portions.len();
+
+            // Load time streams for all activities in this section
+            let activity_ids: HashSet<String> = portions
+                .iter()
+                .map(|(id, _, _, _)| id.clone())
+                .collect();
+
+            let mut time_streams: HashMap<String, Vec<u32>> = HashMap::new();
+            for activity_id in &activity_ids {
+                if let Ok(stream) = conn.query_row(
+                    "SELECT times FROM time_streams WHERE activity_id = ?",
+                    [activity_id],
+                    |row| {
+                        let bytes: Vec<u8> = row.get(0)?;
+                        let times: Vec<u32> = rmp_serde::from_slice(&bytes)
+                            .map_err(|_| rusqlite::Error::InvalidQuery)?;
+                        Ok(times)
+                    },
+                ) {
+                    time_streams.insert(activity_id.clone(), stream);
+                }
+            }
+
+            // Calculate and update each portion
+            let mut update_stmt = conn.prepare(
+                "UPDATE section_activities
+                 SET lap_time = ?, lap_pace = ?
+                 WHERE section_id = ? AND activity_id = ? AND start_index = ?"
+            )?;
+
+            for (activity_id, start_idx, end_idx, distance) in portions {
+                // Calculate performance metrics
+                let (lap_time, lap_pace) = if let Some(times) = time_streams.get(&activity_id) {
+                    let start_idx_usize = start_idx as usize;
+                    let end_idx_usize = end_idx as usize;
+
+                    if start_idx_usize < times.len() && end_idx_usize < times.len() {
+                        let lap_time = (times[end_idx_usize] as f64 - times[start_idx_usize] as f64).abs();
+                        if lap_time > 0.0 {
+                            let lap_pace = distance / lap_time;
+                            (Some(lap_time), Some(lap_pace))
+                        } else {
+                            (None, None)
+                        }
+                    } else {
+                        (None, None)
+                    }
+                } else {
+                    (None, None)
+                };
+
+                update_stmt.execute(params![
+                    lap_time,
+                    lap_pace,
+                    section_id,
+                    activity_id,
+                    start_idx,
+                ])?;
+
+                if lap_time.is_some() {
+                    populated_portions += 1;
+                }
+            }
+        }
+
+        log::info!(
+            "tracematch: [Migration] Performance cache population complete: {}/{} portions populated",
+            populated_portions,
+            total_portions
+        );
 
         Ok(())
     }
@@ -3556,8 +3691,28 @@ impl PersistentRouteEngine {
                 section.updated_at
             ])?;
 
-            // Populate junction table with full portion details
+            // Populate junction table with full portion details and cached performance metrics
             for portion in &section.activity_portions {
+                // Calculate performance metrics if time stream is available
+                let (lap_time, lap_pace) = if let Some(times) = self.time_streams.get(&portion.activity_id) {
+                    let start_idx = portion.start_index as usize;
+                    let end_idx = portion.end_index as usize;
+
+                    if start_idx < times.len() && end_idx < times.len() {
+                        let lap_time = (times[end_idx] as f64 - times[start_idx] as f64).abs();
+                        if lap_time > 0.0 {
+                            let lap_pace = portion.distance_meters / lap_time;
+                            (Some(lap_time), Some(lap_pace))
+                        } else {
+                            (None, None)
+                        }
+                    } else {
+                        (None, None)
+                    }
+                } else {
+                    (None, None)
+                };
+
                 junction_stmt.execute(params![
                     section.id,
                     portion.activity_id,
@@ -3565,6 +3720,8 @@ impl PersistentRouteEngine {
                     portion.start_index,
                     portion.end_index,
                     portion.distance_meters,
+                    lap_time,
+                    lap_pace,
                 ])?;
             }
         }
@@ -4605,81 +4762,146 @@ impl PersistentRouteEngine {
             section.activity_portions.len()
         );
 
-        // Auto-load time streams from SQLite for all activities in this section
-        let activity_ids: Vec<String> = section
-            .activity_portions
-            .iter()
-            .map(|p| p.activity_id.clone())
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
-            .collect();
+        // Load portions WITH cached performance metrics from database
+        let mut stmt = match self.db.prepare(
+            "SELECT activity_id, direction, start_index, end_index,
+                    distance_meters, lap_time, lap_pace
+             FROM section_activities
+             WHERE section_id = ?
+             ORDER BY activity_id, start_index"
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("[DEBUG] Failed to prepare portion query: {}", e);
+                return SectionPerformanceResult {
+                    records: vec![],
+                    best_record: None,
+                    best_forward_record: None,
+                    best_reverse_record: None,
+                    forward_stats: None,
+                    reverse_stats: None,
+                };
+            }
+        };
 
-        log::info!("[DEBUG] Unique activity IDs: {:?}", activity_ids);
-
-        for activity_id in &activity_ids {
-            let loaded = self.ensure_time_stream_loaded(activity_id);
-            log::info!(
-                "[DEBUG] ensure_time_stream_loaded({}) = {}",
-                activity_id,
-                loaded
-            );
+        struct CachedPortion {
+            activity_id: String,
+            direction: String,
+            start_index: u32,
+            end_index: u32,
+            distance_meters: f64,
+            lap_time: Option<f64>,
+            lap_pace: Option<f64>,
         }
 
-        // Debug: Check what's available
-        for activity_id in &activity_ids {
-            let has_metrics = self.activity_metrics.contains_key(activity_id);
-            let has_times = self.time_streams.contains_key(activity_id);
-            log::info!(
-                "[DEBUG] Activity {}: has_metrics={}, has_times={}",
-                activity_id,
-                has_metrics,
-                has_times
-            );
-        }
+        let portions: Vec<CachedPortion> = match stmt
+            .query_map([section_id], |row| {
+                Ok(CachedPortion {
+                    activity_id: row.get(0)?,
+                    direction: row.get(1)?,
+                    start_index: row.get(2)?,
+                    end_index: row.get(3)?,
+                    distance_meters: row.get(4)?,
+                    lap_time: row.get(5)?,
+                    lap_pace: row.get(6)?,
+                })
+            })
+        {
+            Ok(iter) => iter.collect::<Result<Vec<_>, _>>().unwrap_or_default(),
+            Err(e) => {
+                log::error!("[DEBUG] Failed to query portions: {}", e);
+                return SectionPerformanceResult {
+                    records: vec![],
+                    best_record: None,
+                    best_forward_record: None,
+                    best_reverse_record: None,
+                    forward_stats: None,
+                    reverse_stats: None,
+                };
+            }
+        };
+
+        // Drop the statement to release the borrow on self.db
+        drop(stmt);
 
         // Group portions by activity
-        let mut portions_by_activity: HashMap<&str, Vec<&crate::SectionPortion>> = HashMap::new();
-        for portion in &section.activity_portions {
+        let mut portions_by_activity: HashMap<String, Vec<CachedPortion>> = HashMap::new();
+        for portion in portions {
             portions_by_activity
-                .entry(&portion.activity_id)
+                .entry(portion.activity_id.clone())
                 .or_default()
                 .push(portion);
+        }
+
+        // Pre-load time streams for any activities with cache misses
+        // This avoids borrow checker issues when processing records
+        let activity_ids_needing_streams: Vec<String> = portions_by_activity
+            .iter()
+            .filter(|(_, portions)| {
+                portions.iter().any(|p| p.lap_time.is_none() || p.lap_pace.is_none())
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+
+        for activity_id in activity_ids_needing_streams {
+            if !self.time_streams.contains_key(&activity_id) {
+                self.ensure_time_stream_loaded(&activity_id);
+            }
         }
 
         // Build performance records
         let mut records: Vec<SectionPerformanceRecord> = portions_by_activity
             .iter()
             .filter_map(|(activity_id, portions)| {
-                let metrics = self.activity_metrics.get(*activity_id)?;
-                let times = self.time_streams.get(*activity_id)?;
+                let metrics = self.activity_metrics.get(activity_id)?;
 
                 let laps: Vec<SectionLap> = portions
                     .iter()
                     .enumerate()
                     .filter_map(|(i, portion)| {
-                        let start_idx = portion.start_index as usize;
-                        let end_idx = portion.end_index as usize;
+                        // Use cached values if available, otherwise fall back to calculation
+                        let (lap_time, lap_pace) = match (portion.lap_time, portion.lap_pace) {
+                            (Some(t), Some(p)) => (t, p),
+                            _ => {
+                                // Fall back to calculation if cache miss
+                                // This handles migration edge case or corrupt data
+                                // Time stream should already be loaded by pre-loading step above
+                                if let Some(times) = self.time_streams.get(activity_id) {
+                                    let start_idx = portion.start_index as usize;
+                                    let end_idx = portion.end_index as usize;
 
-                        if start_idx >= times.len() || end_idx >= times.len() {
-                            return None;
-                        }
+                                    if start_idx < times.len() && end_idx < times.len() {
+                                        let lap_time = (times[end_idx] as f64 - times[start_idx] as f64).abs();
+                                        if lap_time > 0.0 {
+                                            let lap_pace = portion.distance_meters / lap_time;
+                                            (lap_time, lap_pace)
+                                        } else {
+                                            return None;
+                                        }
+                                    } else {
+                                        return None;
+                                    }
+                                } else {
+                                    log::warn!(
+                                        "[DEBUG] No time stream available for {}, lap {} - skipping",
+                                        activity_id, i
+                                    );
+                                    return None;
+                                }
+                            }
+                        };
 
-                        let lap_time = (times[end_idx] as f64 - times[start_idx] as f64).abs();
                         if lap_time <= 0.0 {
                             return None;
                         }
-
-                        // Use actual GPS distance of this section traversal for pace
-                        // This shows the true pace for the distance actually covered
-                        let pace = portion.distance_meters / lap_time;
 
                         Some(SectionLap {
                             id: format!("{}_lap{}", activity_id, i),
                             activity_id: activity_id.to_string(),
                             time: lap_time,
-                            pace,
-                            distance: portion.distance_meters, // Actual GPS distance of this lap
-                            direction: portion.direction.to_string(),
+                            pace: lap_pace,
+                            distance: portion.distance_meters,
+                            direction: portion.direction.clone(),
                             start_index: portion.start_index,
                             end_index: portion.end_index,
                         })

@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
   View,
   ScrollView,
+  FlatList,
   StyleSheet,
   TouchableOpacity,
   Pressable,
@@ -11,6 +12,7 @@ import {
   useWindowDimensions,
   Alert,
   Animated,
+  Platform,
 } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,6 +52,7 @@ import {
   RoutePerformanceSection,
   MiniTraceView,
 } from '@/components';
+import { SectionListItem } from '@/components/activity/SectionListItem';
 import {
   DataRangeFooter,
   SectionMiniPreview,
@@ -168,114 +171,22 @@ export default function ActivityDetailScreen() {
   );
   const { createSection, removeSection, sections } = useCustomSections();
   const { disable: disableSection, enable: enableSection } = useDisabledSections();
+  const disabledSectionIds = useDisabledSections((state) => state.disabledIds);
   // Highlighted section ID for map (when user holds a section row)
   const [highlightedSectionId, setHighlightedSectionId] = useState<string | null>(null);
-  // Track whether section scroll should be disabled (during scrubbing)
-  const [sectionScrollDisabled, setSectionScrollDisabled] = useState(false);
-  // Track press timing and timeout for long-press detection
-  // Track section row View refs and their measured positions
-  const sectionViewRefs = useRef<Map<string, View | null>>(new Map());
+  // Track whether section list scrolling should be disabled (during scrubbing)
+  const [sectionListScrollEnabled, setSectionListScrollEnabled] = useState(true);
+  // Track scrubbing state for continuous highlighting across rows
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  // Track section row Y positions for scrubbing
   const sectionLayoutsRef = useRef<Map<string, { y: number; height: number }>>(new Map());
-  const measurementsReady = useRef(false);
+  const lastHighlightedRef = useRef<string | null>(null);
   // Track open swipeable refs to close them when another opens
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
   const openSwipeableRef = useRef<string | null>(null);
-  const isDraggingRef = useRef(false);
-  const lastHighlightedIdRef = useRef<string | null>(null);
 
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays();
-
-  // Long press threshold for section highlighting (in ms)
-  const LONG_PRESS_THRESHOLD = CHART_CONFIG.LONG_PRESS_DURATION;
-
-  // Find section at absolute Y position using layout data
-  const findSectionAtY = useCallback((absolutePageY: number): string | null => {
-    // Convert Map to array and sort by Y position to ensure correct order
-    const sortedSections = Array.from(sectionLayoutsRef.current.entries()).sort(
-      (a, b) => a[1].y - b[1].y
-    );
-
-    if (sortedSections.length === 0) return null;
-
-    // Find the section whose center is closest to the touch point
-    // This is more robust than checking boundaries
-    let closestSection: string | null = null;
-    let minDistance = Infinity;
-
-    for (const [sectionId, layout] of sortedSections) {
-      const sectionCenterY = layout.y + layout.height / 2;
-      const distance = Math.abs(absolutePageY - sectionCenterY);
-
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestSection = sectionId;
-      }
-    }
-
-    return closestSection;
-  }, []);
-
-  // Handle long press on individual section cards
-  const handleSectionLongPress = useCallback((sectionId: string) => {
-    lastHighlightedIdRef.current = sectionId;
-    setSectionScrollDisabled(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setHighlightedSectionId(sectionId);
-
-    // Measure all section positions
-    measurementsReady.current = false;
-    sectionLayoutsRef.current.clear();
-
-    const measurements: Array<{ sid: string; y: number; height: number }> = [];
-    let pending = sectionViewRefs.current.size;
-
-    sectionViewRefs.current.forEach((viewRef, sid) => {
-      viewRef?.measureInWindow((x, y, width, height) => {
-        measurements.push({ sid, y, height });
-        pending--;
-
-        if (pending === 0) {
-          // All measurements complete - sort and store
-          measurements.sort((a, b) => a.y - b.y);
-          measurements.forEach(({ sid, y, height }) => {
-            sectionLayoutsRef.current.set(sid, { y, height });
-          });
-          measurementsReady.current = true;
-          // Now enable dragging
-          isDraggingRef.current = true;
-        }
-      });
-    });
-  }, []);
-
-  // Handle touch move while scrubbing
-  const handleSectionsTouchMove = useCallback(
-    (event: { nativeEvent: { pageY: number } }) => {
-      // Only process if dragging is active AND measurements are ready
-      if (!isDraggingRef.current || !measurementsReady.current) return;
-
-      // Use pageY (absolute screen coordinates) to match measureInWindow
-      const sectionId = findSectionAtY(event.nativeEvent.pageY);
-
-      if (sectionId && sectionId !== lastHighlightedIdRef.current) {
-        lastHighlightedIdRef.current = sectionId;
-        Haptics.selectionAsync();
-        setHighlightedSectionId(sectionId);
-      }
-    },
-    [findSectionAtY]
-  );
-
-  // Handle touch end on sections container
-  const handleSectionsTouchEnd = useCallback(() => {
-    if (isDraggingRef.current) {
-      isDraggingRef.current = false;
-      lastHighlightedIdRef.current = null;
-      setSectionScrollDisabled(false);
-      setHighlightedSectionId(null);
-    }
-  }, []);
 
   // Close any open swipeable when another opens
   const handleSwipeableOpen = useCallback((sectionId: string) => {
@@ -324,6 +235,59 @@ export default function ActivityDetailScreen() {
     },
     [removeSection, t]
   );
+
+  // Find section at Y position
+  const findSectionAtY = useCallback((pageY: number): string | null => {
+    const layouts = Array.from(sectionLayoutsRef.current.entries());
+    if (layouts.length === 0) return null;
+
+    // Find the section whose bounds contain the touch point
+    for (const [sectionId, layout] of layouts) {
+      if (pageY >= layout.y && pageY <= layout.y + layout.height) {
+        return sectionId;
+      }
+    }
+    return null;
+  }, []);
+
+  // Handle section long press to initiate scrubbing
+  const handleSectionLongPress = useCallback((sectionId: string) => {
+    setIsScrubbing(true);
+    lastHighlightedRef.current = sectionId;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSectionListScrollEnabled(false);
+    setHighlightedSectionId(sectionId);
+  }, []);
+
+  // Handle touch move during scrubbing
+  const handleSectionsTouchMove = useCallback(
+    (event: { nativeEvent: { pageY: number } }) => {
+      if (!isScrubbing) return;
+
+      const sectionId = findSectionAtY(event.nativeEvent.pageY);
+      if (sectionId && sectionId !== lastHighlightedRef.current) {
+        lastHighlightedRef.current = sectionId;
+        Haptics.selectionAsync();
+        setHighlightedSectionId(sectionId);
+      }
+    },
+    [isScrubbing, findSectionAtY]
+  );
+
+  // Handle touch end to exit scrubbing mode
+  const handleSectionsTouchEnd = useCallback(() => {
+    if (isScrubbing) {
+      setIsScrubbing(false);
+      lastHighlightedRef.current = null;
+      setSectionListScrollEnabled(true);
+      setHighlightedSectionId(null);
+    }
+  }, [isScrubbing]);
+
+  // Handle section press navigation
+  const handleSectionPress = useCallback((sectionId: string) => {
+    router.push(`/section/${sectionId}` as Href);
+  }, []);
 
   // Render swipe actions for section cards
   const renderSectionSwipeActions = useCallback(
@@ -824,6 +788,141 @@ export default function ActivityDetailScreen() {
     return { text: `+${timeStr}`, isAhead: false };
   };
 
+  // FlatList key extractor
+  const keyExtractor = useCallback((item: UnifiedSectionItem) => {
+    return item.type === 'engine' ? item.match.section.id : item.section.id;
+  }, []);
+
+  // FlatList render item
+  const renderSectionItem = useCallback(
+    ({ item }: { item: UnifiedSectionItem }) => {
+      const style = getSectionStyle(item.index);
+      const sectionId = item.type === 'engine' ? item.match.section.id : item.section.id;
+      const isCustom = item.type === 'custom';
+      const sectionType = item.type === 'engine' ? item.match.section.sectionType : 'custom';
+      const sectionName =
+        item.type === 'engine'
+          ? item.match.section.name || t('routes.autoDetected')
+          : item.section.name || t('routes.custom');
+
+      let sectionTime: number | undefined;
+      let distance: number;
+      let visitCount: number;
+
+      if (item.type === 'engine') {
+        sectionTime = getSectionTime(item.match.portion);
+        distance = item.match.distance;
+        visitCount = item.match.section.visitCount;
+      } else {
+        const portionRecord = item.section.activityPortions?.find((p: any) => p.activityId === id);
+        const portionIndices =
+          portionRecord ?? (item.section.sourceActivityId === id ? item.section : undefined);
+        sectionTime = getSectionTime(portionIndices);
+        distance = item.section.distanceMeters;
+        visitCount = item.section.activityIds?.length ?? item.section.visitCount;
+      }
+
+      const bestTime = getSectionBestTime(sectionId);
+      const delta =
+        sectionTime != null && bestTime != null ? formatTimeDelta(sectionTime, bestTime) : null;
+
+      const isDisabled = disabledSectionIds.has(sectionId);
+
+      return (
+        <SectionListItem
+          item={item}
+          sectionId={sectionId}
+          isCustom={isCustom}
+          sectionType={sectionType}
+          sectionName={sectionName}
+          sectionTime={sectionTime}
+          distance={distance}
+          visitCount={visitCount}
+          bestTime={bestTime}
+          delta={delta}
+          style={style}
+          index={item.index}
+          isHighlighted={highlightedSectionId === sectionId}
+          isDark={isDark}
+          isMetric={isMetric}
+          isScrubbing={isScrubbing}
+          onLongPress={handleSectionLongPress}
+          onLayout={(y, height) => {
+            sectionLayoutsRef.current.set(sectionId, { y, height });
+          }}
+          onPress={handleSectionPress}
+          onSwipeableOpen={handleSwipeableOpen}
+          renderRightActions={(progress, dragX) =>
+            renderSectionSwipeActions(sectionId, isCustom, isDisabled, progress, dragX)
+          }
+          swipeableRefs={swipeableRefs}
+          formatSectionTime={formatSectionTime}
+          formatSectionPace={formatSectionPace}
+        />
+      );
+    },
+    [
+      highlightedSectionId,
+      isScrubbing,
+      isDark,
+      isMetric,
+      disabledSectionIds,
+      id,
+      t,
+      handleSectionLongPress,
+      handleSectionPress,
+      handleSwipeableOpen,
+      renderSectionSwipeActions,
+      getSectionTime,
+      getSectionBestTime,
+      formatTimeDelta,
+      formatSectionTime,
+      formatSectionPace,
+      swipeableRefs,
+    ]
+  );
+
+  // Render empty state for section list
+  const renderSectionsListEmpty = useCallback(() => {
+    return (
+      <View style={styles.emptyStateContainer}>
+        <MaterialCommunityIcons
+          name="road-variant"
+          size={48}
+          color={isDark ? darkColors.border : colors.divider}
+        />
+        <Text style={[styles.emptyStateTitle, isDark && styles.textLight]}>
+          {t('activityDetail.noMatchedSections')}
+        </Text>
+        <Text style={[styles.emptyStateDescription, isDark && styles.textMuted]}>
+          {t('activityDetail.noMatchedSectionsDescription')}
+        </Text>
+      </View>
+    );
+  }, [isDark, t]);
+
+  // Render footer for section list
+  const renderSectionsListFooter = useCallback(() => {
+    return (
+      <>
+        {/* Create Section Button */}
+        {coordinates.length > 0 && !sectionCreationMode && (
+          <TouchableOpacity
+            style={[styles.createSectionButton, isDark && styles.createSectionButtonDark]}
+            onPress={() => setSectionCreationMode(true)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="plus" size={20} color={colors.textOnPrimary} />
+            <Text style={styles.createSectionButtonText}>{t('routes.createSection')}</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Data range footer */}
+        <DataRangeFooter days={cacheDays} isDark={isDark} />
+      </>
+    );
+  }, [coordinates.length, sectionCreationMode, isDark, cacheDays, t]);
+
   // Tabs configuration
   const tabs = useMemo<SwipeableTab[]>(
     () => [
@@ -1128,7 +1227,6 @@ export default function ActivityDetailScreen() {
         activeTab={activeTab}
         onTabChange={(key) => setActiveTab(key as TabType)}
         isDark={isDark}
-        gestureEnabled={!sectionScrollDisabled}
       >
         {/* Tab 1: Charts */}
         <ScrollView
@@ -1424,213 +1522,24 @@ export default function ActivityDetailScreen() {
           onTouchEnd={handleSectionsTouchEnd}
           onTouchCancel={handleSectionsTouchEnd}
         >
-          <ScrollView
-            contentContainerStyle={styles.tabScrollContent}
+          <FlatList
+            data={unifiedSections}
+            keyExtractor={keyExtractor}
+            renderItem={renderSectionItem}
+            ListEmptyComponent={renderSectionsListEmpty}
+            ListFooterComponent={renderSectionsListFooter}
+            contentContainerStyle={
+              unifiedSections.length === 0 ? styles.tabScrollContentEmpty : styles.tabScrollContent
+            }
             showsVerticalScrollIndicator={false}
-            scrollEnabled={!sectionScrollDisabled}
-          >
-            {totalSectionCount > 0 ? (
-              <View style={styles.sectionListContent}>
-                {unifiedSections.map((item) => {
-                  const style = getSectionStyle(item.index);
-                  const sectionId =
-                    item.type === 'engine' ? item.match.section.id : item.section.id;
-                  const isCustom = item.type === 'custom';
-                  const sectionType =
-                    item.type === 'engine' ? item.match.section.sectionType : 'custom';
-                  const sectionName =
-                    item.type === 'engine'
-                      ? item.match.section.name || t('routes.autoDetected')
-                      : item.section.name;
-
-                  return (
-                    <View
-                      key={`section-${sectionId}`}
-                      ref={(ref) => {
-                        sectionViewRefs.current.set(sectionId, ref);
-                      }}
-                    >
-                      <Swipeable
-                        ref={(ref) => {
-                          swipeableRefs.current.set(sectionId, ref);
-                        }}
-                        renderRightActions={(progress, dragX) =>
-                          renderSectionSwipeActions(sectionId, isCustom, false, progress, dragX)
-                        }
-                        onSwipeableOpen={() => handleSwipeableOpen(sectionId)}
-                        overshootRight={false}
-                        friction={2}
-                        enabled={!sectionScrollDisabled}
-                        containerStyle={
-                          sectionScrollDisabled ? styles.swipeableDisabled : undefined
-                        }
-                      >
-                        <TouchableOpacity
-                          style={[
-                            styles.sectionCard,
-                            isDark && styles.cardDark,
-                            highlightedSectionId === sectionId && styles.sectionCardHighlighted,
-                          ]}
-                          onPress={() => {
-                            if (!isDraggingRef.current) {
-                              router.push(`/section/${sectionId}` as Href);
-                            }
-                          }}
-                          onLongPress={() => handleSectionLongPress(sectionId)}
-                          delayLongPress={LONG_PRESS_THRESHOLD}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.sectionCardContent}>
-                            {/* Numbered badge matching map marker */}
-                            <View style={[styles.sectionNumberBadge, { borderColor: style.color }]}>
-                              <Text style={styles.sectionNumberBadgeText}>{item.index + 1}</Text>
-                            </View>
-
-                            {/* Mini trace preview */}
-                            <View style={styles.sectionPreviewBox}>
-                              <SectionMiniPreview
-                                sectionId={sectionId}
-                                polyline={isCustom ? item.section.polyline : undefined}
-                                color={style.color}
-                                width={56}
-                                height={40}
-                                isDark={isDark}
-                              />
-                            </View>
-
-                            {/* Section info */}
-                            <View style={styles.sectionInfo}>
-                              <View style={styles.sectionHeader}>
-                                <Text
-                                  style={[styles.sectionName, isDark && styles.textLight]}
-                                  numberOfLines={1}
-                                >
-                                  {sectionName}
-                                </Text>
-                                <View
-                                  style={[
-                                    sectionType === 'custom'
-                                      ? styles.customBadge
-                                      : styles.autoDetectedBadge,
-                                    isDark &&
-                                      (sectionType === 'custom'
-                                        ? styles.customBadgeDark
-                                        : styles.autoDetectedBadgeDark),
-                                  ]}
-                                >
-                                  <Text
-                                    style={
-                                      sectionType === 'custom'
-                                        ? styles.customBadgeText
-                                        : styles.autoDetectedText
-                                    }
-                                  >
-                                    {sectionType === 'custom'
-                                      ? t('routes.custom')
-                                      : t('routes.autoDetected')}
-                                  </Text>
-                                </View>
-                              </View>
-                              {(() => {
-                                let sectionTime: number | undefined;
-                                let distance: number;
-                                let visitCount: number;
-
-                                if (item.type === 'engine') {
-                                  sectionTime = getSectionTime(item.match.portion);
-                                  distance = item.match.distance;
-                                  visitCount = item.match.section.visitCount;
-                                } else {
-                                  const portionRecord = item.section.activityPortions?.find(
-                                    (p) => p.activityId === id
-                                  );
-                                  const portionIndices =
-                                    portionRecord ??
-                                    (item.section.sourceActivityId === id
-                                      ? item.section
-                                      : undefined);
-                                  sectionTime = getSectionTime(portionIndices);
-                                  distance = item.section.distanceMeters;
-                                  visitCount =
-                                    item.section.activityIds?.length ?? item.section.visitCount;
-                                }
-
-                                const bestTime = getSectionBestTime(sectionId);
-                                const delta =
-                                  sectionTime != null && bestTime != null
-                                    ? formatTimeDelta(sectionTime, bestTime)
-                                    : null;
-
-                                return (
-                                  <>
-                                    <Text style={[styles.sectionMeta, isDark && styles.textMuted]}>
-                                      {formatDistance(distance, isMetric)} · {visitCount}{' '}
-                                      {t('routes.visits')}
-                                    </Text>
-                                    {sectionTime != null && (
-                                      <View style={styles.sectionTimeRow}>
-                                        <Text
-                                          style={[styles.sectionTime, isDark && styles.textLight]}
-                                        >
-                                          {formatSectionTime(sectionTime)} ·{' '}
-                                          {formatSectionPace(sectionTime, distance)}
-                                        </Text>
-                                        {delta && (
-                                          <Text
-                                            style={[
-                                              styles.sectionDelta,
-                                              delta.isAhead
-                                                ? styles.deltaAhead
-                                                : styles.deltaBehind,
-                                            ]}
-                                          >
-                                            {delta.text}
-                                          </Text>
-                                        )}
-                                      </View>
-                                    )}
-                                  </>
-                                );
-                              })()}
-                            </View>
-                          </View>
-                        </TouchableOpacity>
-                      </Swipeable>
-                    </View>
-                  );
-                })}
-              </View>
-            ) : (
-              <View style={styles.emptyStateContainer}>
-                <MaterialCommunityIcons
-                  name="road-variant"
-                  size={48}
-                  color={isDark ? darkColors.border : colors.divider}
-                />
-                <Text style={[styles.emptyStateTitle, isDark && styles.textLight]}>
-                  {t('activityDetail.noMatchedSections')}
-                </Text>
-                <Text style={[styles.emptyStateDescription, isDark && styles.textMuted]}>
-                  {t('activityDetail.noMatchedSectionsDescription')}
-                </Text>
-              </View>
-            )}
-
-            {/* Create Section Button */}
-            {coordinates.length > 0 && !sectionCreationMode && (
-              <TouchableOpacity
-                style={[styles.createSectionButton, isDark && styles.createSectionButtonDark]}
-                onPress={() => setSectionCreationMode(true)}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="plus" size={20} color={colors.textOnPrimary} />
-                <Text style={styles.createSectionButtonText}>{t('routes.createSection')}</Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Data range footer */}
-            <DataRangeFooter days={cacheDays} isDark={isDark} />
-          </ScrollView>
+            keyboardShouldPersistTaps="handled"
+            scrollEnabled={sectionListScrollEnabled}
+            // Performance optimizations
+            initialNumToRender={8}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS === 'ios'}
+          />
         </View>
       </SwipeableTabs>
 
@@ -1969,6 +1878,10 @@ const styles = StyleSheet.create({
   tabScrollContent: {
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
+  tabScrollContentEmpty: {
+    flexGrow: 1,
+    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
+  },
 
   // No route match styles
   noMatchContainer: {
@@ -1993,10 +1906,6 @@ const styles = StyleSheet.create({
   },
 
   // Section list content wrapper
-  sectionListContent: {
-    paddingTop: spacing.md,
-  },
-
   // Section card styles - matches SectionRow for consistency
   sectionCard: {
     backgroundColor: colors.surface,
@@ -2242,8 +2151,5 @@ const styles = StyleSheet.create({
   },
   enableSwipeAction: {
     backgroundColor: colors.success,
-  },
-  swipeableDisabled: {
-    pointerEvents: 'box-none' as const,
   },
 });
