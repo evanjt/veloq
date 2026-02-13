@@ -293,13 +293,23 @@ impl PersistentRouteEngine {
         let polyline_json =
             serde_json::to_string(&params.polyline).unwrap_or_else(|_| "[]".to_string());
 
+        // Compute bounds from polyline
+        let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
+            if params.polyline.len() >= 2 {
+                let bounds = tracematch::geo_utils::compute_bounds(&params.polyline);
+                (Some(bounds.min_lat), Some(bounds.max_lat), Some(bounds.min_lng), Some(bounds.max_lng))
+            } else {
+                (None, None, None, None)
+            };
+
         self.db
             .execute(
                 "INSERT INTO sections (
                     id, section_type, name, sport_type, polyline_json, distance_meters,
                     representative_activity_id, source_activity_id, start_index, end_index,
-                    created_at, is_user_defined
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    created_at, is_user_defined,
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     id,
                     section_type.as_str(),
@@ -312,7 +322,11 @@ impl PersistentRouteEngine {
                     params.start_index,
                     params.end_index,
                     created_at,
-                    1 // is_user_defined = true for manually created sections
+                    1, // is_user_defined = true for manually created sections
+                    bounds_min_lat,
+                    bounds_max_lat,
+                    bounds_min_lng,
+                    bounds_max_lng,
                 ],
             )
             .map_err(|e| format!("Failed to create section: {}", e))?;
@@ -439,6 +453,7 @@ impl PersistentRouteEngine {
 
             let polyline_json = serde_json::to_string(&polyline).unwrap_or_else(|_| "[]".to_string());
             let distance = calculate_polyline_distance(&polyline);
+            let bounds = tracematch::geo_utils::compute_bounds(&polyline);
 
             self.db
                 .execute(
@@ -448,9 +463,14 @@ impl PersistentRouteEngine {
                         polyline_json = ?,
                         distance_meters = ?,
                         is_user_defined = 1,
-                        updated_at = ?
+                        updated_at = ?,
+                        bounds_min_lat = ?,
+                        bounds_max_lat = ?,
+                        bounds_min_lng = ?,
+                        bounds_max_lng = ?
                      WHERE id = ?",
-                    params![activity_id, activity_id, polyline_json, distance, updated_at, section_id],
+                    params![activity_id, activity_id, polyline_json, distance, updated_at,
+                            bounds.min_lat, bounds.max_lat, bounds.min_lng, bounds.max_lng, section_id],
                 )
                 .map_err(|e| format!("Failed to update section: {}", e))?;
         } else {
@@ -477,6 +497,7 @@ impl PersistentRouteEngine {
             let polyline_json =
                 serde_json::to_string(&new_polyline).unwrap_or_else(|_| "[]".to_string());
             let distance = calculate_polyline_distance(&new_polyline);
+            let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
 
             self.db
                 .execute(
@@ -485,9 +506,14 @@ impl PersistentRouteEngine {
                         polyline_json = ?,
                         distance_meters = ?,
                         is_user_defined = 1,
-                        updated_at = ?
+                        updated_at = ?,
+                        bounds_min_lat = ?,
+                        bounds_max_lat = ?,
+                        bounds_min_lng = ?,
+                        bounds_max_lng = ?
                      WHERE id = ?",
-                    params![activity_id, polyline_json, distance, updated_at, section_id],
+                    params![activity_id, polyline_json, distance, updated_at,
+                            bounds.min_lat, bounds.max_lat, bounds.min_lng, bounds.max_lng, section_id],
                 )
                 .map_err(|e| format!("Failed to update section reference: {}", e))?;
 
@@ -718,14 +744,24 @@ impl PersistentRouteEngine {
             .as_ref()
             .and_then(|pd| serde_json::to_string(pd).ok());
 
+        // Compute bounds from polyline
+        let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
+            if section.polyline.len() >= 2 {
+                let bounds = tracematch::geo_utils::compute_bounds(&section.polyline);
+                (Some(bounds.min_lat), Some(bounds.max_lat), Some(bounds.min_lng), Some(bounds.max_lng))
+            } else {
+                (None, None, None, None)
+            };
+
         self.db
             .execute(
                 "INSERT OR REPLACE INTO sections (
                     id, section_type, name, sport_type, polyline_json, distance_meters,
                     representative_activity_id, confidence, observation_count, average_spread,
                     point_density_json, scale, version, is_user_defined, stability,
-                    source_activity_id, start_index, end_index, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    source_activity_id, start_index, end_index, created_at, updated_at,
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     section.id,
                     section.section_type.as_str(),
@@ -746,7 +782,11 @@ impl PersistentRouteEngine {
                     section.start_index,
                     section.end_index,
                     section.created_at,
-                    section.updated_at
+                    section.updated_at,
+                    bounds_min_lat,
+                    bounds_max_lat,
+                    bounds_min_lng,
+                    bounds_max_lng,
                 ],
             )
             .map_err(|e| format!("Failed to save section: {}", e))?;
