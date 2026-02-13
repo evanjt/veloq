@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useRef } from 'react';
+import React, { memo, useCallback } from 'react';
 import { View, StyleSheet, Pressable, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -27,9 +27,7 @@ interface SectionListItemProps {
   isHighlighted: boolean;
   isDark: boolean;
   isMetric: boolean;
-  isScrubbing: boolean;
   onLongPress: (sectionId: string) => void;
-  onLayout: (y: number, height: number) => void;
   onPress: (sectionId: string) => void;
   onSwipeableOpen: (sectionId: string) => void;
   renderRightActions: (progress: any, dragX: any) => React.ReactNode;
@@ -58,10 +56,8 @@ export const SectionListItem = memo(
     isHighlighted,
     isDark,
     isMetric,
-    isScrubbing,
     item,
     onLongPress,
-    onLayout,
     onPress,
     onSwipeableOpen,
     renderRightActions,
@@ -70,28 +66,17 @@ export const SectionListItem = memo(
     formatSectionPace,
   }: SectionListItemProps) {
     const { t } = useTranslation();
-    const containerRef = useRef<View>(null);
-
-    const handleLayout = useCallback(() => {
-      containerRef.current?.measureInWindow((x, y, width, height) => {
-        onLayout(y, height);
-      });
-    }, [onLayout]);
 
     const handleLongPress = useCallback(() => {
-      // Long press initiates scrubbing mode
       onLongPress?.(sectionId);
     }, [onLongPress, sectionId]);
 
     const handlePress = useCallback(() => {
-      // Only navigate if not scrubbing
-      if (!isScrubbing) {
-        onPress?.(sectionId);
-      }
-    }, [onPress, sectionId, isScrubbing]);
+      onPress?.(sectionId);
+    }, [onPress, sectionId]);
 
     return (
-      <View ref={containerRef} onLayout={handleLayout}>
+      <View>
         <Swipeable
           ref={(ref) => {
             swipeableRefs.current.set(sectionId, ref);
@@ -109,7 +94,7 @@ export const SectionListItem = memo(
               styles.sectionCard,
               isDark && styles.cardDark,
               isHighlighted && styles.sectionCardHighlighted,
-              pressed && Platform.OS === 'ios' && !isScrubbing && { opacity: 0.7 },
+              pressed && Platform.OS === 'ios' && { opacity: 0.7 },
             ]}
           >
             <View style={styles.sectionCardContent}>
@@ -185,7 +170,6 @@ export const SectionListItem = memo(
     // Custom memo comparator: only re-render if highlight state or data changes
     return (
       prev.isHighlighted === next.isHighlighted &&
-      prev.isScrubbing === next.isScrubbing &&
       prev.item === next.item &&
       prev.bestTime === next.bestTime &&
       prev.sectionTime === next.sectionTime &&

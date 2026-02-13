@@ -172,15 +172,8 @@ export default function ActivityDetailScreen() {
   const { createSection, removeSection, sections } = useCustomSections();
   const { disable: disableSection, enable: enableSection } = useDisabledSections();
   const disabledSectionIds = useDisabledSections((state) => state.disabledIds);
-  // Highlighted section ID for map (when user holds a section row)
+  // Highlighted section ID for map (when user long-presses a section row)
   const [highlightedSectionId, setHighlightedSectionId] = useState<string | null>(null);
-  // Track whether section list scrolling should be disabled (during scrubbing)
-  const [sectionListScrollEnabled, setSectionListScrollEnabled] = useState(true);
-  // Track scrubbing state for continuous highlighting across rows
-  const [isScrubbing, setIsScrubbing] = useState(false);
-  // Track section row Y positions for scrubbing
-  const sectionLayoutsRef = useRef<Map<string, { y: number; height: number }>>(new Map());
-  const lastHighlightedRef = useRef<string | null>(null);
   // Track open swipeable refs to close them when another opens
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
   const openSwipeableRef = useRef<string | null>(null);
@@ -236,53 +229,16 @@ export default function ActivityDetailScreen() {
     [removeSection, t]
   );
 
-  // Find section at Y position
-  const findSectionAtY = useCallback((pageY: number): string | null => {
-    const layouts = Array.from(sectionLayoutsRef.current.entries());
-    if (layouts.length === 0) return null;
-
-    // Find the section whose bounds contain the touch point
-    for (const [sectionId, layout] of layouts) {
-      if (pageY >= layout.y && pageY <= layout.y + layout.height) {
-        return sectionId;
-      }
-    }
-    return null;
-  }, []);
-
-  // Handle section long press to initiate scrubbing
+  // Handle section long press to highlight on map
   const handleSectionLongPress = useCallback((sectionId: string) => {
-    setIsScrubbing(true);
-    lastHighlightedRef.current = sectionId;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setSectionListScrollEnabled(false);
     setHighlightedSectionId(sectionId);
   }, []);
 
-  // Handle touch move during scrubbing
-  const handleSectionsTouchMove = useCallback(
-    (event: { nativeEvent: { pageY: number } }) => {
-      if (!isScrubbing) return;
-
-      const sectionId = findSectionAtY(event.nativeEvent.pageY);
-      if (sectionId && sectionId !== lastHighlightedRef.current) {
-        lastHighlightedRef.current = sectionId;
-        Haptics.selectionAsync();
-        setHighlightedSectionId(sectionId);
-      }
-    },
-    [isScrubbing, findSectionAtY]
-  );
-
-  // Handle touch end to exit scrubbing mode
+  // Handle touch end to clear highlight
   const handleSectionsTouchEnd = useCallback(() => {
-    if (isScrubbing) {
-      setIsScrubbing(false);
-      lastHighlightedRef.current = null;
-      setSectionListScrollEnabled(true);
-      setHighlightedSectionId(null);
-    }
-  }, [isScrubbing]);
+    setHighlightedSectionId(null);
+  }, []);
 
   // Handle section press navigation
   const handleSectionPress = useCallback((sectionId: string) => {
@@ -845,11 +801,7 @@ export default function ActivityDetailScreen() {
           isHighlighted={highlightedSectionId === sectionId}
           isDark={isDark}
           isMetric={isMetric}
-          isScrubbing={isScrubbing}
           onLongPress={handleSectionLongPress}
-          onLayout={(y, height) => {
-            sectionLayoutsRef.current.set(sectionId, { y, height });
-          }}
           onPress={handleSectionPress}
           onSwipeableOpen={handleSwipeableOpen}
           renderRightActions={(progress, dragX) =>
@@ -863,7 +815,6 @@ export default function ActivityDetailScreen() {
     },
     [
       highlightedSectionId,
-      isScrubbing,
       isDark,
       isMetric,
       disabledSectionIds,
@@ -1516,12 +1467,7 @@ export default function ActivityDetailScreen() {
         </ScrollView>
 
         {/* Tab 3: Sections */}
-        <View
-          style={styles.tabScrollView}
-          onTouchMove={handleSectionsTouchMove}
-          onTouchEnd={handleSectionsTouchEnd}
-          onTouchCancel={handleSectionsTouchEnd}
-        >
+        <View style={styles.tabScrollView} onTouchEnd={handleSectionsTouchEnd}>
           <FlatList
             data={unifiedSections}
             keyExtractor={keyExtractor}
@@ -1533,7 +1479,6 @@ export default function ActivityDetailScreen() {
             }
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            scrollEnabled={sectionListScrollEnabled}
             // Performance optimizations
             initialNumToRender={8}
             maxToRenderPerBatch={10}
