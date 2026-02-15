@@ -655,6 +655,23 @@ export function persistentEngineGetAllMapActivitiesComplete(): Array<MapActivity
   );
 }
 /**
+ * Get all map signatures in a single batch query.
+ * Returns lightweight flat-coord signatures for map rendering (~100 pts each).
+ * Much more memory-efficient than calling getGpsTrack() per activity (~5000 pts each).
+ */
+export function persistentEngineGetAllMapSignatures(): Array<FfiMapSignature> {
+  return FfiConverterArrayTypeFfiMapSignature.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_signatures(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Get all custom route names.
  * Returns a HashMap instead of JSON string.
  */
@@ -3326,6 +3343,79 @@ const FfiConverterTypeFfiHeatmapDay = (() => {
 })();
 
 /**
+ * Lightweight map signature for rendering activity traces on the map.
+ * Contains simplified GPS points (max ~100 via Douglas-Peucker) as flat coords.
+ */
+export type FfiMapSignature = {
+  activityId: string;
+  /**
+   * Flat coordinates [lat, lng, lat, lng, ...] (simplified, max ~100 points)
+   */
+  coords: Array</*f64*/ number>;
+  centerLat: /*f64*/ number;
+  centerLng: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiMapSignature} record objects.
+ */
+export const FfiMapSignature = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMapSignature, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiMapSignature}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiMapSignature}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMapSignature>,
+  });
+})();
+
+const FfiConverterTypeFfiMapSignature = (() => {
+  type TypeName = FfiMapSignature;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityId: FfiConverterString.read(from),
+        coords: FfiConverterArrayFloat64.read(from),
+        centerLat: FfiConverterFloat64.read(from),
+        centerLng: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.activityId, into);
+      FfiConverterArrayFloat64.write(value.coords, into);
+      FfiConverterFloat64.write(value.centerLat, into);
+      FfiConverterFloat64.write(value.centerLng, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterArrayFloat64.allocationSize(value.coords) +
+        FfiConverterFloat64.allocationSize(value.centerLat) +
+        FfiConverterFloat64.allocationSize(value.centerLng)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Monthly aggregate value.
  */
 export type FfiMonthlyAggregate = {
@@ -5727,6 +5817,11 @@ const FfiConverterArrayTypeFfiHeatmapDay = new FfiConverterArray(
   FfiConverterTypeFfiHeatmapDay,
 );
 
+// FfiConverter for Array<FfiMapSignature>
+const FfiConverterArrayTypeFfiMapSignature = new FfiConverterArray(
+  FfiConverterTypeFfiMapSignature,
+);
+
 // FfiConverter for Array<FfiMonthlyAggregate>
 const FfiConverterArrayTypeFfiMonthlyAggregate = new FfiConverterArray(
   FfiConverterTypeFfiMonthlyAggregate,
@@ -6037,6 +6132,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_activities_complete",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_signatures() !==
+    4223
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_signatures",
     );
   }
   if (
@@ -6480,6 +6583,7 @@ export default Object.freeze({
     FfiConverterTypeFfiGpsPoint,
     FfiConverterTypeFfiGroupWithPolyline,
     FfiConverterTypeFfiHeatmapDay,
+    FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMonthlyAggregate,
     FfiConverterTypeFfiMultiScaleSectionResult,
     FfiConverterTypeFfiPeriodStats,

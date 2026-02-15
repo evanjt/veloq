@@ -115,6 +115,10 @@ protected:
   cpp_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_activities_complete(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_signatures(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_func_persistent_engine_get_all_route_names(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -366,6 +370,10 @@ protected:
       size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_activities_complete(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_signatures(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value

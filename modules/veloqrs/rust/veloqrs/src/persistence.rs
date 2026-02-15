@@ -440,7 +440,7 @@ impl PersistentRouteEngine {
 
     /// Current schema version for app-level tracking.
     /// This is separate from rusqlite_migration and tracks the overall schema state.
-    const SCHEMA_VERSION: i32 = 5; // v0.1.3 schema (section bounds cache columns)
+    const SCHEMA_VERSION: i32 = 6; // v0.1.3 schema (route_groups activity_count column)
 
     /// Get the database migrations.
     /// Each migration is applied in order, tracked in `__rusqlite_migrations` table.
@@ -464,6 +464,8 @@ impl PersistentRouteEngine {
             M::up(include_str!("migrations/008_cache_all_performance_metrics.sql")),
             // M9: Cache section bounding boxes as columns (avoid JSON polyline deserialization)
             M::up(include_str!("migrations/009_section_bounds_cache.sql")),
+            // M10: Cache activity_count on route_groups (avoid JSON parsing for count)
+            M::up(include_str!("migrations/010_route_groups_activity_count.sql")),
         ])
     }
 
@@ -556,6 +558,11 @@ impl PersistentRouteEngine {
         // Post-migration: populate section bounds columns if migrating to v5
         if current_version < 5 && Self::SCHEMA_VERSION >= 5 {
             Self::populate_section_bounds(conn)?;
+        }
+
+        // Post-migration: backfill activity_count on route_groups if migrating to v6
+        if current_version < 6 && Self::SCHEMA_VERSION >= 6 {
+            Self::populate_route_group_counts(conn)?;
         }
 
         Ok(())
@@ -951,6 +958,43 @@ impl PersistentRouteEngine {
             "tracematch: [Migration] Populated bounds for {}/{} sections",
             populated,
             sections.len()
+        );
+
+        Ok(())
+    }
+
+    /// Backfill activity_count column on route_groups from activity_ids JSON.
+    fn populate_route_group_counts(conn: &Connection) -> SqlResult<()> {
+        let groups: Vec<(String, String)> = conn
+            .prepare(
+                "SELECT id, activity_ids FROM route_groups WHERE activity_count IS NULL"
+            )?
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        if groups.is_empty() {
+            return Ok(());
+        }
+
+        log::info!(
+            "tracematch: [Migration] Backfilling activity_count for {} route groups...",
+            groups.len()
+        );
+
+        let mut update_stmt = conn.prepare(
+            "UPDATE route_groups SET activity_count = ? WHERE id = ?"
+        )?;
+
+        for (id, activity_ids_json) in &groups {
+            let count = serde_json::from_str::<Vec<String>>(activity_ids_json)
+                .map(|ids| ids.len() as i64)
+                .unwrap_or(0);
+            update_stmt.execute(params![count, id])?;
+        }
+
+        log::info!(
+            "tracematch: [Migration] Backfilled activity_count for {} route groups",
+            groups.len()
         );
 
         Ok(())
@@ -2649,8 +2693,9 @@ impl PersistentRouteEngine {
         // Insert groups
         let mut stmt = self.db.prepare(
             "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
-                                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                                        activity_count)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )?;
 
         // Prepare statement for inserting new route names
@@ -2680,6 +2725,7 @@ impl PersistentRouteEngine {
                 group.bounds.map(|b| b.max_lat),
                 group.bounds.map(|b| b.min_lng),
                 group.bounds.map(|b| b.max_lng),
+                group.activity_ids.len() as u32,
             ])?;
 
             // Generate unique name if route doesn't already have one
@@ -3000,7 +3046,8 @@ impl PersistentRouteEngine {
     pub fn get_group_summaries(&self) -> Vec<GroupSummary> {
         let mut stmt = match self.db.prepare(
             "SELECT id, representative_id, sport_type, activity_ids,
-                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                    activity_count
              FROM route_groups",
         ) {
             Ok(s) => s,
@@ -3021,12 +3068,17 @@ impl PersistentRouteEngine {
                 let group_id: String = row.get(0)?;
                 let representative_id: String = row.get(1)?;
                 let sport_type: String = row.get(2)?;
-                let activity_ids_json: String = row.get(3)?;
 
-                // Parse activity_ids just to get count
-                let activity_count: u32 = serde_json::from_str::<Vec<String>>(&activity_ids_json)
-                    .map(|ids| ids.len() as u32)
-                    .unwrap_or(0);
+                // Read activity_count from cached column, fall back to JSON parse if NULL
+                let activity_count: u32 = match row.get::<_, Option<u32>>(8)? {
+                    Some(count) => count,
+                    None => {
+                        let activity_ids_json: String = row.get(3)?;
+                        serde_json::from_str::<Vec<String>>(&activity_ids_json)
+                            .map(|ids| ids.len() as u32)
+                            .unwrap_or(0)
+                    }
+                };
 
                 // Build bounds if present
                 let bounds = if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
@@ -3289,6 +3341,58 @@ impl PersistentRouteEngine {
             .flatten();
 
         result.unwrap_or_default()
+    }
+
+    /// Batch-load section polylines for multiple section IDs in a single query.
+    /// Returns a map of section_id → flat [lat, lng, lat, lng, ...] coordinates.
+    fn get_section_polylines_batch(&self, section_ids: &[&str]) -> HashMap<String, Vec<f64>> {
+        if section_ids.is_empty() {
+            return HashMap::new();
+        }
+
+        let placeholders: Vec<&str> = section_ids.iter().map(|_| "?").collect();
+        let query = format!(
+            "SELECT id, polyline_json FROM sections WHERE id IN ({})",
+            placeholders.join(",")
+        );
+
+        let mut stmt = match self.db.prepare(&query) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!(
+                    "tracematch: [PersistentEngine] Failed to prepare batch section polyline query: {}",
+                    e
+                );
+                return HashMap::new();
+            }
+        };
+
+        let params: Vec<&dyn rusqlite::types::ToSql> = section_ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::types::ToSql)
+            .collect();
+
+        let results: HashMap<String, Vec<f64>> = stmt
+            .query_map(params.as_slice(), |row| {
+                let section_id: String = row.get(0)?;
+                let polyline_json: String = row.get(1)?;
+                let points: Vec<serde_json::Value> = serde_json::from_str(&polyline_json)
+                    .unwrap_or_default();
+                let coords: Vec<f64> = points
+                    .iter()
+                    .flat_map(|p| {
+                        let lat = p["latitude"].as_f64().unwrap_or(0.0);
+                        let lng = p["longitude"].as_f64().unwrap_or(0.0);
+                        vec![lat, lng]
+                    })
+                    .collect();
+                Ok((section_id, coords))
+            })
+            .ok()
+            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default();
+
+        results
     }
 
     /// Start section detection in a background thread.
@@ -3909,6 +4013,54 @@ impl PersistentRouteEngine {
                 },
             )
             .ok()
+    }
+
+    /// Batch-load simplified signature polylines for multiple activity IDs.
+    /// Returns a map of activity_id → flat [lat, lng, lat, lng, ...] coordinates.
+    /// Uses the signatures table (MessagePack BLOBs with ~100 simplified points).
+    fn get_representative_polylines_batch(&self, activity_ids: &[&str]) -> HashMap<String, Vec<f64>> {
+        if activity_ids.is_empty() {
+            return HashMap::new();
+        }
+
+        let placeholders: Vec<&str> = activity_ids.iter().map(|_| "?").collect();
+        let query = format!(
+            "SELECT activity_id, points FROM signatures WHERE activity_id IN ({})",
+            placeholders.join(",")
+        );
+
+        let mut stmt = match self.db.prepare(&query) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!(
+                    "tracematch: [PersistentEngine] Failed to prepare batch signature query: {}",
+                    e
+                );
+                return HashMap::new();
+            }
+        };
+
+        let params: Vec<&dyn rusqlite::types::ToSql> = activity_ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::types::ToSql)
+            .collect();
+
+        let results: HashMap<String, Vec<f64>> = stmt
+            .query_map(params.as_slice(), |row| {
+                let activity_id: String = row.get(0)?;
+                let points_blob: Vec<u8> = row.get(1)?;
+                let points: Vec<GpsPoint> = rmp_serde::from_slice(&points_blob).unwrap_or_default();
+                let flat_coords: Vec<f64> = points
+                    .iter()
+                    .flat_map(|p| vec![p.latitude, p.longitude])
+                    .collect();
+                Ok((activity_id, flat_coords))
+            })
+            .ok()
+            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default();
+
+        results
     }
 
     /// Get consensus route for a group, with caching.
@@ -5517,17 +5669,16 @@ impl PersistentRouteEngine {
             .collect();
         let has_more_groups = total_groups > (group_offset as usize + paged_summaries.len());
 
+        // Batch-load representative polylines from signatures table (1 query instead of N)
+        let rep_ids: Vec<&str> = paged_summaries.iter().map(|g| g.representative_id.as_str()).collect();
+        let rep_polylines = self.get_representative_polylines_batch(&rep_ids);
+
         let groups: Vec<crate::FfiGroupWithPolyline> = paged_summaries
             .into_iter()
             .map(|g| {
-                let consensus_polyline = self
-                    .get_consensus_route(&g.group_id)
-                    .map(|points| {
-                        points
-                            .iter()
-                            .flat_map(|p| vec![p.latitude, p.longitude])
-                            .collect()
-                    })
+                let consensus_polyline = rep_polylines
+                    .get(&g.representative_id)
+                    .cloned()
                     .unwrap_or_default();
                 // Look up distance from representative activity's metrics
                 let distance_meters = self
@@ -5560,10 +5711,17 @@ impl PersistentRouteEngine {
         let has_more_sections =
             total_sections > (section_offset as usize + paged_sections.len());
 
+        // Batch-load section polylines (1 query instead of N)
+        let section_ids: Vec<&str> = paged_sections.iter().map(|s| s.id.as_str()).collect();
+        let section_polylines = self.get_section_polylines_batch(&section_ids);
+
         let sections: Vec<crate::FfiSectionWithPolyline> = paged_sections
             .into_iter()
             .map(|s| {
-                let polyline = self.get_section_polyline(&s.id);
+                let polyline = section_polylines
+                    .get(&s.id)
+                    .cloned()
+                    .unwrap_or_default();
                 crate::FfiSectionWithPolyline {
                     id: s.id,
                     name: s.name,

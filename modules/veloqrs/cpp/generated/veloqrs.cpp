@@ -178,6 +178,8 @@ uniffi_veloqrs_fn_func_persistent_engine_get_activity_metrics_for_ids(
 RustBuffer
 uniffi_veloqrs_fn_func_persistent_engine_get_all_map_activities_complete(
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_all_map_signatures(
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_all_route_names(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_persistent_engine_get_all_section_names(
@@ -454,6 +456,8 @@ uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids();
 uint16_t
 uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_activities_complete();
+uint16_t
+uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_signatures();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_all_route_names();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_all_section_names();
 uint16_t uniffi_veloqrs_checksum_func_persistent_engine_get_athlete_profile();
@@ -2535,6 +2539,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_activities_complete(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_"
+        "signatures"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_func_persistent_"
+                                    "engine_get_all_map_signatures"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_signatures(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_route_names"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -3471,6 +3487,18 @@ NativeVeloqrs::NativeVeloqrs(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_activities_complete(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_"
+        "signatures"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_func_"
+                                    "persistent_engine_get_all_map_signatures"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_signatures(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_route_"
@@ -4574,6 +4602,19 @@ jsi::Value NativeVeloqrs::
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_signatures(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value =
+      uniffi_veloqrs_fn_func_persistent_engine_get_all_map_signatures(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_persistent_engine_get_all_route_names(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -5495,6 +5536,15 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_activities_complete();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_signatures(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_signatures();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

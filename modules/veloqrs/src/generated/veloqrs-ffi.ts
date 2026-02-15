@@ -147,6 +147,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_activities_complete(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_signatures(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_route_names(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -381,6 +384,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_ids(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_activities_complete(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_signatures(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_route_names(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_section_names(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_athlete_profile(): number;
