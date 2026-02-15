@@ -514,13 +514,9 @@ jobs:
           done
           sleep 5
 
-      - name: Install and pre-launch app
+      - name: Install app
         run: |
           xcrun simctl install "${{ steps.simulator.outputs.udid }}" ios/build/Build/Products/Release-iphonesimulator/Veloq.app
-          # Pre-launch to warm up RN + Rust init and XCUITest driver
-          xcrun simctl launch "${{ steps.simulator.outputs.udid }}" com.veloq.app
-          sleep 10
-          xcrun simctl terminate "${{ steps.simulator.outputs.udid }}" com.veloq.app || true
 
       - name: Determine test tier
         id: tier
@@ -542,6 +538,14 @@ jobs:
             --include-tags=${{ steps.tier.outputs.tags }} \
             --format junit --output maestro-report.xml --no-ansi || true
 
+      - name: Capture diagnostic logs
+        if: always()
+        run: |
+          # Capture simulator system log for crash diagnosis
+          xcrun simctl spawn "${{ steps.simulator.outputs.udid }}" log show --last 5m --predicate 'process == "Veloq" OR processImagePath CONTAINS "Veloq"' > /tmp/ios-sim-log.txt 2>&1 || true
+          # Also capture crash reports
+          find ~/Library/Logs/DiagnosticReports -name "Veloq*" -exec cp {} /tmp/ \; 2>/dev/null || true
+
       - name: Collect screenshots
         if: always()
         run: |
@@ -558,6 +562,16 @@ jobs:
           name: screenshots-ios
           path: screenshots-flat/
           retention-days: 14
+
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-sim-logs
+          path: |
+            /tmp/ios-sim-log.txt
+            /tmp/Veloq*
+          retention-days: 7
 
       - name: Upload test report
         if: always()
@@ -576,13 +590,13 @@ jobs:
           fail_on_failure: false
 
   # ============================================
-  # E2E Tests - Android with Maestro
+  # E2E Tests - Android with Maestro (macOS for HW accel)
   # ============================================
   e2e-android:
     needs: android-release
     if: ${{ !inputs.skip_e2e }}
     name: E2E Android (Maestro)
-    runs-on: ubuntu-latest
+    runs-on: macos-26
     timeout-minutes: 45
     continue-on-error: true
     steps:
@@ -605,34 +619,43 @@ jobs:
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
           "$HOME/.maestro/bin/maestro" --version
 
-      - name: Enable KVM
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Create and boot emulator
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
+          # Create AVD
+          echo "no" | avdmanager create avd -n test -k "system-images;android-34;google_apis;arm64-v8a" --force || \
+          (sdkmanager "system-images;android-34;google_apis;arm64-v8a" && \
+           echo "no" | avdmanager create avd -n test -k "system-images;android-34;google_apis;arm64-v8a" --force)
 
-      - name: AVD cache
-        uses: actions/cache@v4
-        id: avd-cache
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: avd-api34-google-apis-x86_64-v1
+          # Start emulator in background (macOS Apple Silicon = native ARM, no need for x86/KVM)
+          $ANDROID_HOME/emulator/emulator -avd test -no-window -gpu host -noaudio -no-boot-anim -no-snapshot-save &
+          EMULATOR_PID=$!
+          echo "Emulator PID: $EMULATOR_PID"
 
-      - name: Create AVD and generate snapshot
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          ram-size: 4096M
-          heap-size: 1024M
-          force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: false
-          script: echo "Generated AVD snapshot for caching."
+          # Wait for boot
+          adb wait-for-device
+          for i in $(seq 1 60); do
+            BOOT=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+            if [ "$BOOT" = "1" ]; then echo "Boot complete after ${i}s"; break; fi
+            echo "Waiting for boot... ($i/60)"
+            sleep 2
+          done
+          sleep 5
+
+          # Disable animations
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+
+      - name: Install APK and warm up
+        run: |
+          adb install /tmp/android-artifact/app-release.apk
+          sleep 3
+
+          # Clear logcat before test run
+          adb logcat -c
 
       - name: Determine test tier
         id: tier
@@ -646,26 +669,21 @@ jobs:
           fi
 
       - name: Run Maestro tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          ram-size: 4096M
-          heap-size: 1024M
-          force-avd-creation: false
-          emulator-boot-timeout: 600
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save -accel on
-          disable-animations: true
-          script: |
-            sleep 5
-            adb install /tmp/android-artifact/app-release.apk
-            sleep 5
-            adb shell am start -n com.veloq.app/.MainActivity
-            sleep 15
-            adb shell am force-stop com.veloq.app
-            sleep 3
-            $HOME/.maestro/bin/maestro test .maestro/ --include-tags=${{ steps.tier.outputs.tags }} --format junit --output maestro-report.xml --no-ansi || true
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro test .maestro/ \
+            --include-tags=${{ steps.tier.outputs.tags }} \
+            --format junit --output maestro-report.xml --no-ansi || true
+
+      - name: Capture diagnostic logs
+        if: always()
+        run: |
+          # Capture logcat for crash diagnosis
+          adb logcat -d > /tmp/logcat.txt 2>&1 || true
+          # Filter for relevant entries
+          grep -E "(FATAL|veloqrs|ReactNative|AndroidRuntime|Process:|Signal|crash|panic)" /tmp/logcat.txt > /tmp/logcat-filtered.txt 2>/dev/null || true
 
       - name: Collect screenshots
         if: always()
@@ -690,6 +708,16 @@ jobs:
         with:
           name: maestro-android-report
           path: maestro-report.xml
+          retention-days: 7
+
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-logcat
+          path: |
+            /tmp/logcat.txt
+            /tmp/logcat-filtered.txt
           retention-days: 7
 
       - name: Publish test results
