@@ -113,7 +113,7 @@ export default function HealthScreen() {
   }, [activities]);
 
   return (
-    <ScreenSafeAreaView style={shared.container} testID="health-screen">
+    <ScreenSafeAreaView style={shared.container} testID="training-screen">
       <View style={styles.header}>
         <View style={{ width: 48 }} />
         <Text style={shared.headerTitle}>{t('healthScreen.title')}</Text>

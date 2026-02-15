@@ -1,30 +1,12 @@
 # Stress Test: Chart Scrubbing
-# Rapidly toggles chart types and simulates scrubbing to find render issues
+# Rapidly toggles chart types to find render issues
 
 appId: com.veloq.app
+tags:
+  - tier3
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
-
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
+    file: helpers/setup-demo-mode.yaml
 
 # Navigate to activity detail with charts
 - openLink: "veloq://activity/demo-0"
@@ -34,7 +16,6 @@ appId: com.veloq.app
       id: "activity-detail-content"
     timeout: 15000
 
-# Wait for chart type selector
 - extendedWaitUntil:
     visible:
       id: "chart-type-selector"
@@ -57,7 +38,7 @@ appId: com.veloq.app
           id: "chart-type-speed"
           optional: true
 
-# Verify chart selector is still visible (app hasn't crashed)
+# Verify chart selector is still visible
 - assertVisible:
     id: "chart-type-selector"
 

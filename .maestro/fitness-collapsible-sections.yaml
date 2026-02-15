@@ -1,0 +1,40 @@
+# Fitness Collapsible Sections Test
+# Tests expanding and collapsing sections on fitness screen
+
+appId: com.veloq.app
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
+
+# Verify performance section exists (expanded by default)
+- assertVisible:
+    id: "fitness-section-performance"
+
+# Tap to collapse performance section
+- tapOn:
+    id: "fitness-section-performance"
+
+# Tap to expand it again
+- tapOn:
+    id: "fitness-section-performance"
+
+# Check zones section exists
+- assertVisible:
+    id: "fitness-section-zones"
+    optional: true
+
+# Toggle zones section
+- tapOn:
+    id: "fitness-section-zones"
+    optional: true
+
+- tapOn:
+    id: "fitness-section-zones"
+    optional: true
+
+- takeScreenshot: "fitness-collapsible-sections-complete"

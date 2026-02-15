@@ -1,0 +1,8 @@
+# Navigate to training tab via deep link
+appId: com.veloq.app
+---
+- openLink: "veloq://training"
+- extendedWaitUntil:
+    visible:
+      id: "training-screen"
+    timeout: 10000

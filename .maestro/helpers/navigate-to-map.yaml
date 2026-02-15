@@ -1,0 +1,8 @@
+# Navigate to map tab via deep link
+appId: com.veloq.app
+---
+- openLink: "veloq://map"
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 15000

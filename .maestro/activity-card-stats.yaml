@@ -1,30 +1,12 @@
 # Activity Card Stats Tests
-# Tests that activity cards display distance, duration, elevation
+# Tests that activity cards display and navigate to detail
 
 appId: com.veloq.app
+tags:
+  - tier2
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
-
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
+    file: helpers/setup-demo-mode.yaml
 
 # Wait for activity list to load
 - extendedWaitUntil:
@@ -32,15 +14,12 @@ appId: com.veloq.app
       id: "home-activity-list"
     timeout: 10000
 
-# Verify first activity card is visible (most recent activity)
-# Note: demo activities are indexed 0-N with 0 being oldest
-# The most recent activity appears first, so we tap on any visible activity card
 - extendedWaitUntil:
     visible:
       id: "activity-card-demo-.*"
     timeout: 10000
 
-# Tap on the first visible activity card (uses regex to match any demo activity)
+# Tap on the first visible activity card
 - tapOn:
     id: "activity-card-demo-.*"
 

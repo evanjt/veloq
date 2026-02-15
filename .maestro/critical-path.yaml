@@ -1,51 +1,20 @@
-appId: com.veloq.app
-tags:
-  - ci
-  - critical
----
 # Critical Path E2E Test
 #
 # Covers the core user journey in a single flow:
-# Auth → Home feed → Activity detail → Charts → Fitness → Map → Routes
-#
-# Designed for CI: one flow, covers the screens most likely to break.
+# Auth > Home feed > Activity detail > Charts > Fitness > Training > Map > Routes > Settings
 
+appId: com.veloq.app
+tags:
+  - tier1
+---
 # ── Launch & Auth ───────────────────────────────────────
-- launchApp:
-    clearState: false
-
-# Wait for the app to render (login or home screen)
-- extendedWaitUntil:
-    visible:
-      id: "login-screen|home-screen"
-    timeout: 60000
-
-# Handle both states: already logged in or logged out
 - runFlow:
-    when:
-      visible:
-        id: "login-screen"
-    commands:
-      - tapOn:
-          id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 60000
-
-# Dismiss any system dialogs
-- runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
+    file: helpers/setup-demo-mode-warm.yaml
 
 # ── Home Feed ───────────────────────────────────────────
 - assertVisible:
     id: "home-activity-list"
 
-# Wait for activities to load, then tap first one
 - extendedWaitUntil:
     visible: "RECENT ACTIVITIES"
     timeout: 15000
@@ -62,13 +31,11 @@ tags:
 - assertVisible:
     id: "activity-detail-content"
 
-# Verify chart selector exists
 - runFlow:
     when:
       visible:
         id: "chart-type-selector"
     commands:
-      # Toggle through chart types
       - tapOn:
           id: "chart-type-heartrate"
           optional: true
@@ -79,18 +46,12 @@ tags:
           id: "chart-type-elevation"
           optional: true
 
-# Go back to home
 - back
 
 # ── Fitness Tab ─────────────────────────────────────────
-- openLink: "veloq://fitness"
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
 
-- extendedWaitUntil:
-    visible:
-      id: "fitness-screen"
-    timeout: 15000
-
-# Verify CTL/ATL values render
 - assertVisible:
     id: "fitness-ctl-value"
     optional: true
@@ -99,47 +60,29 @@ tags:
     id: "fitness-atl-value"
     optional: true
 
-# ── Health Tab ──────────────────────────────────────────
-- openLink: "veloq://training"
+# ── Training Tab ────────────────────────────────────────
+- runFlow:
+    file: helpers/navigate-to-training.yaml
 
-- extendedWaitUntil:
-    visible:
-      id: "health-screen"
-    timeout: 15000
-
-# Verify weekly summary loads
 - assertVisible:
     id: "weekly-summary"
     optional: true
 
 # ── Map Tab ─────────────────────────────────────────────
-- openLink: "veloq://map"
+- runFlow:
+    file: helpers/navigate-to-map.yaml
 
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 15000
-
-# Verify map controls exist
 - assertVisible:
     id: "map-fit-all"
     optional: true
 
 # ── Routes Tab ──────────────────────────────────────────
-- openLink: "veloq://routes"
-
-- extendedWaitUntil:
-    visible:
-      id: "routes-screen"
-    timeout: 15000
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
 
 # ── Settings ────────────────────────────────────────────
-- openLink: "veloq://settings"
-
-- extendedWaitUntil:
-    visible:
-      id: "settings-screen"
-    timeout: 10000
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
 
 # ── Return to Home ──────────────────────────────────────
 - openLink: "veloq://"
@@ -149,6 +92,5 @@ tags:
       id: "home-screen"
     timeout: 10000
 
-# Final verification — home screen still works after full navigation
 - assertVisible:
     id: "home-activity-list"

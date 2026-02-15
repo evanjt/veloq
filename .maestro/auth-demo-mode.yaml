@@ -2,18 +2,18 @@
 # Tests the login screen and demo mode entry flow
 
 appId: com.veloq.app
+tags:
+  - tier1
 ---
 - launchApp:
     clearState: true
 
-# Dismiss any system alerts
 - runFlow:
     when:
       visible: "Not Now"
     commands:
       - tapOn: "Not Now"
 
-# Wait for login screen
 - extendedWaitUntil:
     visible:
       id: "login-screen"
@@ -42,6 +42,5 @@ appId: com.veloq.app
       id: "home-screen"
     timeout: 15000
 
-# Verify demo mode indicators
 - assertVisible:
     id: "demo-mode-banner"

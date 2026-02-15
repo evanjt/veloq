@@ -1,0 +1,25 @@
+# Training Wellness Dashboard Test
+# Tests wellness indicators on the training screen
+
+appId: com.veloq.app
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-training.yaml
+
+# Verify wellness dashboard loads
+- extendedWaitUntil:
+    visible:
+      id: "wellness-dashboard"
+    timeout: 10000
+
+# Verify weekly summary is also present
+- assertVisible:
+    id: "weekly-summary"
+    optional: true
+
+- takeScreenshot: "training-wellness-dashboard-complete"

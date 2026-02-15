@@ -403,10 +403,11 @@ export default function FitnessScreen() {
         </View>
 
         {/* Time range selector */}
-        <View style={styles.timeRangeContainer}>
+        <View testID="fitness-time-range-selector" style={styles.timeRangeContainer}>
           {TIME_RANGES.map((range) => (
             <TouchableOpacity
               key={range.id}
+              testID={`fitness-range-${range.id}`}
               style={[
                 styles.timeRangeButton,
                 isDark && styles.timeRangeButtonDark,
@@ -510,6 +511,7 @@ export default function FitnessScreen() {
         {/* Performance Section - Power/Pace Curve (expanded by default) */}
         <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
           <CollapsibleSection
+            testID="fitness-section-performance"
             title={
               sportMode === 'Cycling'
                 ? t('statsScreen.powerCurve')
@@ -554,6 +556,7 @@ export default function FitnessScreen() {
         {/* Training Zones Section */}
         <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
           <CollapsibleSection
+            testID="fitness-section-zones"
             title={t('statsScreen.trainingZones')}
             icon="chart-bar"
             expanded={zonesExpanded}
@@ -600,6 +603,7 @@ export default function FitnessScreen() {
         {sportMode === 'Cycling' && (
           <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
             <CollapsibleSection
+              testID="fitness-section-trends"
               title={t('statsScreen.eFTPTrend')}
               icon="trending-up"
               expanded={trendsExpanded}
@@ -640,6 +644,7 @@ export default function FitnessScreen() {
         {sportMode === 'Running' && (thresholdPace || runLthr) && (
           <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
             <CollapsibleSection
+              testID="fitness-section-threshold"
               title={t('statsScreen.lactateThreshold')}
               icon="heart-pulse"
               expanded={trendsExpanded}
@@ -690,6 +695,7 @@ export default function FitnessScreen() {
         {sportMode === 'Cycling' && (
           <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
             <CollapsibleSection
+              testID="fitness-section-efficiency"
               title={t('statsScreen.decoupling')}
               icon="heart-flash"
               expanded={efficiencyExpanded}

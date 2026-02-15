@@ -1,38 +1,16 @@
 # Power Curve Chart Tests
-# Tests the power curve display on stats screen
+# Tests the power curve display on fitness screen
+# (Power curves migrated from stats to fitness tab)
 
 appId: com.veloq.app
+tags:
+  - tier2
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
+    file: helpers/setup-demo-mode.yaml
 
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
-
-# Navigate to stats/performance screen
-- openLink: "veloq://stats"
-
-- extendedWaitUntil:
-    visible:
-      id: "stats-screen"
-    timeout: 10000
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
 
 # Verify power curve chart is displayed (if demo data has power)
 - extendedWaitUntil:

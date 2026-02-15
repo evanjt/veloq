@@ -1,0 +1,31 @@
+# Activity Section Matches Test
+# Tests that section matches display on activity detail
+
+appId: com.veloq.app
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Navigate to activity detail
+- openLink: "veloq://activity/demo-0"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+# Look for sections tab
+- tapOn:
+    text: "Sections"
+    optional: true
+
+# Check if sections list appears (demo data may not have matching sections)
+- extendedWaitUntil:
+    visible:
+      id: "activity-sections-list"
+    timeout: 10000
+    optional: true
+
+- takeScreenshot: "activity-section-matches-complete"

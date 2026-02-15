@@ -2,37 +2,14 @@
 # Tests the timeline slider on the map screen
 
 appId: com.veloq.app
+tags:
+  - tier2
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
+    file: helpers/setup-demo-mode.yaml
 
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
-
-# Navigate to map screen
-- openLink: "veloq://map"
-
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 15000
+- runFlow:
+    file: helpers/navigate-to-map.yaml
 
 # Verify timeline slider exists
 - extendedWaitUntil:

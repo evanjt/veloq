@@ -2,30 +2,11 @@
 # Tests navigation to activity detail screens with demo data
 
 appId: com.veloq.app
+tags:
+  - tier2
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
-
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-# Enter demo mode
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
+    file: helpers/setup-demo-mode.yaml
 
 # Navigate to first demo activity
 - openLink: "veloq://activity/demo-0"

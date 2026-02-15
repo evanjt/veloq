@@ -1,0 +1,35 @@
+# Fitness Time Range Test
+# Tests switching time ranges on fitness screen
+
+appId: com.veloq.app
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
+
+# Verify time range selector exists
+- assertVisible:
+    id: "fitness-time-range-selector"
+
+# Switch through available time ranges
+- tapOn:
+    id: "fitness-range-6m"
+    optional: true
+
+- tapOn:
+    id: "fitness-range-1y"
+    optional: true
+
+- tapOn:
+    id: "fitness-range-all"
+    optional: true
+
+- tapOn:
+    id: "fitness-range-3m"
+    optional: true
+
+- takeScreenshot: "fitness-time-range-complete"

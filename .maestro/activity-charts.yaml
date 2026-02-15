@@ -2,29 +2,11 @@
 # Tests chart type selector on activity detail screen
 
 appId: com.veloq.app
+tags:
+  - tier2
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
-
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
+    file: helpers/setup-demo-mode.yaml
 
 # Navigate to activity detail
 - openLink: "veloq://activity/demo-0"
@@ -34,13 +16,12 @@ appId: com.veloq.app
       id: "activity-detail-content"
     timeout: 15000
 
-# Verify chart type selector exists
 - extendedWaitUntil:
     visible:
       id: "chart-type-selector"
     timeout: 10000
 
-# Try toggling different chart types (these may or may not exist based on activity data)
+# Toggle different chart types
 - tapOn:
     id: "chart-type-heartrate"
     optional: true

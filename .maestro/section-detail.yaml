@@ -1,0 +1,37 @@
+# Section Detail Test
+# Tests navigation to section detail screen
+
+appId: com.veloq.app
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+
+# Wait for routes/sections to load
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+
+# Try to find sections list or tab
+- assertVisible:
+    id: "sections-list"
+    optional: true
+
+# Tap first section row (if any exist in demo data)
+- tapOn:
+    id: "section-row-0"
+    optional: true
+
+# If section detail loaded, verify screen
+- extendedWaitUntil:
+    visible:
+      id: "section-detail-screen"
+    timeout: 10000
+    optional: true
+
+- takeScreenshot: "section-detail-complete"

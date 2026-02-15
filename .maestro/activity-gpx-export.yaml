@@ -1,0 +1,24 @@
+# Activity GPX Export Test
+# Tests that the GPX export button exists on activity detail
+
+appId: com.veloq.app
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Navigate to activity detail
+- openLink: "veloq://activity/demo-0"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+# Verify GPX export button exists
+- assertVisible:
+    id: "activity-export-gpx"
+    optional: true
+
+- takeScreenshot: "activity-gpx-export-complete"

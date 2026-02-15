@@ -1,0 +1,8 @@
+# Navigate to settings screen via deep link
+appId: com.veloq.app
+---
+- openLink: "veloq://settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000

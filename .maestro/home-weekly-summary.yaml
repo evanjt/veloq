@@ -1,42 +1,15 @@
 # Weekly Summary Component Tests
-# Tests the weekly summary stats and time range toggles on TRAINING screen
-# Note: WeeklySummary is on training screen, not home screen
-#
-# Weekly view now uses calendar weeks (Mon-Sun) matching intervals.icu
-# Shows week number and date range (e.g., "Week 4 (Jan 19-25)")
+# Tests the weekly summary stats and time range toggles on training screen
 
 appId: com.veloq.app
+tags:
+  - tier2
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
+    file: helpers/setup-demo-mode.yaml
 
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
-
-# Navigate to training screen where WeeklySummary lives
-- openLink: "veloq://training"
-
-- extendedWaitUntil:
-    visible:
-      id: "training-screen"
-    timeout: 10000
+- runFlow:
+    file: helpers/navigate-to-training.yaml
 
 # Verify weekly summary container is visible
 - extendedWaitUntil:
@@ -48,7 +21,6 @@ appId: com.veloq.app
 - tapOn:
     id: "weekly-summary-range-year"
 
-# Wait for stats to appear (demo data should have yearly activities)
 - extendedWaitUntil:
     visible:
       id: "weekly-summary-count"

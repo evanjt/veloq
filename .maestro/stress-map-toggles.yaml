@@ -1,39 +1,15 @@
 # Stress Test: Map View Toggle Buttons
-# Rapidly toggles activity/route/section buttons and sport filters to trigger race conditions
-# Known issue: Rapid toggling can crash iOS
+# Rapidly toggles activity/route/section buttons and sport filters
 
 appId: com.veloq.app
+tags:
+  - tier3
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
+    file: helpers/setup-demo-mode.yaml
 
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
-
-# Navigate to map screen
-- openLink: "veloq://map"
-
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 15000
+- runFlow:
+    file: helpers/navigate-to-map.yaml
 
 # Wait for map controls to load
 - extendedWaitUntil:
@@ -74,7 +50,7 @@ appId: com.veloq.app
           id: "map-toggle-heatmap"
           optional: true
 
-# Mixed rapid toggling - most likely to trigger race conditions
+# Mixed rapid toggling
 - repeat:
     times: 5
     commands:
@@ -91,7 +67,7 @@ appId: com.veloq.app
           id: "map-toggle-activities"
           optional: true
 
-# Stress test sport type filters - rapid cycling through categories
+# Stress test sport type filters
 - repeat:
     times: 5
     commands:
@@ -111,7 +87,7 @@ appId: com.veloq.app
           id: "map-filter-hike"
           optional: true
 
-# Clear all then select all rapidly
+# Clear all rapidly
 - repeat:
     times: 5
     commands:
@@ -119,7 +95,7 @@ appId: com.veloq.app
           id: "map-filter-clear"
           optional: true
 
-# Verify map is still responsive after stress test
+# Verify map is still responsive
 - assertVisible:
     id: "map-screen"
 

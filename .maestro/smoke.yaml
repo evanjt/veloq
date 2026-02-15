@@ -2,33 +2,10 @@
 # Basic sanity check that the app launches and shows either login or home screen
 
 appId: com.veloq.app
+tags:
+  - tier0
 ---
-- launchApp:
-    clearState: false
-
-# Wait for the app to render something (login or home screen)
-- extendedWaitUntil:
-    visible:
-      id: "login-screen|home-screen"
-    timeout: 60000
-
-# Debug: capture initial state
-- takeScreenshot: "01-app-launched"
-
-# Handle both states: already logged in (home-screen) or logged out (login-screen)
 - runFlow:
-    when:
-      visible:
-        id: "login-screen"
-    commands:
-      - takeScreenshot: "02-login-visible"
-      - tapOn:
-          id: "login-demo-button"
+    file: helpers/setup-demo-mode-warm.yaml
 
-# Verify home screen loads
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 60000
-
-- takeScreenshot: "03-smoke-complete"
+- takeScreenshot: "smoke-complete"

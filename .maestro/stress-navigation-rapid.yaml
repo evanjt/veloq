@@ -1,31 +1,12 @@
 # Stress Test: Rapid Navigation
 # Tests app stability under rapid screen transitions
-# Can expose memory leaks and unmount/mount race conditions
 
 appId: com.veloq.app
+tags:
+  - tier3
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
-
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
+    file: helpers/setup-demo-mode.yaml
 
 # Rapid tab switching (5 full cycles)
 - repeat:
@@ -42,12 +23,10 @@ appId: com.veloq.app
     commands:
       - openLink: "veloq://settings"
       - openLink: "veloq://about"
-      - openLink: "veloq://wellness"
       - openLink: "veloq://routes"
-      - openLink: "veloq://stats"
       - openLink: "veloq://"
 
-# Rapid activity detail access (different activities)
+# Rapid activity detail access
 - repeat:
     times: 5
     commands:
@@ -56,8 +35,7 @@ appId: com.veloq.app
       - openLink: "veloq://activity/demo-2"
       - openLink: "veloq://"
 
-# Verify we end up on home and app is still responsive
-# Extended timeout as app may need time to settle after rapid navigation
+# Verify home is still responsive
 - extendedWaitUntil:
     visible:
       id: "home-screen"

@@ -1,0 +1,25 @@
+# Launch app fresh, enter demo mode, wait for home screen
+appId: com.veloq.app
+---
+- launchApp:
+    clearState: true
+
+# Dismiss any system alerts
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000

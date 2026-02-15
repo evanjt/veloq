@@ -1,33 +1,14 @@
 # Stress Test: Activity Cycling
 # Rapidly cycles through different demo activities to test loading and rendering
-# Tests for memory leaks and race conditions in activity detail loading
 
 appId: com.veloq.app
+tags:
+  - tier3
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
+    file: helpers/setup-demo-mode.yaml
 
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
-
-# Cycle through demo activities rapidly (demo-0 through demo-9)
+# Cycle through demo activities rapidly
 - repeat:
     times: 3
     commands:

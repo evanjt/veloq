@@ -1,0 +1,8 @@
+# Navigate to routes tab via deep link
+appId: com.veloq.app
+---
+- openLink: "veloq://routes"
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000

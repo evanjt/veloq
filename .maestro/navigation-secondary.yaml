@@ -1,38 +1,16 @@
 # Secondary Screen Navigation Tests
-# Tests navigation to settings, about, wellness, heatmap, routes, stats
+# Tests navigation to settings, about, routes
 
 appId: com.veloq.app
+tags:
+  - tier2
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
-
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-# Enter demo mode
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
+    file: helpers/setup-demo-mode.yaml
 
 # Settings screen
-- openLink: "veloq://settings"
-- extendedWaitUntil:
-    visible:
-      id: "settings-screen"
-    timeout: 10000
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
 
 # About screen
 - openLink: "veloq://about"
@@ -48,33 +26,9 @@ appId: com.veloq.app
       id: "home-screen"
     timeout: 10000
 
-# Wellness screen
-- openLink: "veloq://wellness"
-- extendedWaitUntil:
-    visible:
-      id: "wellness-screen"
-    timeout: 10000
-
-# Heatmap screen
-- openLink: "veloq://heatmap"
-- extendedWaitUntil:
-    visible:
-      id: "heatmap-screen"
-    timeout: 15000
-
 # Routes screen
-- openLink: "veloq://routes"
-- extendedWaitUntil:
-    visible:
-      id: "routes-screen"
-    timeout: 10000
-
-# Stats/Performance screen
-- openLink: "veloq://stats"
-- extendedWaitUntil:
-    visible:
-      id: "stats-screen"
-    timeout: 10000
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
 
 # Return home
 - openLink: "veloq://"

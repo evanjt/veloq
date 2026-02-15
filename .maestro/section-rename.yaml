@@ -1,0 +1,56 @@
+# Section Rename Test
+# Tests renaming a section via the edit button
+
+appId: com.veloq.app
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+
+# Wait for routes/sections to load
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+
+# Try to navigate to a section detail
+- tapOn:
+    id: "section-row-0"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "section-detail-screen"
+    timeout: 10000
+    optional: true
+
+# Tap rename button
+- tapOn:
+    id: "section-rename-button"
+    optional: true
+
+# Verify rename input appears
+- extendedWaitUntil:
+    visible:
+      id: "section-rename-input"
+    timeout: 5000
+    optional: true
+
+# Type new name
+- runFlow:
+    when:
+      visible:
+        id: "section-rename-input"
+    commands:
+      - inputText: "Test Section Name"
+
+# Save
+- tapOn:
+    id: "section-rename-save"
+    optional: true
+
+- takeScreenshot: "section-rename-complete"

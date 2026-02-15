@@ -1652,6 +1652,7 @@ export default function SectionDetailScreen() {
                   {isEditing ? (
                     <View style={styles.editNameContainer}>
                       <TextInput
+                        testID="section-rename-input"
                         ref={nameInputRef}
                         style={styles.editNameInput}
                         value={editName}
@@ -1663,7 +1664,11 @@ export default function SectionDetailScreen() {
                         autoFocus
                         selectTextOnFocus
                       />
-                      <TouchableOpacity onPress={handleSaveName} style={styles.editNameButton}>
+                      <TouchableOpacity
+                        testID="section-rename-save"
+                        onPress={handleSaveName}
+                        style={styles.editNameButton}
+                      >
                         <MaterialCommunityIcons name="check" size={20} color={colors.success} />
                       </TouchableOpacity>
                       <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
@@ -1672,6 +1677,7 @@ export default function SectionDetailScreen() {
                     </View>
                   ) : (
                     <TouchableOpacity
+                      testID="section-rename-button"
                       onPress={handleStartEditing}
                       style={styles.nameEditTouchable}
                       activeOpacity={0.7}

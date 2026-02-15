@@ -5,6 +5,8 @@ on:
     branches: ["**"] # Run on all branch pushes
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       skip_e2e:
@@ -455,8 +457,8 @@ jobs:
     if: ${{ !inputs.skip_e2e }}
     name: E2E iOS (Maestro)
     runs-on: macos-26
-    timeout-minutes: 30
-    continue-on-error: true # Don't fail the workflow on E2E test failures
+    timeout-minutes: 45
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -480,7 +482,6 @@ jobs:
 
       - name: Install Maestro
         run: |
-          export MAESTRO_VERSION=1.39.14
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
           "$HOME/.maestro/bin/maestro" --version
@@ -488,7 +489,6 @@ jobs:
       - name: Find and boot simulator
         id: simulator
         run: |
-          # Use iPhone 17 Pro Max for tests
           DEVICE="iPhone 17 Pro Max"
           UDID=$(xcrun simctl list devices available | grep "$DEVICE" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
           if [ -z "$UDID" ]; then
@@ -500,7 +500,6 @@ jobs:
 
       - name: Wait for simulator readiness
         run: |
-          # Wait for SpringBoard to be running (indicates simulator is fully loaded)
           for i in $(seq 1 30); do
             if xcrun simctl spawn "${{ steps.simulator.outputs.udid }}" launchctl list 2>/dev/null | grep -q SpringBoard; then
               echo "SpringBoard is running"
@@ -511,37 +510,33 @@ jobs:
           done
           sleep 5
 
-      - name: Install app on simulator
+      - name: Install and pre-launch app
         run: |
           xcrun simctl install "${{ steps.simulator.outputs.udid }}" ios/build/Build/Products/Release-iphonesimulator/Veloq.app
+          # Pre-launch to warm up RN + Rust init and XCUITest driver
+          xcrun simctl launch "${{ steps.simulator.outputs.udid }}" com.veloq.app
+          sleep 10
+          xcrun simctl terminate "${{ steps.simulator.outputs.udid }}" com.veloq.app || true
 
-      - name: Verify environment
+      - name: Determine test tier
+        id: tier
         run: |
-          export PATH="$HOME/.maestro/bin:$PATH"
-          maestro --version
-          xcrun simctl list devices booted
-          xcrun simctl get_app_container "${{ steps.simulator.outputs.udid }}" com.veloq.app || echo "App not found in container"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "tags=tier0,tier1,tier2,tier3" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "tags=tier0,tier1,tier2" >> $GITHUB_OUTPUT
+          else
+            echo "tags=tier0,tier1" >> $GITHUB_OUTPUT
+          fi
 
       - name: Run Maestro tests
         env:
-          MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
-          mkdir -p screenshots
-
-          # Run smoke test with retry
-          for attempt in 1 2; do
-            maestro test .maestro/smoke.yaml --format junit --output maestro-report-smoke.xml --no-ansi && break
-            echo "Smoke attempt $attempt failed, retrying in 10s..."
-            sleep 10
-          done
-
-          # Run critical path with retry
-          for attempt in 1 2; do
-            maestro test .maestro/critical-path.yaml --format junit --output maestro-report-critical.xml --no-ansi && break
-            echo "Critical path attempt $attempt failed, retrying in 10s..."
-            sleep 10
-          done
+          maestro test .maestro/ \
+            --include-tags=${{ steps.tier.outputs.tags }} \
+            --format junit --output maestro-report.xml --no-ansi || true
 
       - name: Collect screenshots
         if: always()
@@ -551,7 +546,6 @@ jobs:
           for f in screenshots-flat/*.png; do
             [ -f "$f" ] && mv "$f" "${f%.png}-ios.png" 2>/dev/null || true
           done
-          ls -la screenshots-flat/ || true
 
       - name: Upload screenshots
         if: always()
@@ -566,8 +560,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: maestro-ios-report
-          path: maestro-report-*.xml
+          path: maestro-report.xml
           retention-days: 7
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: maestro-report.xml
+          check_name: E2E iOS Results
+          fail_on_failure: false
 
   # ============================================
   # E2E Tests - Android with Maestro
@@ -577,8 +579,8 @@ jobs:
     if: ${{ !inputs.skip_e2e }}
     name: E2E Android (Maestro)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    continue-on-error: true # Don't fail the workflow on E2E test failures
+    timeout-minutes: 45
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -595,7 +597,6 @@ jobs:
 
       - name: Install Maestro
         run: |
-          export MAESTRO_VERSION=1.39.14
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
           "$HOME/.maestro/bin/maestro" --version
@@ -613,28 +614,41 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-api29-x86_64-v1
+          key: avd-api34-google-apis-x86_64-v1
 
       - name: Create AVD and generate snapshot
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
-          target: default
+          api-level: 34
+          target: google_apis
           arch: x86_64
           ram-size: 4096M
+          heap-size: 1024M
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
           script: echo "Generated AVD snapshot for caching."
 
+      - name: Determine test tier
+        id: tier
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "tags=tier0,tier1,tier2,tier3" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "tags=tier0,tier1,tier2" >> $GITHUB_OUTPUT
+          else
+            echo "tags=tier0,tier1" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run Maestro tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
-          target: default
+          api-level: 34
+          target: google_apis
           arch: x86_64
           ram-size: 4096M
+          heap-size: 1024M
           force-avd-creation: false
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save -accel on
@@ -642,30 +656,24 @@ jobs:
           script: |
             export PATH="$HOME/.maestro/bin:$PATH"
 
-            # Wait for emulator to fully boot
+            # Wait for emulator to be fully ready
             adb wait-for-device
             adb shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 2; done'
-            adb shell 'while [[ -z $(getprop init.svc.bootanim | grep stopped) ]]; do sleep 2; done' || true
-            sleep 5
-
-            # Install APK
-            adb install /tmp/android-artifact/app-release.apk
             sleep 10
 
-            # Run smoke test with retry
-            mkdir -p screenshots
-            for attempt in 1 2; do
-              maestro test .maestro/smoke.yaml --format junit --output maestro-report-smoke.xml --no-ansi && break
-              echo "Smoke attempt $attempt failed, retrying in 10s..."
-              sleep 10
-            done
+            # Install and pre-launch app to warm up RN + Rust init
+            adb install /tmp/android-artifact/app-release.apk
+            sleep 5
+            adb shell am start -n com.veloq.app/.MainActivity
+            sleep 15
 
-            # Run critical path with retry
-            for attempt in 1 2; do
-              maestro test .maestro/critical-path.yaml --format junit --output maestro-report-critical.xml --no-ansi && break
-              echo "Critical path attempt $attempt failed, retrying in 10s..."
-              sleep 10
-            done
+            # Stop app so Maestro can manage lifecycle
+            adb shell am force-stop com.veloq.app
+
+            # Run tests with tier-based tag selection
+            maestro test .maestro/ \
+              --include-tags=${{ steps.tier.outputs.tags }} \
+              --format junit --output maestro-report.xml --no-ansi || true
 
       - name: Collect screenshots
         if: always()
@@ -675,7 +683,6 @@ jobs:
           for f in screenshots-flat/*.png; do
             [ -f "$f" ] && mv "$f" "${f%.png}-android.png" 2>/dev/null || true
           done
-          ls -la screenshots-flat/ || true
 
       - name: Upload screenshots
         if: always()
@@ -690,5 +697,68 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: maestro-android-report
-          path: maestro-report-*.xml
+          path: maestro-report.xml
           retention-days: 7
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: maestro-report.xml
+          check_name: E2E Android Results
+          fail_on_failure: false
+
+  # ============================================
+  # E2E Summary — PR comment with aggregate results
+  # ============================================
+  e2e-summary:
+    needs: [e2e-ios, e2e-android]
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    name: E2E Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download iOS report
+        uses: actions/download-artifact@v4
+        with:
+          name: maestro-ios-report
+          path: /tmp/reports/ios
+        continue-on-error: true
+
+      - name: Download Android report
+        uses: actions/download-artifact@v4
+        with:
+          name: maestro-android-report
+          path: /tmp/reports/android
+        continue-on-error: true
+
+      - name: Generate summary
+        run: |
+          {
+            echo "## E2E Test Results"
+            echo ""
+            echo "| Platform | Result | Status |"
+            echo "|----------|--------|--------|"
+            for platform in ios android; do
+              report="/tmp/reports/$platform/maestro-report.xml"
+              if [ -f "$report" ]; then
+                tests=$(grep -oP 'tests="\K[0-9]+' "$report" | head -1 || echo "0")
+                failures=$(grep -oP 'failures="\K[0-9]+' "$report" | head -1 || echo "0")
+                if [ "$failures" = "0" ] || [ -z "$failures" ]; then
+                  echo "| $platform | ${tests:-0} passed | :white_check_mark: |"
+                else
+                  passed=$((tests - failures))
+                  echo "| $platform | $passed/$tests passed ($failures failed) | :x: |"
+                fi
+              else
+                echo "| $platform | No report | :warning: |"
+              fi
+            done
+            echo ""
+            echo "_See check annotations and artifacts for details_"
+          } > summary.md
+
+      - name: Post PR comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: summary.md

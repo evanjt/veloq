@@ -1,0 +1,18 @@
+# Settings Cache Test
+# Tests cache clear button exists and is interactive
+
+appId: com.veloq.app
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+# Verify clear cache button exists
+- assertVisible:
+    id: "settings-clear-cache"
+
+- takeScreenshot: "settings-cache-complete"

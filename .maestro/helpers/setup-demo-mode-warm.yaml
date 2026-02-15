@@ -1,0 +1,31 @@
+# Launch app without clearing state, enter demo mode if needed
+appId: com.veloq.app
+---
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen|home-screen"
+    timeout: 60000
+
+# Enter demo mode if on login screen
+- runFlow:
+    when:
+      visible:
+        id: "login-screen"
+    commands:
+      - tapOn:
+          id: "login-demo-button"
+
+# Dismiss any system alerts
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 60000

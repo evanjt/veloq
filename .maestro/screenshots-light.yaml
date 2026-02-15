@@ -2,32 +2,13 @@
 # Captures screenshots of key screens for App Store marketing
 
 appId: com.veloq.app
+tags:
+  - tier4
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
+    file: helpers/setup-demo-mode.yaml
 
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-# Enter demo mode
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
-
-# Screenshot 1: Activity Feed (wait for activity list, not weekly-summary)
+# Screenshot 1: Activity Feed
 - extendedWaitUntil:
     visible:
       id: "home-activity-list"
@@ -35,19 +16,17 @@ appId: com.veloq.app
 - takeScreenshot: "01-activity-feed-light"
 
 # Screenshot 2: Fitness Tracking
-- openLink: "veloq://fitness"
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
 - extendedWaitUntil:
     visible:
       id: "fitness-ctl-value"
     timeout: 15000
 - takeScreenshot: "02-fitness-light"
 
-# Screenshot 3: Training Calendar (has weekly summary)
-- openLink: "veloq://training"
-- extendedWaitUntil:
-    visible:
-      id: "training-screen"
-    timeout: 10000
+# Screenshot 3: Training Calendar
+- runFlow:
+    file: helpers/navigate-to-training.yaml
 - extendedWaitUntil:
     visible:
       id: "weekly-summary"
@@ -55,15 +34,13 @@ appId: com.veloq.app
 - takeScreenshot: "03-training-light"
 
 # Screenshot 4: Regional Map
-- openLink: "veloq://map"
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 15000
+- runFlow:
+    file: helpers/navigate-to-map.yaml
 - takeScreenshot: "04-map-light"
 
 # Screenshot 5: Routes List
-- openLink: "veloq://routes"
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
 - extendedWaitUntil:
     visible:
       id: "routes-list"
@@ -78,18 +55,7 @@ appId: com.veloq.app
     timeout: 15000
 - takeScreenshot: "06-activity-detail-light"
 
-# Screenshot 7: Stats/Performance
-- openLink: "veloq://stats"
-- extendedWaitUntil:
-    visible:
-      id: "stats-screen"
-    timeout: 10000
-- takeScreenshot: "07-stats-light"
-
-# Screenshot 8: Settings
-- openLink: "veloq://settings"
-- extendedWaitUntil:
-    visible:
-      id: "settings-screen"
-    timeout: 10000
-- takeScreenshot: "08-settings-light"
+# Screenshot 7: Settings
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+- takeScreenshot: "07-settings-light"

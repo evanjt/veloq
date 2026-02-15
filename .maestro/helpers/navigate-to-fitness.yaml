@@ -1,0 +1,8 @@
+# Navigate to fitness tab via deep link
+appId: com.veloq.app
+---
+- openLink: "veloq://fitness"
+- extendedWaitUntil:
+    visible:
+      id: "fitness-screen"
+    timeout: 10000

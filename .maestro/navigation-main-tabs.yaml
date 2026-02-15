@@ -1,52 +1,21 @@
 # Main Tab Navigation Tests
-# Tests navigation between the four main bottom tabs
+# Tests navigation between the main bottom tabs
 
 appId: com.veloq.app
+tags:
+  - tier2
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
+    file: helpers/setup-demo-mode.yaml
 
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
 
-# Enter demo mode first
-- tapOn:
-    id: "login-demo-button"
+- runFlow:
+    file: helpers/navigate-to-training.yaml
 
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
-
-# Navigate to Fitness tab via deep link
-- openLink: "veloq://fitness"
-- extendedWaitUntil:
-    visible:
-      id: "fitness-screen"
-    timeout: 10000
-
-# Navigate to Training tab
-- openLink: "veloq://training"
-- extendedWaitUntil:
-    visible:
-      id: "training-screen"
-    timeout: 10000
-
-# Navigate to Map tab
-- openLink: "veloq://map"
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 15000
+- runFlow:
+    file: helpers/navigate-to-map.yaml
 
 # Navigate back to Home
 - openLink: "veloq://"

@@ -2,30 +2,11 @@
 # Verifies that key data components display correctly with demo data
 
 appId: com.veloq.app
+tags:
+  - tier2
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
-
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-# Enter demo mode
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
+    file: helpers/setup-demo-mode.yaml
 
 # Verify home screen activity list is present
 - extendedWaitUntil:
@@ -34,22 +15,16 @@ appId: com.veloq.app
     timeout: 10000
 
 # Navigate to training screen to check weekly summary
-- openLink: "veloq://training"
-- extendedWaitUntil:
-    visible:
-      id: "training-screen"
-    timeout: 10000
+- runFlow:
+    file: helpers/navigate-to-training.yaml
 - extendedWaitUntil:
     visible:
       id: "weekly-summary"
     timeout: 10000
 
 # Navigate to Fitness and check CTL/ATL values display
-- openLink: "veloq://fitness"
-- extendedWaitUntil:
-    visible:
-      id: "fitness-screen"
-    timeout: 10000
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
 - extendedWaitUntil:
     visible:
       id: "fitness-ctl-value"
@@ -58,11 +33,8 @@ appId: com.veloq.app
     id: "fitness-atl-value"
 
 # Navigate to Routes and verify list loads
-- openLink: "veloq://routes"
-- extendedWaitUntil:
-    visible:
-      id: "routes-screen"
-    timeout: 10000
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
 - extendedWaitUntil:
     visible:
       id: "routes-list"
@@ -75,7 +47,6 @@ appId: com.veloq.app
       id: "activity-detail-content"
     timeout: 15000
 
-# Verify chart type selector appears
 - extendedWaitUntil:
     visible:
       id: "chart-type-selector"

@@ -2,11 +2,12 @@
 # Tests that invalid API keys show an error
 
 appId: com.veloq.app
+tags:
+  - tier1
 ---
 - launchApp:
     clearState: true
 
-# Dismiss any system alerts
 - runFlow:
     when:
       visible: "Not Now"
@@ -33,7 +34,7 @@ appId: com.veloq.app
 - tapOn:
     id: "login-apikey-button"
 
-# Wait for error to appear (network call takes time)
+# Wait for error to appear
 - extendedWaitUntil:
     visible:
       id: "login-error-text"

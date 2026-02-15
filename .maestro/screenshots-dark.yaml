@@ -2,43 +2,19 @@
 # Captures screenshots in dark mode for App Store marketing
 
 appId: com.veloq.app
+tags:
+  - tier4
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
-
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-# Enter demo mode
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
+    file: helpers/setup-demo-mode.yaml
 
 # Navigate to settings to enable dark mode
-- openLink: "veloq://settings"
-- extendedWaitUntil:
-    visible:
-      id: "settings-screen"
-    timeout: 10000
-
-# Tap dark theme button
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
 - tapOn:
     id: "theme-button-dark"
 
-# Screenshot 1: Activity Feed (wait for activity list, not weekly-summary)
+# Screenshot 1: Activity Feed
 - openLink: "veloq://"
 - extendedWaitUntil:
     visible:
@@ -51,19 +27,17 @@ appId: com.veloq.app
 - takeScreenshot: "01-activity-feed-dark"
 
 # Screenshot 2: Fitness Tracking
-- openLink: "veloq://fitness"
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
 - extendedWaitUntil:
     visible:
       id: "fitness-ctl-value"
     timeout: 15000
 - takeScreenshot: "02-fitness-dark"
 
-# Screenshot 3: Training Calendar (has weekly summary)
-- openLink: "veloq://training"
-- extendedWaitUntil:
-    visible:
-      id: "training-screen"
-    timeout: 10000
+# Screenshot 3: Training Calendar
+- runFlow:
+    file: helpers/navigate-to-training.yaml
 - extendedWaitUntil:
     visible:
       id: "weekly-summary"
@@ -71,15 +45,13 @@ appId: com.veloq.app
 - takeScreenshot: "03-training-dark"
 
 # Screenshot 4: Regional Map
-- openLink: "veloq://map"
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 15000
+- runFlow:
+    file: helpers/navigate-to-map.yaml
 - takeScreenshot: "04-map-dark"
 
 # Screenshot 5: Routes List
-- openLink: "veloq://routes"
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
 - extendedWaitUntil:
     visible:
       id: "routes-list"
@@ -94,18 +66,7 @@ appId: com.veloq.app
     timeout: 15000
 - takeScreenshot: "06-activity-detail-dark"
 
-# Screenshot 7: Stats/Performance
-- openLink: "veloq://stats"
-- extendedWaitUntil:
-    visible:
-      id: "stats-screen"
-    timeout: 10000
-- takeScreenshot: "07-stats-dark"
-
-# Screenshot 8: Settings (already in dark mode)
-- openLink: "veloq://settings"
-- extendedWaitUntil:
-    visible:
-      id: "settings-screen"
-    timeout: 10000
-- takeScreenshot: "08-settings-dark"
+# Screenshot 7: Settings (already in dark mode)
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+- takeScreenshot: "07-settings-dark"

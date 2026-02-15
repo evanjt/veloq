@@ -1,41 +1,15 @@
 # Comprehensive Map Integration Test
-# Tests all map features: activities, routes, sections, popups, filters, and toggles
-# Uses stable test activity IDs (demo-test-N) that never change regardless of date
-# NOTE: All demo activities are in different geographic locations, so we use the same
-# activity marker throughout to ensure reliable testing
+# Tests map features: activities, routes, sections, popups, filters, and toggles
 
 appId: com.veloq.app
+tags:
+  - tier2
 ---
-- launchApp:
-    clearState: true
-
-# Dismiss any system alerts
 - runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
+    file: helpers/setup-demo-mode.yaml
 
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 30000
-
-- tapOn:
-    id: "login-demo-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
-
-# Navigate to map screen
-- openLink: "veloq://map"
-
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 15000
+- runFlow:
+    file: helpers/navigate-to-map.yaml
 
 # Wait for map controls to load
 - extendedWaitUntil:
@@ -44,10 +18,9 @@ appId: com.veloq.app
     timeout: 10000
 
 # =============================================================================
-# SECTION 1: Activity Markers - Basic Interaction
+# Activity Markers - Basic Interaction
 # =============================================================================
 
-# Tap fit-all button to show all activities
 - tapOn:
     id: "map-fit-all"
     optional: true
@@ -57,36 +30,30 @@ appId: com.veloq.app
       id: "map-screen"
     timeout: 2000
 
-# Tap on activity marker (stable test activity)
 - tapOn:
     id: "map-activity-marker-demo-test-0"
     optional: true
 
-# Wait for popup to appear
 - extendedWaitUntil:
     visible:
       id: "activity-popup"
     timeout: 3000
     optional: true
 
-# Zoom to the activity
 - tapOn:
     id: "activity-popup-zoom"
     optional: true
 
-# Wait for zoom animation
 - extendedWaitUntil:
     visible:
       id: "activity-popup"
     timeout: 2000
     optional: true
 
-# Close the popup
 - tapOn:
     id: "activity-popup-close"
     optional: true
 
-# Verify popup is closed
 - extendedWaitUntil:
     notVisible:
       id: "activity-popup"
@@ -94,10 +61,9 @@ appId: com.veloq.app
     optional: true
 
 # =============================================================================
-# SECTION 2: Activity Details Navigation
+# Activity Details Navigation
 # =============================================================================
 
-# Reset map and tap same activity again
 - openLink: "veloq://map"
 
 - extendedWaitUntil:
@@ -110,7 +76,6 @@ appId: com.veloq.app
       id: "map-toggle-activities"
     timeout: 3000
 
-# Tap the same activity marker
 - tapOn:
     id: "map-activity-marker-demo-test-0"
     optional: true
@@ -121,19 +86,16 @@ appId: com.veloq.app
     timeout: 3000
     optional: true
 
-# View activity details
 - tapOn:
     id: "activity-popup-view-details"
     optional: true
 
-# Wait for activity detail screen to load
 - extendedWaitUntil:
     visible:
       id: "activity-detail-screen"
     timeout: 10000
     optional: true
 
-# Go back to map
 - openLink: "veloq://map"
 
 - extendedWaitUntil:
@@ -142,10 +104,9 @@ appId: com.veloq.app
     timeout: 10000
 
 # =============================================================================
-# SECTION 3: Multi-Marker Stress Test
+# Multi-Marker Test
 # =============================================================================
 
-# Fit all activities to see all markers
 - tapOn:
     id: "map-fit-all"
     optional: true
@@ -155,8 +116,6 @@ appId: com.veloq.app
       id: "map-screen"
     timeout: 2000
 
-# Test tapping different stable test activity markers
-# Marker 0: Ride (Switzerland)
 - tapOn:
     id: "map-activity-marker-demo-test-0"
     optional: true
@@ -169,7 +128,6 @@ appId: com.veloq.app
     id: "activity-popup-close"
     optional: true
 
-# Marker 1: Run (Rio)
 - tapOn:
     id: "map-activity-marker-demo-test-1"
     optional: true
@@ -182,7 +140,6 @@ appId: com.veloq.app
     id: "activity-popup-close"
     optional: true
 
-# Marker 2: Virtual Ride (Switzerland)
 - tapOn:
     id: "map-activity-marker-demo-test-2"
     optional: true
@@ -195,7 +152,6 @@ appId: com.veloq.app
     id: "activity-popup-close"
     optional: true
 
-# Marker 3: Hike (Switzerland)
 - tapOn:
     id: "map-activity-marker-demo-test-3"
     optional: true
@@ -208,7 +164,6 @@ appId: com.veloq.app
     id: "activity-popup-close"
     optional: true
 
-# Marker 4: Swim (Spain)
 - tapOn:
     id: "map-activity-marker-demo-test-4"
     optional: true
@@ -222,10 +177,9 @@ appId: com.veloq.app
     optional: true
 
 # =============================================================================
-# SECTION 4: Sport Type Filters
+# Sport Type Filters
 # =============================================================================
 
-# Filter by Ride
 - tapOn:
     id: "map-filter-ride"
     optional: true
@@ -235,7 +189,6 @@ appId: com.veloq.app
       id: "map-screen"
     timeout: 2000
 
-# Filter by Run
 - tapOn:
     id: "map-filter-run"
     optional: true
@@ -245,7 +198,6 @@ appId: com.veloq.app
       id: "map-screen"
     timeout: 2000
 
-# Filter by multiple types
 - tapOn:
     id: "map-filter-swim"
     optional: true
@@ -254,18 +206,14 @@ appId: com.veloq.app
     id: "map-filter-hike"
     optional: true
 
-# Clear all filters
 - tapOn:
     id: "map-filter-clear"
     optional: true
 
 # =============================================================================
-# SECTION 5: Layer Toggles (Combined Stacked Button)
+# Layer Toggles
 # =============================================================================
-# The activities/sections/routes toggles are now in a single stacked button
-# Each toggle is still independently tappable with divider lines between them
 
-# Toggle all three layers in sequence (top to bottom in the stack)
 - tapOn:
     id: "map-toggle-activities"
     optional: true
@@ -293,7 +241,7 @@ appId: com.veloq.app
       id: "map-screen"
     timeout: 2000
 
-# Toggle them back on (reverse order to test stack interaction)
+# Toggle back on
 - tapOn:
     id: "map-toggle-routes"
     optional: true
@@ -306,17 +254,14 @@ appId: com.veloq.app
     id: "map-toggle-activities"
     optional: true
 
-# Toggle heatmap (only available when data exists)
 - tapOn:
     id: "map-toggle-heatmap"
     optional: true
 
 # =============================================================================
-# SECTION 6: Toggle Stress Test
+# Toggle Stress Test
 # =============================================================================
 
-# Toggle all layers rapidly to test for race conditions
-# Use even number of repeats so toggles return to original state
 - repeat:
     times: 4
     commands:
@@ -331,10 +276,9 @@ appId: com.veloq.app
           optional: true
 
 # =============================================================================
-# SECTION 7: 3D Mode and Map Controls (Including Dual Buttons)
+# 3D Mode and Map Controls
 # =============================================================================
 
-# Toggle 3D mode on
 - tapOn:
     id: "map-toggle-3d"
     optional: true
@@ -344,13 +288,10 @@ appId: com.veloq.app
       id: "map-screen"
     timeout: 2000
 
-# Reset compass
 - tapOn:
     id: "map-compass"
     optional: true
 
-# Test the location/fit-all dual button (stacked vertically)
-# Top half: location button
 - tapOn:
     id: "map-location"
     optional: true
@@ -360,7 +301,6 @@ appId: com.veloq.app
       id: "map-screen"
     timeout: 2000
 
-# Bottom half: fit-all button (zooms out to show all activities)
 - tapOn:
     id: "map-fit-all"
     optional: true
@@ -370,76 +310,14 @@ appId: com.veloq.app
       id: "map-screen"
     timeout: 2000
 
-# Toggle 3D mode off
 - tapOn:
     id: "map-toggle-3d"
     optional: true
 
 # =============================================================================
-# SECTION 8: Zoom and Fit All Test
+# Final State Validation
 # =============================================================================
 
-# Fit all first
-- tapOn:
-    id: "map-fit-all"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 2000
-
-# Tap activity and zoom to it
-- tapOn:
-    id: "map-activity-marker-demo-test-0"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "activity-popup"
-    timeout: 3000
-    optional: true
-
-# Zoom to activity (this zooms in)
-- tapOn:
-    id: "activity-popup-zoom"
-    optional: true
-
-# Close popup
-- tapOn:
-    id: "activity-popup-close"
-    optional: true
-
-# Fit all again (zoom back out)
-- tapOn:
-    id: "map-fit-all"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 2000
-
-# Verify we can now see other markers (try tapping a different one)
-- tapOn:
-    id: "map-activity-marker-demo-test-1"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "activity-popup"
-    timeout: 3000
-    optional: true
-
-- tapOn:
-    id: "activity-popup-close"
-    optional: true
-
-# =============================================================================
-# SECTION 9: Final State Validation
-# =============================================================================
-
-# Verify map is still responsive
 - assertVisible:
     id: "map-screen"
 

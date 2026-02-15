@@ -1,0 +1,29 @@
+# Training Wellness Trends Test
+# Tests wellness trends chart on training screen
+
+appId: com.veloq.app
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-training.yaml
+
+# Verify training screen loaded
+- extendedWaitUntil:
+    visible:
+      id: "training-screen"
+    timeout: 10000
+
+# Scroll down to find wellness content
+- scrollUntilVisible:
+    element:
+      id: "wellness-dashboard"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+    visibilityPercentage: 50
+
+- takeScreenshot: "training-wellness-trends-complete"

@@ -1,0 +1,24 @@
+# Settings Logout Test
+# Tests logout flow returns to login screen
+
+appId: com.veloq.app
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+# Tap logout button
+- tapOn:
+    id: "settings-logout-button"
+
+# Verify we return to login screen
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 10000
+
+- takeScreenshot: "settings-logout-complete"
