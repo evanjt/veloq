@@ -658,30 +658,14 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save -accel on
           disable-animations: true
           script: |
-            export PATH="$HOME/.maestro/bin:$PATH"
-
-            # Wait for emulator to be fully ready
-            adb wait-for-device
-            for i in $(seq 1 30); do
-              BOOT=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
-              if [ "$BOOT" = "1" ]; then echo "Boot complete"; break; fi
-              echo "Waiting for boot... ($i/30)"
-              sleep 2
-            done
-            sleep 10
-
-            # Install and pre-launch app to warm up RN + Rust init
-            adb install /tmp/android-artifact/app-release.apk || echo "WARNING: APK install failed"
             sleep 5
-            adb shell am start -n com.veloq.app/.MainActivity || echo "WARNING: App launch failed"
+            adb install /tmp/android-artifact/app-release.apk
+            sleep 5
+            adb shell am start -n com.veloq.app/.MainActivity
             sleep 15
-
-            # Stop app so Maestro can manage lifecycle
-            adb shell am force-stop com.veloq.app || true
+            adb shell am force-stop com.veloq.app
             sleep 3
-
-            # Run tests with tier-based tag selection
-            maestro test .maestro/ --include-tags=${{ steps.tier.outputs.tags }} --format junit --output maestro-report.xml --no-ansi || true
+            $HOME/.maestro/bin/maestro test .maestro/ --include-tags=${{ steps.tier.outputs.tags }} --format junit --output maestro-report.xml --no-ansi || true
 
       - name: Collect screenshots
         if: always()
