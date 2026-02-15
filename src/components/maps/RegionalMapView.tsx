@@ -131,7 +131,7 @@ export function RegionalMapView({
   // Frequent sections from route matching (with polylines loaded)
   // useEngineSections loads full section data from Rust engine including polylines
   // This fixes iOS crash when sectionsGeoJSON creates LineString with empty coordinates
-  const { sections } = useEngineSections({ minVisits: 2 });
+  const { sections } = useEngineSections({ minVisits: 2, enabled: showSections });
 
   // Route groups for displaying routes on the map
   const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });

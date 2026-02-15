@@ -246,6 +246,8 @@ interface UseEngineSectionsOptions {
   sportType?: string;
   /** Minimum visit count */
   minVisits?: number;
+  /** Whether to run the hook (default: true). When false, skips FFI calls and returns empty defaults. */
+  enabled?: boolean;
 }
 
 interface UseEngineSectionsResult {
@@ -260,10 +262,11 @@ interface UseEngineSectionsResult {
  * Sections are queried fresh from Rust/SQLite on each refresh (no long-term JS memory storage).
  */
 export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEngineSectionsResult {
-  const { sportType, minVisits = 1 } = options;
+  const { sportType, minVisits = 1, enabled = true } = options;
   const trigger = useEngineSubscription(['sections']);
 
   return useMemo(() => {
+    if (!enabled) return { sections: [], totalCount: 0 };
     try {
       const engine = getRouteEngine();
       if (!engine) return { sections: [], totalCount: 0 };
@@ -293,7 +296,7 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
     } catch {
       return { sections: [], totalCount: 0 };
     }
-  }, [trigger, sportType, minVisits]);
+  }, [trigger, sportType, minVisits, enabled]);
 }
 
 interface UseSectionSummariesOptions {

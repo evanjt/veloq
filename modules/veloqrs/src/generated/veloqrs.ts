@@ -1681,113 +1681,6 @@ const FfiConverterTypeFetchProgressCallback =
   new FfiConverterCallback<FetchProgressCallback>();
 
 /**
- * Result of matching an activity track against existing sections.
- * This is used for incremental section updates when a new activity is added.
- *
- * Note: overlap_points is not included because Vec<GpsPoint> can't be
- * exported via UniFFI. Use start_index/end_index to extract from original track.
- */
-export type ActivitySectionMatch = {
-  /**
-   * Section ID that was matched
-   */
-  sectionId: string;
-  /**
-   * Section name (if set)
-   */
-  sectionName: string | undefined;
-  /**
-   * Distance of the overlapping portion in meters
-   */
-  overlapDistance: /*f64*/ number;
-  /**
-   * Start index in the original track
-   */
-  startIndex: /*u32*/ number;
-  /**
-   * End index in the original track
-   */
-  endIndex: /*u32*/ number;
-  /**
-   * Match quality (0.0 to 1.0)
-   */
-  matchQuality: /*f64*/ number;
-  /**
-   * Whether the activity goes in the same direction as the section
-   */
-  sameDirection: boolean;
-};
-
-/**
- * Generated factory for {@link ActivitySectionMatch} record objects.
- */
-export const ActivitySectionMatch = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<
-      ActivitySectionMatch,
-      ReturnType<typeof defaults>
-    >(defaults);
-  })();
-  return Object.freeze({
-    /**
-     * Create a frozen instance of {@link ActivitySectionMatch}, with defaults specified
-     * in Rust, in the {@link veloqrs} crate.
-     */
-    create,
-
-    /**
-     * Create a frozen instance of {@link ActivitySectionMatch}, with defaults specified
-     * in Rust, in the {@link veloqrs} crate.
-     */
-    new: create,
-
-    /**
-     * Defaults specified in the {@link veloqrs} crate.
-     */
-    defaults: () => Object.freeze(defaults()) as Partial<ActivitySectionMatch>,
-  });
-})();
-
-const FfiConverterTypeActivitySectionMatch = (() => {
-  type TypeName = ActivitySectionMatch;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        sectionId: FfiConverterString.read(from),
-        sectionName: FfiConverterOptionalString.read(from),
-        overlapDistance: FfiConverterFloat64.read(from),
-        startIndex: FfiConverterUInt32.read(from),
-        endIndex: FfiConverterUInt32.read(from),
-        matchQuality: FfiConverterFloat64.read(from),
-        sameDirection: FfiConverterBool.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterString.write(value.sectionId, into);
-      FfiConverterOptionalString.write(value.sectionName, into);
-      FfiConverterFloat64.write(value.overlapDistance, into);
-      FfiConverterUInt32.write(value.startIndex, into);
-      FfiConverterUInt32.write(value.endIndex, into);
-      FfiConverterFloat64.write(value.matchQuality, into);
-      FfiConverterBool.write(value.sameDirection, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.sectionId) +
-        FfiConverterOptionalString.allocationSize(value.sectionName) +
-        FfiConverterFloat64.allocationSize(value.overlapDistance) +
-        FfiConverterUInt32.allocationSize(value.startIndex) +
-        FfiConverterUInt32.allocationSize(value.endIndex) +
-        FfiConverterFloat64.allocationSize(value.matchQuality) +
-        FfiConverterBool.allocationSize(value.sameDirection)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * Sport type mapping for activities.
  */
 export type ActivitySportMapping = {
@@ -6568,7 +6461,6 @@ function uniffiEnsureInitialized() {
 export default Object.freeze({
   initialize: uniffiEnsureInitialized,
   converters: {
-    FfiConverterTypeActivitySectionMatch,
     FfiConverterTypeActivitySportMapping,
     FfiConverterTypeActivitySportType,
     FfiConverterTypeDownloadProgressResult,

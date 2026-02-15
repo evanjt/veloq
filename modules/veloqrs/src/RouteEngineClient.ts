@@ -422,6 +422,28 @@ class RouteEngineClient {
   }
 
   /**
+   * Get all map signatures in a single batch query.
+   * Returns lightweight simplified signatures (~100 pts each) for map rendering.
+   * Much more memory-efficient than calling getGpsTrack() per activity (~5000 pts each).
+   */
+  getAllMapSignatures(): Array<{ activityId: string; coords: number[]; centerLat: number; centerLng: number }> {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const generated = require('./generated/veloqrs');
+    if (typeof generated.persistentEngineGetAllMapSignatures !== 'function') {
+      console.error('[RouteEngine] persistentEngineGetAllMapSignatures not available — regenerate bindings');
+      return [];
+    }
+    return this.timed('getAllMapSignatures', () =>
+      generated.persistentEngineGetAllMapSignatures() as Array<{
+        activityId: string;
+        coords: number[];
+        centerLat: number;
+        centerLng: number;
+      }>
+    );
+  }
+
+  /**
    * Set route name.
    * @throws Error if routeId or name fails validation
    */

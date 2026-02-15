@@ -17,6 +17,17 @@ pub struct FfiBatchTrace {
     pub coords: Vec<f64>,
 }
 
+/// Lightweight map signature for rendering activity traces on the map.
+/// Contains simplified GPS points (max ~100 via Douglas-Peucker) as flat coords.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMapSignature {
+    pub activity_id: String,
+    /// Flat coordinates [lat, lng, lat, lng, ...] (simplified, max ~100 points)
+    pub coords: Vec<f64>,
+    pub center_lat: f64,
+    pub center_lng: f64,
+}
+
 /// GPS point for FFI
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct FfiGpsPoint {

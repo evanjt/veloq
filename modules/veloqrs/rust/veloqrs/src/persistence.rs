@@ -2058,6 +2058,66 @@ impl PersistentRouteEngine {
         .ok()
     }
 
+    /// Get all map signatures in a single query.
+    /// Returns lightweight flat-coord signatures for map rendering.
+    /// Bypasses LRU cache since we want all rows at once.
+    pub fn get_all_map_signatures(&self) -> Vec<crate::ffi_types::FfiMapSignature> {
+        let mut stmt = match self.db.prepare(
+            "SELECT activity_id, points FROM signatures",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        let rows = match stmt.query_map([], |row| {
+            let activity_id: String = row.get(0)?;
+            let points_blob: Vec<u8> = row.get(1)?;
+            Ok((activity_id, points_blob))
+        }) {
+            Ok(r) => r,
+            Err(_) => return Vec::new(),
+        };
+
+        let mut result = Vec::new();
+        for row in rows {
+            let (activity_id, points_blob) = match row {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            let points: Vec<GpsPoint> = match rmp_serde::from_slice(&points_blob) {
+                Ok(p) => p,
+                Err(_) => continue,
+            };
+            if points.is_empty() {
+                continue;
+            }
+
+            // Compute center from bounds
+            let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
+                min_lat: 0.0,
+                max_lat: 0.0,
+                min_lng: 0.0,
+                max_lng: 0.0,
+            });
+            let center = bounds.center();
+
+            // Flatten points to [lat, lng, lat, lng, ...]
+            let mut coords = Vec::with_capacity(points.len() * 2);
+            for p in &points {
+                coords.push(p.latitude);
+                coords.push(p.longitude);
+            }
+
+            result.push(crate::ffi_types::FfiMapSignature {
+                activity_id,
+                coords,
+                center_lat: center.latitude,
+                center_lng: center.longitude,
+            });
+        }
+        result
+    }
+
     /// Get GPS track from database (on-demand, never cached).
     pub fn get_gps_track(&self, id: &str) -> Option<Vec<GpsPoint>> {
         let mut stmt = self
@@ -6576,6 +6636,14 @@ pub mod persistent_engine_ffi {
         with_persistent_engine(|e| e.get_sport_settings())
             .flatten()
             .unwrap_or_default()
+    }
+
+    /// Get all map signatures in a single batch query.
+    /// Returns lightweight flat-coord signatures for map rendering (~100 pts each).
+    /// Much more memory-efficient than calling getGpsTrack() per activity (~5000 pts each).
+    #[uniffi::export]
+    pub fn persistent_engine_get_all_map_signatures() -> Vec<crate::ffi_types::FfiMapSignature> {
+        with_persistent_engine(|e| e.get_all_map_signatures()).unwrap_or_default()
     }
 
 }

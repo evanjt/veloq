@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { InteractionManager } from 'react-native';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import { gpsPointsToRoutePoints } from 'veloqrs';
 
 export interface RouteSignature {
   points: Array<{ lat: number; lng: number }>;
@@ -11,14 +10,14 @@ export interface RouteSignature {
 /**
  * Hook to get route signatures from the Rust engine.
  *
- * Signatures contain simplified GPS traces for rendering activity paths on maps.
- * The hook subscribes to engine activity changes and updates automatically.
+ * Uses a single batch FFI call (getAllMapSignatures) to fetch simplified signatures
+ * (~100 points each via Douglas-Peucker) instead of individual getGpsTrack() calls
+ * (~5,000 points each). This reduces memory from ~250MB to ~5MB for 1,000 activities.
  *
  * PERFORMANCE: Defers loading until after animations complete to avoid blocking UI.
- * Processes activities in batches to keep the main thread responsive.
  *
  * @param enabled - Whether to load signatures (default: true). Set to false when the
- *   map tab is not focused to avoid 80+ getGpsTrack FFI calls on tab switch.
+ *   map tab is not focused to release memory.
  * @returns Record mapping activityId to {points, center}
  */
 export function useRouteSignatures(enabled = true): Record<string, RouteSignature> {
@@ -31,59 +30,39 @@ export function useRouteSignatures(enabled = true): Record<string, RouteSignatur
     if (!engine || !isMountedRef.current) return;
 
     try {
-      const activityIds = engine.getActivityIds();
+      // Single FFI call returns all simplified signatures (~100 pts each)
+      const mapSignatures = engine.getAllMapSignatures();
       const sigs: Record<string, RouteSignature> = {};
 
-      // Process in batches to avoid blocking main thread
-      const BATCH_SIZE = 20;
-      let processed = 0;
+      for (const sig of mapSignatures) {
+        if (sig.coords.length < 4) continue; // Need at least 2 points
 
-      const processBatch = () => {
-        if (!isMountedRef.current) return;
-
-        const end = Math.min(processed + BATCH_SIZE, activityIds.length);
-        for (let i = processed; i < end; i++) {
-          const activityId = activityIds[i];
-          const track = engine.getGpsTrack(activityId);
-          if (track.length < 2) continue;
-
-          // Convert GpsPoint[] to RoutePoint format
-          const points = gpsPointsToRoutePoints(track);
-
-          // Calculate center
-          let sumLat = 0;
-          let sumLng = 0;
-          for (const p of points) {
-            sumLat += p.lat;
-            sumLng += p.lng;
-          }
-
-          sigs[activityId] = {
-            points,
-            center: {
-              lat: sumLat / points.length,
-              lng: sumLng / points.length,
-            },
-          };
+        // Convert flat [lat, lng, lat, lng, ...] to point objects
+        const points: Array<{ lat: number; lng: number }> = [];
+        for (let i = 0; i < sig.coords.length - 1; i += 2) {
+          points.push({ lat: sig.coords[i], lng: sig.coords[i + 1] });
         }
-        processed = end;
 
-        if (processed < activityIds.length) {
-          // Process next batch after a short delay to let UI breathe
-          setTimeout(processBatch, 0);
-        } else {
-          // All done
-          if (isMountedRef.current) {
-            setSignatures(sigs);
-          }
-        }
-      };
+        sigs[sig.activityId] = {
+          points,
+          center: { lat: sig.centerLat, lng: sig.centerLng },
+        };
+      }
 
-      processBatch();
+      if (isMountedRef.current) {
+        setSignatures(sigs);
+      }
     } catch {
       if (isMountedRef.current) {
         setSignatures({});
       }
+    }
+  }, [enabled]);
+
+  // Clear signatures when disabled (releases memory on tab switch)
+  useEffect(() => {
+    if (!enabled) {
+      setSignatures({});
     }
   }, [enabled]);
 

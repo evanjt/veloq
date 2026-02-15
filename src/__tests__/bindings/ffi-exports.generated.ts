@@ -413,6 +413,12 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 6491,
   },
   {
+    name: 'persistent_engine_get_all_map_signatures',
+    camelName: 'persistentEngineGetAllMapSignatures',
+    file: 'persistence.rs',
+    line: 6590,
+  },
+  {
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence.rs',
@@ -549,6 +555,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'persistentEngineGetAthleteProfile',
   'persistentEngineSetSportSettings',
   'persistentEngineGetSportSettings',
+  'persistentEngineGetAllMapSignatures',
   'computePolylineOverlap',
   'getSections',
   'getSectionCount',
@@ -632,6 +639,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   persistent_engine_get_athlete_profile: 'persistentEngineGetAthleteProfile',
   persistent_engine_set_sport_settings: 'persistentEngineSetSportSettings',
   persistent_engine_get_sport_settings: 'persistentEngineGetSportSettings',
+  persistent_engine_get_all_map_signatures: 'persistentEngineGetAllMapSignatures',
   compute_polyline_overlap: 'computePolylineOverlap',
   get_sections: 'getSections',
   get_section_count: 'getSectionCount',
