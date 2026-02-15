@@ -38,8 +38,6 @@ export interface UseFrequentSectionsResult {
 /**
  * Convert SectionSummary to FrequentSection-like object.
  * Polylines are lazy-loaded via useSectionPolyline in SectionRow.
- * Note: SectionSummary from veloqrs may not have sectionType/createdAt fields
- * (old PersistentEngine type vs new unified Section type).
  */
 function summaryToFrequentSection(
   summary: SectionSummary

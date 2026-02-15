@@ -11,6 +11,6 @@ namespace veloqrs {
 	}
 
 	uint8_t cleanupRustCrate(jsi::Runtime &runtime) {
-		return false;
+		return true;
 	}
 }

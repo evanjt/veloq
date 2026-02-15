@@ -69,9 +69,6 @@ android {
     buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
     consumerProguardFiles 'proguard-rules.pro'
 
-    buildFeatures {
-      prefab true
-    }
     externalNativeBuild {
       cmake {
         arguments '-DANDROID_STL=c++_shared'
@@ -90,6 +87,7 @@ android {
   }
 
   buildFeatures {
+    prefab true
     buildConfig true
   }
 

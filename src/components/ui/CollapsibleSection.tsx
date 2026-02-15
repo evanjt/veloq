@@ -6,7 +6,6 @@ import Animated, {
   withTiming,
   Easing,
   interpolate,
-  runOnJS,
 } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors } from '@/theme/colors';

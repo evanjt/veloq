@@ -43,7 +43,13 @@ impl PersistentRouteEngine {
 
                     -- Timestamps
                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                    updated_at TEXT
+                    updated_at TEXT,
+
+                    -- Bounds (for map viewport filtering)
+                    bounds_min_lat REAL,
+                    bounds_max_lat REAL,
+                    bounds_min_lng REAL,
+                    bounds_max_lng REAL
                 );
 
                 -- Junction table for section-activity relationships (with portion details)
@@ -113,7 +119,7 @@ impl PersistentRouteEngine {
                 distance_meters: row.get(5)?,
                 representative_activity_id: row.get(6)?,
                 activity_ids,
-                visit_count: 0, // Will be set from activity_ids.len()
+                visit_count: 0, // Set below via get_section_visit_count()
                 confidence: row.get(7)?,
                 observation_count: row.get(8)?,
                 average_spread: row.get(9)?,
@@ -164,7 +170,7 @@ impl PersistentRouteEngine {
         // Load full section data for each ID
         let mut sections = Vec::new();
         for section_id in section_ids {
-            // Reuse get_section_by_id for consistent loading
+            // Reuse get_section() for consistent loading
             if let Some(section) = self.get_section(&section_id) {
                 sections.push(section);
             }

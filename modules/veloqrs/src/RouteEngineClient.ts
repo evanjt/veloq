@@ -43,12 +43,9 @@ import {
   deleteSection as ffiDeleteSection,
   persistentEngineSetTimeStreamsFlat,
   persistentEngineGetActivitiesMissingTimeStreams,
-  persistentEngineGetAllMapActivitiesComplete,
   persistentEngineGetMapActivitiesFiltered,
   // Aggregate query functions (Phase 2)
   persistentEngineGetPeriodStats,
-  persistentEngineGetMonthlyAggregates,
-  persistentEngineGetActivityHeatmap,
   persistentEngineGetZoneDistribution,
   persistentEngineGetFtpTrend,
   persistentEngineGetAvailableSportTypes,
@@ -82,8 +79,6 @@ import {
   type GroupSummary,
   type MapActivityComplete,
   type FfiPeriodStats,
-  type FfiMonthlyAggregate,
-  type FfiHeatmapDay,
   type FfiFtpTrend,
   type FfiRoutesScreenData,
 } from './generated/veloqrs';
@@ -272,7 +267,7 @@ class RouteEngineClient {
   /**
    * Get section detection progress.
    * Returns { phase, completed, total } or null if no detection running.
-   * NOTE: Requires regenerating bindings after Rust rebuild: `npm run ubrn:generate`
+   * NOTE: Requires regenerating bindings after Rust rebuild: `npm run clean:rust && npx expo run:android`
    */
   getSectionDetectionProgress(): SectionDetectionProgress | null {
     // Import dynamically to handle case where function doesn't exist yet
@@ -407,16 +402,6 @@ class RouteEngineClient {
       persistentEngineGetSectionPolyline(sectionId)
     );
     return flatCoordsToPoints(flatCoords);
-  }
-
-  /**
-   * Get all map activities with complete data.
-   * Returns activities with bounds, name, date, distance, duration, sportType.
-   */
-  getAllMapActivitiesComplete(): MapActivityComplete[] {
-    return this.timed('getAllMapActivitiesComplete', () =>
-      persistentEngineGetAllMapActivitiesComplete()
-    );
   }
 
   /**
@@ -650,28 +635,6 @@ class RouteEngineClient {
   getPeriodStats(startTs: number, endTs: number): FfiPeriodStats {
     return this.timed('getPeriodStats', () =>
       persistentEngineGetPeriodStats(BigInt(startTs), BigInt(endTs))
-    );
-  }
-
-  /**
-   * Get monthly aggregates for a year.
-   * @param year - Full year (e.g., 2026)
-   * @param metric - "hours" | "distance" | "tss"
-   */
-  getMonthlyAggregates(year: number, metric: string): FfiMonthlyAggregate[] {
-    return this.timed('getMonthlyAggregates', () =>
-      persistentEngineGetMonthlyAggregates(year, metric)
-    );
-  }
-
-  /**
-   * Get activity heatmap data for a date range.
-   * @param startTs - Start Unix timestamp (seconds)
-   * @param endTs - End Unix timestamp (seconds)
-   */
-  getActivityHeatmap(startTs: number, endTs: number): FfiHeatmapDay[] {
-    return this.timed('getActivityHeatmap', () =>
-      persistentEngineGetActivityHeatmap(BigInt(startTs), BigInt(endTs))
     );
   }
 

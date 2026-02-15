@@ -17,6 +17,7 @@ import type {
   SportSettings,
   ActivityMapData,
 } from '@/types';
+import { getMonday } from '@/lib';
 
 // Simulate network delay for realistic UX
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -246,36 +247,3 @@ export const mockIntervalsApi = {
     return summaries.sort((a, b) => b.date.localeCompare(a.date));
   },
 };
-
-/**
- * Get Monday of the week for a given date (ISO week: Monday-Sunday)
- */
-function getMonday(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-// ============================================================================
-// Test utilities
-// ============================================================================
-
-/**
- * Get all fixture data for testing purposes
- */
-export async function getTestFixtures() {
-  const { fixtures } = await loadFixtures();
-  return fixtures;
-}
-
-/**
- * Reset fixtures (for test isolation)
- * Note: Since fixtures are generated at module load, this requires reimporting
- */
-export function resetFixtures() {
-  // Fixtures are stateless, no reset needed
-  return true;
-}

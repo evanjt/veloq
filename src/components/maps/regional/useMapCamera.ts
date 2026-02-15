@@ -44,24 +44,18 @@ export function useMapCamera({
   // This avoids calling getBoundsCenter() (which does format detection) during render
   const activityCenters = useMemo(() => {
     const centers: Record<string, [number, number]> = {};
-    let fromSignature = 0;
-    let fromLatlngs = 0;
-    let fromBounds = 0;
 
     for (const activity of activities) {
       // Try to use start point from RouteSignature (first GPS point)
       const signature = routeSignatures[activity.id];
       if (signature?.points?.length > 0) {
         centers[activity.id] = [signature.points[0].lng, signature.points[0].lat];
-        fromSignature++;
       } else if (activity.latlngs && activity.latlngs.length > 0) {
         // Fallback: use first latlng from cached GPS data (latlngs is [lat, lng] order)
         centers[activity.id] = [activity.latlngs[0][1], activity.latlngs[0][0]];
-        fromLatlngs++;
       } else {
         // Last resort: compute from bounds center
         centers[activity.id] = getBoundsCenter(activity.bounds);
-        fromBounds++;
       }
     }
 

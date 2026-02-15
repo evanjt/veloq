@@ -40,36 +40,28 @@
  */
 __attribute__((constructor))
 static void VeloqrsModuleProviderInit(void) {
-    // This constructor runs VERY early during app launch - before main()
-    // Use stderr to ensure output is visible even if NSLog is buffered
-    fprintf(stderr, "[VELOQRS] VeloqrsModuleProviderInit constructor called\n");
-
     // Force the Veloqrs class to be loaded by referencing it
     // This ensures the linker doesn't strip it as "unused"
     Class veloqrsClass = [Veloqrs class];
 
+#ifdef DEBUG
+    fprintf(stderr, "[VELOQRS] VeloqrsModuleProviderInit constructor called\n");
+
     if (veloqrsClass) {
         fprintf(stderr, "[VELOQRS] ✓ Veloqrs class loaded at %p\n", veloqrsClass);
-        NSLog(@"✓ VeloqrsModuleProvider: Veloqrs class loaded at %p", veloqrsClass);
 
-        // Verify the class responds to the TurboModule protocol
         if ([veloqrsClass instancesRespondToSelector:@selector(getTurboModule:)]) {
             fprintf(stderr, "[VELOQRS] ✓ Veloqrs implements getTurboModule:\n");
-            NSLog(@"✓ VeloqrsModuleProvider: Veloqrs implements getTurboModule:");
         } else {
             fprintf(stderr, "[VELOQRS] ⚠ Veloqrs does NOT implement getTurboModule:\n");
-            NSLog(@"⚠ VeloqrsModuleProvider: Veloqrs does NOT implement getTurboModule:");
         }
 
-        // Verify RCT_EXPORT_MODULE registered it
         SEL moduleNameSel = @selector(moduleName);
         if ([veloqrsClass respondsToSelector:moduleNameSel]) {
             NSString *name = [veloqrsClass performSelector:moduleNameSel];
             fprintf(stderr, "[VELOQRS] ✓ Module name is '%s'\n", [name UTF8String]);
-            NSLog(@"✓ VeloqrsModuleProvider: Module name is '%@'", name);
         }
 
-        // Check if NSClassFromString can find it (this is what RCTTurboModuleManager uses)
         Class foundClass = NSClassFromString(@"Veloqrs");
         if (foundClass) {
             fprintf(stderr, "[VELOQRS] ✓ NSClassFromString(@\"Veloqrs\") found class at %p\n", foundClass);
@@ -78,8 +70,10 @@ static void VeloqrsModuleProviderInit(void) {
         }
     } else {
         fprintf(stderr, "[VELOQRS] ⚠ Failed to load Veloqrs class!\n");
-        NSLog(@"⚠ VeloqrsModuleProvider: Failed to load Veloqrs class!");
     }
+#else
+    (void)veloqrsClass;
+#endif
 }
 
 #endif // RCT_NEW_ARCH_ENABLED

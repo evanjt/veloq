@@ -504,13 +504,6 @@ export default function ActivityDetailScreen() {
               longitude: p.lng ?? p.longitude ?? 0,
             })
           );
-        } else if (match.portion?.startIndex != null && match.portion?.endIndex != null) {
-          // Fall back to using portion indices
-          const start = Math.max(0, match.portion.startIndex);
-          const end = Math.min(coordinates.length - 1, match.portion.endIndex);
-          if (end > start) {
-            activityPortion = coordinates.slice(start, end + 1);
-          }
         }
       }
 
@@ -766,7 +759,7 @@ export default function ActivityDetailScreen() {
       let visitCount: number;
 
       if (item.type === 'engine') {
-        sectionTime = getSectionTime(item.match.portion);
+        sectionTime = undefined;
         distance = item.match.distance;
         visitCount = item.match.section.visitCount;
       } else {

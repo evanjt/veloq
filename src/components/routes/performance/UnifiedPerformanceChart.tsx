@@ -1600,14 +1600,6 @@ const styles = StyleSheet.create({
   headerStatTextDark: {
     color: darkColors.textMuted,
   },
-  headerStatSep: {
-    fontSize: 11,
-    color: colors.textMuted,
-    opacity: 0.5,
-  },
-  headerStatSepDark: {
-    color: darkColors.textMuted,
-  },
   prBadgeStacked: {
     alignItems: 'flex-end',
     marginRight: 8,
@@ -1640,154 +1632,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  // Inline stats in lane headers - responsive pill layout
-  inlineStatsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
-    flexShrink: 1,
-    marginRight: 8,
-  },
-  inlineStatPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-  },
-  inlineStatPillDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  prPill: {
-    backgroundColor: colors.chartGold + '20',
-  },
-  prStatValue: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.chartGold,
-  },
-  prStatSeparator: {
-    fontSize: 10,
-    color: colors.chartGold,
-    opacity: 0.6,
-  },
-  prStatDate: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: colors.chartGold,
-    opacity: 0.7,
-  },
-  statPillLabel: {
-    fontSize: 9,
-    fontWeight: '500',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  statPillLabelDark: {
-    color: 'rgba(255, 255, 255, 0.5)',
-  },
-  statPillValue: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  statPillValueDark: {
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  prBadgeCompact: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginLeft: 'auto',
-    marginRight: 8,
-  },
   prBadgeTime: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.chartGold,
-  },
-  statsBar: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: colors.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  statsBarDark: {
-    backgroundColor: darkColors.surface,
-    borderTopColor: darkColors.border,
-  },
-  statsBarItem: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  statsBarItemDark: {
-    color: darkColors.textSecondary,
-  },
-  statsBarLabel: {
-    fontWeight: '500',
-    color: colors.textMuted,
-  },
-  statsBarSeparator: {
-    fontSize: 12,
-    color: colors.textMuted,
-    opacity: 0.5,
-  },
-  prBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginLeft: 8,
-  },
-  prTime: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.chartGold,
-  },
-  prDate: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  laneStatsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingBottom: 8,
-  },
-  laneStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  laneStatLabel: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  laneStatValue: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  laneHeaderInScroll: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  laneHeaderContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: colors.background,
   },
   laneChart: {
     flex: 1,
@@ -1804,37 +1652,6 @@ const styles = StyleSheet.create({
     top: 16,
     bottom: 12,
     justifyContent: 'space-between',
-  },
-  gapIndicatorsOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  gapIndicator: {
-    position: 'absolute',
-    top: 4,
-    bottom: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 24,
-  },
-  gapLine: {
-    flex: 1,
-    width: 1,
-    backgroundColor: colors.textMuted,
-    opacity: 0.25,
-  },
-  gapLineDark: {
-    backgroundColor: darkColors.textMuted,
-  },
-  gapIcon: {
-    opacity: 0.5,
-  },
-  gapDaysLabel: {
-    fontSize: 8,
-    color: colors.textMuted,
-    opacity: 0.6,
-  },
-  gapDaysLabelDark: {
-    color: darkColors.textMuted,
   },
   timeAxis: {
     height: 32,
@@ -1856,14 +1673,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: colors.textMuted,
   },
-  timeAxisLabelPositioned: {
-    position: 'absolute',
-    top: 8,
-    width: 40,
-    fontSize: 9,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
   timeAxisDateLabel: {
     position: 'absolute',
     top: 4,
@@ -1871,34 +1680,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: colors.textMuted,
     textAlign: 'center',
-  },
-  gapIndicatorInAxis: {
-    position: 'absolute',
-    top: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    backgroundColor: colors.surface,
-    borderRadius: 4,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  gapMarkerInAxis: {
-    position: 'absolute',
-    top: 4,
-    width: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    backgroundColor: colors.surface,
-    borderRadius: 4,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
   },
   gapMarkerInAxisDark: {
     backgroundColor: darkColors.surfaceElevated,
@@ -1970,38 +1751,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 2,
   },
-  gapMarkersOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  gapMarker: {
-    position: 'absolute',
-    top: 8,
-    bottom: 8,
-    width: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gapMarkerLine: {
-    flex: 1,
-    width: 1,
-    backgroundColor: colors.border,
-    opacity: 0.5,
-  },
-  gapMarkerLineDark: {
-    backgroundColor: darkColors.border,
-  },
-  gapMarkerLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    backgroundColor: colors.surface,
-    borderRadius: 4,
-  },
-  gapMarkerLabelDark: {
-    backgroundColor: darkColors.surfaceElevated,
-  },
   gapMarkerText: {
     fontSize: 8,
     color: colors.textMuted,
@@ -2014,16 +1763,6 @@ const styles = StyleSheet.create({
   },
   timeAxisLabelLast: {
     textAlign: 'right',
-  },
-  timeAxisLabelStart: {
-    position: 'absolute',
-    left: 12,
-    bottom: 8,
-  },
-  timeAxisLabelEnd: {
-    position: 'absolute',
-    right: 12,
-    bottom: 8,
   },
   axisLabel: {
     fontSize: 9,

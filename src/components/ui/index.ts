@@ -5,7 +5,7 @@ export {
   StatsPillSkeleton,
   WellnessCardSkeleton,
 } from './Shimmer';
-export { GradientText, GlowText, AnimatedNumber } from './GradientText';
+export { GradientText } from './GradientText';
 export { BottomTabBar, TAB_BAR_HEIGHT, TAB_BAR_SAFE_PADDING } from './BottomTabBar';
 export { CompassArrow } from './CompassArrow';
 export {

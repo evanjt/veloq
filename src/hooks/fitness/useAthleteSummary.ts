@@ -1,21 +1,9 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { useAuthStore } from '@/providers';
-import { formatLocalDate } from '@/lib';
+import { formatLocalDate, getMonday } from '@/lib';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { AthleteSummary } from '@/types';
-
-/**
- * Get the Monday of the week for a given date (ISO week: Monday-Sunday)
- */
-function getMonday(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
 
 /**
  * Get the Sunday of the week for a given date (ISO week: Monday-Sunday)

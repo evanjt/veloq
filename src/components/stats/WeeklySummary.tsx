@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
-import { formatDistance } from '@/lib';
+import { formatDistance, getMonday } from '@/lib';
 import type { Activity } from '@/types';
 
 type TimeRange = 'week' | 'month' | '3m' | '6m' | 'year';
@@ -28,15 +28,6 @@ interface WeeklySummaryProps {
 }
 
 const TIME_RANGE_IDS: TimeRange[] = ['week', 'month', '3m', '6m', 'year'];
-
-function getMonday(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
 
 function getSunday(date: Date): Date {
   const monday = getMonday(date);

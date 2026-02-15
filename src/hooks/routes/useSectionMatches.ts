@@ -11,7 +11,7 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useDisabledSections } from '@/providers';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
 import { convertNativeSectionToApp } from './sectionConversions';
-import type { FrequentSection, SectionPortion } from '@/types';
+import type { FrequentSection } from '@/types';
 
 /**
  * Runtime type guard for FrequentSection from engine.
@@ -31,8 +31,6 @@ function isValidSection(value: unknown): value is FrequentSection {
 export interface SectionMatch {
   /** The section */
   section: FrequentSection;
-  /** This activity's portion data */
-  portion?: SectionPortion;
   /** Direction: 'same' or 'reverse' */
   direction: 'same' | 'reverse';
   /** Section distance in meters */
@@ -118,7 +116,6 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
 
       matches.push({
         section,
-        portion: undefined,
         direction: 'same',
         distance: section.distanceMeters,
       });

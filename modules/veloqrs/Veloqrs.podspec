@@ -15,7 +15,7 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => min_ios_version_supported }
   s.source       = { :git => "https://github.com/evanjt/veloq", :tag => "#{s.version}" }
 
-  s.source_files = "ios/**/*.{h,m,mm,swift}", "ios/generated/**/*.{h,m,mm}", "cpp/**/*.{hpp,cpp,c,h}", "cpp/generated/**/*.{hpp,cpp,c,h}"
+  s.source_files = "ios/**/*.{h,m,mm,swift}", "cpp/**/*.{hpp,cpp,c,h}"
   s.vendored_frameworks = "ios/Frameworks/VeloqrsFFI.xcframework"
   s.dependency    "uniffi-bindgen-react-native", "0.29.3-1"
 

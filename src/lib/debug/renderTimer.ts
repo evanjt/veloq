@@ -6,7 +6,7 @@
  */
 
 // Toggle this to enable/disable performance logging
-export const PERF_DEBUG = __DEV__ && true;
+export const PERF_DEBUG = __DEV__;
 
 const componentTimers: Map<string, number> = new Map();
 const renderCounts: Map<string, number> = new Map();

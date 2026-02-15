@@ -91,7 +91,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
     // Convert summaries to extended format
     // NOTE: Signature is NOT loaded here to avoid blocking render with sync FFI calls.
     // Use useConsensusRoute hook to load signature lazily when needed.
-    // Names are now stored persistently in Rust and available via customName
+    // Names are stored persistently in Rust and available via customName
 
     const extended: RouteGroupExtended[] = summaries.map((g) => {
       const sportType = g.sportType || 'Ride';

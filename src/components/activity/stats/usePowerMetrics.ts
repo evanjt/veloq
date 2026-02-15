@@ -108,7 +108,7 @@ export function usePowerMetrics({
     }
 
     return {
-      title: 'Power',
+      title: t('activity.power'),
       value: `${avgPower} W`,
       icon: 'lightning-bolt' as const,
       color: colors.success, // Green for power (higher is better)

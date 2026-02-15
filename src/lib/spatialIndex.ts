@@ -3,19 +3,7 @@
  * Provides viewport-based queries using the engine's R-tree index.
  */
 
-// Lazy import to avoid loading native module during bundling
-let _routeEngine: typeof import('veloqrs').routeEngine | null = null;
-
-function getRouteEngine() {
-  if (!_routeEngine) {
-    try {
-      _routeEngine = require('veloqrs').routeEngine;
-    } catch {
-      return null;
-    }
-  }
-  return _routeEngine;
-}
+import { getRouteEngine } from '@/lib/native/routeEngine';
 
 export interface Viewport {
   minLat: number;

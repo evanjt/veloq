@@ -437,3 +437,15 @@ export function formatLocalDate(date: Date): string {
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
+
+/**
+ * Get Monday of the week for a given date (ISO week: Monday-Sunday).
+ */
+export function getMonday(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
