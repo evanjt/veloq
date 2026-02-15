@@ -59,7 +59,7 @@ tags:
 - takeScreenshot: "05-routes-dark"
 
 # Screenshot 6: Activity Detail
-- openLink: "veloq://activity/demo-0"
+- openLink: "veloq://activity/demo-test-0"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-content"

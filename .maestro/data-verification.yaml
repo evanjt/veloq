@@ -41,7 +41,7 @@ tags:
     timeout: 10000
 
 # Navigate to activity detail and verify stats display
-- openLink: "veloq://activity/demo-0"
+- openLink: "veloq://activity/demo-test-0"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-content"

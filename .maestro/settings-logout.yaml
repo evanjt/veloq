@@ -11,9 +11,32 @@ tags:
 - runFlow:
     file: helpers/navigate-to-settings.yaml
 
-# Tap logout button
+# Scroll to find logout button (accept partial visibility)
+- scrollUntilVisible:
+    element:
+      id: "settings-logout-button"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+    visibilityPercentage: 20
+
+# Extra swipe to move it well above the tab bar
+- swipe:
+    direction: UP
+    duration: 500
+
+# Tap logout button (triggers confirmation dialog)
 - tapOn:
     id: "settings-logout-button"
+
+# Wait for and confirm the disconnect alert dialog
+- extendedWaitUntil:
+    visible:
+      text: "^Disconnect$"
+    timeout: 5000
+
+- tapOn:
+    text: "^Disconnect$"
 
 # Verify we return to login screen
 - extendedWaitUntil:

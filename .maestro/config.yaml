@@ -11,5 +11,5 @@ appId: com.veloq.app
 env:
   SCHEME: veloq
   # Demo activity IDs for testing
-  DEMO_ACTIVITY_0: demo-0
-  DEMO_ACTIVITY_1: demo-1
+  DEMO_ACTIVITY_0: demo-test-0
+  DEMO_ACTIVITY_1: demo-test-1

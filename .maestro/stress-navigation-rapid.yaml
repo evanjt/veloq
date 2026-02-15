@@ -30,8 +30,8 @@ tags:
 - repeat:
     times: 5
     commands:
-      - openLink: "veloq://activity/demo-0"
-      - openLink: "veloq://activity/demo-1"
+      - openLink: "veloq://activity/demo-test-0"
+      - openLink: "veloq://activity/demo-test-1"
       - openLink: "veloq://activity/demo-2"
       - openLink: "veloq://"
 

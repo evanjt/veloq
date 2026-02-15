@@ -12,14 +12,14 @@ tags:
 - repeat:
     times: 3
     commands:
-      - openLink: "veloq://activity/demo-0"
+      - openLink: "veloq://activity/demo-test-0"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-content"
           timeout: 5000
           optional: true
 
-      - openLink: "veloq://activity/demo-1"
+      - openLink: "veloq://activity/demo-test-1"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-content"
@@ -51,8 +51,8 @@ tags:
 - repeat:
     times: 5
     commands:
-      - openLink: "veloq://activity/demo-0"
-      - openLink: "veloq://activity/demo-1"
+      - openLink: "veloq://activity/demo-test-0"
+      - openLink: "veloq://activity/demo-test-1"
       - openLink: "veloq://activity/demo-2"
 
 # Return to home and verify app is still responsive

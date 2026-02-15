@@ -11,8 +11,12 @@ tags:
 - runFlow:
     file: helpers/navigate-to-settings.yaml
 
-# Verify clear cache button exists
-- assertVisible:
-    id: "settings-clear-cache"
+# Scroll down to find clear cache button
+- scrollUntilVisible:
+    element:
+      id: "settings-clear-cache"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
 
 - takeScreenshot: "settings-cache-complete"

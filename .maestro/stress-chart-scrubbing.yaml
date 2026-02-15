@@ -9,7 +9,7 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 # Navigate to activity detail with charts
-- openLink: "veloq://activity/demo-0"
+- openLink: "veloq://activity/demo-test-0"
 
 - extendedWaitUntil:
     visible:

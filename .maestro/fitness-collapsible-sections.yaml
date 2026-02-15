@@ -11,9 +11,13 @@ tags:
 - runFlow:
     file: helpers/navigate-to-fitness.yaml
 
-# Verify performance section exists (expanded by default)
-- assertVisible:
-    id: "fitness-section-performance"
+# Scroll down to find performance section (below the charts)
+- scrollUntilVisible:
+    element:
+      id: "fitness-section-performance"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
 
 # Tap to collapse performance section
 - tapOn:
@@ -23,18 +27,19 @@ tags:
 - tapOn:
     id: "fitness-section-performance"
 
-# Check zones section exists
-- assertVisible:
-    id: "fitness-section-zones"
-    optional: true
+# Scroll further to check zones section
+- scrollUntilVisible:
+    element:
+      id: "fitness-section-zones"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
 
 # Toggle zones section
 - tapOn:
     id: "fitness-section-zones"
-    optional: true
 
 - tapOn:
     id: "fitness-section-zones"
-    optional: true
 
 - takeScreenshot: "fitness-collapsible-sections-complete"

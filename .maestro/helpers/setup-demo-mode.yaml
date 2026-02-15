@@ -4,13 +4,6 @@ appId: com.veloq.app
 - launchApp:
     clearState: true
 
-# Dismiss any system alerts
-- runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
-
 - extendedWaitUntil:
     visible:
       id: "login-screen"
@@ -18,6 +11,13 @@ appId: com.veloq.app
 
 - tapOn:
     id: "login-demo-button"
+
+# Dismiss any system alerts
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
 
 - extendedWaitUntil:
     visible:

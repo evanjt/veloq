@@ -15,6 +15,10 @@ on:
         default: false
         type: boolean
 
+permissions:
+  contents: read
+  checks: write
+
 env:
   NODE_VERSION: "20"
 
@@ -658,22 +662,26 @@ jobs:
 
             # Wait for emulator to be fully ready
             adb wait-for-device
-            adb shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 2; done'
+            for i in $(seq 1 30); do
+              BOOT=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+              if [ "$BOOT" = "1" ]; then echo "Boot complete"; break; fi
+              echo "Waiting for boot... ($i/30)"
+              sleep 2
+            done
             sleep 10
 
             # Install and pre-launch app to warm up RN + Rust init
-            adb install /tmp/android-artifact/app-release.apk
+            adb install /tmp/android-artifact/app-release.apk || echo "WARNING: APK install failed"
             sleep 5
-            adb shell am start -n com.veloq.app/.MainActivity
+            adb shell am start -n com.veloq.app/.MainActivity || echo "WARNING: App launch failed"
             sleep 15
 
             # Stop app so Maestro can manage lifecycle
-            adb shell am force-stop com.veloq.app
+            adb shell am force-stop com.veloq.app || true
+            sleep 3
 
             # Run tests with tier-based tag selection
-            maestro test .maestro/ \
-              --include-tags=${{ steps.tier.outputs.tags }} \
-              --format junit --output maestro-report.xml --no-ansi || true
+            maestro test .maestro/ --include-tags=${{ steps.tier.outputs.tags }} --format junit --output maestro-report.xml --no-ansi || true
 
       - name: Collect screenshots
         if: always()

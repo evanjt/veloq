@@ -8,8 +8,14 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+# Wait for demo data to load before deep linking
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
 # Navigate to activity detail
-- openLink: "veloq://activity/demo-0"
+- openLink: "veloq://activity/demo-test-0"
 
 - extendedWaitUntil:
     visible:
