@@ -6,6 +6,6 @@ tags:
   - tier0
 ---
 - runFlow:
-    file: helpers/setup-demo-mode-warm.yaml
+    file: helpers/setup-demo-mode.yaml
 
 - takeScreenshot: "smoke-complete"

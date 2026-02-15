@@ -7,7 +7,7 @@ appId: com.veloq.app
 - extendedWaitUntil:
     visible:
       id: "login-screen"
-    timeout: 30000
+    timeout: 60000
 
 - tapOn:
     id: "login-demo-button"
@@ -22,4 +22,4 @@ appId: com.veloq.app
 - extendedWaitUntil:
     visible:
       id: "home-screen"
-    timeout: 15000
+    timeout: 30000

@@ -9,7 +9,7 @@ tags:
 ---
 # ── Launch & Auth ───────────────────────────────────────
 - runFlow:
-    file: helpers/setup-demo-mode-warm.yaml
+    file: helpers/setup-demo-mode.yaml
 
 # ── Home Feed ───────────────────────────────────────────
 - assertVisible:
