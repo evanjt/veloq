@@ -1,4 +1,4 @@
-v0.1.2 (Feb 12, 2026)
+v0.1.2 (12 Feb 2026)
 
 • Export all activities as GPX files in one go
 • Fixed backup restore for custom sections

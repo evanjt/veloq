@@ -1,28 +1,28 @@
-Veloq brings your Intervals.icu training data to mobile with a focus on maps, visual analytics, and offline access.
+Veloq brengt je Intervals.icu-trainingsdata naar mobiel met focus op kaarten, visuele analyse en offline toegang.
 
-<b>Map-First Visualization</b>
-View your activities on an interactive regional map with timeline filtering and route heatmaps. Switch between light, dark, and satellite map styles. Explore 3D terrain views with synchronized chart scrubbing.
+<b>Kaartgerichte visualisatie</b>
+Bekijk je activiteiten op een interactieve regionale kaart met tijdlijnfiltering en route-heatmaps. Wissel tussen lichte, donkere en satellietkaartstijlen. Verken 3D-terreinweergaven met gesynchroniseerd grafiekbladeren.
 
-<b>Rich Activity Analysis</b>
-Dive into multi-metric charts for heart rate, power, pace, elevation, and cadence. Scrub through your activity with real-time map highlighting. View zone distributions, training metrics (TSS, intensity factor), and lap breakdowns.
+<b>Uitgebreide activiteitsanalyse</b>
+Duik in multi-metrische grafieken voor hartslag, vermogen, tempo, hoogte en cadans. Blader door je activiteit met real-time markering op de kaart. Bekijk zoneverdeling, trainingsmetrieken (TSS, intensiteitsfactor) en rondeoverzichten.
 
-<b>Route Intelligence</b>
-Automatically detect repeated routes and track your performance over time. Compare efforts on the same course to see progress. Identify frequently-traveled sections with detailed match analysis.
+<b>Route-intelligentie</b>
+Detecteer automatisch herhaalde routes en volg je prestaties in de loop van de tijd. Vergelijk inspanningen op hetzelfde parcours om voortgang te zien. Identificeer veelbezochte secties met gedetailleerde overeenkomstanalyse.
 
-<b>Fitness Tracking</b>
-Monitor your CTL/ATL/TSB fitness model with form zone analysis. Track HRV, resting heart rate, sleep, and wellness metrics. View power curves, pace curves, and zone distributions by sport.
+<b>Fitnesstracking</b>
+Monitor je CTL/ATL/TSB-fitnessmodel met vormzoneanalyse. Volg HRV, rusthartslag, slaap en wellnessmetrieken. Bekijk vermogenscurves, tempocurves en zoneverdelingen per sport.
 
-<b>Offline-First</b>
-Aggressive caching ensures your data is always available. Sync your activities once and access them anywhere without an internet connection.
+<b>Offline-first</b>
+Agressieve caching zorgt ervoor dat je gegevens altijd beschikbaar zijn. Synchroniseer je activiteiten eenmaal en open ze overal zonder internetverbinding.
 
-<b>Privacy Focused</b>
-All data stays on your device. No analytics, no tracking, no data collection. Your credentials are stored securely using platform encryption.
+<b>Privacygericht</b>
+Alle gegevens blijven op je apparaat. Geen analytics, geen tracking, geen gegevensverzameling. Je inloggegevens worden veilig opgeslagen met platformversleuteling.
 
-<b>Multi-Sport Support</b>
-Full support for cycling, running, swimming, and 20+ activity types with sport-specific metrics and analysis.
+<b>Multisportondersteuning</b>
+Volledige ondersteuning voor fietsen, hardlopen, zwemmen en 20+ activiteitstypen met sportspecifieke metrieken en analyses.
 
-<b>Requirements</b>
-An Intervals.icu account with API key access. Get your API key from Intervals.icu Settings > Developer Settings.
+<b>Vereisten</b>
+Een Intervals.icu-account met API-sleuteltoegang. Haal je API-sleutel op via Intervals.icu Instellingen > Ontwikkelaarsinstellingen.
 
-<b>Open Source</b>
-Veloq is open source software licensed under Apache 2.0. Contributions welcome on GitHub.
+<b>Open source</b>
+Veloq is open source software onder de Apache 2.0-licentie. Bijdragen zijn welkom op GitHub.

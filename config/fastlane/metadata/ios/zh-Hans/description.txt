@@ -1,23 +1,23 @@
-Your training data, visualised. Veloq brings maps, charts, and fitness tracking together in one fast, offline-ready app.
+训练数据，可视化呈现。Veloq 将地图、图表和健身追踪整合在一款快速的离线就绪应用中。
 
-Maps
-View your activities on interactive maps with 3D terrain, route heatmaps, and timeline filtering. Choose from light, dark, and satellite styles. Scrub through charts and watch your position update on the map in real-time.
+地图
+在带有3D地形、路线热力图和时间轴筛选的交互式地图上查看你的活动。在明亮、暗色和卫星风格之间切换。滑动图表，实时观看你在地图上的位置更新。
 
-Route tracking
-Automatically detect repeated routes and sections in your activity history. Compare efforts over time to see your progress on favourite climbs and stretches.
+路线追踪
+自动检测活动历史中重复的路线和区间。比较不同时期的表现，查看你在常骑爬坡和路段上的进步。
 
-Charts and analysis
-Heart rate, power, pace, elevation, and cadence — all synchronised with the map. View zone distributions, TSS, intensity factor, and lap breakdowns.
+图表与分析
+心率、功率、配速、海拔和踏频 — 全部与地图同步。查看区间分布、TSS、强度因子和分圈详情。
 
-Fitness
-Follow your form with CTL/ATL/TSB tracking and visual zones. Monitor HRV, resting heart rate, sleep, and wellness. View power and pace curves by sport.
+健身
+通过CTL/ATL/TSB追踪和可视化区间管理你的状态。监测HRV、静息心率、睡眠和健康状况。按运动类型查看功率和配速曲线。
 
-Offline-first
-Sync once, access anywhere. Your data is cached locally so it's always available, even without internet.
+离线优先
+同步一次，随时访问。数据本地缓存，即使没有网络也始终可用。
 
-Privacy
-All data stays on your device. No analytics, no tracking, no servers. Open source under Apache 2.0.
+隐私
+所有数据保留在你的设备上。无分析、无追踪、无服务器。基于Apache 2.0开源协议。
 
-Supports cycling, running, swimming, and 20+ activity types. Try the built-in demo mode to explore without an account.
+支持骑行、跑步、游泳及20多种活动类型。无需账户即可体验内置演示模式。
 
-Requires an Intervals.icu account for live data. Not affiliated with Intervals.icu.
+实时数据需要Intervals.icu账户。与Intervals.icu无隶属关系。

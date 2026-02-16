@@ -8,6 +8,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useEngineSubscription } from './useRouteEngine';
 import type { RoutesScreenData, GroupWithPolyline, SectionWithPolyline } from 'veloqrs';
@@ -41,6 +42,16 @@ export function useRoutesScreenData(opts?: {
   // Subscribe to engine events — triggers re-render when data changes
   const trigger = useEngineSubscription(['groups', 'sections', 'activities']);
 
+  // Re-query on screen focus — handles missed notifications during enableFreeze.
+  // When the Routes tab is frozen, React state updates from engine notifications
+  // are dropped. Bumping focusTrigger on focus ensures fresh data.
+  const [focusTrigger, setFocusTrigger] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      setFocusTrigger((t) => t + 1);
+    }, [])
+  );
+
   // Track pagination offsets
   const [groupOffset, setGroupOffset] = useState(0);
   const [sectionOffset, setSectionOffset] = useState(0);
@@ -61,10 +72,13 @@ export function useRoutesScreenData(opts?: {
   // Track last successful result for error recovery
   const lastResultRef = useRef<PaginatedRoutesData | null>(null);
 
+  // Combined trigger — engine events OR tab focus
+  const combinedTrigger = trigger + focusTrigger;
+
   // Reset pagination on engine events (new sync, etc.)
   useEffect(() => {
-    if (trigger !== lastTriggerRef.current) {
-      lastTriggerRef.current = trigger;
+    if (combinedTrigger !== lastTriggerRef.current) {
+      lastTriggerRef.current = combinedTrigger;
       groupsRef.current = [];
       sectionsRef.current = [];
       isLoadingGroupsRef.current = false;
@@ -72,7 +86,7 @@ export function useRoutesScreenData(opts?: {
       setGroupOffset(0);
       setSectionOffset(0);
     }
-  }, [trigger]);
+  }, [combinedTrigger]);
 
   // Compute data from engine
   const data = useMemo(() => {
@@ -141,7 +155,7 @@ export function useRoutesScreenData(opts?: {
       isLoadingSectionsRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trigger, groupOffset, sectionOffset, groupLimit, sectionLimit]);
+  }, [combinedTrigger, groupOffset, sectionOffset, groupLimit, sectionLimit]);
 
   const loadMoreGroups = useCallback(() => {
     if (hasMoreGroupsRef.current && !isLoadingGroupsRef.current) {

@@ -1,1 +1,1 @@
-cycling,running,triathlon,fitness,CTL,TSB,power,maps,GPS,routes,offline,charts,training,analytics
+骑行,跑步,铁人三项,健身,CTL,TSB,功率,地图,GPS,路线,离线,图表,训练,分析,配速,心率

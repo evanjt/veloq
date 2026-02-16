@@ -100,49 +100,53 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         const dbPath = getRouteDbPath();
         if (!dbPath) {
           if (__DEV__) {
-            console.warn(
-              '[RouteEngine] Cannot initialize - document directory not available. ' +
-                'Route features will be disabled until app restart.'
-            );
+            console.warn('[RouteEngine] Cannot initialize - document directory not available.');
           }
           return;
         }
-        const success = engine.initWithPath(dbPath);
-        if (__DEV__) {
+
+        const tryInit = (attempt: number) => {
+          const success = engine.initWithPath(dbPath);
           if (success) {
-            console.log(
-              `[RouteEngine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`
-            );
-          } else {
-            console.warn(
-              `[RouteEngine] Persistent init failed for path: ${dbPath}. ` +
-                'Route features will be disabled until app restart.'
-            );
-          }
-        }
-
-        // Set name translations for auto-generated route/section names
-        if (success) {
-          const routeWord = i18n.t('routes.routeWord');
-          const sectionWord = i18n.t('routes.sectionWord');
-          engine.setNameTranslations(routeWord, sectionWord);
-        }
-
-        // Initialize SyncDateRangeStore from engine's actual cached data
-        // This ensures the slider reflects what's actually persisted after app restart
-        if (success) {
-          const stats = engine.getStats();
-          if (stats?.oldestDate && stats?.newestDate) {
-            const oldestDateStr = formatLocalDate(new Date(Number(stats.oldestDate) * 1000));
-            const newestDateStr = formatLocalDate(new Date(Number(stats.newestDate) * 1000));
-            expandRange(oldestDateStr, newestDateStr);
             if (__DEV__) {
               console.log(
-                `[SyncDateRange] Initialized from engine: ${oldestDateStr} - ${newestDateStr}`
+                `[RouteEngine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`
+              );
+            }
+            // Set name translations for auto-generated route/section names
+            const routeWord = i18n.t('routes.routeWord');
+            const sectionWord = i18n.t('routes.sectionWord');
+            engine.setNameTranslations(routeWord, sectionWord);
+            // Initialize SyncDateRangeStore from engine's actual cached data
+            const stats = engine.getStats();
+            if (stats?.oldestDate && stats?.newestDate) {
+              const oldestDateStr = formatLocalDate(new Date(Number(stats.oldestDate) * 1000));
+              const newestDateStr = formatLocalDate(new Date(Number(stats.newestDate) * 1000));
+              expandRange(oldestDateStr, newestDateStr);
+              if (__DEV__) {
+                console.log(
+                  `[SyncDateRange] Initialized from engine: ${oldestDateStr} - ${newestDateStr}`
+                );
+              }
+            }
+          } else if (attempt < 2) {
+            // Retry once after delay — handles transient FS issues on first launch
+            if (__DEV__) {
+              console.warn(
+                `[RouteEngine] Init attempt ${attempt + 1} failed, retrying in 500ms...`
+              );
+            }
+            setTimeout(() => tryInit(attempt + 1), 500);
+          } else {
+            if (__DEV__) {
+              console.warn(
+                `[RouteEngine] Persistent init failed after ${attempt + 1} attempts for path: ${dbPath}`
               );
             }
           }
-        }
+        };
+
+        tryInit(0);
       }
     }
   }, [isAuthenticated, expandRange]);

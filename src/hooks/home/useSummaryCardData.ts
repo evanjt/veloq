@@ -1,22 +1,18 @@
 import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  useAthlete,
-  useWellness,
-  useSportSettings,
-  getSettingsForSport,
-  usePaceCurve,
-  useInfiniteActivities,
-  getFormZone,
-  FORM_ZONE_COLORS,
-  FORM_ZONE_LABELS,
-  getLatestFTP,
-} from '@/hooks';
+import { useAthlete } from '@/hooks/useAthlete';
+import { useWellness } from '@/hooks/fitness';
+import { useSportSettings, getSettingsForSport } from '@/hooks/useSportSettings';
+import { usePaceCurve } from '@/hooks/charts';
+import { useInfiniteActivities } from '@/hooks/activities';
+import { getLatestFTP } from '@/hooks/activities';
+import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/lib';
 import { useDashboardPreferences, useSportPreference, SPORT_COLORS } from '@/providers';
 import type { MetricId } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
 import { colors } from '@/theme';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
 
 /**
  * Supporting metric for SummaryCard display
@@ -100,6 +96,9 @@ export function useSummaryCardData(): SummaryCardData {
     isLoading: wellnessLoading,
     refetch: refetchWellness,
   } = useWellness('1m');
+
+  // Subscribe to engine activity events — re-query when activity_metrics are populated
+  const engineTrigger = useEngineSubscription(['activities']);
 
   // Combined loading state
   const isLoading = activitiesLoading || wellnessLoading;
@@ -254,7 +253,7 @@ export function useSummaryCardData(): SummaryCardData {
       ftp,
       ftpTrend,
     };
-  }, [wellnessData, allActivities]);
+  }, [wellnessData, allActivities, engineTrigger]);
 
   const formZone = getFormZone(quickStats.form);
   const formColor = formZone ? FORM_ZONE_COLORS[formZone] : colors.success;

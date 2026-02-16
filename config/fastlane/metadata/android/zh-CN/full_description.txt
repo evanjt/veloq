@@ -1,28 +1,28 @@
-Veloq brings your Intervals.icu training data to mobile with a focus on maps, visual analytics, and offline access.
+Veloq将您的Intervals.icu训练数据带到移动端，专注于地图、可视化分析和离线访问。
 
-<b>Map-First Visualization</b>
-View your activities on an interactive regional map with timeline filtering and route heatmaps. Switch between light, dark, and satellite map styles. Explore 3D terrain views with synchronized chart scrubbing.
+<b>地图优先的可视化</b>
+在交互式区域地图上查看您的活动，支持时间轴筛选和路线热力图。在浅色、深色和卫星地图样式之间切换。探索与图表滚动同步的3D地形视图。
 
-<b>Rich Activity Analysis</b>
-Dive into multi-metric charts for heart rate, power, pace, elevation, and cadence. Scrub through your activity with real-time map highlighting. View zone distributions, training metrics (TSS, intensity factor), and lap breakdowns.
+<b>丰富的活动分析</b>
+深入查看心率、功率、配速、海拔和踏频的多指标图表。滚动浏览您的活动，地图上实时高亮显示。查看区间分布、训练指标（TSS、强度系数）和分圈详情。
 
-<b>Route Intelligence</b>
-Automatically detect repeated routes and track your performance over time. Compare efforts on the same course to see progress. Identify frequently-traveled sections with detailed match analysis.
+<b>路线智能</b>
+自动检测重复路线并追踪您的表现变化。比较同一路线上的不同努力以查看进步。通过详细的匹配分析识别常走路段。
 
-<b>Fitness Tracking</b>
-Monitor your CTL/ATL/TSB fitness model with form zone analysis. Track HRV, resting heart rate, sleep, and wellness metrics. View power curves, pace curves, and zone distributions by sport.
+<b>体能追踪</b>
+通过状态区间分析监控您的CTL/ATL/TSB体能模型。追踪HRV、静息心率、睡眠和健康指标。按运动类型查看功率曲线、配速曲线和区间分布。
 
-<b>Offline-First</b>
-Aggressive caching ensures your data is always available. Sync your activities once and access them anywhere without an internet connection.
+<b>离线优先</b>
+积极的缓存策略确保您的数据始终可用。同步一次活动数据，即可在没有网络连接的情况下随时随地访问。
 
-<b>Privacy Focused</b>
-All data stays on your device. No analytics, no tracking, no data collection. Your credentials are stored securely using platform encryption.
+<b>注重隐私</b>
+所有数据保留在您的设备上。无分析、无追踪、无数据收集。您的凭据使用平台加密安全存储。
 
-<b>Multi-Sport Support</b>
-Full support for cycling, running, swimming, and 20+ activity types with sport-specific metrics and analysis.
+<b>多运动支持</b>
+全面支持骑行、跑步、游泳及20多种活动类型，提供各运动专属的指标和分析。
 
-<b>Requirements</b>
-An Intervals.icu account with API key access. Get your API key from Intervals.icu Settings > Developer Settings.
+<b>要求</b>
+需要具有API密钥访问权限的Intervals.icu账户。在Intervals.icu设置 > 开发者设置中获取您的API密钥。
 
-<b>Open Source</b>
-Veloq is open source software licensed under Apache 2.0. Contributions welcome on GitHub.
+<b>开源</b>
+Veloq是基于Apache 2.0许可的开源软件。欢迎在GitHub上贡献。

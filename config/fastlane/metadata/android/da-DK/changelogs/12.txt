@@ -1,9 +1,9 @@
-v0.1.2 (Feb 12, 2026)
+v0.1.2 (12. feb. 2026)
 
-• Export all activities as GPX files in one go
-• Fixed backup restore for custom sections
-• Fixed crash when scrubbing Season Comparison chart
-• Improved Routes screen performance with better pagination
-• Export buttons moved to bottom of detail pages for easier access
+• Eksportér alle aktiviteter som GPX-filer på én gang
+• Rettet gendannelse af sikkerhedskopi for brugerdefinerede sektioner
+• Rettet nedbrud ved skrubning i sæsonsammenligningsdiagrammet
+• Forbedret ydeevne på ruteskærmen med bedre paginering
+• Eksportknapper flyttet til bunden af detailsider for nemmere adgang
 
 Full details: https://github.com/evanjt/veloq/releases/tag/v0.1.2

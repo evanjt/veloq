@@ -5813,6 +5813,23 @@ pub mod persistent_engine_ffi {
             db_path
         );
 
+        // Ensure parent directory exists (SQLite creates the file but not the directory)
+        if let Some(parent) = std::path::Path::new(&db_path).parent() {
+            if !parent.exists() {
+                if let Err(e) = std::fs::create_dir_all(parent) {
+                    log::error!(
+                        "tracematch: [PersistentEngine] Failed to create directory {:?}: {}",
+                        parent, e
+                    );
+                    return false;
+                }
+                info!(
+                    "tracematch: [PersistentEngine] Created parent directory: {:?}",
+                    parent
+                );
+            }
+        }
+
         match PersistentRouteEngine::new(&db_path) {
             Ok(mut engine) => {
                 // Load existing data
@@ -5829,9 +5846,9 @@ pub mod persistent_engine_ffi {
                 true
             }
             Err(e) => {
-                info!(
-                    "tracematch: [PersistentEngine] Failed to initialize: {:?}",
-                    e
+                log::error!(
+                    "tracematch: [PersistentEngine] Failed to initialize with path '{}': {:?}",
+                    db_path, e
                 );
                 false
             }
@@ -6343,7 +6360,10 @@ pub mod persistent_engine_ffi {
             Some((sections, detection_activity_ids)) => {
                 // Detection complete - apply results and persist processed IDs
                 let applied = with_persistent_engine(|e| {
-                    e.apply_sections(sections).ok()?;
+                    if let Err(err) = e.apply_sections(sections) {
+                        log::error!("apply_sections failed: {}", err);
+                        return None;
+                    }
                     e.save_processed_activity_ids(&detection_activity_ids).ok();
                     Some(())
                 });

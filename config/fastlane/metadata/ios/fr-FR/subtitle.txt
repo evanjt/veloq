@@ -1,1 +1,1 @@
-Intervals.icu Mobile Client
+Client mobile Intervals.icu

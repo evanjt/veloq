@@ -1,8 +1,8 @@
-v0.1.3 (Feb 13, 2026)
+v0.1.3 (2026年2月13日)
 
-• Fixed section pace calculations - now shows accurate pace for each effort
-• Improved section list interaction - hold to highlight sections
-• Fixed duplicate entries in performance history charts
-• Fixed coordinate mismatch when scrubbing through section list
+• 修复了区间配速计算 — 现在显示每次努力的准确配速
+• 改进了区间列表交互 — 长按可高亮显示区间
+• 修复了表现历史图表中的重复条目
+• 修复了滑动区间列表时的坐标偏移问题
 
 Full details: https://github.com/evanjt/veloq/releases/tag/v0.1.3

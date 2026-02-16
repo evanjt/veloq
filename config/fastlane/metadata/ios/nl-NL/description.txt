@@ -1,23 +1,23 @@
-Your training data, visualised. Veloq brings maps, charts, and fitness tracking together in one fast, offline-ready app.
+Je trainingsgegevens, gevisualiseerd. Veloq combineert kaarten, grafieken en fitnesstracking in één snelle, offline-klare app.
 
-Maps
-View your activities on interactive maps with 3D terrain, route heatmaps, and timeline filtering. Choose from light, dark, and satellite styles. Scrub through charts and watch your position update on the map in real-time.
+Kaarten
+Bekijk je activiteiten op interactieve kaarten met 3D-terrein, route-heatmaps en tijdlijnfiltering. Kies uit lichte, donkere en satellietstijlen. Blader door grafieken en volg je positie in realtime op de kaart.
 
-Route tracking
-Automatically detect repeated routes and sections in your activity history. Compare efforts over time to see your progress on favourite climbs and stretches.
+Routeregistratie
+Detecteer automatisch herhaalde routes en secties in je activiteitengeschiedenis. Vergelijk prestaties in de tijd om je voortgang op favoriete beklimmingen en trajecten te zien.
 
-Charts and analysis
-Heart rate, power, pace, elevation, and cadence — all synchronised with the map. View zone distributions, TSS, intensity factor, and lap breakdowns.
+Grafieken en analyse
+Hartslag, vermogen, tempo, hoogte en cadans — alles gesynchroniseerd met de kaart. Bekijk zoneverdeling, TSS, intensiteitsfactor en ronde-overzichten.
 
 Fitness
-Follow your form with CTL/ATL/TSB tracking and visual zones. Monitor HRV, resting heart rate, sleep, and wellness. View power and pace curves by sport.
+Volg je vorm met CTL/ATL/TSB-tracking en visuele zones. Monitor HRV, rusthartslag, slaap en welzijn. Bekijk vermogens- en tempocurves per sport.
 
 Offline-first
-Sync once, access anywhere. Your data is cached locally so it's always available, even without internet.
+Synchroniseer eenmaal, open overal. Je gegevens worden lokaal opgeslagen en zijn altijd beschikbaar, zelfs zonder internet.
 
 Privacy
-All data stays on your device. No analytics, no tracking, no servers. Open source under Apache 2.0.
+Alle gegevens blijven op je apparaat. Geen analyses, geen tracking, geen servers. Open source onder Apache 2.0.
 
-Supports cycling, running, swimming, and 20+ activity types. Try the built-in demo mode to explore without an account.
+Ondersteunt fietsen, hardlopen, zwemmen en meer dan 20 activiteitstypen. Probeer de ingebouwde demomodus om te verkennen zonder account.
 
-Requires an Intervals.icu account for live data. Not affiliated with Intervals.icu.
+Vereist een Intervals.icu-account voor live gegevens. Niet gelieerd aan Intervals.icu.

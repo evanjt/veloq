@@ -1,1 +1,1 @@
-Offline-first mobile client for Intervals.icu
+Cliente mobile offline-first para Intervals.icu

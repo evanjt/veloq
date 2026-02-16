@@ -1,8 +1,8 @@
-v0.1.3 (Feb 13, 2026)
+v0.1.3 (13 fév. 2026)
 
-• Fixed section pace calculations - now shows accurate pace for each effort
-• Improved section list interaction - hold to highlight sections
-• Fixed duplicate entries in performance history charts
-• Fixed coordinate mismatch when scrubbing through section list
+• Correction des calculs d'allure par section - affiche désormais l'allure réelle de chaque effort
+• Amélioration de l'interaction avec la liste des sections - maintenir pour mettre en surbrillance
+• Correction des doublons dans les graphiques d'historique de performances
+• Correction du décalage de coordonnées lors du défilement de la liste des sections
 
-Full details: https://github.com/evanjt/veloq/releases/tag/v0.1.3
+Détails : https://github.com/evanjt/veloq/releases/tag/v0.1.3

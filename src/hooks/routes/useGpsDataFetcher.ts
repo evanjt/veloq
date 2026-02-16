@@ -280,68 +280,75 @@ export function useGpsDataFetcher() {
         const syncedActivities = activities.filter((a) => ids.includes(a.id));
         const metrics = syncedActivities.map(toActivityMetrics);
         routeEngine.setActivityMetrics(metrics);
+        routeEngine.triggerRefresh('activities');
 
         // Start section detection and poll for progress
         // Reset the progress tracker for a fresh sync
         resetProgressTracker();
-        nativeModule.routeEngine.startSectionDetection();
-
-        // Poll for section detection completion with smooth progress updates
-        const pollInterval = 150; // ms - faster polling for smoother animations
-        const maxPollTime = 60000; // 60 seconds
-        const startTime = Date.now();
-        let lastPercent = -1;
-
-        while (isMountedRef.current && !abortSignal.aborted) {
-          const status = nativeModule.routeEngine.pollSectionDetection();
-
-          if (status === 'running') {
-            // Get progress and calculate overall percentage
-            const progress = nativeModule.routeEngine.getSectionDetectionProgress();
-            // If no progress yet, keep the last percentage (don't reset to 0)
-            const overallPercent = progress
-              ? calculateOverallProgress(progress.phase, progress.completed, progress.total)
-              : lastPercent >= 0
-                ? lastPercent
-                : 0;
-
-            // Update on every percentage change - the animation will smooth transitions
-            if (overallPercent !== lastPercent) {
-              const message = progress
-                ? getSectionDetectionMessage(progress.phase)
-                : i18n.t('cache.analyzingRoutes');
-
-              updateProgress({
-                status: 'computing',
-                completed: 0,
-                total: 0,
-                percent: overallPercent,
-                message,
-              });
-              lastPercent = overallPercent;
-            }
-          } else if (status === 'complete' || status === 'idle') {
-            break;
-          } else if (status === 'error') {
-            if (__DEV__) {
-              console.warn('[fetchDemoGps] Section detection error');
-            }
-            break;
+        const started = nativeModule.routeEngine.startSectionDetection();
+        if (!started) {
+          if (__DEV__) {
+            console.warn('[fetchDemoGps] startSectionDetection returned false — skipping poll');
           }
+        } else {
+          // Poll for section detection completion with smooth progress updates
+          const pollInterval = 150; // ms - faster polling for smoother animations
+          const maxPollTime = 60000; // 60 seconds
+          const startTime = Date.now();
+          let lastPercent = -1;
 
-          // Check timeout
-          if (Date.now() - startTime > maxPollTime) {
-            if (__DEV__) {
-              console.warn('[fetchDemoGps] Section detection timed out');
+          while (isMountedRef.current && !abortSignal.aborted) {
+            const status = nativeModule.routeEngine.pollSectionDetection();
+
+            if (status === 'running') {
+              // Get progress and calculate overall percentage
+              const progress = nativeModule.routeEngine.getSectionDetectionProgress();
+              // If no progress yet, keep the last percentage (don't reset to 0)
+              const overallPercent = progress
+                ? calculateOverallProgress(progress.phase, progress.completed, progress.total)
+                : lastPercent >= 0
+                  ? lastPercent
+                  : 0;
+
+              // Update on every percentage change - the animation will smooth transitions
+              if (overallPercent !== lastPercent) {
+                const message = progress
+                  ? getSectionDetectionMessage(progress.phase)
+                  : i18n.t('cache.analyzingRoutes');
+
+                updateProgress({
+                  status: 'computing',
+                  completed: 0,
+                  total: 0,
+                  percent: overallPercent,
+                  message,
+                });
+                lastPercent = overallPercent;
+              }
+            } else if (status === 'complete' || status === 'idle') {
+              break;
+            } else if (status === 'error') {
+              if (__DEV__) {
+                console.warn('[fetchDemoGps] Section detection error');
+              }
+              break;
             }
-            break;
-          }
 
-          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+            // Check timeout
+            if (Date.now() - startTime > maxPollTime) {
+              if (__DEV__) {
+                console.warn('[fetchDemoGps] Section detection timed out');
+              }
+              break;
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          }
         }
 
-        // Section detection complete - refresh groups now that they're computed
+        // Section detection complete - refresh groups and sections
         routeEngine.triggerRefresh('groups');
+        routeEngine.triggerRefresh('sections');
 
         if (isMountedRef.current) {
           updateProgress({
@@ -582,15 +589,14 @@ export function useGpsDataFetcher() {
       // Just need to sync metrics and start section detection
 
       if (result.syncedIds.length > 0 && isMountedRef.current) {
-        // Notify UI that activities have been added
-        // startFetchAndStore bypasses RouteEngineClient.addActivities() so we must trigger manually
-        routeEngine.triggerRefresh('activities');
-        routeEngine.triggerRefresh('groups');
-
-        // Sync activity metrics for performance calculations
+        // Sync activity metrics BEFORE notifying UI — subscribers query metrics on notification
         const syncedActivities = activities.filter((a) => result.syncedIds.includes(a.id));
         const metrics = syncedActivities.map(toActivityMetrics);
         routeEngine.setActivityMetrics(metrics);
+
+        // Now notify UI that activities have been added (metrics are already in DB)
+        routeEngine.triggerRefresh('activities');
+        routeEngine.triggerRefresh('groups');
 
         updateProgress({
           status: 'computing',
@@ -604,60 +610,66 @@ export function useGpsDataFetcher() {
 
         // Start section detection
         resetProgressTracker();
-        nativeModule.routeEngine.startSectionDetection();
-
-        // Poll for section detection completion
-        const pollInterval = 150;
-        const maxPollTime = 60000;
-        const startTime = Date.now();
-        let lastPercent = -1;
-
-        while (isMountedRef.current && !abortSignal.aborted) {
-          const status = nativeModule.routeEngine.pollSectionDetection();
-
-          if (status === 'running') {
-            const progress = nativeModule.routeEngine.getSectionDetectionProgress();
-            const overallPercent = progress
-              ? calculateOverallProgress(progress.phase, progress.completed, progress.total)
-              : lastPercent >= 0
-                ? lastPercent
-                : 0;
-
-            if (overallPercent !== lastPercent) {
-              const message = progress
-                ? getSectionDetectionMessage(progress.phase)
-                : i18n.t('cache.analyzingRoutes');
-
-              updateProgress({
-                status: 'computing',
-                completed: 0,
-                total: 0,
-                percent: overallPercent,
-                message,
-              });
-              lastPercent = overallPercent;
-            }
-          } else if (status === 'complete' || status === 'idle') {
-            break;
-          } else if (status === 'error') {
-            if (__DEV__) {
-              console.warn('[fetchApiGps] Section detection error');
-            }
-            break;
+        const started = nativeModule.routeEngine.startSectionDetection();
+        if (!started) {
+          if (__DEV__) {
+            console.warn('[fetchApiGps] startSectionDetection returned false — skipping poll');
           }
+        } else {
+          // Poll for section detection completion
+          const pollInterval = 150;
+          const maxPollTime = 60000;
+          const startTime = Date.now();
+          let lastPercent = -1;
 
-          if (Date.now() - startTime > maxPollTime) {
-            if (__DEV__) {
-              console.warn('[fetchApiGps] Section detection timed out');
+          while (isMountedRef.current && !abortSignal.aborted) {
+            const status = nativeModule.routeEngine.pollSectionDetection();
+
+            if (status === 'running') {
+              const progress = nativeModule.routeEngine.getSectionDetectionProgress();
+              const overallPercent = progress
+                ? calculateOverallProgress(progress.phase, progress.completed, progress.total)
+                : lastPercent >= 0
+                  ? lastPercent
+                  : 0;
+
+              if (overallPercent !== lastPercent) {
+                const message = progress
+                  ? getSectionDetectionMessage(progress.phase)
+                  : i18n.t('cache.analyzingRoutes');
+
+                updateProgress({
+                  status: 'computing',
+                  completed: 0,
+                  total: 0,
+                  percent: overallPercent,
+                  message,
+                });
+                lastPercent = overallPercent;
+              }
+            } else if (status === 'complete' || status === 'idle') {
+              break;
+            } else if (status === 'error') {
+              if (__DEV__) {
+                console.warn('[fetchApiGps] Section detection error');
+              }
+              break;
             }
-            break;
-          }
 
-          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+            if (Date.now() - startTime > maxPollTime) {
+              if (__DEV__) {
+                console.warn('[fetchApiGps] Section detection timed out');
+              }
+              break;
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          }
         }
 
-        // Section detection complete - refresh groups now that they're computed
+        // Section detection complete - refresh groups and sections
         routeEngine.triggerRefresh('groups');
+        routeEngine.triggerRefresh('sections');
       }
 
       // Final progress update

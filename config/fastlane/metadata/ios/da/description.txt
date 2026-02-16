@@ -1,23 +1,23 @@
-Your training data, visualised. Veloq brings maps, charts, and fitness tracking together in one fast, offline-ready app.
+Dine træningsdata, visualiseret. Veloq samler kort, diagrammer og fitnesssporing i en hurtig, offline-klar app.
 
-Maps
-View your activities on interactive maps with 3D terrain, route heatmaps, and timeline filtering. Choose from light, dark, and satellite styles. Scrub through charts and watch your position update on the map in real-time.
+Kort
+Se dine aktiviteter på interaktive kort med 3D-terræn, rute-heatmaps og tidslinjefiltrering. Vælg mellem lyse, mørke og satellitstile. Rul gennem diagrammer og se din position opdatere på kortet i realtid.
 
-Route tracking
-Automatically detect repeated routes and sections in your activity history. Compare efforts over time to see your progress on favourite climbs and stretches.
+Rutesporing
+Registrer automatisk gentagne ruter og strækninger i din aktivitetshistorik. Sammenlign præstationer over tid for at se dine fremskridt på favoritstiger og -strækninger.
 
-Charts and analysis
-Heart rate, power, pace, elevation, and cadence — all synchronised with the map. View zone distributions, TSS, intensity factor, and lap breakdowns.
+Diagrammer og analyse
+Puls, power, tempo, højde og kadence — alt synkroniseret med kortet. Se zonefordelinger, TSS, intensitetsfaktor og rundedetaljer.
 
 Fitness
-Follow your form with CTL/ATL/TSB tracking and visual zones. Monitor HRV, resting heart rate, sleep, and wellness. View power and pace curves by sport.
+Følg din form med CTL/ATL/TSB-sporing og visuelle zoner. Overvåg HRV, hvilepuls, søvn og velvære. Se power- og tempokurver efter sportsgren.
 
-Offline-first
-Sync once, access anywhere. Your data is cached locally so it's always available, even without internet.
+Offline først
+Synkroniser én gang, tilgå overalt. Dine data gemmes lokalt og er altid tilgængelige, selv uden internet.
 
-Privacy
-All data stays on your device. No analytics, no tracking, no servers. Open source under Apache 2.0.
+Privatliv
+Alle data forbliver på din enhed. Ingen analyse, ingen sporing, ingen servere. Open source under Apache 2.0.
 
-Supports cycling, running, swimming, and 20+ activity types. Try the built-in demo mode to explore without an account.
+Understøtter cykling, løb, svømning og over 20 aktivitetstyper. Prøv den indbyggede demotilstand for at udforske uden en konto.
 
-Requires an Intervals.icu account for live data. Not affiliated with Intervals.icu.
+Kræver en Intervals.icu-konto for livedata. Ikke tilknyttet Intervals.icu.

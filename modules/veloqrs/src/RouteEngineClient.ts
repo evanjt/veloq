@@ -106,6 +106,7 @@ class RouteEngineClient {
   private listeners: Map<string, Set<() => void>> = new Map();
   private initialized = false;
   private dbPath: string | null = null;
+  private pendingMetrics: FfiActivityMetrics[] | null = null;
 
   private constructor() {}
 
@@ -166,6 +167,14 @@ class RouteEngineClient {
     if (result) {
       this.initialized = true;
       this.dbPath = dbPath;
+      // Flush any metrics that arrived before engine was ready
+      if (this.pendingMetrics) {
+        this.timed('setActivityMetrics', () =>
+          persistentEngineSetActivityMetrics(this.pendingMetrics!)
+        );
+        this.pendingMetrics = null;
+        this.notify('activities');
+      }
     }
     return result;
   }
@@ -189,6 +198,9 @@ class RouteEngineClient {
    */
   clear(): void {
     this.timed('clear', () => persistentEngineClear());
+    this.initialized = false;
+    this.dbPath = null;
+    this.pendingMetrics = null;
     this.notifyAll('activities', 'groups', 'sections', 'syncReset');
   }
 
@@ -564,6 +576,10 @@ class RouteEngineClient {
    * Also notifies 'activities' subscribers since stats (including date range) depend on metrics table.
    */
   setActivityMetrics(metrics: FfiActivityMetrics[]): void {
+    if (!this.initialized) {
+      this.pendingMetrics = metrics;
+      return;
+    }
     this.timed('setActivityMetrics', () => persistentEngineSetActivityMetrics(metrics));
     // Notify activities subscribers - getStats() reads dates from activity_metrics table
     this.notify('activities');

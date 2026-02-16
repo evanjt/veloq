@@ -1,1 +1,1 @@
-Offline-first mobile client for Intervals.icu
+Maps, charts, and route tracking for Intervals.icu

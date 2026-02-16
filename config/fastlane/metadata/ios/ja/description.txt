@@ -1,23 +1,23 @@
-Your training data, visualised. Veloq brings maps, charts, and fitness tracking together in one fast, offline-ready app.
+トレーニングデータを可視化。Veloqは地図、チャート、フィットネス記録を一つの高速なオフライン対応アプリにまとめます。
 
-Maps
-View your activities on interactive maps with 3D terrain, route heatmaps, and timeline filtering. Choose from light, dark, and satellite styles. Scrub through charts and watch your position update on the map in real-time.
+地図
+3D地形、ルートヒートマップ、タイムラインフィルターを備えたインタラクティブな地図でアクティビティを表示。ライト、ダーク、衛星写真スタイルから選択できます。チャートをスクロールしながら、地図上の位置がリアルタイムで更新されます。
 
-Route tracking
-Automatically detect repeated routes and sections in your activity history. Compare efforts over time to see your progress on favourite climbs and stretches.
+ルート記録
+アクティビティ履歴から繰り返しのルートやセクションを自動検出。お気に入りの登りや区間での進捗を時系列で比較できます。
 
-Charts and analysis
-Heart rate, power, pace, elevation, and cadence — all synchronised with the map. View zone distributions, TSS, intensity factor, and lap breakdowns.
+チャートと分析
+心拍数、パワー、ペース、標高、ケイデンス — すべて地図と同期。ゾーン分布、TSS、強度係数、ラップの内訳を表示します。
 
-Fitness
-Follow your form with CTL/ATL/TSB tracking and visual zones. Monitor HRV, resting heart rate, sleep, and wellness. View power and pace curves by sport.
+フィットネス
+CTL/ATL/TSBトラッキングとビジュアルゾーンでコンディションを管理。HRV、安静時心拍数、睡眠、ウェルネスをモニタリング。スポーツ別のパワー・ペースカーブを表示します。
 
-Offline-first
-Sync once, access anywhere. Your data is cached locally so it's always available, even without internet.
+オフラインファースト
+一度同期すれば、どこからでもアクセス可能。データはローカルに保存され、インターネットなしでも常に利用できます。
 
-Privacy
-All data stays on your device. No analytics, no tracking, no servers. Open source under Apache 2.0.
+プライバシー
+すべてのデータはデバイス上に保持。分析なし、追跡なし、サーバーなし。Apache 2.0ライセンスのオープンソースです。
 
-Supports cycling, running, swimming, and 20+ activity types. Try the built-in demo mode to explore without an account.
+サイクリング、ランニング、水泳など20種類以上のアクティビティに対応。アカウントなしで試せるデモモードを搭載しています。
 
-Requires an Intervals.icu account for live data. Not affiliated with Intervals.icu.
+ライブデータにはIntervals.icuアカウントが必要です。Intervals.icuとは提携していません。

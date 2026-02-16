@@ -1,23 +1,23 @@
-Your training data, visualised. Veloq brings maps, charts, and fitness tracking together in one fast, offline-ready app.
+Deine Trainingsdaten, visualisiert. Veloq vereint Karten, Diagramme und Fitness-Tracking in einer schnellen, offlinefähigen App.
 
-Maps
-View your activities on interactive maps with 3D terrain, route heatmaps, and timeline filtering. Choose from light, dark, and satellite styles. Scrub through charts and watch your position update on the map in real-time.
+Karten
+Betrachte deine Aktivitäten auf interaktiven Karten mit 3D-Gelände, Routen-Heatmaps und Zeitfilterung. Wähle zwischen hellen, dunklen und Satellitenstilen. Scrolle durch Diagramme und verfolge deine Position in Echtzeit auf der Karte.
 
-Route tracking
-Automatically detect repeated routes and sections in your activity history. Compare efforts over time to see your progress on favourite climbs and stretches.
+Routenverfolgung
+Erkenne automatisch wiederholte Routen und Abschnitte in deiner Aktivitätshistorie. Vergleiche Leistungen über die Zeit und verfolge deinen Fortschritt auf Lieblingsanstiegen und -strecken.
 
-Charts and analysis
-Heart rate, power, pace, elevation, and cadence — all synchronised with the map. View zone distributions, TSS, intensity factor, and lap breakdowns.
+Diagramme und Analyse
+Herzfrequenz, Leistung, Pace, Höhe und Kadenz — alles synchronisiert mit der Karte. Zeige Zonenverteilungen, TSS, Intensitätsfaktor und Rundenaufschlüsselungen an.
 
 Fitness
-Follow your form with CTL/ATL/TSB tracking and visual zones. Monitor HRV, resting heart rate, sleep, and wellness. View power and pace curves by sport.
+Verfolge deine Form mit CTL/ATL/TSB-Tracking und visuellen Zonen. Überwache HRV, Ruheherzfrequenz, Schlaf und Wohlbefinden. Zeige Leistungs- und Pace-Kurven nach Sportart an.
 
 Offline-first
-Sync once, access anywhere. Your data is cached locally so it's always available, even without internet.
+Einmal synchronisieren, überall zugreifen. Deine Daten werden lokal gespeichert und sind immer verfügbar, auch ohne Internet.
 
-Privacy
-All data stays on your device. No analytics, no tracking, no servers. Open source under Apache 2.0.
+Datenschutz
+Alle Daten bleiben auf deinem Gerät. Keine Analysen, kein Tracking, keine Server. Open Source unter Apache 2.0.
 
-Supports cycling, running, swimming, and 20+ activity types. Try the built-in demo mode to explore without an account.
+Unterstützt Radfahren, Laufen, Schwimmen und 20+ Aktivitätstypen. Teste den integrierten Demomodus, um die App ohne Konto zu erkunden.
 
-Requires an Intervals.icu account for live data. Not affiliated with Intervals.icu.
+Erfordert ein Intervals.icu-Konto für Live-Daten. Nicht mit Intervals.icu verbunden.

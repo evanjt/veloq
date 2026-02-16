@@ -1,28 +1,28 @@
-Veloq brings your Intervals.icu training data to mobile with a focus on maps, visual analytics, and offline access.
+Veloqは、マップ、ビジュアル分析、オフラインアクセスに重点を置き、Intervals.icuのトレーニングデータをモバイルで活用できるアプリです。
 
-<b>Map-First Visualization</b>
-View your activities on an interactive regional map with timeline filtering and route heatmaps. Switch between light, dark, and satellite map styles. Explore 3D terrain views with synchronized chart scrubbing.
+<b>マップファーストの可視化</b>
+タイムラインフィルタリングとルートヒートマップを備えたインタラクティブなリージョナルマップでアクティビティを表示。ライト、ダーク、衛星写真のマップスタイルを切り替えられます。チャートスクラビングと同期した3D地形ビューを探索できます。
 
-<b>Rich Activity Analysis</b>
-Dive into multi-metric charts for heart rate, power, pace, elevation, and cadence. Scrub through your activity with real-time map highlighting. View zone distributions, training metrics (TSS, intensity factor), and lap breakdowns.
+<b>充実したアクティビティ分析</b>
+心拍数、パワー、ペース、標高、ケイデンスのマルチメトリックチャートを詳しく確認。リアルタイムのマップハイライト表示でアクティビティをスクラブ。ゾーン分布、トレーニング指標（TSS、強度係数）、ラップ内訳を表示できます。
 
-<b>Route Intelligence</b>
-Automatically detect repeated routes and track your performance over time. Compare efforts on the same course to see progress. Identify frequently-traveled sections with detailed match analysis.
+<b>ルートインテリジェンス</b>
+繰り返しのルートを自動検出し、パフォーマンスの推移を追跡。同じコースでの取り組みを比較して進捗を確認。頻繁に通るセクションを詳細なマッチ分析で特定します。
 
-<b>Fitness Tracking</b>
-Monitor your CTL/ATL/TSB fitness model with form zone analysis. Track HRV, resting heart rate, sleep, and wellness metrics. View power curves, pace curves, and zone distributions by sport.
+<b>フィットネストラッキング</b>
+フォームゾーン分析でCTL/ATL/TSBフィットネスモデルを監視。HRV、安静時心拍数、睡眠、ウェルネス指標を追跡。スポーツ別のパワーカーブ、ペースカーブ、ゾーン分布を表示できます。
 
-<b>Offline-First</b>
-Aggressive caching ensures your data is always available. Sync your activities once and access them anywhere without an internet connection.
+<b>オフラインファースト</b>
+積極的なキャッシュにより、データは常に利用可能。アクティビティを一度同期すれば、インターネット接続なしでどこでもアクセスできます。
 
-<b>Privacy Focused</b>
-All data stays on your device. No analytics, no tracking, no data collection. Your credentials are stored securely using platform encryption.
+<b>プライバシー重視</b>
+すべてのデータはデバイス上に保持されます。分析なし、トラッキングなし、データ収集なし。認証情報はプラットフォームの暗号化を使用して安全に保存されます。
 
-<b>Multi-Sport Support</b>
-Full support for cycling, running, swimming, and 20+ activity types with sport-specific metrics and analysis.
+<b>マルチスポーツ対応</b>
+サイクリング、ランニング、スイミング、および20以上のアクティビティタイプに完全対応。スポーツ固有の指標と分析を提供します。
 
-<b>Requirements</b>
-An Intervals.icu account with API key access. Get your API key from Intervals.icu Settings > Developer Settings.
+<b>要件</b>
+APIキーアクセス付きのIntervals.icuアカウントが必要です。APIキーはIntervals.icuの設定 > 開発者設定から取得できます。
 
-<b>Open Source</b>
-Veloq is open source software licensed under Apache 2.0. Contributions welcome on GitHub.
+<b>オープンソース</b>
+VeloqはApache 2.0ライセンスのオープンソースソフトウェアです。GitHubでの貢献を歓迎します。

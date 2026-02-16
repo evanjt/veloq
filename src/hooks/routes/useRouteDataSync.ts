@@ -44,6 +44,8 @@ import { useRouteSyncProgress } from './useRouteSyncProgress';
 import { useRouteSyncContext, resetGlobalSyncState } from './useRouteSyncContext';
 import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { getNativeModule } from '@/lib/native/routeEngine';
+import { routeEngine } from 'veloqrs';
+import { toActivityMetrics } from '@/lib/utils/activityMetrics';
 import { useSyncDateRange } from '@/providers';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
@@ -208,6 +210,17 @@ export function useRouteDataSync(
               `${totalGps} with GPS, ${withGps.length} new to sync, ` +
               `${engineActivityIds.size} already in engine, isDemo: ${isDemo}`
           );
+        }
+
+        // Populate activity metrics early so weekly stats appear immediately.
+        // Metrics only need activity metadata (date, duration, type) which is
+        // available from the activity list API response — no GPS needed.
+        const allMetrics = activitiesToSync
+          .filter((a) => a.start_date_local && a.moving_time)
+          .map(toActivityMetrics);
+        if (allMetrics.length > 0) {
+          nativeModule.routeEngine.setActivityMetrics(allMetrics);
+          routeEngine.triggerRefresh('activities');
         }
 
         if (withGps.length === 0) {

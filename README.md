@@ -13,7 +13,7 @@
   <a href="https://apps.apple.com/us/app/veloq/id6757836732">
     <img src="docs/badges/app-store.svg" alt="Download on the App Store" height="44">
   </a>
-  &nbsp;&nbsp;
+  &nbsp;
   <a href="https://play.google.com/store/apps/details?id=com.veloq.app">
     <img src="docs/badges/google-play.png" alt="Get it on Google Play" height="44">
   </a>
@@ -84,20 +84,24 @@ npm expo run:ios        # Run on iOS
 ### Debug Features
 
 **Developer Dashboard** (Settings > Developer Dashboard)
+
 - Engine stats: activity count, GPS tracks, route groups, sections, cache sizes
 - FFI performance: per-method call count, average/max/p95 timing, color-coded thresholds
 - Memory: JS heap size, allocated bytes, garbage collection count
 - Share debug snapshot as JSON
 
 **Activity Detail** (long-press activity name when debug enabled)
+
 - Clone activity for stress testing (10/50/100 copies)
 - Debug info panel: activity ID, GPS point count, HR samples, per-page FFI metrics
 - Warnings for large polylines (>2000 points) or slow FFI calls (>200ms)
 
 **Section Detail / Route Detail**
+
 - Debug info panel with section/route metadata and FFI call metrics
 
 **Routes Screen > Debug Tab**
+
 - API vs Engine alignment with traffic light indicator
 - Engine stats (mirrors Developer Dashboard)
 - Sync status: progress, last sync timestamp, date range

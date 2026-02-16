@@ -1,28 +1,28 @@
-Veloq brings your Intervals.icu training data to mobile with a focus on maps, visual analytics, and offline access.
+Veloq porta i tuoi dati di allenamento Intervals.icu su mobile con un focus su mappe, analisi visiva e accesso offline.
 
-<b>Map-First Visualization</b>
-View your activities on an interactive regional map with timeline filtering and route heatmaps. Switch between light, dark, and satellite map styles. Explore 3D terrain views with synchronized chart scrubbing.
+<b>Visualizzazione basata su mappe</b>
+Visualizza le tue attività su una mappa regionale interattiva con filtro temporale e mappe di calore dei percorsi. Passa tra stili di mappa chiaro, scuro e satellitare. Esplora viste del terreno 3D con scrubbing sincronizzato dei grafici.
 
-<b>Rich Activity Analysis</b>
-Dive into multi-metric charts for heart rate, power, pace, elevation, and cadence. Scrub through your activity with real-time map highlighting. View zone distributions, training metrics (TSS, intensity factor), and lap breakdowns.
+<b>Analisi dettagliata delle attività</b>
+Immergiti nei grafici multi-metrica per frequenza cardiaca, potenza, ritmo, dislivello e cadenza. Scorri la tua attività con evidenziazione in tempo reale sulla mappa. Visualizza distribuzioni delle zone, metriche di allenamento (TSS, fattore di intensità) e analisi per giri.
 
-<b>Route Intelligence</b>
-Automatically detect repeated routes and track your performance over time. Compare efforts on the same course to see progress. Identify frequently-traveled sections with detailed match analysis.
+<b>Intelligenza dei percorsi</b>
+Rileva automaticamente i percorsi ripetuti e monitora le tue prestazioni nel tempo. Confronta gli sforzi sullo stesso tracciato per vedere i progressi. Identifica le sezioni percorse frequentemente con analisi dettagliata delle corrispondenze.
 
-<b>Fitness Tracking</b>
-Monitor your CTL/ATL/TSB fitness model with form zone analysis. Track HRV, resting heart rate, sleep, and wellness metrics. View power curves, pace curves, and zone distributions by sport.
+<b>Monitoraggio fitness</b>
+Monitora il tuo modello fitness CTL/ATL/TSB con analisi delle zone di forma. Traccia HRV, frequenza cardiaca a riposo, sonno e metriche di benessere. Visualizza curve di potenza, curve di ritmo e distribuzioni delle zone per sport.
 
-<b>Offline-First</b>
-Aggressive caching ensures your data is always available. Sync your activities once and access them anywhere without an internet connection.
+<b>Offline-first</b>
+La cache aggressiva garantisce che i tuoi dati siano sempre disponibili. Sincronizza le tue attività una volta e accedi ovunque senza connessione internet.
 
-<b>Privacy Focused</b>
-All data stays on your device. No analytics, no tracking, no data collection. Your credentials are stored securely using platform encryption.
+<b>Attenzione alla privacy</b>
+Tutti i dati rimangono sul tuo dispositivo. Nessuna analisi, nessun tracciamento, nessuna raccolta dati. Le tue credenziali sono archiviate in modo sicuro con crittografia di piattaforma.
 
-<b>Multi-Sport Support</b>
-Full support for cycling, running, swimming, and 20+ activity types with sport-specific metrics and analysis.
+<b>Supporto multisport</b>
+Supporto completo per ciclismo, corsa, nuoto e oltre 20 tipi di attività con metriche e analisi specifiche per ogni sport.
 
-<b>Requirements</b>
-An Intervals.icu account with API key access. Get your API key from Intervals.icu Settings > Developer Settings.
+<b>Requisiti</b>
+Un account Intervals.icu con accesso tramite chiave API. Ottieni la tua chiave API da Intervals.icu Impostazioni > Impostazioni sviluppatore.
 
-<b>Open Source</b>
-Veloq is open source software licensed under Apache 2.0. Contributions welcome on GitHub.
+<b>Open source</b>
+Veloq è un software open source con licenza Apache 2.0. I contributi sono benvenuti su GitHub.
