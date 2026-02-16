@@ -98,7 +98,8 @@ config/fastlane/vendor/bundle
 # E2E test artifacts
 artifacts/
 screenshots/
-*.png 
+*.png
+!docs/badges/google-play.png 
 
 # Worktrees
 .worktrees/
