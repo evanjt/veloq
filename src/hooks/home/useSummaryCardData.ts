@@ -1,11 +1,9 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAthlete } from '@/hooks/useAthlete';
 import { useWellness } from '@/hooks/fitness';
 import { useSportSettings, getSettingsForSport } from '@/hooks/useSportSettings';
 import { usePaceCurve } from '@/hooks/charts';
-import { useInfiniteActivities } from '@/hooks/activities';
-import { getLatestFTP } from '@/hooks/activities';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/lib';
 import { useDashboardPreferences, useSportPreference, SPORT_COLORS } from '@/providers';
 import type { MetricId } from '@/providers';
@@ -53,6 +51,35 @@ export interface SummaryCardData {
   refetch: () => Promise<void>;
 }
 
+/** Returns previous reference if structurally equal (JSON comparison). */
+function useStableValue<T>(value: T): T {
+  const ref = useRef(value);
+  const serialized = JSON.stringify(value);
+  const prevSerialized = useRef(serialized);
+  if (serialized !== prevSerialized.current) {
+    ref.current = value;
+    prevSerialized.current = serialized;
+  }
+  return ref.current;
+}
+
+/** Returns previous reference if all elements are identical. */
+function useStableArray(arr: number[] | undefined): number[] | undefined {
+  const ref = useRef(arr);
+  if (arr === undefined && ref.current === undefined) return ref.current;
+  if (arr === undefined || ref.current === undefined || arr.length !== ref.current.length) {
+    ref.current = arr;
+    return ref.current;
+  }
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i] !== ref.current[i]) {
+      ref.current = arr;
+      return ref.current;
+    }
+  }
+  return ref.current;
+}
+
 /**
  * Hook that provides all data needed for SummaryCard.
  *
@@ -60,7 +87,7 @@ export interface SummaryCardData {
  * reused in settings preview and other places that need the same data.
  *
  * Uses: useAthlete, useWellness, useSportSettings, usePaceCurve,
- * useInfiniteActivities, useDashboardPreferences, useSportPreference
+ * useDashboardPreferences, useSportPreference
  */
 export function useSummaryCardData(): SummaryCardData {
   const { t } = useTranslation();
@@ -78,18 +105,6 @@ export function useSummaryCardData(): SummaryCardData {
   // Profile URL
   const profileUrl = athlete?.profile_medium || athlete?.profile;
 
-  // Fetch activities for weekly stats and FTP
-  const {
-    data: activitiesData,
-    isLoading: activitiesLoading,
-    refetch: refetchActivities,
-  } = useInfiniteActivities();
-
-  const allActivities = useMemo(() => {
-    if (!activitiesData?.pages) return [];
-    return activitiesData.pages.flat();
-  }, [activitiesData?.pages]);
-
   // Fetch wellness data for form, fitness, HRV
   const {
     data: wellnessData,
@@ -100,17 +115,14 @@ export function useSummaryCardData(): SummaryCardData {
   // Subscribe to engine activity events — re-query when activity_metrics are populated
   const engineTrigger = useEngineSubscription(['activities']);
 
-  // Combined loading state
-  const isLoading = activitiesLoading || wellnessLoading;
+  const isLoading = wellnessLoading;
 
-  // Combined refresh handler
   const refetch = useCallback(async () => {
-    await Promise.all([refetchActivities(), refetchWellness()]);
-  }, [refetchActivities, refetchWellness]);
+    await refetchWellness();
+  }, [refetchWellness]);
 
-  // Compute quick stats from wellness and activities data
-  const quickStats = useMemo(() => {
-    // Get latest wellness data for form and HRV
+  // Wellness-derived stats (pure JS math, no FFI calls)
+  const wellnessStats = useMemo(() => {
     const sorted = wellnessData ? [...wellnessData].sort((a, b) => b.id.localeCompare(a.id)) : [];
     const latest = sorted[0];
     const previous = sorted[1];
@@ -121,7 +133,6 @@ export function useSummaryCardData(): SummaryCardData {
     const hrv = latest?.hrv ?? null;
     const rhr = latest?.restingHR ?? null;
 
-    // Calculate previous day's values for trends
     const prevFitness = Math.round(previous?.ctl ?? previous?.ctlLoad ?? fitness);
     const prevFatigue = Math.round(previous?.atl ?? previous?.atlLoad ?? fatigue);
     const prevForm = prevFitness - prevFatigue;
@@ -139,12 +150,32 @@ export function useSummaryCardData(): SummaryCardData {
       return diff > 0 ? '↑' : '↓';
     };
 
-    const fitnessTrend = getTrend(fitness, prevFitness, 1);
-    const formTrend = getTrend(form, prevForm, 2);
-    const hrvTrend = getTrend(hrv, prevHrv, 2);
-    const rhrTrend = getTrend(rhr, prevRhr, 1);
+    return {
+      fitness,
+      fitnessTrend: getTrend(fitness, prevFitness, 1),
+      form,
+      formTrend: getTrend(form, prevForm, 2),
+      hrv,
+      hrvTrend: getTrend(hrv, prevHrv, 2),
+      rhr,
+      rhrTrend: getTrend(rhr, prevRhr, 1),
+    };
+  }, [wellnessData]);
 
-    // Calendar week boundaries (Monday-Sunday) - matches training page
+  // Engine-derived stats (FFI calls: getPeriodStats x2 + getFtpTrend)
+  const engineStats = useMemo(() => {
+    const defaults = {
+      weekHours: 0,
+      weekHoursTrend: '' as const,
+      weekCount: 0,
+      weekCountTrend: '' as const,
+      ftp: null as number | null,
+      ftpTrend: '' as const,
+    };
+
+    const engine = getRouteEngine();
+    if (!engine) return defaults;
+
     const getMonday = (date: Date): Date => {
       const d = new Date(date);
       const day = d.getDay();
@@ -152,6 +183,17 @@ export function useSummaryCardData(): SummaryCardData {
       d.setDate(diff);
       d.setHours(0, 0, 0, 0);
       return d;
+    };
+
+    const getTrend = (
+      current: number | null,
+      prev: number | null,
+      threshold = 1
+    ): '↑' | '↓' | '' => {
+      if (current === null || prev === null) return '';
+      const diff = current - prev;
+      if (Math.abs(diff) < threshold) return '';
+      return diff > 0 ? '↑' : '↓';
     };
 
     const now = new Date();
@@ -167,93 +209,41 @@ export function useSummaryCardData(): SummaryCardData {
     prevSunday.setDate(currentMonday.getDate() - 1);
     prevSunday.setHours(23, 59, 59, 999);
 
-    const currentMondayTs = currentMonday.getTime();
-    const currentSundayTs = currentSunday.getTime();
-    const prevMondayTs = prevMonday.getTime();
-    const prevSundayTs = prevSunday.getTime();
+    const currentWeekStats = engine.getPeriodStats(
+      Math.floor(currentMonday.getTime() / 1000),
+      Math.floor(currentSunday.getTime() / 1000)
+    );
+    const prevWeekStats = engine.getPeriodStats(
+      Math.floor(prevMonday.getTime() / 1000),
+      Math.floor(prevSunday.getTime() / 1000)
+    );
 
-    // Try engine aggregate queries first, fall back to JS iteration
-    let weekCount = 0;
-    let weekSeconds = 0;
-    let prevWeekCount = 0;
-    let prevWeekSeconds = 0;
-    let latestFtp: number | null = null;
-    let prevFtp: number | null = null;
-
-    const engine = getRouteEngine();
-    if (engine) {
-      const currentWeekStats = engine.getPeriodStats(
-        Math.floor(currentMondayTs / 1000),
-        Math.floor(currentSundayTs / 1000)
-      );
-      weekCount = currentWeekStats.count;
-      weekSeconds = Number(currentWeekStats.totalDuration);
-
-      const prevWeekStats = engine.getPeriodStats(
-        Math.floor(prevMondayTs / 1000),
-        Math.floor(prevSundayTs / 1000)
-      );
-      prevWeekCount = prevWeekStats.count;
-      prevWeekSeconds = Number(prevWeekStats.totalDuration);
-
-      const ftpTrend = engine.getFtpTrend();
-      latestFtp = ftpTrend.latestFtp ?? null;
-      prevFtp = ftpTrend.previousFtp ?? null;
-    } else if (allActivities) {
-      let latestFtpDate = 0;
-      let prevFtpDate = 0;
-      const thirtyDaysAgoTs = Date.now() - 30 * 24 * 60 * 60 * 1000;
-
-      for (const activity of allActivities) {
-        const activityTs = new Date(activity.start_date_local).getTime();
-
-        if (activityTs >= currentMondayTs && activityTs <= currentSundayTs) {
-          weekCount++;
-          weekSeconds += activity.moving_time || 0;
-        } else if (activityTs >= prevMondayTs && activityTs <= prevSundayTs) {
-          prevWeekCount++;
-          prevWeekSeconds += activity.moving_time || 0;
-        }
-
-        if (activity.icu_ftp) {
-          if (activityTs > latestFtpDate) {
-            latestFtpDate = activityTs;
-            latestFtp = activity.icu_ftp;
-          }
-          if (activityTs <= thirtyDaysAgoTs && activityTs > prevFtpDate) {
-            prevFtpDate = activityTs;
-            prevFtp = activity.icu_ftp;
-          }
-        }
-      }
-    }
+    const weekCount = currentWeekStats.count;
+    const weekSeconds = Number(currentWeekStats.totalDuration);
+    const prevWeekSeconds = Number(prevWeekStats.totalDuration);
 
     const weekHours = Math.round((weekSeconds / 3600) * 10) / 10;
     const prevWeekHours = Math.round((prevWeekSeconds / 3600) * 10) / 10;
 
-    const weekHoursTrend = getTrend(weekHours, prevWeekHours, 0.5);
-    const weekCountTrend = getTrend(weekCount, prevWeekCount, 1);
-
-    const ftp = latestFtp ?? getLatestFTP(allActivities) ?? null;
-    const ftpTrend = getTrend(ftp, prevFtp ?? ftp, 3);
+    const ftpResult = engine.getFtpTrend();
+    const latestFtp = ftpResult.latestFtp ?? null;
+    const prevFtp = ftpResult.previousFtp ?? null;
 
     return {
-      fitness,
-      fitnessTrend,
-      form,
-      formTrend,
-      hrv,
-      hrvTrend,
-      rhr,
-      rhrTrend,
       weekHours,
-      weekHoursTrend,
+      weekHoursTrend: getTrend(weekHours, prevWeekHours, 0.5),
       weekCount,
-      weekCountTrend,
-      ftp,
-      ftpTrend,
+      weekCountTrend: getTrend(weekCount, prevWeekStats.count, 1),
+      ftp: latestFtp,
+      ftpTrend: getTrend(latestFtp, prevFtp ?? latestFtp, 3),
     };
-  }, [wellnessData, allActivities, engineTrigger]);
+  }, [engineTrigger]);
+
+  // Merged quick stats — recomputes only when either source changes
+  const quickStats = useMemo(
+    () => ({ ...wellnessStats, ...engineStats }),
+    [wellnessStats, engineStats]
+  );
 
   const formZone = getFormZone(quickStats.form);
   const formColor = formZone ? FORM_ZONE_COLORS[formZone] : colors.success;
@@ -417,27 +407,32 @@ export function useSummaryCardData(): SummaryCardData {
     });
   }, [summaryCard.supportingMetrics, quickStats, formColor, sportMetrics, t]);
 
+  // Stabilize references to prevent downstream re-renders when values are unchanged
+  const stableHeroData = useStableValue(heroData);
+  const stableSparklineData = useStableArray(sparklineData);
+  const stableSupportingMetrics = useStableValue(supportingMetrics);
+
   return useMemo(
     () => ({
       profileUrl,
-      heroValue: heroData.value,
-      heroLabel: heroData.label,
-      heroColor: heroData.color,
-      heroZoneLabel: heroData.zoneLabel,
-      heroZoneColor: heroData.zoneColor,
-      heroTrend: heroData.trend,
-      sparklineData,
+      heroValue: stableHeroData.value,
+      heroLabel: stableHeroData.label,
+      heroColor: stableHeroData.color,
+      heroZoneLabel: stableHeroData.zoneLabel,
+      heroZoneColor: stableHeroData.zoneColor,
+      heroTrend: stableHeroData.trend,
+      sparklineData: stableSparklineData,
       showSparkline: summaryCard.showSparkline,
-      supportingMetrics,
+      supportingMetrics: stableSupportingMetrics,
       isLoading,
       refetch,
     }),
     [
       profileUrl,
-      heroData,
-      sparklineData,
+      stableHeroData,
+      stableSparklineData,
       summaryCard.showSparkline,
-      supportingMetrics,
+      stableSupportingMetrics,
       isLoading,
       refetch,
     ]
