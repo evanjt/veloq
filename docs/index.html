@@ -714,6 +714,48 @@
         font-size: 0.875rem;
       }
 
+      /* Store Badges */
+      .store-badges {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+
+      .store-badges a {
+        display: inline-block;
+        transition: transform 0.2s;
+      }
+
+      .store-badges a:hover {
+        transform: translateY(-2px);
+      }
+
+      .store-badges img {
+        height: 42px;
+      }
+
+
+
+      .alt-downloads {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        margin-bottom: 32px;
+      }
+
+      .alt-downloads a {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
+
+      .alt-downloads a:hover {
+        color: var(--primary);
+      }
+
       /* Mobile */
       @media (max-width: 768px) {
         .nav-links a:not(:last-child) {
@@ -809,7 +851,7 @@
           </h1>
           <p class="animate-fade-up delay-1" data-i18n="hero.subtitle">
             Interactive 3D maps, automatic route tracking, and detailed fitness
-            analytics. All offline-ready and open source.
+            analytics.
           </p>
           <p
             class="demo-hint animate-fade-up delay-1"
@@ -817,44 +859,42 @@
           >
             Requires an Intervals.icu account. No account? Try the demo mode.
           </p>
-          <div class="cta-buttons animate-fade-up delay-2" id="download">
+          <div class="store-badges animate-fade-up delay-2" id="download">
             <a
-              href="https://github.com/evanjt/veloq/releases"
-              class="btn btn-primary"
+              href="https://apps.apple.com/us/app/veloq/id6757836732"
               target="_blank"
             >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7,10 12,15 17,10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              <span data-i18n="cta.download">Download</span>
+              <img
+                src="badges/app-store.svg"
+                alt="Download on the App Store"
+              />
+            </a>
+            <a
+              href="https://play.google.com/store/apps/details?id=com.veloq.app"
+              target="_blank"
+            >
+              <img
+                src="badges/google-play.png"
+                alt="Get it on Google Play"
+              />
             </a>
             <a
               href="https://github.com/evanjt/veloq"
-              class="btn btn-secondary"
               target="_blank"
             >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path
-                  d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"
-                />
-              </svg>
-              <span data-i18n="cta.viewSource">View Source</span>
+              <img
+                src="badges/github.svg"
+                alt="View on GitHub"
+              />
             </a>
           </div>
+          <p class="alt-downloads animate-fade-up delay-2" data-i18n="cta.openSource">
+            Open source &mdash; sideload via
+            <a href="https://github.com/evanjt/veloq/releases" target="_blank">GitHub Releases</a>
+          </p>
+          <p class="alt-downloads animate-fade-up delay-2" style="font-size: 0.8rem; margin-top: -8px;" data-i18n="cta.storeNote">
+            * Installing from the app stores helps support ongoing development
+          </p>
         </div>
       </section>
 
@@ -944,10 +984,10 @@
             </div>
             <div class="feature">
               <div class="feature-icon">&#128247;</div>
-              <h3 data-i18n="features.offline.title">Offline Access</h3>
+              <h3 data-i18n="features.offline.title">On-Device</h3>
               <p data-i18n="features.offline.desc">
-                Data is cached locally for offline viewing. Sync once and access
-                without internet.
+                Route and section detection runs entirely on your device. Your
+                data never leaves your phone.
               </p>
             </div>
             <div class="feature">
@@ -984,7 +1024,9 @@
               <div class="step-number">2</div>
               <h3 data-i18n="getStarted.step2.title">Install Veloq</h3>
               <p data-i18n="getStarted.step2.desc">
-                Download from GitHub Releases
+                Get it on the
+                <a href="https://apps.apple.com/us/app/veloq/id6757836732" target="_blank">App Store</a> or
+                <a href="https://play.google.com/store/apps/details?id=com.veloq.app" target="_blank">Google Play</a>
               </p>
             </div>
             <div class="step">
@@ -1003,6 +1045,16 @@
       <div class="container">
         <div class="footer-links">
           <a href="https://github.com/evanjt/veloq" target="_blank">GitHub</a>
+          <a
+            href="https://apps.apple.com/us/app/veloq/id6757836732"
+            target="_blank"
+            >App Store</a
+          >
+          <a
+            href="https://play.google.com/store/apps/details?id=com.veloq.app"
+            target="_blank"
+            >Google Play</a
+          >
           <a
             href="https://github.com/evanjt/veloq/releases"
             target="_blank"
@@ -1162,12 +1214,12 @@
           "nav.download": "Download",
           "hero.title": "Your training,<br><span>visualised</span>",
           "hero.subtitle":
-            "Interactive 3D maps, automatic route tracking, and detailed fitness analytics. All offline-ready and open source.",
+            "Interactive 3D maps, automatic route tracking, and detailed fitness analytics.",
           "hero.demoHint": "Requires an Intervals.icu account. No account? Try the demo mode.",
           "showcase.disclaimer":
             "* Screenshots show demo data for illustration purposes only.",
-          "cta.download": "Download",
-          "cta.viewSource": "View Source",
+          "cta.openSource": "Open source &mdash; sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
+          "cta.storeNote": "* Installing from the app stores helps support ongoing development",
           "features.title": "View your data",
           "features.subtitle":
             "Access your Intervals.icu data on mobile with offline support.",
@@ -1183,9 +1235,9 @@
           "features.fitness.title": "Fitness",
           "features.fitness.desc":
             "View your CTL/ATL/TSB fitness data and form zones as calculated by Intervals.icu.",
-          "features.offline.title": "Offline Access",
+          "features.offline.title": "On-Device",
           "features.offline.desc":
-            "Data is cached locally for offline viewing. Sync once and access without internet.",
+            "Route and section detection runs entirely on your device. Your data never leaves your phone.",
           "features.privacy.title": "Privacy",
           "features.privacy.desc":
             "All data stays on your device. No analytics, no tracking, no servers. Open source.",
@@ -1196,7 +1248,7 @@
           "getStarted.step1.desc":
             'Go to <a href="https://intervals.icu/settings" target="_blank">Intervals.icu Settings</a> &rarr; Developer Settings',
           "getStarted.step2.title": "Install Veloq",
-          "getStarted.step2.desc": "Download from GitHub Releases",
+          "getStarted.step2.desc": "Get it on the <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> or <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
           "getStarted.step3.title": "Connect",
           "getStarted.step3.desc": "Enter your API key and start exploring",
           "footer.releases": "Releases",
@@ -1209,13 +1261,13 @@
           "hero.title":
             "Dein Training,<br><span>visualisiert</span>",
           "hero.subtitle":
-            "Interaktive 3D-Karten, automatische Streckenverfolgung und detaillierte Fitnessanalysen. Alles offline-fähig und Open Source.",
+            "Interaktive 3D-Karten, automatische Streckenverfolgung und detaillierte Fitnessanalysen.",
           "hero.demoHint":
             "Erfordert ein Intervals.icu-Konto. Kein Konto? Probiere den Demo-Modus.",
           "showcase.disclaimer":
             "* Screenshots zeigen Demodaten nur zur Veranschaulichung.",
-          "cta.download": "Herunterladen",
-          "cta.viewSource": "Quellcode",
+          "cta.openSource": "Open Source &mdash; Sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
+          "cta.storeNote": "* Die Installation aus den App Stores unterstützt die Weiterentwicklung",
           "features.title": "Deine Daten anzeigen",
           "features.subtitle":
             "Greife mobil auf deine Intervals.icu Daten zu, auch offline.",
@@ -1231,9 +1283,9 @@
           "features.fitness.title": "Fitness",
           "features.fitness.desc":
             "CTL/ATL/TSB Fitnessdaten und Formzonen wie von Intervals.icu berechnet.",
-          "features.offline.title": "Offline-Zugriff",
+          "features.offline.title": "Auf dem Gerät",
           "features.offline.desc":
-            "Daten werden lokal gespeichert. Einmal synchronisieren, dann ohne Internet nutzen.",
+            "Routen- und Abschnittserkennung läuft vollständig auf deinem Gerät. Deine Daten verlassen dein Handy nie.",
           "features.privacy.title": "Datenschutz",
           "features.privacy.desc":
             "Alle Daten bleiben auf deinem Gerät. Keine Analyse, kein Tracking, keine Server. Open Source.",
@@ -1244,7 +1296,7 @@
           "getStarted.step1.desc":
             'Gehe zu <a href="https://intervals.icu/settings" target="_blank">Intervals.icu Einstellungen</a> &rarr; Entwickler',
           "getStarted.step2.title": "Veloq installieren",
-          "getStarted.step2.desc": "Von GitHub Releases herunterladen",
+          "getStarted.step2.desc": "Im <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> oder bei <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a> herunterladen",
           "getStarted.step3.title": "Verbinden",
           "getStarted.step3.desc": "API-Schlüssel eingeben und loslegen",
           "footer.releases": "Releases",
@@ -1256,12 +1308,12 @@
           "nav.download": "Downloaden",
           "hero.title": "Je training,<br><span>gevisualiseerd</span>",
           "hero.subtitle":
-            "Interactieve 3D-kaarten, automatische routetracking en gedetailleerde fitnessanalyses. Alles offline-klaar en open source.",
+            "Interactieve 3D-kaarten, automatische routetracking en gedetailleerde fitnessanalyses.",
           "hero.demoHint": "Vereist een Intervals.icu-account. Geen account? Probeer de demo-modus.",
           "showcase.disclaimer":
             "* Screenshots tonen demogegevens, alleen ter illustratie.",
-          "cta.download": "Downloaden",
-          "cta.viewSource": "Bekijk broncode",
+          "cta.openSource": "Open source &mdash; sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
+          "cta.storeNote": "* Installeren via de app stores helpt de ontwikkeling te ondersteunen",
           "features.title": "Bekijk je data",
           "features.subtitle":
             "Toegang tot je Intervals.icu data op mobiel met offline ondersteuning.",
@@ -1277,9 +1329,9 @@
           "features.fitness.title": "Fitness",
           "features.fitness.desc":
             "CTL/ATL/TSB fitnessdata en vormzones zoals berekend door Intervals.icu.",
-          "features.offline.title": "Offline toegang",
+          "features.offline.title": "Op het apparaat",
           "features.offline.desc":
-            "Data wordt lokaal opgeslagen. Eenmaal synchroniseren, altijd toegang.",
+            "Route- en sectiedetectie draait volledig op je apparaat. Je data verlaat je telefoon nooit.",
           "features.privacy.title": "Privacy",
           "features.privacy.desc":
             "Alle data blijft op je apparaat. Geen analytics, geen tracking, geen servers. Open source.",
@@ -1290,7 +1342,7 @@
           "getStarted.step1.desc":
             'Ga naar <a href="https://intervals.icu/settings" target="_blank">Intervals.icu Instellingen</a> &rarr; Ontwikkelaar',
           "getStarted.step2.title": "Veloq installeren",
-          "getStarted.step2.desc": "Download van GitHub Releases",
+          "getStarted.step2.desc": "Download in de <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> of op <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
           "getStarted.step3.title": "Verbinden",
           "getStarted.step3.desc":
             "Voer je API-sleutel in en begin met verkennen",
@@ -1303,13 +1355,13 @@
           "nav.download": "Télécharger",
           "hero.title": "Votre entraînement,<br><span>visualisé</span>",
           "hero.subtitle":
-            "Cartes 3D interactives, suivi automatique des itinéraires et analyses fitness détaillées. Tout hors ligne et open source.",
+            "Cartes 3D interactives, suivi automatique des itinéraires et analyses fitness détaillées.",
           "hero.demoHint":
             "Nécessite un compte Intervals.icu. Pas de compte ? Essayez le mode démo.",
           "showcase.disclaimer":
             "* Les captures d'écran montrent des données de démonstration à titre indicatif uniquement.",
-          "cta.download": "Télécharger",
-          "cta.viewSource": "Voir le code",
+          "cta.openSource": "Open source &mdash; sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
+          "cta.storeNote": "* L'installation depuis les app stores soutient le développement",
           "features.title": "Voir vos données",
           "features.subtitle":
             "Accédez à vos données Intervals.icu sur mobile avec support hors ligne.",
@@ -1325,9 +1377,9 @@
           "features.fitness.title": "Forme",
           "features.fitness.desc":
             "Visualisez vos données de forme CTL/ATL/TSB et zones calculées par Intervals.icu.",
-          "features.offline.title": "Accès Hors Ligne",
+          "features.offline.title": "Sur l'appareil",
           "features.offline.desc":
-            "Les données sont mises en cache localement pour consultation hors ligne.",
+            "La détection des itinéraires et sections s'exécute entièrement sur votre appareil. Vos données ne quittent jamais votre téléphone.",
           "features.privacy.title": "Confidentialité",
           "features.privacy.desc":
             "Toutes les données restent sur votre appareil. Pas d'analytique, pas de suivi, pas de serveurs. Open source.",
@@ -1338,7 +1390,7 @@
           "getStarted.step1.desc":
             'Allez dans <a href="https://intervals.icu/settings" target="_blank">Paramètres</a> &rarr; Développeur',
           "getStarted.step2.title": "Installer Veloq",
-          "getStarted.step2.desc": "Téléchargez depuis GitHub Releases",
+          "getStarted.step2.desc": "Disponible sur l'<a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> et <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
           "getStarted.step3.title": "Connecter",
           "getStarted.step3.desc":
             "Entrez votre clé API et commencez à explorer",
@@ -1351,13 +1403,13 @@
           "nav.download": "Scarica",
           "hero.title": "Il tuo allenamento,<br><span>visualizzato</span>",
           "hero.subtitle":
-            "Mappe 3D interattive, tracciamento automatico dei percorsi e analisi fitness dettagliate. Tutto offline e open source.",
+            "Mappe 3D interattive, tracciamento automatico dei percorsi e analisi fitness dettagliate.",
           "hero.demoHint":
             "Richiede un account Intervals.icu. Nessun account? Prova la modalità demo.",
           "showcase.disclaimer":
             "* Gli screenshot mostrano dati demo solo a scopo illustrativo.",
-          "cta.download": "Scarica",
-          "cta.viewSource": "Codice sorgente",
+          "cta.openSource": "Open source &mdash; sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
+          "cta.storeNote": "* L'installazione dagli app store aiuta a sostenere lo sviluppo",
           "features.title": "Visualizza i tuoi dati",
           "features.subtitle":
             "Accedi ai tuoi dati Intervals.icu su mobile con supporto offline.",
@@ -1373,9 +1425,9 @@
           "features.fitness.title": "Fitness",
           "features.fitness.desc":
             "Dati fitness CTL/ATL/TSB e zone di forma come calcolati da Intervals.icu.",
-          "features.offline.title": "Accesso Offline",
+          "features.offline.title": "Sul dispositivo",
           "features.offline.desc":
-            "I dati vengono memorizzati localmente. Sincronizza una volta, accedi sempre.",
+            "Il rilevamento di percorsi e sezioni avviene interamente sul tuo dispositivo. I tuoi dati non lasciano mai il tuo telefono.",
           "features.privacy.title": "Privacy",
           "features.privacy.desc":
             "Tutti i dati rimangono sul tuo dispositivo. Nessuna analisi, nessun tracciamento, nessun server. Open source.",
@@ -1386,7 +1438,7 @@
           "getStarted.step1.desc":
             'Vai su <a href="https://intervals.icu/settings" target="_blank">Impostazioni Intervals.icu</a> &rarr; Sviluppatore',
           "getStarted.step2.title": "Installa Veloq",
-          "getStarted.step2.desc": "Scarica da GitHub Releases",
+          "getStarted.step2.desc": "Disponibile su <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> e <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
           "getStarted.step3.title": "Connetti",
           "getStarted.step3.desc":
             "Inserisci la tua chiave API e inizia a esplorare",
@@ -1399,12 +1451,12 @@
           "nav.download": "Descargar",
           "hero.title": "Tu entrenamiento,<br><span>visualizado</span>",
           "hero.subtitle":
-            "Mapas 3D interactivos, seguimiento automático de rutas y análisis fitness detallados. Todo offline y de código abierto.",
+            "Mapas 3D interactivos, seguimiento automático de rutas y análisis fitness detallados.",
           "hero.demoHint": "Requiere una cuenta de Intervals.icu. ¿Sin cuenta? Prueba el modo demo.",
           "showcase.disclaimer":
             "* Las capturas muestran datos de demostración solo con fines ilustrativos.",
-          "cta.download": "Descargar",
-          "cta.viewSource": "Ver código",
+          "cta.openSource": "Código abierto &mdash; sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
+          "cta.storeNote": "* Instalar desde las tiendas de apps ayuda a apoyar el desarrollo",
           "features.title": "Ver tus datos",
           "features.subtitle":
             "Accede a tus datos de Intervals.icu en móvil con soporte offline.",
@@ -1420,9 +1472,9 @@
           "features.fitness.title": "Fitness",
           "features.fitness.desc":
             "Ve tus datos de fitness CTL/ATL/TSB y zonas de forma calculados por Intervals.icu.",
-          "features.offline.title": "Acceso Offline",
+          "features.offline.title": "En el dispositivo",
           "features.offline.desc":
-            "Los datos se almacenan localmente para ver sin conexión.",
+            "La detección de rutas y secciones se ejecuta completamente en tu dispositivo. Tus datos nunca salen de tu teléfono.",
           "features.privacy.title": "Privacidad",
           "features.privacy.desc":
             "Todos los datos permanecen en tu dispositivo. Sin análisis, sin seguimiento, sin servidores. Código abierto.",
@@ -1433,7 +1485,7 @@
           "getStarted.step1.desc":
             'Ve a <a href="https://intervals.icu/settings" target="_blank">Configuración</a> &rarr; Desarrollador',
           "getStarted.step2.title": "Instalar Veloq",
-          "getStarted.step2.desc": "Descarga desde GitHub Releases",
+          "getStarted.step2.desc": "Disponible en <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> y <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
           "getStarted.step3.title": "Conectar",
           "getStarted.step3.desc": "Ingresa tu clave API y comienza a explorar",
           "footer.releases": "Versiones",
@@ -1446,12 +1498,12 @@
           "hero.title":
             "Seu treino,<br><span>visualizado</span>",
           "hero.subtitle":
-            "Mapas 3D interativos, rastreamento automático de rotas e análises fitness detalhadas. Tudo offline e de código aberto.",
+            "Mapas 3D interativos, rastreamento automático de rotas e análises fitness detalhadas.",
           "hero.demoHint": "Requer uma conta Intervals.icu. Sem conta? Experimente o modo demo.",
           "showcase.disclaimer":
             "* As capturas mostram dados de demonstração apenas para fins ilustrativos.",
-          "cta.download": "Baixar",
-          "cta.viewSource": "Ver código",
+          "cta.openSource": "Código aberto &mdash; sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
+          "cta.storeNote": "* Instalar pelas lojas de apps ajuda a apoiar o desenvolvimento",
           "features.title": "Veja seus dados",
           "features.subtitle":
             "Acesse seus dados do Intervals.icu no celular com suporte offline.",
@@ -1467,9 +1519,9 @@
           "features.fitness.title": "Fitness",
           "features.fitness.desc":
             "Dados de fitness CTL/ATL/TSB e zonas de forma calculados pelo Intervals.icu.",
-          "features.offline.title": "Acesso Offline",
+          "features.offline.title": "No dispositivo",
           "features.offline.desc":
-            "Os dados são armazenados localmente. Sincronize uma vez, acesse sempre.",
+            "A detecção de rotas e seções é executada inteiramente no seu dispositivo. Seus dados nunca saem do seu celular.",
           "features.privacy.title": "Privacidade",
           "features.privacy.desc":
             "Todos os dados ficam no seu dispositivo. Sem análise, sem rastreamento, sem servidores. Código aberto.",
@@ -1480,7 +1532,7 @@
           "getStarted.step1.desc":
             'Vá para <a href="https://intervals.icu/settings" target="_blank">Configurações</a> &rarr; Desenvolvedor',
           "getStarted.step2.title": "Instalar Veloq",
-          "getStarted.step2.desc": "Baixe do GitHub Releases",
+          "getStarted.step2.desc": "Disponível na <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> e no <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
           "getStarted.step3.title": "Conectar",
           "getStarted.step3.desc": "Digite sua chave API e comece a explorar",
           "footer.releases": "Versões",
@@ -1493,12 +1545,12 @@
           "hero.title":
             "Twój trening,<br><span>zwizualizowany</span>",
           "hero.subtitle":
-            "Interaktywne mapy 3D, automatyczne śledzenie tras i szczegółowe analizy fitness. Wszystko offline i open source.",
+            "Interaktywne mapy 3D, automatyczne śledzenie tras i szczegółowe analizy fitness.",
           "hero.demoHint": "Wymaga konta Intervals.icu. Nie masz konta? Wypróbuj tryb demo.",
           "showcase.disclaimer":
             "* Zrzuty ekranu pokazują dane demo wyłącznie w celach ilustracyjnych.",
-          "cta.download": "Pobierz",
-          "cta.viewSource": "Kod źródłowy",
+          "cta.openSource": "Open source &mdash; sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
+          "cta.storeNote": "* Instalacja ze sklepów z aplikacjami wspiera dalszy rozwój",
           "features.title": "Zobacz swoje dane",
           "features.subtitle":
             "Uzyskaj dostęp do danych Intervals.icu na telefonie z obsługą offline.",
@@ -1514,9 +1566,9 @@
           "features.fitness.title": "Forma",
           "features.fitness.desc":
             "Dane CTL/ATL/TSB i strefy formy obliczone przez Intervals.icu.",
-          "features.offline.title": "Dostęp Offline",
+          "features.offline.title": "Na urządzeniu",
           "features.offline.desc":
-            "Dane są przechowywane lokalnie. Synchronizuj raz, korzystaj zawsze.",
+            "Wykrywanie tras i odcinków odbywa się całkowicie na Twoim urządzeniu. Twoje dane nigdy nie opuszczają telefonu.",
           "features.privacy.title": "Prywatność",
           "features.privacy.desc":
             "Wszystkie dane pozostają na urządzeniu. Bez analityki, śledzenia, serwerów. Open source.",
@@ -1527,7 +1579,7 @@
           "getStarted.step1.desc":
             'Przejdź do <a href="https://intervals.icu/settings" target="_blank">Ustawień</a> &rarr; Deweloper',
           "getStarted.step2.title": "Zainstaluj Veloq",
-          "getStarted.step2.desc": "Pobierz z GitHub Releases",
+          "getStarted.step2.desc": "Pobierz z <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> lub <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
           "getStarted.step3.title": "Połącz",
           "getStarted.step3.desc": "Wprowadź klucz API i zacznij eksplorować",
           "footer.releases": "Wydania",
@@ -1539,12 +1591,12 @@
           "nav.download": "Download",
           "hero.title": "Din træning,<br><span>visualiseret</span>",
           "hero.subtitle":
-            "Interaktive 3D-kort, automatisk rutesporing og detaljerede fitnessanalyser. Alt offline og open source.",
+            "Interaktive 3D-kort, automatisk rutesporing og detaljerede fitnessanalyser.",
           "hero.demoHint": "Kræver en Intervals.icu-konto. Ingen konto? Prøv demo-tilstanden.",
           "showcase.disclaimer":
             "* Screenshots viser demodata kun til illustrationsformål.",
-          "cta.download": "Download",
-          "cta.viewSource": "Se kildekode",
+          "cta.openSource": "Open source &mdash; sideload via <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>",
+          "cta.storeNote": "* Installation fra app stores hjælper med at støtte den løbende udvikling",
           "features.title": "Se dine data",
           "features.subtitle":
             "Få adgang til dine Intervals.icu data på mobil med offline-understøttelse.",
@@ -1560,9 +1612,9 @@
           "features.fitness.title": "Fitness",
           "features.fitness.desc":
             "CTL/ATL/TSB fitnessdata og formzoner beregnet af Intervals.icu.",
-          "features.offline.title": "Offline adgang",
+          "features.offline.title": "På enheden",
           "features.offline.desc":
-            "Data gemmes lokalt. Synkroniser én gang, få adgang altid.",
+            "Rute- og sektionsdetektion kører helt på din enhed. Dine data forlader aldrig din telefon.",
           "features.privacy.title": "Privatliv",
           "features.privacy.desc":
             "Alle data forbliver på din enhed. Ingen analyse, ingen sporing, ingen servere. Open source.",
@@ -1573,7 +1625,7 @@
           "getStarted.step1.desc":
             'Gå til <a href="https://intervals.icu/settings" target="_blank">Indstillinger</a> &rarr; Udvikler',
           "getStarted.step2.title": "Installer Veloq",
-          "getStarted.step2.desc": "Download fra GitHub Releases",
+          "getStarted.step2.desc": "Hent den i <a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a> eller på <a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>",
           "getStarted.step3.title": "Forbind",
           "getStarted.step3.desc":
             "Indtast din API-nøgle og begynd at udforske",
@@ -1586,12 +1638,12 @@
           "nav.download": "ダウンロード",
           "hero.title": "あなたのトレーニングを<br><span>可視化</span>",
           "hero.subtitle":
-            "インタラクティブな3Dマップ、自動ルート追跡、詳細なフィットネス分析。すべてオフライン対応でオープンソース。",
+            "インタラクティブな3Dマップ、自動ルート追跡、詳細なフィットネス分析。",
           "hero.demoHint": "Intervals.icuアカウントが必要です。アカウントがない？デモモードをお試しください。",
           "showcase.disclaimer":
             "* スクリーンショットはデモデータを表示しています。",
-          "cta.download": "ダウンロード",
-          "cta.viewSource": "ソースを見る",
+          "cta.openSource": "オープンソース &mdash; <a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>からサイドロード",
+          "cta.storeNote": "* アプリストアからのインストールは開発の支援になります",
           "features.title": "データを表示",
           "features.subtitle":
             "モバイルでIntervals.icuデータにオフラインでアクセス。",
@@ -1607,9 +1659,9 @@
           "features.fitness.title": "フィットネス",
           "features.fitness.desc":
             "Intervals.icuが計算したCTL/ATL/TSBフィットネスデータとフォームゾーン。",
-          "features.offline.title": "オフラインアクセス",
+          "features.offline.title": "デバイス上で処理",
           "features.offline.desc":
-            "データはローカルにキャッシュ。一度同期すれば、いつでもアクセス可能。",
+            "ルートとセクションの検出はすべてデバイス上で実行されます。データがスマートフォンから出ることはありません。",
           "features.privacy.title": "プライバシー",
           "features.privacy.desc":
             "すべてのデータはデバイスに保存。分析なし、追跡なし、サーバーなし。オープンソース。",
@@ -1620,7 +1672,7 @@
           "getStarted.step1.desc":
             '<a href="https://intervals.icu/settings" target="_blank">設定</a> → 開発者設定へ',
           "getStarted.step2.title": "Veloqをインストール",
-          "getStarted.step2.desc": "GitHub Releasesからダウンロード",
+          "getStarted.step2.desc": "<a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a>または<a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>から入手",
           "getStarted.step3.title": "接続",
           "getStarted.step3.desc": "APIキーを入力して探索を開始",
           "footer.releases": "リリース",
@@ -1632,11 +1684,11 @@
           "nav.download": "下载",
           "hero.title": "您的训练，<br><span>可视化</span>",
           "hero.subtitle":
-            "交互式3D地图、自动路线追踪和详细健身分析。全部支持离线使用，开源免费。",
+            "交互式3D地图、自动路线追踪和详细健身分析。",
           "hero.demoHint": "需要Intervals.icu账户。没有账户？试试演示模式。",
           "showcase.disclaimer": "* 截图仅显示演示数据，用于说明目的。",
-          "cta.download": "下载",
-          "cta.viewSource": "查看源码",
+          "cta.openSource": "开源 &mdash; 通过<a href=\"https://github.com/evanjt/veloq/releases\" target=\"_blank\">GitHub Releases</a>侧载",
+          "cta.storeNote": "* 从应用商店安装有助于支持持续开发",
           "features.title": "查看您的数据",
           "features.subtitle":
             "在手机上访问您的Intervals.icu数据，支持离线使用。",
@@ -1652,8 +1704,8 @@
           "features.fitness.title": "健身",
           "features.fitness.desc":
             "Intervals.icu计算的CTL/ATL/TSB健身数据和状态区间。",
-          "features.offline.title": "离线访问",
-          "features.offline.desc": "数据本地缓存。同步一次，随时访问。",
+          "features.offline.title": "设备端处理",
+          "features.offline.desc": "路线和路段检测完全在您的设备上运行。您的数据永远不会离开手机。",
           "features.privacy.title": "隐私",
           "features.privacy.desc":
             "所有数据保留在您的设备上。无分析、无跟踪、无服务器。开源。",
@@ -1663,7 +1715,7 @@
           "getStarted.step1.desc":
             '前往<a href="https://intervals.icu/settings" target="_blank">设置</a> → 开发者设置',
           "getStarted.step2.title": "安装Veloq",
-          "getStarted.step2.desc": "从GitHub Releases下载",
+          "getStarted.step2.desc": "在<a href=\"https://apps.apple.com/us/app/veloq/id6757836732\" target=\"_blank\">App Store</a>或<a href=\"https://play.google.com/store/apps/details?id=com.veloq.app\" target=\"_blank\">Google Play</a>下载",
           "getStarted.step3.title": "连接",
           "getStarted.step3.desc": "输入您的API密钥并开始探索",
           "footer.releases": "版本发布",

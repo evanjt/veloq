@@ -17,6 +17,8 @@ Not affiliated with Intervals.icu.
 ## Links
 
 - Website: [veloq.fit](https://veloq.fit)
+- App Store: [Download on the App Store](https://apps.apple.com/us/app/veloq/id6757836732)
+- Google Play: [Get it on Google Play](https://play.google.com/store/apps/details?id=com.veloq.app)
 - Privacy: [veloq.fit/privacy](https://veloq.fit/privacy)
 - Releases: [github.com/evanjt/veloq/releases](https://github.com/evanjt/veloq/releases)
 

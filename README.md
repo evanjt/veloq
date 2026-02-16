@@ -10,9 +10,19 @@
 </p>
 
 <p align="center">
+  <a href="https://apps.apple.com/us/app/veloq/id6757836732">
+    <img src="docs/badges/app-store.svg" alt="Download on the App Store" height="44">
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://play.google.com/store/apps/details?id=com.veloq.app">
+    <img src="docs/badges/google-play.png" alt="Get it on Google Play" height="44">
+  </a>
+</p>
+
+<p align="center">
   <a href="https://veloq.fit">Website</a> •
-  <a href="https://github.com/evanjt/veloq/releases">Download</a> •
-  <a href="https://veloq.fit/privacy">Privacy</a>
+  <a href="https://veloq.fit/privacy">Privacy</a> •
+  <a href="https://github.com/evanjt/veloq/releases">Releases</a>
 </p>
 
 ---
@@ -36,8 +46,20 @@ See [veloq.fit](https://veloq.fit) for the full feature list.
 
 ## Getting Started
 
-1. Download from [GitHub Releases](https://github.com/evanjt/veloq/releases)
+1. Install from the [App Store](https://apps.apple.com/us/app/veloq/id6757836732) or [Google Play](https://play.google.com/store/apps/details?id=com.veloq.app)
 2. Sign in with **OAuth** or use an **API key** from [Intervals.icu Settings](https://intervals.icu/settings)
+
+## Alternative Installation
+
+### Android (Obtainium / Sideloading)
+
+APK files are published to [GitHub Releases](https://github.com/evanjt/veloq/releases) with each version. Use [Obtainium](https://github.com/ImranR98/Obtainium) with this repo URL for automatic updates.
+
+Note: GitHub APK uses a different signing key than Play Store. Switching requires a reinstall.
+
+### Build from Source
+
+See [Development](#development) below.
 
 ## Development
 
