@@ -1,4 +1,4 @@
-v0.1.4 (16 feb 2026)
+v0.1.4 (Feb 16, 2026)
 
 • Probleem verholpen waarbij de statistiekenkaart 0 toonde totdat het GPS-bestand was gedownload – de weekoverzichtskaart verschijnt nu direct na het synchroniseren van activiteiten
 

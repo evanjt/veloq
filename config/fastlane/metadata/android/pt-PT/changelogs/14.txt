@@ -1,4 +1,4 @@
-v0.1.4 (16 fev 2026)
+v0.1.4 (Feb 16, 2026)
 
 • Corrigida a ficha de estatísticas que mostrava 0 até ao fim da transferência GPS — as estatísticas semanais passam a aparecer imediatamente após a sincronização das atividades
 

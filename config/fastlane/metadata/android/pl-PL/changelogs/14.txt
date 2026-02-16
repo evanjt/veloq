@@ -1,4 +1,4 @@
-v0.1.4 (16 lut 2026)
+v0.1.4 (Feb 16, 2026)
 
 • Naprawiono wyświetlanie wartości 0 na karcie statystyk do momentu pobrania danych GPS — statystyki tygodniowe pojawiają się teraz od razu po zsynchronizowaniu aktywności
 

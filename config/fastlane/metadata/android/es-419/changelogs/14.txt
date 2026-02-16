@@ -1,4 +1,4 @@
-v0.1.4 (16 feb 2026)
+v0.1.4 (Feb 16, 2026)
 
 • Corregida la tarjeta de estadísticas que mostraba 0 hasta que se completara la descarga del GPS — las estadísticas semanales ahora aparecen de inmediato tras sincronizar las actividades
 

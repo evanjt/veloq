@@ -1,4 +1,4 @@
-v0.1.4 (16. feb. 2026)
+v0.1.4 (Feb 16, 2026)
 
 • Fejl rettet, hvor statistikkortet viste 0, indtil GPS-download var fuldført – ugestatistikken vises nu straks efter synkronisering af aktiviteter
 
