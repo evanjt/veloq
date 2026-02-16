@@ -1,5 +1,0 @@
-v0.1.4 (16. Feb. 2026)
-
-• Fehler behoben, bei dem die Statistikkarte bis zum Abschluss des GPS-Downloads 0 anzeigte – die Wochenzusammenfassung erscheint jetzt sofort nach der Aktivitätssynchronisierung
-
-Full details: https://github.com/evanjt/veloq/releases/tag/v0.1.4
