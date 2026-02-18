@@ -6824,6 +6824,27 @@ pub mod persistent_engine_ffi {
         with_persistent_engine(|e| e.get_all_map_signatures()).unwrap_or_default()
     }
 
+    /// Detect recurring training patterns using k-means clustering on activity features.
+    /// Groups activities by sport type, clusters by day/duration/tss/distance,
+    /// and enriches with commonly-traversed sections.
+    #[uniffi::export]
+    pub fn persistent_engine_get_activity_patterns() -> Vec<crate::FfiActivityPattern> {
+        with_persistent_engine(|e| {
+            crate::patterns::compute_activity_patterns(&e.db, &e.activity_metrics)
+        })
+        .unwrap_or_default()
+    }
+
+    /// Get the best-matching training pattern for today's day of week and season.
+    /// Returns the highest-confidence pattern within +/-1 day tolerance.
+    #[uniffi::export]
+    pub fn persistent_engine_get_pattern_for_today() -> Option<crate::FfiActivityPattern> {
+        with_persistent_engine(|e| {
+            crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics)
+        })
+        .flatten()
+    }
+
 }
 
 /// Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB.

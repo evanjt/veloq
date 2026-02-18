@@ -69,6 +69,7 @@ import {
   type FfiRoutesScreenData,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
+  type FfiActivityPattern,
 } from "./generated/veloqrs";
 
 import type { FetchProgressEvent } from "./conversions";
@@ -102,6 +103,8 @@ export type FtpTrend = FfiFtpTrend;
 export type RoutesScreenData = FfiRoutesScreenData;
 export type GroupWithPolyline = FfiGroupWithPolyline;
 export type SectionWithPolyline = FfiSectionWithPolyline;
+// Activity pattern types
+export type ActivityPatternResult = FfiActivityPattern;
 
 // For backward compatibility, also export the module initialization status
 export function isRouteMatcherInitialized(): boolean {

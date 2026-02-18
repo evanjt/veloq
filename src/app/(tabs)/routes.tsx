@@ -6,7 +6,13 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { RoutesList, SectionsList, DateRangeSummary, SyncDebugTab } from '@/components';
+import {
+  RoutesList,
+  SectionsList,
+  DateRangeSummary,
+  SyncDebugTab,
+  TodayBanner,
+} from '@/components';
 import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import {
   useRouteProcessing,
@@ -313,6 +319,9 @@ export default function RoutesScreen() {
           timelineSyncProgress?.message || (groupsDirty ? t('routesScreen.computingRoutes') : null)
         }
       />
+
+      {/* Route Intelligence: today's workout, patterns, or readiness */}
+      <TodayBanner />
 
       {/* Swipeable Routes/Sections tabs */}
       <SwipeableTabs

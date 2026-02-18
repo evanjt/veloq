@@ -608,6 +608,10 @@
     "invalidSectionRange": "Ongeldig selectiebereik. Probeer een ander gedeelte te selecteren.",
     "shareDetailsWithDeveloper": "Kopieer details en deel met ontwikkelaar bij het melden van een probleem"
   },
+  "routeIntelligence": {
+    "today": "VANDAAG",
+    "tomorrow": "MORGEN"
+  },
   "routesScreen": {
     "analysingRoutes": "Routes analyseren {{current}}/{{total}}",
     "computingRoutes": "Routes berekenen...",

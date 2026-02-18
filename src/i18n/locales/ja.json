@@ -608,6 +608,10 @@
     "invalidSectionRange": "無効な選択範囲です。別の部分を選択してください。",
     "shareDetailsWithDeveloper": "問題を報告する場合は、詳細をコピーして開発者に共有してください"
   },
+  "routeIntelligence": {
+    "today": "今日",
+    "tomorrow": "明日"
+  },
   "routesScreen": {
     "analysingRoutes": "ルート分析中 {{current}}/{{total}}",
     "computingRoutes": "ルート計算中...",

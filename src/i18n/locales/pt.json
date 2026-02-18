@@ -608,6 +608,10 @@
     "invalidSectionRange": "Intervalo de selecao invalido. Tente selecionar uma porcao diferente.",
     "shareDetailsWithDeveloper": "Copiar detalhes e partilhar com o programador ao reportar um problema"
   },
+  "routeIntelligence": {
+    "today": "HOJE",
+    "tomorrow": "AMANHÃ"
+  },
   "routesScreen": {
     "analysingRoutes": "A analisar percursos {{current}}/{{total}}",
     "computingRoutes": "A calcular percursos...",

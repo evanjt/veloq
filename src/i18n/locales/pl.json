@@ -608,6 +608,10 @@
     "invalidSectionRange": "Nieprawidłowy zakres wyboru. Spróbuj wybrać inną część.",
     "shareDetailsWithDeveloper": "Skopiuj szczegóły i udostępnij deweloperowi przy zgłaszaniu problemu"
   },
+  "routeIntelligence": {
+    "today": "DZIŚ",
+    "tomorrow": "JUTRO"
+  },
   "routesScreen": {
     "analysingRoutes": "Analiza tras {{current}}/{{total}}",
     "computingRoutes": "Obliczanie tras...",

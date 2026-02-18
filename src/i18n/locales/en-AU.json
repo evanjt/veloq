@@ -608,6 +608,10 @@
     "invalidSectionRange": "That selection's no good. Try picking a different bit.",
     "shareDetailsWithDeveloper": "Copy the details and flick them to the dev if you're reporting a drama"
   },
+  "routeIntelligence": {
+    "today": "TODAY",
+    "tomorrow": "TOMORROW"
+  },
   "routesScreen": {
     "analysingRoutes": "Analysing routes {{current}}/{{total}}",
     "computingRoutes": "Crunching routes...",

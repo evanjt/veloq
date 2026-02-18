@@ -596,6 +596,10 @@
     "expandInSettings": "Expand in Settings",
     "dataRangeHint": "Based on {{duration}} of activity data"
   },
+  "routeIntelligence": {
+    "today": "TODAY",
+    "tomorrow": "TOMORROW"
+  },
   "routesScreen": {
     "analysingRoutes": "Analyzing routes {{current}}/{{total}}",
     "computingRoutes": "Computing routes...",

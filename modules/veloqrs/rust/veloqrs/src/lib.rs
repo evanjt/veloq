@@ -33,6 +33,9 @@ pub mod sections;
 pub mod types;
 pub use types::*;
 
+// Activity pattern detection via k-means clustering
+pub mod patterns;
+
 /// Helper to calculate elapsed milliseconds from an Instant
 #[inline]
 pub(crate) fn elapsed_ms(start: std::time::Instant) -> u64 {

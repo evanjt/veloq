@@ -27,7 +27,7 @@ import {
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
-import { SummaryCard } from '@/components/home';
+import { SummaryCard, TodayTeaser } from '@/components/home';
 import { useNetwork } from '@/providers';
 import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
 import { createSharedStyles } from '@/styles';
@@ -313,6 +313,9 @@ export default function FeedScreen() {
         showSparkline={showSparkline}
         supportingMetrics={supportingMetrics}
       />
+
+      {/* Route Intelligence teaser — tapping navigates to Routes tab */}
+      <TodayTeaser />
 
       {/* Search and Filter bar - outside FlatList to preserve focus */}
       <View style={styles.searchContainer}>

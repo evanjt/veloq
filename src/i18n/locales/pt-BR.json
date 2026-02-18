@@ -608,6 +608,10 @@
     "invalidSectionRange": "Selecao invalida. Tente selecionar uma parte diferente.",
     "shareDetailsWithDeveloper": "Copiar detalhes e compartilhar com o desenvolvedor ao reportar problema"
   },
+  "routeIntelligence": {
+    "today": "HOJE",
+    "tomorrow": "AMANHÃ"
+  },
   "routesScreen": {
     "analysingRoutes": "Analisando rotas {{current}}/{{total}}",
     "computingRoutes": "Calculando rotas...",

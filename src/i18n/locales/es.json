@@ -608,6 +608,10 @@
     "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",
     "shareDetailsWithDeveloper": "Copy details and share with developer if reporting issue"
   },
+  "routeIntelligence": {
+    "today": "HOY",
+    "tomorrow": "MAÑANA"
+  },
   "routesScreen": {
     "analysingRoutes": "Analizando rutas {{current}}/{{total}}",
     "computingRoutes": "Calculando rutas...",

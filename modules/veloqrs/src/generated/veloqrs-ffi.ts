@@ -144,6 +144,9 @@ interface NativeModuleInterface {
     ids: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_patterns(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_activities_complete(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -195,6 +198,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_monthly_aggregates(
     year: number,
     metric: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_pattern_for_today(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_period_stats(
@@ -383,6 +389,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_heatmap(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_ids(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_patterns(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_activities_complete(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_signatures(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_route_names(): number;
@@ -398,6 +405,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_groups(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_map_activities_filtered(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_monthly_aggregates(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_pattern_for_today(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_period_stats(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_route_name(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_route_performances(): number;

@@ -608,6 +608,10 @@
     "invalidSectionRange": "Ugyldigt valg. Prøv venligst at vælge en anden del.",
     "shareDetailsWithDeveloper": "Kopiér detaljer og del med udvikleren, hvis du rapporterer et problem"
   },
+  "routeIntelligence": {
+    "today": "I DAG",
+    "tomorrow": "I MORGEN"
+  },
   "routesScreen": {
     "analysingRoutes": "Analyserer ruter {{current}}/{{total}}",
     "computingRoutes": "Beregner ruter...",

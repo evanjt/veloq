@@ -608,6 +608,10 @@
     "invalidSectionRange": "选择范围无效。请尝试选择不同的部分。",
     "shareDetailsWithDeveloper": "复制详情并分享给开发者以报告问题"
   },
+  "routeIntelligence": {
+    "today": "今天",
+    "tomorrow": "明天"
+  },
   "routesScreen": {
     "analysingRoutes": "正在分析路线 {{current}}/{{total}}",
     "computingRoutes": "正在计算路线...",

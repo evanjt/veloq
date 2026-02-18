@@ -16,6 +16,7 @@ import type {
   PaceCurve,
   SportSettings,
   ActivityMapData,
+  CalendarEvent,
 } from '@/types';
 import { getMonday } from '@/lib';
 
@@ -25,6 +26,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // Lazy-loaded demo fixture cache (avoids ~400KB eager load for non-demo users)
 let _fixtures: Awaited<typeof import('@/data/demo/fixtures')> | null = null;
 let _curves: Awaited<typeof import('@/data/demo/curves')> | null = null;
+let _calendarEvents: Awaited<typeof import('@/data/demo/calendarEvents')> | null = null;
 
 async function loadFixtures() {
   if (!_fixtures) _fixtures = await import('@/data/demo/fixtures');
@@ -34,6 +36,11 @@ async function loadFixtures() {
 async function loadCurves() {
   if (!_curves) _curves = await import('@/data/demo/curves');
   return _curves;
+}
+
+async function loadCalendarEvents() {
+  if (!_calendarEvents) _calendarEvents = await import('@/data/demo/calendarEvents');
+  return _calendarEvents;
 }
 
 /**
@@ -245,5 +252,28 @@ export const mockIntervalsApi = {
 
     // Sort by date descending (newest first)
     return summaries.sort((a, b) => b.date.localeCompare(a.date));
+  },
+
+  /**
+   * Get calendar events (planned workouts)
+   */
+  async getCalendarEvents(params?: {
+    oldest?: string;
+    newest?: string;
+    category?: string;
+  }): Promise<CalendarEvent[]> {
+    await delay(100);
+    const { getDemoCalendarEvents } = await loadCalendarEvents();
+    const events = getDemoCalendarEvents();
+    // Filter by date range if provided
+    if (params?.oldest || params?.newest) {
+      return events.filter((e) => {
+        const date = e.start_date_local.split('T')[0];
+        if (params.oldest && date < params.oldest) return false;
+        if (params.newest && date > params.newest) return false;
+        return true;
+      });
+    }
+    return events;
   },
 };

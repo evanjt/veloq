@@ -17,6 +17,7 @@ import type {
   SportSettings,
   ActivityMapData,
   RawStreamItem,
+  CalendarEvent,
 } from '@/types';
 
 // Check if we're in demo mode
@@ -350,6 +351,26 @@ export const intervalsApi = {
       start: params.start,
       end: params.end,
       weeks: response.data.length,
+    });
+    return response.data;
+  },
+
+  /**
+   * Get calendar events (planned workouts, notes, targets) for a date range
+   * Uses CALENDAR:READ scope (already authorized)
+   * @param oldest - Start date (ISO format: YYYY-MM-DD)
+   * @param newest - End date (ISO format: YYYY-MM-DD)
+   * @param category - Filter by category (WORKOUT, NOTE, TARGET, SEASON, RACE)
+   */
+  async getCalendarEvents(params: {
+    oldest: string;
+    newest: string;
+    category?: string;
+  }): Promise<CalendarEvent[]> {
+    if (isDemoMode()) return mockIntervalsApi.getCalendarEvents(params);
+    const athleteId = getAthleteId();
+    const response = await apiClient.get<CalendarEvent[]>(`/athlete/${athleteId}/events`, {
+      params: { ...params, resolve: true },
     });
     return response.data;
   },

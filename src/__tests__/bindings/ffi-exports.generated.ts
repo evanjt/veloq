@@ -19,7 +19,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 75 exports
+ * Total: 77 exports
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -419,6 +419,18 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 6590,
   },
   {
+    name: 'persistent_engine_get_activity_patterns',
+    camelName: 'persistentEngineGetActivityPatterns',
+    file: 'persistence.rs',
+    line: 0,
+  },
+  {
+    name: 'persistent_engine_get_pattern_for_today',
+    camelName: 'persistentEngineGetPatternForToday',
+    file: 'persistence.rs',
+    line: 0,
+  },
+  {
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence.rs',
@@ -556,6 +568,8 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'persistentEngineSetSportSettings',
   'persistentEngineGetSportSettings',
   'persistentEngineGetAllMapSignatures',
+  'persistentEngineGetActivityPatterns',
+  'persistentEngineGetPatternForToday',
   'computePolylineOverlap',
   'getSections',
   'getSectionCount',
@@ -640,6 +654,8 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   persistent_engine_set_sport_settings: 'persistentEngineSetSportSettings',
   persistent_engine_get_sport_settings: 'persistentEngineGetSportSettings',
   persistent_engine_get_all_map_signatures: 'persistentEngineGetAllMapSignatures',
+  persistent_engine_get_activity_patterns: 'persistentEngineGetActivityPatterns',
+  persistent_engine_get_pattern_for_today: 'persistentEngineGetPatternForToday',
   compute_polyline_overlap: 'computePolylineOverlap',
   get_sections: 'getSections',
   get_section_count: 'getSectionCount',

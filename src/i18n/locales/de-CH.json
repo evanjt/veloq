@@ -608,6 +608,10 @@
     "invalidSectionRange": "Ungültige Uswahl. Probier en andere Teil usezwähle.",
     "shareDetailsWithDeveloper": "Details kopiere und em Entwickler schicke bi emne Problem"
   },
+  "routeIntelligence": {
+    "today": "HÜTT",
+    "tomorrow": "MORN"
+  },
   "routesScreen": {
     "analysingRoutes": "Analysiere {{current}}/{{total}}",
     "computingRoutes": "Am Berechne...",

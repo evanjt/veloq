@@ -81,6 +81,9 @@ import {
   type FfiPeriodStats,
   type FfiFtpTrend,
   type FfiRoutesScreenData,
+  type FfiActivityPattern,
+  persistentEngineGetActivityPatterns,
+  persistentEngineGetPatternForToday,
 } from './generated/veloqrs';
 
 import {
@@ -700,6 +703,29 @@ class RouteEngineClient {
    */
   getAvailableSportTypes(): string[] {
     return this.timed('getAvailableSportTypes', () => persistentEngineGetAvailableSportTypes());
+  }
+
+  // ==========================================================================
+  // Activity Pattern Detection (K-means clustering)
+  // ==========================================================================
+
+  /**
+   * Get activity patterns detected via k-means clustering on activity features.
+   * Returns patterns meeting confidence >= 0.6 threshold.
+   * K-means on [day_of_week, duration, TSS, distance] per sport type.
+   */
+  getActivityPatterns(): FfiActivityPattern[] {
+    return this.timed('getActivityPatterns', () => persistentEngineGetActivityPatterns());
+  }
+
+  /**
+   * Get the highest-confidence pattern matching today's day_of_week + season.
+   * Convenience method for Feed tab teaser (avoids loading all patterns in JS).
+   */
+  getPatternForToday(): FfiActivityPattern | undefined {
+    return this.timed('getPatternForToday', () =>
+      persistentEngineGetPatternForToday() ?? undefined
+    );
   }
 
   // ==========================================================================

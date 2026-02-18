@@ -608,6 +608,10 @@
     "invalidSectionRange": "Ungueltiger Auswahlbereich. Bitte versuche einen anderen Bereich auszuwaehlen.",
     "shareDetailsWithDeveloper": "Details kopieren und mit dem Entwickler teilen, wenn ein Problem gemeldet wird"
   },
+  "routeIntelligence": {
+    "today": "HEUTE",
+    "tomorrow": "MORGEN"
+  },
   "routesScreen": {
     "analysingRoutes": "Analysiere Routen {{current}}/{{total}}",
     "computingRoutes": "Berechne Routen...",

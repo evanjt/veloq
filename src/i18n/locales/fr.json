@@ -608,6 +608,10 @@
     "invalidSectionRange": "Plage de selection invalide. Essayez de selectionner une autre portion.",
     "shareDetailsWithDeveloper": "Copier les details et partager avec le developpeur en cas de probleme"
   },
+  "routeIntelligence": {
+    "today": "AUJOURD'HUI",
+    "tomorrow": "DEMAIN"
+  },
   "routesScreen": {
     "analysingRoutes": "Analyse des parcours {{current}}/{{total}}",
     "computingRoutes": "Calcul des parcours...",
