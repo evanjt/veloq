@@ -6,14 +6,15 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area, Bar } from 'victory-native';
 import { LinearGradient, vec, Shadow, Rect } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
+import {
   useSharedValue,
   useAnimatedReaction,
   runOnJS,
   useDerivedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
+import { ChartCrosshair } from '@/components/charts/base';
 import { CHART_CONFIG } from '@/constants';
 import { calculateTSB, getFormZone, FORM_ZONE_COLORS } from '@/hooks';
 import { sortByDateId, formatShortDate, formatShortDateWithWeekday } from '@/lib';
@@ -268,7 +269,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
   if (chartData.length === 0) {
     return (
       <View style={[styles.placeholder, { height: fitnessHeight + formHeight }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>
+        <Text style={[styles.placeholderText, isDark && chartStyles.textDark]}>
           {t('fitness.noData')}
         </Text>
       </View>
@@ -383,10 +384,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
             </CartesianChart>
 
             {/* Crosshair */}
-            <Animated.View
-              style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-              pointerEvents="none"
-            />
+            <ChartCrosshair style={crosshairStyle} width={1} topOffset={4} bottomOffset={0} />
 
             {/* Y-axis labels */}
             <View style={styles.yAxisOverlay} pointerEvents="none">
@@ -491,10 +489,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
               </CartesianChart>
 
               {/* Crosshair for form chart */}
-              <Animated.View
-                style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-                pointerEvents="none"
-              />
+              <ChartCrosshair style={crosshairStyle} width={1} topOffset={4} bottomOffset={0} />
 
               {/* Form zone labels on right */}
               <View style={styles.zoneLabels} pointerEvents="none">
@@ -560,9 +555,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
-  textDark: {
-    color: darkColors.textSecondary,
-  },
   textLight: {
     color: colors.textOnDark,
   },
@@ -598,16 +590,6 @@ const styles = StyleSheet.create({
   },
   chartWrapper: {
     position: 'relative',
-  },
-  crosshair: {
-    position: 'absolute',
-    top: 4,
-    bottom: 0,
-    width: 1,
-    backgroundColor: colors.textSecondary,
-  },
-  crosshairDark: {
-    backgroundColor: darkColors.textSecondary,
   },
   yAxisOverlay: {
     position: 'absolute',

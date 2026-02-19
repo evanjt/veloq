@@ -5,7 +5,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area } from 'victory-native';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
-import { colors, darkColors, typography, spacing, layout } from '@/theme';
+import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
 import type { eFTPPoint } from '@/types';
 import { formatMonth } from '@/lib';
 
@@ -68,8 +68,10 @@ export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartP
     return (
       <View style={[styles.container, { height }]}>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>{t('stats.noFtpData')}</Text>
-          <Text style={[styles.emptyHint, isDark && styles.textDark]}>
+          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
+            {t('stats.noFtpData')}
+          </Text>
+          <Text style={[styles.emptyHint, isDark && chartStyles.textDark]}>
             {t('stats.completePowerActivities')}
           </Text>
         </View>
@@ -82,7 +84,9 @@ export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartP
       {/* Header with current FTP */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.label, isDark && styles.textDark]}>{t('stats.estimatedFtp')}</Text>
+          <Text style={[styles.label, isDark && chartStyles.textDark]}>
+            {t('stats.estimatedFtp')}
+          </Text>
           <View style={styles.ftpRow}>
             <Text style={[styles.ftpValue, { color: CHART_COLOR }]}>{latestFTP}W</Text>
             <View style={[styles.changeBadge, isImproving ? styles.positive : styles.negative]}>
@@ -91,7 +95,7 @@ export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartP
               </Text>
             </View>
           </View>
-          <Text style={[styles.changeSubtext, isDark && styles.textDark]}>
+          <Text style={[styles.changeSubtext, isDark && chartStyles.textDark]}>
             {isImproving ? '+' : ''}
             {changePercent.toFixed(1)}% {t('stats.from3MonthsAgo')}
           </Text>
@@ -99,7 +103,7 @@ export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartP
       </View>
 
       {/* Chart */}
-      <View style={styles.chartWrapper}>
+      <View style={chartStyles.chartWrapper}>
         <CartesianChart
           data={chartData}
           xKey="x"
@@ -144,10 +148,14 @@ export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartP
         <View style={styles.xAxisOverlay} pointerEvents="none">
           {chartData.length > 0 && (
             <>
-              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              <Text
+                style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+              >
                 {formatMonth(chartData[0].date)}
               </Text>
-              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              <Text
+                style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+              >
                 {formatMonth(chartData[chartData.length - 1].date)}
               </Text>
             </>
@@ -156,13 +164,13 @@ export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartP
 
         {/* Y-axis labels */}
         <View style={styles.yAxisOverlay} pointerEvents="none">
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+          <Text style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}>
             {Math.round(maxFTP)}w
           </Text>
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+          <Text style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}>
             {Math.round((minFTP + maxFTP) / 2)}w
           </Text>
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+          <Text style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}>
             {Math.round(minFTP)}w
           </Text>
         </View>
@@ -210,13 +218,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
-  textDark: {
-    color: darkColors.textSecondary,
-  },
-  chartWrapper: {
-    flex: 1,
-    position: 'relative',
-  },
   xAxisOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -231,14 +232,6 @@ const styles = StyleSheet.create({
     bottom: spacing.md,
     left: spacing.xs,
     justifyContent: 'space-between',
-  },
-  axisLabel: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  axisLabelDark: {
-    color: darkColors.textSecondary,
   },
   emptyState: {
     flex: 1,

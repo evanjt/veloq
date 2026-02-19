@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { Circle, DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
+import {
   useSharedValue,
   useAnimatedReaction,
   runOnJS,
@@ -14,7 +14,8 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { colors, darkColors, typography, spacing, layout } from '@/theme';
+import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
+import { ChartCrosshair } from '@/components/charts/base';
 import { CHART_CONFIG } from '@/constants';
 import { usePaceCurve } from '@/hooks';
 import { useActivities } from '@/hooks';
@@ -329,7 +330,9 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       <View style={[styles.container, { height }]}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.paceCurve')}</Text>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, isDark && styles.textDark]}>{t('common.loading')}</Text>
+          <Text style={[styles.loadingText, isDark && chartStyles.textDark]}>
+            {t('common.loading')}
+          </Text>
         </View>
       </View>
     );
@@ -340,7 +343,9 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       <View style={[styles.container, { height }]}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.paceCurve')}</Text>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>{t('stats.noPaceData')}</Text>
+          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
+            {t('stats.noPaceData')}
+          </Text>
         </View>
       </View>
     );
@@ -367,7 +372,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         {/* GAP toggle (running only) */}
         {isRunning && (
           <View style={styles.gapToggle}>
-            <Text style={[styles.gapLabel, isDark && styles.textDark]}>{t('stats.gap')}</Text>
+            <Text style={[styles.gapLabel, isDark && chartStyles.textDark]}>{t('stats.gap')}</Text>
             <Switch
               value={showGap}
               onValueChange={setShowGap}
@@ -387,7 +392,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       {/* Values row */}
       <View style={styles.valuesRow}>
         <View style={styles.valueItem}>
-          <Text style={[styles.valueLabel, isDark && styles.textDark]}>
+          <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
             {t('activity.distance')}
           </Text>
           <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
@@ -395,13 +400,15 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
           </Text>
         </View>
         <View style={styles.valueItem}>
-          <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('stats.time')}</Text>
+          <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>{t('stats.time')}</Text>
           <Text style={[styles.valueNumber, isDark && styles.textLight]}>
             {formatDuration(displayData.time)}
           </Text>
         </View>
         <View style={styles.valueItem}>
-          <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('metrics.pace')}</Text>
+          <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
+            {t('metrics.pace')}
+          </Text>
           <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
             {formatPace(displayData.paceSecsPerKm)}/km
           </Text>
@@ -425,7 +432,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
 
       {/* Chart */}
       <GestureDetector gesture={gesture}>
-        <View style={styles.chartWrapper}>
+        <View style={chartStyles.chartWrapper}>
           <CartesianChart
             data={chartData}
             xKey="x"
@@ -498,10 +505,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
           </CartesianChart>
 
           {/* Crosshair */}
-          <Animated.View
-            style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-            pointerEvents="none"
-          />
+          <ChartCrosshair style={crosshairStyle} />
 
           {/* X-axis labels - positioned based on log scale */}
           <View style={styles.xAxisOverlay} pointerEvents="none">
@@ -509,8 +513,8 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
               <Text
                 key={idx}
                 style={[
-                  styles.axisLabel,
-                  isDark && styles.axisLabelDark,
+                  chartStyles.axisLabelCompact,
+                  isDark && chartStyles.axisLabelCompactDark,
                   { position: 'absolute', left: item.position - 15 },
                 ]}
               >
@@ -521,13 +525,19 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
 
           {/* Y-axis labels - note: axis is inverted so top is fastest (yDomain[1]), bottom is slowest (yDomain[0]) */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
               {formatPace(yDomain[1])}
             </Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
               {formatPace((yDomain[0] + yDomain[1]) / 2)}
             </Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
               {formatPace(yDomain[0])}
             </Text>
           </View>
@@ -537,14 +547,14 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       {/* Model info */}
       <View style={styles.footer}>
         <View style={styles.modelInfo}>
-          <Text style={[styles.dateRange, isDark && styles.textDark]}>
+          <Text style={[styles.dateRange, isDark && chartStyles.textDark]}>
             {curve?.days ? `${curve.days} days: ` : ''}
             {curve?.startDate && curve?.endDate
               ? `${formatFullDate(curve.startDate)} - ${formatFullDate(curve.endDate)}`
               : ''}
           </Text>
           {criticalSpeedPace && (
-            <Text style={[styles.modelStats, isDark && styles.textDark]}>
+            <Text style={[styles.modelStats, isDark && chartStyles.textDark]}>
               CS {formatPace(criticalSpeedPace)}/km ({curve?.criticalSpeed?.toFixed(2)} m/s)
               {curve?.dPrime ? `  D' ${curve.dPrime.toFixed(0)}m` : ''}
               {curve?.r2 ? `  R² ${curve.r2.toFixed(4)}` : ''}
@@ -564,7 +574,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   textLight: { color: colors.textOnDark },
-  textDark: { color: darkColors.textSecondary },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -622,10 +631,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.run,
   },
-  chartWrapper: {
-    flex: 1,
-    position: 'relative',
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -644,16 +649,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
-  crosshair: {
-    position: 'absolute',
-    top: spacing.xs,
-    bottom: 20,
-    width: 1.5,
-    backgroundColor: colors.textSecondary,
-  },
-  crosshairDark: {
-    backgroundColor: darkColors.textSecondary,
-  },
   xAxisOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -667,14 +662,6 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: spacing.xs,
     justifyContent: 'space-between',
-  },
-  axisLabel: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  axisLabelDark: {
-    color: darkColors.textSecondary,
   },
   footer: {
     marginTop: spacing.xs,

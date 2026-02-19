@@ -14,12 +14,12 @@ import {
   useDerivedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import Animated from 'react-native-reanimated';
-import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
+import { colors, darkColors, opacity, typography, spacing, layout, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { calculateTSB } from '@/hooks';
 import { sortByDateId, formatShortDate } from '@/lib';
 import { ChartErrorBoundary } from '@/components/ui';
+import { ChartCrosshair } from '@/components/charts/base';
 import type { WellnessData } from '@/types';
 
 // Chart colors
@@ -278,7 +278,7 @@ export const FitnessChart = React.memo(function FitnessChart({
   if (chartData.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>
+        <Text style={[styles.placeholderText, isDark && chartStyles.textDark]}>
           {t('fitness.noData')}
         </Text>
       </View>
@@ -303,7 +303,7 @@ export const FitnessChart = React.memo(function FitnessChart({
           </View>
           <View style={styles.valuesRow}>
             <View style={styles.valueItem}>
-              <Text style={[styles.valueLabel, isDark && styles.textDark]}>
+              <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
                 {t('metrics.fitness')}
               </Text>
               <Text
@@ -314,7 +314,7 @@ export const FitnessChart = React.memo(function FitnessChart({
               </Text>
             </View>
             <View style={styles.valueItem}>
-              <Text style={[styles.valueLabel, isDark && styles.textDark]}>
+              <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
                 {t('metrics.fatigue')}
               </Text>
               <Text
@@ -329,7 +329,7 @@ export const FitnessChart = React.memo(function FitnessChart({
 
         {/* Chart */}
         <GestureDetector gesture={gesture}>
-          <View style={styles.chartWrapper}>
+          <View style={chartStyles.chartWrapper}>
             <CartesianChart
               data={chartData}
               xKey="x"
@@ -399,17 +399,14 @@ export const FitnessChart = React.memo(function FitnessChart({
             </CartesianChart>
 
             {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
-            <Animated.View
-              style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-              pointerEvents="none"
-            />
+            <ChartCrosshair style={crosshairStyle} topOffset={8} />
 
             {/* X-axis labels */}
             <View style={styles.xAxisOverlay} pointerEvents="none">
-              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              <Text style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>
                 {chartData.length > 0 ? formatShortDate(chartData[0].date) : ''}
               </Text>
-              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              <Text style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>
                 {chartData.length > 0 ? formatShortDate(chartData[chartData.length - 1].date) : ''}
               </Text>
             </View>
@@ -433,7 +430,7 @@ export const FitnessChart = React.memo(function FitnessChart({
             <Text
               style={[
                 styles.legendText,
-                isDark && styles.textDark,
+                isDark && chartStyles.textDark,
                 !visibleLines.fitness && styles.legendTextDisabled,
               ]}
             >
@@ -455,7 +452,7 @@ export const FitnessChart = React.memo(function FitnessChart({
             <Text
               style={[
                 styles.legendText,
-                isDark && styles.textDark,
+                isDark && chartStyles.textDark,
                 !visibleLines.fatigue && styles.legendTextDisabled,
               ]}
             >
@@ -479,9 +476,6 @@ const styles = StyleSheet.create({
   placeholderText: {
     ...typography.caption,
     color: colors.textSecondary,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
   },
   textLight: {
     color: colors.textOnDark,
@@ -516,20 +510,6 @@ const styles = StyleSheet.create({
     fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
   },
-  chartWrapper: {
-    flex: 1,
-    position: 'relative',
-  },
-  crosshair: {
-    position: 'absolute',
-    top: 8,
-    bottom: 20,
-    width: 1.5,
-    backgroundColor: colors.textSecondary,
-  },
-  crosshairDark: {
-    backgroundColor: darkColors.textSecondary,
-  },
   xAxisOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -537,17 +517,6 @@ const styles = StyleSheet.create({
     right: 4,
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  axisLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 2,
-    borderRadius: 2,
-  },
-  axisLabelDark: {
-    color: darkColors.textPrimary,
-    backgroundColor: darkColors.surfaceOverlay,
   },
   legend: {
     flexDirection: 'row',

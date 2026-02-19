@@ -6,14 +6,15 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
+import { ChartCrosshair } from '@/components/charts/base';
+import {
   useSharedValue,
   useAnimatedReaction,
   runOnJS,
   useDerivedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import { colors, darkColors, typography, spacing } from '@/theme';
+import { colors, typography, spacing, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { usePaceCurve, paceToMinPer100m } from '@/hooks';
 import { formatDistance } from '@/lib';
@@ -235,7 +236,9 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
       <View style={[styles.container, { height }]}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.swimPaceCurve')}</Text>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, isDark && styles.textDark]}>{t('common.loading')}</Text>
+          <Text style={[styles.loadingText, isDark && chartStyles.textDark]}>
+            {t('common.loading')}
+          </Text>
         </View>
       </View>
     );
@@ -246,7 +249,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
       <View style={[styles.container, { height }]}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.swimPaceCurve')}</Text>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>
+          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
             {t('stats.noSwimPaceData')}
           </Text>
         </View>
@@ -264,7 +267,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.swimPaceCurve')}</Text>
         <View style={styles.valuesRow}>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>
+            <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
               {t('activity.distance')}
             </Text>
             <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
@@ -272,13 +275,17 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
             </Text>
           </View>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('stats.time')}</Text>
+            <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
+              {t('stats.time')}
+            </Text>
             <Text style={[styles.valueNumber, isDark && styles.textLight]}>
               {formatTime(displayData.time)}
             </Text>
           </View>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('metrics.pace')}</Text>
+            <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
+              {t('metrics.pace')}
+            </Text>
             <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
               {formatPace100m(displayData.paceMs)}/100m
             </Text>
@@ -288,7 +295,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
 
       {/* Chart */}
       <GestureDetector gesture={gesture}>
-        <View style={styles.chartWrapper}>
+        <View style={chartStyles.chartWrapper}>
           <CartesianChart
             data={chartData}
             xKey="x"
@@ -351,35 +358,58 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
           </CartesianChart>
 
           {/* Crosshair */}
-          <Animated.View
-            style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-            pointerEvents="none"
-          />
+          <ChartCrosshair style={crosshairStyle} />
 
           {/* X-axis labels */}
           <View style={styles.xAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>100m</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>200m</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>400m</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>800m</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>1.5K</Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              100m
+            </Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              200m
+            </Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              400m
+            </Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              800m
+            </Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              1.5K
+            </Text>
           </View>
 
           {/* Y-axis labels - note: axis is inverted so top is fastest (yDomain[1]), bottom is slowest (yDomain[0]) */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
               {Math.floor(yDomain[1] / 60)}:
               {Math.round(yDomain[1] % 60)
                 .toString()
                 .padStart(2, '0')}
             </Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
               {Math.floor((yDomain[0] + yDomain[1]) / 2 / 60)}:
               {Math.round(((yDomain[0] + yDomain[1]) / 2) % 60)
                 .toString()
                 .padStart(2, '0')}
             </Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
               {Math.floor(yDomain[0] / 60)}:
               {Math.round(yDomain[0] % 60)
                 .toString()
@@ -393,7 +423,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
       {cssPace && (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: CSS_LINE_COLOR }]} />
-          <Text style={[styles.legendText, isDark && styles.textDark]}>
+          <Text style={[styles.legendText, isDark && chartStyles.textDark]}>
             CSS {Math.floor(cssPace / 60)}:
             {Math.round(cssPace % 60)
               .toString()
@@ -414,7 +444,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   textLight: { color: colors.textOnDark },
-  textDark: { color: darkColors.textSecondary },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -437,10 +466,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
   },
-  chartWrapper: {
-    flex: 1,
-    position: 'relative',
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -459,16 +484,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
-  crosshair: {
-    position: 'absolute',
-    top: spacing.xs,
-    bottom: 20,
-    width: 1.5,
-    backgroundColor: colors.textSecondary,
-  },
-  crosshairDark: {
-    backgroundColor: darkColors.textSecondary,
-  },
   xAxisOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -484,14 +499,6 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: spacing.xs,
     justifyContent: 'space-between',
-  },
-  axisLabel: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  axisLabelDark: {
-    color: darkColors.textSecondary,
   },
   legend: {
     flexDirection: 'row',

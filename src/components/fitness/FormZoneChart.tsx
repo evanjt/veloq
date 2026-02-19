@@ -14,8 +14,8 @@ import {
   useDerivedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import Animated from 'react-native-reanimated';
-import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
+import { colors, darkColors, opacity, typography, spacing, layout, chartStyles } from '@/theme';
+import { ChartCrosshair } from '@/components/charts/base';
 import { CHART_CONFIG } from '@/constants';
 import {
   calculateTSB,
@@ -262,7 +262,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
       </View>
 
       <GestureDetector gesture={gesture}>
-        <View style={[styles.chartWrapper, { height }]}>
+        <View style={[chartStyles.chartWrapper, { height }]}>
           <CartesianChart
             data={chartData}
             xKey="x"
@@ -355,10 +355,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
           </CartesianChart>
 
           {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
-          <Animated.View
-            style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-            pointerEvents="none"
-          />
+          <ChartCrosshair style={crosshairStyle} bottomOffset={4} />
 
           {/* Y-axis labels */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
@@ -378,7 +375,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
         {(['transition', 'fresh', 'grey', 'optimal', 'highRisk'] as FormZone[]).map((zone) => (
           <View key={zone} style={styles.zoneLegendItem}>
             <View style={[styles.zoneDot, { backgroundColor: FORM_ZONE_COLORS[zone] }]} />
-            <Text style={[styles.zoneLabel, isDark && styles.textDark]}>
+            <Text style={[styles.zoneLabel, isDark && chartStyles.textDark]}>
               {FORM_ZONE_LABELS[zone]}
             </Text>
           </View>
@@ -445,20 +442,6 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     fontWeight: '500',
   },
-  chartWrapper: {
-    flex: 1,
-    position: 'relative',
-  },
-  crosshair: {
-    position: 'absolute',
-    top: 4,
-    bottom: 4,
-    width: 1.5,
-    backgroundColor: colors.textSecondary,
-  },
-  crosshairDark: {
-    backgroundColor: darkColors.textSecondary,
-  },
   yAxisOverlay: {
     position: 'absolute',
     top: 4,
@@ -497,8 +480,5 @@ const styles = StyleSheet.create({
   zoneLabel: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
   },
 });

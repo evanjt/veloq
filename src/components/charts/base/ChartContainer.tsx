@@ -11,7 +11,7 @@ import React, { ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { GestureDetector, GestureType } from 'react-native-gesture-handler';
-import { colors, darkColors, typography } from '@/theme';
+import { colors, typography, chartStyles } from '@/theme';
 import { useTheme } from '@/hooks';
 
 export interface ChartPadding {
@@ -69,7 +69,7 @@ export const ChartContainer = React.memo(function ChartContainer({
           </View>
         )}
         <View style={styles.centerContent}>
-          <Text style={[styles.statusText, isDark && styles.textDark]}>{loadingText}</Text>
+          <Text style={[styles.statusText, isDark && chartStyles.textDark]}>{loadingText}</Text>
         </View>
       </View>
     );
@@ -86,14 +86,14 @@ export const ChartContainer = React.memo(function ChartContainer({
           </View>
         )}
         <View style={styles.centerContent}>
-          <Text style={[styles.statusText, isDark && styles.textDark]}>{emptyText}</Text>
+          <Text style={[styles.statusText, isDark && chartStyles.textDark]}>{emptyText}</Text>
         </View>
       </View>
     );
   }
 
   // Normal render
-  const chartContent = <View style={styles.chartWrapper}>{children}</View>;
+  const chartContent = <View style={chartStyles.chartWrapper}>{children}</View>;
 
   return (
     <View style={[styles.container, { height }]}>
@@ -124,13 +124,6 @@ const styles = StyleSheet.create({
   },
   textLight: {
     color: colors.textOnDark,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
-  },
-  chartWrapper: {
-    flex: 1,
-    position: 'relative',
   },
   centerContent: {
     flex: 1,

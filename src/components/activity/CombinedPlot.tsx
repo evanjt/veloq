@@ -14,7 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, typography, layout, shadows } from '@/theme';
+import { colors, darkColors, typography, layout, shadows, chartStyles } from '@/theme';
 import { useMetricSystem } from '@/hooks';
 import type { ChartConfig, ChartTypeId } from '@/lib';
 import type { ActivityStreams } from '@/types';
@@ -381,7 +381,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   if (chartData.length === 0 || seriesInfo.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>
+        <Text style={[styles.placeholderText, isDark && chartStyles.textDark]}>
           {t('activity.noDataAvailable')}
         </Text>
       </View>
@@ -422,7 +422,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
 
         {/* Chart area */}
         <GestureDetector gesture={gesture}>
-          <View style={[styles.chartWrapper, { height: chartHeight }]}>
+          <View style={[chartStyles.chartWrapper, { height: chartHeight }]}>
             {/* Victory Native requires string literal types for yKeys,
               but ChartTypeId[] is dynamically computed. Cast is unavoidable. */}
             <CartesianChart
@@ -636,10 +636,6 @@ const styles = StyleSheet.create({
   distanceTextDark: {
     color: darkColors.textPrimary,
   },
-  chartWrapper: {
-    flex: 1,
-    position: 'relative',
-  },
   crosshair: {
     position: 'absolute',
     top: 8,
@@ -660,9 +656,6 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
   },
   xAxis: {
     position: 'absolute',

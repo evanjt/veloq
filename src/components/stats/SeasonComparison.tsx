@@ -7,7 +7,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { CHART_CONFIG } from '@/constants';
-import { colors, darkColors, typography, spacing, layout } from '@/theme';
+import { chartStyles, colors, darkColors, typography, spacing, layout } from '@/theme';
 import type { Activity } from '@/types';
 
 interface SeasonComparisonProps {
@@ -149,10 +149,10 @@ export function SeasonComparison({
           </Text>
         </View>
         <View style={[styles.emptyState, { height }]}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>
+          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
             {t('stats.noActivityData')}
           </Text>
-          <Text style={[styles.emptyHint, isDark && styles.textDark]}>
+          <Text style={[styles.emptyHint, isDark && chartStyles.textDark]}>
             {t('stats.completeActivitiesYearComparison')}
           </Text>
         </View>
@@ -332,7 +332,7 @@ export function SeasonComparison({
               <Text
                 style={[
                   styles.metricButtonText,
-                  isDark && styles.textDark,
+                  isDark && chartStyles.textDark,
                   metric === m && styles.metricButtonTextActive,
                 ]}
               >
@@ -347,11 +347,15 @@ export function SeasonComparison({
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: colorCurrent }]} />
-          <Text style={[styles.legendLabel, isDark && styles.textDark]}>{t('stats.current')}</Text>
+          <Text style={[styles.legendLabel, isDark && chartStyles.textDark]}>
+            {t('stats.current')}
+          </Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: colorPrevious }]} />
-          <Text style={[styles.legendLabel, isDark && styles.textDark]}>{t('stats.previous')}</Text>
+          <Text style={[styles.legendLabel, isDark && chartStyles.textDark]}>
+            {t('stats.previous')}
+          </Text>
         </View>
       </View>
 
@@ -393,7 +397,7 @@ export function SeasonComparison({
         ) : (
           <>
             <View style={styles.summaryItem}>
-              <Text style={[styles.summaryLabel, isDark && styles.textDark]}>
+              <Text style={[styles.summaryLabel, isDark && chartStyles.textDark]}>
                 {t('stats.current')}
               </Text>
               <Text style={[styles.summaryValue, isDark && styles.textLight]}>
@@ -402,7 +406,7 @@ export function SeasonComparison({
               </Text>
             </View>
             <View style={styles.summaryItem}>
-              <Text style={[styles.summaryLabel, isDark && styles.textDark]}>
+              <Text style={[styles.summaryLabel, isDark && chartStyles.textDark]}>
                 {t('stats.previous')}
               </Text>
               <Text style={[styles.summaryValue, isDark && styles.textLight]}>
@@ -440,7 +444,7 @@ export function SeasonComparison({
                 key={idx}
                 style={[
                   styles.monthLabel,
-                  isDark && styles.textDark,
+                  isDark && chartStyles.textDark,
                   m.isCurrentMonth && styles.currentMonthLabel,
                   m.isSelected && styles.selectedMonthLabel,
                 ]}
@@ -470,9 +474,6 @@ const styles = StyleSheet.create({
   },
   textLight: {
     color: colors.textOnDark,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
   },
   metricSelector: {
     flexDirection: 'row',

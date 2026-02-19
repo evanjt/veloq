@@ -13,9 +13,9 @@ import {
   useDerivedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import Animated from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import { ChartCrosshair } from '@/components/charts/base';
+import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { getActivityColor, sortByDateId } from '@/lib';
 import type { Activity, ActivityType, WellnessData } from '@/types';
@@ -450,7 +450,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
                     {activity.name}
                   </Text>
                   {activity.load > 0 && (
-                    <Text style={[styles.activityLoad, isDark && styles.textDark]}>
+                    <Text style={[styles.activityLoad, isDark && chartStyles.textDark]}>
                       {Math.round(activity.load)} TSS
                     </Text>
                   )}
@@ -497,10 +497,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
           )}
 
           {/* Crosshair */}
-          <Animated.View
-            style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-            pointerEvents="none"
-          />
+          <ChartCrosshair style={crosshairStyle} topOffset={0} bottomOffset={0} />
         </View>
       </GestureDetector>
     </View>
@@ -536,16 +533,6 @@ const styles = StyleSheet.create({
   canvas: {
     flex: 1,
   },
-  crosshair: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1.5,
-    backgroundColor: colors.textSecondary,
-  },
-  crosshairDark: {
-    backgroundColor: darkColors.textSecondary,
-  },
   // Modal styles
   modalOverlay: {
     flex: 1,
@@ -573,9 +560,6 @@ const styles = StyleSheet.create({
   },
   textLight: {
     color: colors.textOnDark,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
   },
   activityRow: {
     flexDirection: 'row',
