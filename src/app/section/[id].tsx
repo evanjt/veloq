@@ -68,7 +68,16 @@ import {
 } from '@/lib';
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
-import { CHART_CONFIG } from '@/constants';
+import {
+  CHART_CONFIG,
+  SECTION_TIME_RANGES,
+  RANGE_DAYS,
+  BUCKET_THRESHOLD,
+  BUCKET_TYPES,
+  DEFAULT_BUCKET_TYPE,
+  type SectionTimeRange,
+  type BucketType,
+} from '@/constants';
 import type {
   Activity,
   ActivityType,
@@ -82,46 +91,6 @@ const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45);
 
 // Direction colors - using theme for consistency
 const REVERSE_COLOR = colors.reverseDirection;
-
-// Time range selector for bucketed chart
-type SectionTimeRange = '1m' | '3m' | '6m' | '1y' | 'all';
-const SECTION_TIME_RANGES: { id: SectionTimeRange; label: string }[] = [
-  { id: '1m', label: '1M' },
-  { id: '3m', label: '3M' },
-  { id: '6m', label: '6M' },
-  { id: '1y', label: '1Y' },
-  { id: 'all', label: 'All' },
-];
-const RANGE_DAYS: Record<SectionTimeRange, number> = {
-  '1m': 30,
-  '3m': 90,
-  '6m': 180,
-  '1y': 365,
-  all: 0,
-};
-const BUCKET_THRESHOLD = 100;
-
-type BucketType = 'weekly' | 'monthly' | 'quarterly' | 'yearly';
-const BUCKET_TYPES: {
-  id: BucketType;
-  labelKey:
-    | 'sections.bestPerWeek'
-    | 'sections.bestPerMonth'
-    | 'sections.bestPerQuarter'
-    | 'sections.bestPerYear';
-}[] = [
-  { id: 'weekly', labelKey: 'sections.bestPerWeek' },
-  { id: 'monthly', labelKey: 'sections.bestPerMonth' },
-  { id: 'quarterly', labelKey: 'sections.bestPerQuarter' },
-  { id: 'yearly', labelKey: 'sections.bestPerYear' },
-];
-const DEFAULT_BUCKET_TYPE: Record<SectionTimeRange, BucketType> = {
-  '1m': 'weekly',
-  '3m': 'monthly',
-  '6m': 'monthly',
-  '1y': 'quarterly',
-  all: 'yearly',
-};
 
 interface ActivityRowProps {
   activity: Activity;

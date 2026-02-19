@@ -6,4 +6,5 @@
  */
 
 export * from './chart';
+export * from './section';
 export * from './weather';

@@ -53,6 +53,7 @@ import {
   MiniTraceView,
 } from '@/components';
 import { SectionListItem } from '@/components/activity/SectionListItem';
+import { CompactStat } from '@/components/activity/stats/CompactStat';
 import {
   DataRangeFooter,
   SectionMiniPreview,
@@ -1541,28 +1542,6 @@ export default function ActivityDetailScreen() {
   );
 }
 
-// Compact inline stat
-function CompactStat({
-  label,
-  value,
-  isDark,
-  color,
-}: {
-  label: string;
-  value: string;
-  isDark: boolean;
-  color?: string;
-}) {
-  return (
-    <View style={styles.compactStatItem}>
-      <Text style={[styles.compactStatValue, isDark && styles.textLight, color && { color }]}>
-        {value}
-      </Text>
-      <Text style={styles.compactStatLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1729,20 +1708,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: spacing.sm,
     elevation: 2,
-  },
-  compactStatItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  compactStatValue: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  compactStatLabel: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
 
   // Device attribution container
