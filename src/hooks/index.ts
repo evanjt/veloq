@@ -96,6 +96,7 @@ export {
   useSectionPolyline,
 } from './routes/useRouteEngine';
 export { useRouteDataSync } from './routes/useRouteDataSync';
+export { useSectionChartData } from './routes/useSectionChartData';
 export { useRouteReoptimization } from './routes/useRouteReoptimization';
 export { useRoutesScreenData } from './routes/useRoutesScreenData';
 // Section detail hook from route engine
