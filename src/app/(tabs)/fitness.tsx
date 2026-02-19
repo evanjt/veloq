@@ -141,9 +141,6 @@ export default function FitnessScreen() {
     includeStats: true,
   });
 
-  // Background sync: prefetch 1 year of activities on first load for cache
-  useActivities({ days: 365 });
-
   // Compute zone distributions - filtered by current sport mode
   const powerZones = useZoneDistribution({
     type: 'power',

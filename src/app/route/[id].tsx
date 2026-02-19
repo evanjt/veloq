@@ -41,15 +41,6 @@ function getRouteEngine() {
   }
 }
 
-// Helper to convert GPS points (latitude/longitude) to route points (lat/lng)
-function gpsPointsToRoutePoints(
-  points: Array<{ latitude: number; longitude: number }>
-): Array<{ lat: number; lng: number }> {
-  return points.map((p) => ({
-    lat: p.latitude,
-    lng: p.longitude,
-  }));
-}
 import {
   RouteMapView,
   MiniTraceView,
@@ -113,7 +104,7 @@ interface ActivityRowProps {
   bestSpeed?: number;
 }
 
-function ActivityRow({
+const ActivityRow = React.memo(function ActivityRow({
   activity,
   isDark,
   isMetric,
@@ -288,7 +279,7 @@ function ActivityRow({
       />
     </Pressable>
   );
-}
+});
 
 export default function RouteDetailScreen() {
   // Performance timing
@@ -457,30 +448,24 @@ export default function RouteDetailScreen() {
     return map;
   }, [performances]);
 
-  // Load GPS tracks for each activity in the group for mini trace preview
+  // Load simplified GPS signatures for mini trace preview (single batch FFI call)
   const signatures = useMemo(() => {
     if (!engineGroup?.activityIds?.length) return {};
     try {
       const engine = getRouteEngine();
       if (!engine) return {};
 
+      const activityIdSet = new Set(engineGroup.activityIds);
+      const allSigs = engine.getAllMapSignatures();
       const result: Record<string, { points: Array<{ lat: number; lng: number }> }> = {};
 
-      // Load GPS track for each activity (simplified for mini trace display)
-      for (const activityId of engineGroup.activityIds) {
-        try {
-          const gpsPoints = engine.getGpsTrack(activityId);
-          if (gpsPoints && gpsPoints.length > 0) {
-            // Convert from GpsPoint (latitude/longitude) to RoutePoint (lat/lng)
-            const routePoints = gpsPointsToRoutePoints(gpsPoints);
-            // Simplify to ~50 points for mini trace preview
-            const step = Math.max(1, Math.floor(routePoints.length / 50));
-            const simplified = routePoints.filter((_, i: number) => i % step === 0);
-            result[activityId] = { points: simplified };
-          }
-        } catch {
-          // Skip activities without GPS data
+      for (const sig of allSigs) {
+        if (!activityIdSet.has(sig.activityId) || sig.coords.length < 4) continue;
+        const points: Array<{ lat: number; lng: number }> = [];
+        for (let i = 0; i < sig.coords.length - 1; i += 2) {
+          points.push({ lat: sig.coords[i], lng: sig.coords[i + 1] });
         }
+        result[sig.activityId] = { points };
       }
       return result;
     } catch {

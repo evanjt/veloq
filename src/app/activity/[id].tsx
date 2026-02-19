@@ -612,26 +612,15 @@ export default function ActivityDetailScreen() {
     [streams?.time]
   );
 
-  // Format time in mm:ss or h:mm:ss
-  const formatSectionTime = (seconds: number): string => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    if (h > 0) {
-      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    }
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
+  const formatSectionTime = formatDuration;
 
-  // Calculate pace (min/km or min/mi) from time and distance
-  const formatSectionPace = (seconds: number, meters: number): string => {
-    if (meters <= 0 || seconds <= 0) return '--';
-    const distance = isMetric ? meters / 1000 : meters / 1609.344; // km or mi
-    const minPer = seconds / 60 / distance;
-    const paceMin = Math.floor(minPer);
-    const paceSec = Math.round((minPer - paceMin) * 60);
-    return `${paceMin}:${paceSec.toString().padStart(2, '0')}${isMetric ? '/km' : '/mi'}`;
-  };
+  const formatSectionPace = useCallback(
+    (seconds: number, meters: number): string => {
+      if (meters <= 0 || seconds <= 0) return '--';
+      return formatPace(meters / seconds, isMetric);
+    },
+    [isMetric]
+  );
 
   // Collect all activity IDs from matched sections for performance data
   const sectionActivityIds = useMemo(() => {
