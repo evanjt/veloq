@@ -146,6 +146,7 @@ import {
 } from '@/lib';
 import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
 import { useMapPreferences } from '@/providers';
+import { useSectionCreation } from '@/hooks/maps/useSectionCreation';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { CompassArrow } from '@/components/ui';
@@ -246,21 +247,6 @@ export interface SectionOverlay {
   activityPortion?: LatLng[];
 }
 
-/** Calculate distance between two coordinates using Haversine formula */
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371000; // Earth's radius in meters
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
 // Re-export SectionCreationError for consumers
 export type { SectionCreationError } from './SectionCreationOverlay';
 
@@ -348,11 +334,6 @@ export const ActivityMapView = memo(function ActivityMapView({
   const [locationLoading, setLocationLoading] = useState(false);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const map3DOpacity = useRef(new Animated.Value(0)).current;
-
-  // Section creation state
-  const [creationState, setCreationState] = useState<CreationState>('selectingStart');
-  const [startIndex, setStartIndex] = useState<number | null>(null);
-  const [endIndex, setEndIndex] = useState<number | null>(null);
 
   // Track if user manually overrode the style
   const [userOverride, setUserOverride] = useState(false);
@@ -479,50 +460,35 @@ export const ActivityMapView = memo(function ActivityMapView({
     return coordinates.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
   }, [coordinates]);
 
+  // Section creation hook
+  const {
+    creationState,
+    startIndex,
+    endIndex,
+    sectionDistance,
+    sectionPointCount,
+    sectionGeoJSON,
+    sectionHasData,
+    sectionStartPoint,
+    sectionEndPoint,
+    handleCreationTap,
+    handleCreationConfirm,
+    handleCreationCancel,
+    handleCreationReset,
+  } = useSectionCreation({
+    creationMode,
+    externalCreationState,
+    validCoordinates,
+    onSectionCreated,
+    onCreationCancelled,
+  });
+
   // Update map style when preference changes (unless user manually toggled)
   useEffect(() => {
     if (!userOverride && !initialStyle && mapStyle !== preferredStyle) {
       setMapStyle(preferredStyle);
     }
   }, [userOverride, initialStyle, mapStyle, preferredStyle]);
-
-  // Track previous external creation state to detect transitions
-  const prevExternalCreationStateRef = useRef<CreationState | undefined>(externalCreationState);
-
-  // Reset section creation state when mode changes
-  useEffect(() => {
-    if (__DEV__) {
-      console.log('[ActivityMapView:Camera] creationMode effect', {
-        creationMode,
-        renderCount: renderCountRef.current,
-      });
-    }
-    if (creationMode) {
-      setCreationState('selectingStart');
-      setStartIndex(null);
-      setEndIndex(null);
-    }
-  }, [creationMode]);
-
-  // Reset internal state ONLY when transitioning from 'error' to undefined (user clicked retry)
-  // Do NOT reset when transitioning from 'creating' to undefined (success path)
-  useEffect(() => {
-    const wasError = prevExternalCreationStateRef.current === 'error';
-    const nowUndefined = externalCreationState === undefined;
-
-    if (creationMode && wasError && nowUndefined) {
-      // External error state was cleared (user dismissed error), reset to allow new selection
-      if (__DEV__) {
-        console.log('[ActivityMapView] Resetting selection after error dismissal');
-      }
-      setCreationState('selectingStart');
-      setStartIndex(null);
-      setEndIndex(null);
-    }
-
-    // Track previous state for next render
-    prevExternalCreationStateRef.current = externalCreationState;
-  }, [creationMode, externalCreationState]);
 
   const toggleMapStyle = useCallback(() => {
     setUserOverride(true);
@@ -612,57 +578,10 @@ export const ActivityMapView = memo(function ActivityMapView({
           featureType: feature?.geometry?.type,
         });
       }
-      // In creation mode, handle point selection
+      // In creation mode, delegate to section creation hook
       if (creationMode && feature?.geometry?.type === 'Point') {
         const [lng, lat] = feature.geometry.coordinates as [number, number];
-
-        // Find nearest point on the route
-        if (validCoordinates.length === 0) return;
-
-        let nearestIndex = 0;
-        let nearestDistance = Infinity;
-
-        for (let i = 0; i < validCoordinates.length; i++) {
-          const coord = validCoordinates[i];
-          const dx = coord.longitude - lng;
-          const dy = coord.latitude - lat;
-          const dist = dx * dx + dy * dy;
-          if (dist < nearestDistance) {
-            nearestDistance = dist;
-            nearestIndex = i;
-          }
-        }
-
-        if (creationState === 'selectingStart') {
-          if (__DEV__) {
-            console.log('[ActivityMapView:Camera] Setting startIndex', {
-              nearestIndex,
-            });
-          }
-          setStartIndex(nearestIndex);
-          setCreationState('selectingEnd');
-        } else if (creationState === 'selectingEnd') {
-          // Ensure end is after start
-          if (nearestIndex <= (startIndex ?? 0)) {
-            // Swap them
-            if (__DEV__) {
-              console.log('[ActivityMapView:Camera] Swapping start/end', {
-                nearestIndex,
-                startIndex,
-              });
-            }
-            setEndIndex(startIndex);
-            setStartIndex(nearestIndex);
-          } else {
-            if (__DEV__) {
-              console.log('[ActivityMapView:Camera] Setting endIndex', {
-                nearestIndex,
-              });
-            }
-            setEndIndex(nearestIndex);
-          }
-          setCreationState('complete');
-        }
+        handleCreationTap(lng, lat);
         return;
       }
 
@@ -670,7 +589,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         openFullscreen();
       }
     },
-    [enableFullscreen, openFullscreen, creationMode, creationState, startIndex, validCoordinates]
+    [enableFullscreen, openFullscreen, creationMode, creationState, handleCreationTap]
   );
 
   // iOS tap handler - converts screen coordinates to map coordinates
@@ -701,51 +620,6 @@ export const ActivityMapView = memo(function ActivityMapView({
     },
     [handleMapPress]
   );
-
-  // Section creation handlers
-  const handleCreationConfirm = useCallback(() => {
-    if (startIndex === null || endIndex === null) return;
-
-    // Extract section polyline
-    const sectionCoords = validCoordinates.slice(startIndex, endIndex + 1);
-    const polyline: RoutePoint[] = sectionCoords.map((c) => ({
-      lat: c.latitude,
-      lng: c.longitude,
-    }));
-
-    // Calculate distance using Haversine
-    let distance = 0;
-    for (let i = 1; i < sectionCoords.length; i++) {
-      const prev = sectionCoords[i - 1];
-      const curr = sectionCoords[i];
-      distance += haversineDistance(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
-    }
-
-    onSectionCreated?.({
-      polyline,
-      startIndex,
-      endIndex,
-      distanceMeters: distance,
-    });
-
-    // Reset state
-    setCreationState('selectingStart');
-    setStartIndex(null);
-    setEndIndex(null);
-  }, [startIndex, endIndex, validCoordinates, onSectionCreated]);
-
-  const handleCreationCancel = useCallback(() => {
-    setCreationState('selectingStart');
-    setStartIndex(null);
-    setEndIndex(null);
-    onCreationCancelled?.();
-  }, [onCreationCancelled]);
-
-  const handleCreationReset = useCallback(() => {
-    setCreationState('selectingStart');
-    setStartIndex(null);
-    setEndIndex(null);
-  }, []);
 
   // Compass bearing state
   const bearingAnim = useRef(new Animated.Value(0)).current;
@@ -1114,55 +988,6 @@ export const ActivityMapView = memo(function ActivityMapView({
     }
     return null;
   }, [highlightIndex, coordinates]);
-
-  // Section creation: calculate section distance
-  const sectionDistance = useMemo(() => {
-    if (!creationMode || startIndex === null || endIndex === null) return null;
-    const sectionCoords = validCoordinates.slice(startIndex, endIndex + 1);
-    let distance = 0;
-    for (let i = 1; i < sectionCoords.length; i++) {
-      const prev = sectionCoords[i - 1];
-      const curr = sectionCoords[i];
-      distance += haversineDistance(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
-    }
-    return distance;
-  }, [creationMode, startIndex, endIndex, validCoordinates]);
-
-  // Section creation: calculate point count for UI feedback
-  const sectionPointCount = useMemo(() => {
-    if (!creationMode || startIndex === null || endIndex === null) return null;
-    return endIndex - startIndex + 1;
-  }, [creationMode, startIndex, endIndex]);
-
-  // Section creation: GeoJSON for selected portion
-  // CRITICAL: Always return valid GeoJSON to avoid add/remove cycles that crash iOS MapLibre
-  const sectionGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    if (!creationMode || startIndex === null) {
-      return { type: 'FeatureCollection' as const, features: [] };
-    }
-    const end = endIndex ?? startIndex;
-    const sectionCoords = validCoordinates.slice(startIndex, end + 1);
-    if (sectionCoords.length < 2) {
-      return { type: 'FeatureCollection' as const, features: [] };
-    }
-    return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: sectionCoords.map((c) => [c.longitude, c.latitude]),
-      },
-    };
-  }, [creationMode, startIndex, endIndex, validCoordinates]);
-
-  const sectionHasData =
-    sectionGeoJSON.type === 'Feature' ||
-    (sectionGeoJSON.type === 'FeatureCollection' && sectionGeoJSON.features.length > 0);
-
-  // Section creation: get selected start/end points for markers
-  const sectionStartPoint =
-    creationMode && startIndex !== null ? validCoordinates[startIndex] : null;
-  const sectionEndPoint = creationMode && endIndex !== null ? validCoordinates[endIndex] : null;
 
   const mapStyleValue = getMapStyle(mapStyle);
   const isDark = isDarkStyle(mapStyle);
