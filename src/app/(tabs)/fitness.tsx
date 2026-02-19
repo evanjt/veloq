@@ -43,13 +43,8 @@ import {
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
-const TIME_RANGES: { id: TimeRange; label: string }[] = [
-  { id: '7d', label: '1W' },
-  { id: '1m', label: '1M' },
-  { id: '3m', label: '3M' },
-  { id: '6m', label: '6M' },
-  { id: '1y', label: '1Y' },
-];
+import { TIME_RANGES } from '@/lib/utils/constants';
+import { isNetworkError } from '@/lib/utils/errorHandler';
 
 // Convert TimeRange to days for activity fetching
 const timeRangeToDays = (range: TimeRange): number => {
@@ -292,12 +287,7 @@ export default function FitnessScreen() {
   }
 
   if (isError || !wellness) {
-    // Check if this is a network error
-    const axiosError = error as { code?: string };
-    const isNetworkError =
-      axiosError?.code === 'ERR_NETWORK' ||
-      axiosError?.code === 'ECONNABORTED' ||
-      axiosError?.code === 'ETIMEDOUT';
+    const networkError = isNetworkError(error);
 
     return (
       <ScreenSafeAreaView style={shared.container}>
@@ -305,7 +295,7 @@ export default function FitnessScreen() {
           <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
         </View>
         <View style={shared.loadingContainer}>
-          {isNetworkError ? (
+          {networkError ? (
             <NetworkErrorState onRetry={() => refetch()} />
           ) : (
             <ErrorStatePreset message={t('fitnessScreen.failedToLoad')} onRetry={() => refetch()} />

@@ -19,13 +19,7 @@ import { createSharedStyles } from '@/styles';
 import { SMOOTHING_PRESETS, getSmoothingDescription, type SmoothingWindow } from '@/lib';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 
-const TIME_RANGES: { id: TimeRange; label: string }[] = [
-  { id: '7d', label: '1W' },
-  { id: '1m', label: '1M' },
-  { id: '3m', label: '3M' },
-  { id: '6m', label: '6M' },
-  { id: '1y', label: '1Y' },
-];
+import { TIME_RANGES } from '@/lib/utils/constants';
 
 export default function HealthScreen() {
   const perfEnd = logScreenRender('HealthScreen');

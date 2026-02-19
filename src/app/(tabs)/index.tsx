@@ -13,6 +13,7 @@ import {
 import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/components/ui';
 import { logScreenRender, PERF_DEBUG } from '@/lib/debug/renderTimer';
+import { isNetworkError } from '@/lib/utils/errorHandler';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -230,14 +231,7 @@ export default function FeedScreen() {
   );
 
   const renderError = useCallback(() => {
-    // Check if this is a network error (axios error codes)
-    const axiosError = error as { code?: string };
-    const isNetworkError =
-      axiosError?.code === 'ERR_NETWORK' ||
-      axiosError?.code === 'ECONNABORTED' ||
-      axiosError?.code === 'ETIMEDOUT';
-
-    if (isNetworkError) {
+    if (isNetworkError(error)) {
       return <NetworkErrorState onRetry={() => refetch()} />;
     }
 
