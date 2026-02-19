@@ -403,8 +403,6 @@ export default function ActivityDetailScreen() {
     [streams?.time]
   );
 
-  const formatSectionTime = formatDuration;
-
   const formatSectionPace = useCallback(
     (seconds: number, meters: number): string => {
       if (meters <= 0 || seconds <= 0) return '--';
@@ -503,7 +501,7 @@ export default function ActivityDetailScreen() {
             renderSectionSwipeActions(sectionId, isCustom, isDisabled, progress, dragX)
           }
           swipeableRefs={swipeableRefs}
-          formatSectionTime={formatSectionTime}
+          formatSectionTime={formatDuration}
           formatSectionPace={formatSectionPace}
         />
       );
@@ -522,7 +520,7 @@ export default function ActivityDetailScreen() {
       getSectionTime,
       getSectionBestTime,
       formatTimeDelta,
-      formatSectionTime,
+      formatDuration,
       formatSectionPace,
       swipeableRefs,
     ]
