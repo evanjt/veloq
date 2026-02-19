@@ -1,4 +1,5 @@
 export { AccountSection } from './AccountSection';
+export { DataCacheSection } from './DataCacheSection';
 export { DataSourcesSection } from './DataSourcesSection';
 export { DisplaySettings } from './DisplaySettings';
 export { MapStylePreviewPicker } from './MapStylePreviewPicker';
