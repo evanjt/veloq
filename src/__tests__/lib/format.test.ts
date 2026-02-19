@@ -10,16 +10,25 @@
 import {
   formatDistance,
   formatDuration,
+  formatDurationHuman,
   formatPace,
   formatPaceCompact,
   formatSwimPace,
   formatSpeed,
   formatElevation,
+  formatTemperature,
   formatHeartRate,
   formatPower,
   formatCalories,
+  formatTSS,
   formatLocalDate,
   formatRelativeDate,
+  formatTimeDelta,
+  formatPerformanceDelta,
+  getMonday,
+  getSunday,
+  formatFileSize,
+  speedToSecsPerKm,
   clamp,
 } from '@/lib/utils/format';
 
@@ -250,5 +259,196 @@ describe('clamp', () => {
   it('handles edge cases at boundaries', () => {
     expect(clamp(0, 0, 10)).toBe(0);
     expect(clamp(10, 0, 10)).toBe(10);
+  });
+});
+
+describe('formatDurationHuman', () => {
+  it('formats seconds', () => {
+    expect(formatDurationHuman(45)).toBe('45s');
+    expect(formatDurationHuman(0)).toBe('0s');
+  });
+
+  it('formats minutes and seconds', () => {
+    expect(formatDurationHuman(90)).toBe('1m 30s');
+    expect(formatDurationHuman(300)).toBe('5m');
+  });
+
+  it('formats hours and minutes', () => {
+    expect(formatDurationHuman(3600)).toBe('1h');
+    expect(formatDurationHuman(5400)).toBe('1h 30m');
+  });
+
+  it('handles invalid inputs', () => {
+    expect(formatDurationHuman(NaN)).toBe('0s');
+    expect(formatDurationHuman(-10)).toBe('0s');
+    expect(formatDurationHuman(Infinity)).toBe('0s');
+  });
+});
+
+describe('formatTemperature', () => {
+  it('formats celsius', () => {
+    expect(formatTemperature(20)).toBe('20°C');
+    expect(formatTemperature(0)).toBe('0°C');
+    expect(formatTemperature(-5)).toBe('-5°C');
+  });
+
+  it('formats fahrenheit', () => {
+    expect(formatTemperature(0, false)).toBe('32°F');
+    expect(formatTemperature(100, false)).toBe('212°F');
+  });
+
+  it('handles null/undefined/NaN', () => {
+    expect(formatTemperature(null)).toBe('--°C');
+    expect(formatTemperature(undefined)).toBe('--°C');
+    expect(formatTemperature(NaN)).toBe('--°C');
+    expect(formatTemperature(null, false)).toBe('--°F');
+  });
+});
+
+describe('formatTSS', () => {
+  it('formats valid TSS', () => {
+    expect(formatTSS(100)).toBe('100 TSS');
+    expect(formatTSS(45.6)).toBe('46 TSS');
+  });
+
+  it('handles invalid inputs', () => {
+    expect(formatTSS(NaN)).toBe('0 TSS');
+    expect(formatTSS(-10)).toBe('0 TSS');
+    expect(formatTSS(Infinity)).toBe('0 TSS');
+  });
+});
+
+describe('formatTimeDelta', () => {
+  it('formats positive deltas (slower)', () => {
+    expect(formatTimeDelta(90)).toBe('+1:30');
+    expect(formatTimeDelta(5)).toBe('+5s');
+  });
+
+  it('formats negative deltas (faster)', () => {
+    expect(formatTimeDelta(-90)).toBe('-1:30');
+    expect(formatTimeDelta(-5)).toBe('-5s');
+  });
+
+  it('returns null for sub-second deltas', () => {
+    expect(formatTimeDelta(0.5)).toBeNull();
+    expect(formatTimeDelta(-0.3)).toBeNull();
+    expect(formatTimeDelta(0)).toBeNull();
+  });
+
+  it('returns null for invalid inputs', () => {
+    expect(formatTimeDelta(NaN)).toBeNull();
+    expect(formatTimeDelta(Infinity)).toBeNull();
+  });
+
+  it('pads seconds with leading zero', () => {
+    expect(formatTimeDelta(65)).toBe('+1:05');
+  });
+});
+
+describe('formatPerformanceDelta', () => {
+  it('returns null display for best performance', () => {
+    const result = formatPerformanceDelta({ isBest: true });
+    expect(result.deltaDisplay).toBeNull();
+    expect(result.isFaster).toBe(false);
+  });
+
+  it('computes pace delta for running', () => {
+    // Current 4 m/s = 250 s/km, Best 5 m/s = 200 s/km → delta +50s
+    const result = formatPerformanceDelta({
+      isBest: false,
+      showPace: true,
+      currentSpeed: 4,
+      bestSpeed: 5,
+    });
+    expect(result.deltaDisplay).toBe('+50s');
+    expect(result.isFaster).toBe(false);
+  });
+
+  it('detects faster pace', () => {
+    const result = formatPerformanceDelta({
+      isBest: false,
+      showPace: true,
+      currentSpeed: 5,
+      bestSpeed: 4,
+    });
+    expect(result.isFaster).toBe(true);
+  });
+
+  it('uses timeDelta when not showPace', () => {
+    const result = formatPerformanceDelta({
+      isBest: false,
+      timeDelta: 30,
+    });
+    expect(result.deltaDisplay).toBe('+30s');
+    expect(result.isFaster).toBe(false);
+  });
+
+  it('returns null for missing data', () => {
+    const result = formatPerformanceDelta({ isBest: false });
+    expect(result.deltaDisplay).toBeNull();
+  });
+});
+
+describe('getMonday / getSunday', () => {
+  it('returns Monday for a Wednesday', () => {
+    const wed = new Date(2026, 0, 14); // Wed Jan 14, 2026
+    const mon = getMonday(wed);
+    expect(mon.getDay()).toBe(1); // Monday
+    expect(mon.getDate()).toBe(12);
+  });
+
+  it('returns Monday for a Sunday', () => {
+    const sun = new Date(2026, 0, 18); // Sun Jan 18, 2026
+    const mon = getMonday(sun);
+    expect(mon.getDay()).toBe(1);
+    expect(mon.getDate()).toBe(12);
+  });
+
+  it('returns Monday for a Monday', () => {
+    const mon = new Date(2026, 0, 12);
+    const result = getMonday(mon);
+    expect(result.getDate()).toBe(12);
+  });
+
+  it('getSunday returns Sunday of the same week', () => {
+    const wed = new Date(2026, 0, 14);
+    const sun = getSunday(wed);
+    expect(sun.getDay()).toBe(0); // Sunday
+    expect(sun.getDate()).toBe(18);
+  });
+
+  it('does not mutate input date', () => {
+    const orig = new Date(2026, 0, 14);
+    const origTime = orig.getTime();
+    getMonday(orig);
+    expect(orig.getTime()).toBe(origTime);
+  });
+});
+
+describe('formatFileSize', () => {
+  it('formats bytes', () => {
+    expect(formatFileSize(500)).toBe('500 B');
+  });
+
+  it('formats kilobytes', () => {
+    expect(formatFileSize(1024)).toBe('1.0 KB');
+    expect(formatFileSize(1536)).toBe('1.5 KB');
+  });
+
+  it('formats megabytes', () => {
+    expect(formatFileSize(1048576)).toBe('1.0 MB');
+    expect(formatFileSize(2621440)).toBe('2.5 MB');
+  });
+});
+
+describe('speedToSecsPerKm', () => {
+  it('converts speed to pace', () => {
+    expect(speedToSecsPerKm(1)).toBe(1000); // 1 m/s = 1000 s/km
+    expect(speedToSecsPerKm(5)).toBe(200); // 5 m/s = 200 s/km
+  });
+
+  it('returns 0 for zero or negative speed', () => {
+    expect(speedToSecsPerKm(0)).toBe(0);
+    expect(speedToSecsPerKm(-1)).toBe(0);
   });
 });
