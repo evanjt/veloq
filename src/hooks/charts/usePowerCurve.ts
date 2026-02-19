@@ -57,6 +57,25 @@ export function getPowerAtDuration(curve: PowerCurve | undefined, secs: number):
   return curve.watts[closestIndex];
 }
 
+// Get the array index for a given duration (exact or closest match)
+export function getIndexAtDuration(curve: PowerCurve | undefined, secs: number): number | null {
+  if (!curve?.secs || curve.secs.length === 0) return null;
+
+  const exactIndex = curve.secs.findIndex((s) => s === secs);
+  if (exactIndex !== -1) return exactIndex;
+
+  let closestIndex = 0;
+  let closestDiff = Math.abs(curve.secs[0] - secs);
+  for (let i = 1; i < curve.secs.length; i++) {
+    const diff = Math.abs(curve.secs[i] - secs);
+    if (diff < closestDiff) {
+      closestDiff = diff;
+      closestIndex = i;
+    }
+  }
+  return closestIndex;
+}
+
 // Format power curve data for chart display
 export function formatPowerCurveForChart(curve: PowerCurve | undefined) {
   if (!curve?.secs || !curve?.watts) return [];

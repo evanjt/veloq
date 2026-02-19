@@ -628,6 +628,7 @@ export interface TranslationResource {
     months6: string;
     year1: string;
     lactateThreshold: string;
+    noEffortData: string;
     pace: string;
     heartRate: string;
     maxHr: string;
@@ -637,6 +638,7 @@ export interface TranslationResource {
     powerCurveInfo: string;
     ref: string;
     garminNote: string;
+    seasonBests: string;
     swimPaceCurve: string;
     trainingZones: string;
     eFTPTrend: string;

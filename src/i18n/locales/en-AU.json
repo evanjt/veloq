@@ -847,6 +847,7 @@
     "maxHr": "Max ticker",
     "months3": "3 months",
     "months6": "6 months",
+    "noEffortData": "No best effort data available",
     "pace": "Pace",
     "paceCurve": "Pace Curve",
     "powerCurve": "Power Curve",
@@ -856,7 +857,8 @@
     "year1": "1 year",
     "paceCurveInfo": "CS (critical speed) and D' are worked out using the 2 parameter model. Intervals.icu grabs your best 1k, 2k, 3k, 4k and 5k times that take between 2 and 15+ minutes.",
     "powerCurveInfo": "Estimated FTP is worked out using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. Just needs 1 flat-out effort between 180 seconds and 30 minutes. W' is relative to eFTP.",
-    "ref": "Ref"
+    "ref": "Ref",
+    "seasonBests": "Season Bests"
   },
   "time": {
     "current": "Right now",

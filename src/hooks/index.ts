@@ -23,7 +23,8 @@ export {
 } from '@/lib';
 
 // Chart hooks
-export { usePowerCurve, usePaceCurve, useChartColors } from './charts';
+export { usePowerCurve, usePaceCurve, useChartColors, useSeasonBests } from './charts';
+export type { BestEffort, UseSeasonBestsResult } from './charts';
 
 // UI hooks
 export { useTheme, useMetricSystem } from './ui';
@@ -47,10 +48,13 @@ export {
 export {
   POWER_CURVE_DURATIONS,
   getPowerAtDuration,
+  getIndexAtDuration,
   formatPowerCurveForChart,
   PACE_CURVE_DISTANCES,
   SWIM_PACE_CURVE_DISTANCES,
   getPaceAtDistance,
+  getIndexAtDistance,
+  getTimeAtDistance,
   paceToMinPerKm,
   paceToMinPer100m,
 } from './charts';

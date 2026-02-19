@@ -197,7 +197,7 @@ export const intervalsApi = {
 
     // Response format: { list: [{ secs: [], values: [], ... }], activities: {} }
     const response = await apiClient.get<{
-      list: Array<{ secs: number[]; values: number[] }>;
+      list: Array<{ secs: number[]; values: number[]; activity_id?: string[] }>;
     }>(`/athlete/${athleteId}/power-curves.json`, {
       params: { type: sportType, curves: curvesParam },
     });
@@ -209,6 +209,7 @@ export const intervalsApi = {
     return {
       secs: curve?.secs || [],
       watts: curve?.values || [],
+      activity_ids: curve?.activity_id,
     } as PowerCurve;
   },
 

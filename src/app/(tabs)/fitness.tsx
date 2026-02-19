@@ -6,7 +6,12 @@ import { logScreenRender, logMemory } from '@/lib/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { FitnessChart, FormZoneChart, ActivityDotsChart } from '@/components/fitness';
+import {
+  FitnessChart,
+  FormZoneChart,
+  ActivityDotsChart,
+  SeasonBestsSection,
+} from '@/components/fitness';
 import {
   PowerCurveChart,
   PaceCurveChart,
@@ -27,6 +32,7 @@ import {
   useSportSettings,
   getSettingsForSport,
   usePaceCurve,
+  useSeasonBests,
   useTheme,
   getFormZone,
   FORM_ZONE_COLORS,
@@ -88,6 +94,7 @@ export default function FitnessScreen() {
 
   // Collapsible section state - performance collapsed by default to reduce initial render load
   const [performanceExpanded, setPerformanceExpanded] = useState(false);
+  const [bestsExpanded, setBestsExpanded] = useState(false);
   const [zonesExpanded, setZonesExpanded] = useState(false);
   const [trendsExpanded, setTrendsExpanded] = useState(false);
   const [efficiencyExpanded, setEfficiencyExpanded] = useState(false);
@@ -171,6 +178,13 @@ export default function FitnessScreen() {
     days: timeRangeToDays(timeRange),
   });
   const swimThresholdPace = swimPaceCurve?.criticalSpeed;
+
+  // Season bests from existing power/pace curve data
+  const {
+    efforts: bestsEfforts,
+    isLoading: loadingBests,
+    headerSummary: bestsHeader,
+  } = useSeasonBests({ sport: sportMode, days: timeRangeToDays(timeRange) });
 
   // Find a recent activity with power data for decoupling analysis
   const decouplingActivity = useMemo(() => {
@@ -536,6 +550,34 @@ export default function FitnessScreen() {
               {sportMode === 'Swimming' && (
                 <SwimPaceCurveChart height={200} days={timeRangeToDays(timeRange)} />
               )}
+            </View>
+          </CollapsibleSection>
+        </View>
+
+        {/* Season Bests Section */}
+        <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
+          <CollapsibleSection
+            testID="fitness-section-bests"
+            title={t('statsScreen.seasonBests')}
+            icon="trophy-outline"
+            expanded={bestsExpanded}
+            onToggle={setBestsExpanded}
+            estimatedHeight={200}
+            headerRight={
+              bestsHeader ? (
+                <Text style={[styles.headerValue, { color: SPORT_COLORS[sportMode] }]}>
+                  {bestsHeader}
+                </Text>
+              ) : null
+            }
+          >
+            <View style={styles.collapsibleContent}>
+              <SeasonBestsSection
+                efforts={bestsEfforts}
+                sport={sportMode}
+                days={timeRangeToDays(timeRange)}
+                isLoading={loadingBests}
+              />
             </View>
           </CollapsibleSection>
         </View>

@@ -76,6 +76,44 @@ export function getPaceAtDistance(
 }
 
 /**
+ * Get the array index for a given distance (exact or closest match)
+ */
+export function getIndexAtDistance(
+  curve: PaceCurve | undefined,
+  targetDistance: number
+): number | null {
+  if (!curve?.distances || curve.distances.length === 0) return null;
+
+  const exactIndex = curve.distances.findIndex((d) => Math.abs(d - targetDistance) < 1);
+  if (exactIndex !== -1) return exactIndex;
+
+  let closestIndex = 0;
+  let closestDiff = Math.abs(curve.distances[0] - targetDistance);
+  for (let i = 1; i < curve.distances.length; i++) {
+    const diff = Math.abs(curve.distances[i] - targetDistance);
+    if (diff < closestDiff) {
+      closestDiff = diff;
+      closestIndex = i;
+    }
+  }
+  return closestIndex;
+}
+
+/**
+ * Get the time in seconds to cover a given distance
+ */
+export function getTimeAtDistance(
+  curve: PaceCurve | undefined,
+  targetDistance: number
+): number | null {
+  if (!curve?.distances || !curve?.times) return null;
+
+  const index = getIndexAtDistance(curve, targetDistance);
+  if (index === null) return null;
+  return curve.times[index] ?? null;
+}
+
+/**
  * Convert m/s to min:sec per km (for display)
  */
 export function paceToMinPerKm(metersPerSecond: number): {
