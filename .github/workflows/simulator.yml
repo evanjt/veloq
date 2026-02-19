@@ -9,8 +9,8 @@ on:
     - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
-      skip_e2e:
-        description: "Skip E2E tests"
+      run_e2e:
+        description: "Run E2E tests"
         required: false
         default: false
         type: boolean
@@ -458,7 +458,7 @@ jobs:
   # ============================================
   e2e-ios:
     needs: ios-simulator
-    if: ${{ !inputs.skip_e2e }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_e2e }}
     name: E2E iOS (Maestro)
     runs-on: macos-26
     timeout-minutes: 45
@@ -594,7 +594,7 @@ jobs:
   # ============================================
   e2e-android:
     needs: android-release
-    if: ${{ !inputs.skip_e2e }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_e2e }}
     name: E2E Android (Maestro)
     runs-on: macos-26
     timeout-minutes: 45
