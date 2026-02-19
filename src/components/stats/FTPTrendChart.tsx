@@ -23,10 +23,6 @@ interface FTPTrendChartProps {
 // Chart color - yellow/gold for FTP
 const CHART_COLOR = '#FFB300';
 
-function formatDate(dateStr: string): string {
-  return formatMonth(dateStr);
-}
-
 export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -151,10 +147,10 @@ export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartP
           {chartData.length > 0 && (
             <>
               <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                {formatDate(chartData[0].date)}
+                {formatMonth(chartData[0].date)}
               </Text>
               <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                {formatDate(chartData[chartData.length - 1].date)}
+                {formatMonth(chartData[chartData.length - 1].date)}
               </Text>
             </>
           )}

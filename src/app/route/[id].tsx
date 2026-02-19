@@ -55,6 +55,7 @@ import {
   formatPace,
   formatSpeed,
   isRunningActivity,
+  formatPerformanceDelta,
 } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import type { Activity, ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
@@ -135,49 +136,21 @@ const ActivityRow = React.memo(function ActivityRow({
   const showPace = isRunningActivity(activity.type);
 
   // Format delta from PR for display
-  // For running: show pace delta (e.g., "+0:15 /km")
-  // For cycling: show time delta (e.g., "+0:45")
   const { deltaDisplay, deltaColor } = useMemo(() => {
-    if (isBest) return { deltaDisplay: null, deltaColor: colors.textSecondary };
-
-    if (showPace && displaySpeed > 0 && bestSpeed && bestSpeed > 0) {
-      // Calculate pace delta (seconds per km)
-      const currentPace = 1000 / displaySpeed; // seconds per km
-      const bestPace = 1000 / bestSpeed; // seconds per km
-      const paceDelta = currentPace - bestPace; // positive = slower
-
-      if (!Number.isFinite(paceDelta) || Math.abs(paceDelta) < 1) {
-        return { deltaDisplay: null, deltaColor: colors.textSecondary };
-      }
-
-      const absDelta = Math.abs(paceDelta);
-      const minutes = Math.floor(absDelta / 60);
-      const seconds = Math.round(absDelta % 60);
-      const sign = paceDelta > 0 ? '+' : '-';
-      const formatted =
-        minutes > 0
-          ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
-          : `${sign}${seconds}s`;
-
-      return {
-        deltaDisplay: formatted,
-        deltaColor: paceDelta <= 0 ? colors.success : colors.error,
-      };
-    }
-
-    // Fall back to time delta for non-running activities
-    if (deltaFromPR === undefined || !Number.isFinite(deltaFromPR)) {
-      return { deltaDisplay: null, deltaColor: colors.textSecondary };
-    }
-
-    const absDelta = Math.abs(deltaFromPR);
-    const minutes = Math.floor(absDelta / 60);
-    const seconds = Math.round(absDelta % 60);
-    const sign = deltaFromPR > 0 ? '+' : '-';
-
+    const result = formatPerformanceDelta({
+      isBest,
+      showPace,
+      currentSpeed: displaySpeed,
+      bestSpeed,
+      timeDelta: deltaFromPR,
+    });
     return {
-      deltaDisplay: `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`,
-      deltaColor: deltaFromPR <= 0 ? colors.success : colors.error,
+      deltaDisplay: result.deltaDisplay,
+      deltaColor: result.deltaDisplay
+        ? result.isFaster
+          ? colors.success
+          : colors.error
+        : colors.textSecondary,
     };
   }, [isBest, showPace, displaySpeed, bestSpeed, deltaFromPR]);
 

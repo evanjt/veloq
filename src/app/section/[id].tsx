@@ -64,6 +64,7 @@ import {
   formatSpeed,
   formatPace,
   isRunningActivity,
+  formatPerformanceDelta,
 } from '@/lib';
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
@@ -224,53 +225,24 @@ const ActivityRow = memo(function ActivityRow({
 
   // Calculate delta from best - use pace for running, time for others
   const { deltaDisplay, deltaColor } = useMemo(() => {
-    if (isBest) return { deltaDisplay: null, deltaColor: colors.textSecondary };
-
-    // For running: calculate pace delta (seconds per km difference)
-    if (showPace && sectionSpeed > 0 && bestPace && bestPace > 0) {
-      const currentPacePerKm = 1000 / sectionSpeed; // seconds per km
-      const bestPacePerKm = 1000 / bestPace; // seconds per km
-      const paceDelta = currentPacePerKm - bestPacePerKm; // positive = slower
-
-      if (!Number.isFinite(paceDelta) || Math.abs(paceDelta) < 1) {
-        return { deltaDisplay: null, deltaColor: colors.textSecondary };
-      }
-
-      const absDelta = Math.abs(paceDelta);
-      const minutes = Math.floor(absDelta / 60);
-      const seconds = Math.round(absDelta % 60);
-      const sign = paceDelta > 0 ? '+' : '-';
-      const formatted =
-        minutes > 0
-          ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
-          : `${sign}${seconds}s`;
-
-      return {
-        deltaDisplay: formatted,
-        deltaColor: paceDelta <= 0 ? colors.success : colors.error,
-      };
-    }
-
-    // Fall back to time delta for non-running
-    if (bestTime === undefined || sectionTime === undefined || sectionTime <= 0) {
-      return { deltaDisplay: null, deltaColor: colors.textSecondary };
-    }
-
-    const diff = sectionTime - bestTime;
-    if (Math.abs(diff) < 1) return { deltaDisplay: null, deltaColor: colors.textSecondary };
-
-    const absDelta = Math.abs(diff);
-    const minutes = Math.floor(absDelta / 60);
-    const seconds = Math.round(absDelta % 60);
-    const sign = diff > 0 ? '+' : '-';
-    const formatted =
-      minutes > 0
-        ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
-        : `${sign}${Math.floor(absDelta)}s`;
-
+    const timeDelta =
+      bestTime !== undefined && sectionTime !== undefined && sectionTime > 0
+        ? sectionTime - bestTime
+        : undefined;
+    const result = formatPerformanceDelta({
+      isBest,
+      showPace,
+      currentSpeed: sectionSpeed,
+      bestSpeed: bestPace,
+      timeDelta,
+    });
     return {
-      deltaDisplay: formatted,
-      deltaColor: diff <= 0 ? colors.success : colors.error,
+      deltaDisplay: result.deltaDisplay,
+      deltaColor: result.deltaDisplay
+        ? result.isFaster
+          ? colors.success
+          : colors.error
+        : colors.textSecondary,
     };
   }, [isBest, showPace, sectionSpeed, bestPace, bestTime, sectionTime]);
 

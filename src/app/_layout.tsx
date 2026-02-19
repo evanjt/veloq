@@ -18,7 +18,6 @@ import { AppState, useColorScheme, View, ActivityIndicator, Platform } from 'rea
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
-import * as FileSystem from 'expo-file-system/legacy';
 import MapLibre, { Logger as MapLibreLogger } from '@maplibre/maplibre-react-native';
 import {
   QueryProvider,
@@ -43,17 +42,7 @@ import { formatLocalDate } from '@/lib';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import { DemoBanner, GlobalDataSync, OfflineBanner, BottomTabBar } from '@/components/ui';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-
-// Database path for persistent route engine (SQLite)
-// FileSystem.documentDirectory returns a file:// URI, but SQLite needs a plain path
-const getRouteDbPath = () => {
-  const docDir = FileSystem.documentDirectory;
-  if (!docDir) return null;
-  // Strip file:// prefix if present for SQLite compatibility
-  const plainPath = docDir.startsWith('file://') ? docDir.slice(7) : docDir;
-  return `${plainPath}routes.db`;
-};
+import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
 // These occur because Victory uses shared values during render (known library behavior)

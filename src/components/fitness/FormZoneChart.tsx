@@ -49,10 +49,6 @@ interface ChartDataPoint {
   fatigue: number;
 }
 
-function formatDate(dateStr: string): string {
-  return formatShortDate(dateStr);
-}
-
 const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 4 } as const;
 
 export const FormZoneChart = React.memo(function FormZoneChart({
@@ -250,7 +246,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
         <View style={styles.dateContainer}>
           <Text style={[styles.dateText, isDark && styles.textLight]}>
             {(isActive && selectedData) || selectedDate
-              ? formatDate(selectedData?.date || selectedDate || '')
+              ? formatShortDate(selectedData?.date || selectedDate || '')
               : t('time.current')}
           </Text>
         </View>

@@ -90,14 +90,6 @@ interface ChartDataPoint {
   [key: string]: string | number;
 }
 
-function formatDate(dateStr: string): string {
-  return formatShortDate(dateStr);
-}
-
-function formatFullDateLocal(dateStr: string): string {
-  return formatShortDateWithWeekday(dateStr);
-}
-
 const FITNESS_CHART_PADDING = { left: 0, right: 0, top: 8, bottom: 0 } as const;
 const FORM_CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 16 } as const;
 
@@ -299,8 +291,8 @@ export const FitnessFormChart = memo(function FitnessFormChart({
       <View style={styles.header}>
         <Text style={[styles.dateText, isDark && styles.textLight]}>
           {isActive && tooltipData
-            ? formatFullDateLocal(tooltipData.date)
-            : formatFullDateLocal(currentData.date)}
+            ? formatShortDateWithWeekday(tooltipData.date)
+            : formatShortDateWithWeekday(currentData.date)}
         </Text>
         <View style={styles.valuesRow}>
           <View style={styles.valueItem}>
@@ -528,10 +520,10 @@ export const FitnessFormChart = memo(function FitnessFormChart({
           {/* X-axis labels */}
           <View style={styles.xAxisOverlay}>
             <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {chartData.length > 0 ? formatDate(chartData[0].date) : ''}
+              {chartData.length > 0 ? formatShortDate(chartData[0].date) : ''}
             </Text>
             <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {chartData.length > 0 ? formatDate(chartData[chartData.length - 1].date) : ''}
+              {chartData.length > 0 ? formatShortDate(chartData[chartData.length - 1].date) : ''}
             </Text>
           </View>
         </View>

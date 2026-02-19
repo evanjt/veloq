@@ -453,6 +453,69 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+export interface PerformanceDelta {
+  deltaDisplay: string | null;
+  isFaster: boolean;
+}
+
+/**
+ * Format a time delta as a signed duration string (e.g., "+1:30", "-45s").
+ * Returns null if the delta is less than 1 second.
+ */
+export function formatTimeDelta(deltaSeconds: number): string | null {
+  if (!Number.isFinite(deltaSeconds) || Math.abs(deltaSeconds) < 1) return null;
+  const absDelta = Math.abs(deltaSeconds);
+  const minutes = Math.floor(absDelta / 60);
+  const seconds = Math.round(absDelta % 60);
+  const sign = deltaSeconds > 0 ? '+' : '-';
+  return minutes > 0
+    ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
+    : `${sign}${seconds}s`;
+}
+
+/**
+ * Compute the performance delta for a section/route traversal.
+ *
+ * For running activities (showPace=true): compares pace (seconds/km).
+ * For other activities: compares elapsed time.
+ *
+ * @param options.isBest - Whether this is the best performance (skip delta)
+ * @param options.showPace - Whether to use pace comparison (running)
+ * @param options.currentSpeed - Current speed in m/s
+ * @param options.bestSpeed - Best speed in m/s
+ * @param options.timeDelta - Pre-computed time delta in seconds (positive = slower)
+ */
+export function formatPerformanceDelta(options: {
+  isBest: boolean;
+  showPace?: boolean;
+  currentSpeed?: number;
+  bestSpeed?: number;
+  timeDelta?: number;
+}): PerformanceDelta {
+  const { isBest, showPace, currentSpeed, bestSpeed, timeDelta } = options;
+
+  if (isBest) return { deltaDisplay: null, isFaster: false };
+
+  // Pace comparison for running activities
+  if (showPace && currentSpeed && currentSpeed > 0 && bestSpeed && bestSpeed > 0) {
+    const paceDelta = 1000 / currentSpeed - 1000 / bestSpeed; // positive = slower
+    return {
+      deltaDisplay: formatTimeDelta(paceDelta),
+      isFaster: paceDelta <= 0,
+    };
+  }
+
+  // Time comparison for other activities
+  if (timeDelta !== undefined && Number.isFinite(timeDelta)) {
+    return {
+      deltaDisplay: formatTimeDelta(timeDelta),
+      isFaster: timeDelta <= 0,
+    };
+  }
+
+  return { deltaDisplay: null, isFaster: false };
+}
+
 /**
  * Get Monday of the week for a given date (ISO week: Monday-Sunday).
  */

@@ -51,10 +51,6 @@ interface ChartDataPoint {
   [key: string]: string | number;
 }
 
-function formatDate(dateStr: string): string {
-  return formatShortDate(dateStr);
-}
-
 const CHART_PADDING = { left: 0, right: 0, top: 8, bottom: 20 } as const;
 
 export const FitnessChart = React.memo(function FitnessChart({
@@ -301,7 +297,7 @@ export const FitnessChart = React.memo(function FitnessChart({
           <View style={styles.dateContainer}>
             <Text style={[styles.dateText, isDark && styles.textLight]}>
               {(isActive && tooltipData) || selectedDate
-                ? formatDate(tooltipData?.date || selectedDate || '')
+                ? formatShortDate(tooltipData?.date || selectedDate || '')
                 : t('time.current')}
             </Text>
           </View>
@@ -411,10 +407,10 @@ export const FitnessChart = React.memo(function FitnessChart({
             {/* X-axis labels */}
             <View style={styles.xAxisOverlay} pointerEvents="none">
               <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                {chartData.length > 0 ? formatDate(chartData[0].date) : ''}
+                {chartData.length > 0 ? formatShortDate(chartData[0].date) : ''}
               </Text>
               <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                {chartData.length > 0 ? formatDate(chartData[chartData.length - 1].date) : ''}
+                {chartData.length > 0 ? formatShortDate(chartData[chartData.length - 1].date) : ''}
               </Text>
             </View>
           </View>

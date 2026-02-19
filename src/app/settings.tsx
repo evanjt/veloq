@@ -33,7 +33,7 @@ import {
 } from '@/hooks';
 import * as FileSystem from 'expo-file-system/legacy';
 import { TimelineSlider } from '@/components/maps';
-import { formatLocalDate } from '@/lib';
+import { formatLocalDate, formatFullDate } from '@/lib';
 import { estimateRoutesDatabaseSize, clearAllAppCaches } from '@/lib';
 import {
   getThemePreference,
@@ -116,16 +116,9 @@ const MAP_ACTIVITY_GROUPS: {
   },
 ];
 
-function formatDate(dateStr: string | null, locale?: string): string {
+function formatDateOrDash(dateStr: string | null): string {
   if (!dateStr) return '-';
-  const date = new Date(dateStr);
-  // Convert i18n locale (e.g., 'en-US') to BCP 47 tag for toLocaleDateString
-  const bcp47Locale = locale?.replace('_', '-') || 'en-US';
-  return date.toLocaleDateString(bcp47Locale, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return formatFullDate(dateStr);
 }
 
 function formatBytes(bytes: number): string {
@@ -286,7 +279,7 @@ export default function SettingsScreen() {
     const newestDay = new Date(newest.getFullYear(), newest.getMonth(), newest.getDate());
     const days =
       Math.round((newestDay.getTime() - oldestDay.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    return `${formatDate(cacheStats.oldestDate, i18n.language)} - ${formatDate(cacheStats.newestDate, i18n.language)} (${t('stats.daysCount', { count: days })})`;
+    return `${formatDateOrDash(cacheStats.oldestDate)} - ${formatDateOrDash(cacheStats.newestDate)} (${t('stats.daysCount', { count: days })})`;
   }, [cacheStats.oldestDate, cacheStats.newestDate, t, i18n.language]);
 
   // Fetch oldest activity date from API for timeline extent
@@ -991,7 +984,7 @@ export default function SettingsScreen() {
               {t('settings.lastSynced')}
             </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
-              {formatDate(cacheStats.lastSync, i18n.language)}
+              {formatDateOrDash(cacheStats.lastSync)}
             </Text>
           </View>
 

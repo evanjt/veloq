@@ -11,21 +11,11 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import * as FileSystem from 'expo-file-system/legacy';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
 import { convertNativeSectionToApp } from './sectionConversions';
 import { type RouteGroup, type SectionSummary, type GroupSummary } from 'veloqrs';
 import type { FrequentSection } from '@/types';
-
-// Default database path for persistent engine
-// FileSystem.documentDirectory returns a file:// URI, but SQLite needs a plain path
-const getDefaultDbPath = () => {
-  const docDir = FileSystem.documentDirectory;
-  if (!docDir) return null;
-  // Strip file:// prefix if present for SQLite compatibility
-  const plainPath = docDir.startsWith('file://') ? docDir.slice(7) : docDir;
-  return `${plainPath}routes.db`;
-};
 
 // ============================================================================
 // Engine Type Helper
@@ -128,7 +118,7 @@ export function useRouteEngine(): UseRouteEngineResult {
     const engine = getRouteEngine();
     if (!engine) return false;
 
-    const path = dbPath || getDefaultDbPath();
+    const path = dbPath || getRouteDbPath();
     if (!path) return false;
 
     // Security: Validate path to prevent path traversal attacks

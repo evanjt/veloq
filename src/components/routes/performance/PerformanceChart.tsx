@@ -21,7 +21,7 @@ import Animated, {
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
-import { formatShortDate as formatShortDateLib } from '@/lib';
+import { formatShortDate } from '@/lib';
 
 // Direction colors
 const SAME_COLOR = colors.sameDirection;
@@ -49,10 +49,6 @@ interface PerformanceChartProps {
   formatSpeedValue: (speed: number) => string;
   currentActivityColor: string;
   onTooltipUpdate: (point: RoutePerformancePoint | null, isPersisted: boolean) => void;
-}
-
-function formatShortDate(date: Date): string {
-  return formatShortDateLib(date);
 }
 
 export function PerformanceChart({
