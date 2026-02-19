@@ -17,6 +17,7 @@ import type {
   SportSettings,
   ActivityMapData,
   RawStreamItem,
+  IntervalsDTO,
 } from '@/types';
 
 // Check if we're in demo mode
@@ -161,6 +162,12 @@ export const intervalsApi = {
     });
     // Transform raw streams array into usable object format
     return parseStreams(response.data);
+  },
+
+  async getActivityIntervals(id: string): Promise<IntervalsDTO> {
+    if (isDemoMode()) return mockIntervalsApi.getActivityIntervals(id);
+    const response = await apiClient.get(`/activity/${id}/intervals`);
+    return response.data;
   },
 
   async getWellness(params?: { oldest?: string; newest?: string }): Promise<WellnessData[]> {

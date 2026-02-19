@@ -2,7 +2,13 @@ import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/hooks';
 import { CartesianChart, Area } from 'victory-native';
-import { LinearGradient, vec, Line as SkiaLine, DashPathEffect } from '@shopify/react-native-skia';
+import {
+  LinearGradient,
+  vec,
+  Line as SkiaLine,
+  DashPathEffect,
+  Rect,
+} from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -16,10 +22,10 @@ import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, layout, shadows, chartStyles } from '@/theme';
-import { useMetricSystem } from '@/hooks';
+import { useMetricSystem, POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/hooks';
 import type { ChartConfig, ChartTypeId } from '@/lib';
-import { formatDuration } from '@/lib';
-import type { ActivityStreams } from '@/types';
+import { formatDuration, isCyclingActivity } from '@/lib';
+import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
 import { ChartErrorBoundary } from '@/components/ui';
 
@@ -106,8 +112,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Build normalized data for all selected series (+ preview if unselected)
   const { chartData, seriesInfo, indexMap, maxX } = useMemo(() => {
     // Choose x-axis source array based on mode
-    const xSource =
-      xAxisMode === 'time' ? streams.time || [] : streams.distance || [];
+    const xSource = xAxisMode === 'time' ? streams.time || [] : streams.distance || [];
     if (xSource.length === 0) {
       return {
         chartData: [],
@@ -544,9 +549,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                 {t('activity.chartHint', 'Hold to scrub • Hold chip for axis')}
               </Text>
               <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>
-                {xAxisMode === 'time'
-                  ? formatDuration(maxX)
-                  : maxX.toFixed(1)}
+                {xAxisMode === 'time' ? formatDuration(maxX) : maxX.toFixed(1)}
               </Text>
             </View>
 

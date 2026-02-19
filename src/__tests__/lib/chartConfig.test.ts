@@ -10,6 +10,7 @@ describe('CHART_CONFIGS', () => {
       'speed',
       'pace',
       'elevation',
+      'grade',
       'distance',
       'temp',
       'moving_time',

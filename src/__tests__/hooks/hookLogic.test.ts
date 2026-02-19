@@ -227,9 +227,10 @@ describe('getZoneColor', () => {
     expect(getZoneColor(100, 'hr')).toBe(lastHR);
   });
 
-  it('returns different colors for power vs HR at same index', () => {
-    // Index 4: power = Z5 VO2max (Orange), HR = Z5 Max (Red)
-    expect(getZoneColor(4, 'power')).not.toBe(getZoneColor(4, 'hr'));
+  it('returns correct palette for power vs HR at same index', () => {
+    // Both palettes now use intervals.icu colors — same color at shared indices
+    expect(getZoneColor(4, 'power')).toBe(POWER_ZONE_COLORS[4]);
+    expect(getZoneColor(4, 'hr')).toBe(HR_ZONE_COLORS[4]);
   });
 
   it('defaults to power when type is omitted', () => {

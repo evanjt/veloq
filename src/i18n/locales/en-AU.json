@@ -110,6 +110,8 @@
     "tapToClose": "Tap anywhere to close this",
     "temp": "TEMP",
     "timeInHRZones": "Time in ticker zones",
+    "timeInPowerZones": "Time in Power Zones",
+    "ftp": "FTP: {{value}}W",
     "tss": "TSS",
     "viewDetails": "Have a geez",
     "viewInIntervalsICU": "Check it out on intervals.icu",
@@ -124,6 +126,8 @@
     "avgPace": "Avg pace",
     "avgPower": "Avg watts",
     "avgSpeed": "Avg speed",
+    "np": "NP",
+    "elapsedTime": "Elapsed",
     "chartDisplayOptions": "Chart display options",
     "failedToLoad": "Couldn't load that activity",
     "fullscreenChart": "Fullscreen chart",
@@ -131,8 +135,12 @@
     "noMatchedSectionsDescription": "Sections matching this activity will rock up here",
     "noRouteMatch": "No route match yet",
     "noRouteMatchDescription": "Do this route a few more times to start tracking your performance, or expand your timeline in Settings to include older activities.",
+    "noIntervals": "No intervals detected",
+    "intervalWork": "Work",
+    "intervalRecovery": "Recovery",
     "tabs": {
       "charts": "Graphs",
+      "intervals": "Intervals",
       "route": "Route",
       "routes": "Routes",
       "sections": "Sections"
@@ -203,6 +211,7 @@
   "chartTypes": {
     "cad": "Cad",
     "elev": "Elev",
+    "grade": "Grade",
     "hr": "HR",
     "pace": "Pace",
     "power": "Power",

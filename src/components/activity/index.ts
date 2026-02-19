@@ -5,4 +5,7 @@ export { ActivityDataChart } from './ActivityDataChart';
 export { ChartTypeSelector } from './ChartTypeSelector';
 export { CombinedPlot } from './CombinedPlot';
 export { HRZonesChart } from './HRZonesChart';
+export { PowerZonesChart } from './PowerZonesChart';
+export { IntervalsTable } from './IntervalsTable';
+export { IntervalsChart } from './IntervalsChart';
 export { InsightfulStats } from './stats';

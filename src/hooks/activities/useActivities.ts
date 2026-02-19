@@ -2,7 +2,7 @@ import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-qu
 import { useMemo } from 'react';
 import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
-import type { Activity } from '@/types';
+import type { Activity, IntervalsDTO } from '@/types';
 
 interface UseActivitiesOptions {
   /** Number of days to fetch (from today backwards) */
@@ -153,10 +153,22 @@ export function useActivityStreams(id: string) {
         'distance',
         'time',
         'velocity_smooth',
+        'grade_smooth',
       ]),
     // Streams NEVER change - infinite staleTime prevents refetching
     staleTime: Infinity,
     // GC after 2 hours - streams are large (100-500KB) and rarely needed after viewing
+    gcTime: 1000 * 60 * 60 * 2,
+    enabled: !!id,
+  });
+}
+
+export function useActivityIntervals(id: string) {
+  return useQuery<IntervalsDTO>({
+    queryKey: ['activity-intervals', id],
+    queryFn: () => intervalsApi.getActivityIntervals(id),
+    // Intervals never change
+    staleTime: Infinity,
     gcTime: 1000 * 60 * 60 * 2,
     enabled: !!id,
   });

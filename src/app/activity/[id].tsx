@@ -30,6 +30,7 @@ import * as Haptics from 'expo-haptics';
 import {
   useActivity,
   useActivityStreams,
+  useActivityIntervals,
   useWellnessForDate,
   useTheme,
   useMetricSystem,
@@ -49,6 +50,9 @@ import {
   CombinedPlot,
   ChartTypeSelector,
   HRZonesChart,
+  PowerZonesChart,
+  IntervalsTable,
+  IntervalsChart,
   InsightfulStats,
   RoutePerformanceSection,
   MiniTraceView,
@@ -143,6 +147,13 @@ export default function ActivityDetailScreen() {
   // Get the activity date for wellness lookup
   const activityDate = activity?.start_date_local?.split('T')[0];
   const { data: activityWellness } = useWellnessForDate(activityDate);
+
+  // Tab state for swipeable tabs (defined early for conditional hook)
+  type TabType = 'charts' | 'intervals' | 'routes' | 'sections';
+  const [activeTab, setActiveTab] = useState<TabType>('charts');
+
+  // Fetch intervals data (only when on intervals tab)
+  const { data: intervalsData } = useActivityIntervals(activeTab === 'intervals' ? id || '' : '');
 
   // Track the selected point index from charts for map highlight
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
@@ -303,10 +314,6 @@ export default function ActivityDetailScreen() {
     },
     [handleDeleteSection, handleToggleDisable, t]
   );
-
-  // Tab state for swipeable tabs
-  type TabType = 'charts' | 'routes' | 'sections';
-  const [activeTab, setActiveTab] = useState<TabType>('charts');
 
   // Get matched route for this activity
   const { routeGroup: matchedRoute, representativeActivityId } = useRouteMatch(id);
@@ -575,6 +582,12 @@ export default function ActivityDetailScreen() {
         icon: 'chart-line',
       },
       {
+        key: 'intervals',
+        label: t('activityDetail.tabs.intervals'),
+        icon: 'format-list-numbered',
+        count: intervalsData?.icu_intervals?.length,
+      },
+      {
         key: 'routes',
         label: t('activityDetail.tabs.route'),
         icon: 'map-marker-path',
@@ -586,7 +599,7 @@ export default function ActivityDetailScreen() {
         count: totalSectionCount,
       },
     ],
-    [t, matchedRouteCount, totalSectionCount]
+    [t, matchedRouteCount, totalSectionCount, intervalsData?.icu_intervals?.length]
   );
 
   // Get available chart types based on stream data
@@ -874,10 +887,29 @@ export default function ActivityDetailScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Location */}
+          {(activity.locality || activity.country) && (
+            <Text style={styles.locationText}>
+              {[activity.locality, activity.country].filter(Boolean).join(', ')}
+            </Text>
+          )}
         </View>
       </View>
 
-      {/* Swipeable Tabs: Charts, Routes, Sections */}
+      {/* Activity description */}
+      {activity.description ? (
+        <View style={[styles.descriptionContainer, isDark && styles.descriptionContainerDark]}>
+          <Text
+            numberOfLines={3}
+            style={[styles.descriptionText, isDark && styles.descriptionTextDark]}
+          >
+            {activity.description}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Swipeable Tabs: Charts, Intervals, Routes, Sections */}
       <SwipeableTabs
         tabs={tabs}
         activeTab={activeTab}
@@ -969,10 +1001,26 @@ export default function ActivityDetailScreen() {
                     color={colors.chartPurple}
                   />
                 )}
+                {activity.weighted_average_watts &&
+                  activity.weighted_average_watts !== activity.average_watts && (
+                    <CompactStat
+                      label={t('activityDetail.np')}
+                      value={formatPower(activity.weighted_average_watts)}
+                      isDark={isDark}
+                      color={colors.chartPurple}
+                    />
+                  )}
                 {activity.average_cadence && (
                   <CompactStat
                     label={t('activity.cadence')}
                     value={`${Math.round(activity.average_cadence)}`}
+                    isDark={isDark}
+                  />
+                )}
+                {activity.elapsed_time > activity.moving_time + 60 && (
+                  <CompactStat
+                    label={t('activityDetail.elapsedTime')}
+                    value={formatDuration(activity.elapsed_time)}
                     isDark={isDark}
                   />
                 )}
@@ -987,6 +1035,15 @@ export default function ActivityDetailScreen() {
                       activityType={activity.type}
                       activity={activity}
                     />
+                  </ComponentErrorBoundary>
+                </View>
+              )}
+
+              {/* Power Zones Chart - show if power zone data available */}
+              {activity.icu_zone_times && activity.icu_zone_times.length > 0 && (
+                <View style={[styles.chartCard, isDark && styles.cardDark]}>
+                  <ComponentErrorBoundary componentName="Power Zones Chart">
+                    <PowerZonesChart activity={activity} />
                   </ComponentErrorBoundary>
                 </View>
               )}
@@ -1109,7 +1166,54 @@ export default function ActivityDetailScreen() {
             })()}
         </ScrollView>
 
-        {/* Tab 2: Routes */}
+        {/* Tab 2: Intervals */}
+        <ScrollView
+          style={styles.tabScrollView}
+          contentContainerStyle={styles.tabScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {intervalsData?.icu_intervals && intervalsData.icu_intervals.length > 0 ? (
+            <>
+              {streams && (
+                <View
+                  style={[
+                    styles.chartCard,
+                    isDark && styles.cardDark,
+                    { marginHorizontal: spacing.md, marginTop: spacing.sm },
+                  ]}
+                >
+                  <ComponentErrorBoundary componentName="Intervals Chart">
+                    <IntervalsChart
+                      streams={streams}
+                      intervals={intervalsData.icu_intervals}
+                      activityType={activity.type}
+                      isDark={isDark}
+                    />
+                  </ComponentErrorBoundary>
+                </View>
+              )}
+              <IntervalsTable
+                intervals={intervalsData.icu_intervals}
+                activityType={activity.type}
+                isMetric={isMetric}
+                isDark={isDark}
+              />
+            </>
+          ) : (
+            <View style={styles.emptyStateContainer}>
+              <MaterialCommunityIcons
+                name="format-list-numbered"
+                size={48}
+                color={isDark ? darkColors.border : colors.divider}
+              />
+              <Text style={[styles.emptyStateTitle, isDark && styles.textLight]}>
+                {t('activityDetail.noIntervals')}
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Tab 3: Routes */}
         <ScrollView
           style={styles.tabScrollView}
           contentContainerStyle={styles.tabScrollContent}
@@ -1139,7 +1243,7 @@ export default function ActivityDetailScreen() {
           <DataRangeFooter days={cacheDays} isDark={isDark} />
         </ScrollView>
 
-        {/* Tab 3: Sections */}
+        {/* Tab 4: Sections */}
         <View style={styles.tabScrollView} onTouchEnd={handleSectionsTouchEnd}>
           <FlatList
             data={unifiedSections}
@@ -1336,6 +1440,36 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     marginHorizontal: 6,
   },
+  locationText: {
+    fontSize: typography.label.fontSize,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 2,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  // Description
+  descriptionContainer: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.divider,
+  },
+  descriptionContainerDark: {
+    backgroundColor: darkColors.surface,
+    borderBottomColor: darkColors.border,
+  },
+  descriptionText: {
+    fontSize: typography.bodyCompact.fontSize,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  descriptionTextDark: {
+    color: darkColors.textSecondary,
+  },
+
   // Chart section
   chartSection: {
     paddingHorizontal: spacing.md,

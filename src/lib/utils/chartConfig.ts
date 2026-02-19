@@ -17,6 +17,7 @@ export type ChartTypeId =
   | 'speed'
   | 'pace'
   | 'elevation'
+  | 'grade'
   | 'distance'
   | 'temp'
   | 'moving_time'
@@ -124,6 +125,16 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     convertToImperial: (v) => v * 3.28084,
     formatValue: (v) => Math.round(v).toString(),
   },
+  grade: {
+    id: 'grade',
+    label: 'Grade',
+    icon: 'slope-uphill',
+    color: '#6B8E23',
+    streamKey: 'grade_smooth',
+    unit: '%',
+    getStream: (streams) => streams.grade_smooth,
+    formatValue: (v) => v.toFixed(1),
+  },
   distance: {
     id: 'distance',
     label: 'Dist',
@@ -167,6 +178,7 @@ const PRIMARY_CHART_IDS: ChartTypeId[] = [
   'speed',
   'pace',
   'elevation',
+  'grade',
 ];
 
 /**

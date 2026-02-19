@@ -10,6 +10,7 @@
  * handles demo data the same way it handles real data.
  */
 
+import type { ActivityInterval, IntervalsDTO, ActivityIntervalGroup } from '@/types';
 import { demoRoutes, getRouteBounds, getRouteCoordinates, getRouteLocation } from './routes';
 import {
   getDemoReferenceDate,
@@ -52,8 +53,11 @@ export interface ApiActivity {
   icu_ftp: number | null;
   icu_atl: number;
   icu_ctl: number;
+  average_watts: number | null;
+  weighted_average_watts: number | null;
   icu_hr_zones: number[];
   icu_power_zones: number[];
+  icu_zone_times: Array<{ id: string; secs: number }> | null;
   stream_types: string[];
   locality: string | null;
   country: string | null;
@@ -100,6 +104,7 @@ export interface ApiActivityStreams {
   cadence?: number[];
   distance?: number[];
   velocity_smooth?: number[];
+  grade_smooth?: number[];
   temp?: number[];
 }
 
@@ -543,6 +548,10 @@ function generateActivities(): ApiActivity[] {
       device_name: 'Demo Device',
       trainer: template.type === 'VirtualRide',
       commute: false,
+      average_watts: template.watts ? Math.round(template.watts * variance) : null,
+      weighted_average_watts: template.watts
+        ? Math.round(template.watts * variance * (1.03 + dayRandom() * 0.07))
+        : null,
       icu_training_load: tss,
       icu_intensity: template.watts ? Math.round((template.watts / 250) * 100) : null,
       icu_ftp: 250,
@@ -550,15 +559,46 @@ function generateActivities(): ApiActivity[] {
       icu_ctl: Math.round(ctl * 10) / 10,
       icu_hr_zones: [130, 145, 160, 170, 180, 190],
       icu_power_zones: [125, 170, 210, 250, 290, 350],
+      icu_zone_times: template.watts
+        ? (() => {
+            const totalSecs = Math.round(template.time * variance);
+            return [
+              { id: 'Z1', secs: Math.round(totalSecs * 0.1) },
+              { id: 'Z2', secs: Math.round(totalSecs * 0.35) },
+              { id: 'Z3', secs: Math.round(totalSecs * 0.25) },
+              { id: 'Z4', secs: Math.round(totalSecs * 0.15) },
+              { id: 'Z5', secs: Math.round(totalSecs * 0.1) },
+              { id: 'Z6', secs: Math.round(totalSecs * 0.04) },
+              { id: 'Z7', secs: Math.round(totalSecs * 0.01) },
+            ];
+          })()
+        : null,
       stream_types:
         template.type === 'Swim' && !template.route
           ? ['time', 'heartrate', 'distance'] // Pool swim - no GPS
           : template.type === 'Swim' && template.route
             ? ['time', 'latlng', 'heartrate', 'distance'] // Open water swim with GPS
             : template.type === 'VirtualRide' && template.route
-              ? ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth'] // Virtual ride with GPS
+              ? [
+                  'time',
+                  'latlng',
+                  'heartrate',
+                  'altitude',
+                  'cadence',
+                  'watts',
+                  'velocity_smooth',
+                  'grade_smooth',
+                ] // Virtual ride with GPS
               : template.type === 'VirtualRide'
-                ? ['time', 'heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth'] // Virtual ride without GPS (fallback)
+                ? [
+                    'time',
+                    'heartrate',
+                    'altitude',
+                    'cadence',
+                    'watts',
+                    'velocity_smooth',
+                    'grade_smooth',
+                  ] // Virtual ride without GPS (fallback)
                 : template.type === 'Ride'
                   ? [
                       'time',
@@ -568,10 +608,19 @@ function generateActivities(): ApiActivity[] {
                       'cadence',
                       'watts',
                       'velocity_smooth',
+                      'grade_smooth',
                     ]
                   : template.type === 'Hike' || template.type === 'Walk'
-                    ? ['time', 'latlng', 'heartrate', 'altitude'] // Hiking/walking
-                    : ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'velocity_smooth'], // Running
+                    ? ['time', 'latlng', 'heartrate', 'altitude', 'grade_smooth'] // Hiking/walking
+                    : [
+                        'time',
+                        'latlng',
+                        'heartrate',
+                        'altitude',
+                        'cadence',
+                        'velocity_smooth',
+                        'grade_smooth',
+                      ], // Running
       locality: location.locality,
       country: location.country,
       // Store route ID for map lookups (not part of real API)
@@ -615,6 +664,8 @@ function generateActivities(): ApiActivity[] {
       device_name: 'Demo Device',
       trainer: false,
       commute: true,
+      average_watts: null,
+      weighted_average_watts: null,
       icu_training_load: stressRoute.tss,
       icu_intensity: null,
       icu_ftp: 250,
@@ -622,7 +673,16 @@ function generateActivities(): ApiActivity[] {
       icu_ctl: 35,
       icu_hr_zones: [130, 145, 160, 170, 180, 190],
       icu_power_zones: [125, 170, 210, 250, 290, 350],
-      stream_types: ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'velocity_smooth'],
+      icu_zone_times: null,
+      stream_types: [
+        'time',
+        'latlng',
+        'heartrate',
+        'altitude',
+        'cadence',
+        'velocity_smooth',
+        'grade_smooth',
+      ],
       locality: stressLocation.locality,
       country: stressLocation.country,
       _routeId: stressRoute.route,
@@ -742,7 +802,8 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       })(),
       type: 'Ride',
       name: 'Morning Alpine Ride',
-      description: null,
+      description:
+        "Great conditions today! Rode up through the valley with fresh legs after yesterday's rest day. Hit some good power numbers on the main climb and the descent was fast. Roads were dry and mostly empty.",
       distance: 45000,
       moving_time: 5400,
       elapsed_time: 5700,
@@ -758,6 +819,8 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       device_name: 'Demo Device',
       trainer: false,
       commute: false,
+      average_watts: 195,
+      weighted_average_watts: 208,
       icu_training_load: 85,
       icu_intensity: 78,
       icu_ftp: 250,
@@ -765,6 +828,15 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       icu_ctl: 42,
       icu_hr_zones: [130, 145, 160, 170, 180, 190],
       icu_power_zones: [125, 170, 210, 250, 290, 350],
+      icu_zone_times: [
+        { id: 'Z1', secs: 540 },
+        { id: 'Z2', secs: 1890 },
+        { id: 'Z3', secs: 1350 },
+        { id: 'Z4', secs: 810 },
+        { id: 'Z5', secs: 540 },
+        { id: 'Z6', secs: 216 },
+        { id: 'Z7', secs: 54 },
+      ],
       stream_types: [
         'time',
         'latlng',
@@ -773,6 +845,7 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
         'cadence',
         'watts',
         'velocity_smooth',
+        'grade_smooth',
       ],
       locality: 'Valais',
       country: 'Switzerland',
@@ -789,7 +862,8 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       })(),
       type: 'Run',
       name: 'Easy Morning Run',
-      description: null,
+      description:
+        'Recovery run along the beachfront. Kept the pace easy and HR in zone 2. Legs felt a bit heavy from the ride but loosened up after the first km.',
       distance: 8500,
       moving_time: 2700,
       elapsed_time: 2850,
@@ -805,6 +879,8 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       device_name: 'Demo Device',
       trainer: false,
       commute: false,
+      average_watts: null,
+      weighted_average_watts: null,
       icu_training_load: 42,
       icu_intensity: 65,
       icu_ftp: 250,
@@ -812,7 +888,16 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       icu_ctl: 41,
       icu_hr_zones: [130, 145, 160, 170, 180, 190],
       icu_power_zones: [125, 170, 210, 250, 290, 350],
-      stream_types: ['time', 'latlng', 'heartrate', 'altitude', 'cadence', 'velocity_smooth'],
+      icu_zone_times: null,
+      stream_types: [
+        'time',
+        'latlng',
+        'heartrate',
+        'altitude',
+        'cadence',
+        'velocity_smooth',
+        'grade_smooth',
+      ],
       locality: 'Rio de Janeiro',
       country: 'Brazil',
       _routeId: 'route-rio-run-1',
@@ -828,7 +913,8 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       })(),
       type: 'VirtualRide',
       name: 'Evening Virtual Ride - Swiss Alps',
-      description: null,
+      description:
+        'Virtual ride through Grindelwald. Focused on threshold intervals on the climb sections. The scenery helps with motivation on the harder efforts.',
       distance: 25000,
       moving_time: 3600,
       elapsed_time: 3650,
@@ -844,6 +930,8 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       device_name: 'Demo Device',
       trainer: true,
       commute: false,
+      average_watts: 205,
+      weighted_average_watts: 218,
       icu_training_load: 72,
       icu_intensity: 82,
       icu_ftp: 250,
@@ -851,6 +939,15 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       icu_ctl: 40,
       icu_hr_zones: [130, 145, 160, 170, 180, 190],
       icu_power_zones: [125, 170, 210, 250, 290, 350],
+      icu_zone_times: [
+        { id: 'Z1', secs: 360 },
+        { id: 'Z2', secs: 1260 },
+        { id: 'Z3', secs: 900 },
+        { id: 'Z4', secs: 540 },
+        { id: 'Z5', secs: 360 },
+        { id: 'Z6', secs: 144 },
+        { id: 'Z7', secs: 36 },
+      ],
       stream_types: [
         'time',
         'latlng',
@@ -859,6 +956,7 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
         'cadence',
         'watts',
         'velocity_smooth',
+        'grade_smooth',
       ],
       locality: 'Grindelwald',
       country: 'Switzerland',
@@ -891,6 +989,8 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       device_name: 'Demo Device',
       trainer: false,
       commute: false,
+      average_watts: null,
+      weighted_average_watts: null,
       icu_training_load: 35,
       icu_intensity: 55,
       icu_ftp: 250,
@@ -898,7 +998,8 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       icu_ctl: 39,
       icu_hr_zones: [130, 145, 160, 170, 180, 190],
       icu_power_zones: [125, 170, 210, 250, 290, 350],
-      stream_types: ['time', 'latlng', 'heartrate', 'altitude'],
+      icu_zone_times: null,
+      stream_types: ['time', 'latlng', 'heartrate', 'altitude', 'grade_smooth'],
       locality: 'Lauterbrunnen',
       country: 'Switzerland',
       _routeId: 'route-lauterbrunnen-hike-2',
@@ -930,6 +1031,8 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       device_name: 'Demo Device',
       trainer: false,
       commute: false,
+      average_watts: null,
+      weighted_average_watts: null,
       icu_training_load: 45,
       icu_intensity: 70,
       icu_ftp: 250,
@@ -937,6 +1040,7 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       icu_ctl: 38,
       icu_hr_zones: [130, 145, 160, 170, 180, 190],
       icu_power_zones: [125, 170, 210, 250, 290, 350],
+      icu_zone_times: null,
       stream_types: ['time', 'latlng', 'heartrate', 'distance'],
       locality: 'La Orotava',
       country: 'Spain',
@@ -1101,6 +1205,18 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
 
     // Also create fixed_altitude (same as altitude for demo)
     streams.fixed_altitude = [...streams.altitude];
+
+    // Grade stream - derivative of altitude over horizontal distance
+    if (activity.stream_types?.includes('grade_smooth') && streams.altitude.length > 1) {
+      const dist = activity.distance || 10000;
+      const stepDist = dist / streams.altitude.length;
+      streams.grade_smooth = streams.altitude.map((alt, i) => {
+        if (i === 0) return 0;
+        const dAlt = alt - streams.altitude![i - 1];
+        const grade = (dAlt / stepDist) * 100;
+        return Math.round(Math.max(-25, Math.min(25, grade)) * 10) / 10;
+      });
+    }
   }
 
   // Cadence stream - always include for cycling and running
@@ -1171,4 +1287,109 @@ export function getWellness(params?: { oldest?: string; newest?: string }): ApiW
   }
 
   return result;
+}
+
+/**
+ * Generate intervals for a given activity.
+ * Creates WORK/RECOVERY intervals based on activity type and distance.
+ */
+export function getActivityIntervals(id: string): IntervalsDTO {
+  const activity = getActivity(id);
+  if (!activity) return { icu_intervals: [], icu_groups: [] };
+
+  const random = createActivitySeededRandom(id + '-intervals');
+  const isRide = activity.type === 'Ride' || activity.type === 'VirtualRide';
+  const isRun = activity.type === 'Run';
+
+  // Only generate intervals for cycling and running
+  if (!isRide && !isRun) return { icu_intervals: [], icu_groups: [] };
+
+  const intervals: ActivityInterval[] = [];
+  const splitDist = isRide ? 5000 : 1000; // 5km splits for rides, 1km for runs
+  const totalDist = activity.distance;
+  const numSplits = Math.max(2, Math.min(12, Math.floor(totalDist / splitDist)));
+  const avgSpeed = activity.average_speed || 5;
+  let currentIndex = 0;
+
+  for (let i = 0; i < numSplits; i++) {
+    const isWork = i % 2 === 0;
+    const segDist = splitDist * (0.9 + random() * 0.2);
+    const segTime = Math.round(segDist / avgSpeed);
+    const endIndex = currentIndex + Math.round(segTime / 5); // ~5 sec per sample
+
+    const interval: ActivityInterval = {
+      id: i + 1,
+      type: isWork ? 'WORK' : 'RECOVERY',
+      label: isWork ? `Interval ${Math.ceil((i + 1) / 2)}` : null,
+      start_index: currentIndex,
+      end_index: endIndex,
+      distance: Math.round(segDist),
+      moving_time: segTime,
+      elapsed_time: Math.round(segTime * 1.02),
+      average_speed: avgSpeed * (isWork ? 1.05 + random() * 0.1 : 0.85 + random() * 0.1),
+      average_heartrate: activity.average_heartrate
+        ? Math.round(
+            activity.average_heartrate * (isWork ? 1.05 + random() * 0.05 : 0.88 + random() * 0.05)
+          )
+        : undefined,
+      average_watts:
+        isRide && activity.average_watts
+          ? Math.round(
+              activity.average_watts * (isWork ? 1.1 + random() * 0.1 : 0.7 + random() * 0.1)
+            )
+          : undefined,
+      weighted_average_watts:
+        isRide && activity.weighted_average_watts
+          ? Math.round(
+              activity.weighted_average_watts *
+                (isWork ? 1.08 + random() * 0.08 : 0.72 + random() * 0.08)
+            )
+          : undefined,
+      average_cadence: activity.average_cadence
+        ? Math.round(activity.average_cadence + (random() - 0.5) * 6)
+        : undefined,
+      max_heartrate: activity.average_heartrate
+        ? Math.round(activity.average_heartrate * (isWork ? 1.15 : 1.0))
+        : undefined,
+      max_watts:
+        isRide && activity.average_watts
+          ? Math.round(activity.average_watts * (isWork ? 1.4 : 1.0))
+          : undefined,
+      total_elevation_gain: Math.round(
+        (activity.total_elevation_gain / numSplits) * (0.8 + random() * 0.4)
+      ),
+    };
+
+    intervals.push(interval);
+    currentIndex = endIndex;
+  }
+
+  // Build a summary group
+  const workIntervals = intervals.filter((i) => i.type === 'WORK');
+  const group: ActivityIntervalGroup = {
+    id: 'work',
+    count: workIntervals.length,
+    distance: workIntervals.reduce((s, i) => s + i.distance, 0),
+    moving_time: workIntervals.reduce((s, i) => s + i.moving_time, 0),
+    elapsed_time: workIntervals.reduce((s, i) => s + i.elapsed_time, 0),
+    average_speed: workIntervals.reduce((s, i) => s + i.average_speed, 0) / workIntervals.length,
+    average_heartrate: workIntervals[0]?.average_heartrate
+      ? workIntervals.reduce((s, i) => s + (i.average_heartrate || 0), 0) / workIntervals.length
+      : undefined,
+    average_watts: workIntervals[0]?.average_watts
+      ? workIntervals.reduce((s, i) => s + (i.average_watts || 0), 0) / workIntervals.length
+      : undefined,
+    average_cadence: workIntervals[0]?.average_cadence
+      ? workIntervals.reduce((s, i) => s + (i.average_cadence || 0), 0) / workIntervals.length
+      : undefined,
+    max_heartrate: workIntervals[0]?.max_heartrate
+      ? Math.max(...workIntervals.map((i) => i.max_heartrate || 0))
+      : undefined,
+    max_watts: workIntervals[0]?.max_watts
+      ? Math.max(...workIntervals.map((i) => i.max_watts || 0))
+      : undefined,
+    total_elevation_gain: workIntervals.reduce((s, i) => s + (i.total_elevation_gain || 0), 0),
+  };
+
+  return { icu_intervals: intervals, icu_groups: [group] };
 }

@@ -3,6 +3,7 @@ export {
   useInfiniteActivities,
   useActivity,
   useActivityStreams,
+  useActivityIntervals,
 } from './useActivities';
 export { useActivityBoundsCache } from './useActivityBoundsCache';
 export { useEFTPHistory, getLatestFTP, getLatestEFTP } from './useEFTPHistory';

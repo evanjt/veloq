@@ -47,24 +47,24 @@ export function getSettingsForSport(
   return settings.find((s) => s.types.includes(sportType));
 }
 
-// Default power zone colors (intervals.icu style)
+// Default power zone colors (intervals.icu website palette)
 export const POWER_ZONE_COLORS = [
-  '#808080', // Z1 - Recovery (Grey)
-  '#0099FF', // Z2 - Endurance (Blue)
-  '#00CC00', // Z3 - Tempo (Green)
-  '#FFCC00', // Z4 - Threshold (Yellow)
-  '#FF6600', // Z5 - VO2max (Orange)
-  '#FF0000', // Z6 - Anaerobic (Red)
-  '#990099', // Z7 - Neuromuscular (Purple)
+  '#009E80', // Z1 - Recovery (Teal)
+  '#009E00', // Z2 - Endurance (Green)
+  '#FFCB0E', // Z3 - Tempo (Yellow)
+  '#FF7F0E', // Z4 - Threshold (Orange)
+  '#DD0447', // Z5 - VO2max (Red-pink)
+  '#6633CC', // Z6 - Anaerobic (Purple)
+  '#1A1A1A', // Z7 - Neuromuscular (Near-black)
 ];
 
-// Default HR zone colors
+// Default HR zone colors (intervals.icu website palette)
 export const HR_ZONE_COLORS = [
-  '#808080', // Z1 - Recovery
-  '#0099FF', // Z2 - Endurance
-  '#00CC00', // Z3 - Tempo
-  '#FFCC00', // Z4 - Threshold
-  '#FF0000', // Z5 - Max
+  '#009E80', // Z1 - Recovery (Teal)
+  '#009E00', // Z2 - Endurance (Green)
+  '#FFCB0E', // Z3 - Tempo (Yellow)
+  '#FF7F0E', // Z4 - Threshold (Orange)
+  '#DD0447', // Z5 - Max (Red-pink)
 ];
 
 // Default zone names if not provided

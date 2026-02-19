@@ -444,6 +444,8 @@ export interface TranslationResource {
     temp: string;
     noHeartRateData: string;
     timeInHRZones: string;
+    timeInPowerZones: string;
+    ftp: string;
     maxHR: string;
     noDataAvailable: string;
     avg: string;
@@ -852,6 +854,7 @@ export interface TranslationResource {
     speed: string;
     pace: string;
     elev: string;
+    grade: string;
     dist: string;
     alt: string;
     temp: string;
@@ -866,8 +869,11 @@ export interface TranslationResource {
     avgSpeed: string;
     avgHR: string;
     avgPower: string;
+    np: string;
+    elapsedTime: string;
     tabs: {
       charts: string;
+      intervals: string;
       route: string;
       routes: string;
       sections: string;
@@ -876,6 +882,9 @@ export interface TranslationResource {
     noMatchedSectionsDescription: string;
     noRouteMatch: string;
     noRouteMatchDescription: string;
+    noIntervals: string;
+    intervalWork: string;
+    intervalRecovery: string;
   };
 
   routeDetail: {

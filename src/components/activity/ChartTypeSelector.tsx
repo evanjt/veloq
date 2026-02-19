@@ -14,7 +14,8 @@ type ChartTypeKey =
   | 'chartTypes.cad'
   | 'chartTypes.speed'
   | 'chartTypes.pace'
-  | 'chartTypes.elev';
+  | 'chartTypes.elev'
+  | 'chartTypes.grade';
 
 /** Map chart IDs to translation keys */
 const CHART_LABEL_KEYS: Partial<Record<ChartTypeId, ChartTypeKey>> = {
@@ -24,6 +25,7 @@ const CHART_LABEL_KEYS: Partial<Record<ChartTypeId, ChartTypeKey>> = {
   speed: 'chartTypes.speed',
   pace: 'chartTypes.pace',
   elevation: 'chartTypes.elev',
+  grade: 'chartTypes.grade',
 };
 
 interface ChartTypeSelectorProps {

@@ -35,7 +35,12 @@ export type { Theme, ThemeColors } from './ui';
 // Remaining hooks (not yet reorganized)
 export { useAthlete } from './useAthlete';
 export { useWellnessForDate, type TimeRange } from './fitness';
-export { useInfiniteActivities, useActivity, useActivityStreams } from './activities';
+export {
+  useInfiniteActivities,
+  useActivity,
+  useActivityStreams,
+  useActivityIntervals,
+} from './activities';
 export {
   useSportSettings,
   getSettingsForSport,

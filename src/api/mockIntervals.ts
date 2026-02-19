@@ -16,6 +16,7 @@ import type {
   PaceCurve,
   SportSettings,
   ActivityMapData,
+  IntervalsDTO,
 } from '@/types';
 import { getMonday } from '@/lib';
 
@@ -112,6 +113,15 @@ export const mockIntervalsApi = {
       return { time: [] };
     }
     return streams as ActivityStreams;
+  },
+
+  /**
+   * Get activity intervals (laps/work-rest intervals)
+   */
+  async getActivityIntervals(id: string): Promise<IntervalsDTO> {
+    await delay(100);
+    const { getActivityIntervals } = await loadFixtures();
+    return getActivityIntervals(id);
   },
 
   /**

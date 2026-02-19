@@ -302,6 +302,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
       touchX.value = -1;
     })
     .minDistance(0)
+    .failOffsetY([-10, 10])
     .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
 
   const crosshairStyle = useAnimatedStyle(() => {
