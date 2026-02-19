@@ -115,7 +115,9 @@
     "viewInIntervalsICU": "Ver en intervals.icu",
     "vsTypical": "vs típico",
     "vsYourAvg": "vs vuestro promedio",
-    "whatIsThis": "¿Qué es esto?"
+    "whatIsThis": "¿Qué es esto?",
+    "xAxisDistance": "Distancia",
+    "xAxisTime": "Tiempo"
   },
   "activityDetail": {
     "avgHR": "FC Prom",

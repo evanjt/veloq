@@ -115,7 +115,9 @@
     "viewInIntervalsICU": "intervals.icuで表示",
     "vsTypical": "vs 一般的",
     "vsYourAvg": "vs あなたの平均",
-    "whatIsThis": "これは何ですか？"
+    "whatIsThis": "これは何ですか？",
+    "xAxisDistance": "距離",
+    "xAxisTime": "時間"
   },
   "activityDetail": {
     "avgHR": "平均心拍",

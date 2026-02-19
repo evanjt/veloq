@@ -115,7 +115,9 @@
     "viewInIntervalsICU": "Vis i intervals.icu",
     "vsTypical": "vs typisk",
     "vsYourAvg": "vs dit gennemsnit",
-    "whatIsThis": "Hvad er dette?"
+    "whatIsThis": "Hvad er dette?",
+    "xAxisDistance": "Afstand",
+    "xAxisTime": "Tid"
   },
   "activityDetail": {
     "avgHR": "Gns puls",

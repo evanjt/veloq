@@ -115,7 +115,9 @@
     "viewInIntervalsICU": "In intervals.icu ansehen",
     "vsTypical": "vs typisch",
     "vsYourAvg": "vs dein Ø",
-    "whatIsThis": "Was ist das?"
+    "whatIsThis": "Was ist das?",
+    "xAxisDistance": "Distanz",
+    "xAxisTime": "Zeit"
   },
   "activityDetail": {
     "avgHR": "Ø HF",

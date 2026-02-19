@@ -447,6 +447,8 @@ export interface TranslationResource {
     maxHR: string;
     noDataAvailable: string;
     avg: string;
+    xAxisDistance: string;
+    xAxisTime: string;
     noMetricData: string;
     noElevationData: string;
     activityStats: string;

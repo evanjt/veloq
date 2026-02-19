@@ -115,7 +115,9 @@
     "viewInIntervalsICU": "Zobacz w intervals.icu",
     "vsTypical": "vs typowa",
     "vsYourAvg": "vs Twoja średnia",
-    "whatIsThis": "Co to jest?"
+    "whatIsThis": "Co to jest?",
+    "xAxisDistance": "Dystans",
+    "xAxisTime": "Czas"
   },
   "activityDetail": {
     "avgHR": "Śr. HR",

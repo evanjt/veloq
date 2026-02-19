@@ -115,7 +115,9 @@
     "viewInIntervalsICU": "Check it out on intervals.icu",
     "vsTypical": "vs usual",
     "vsYourAvg": "vs your usual",
-    "whatIsThis": "What's all this then?"
+    "whatIsThis": "What's all this then?",
+    "xAxisDistance": "Distance",
+    "xAxisTime": "Time"
   },
   "activityDetail": {
     "avgHR": "Avg ticker",

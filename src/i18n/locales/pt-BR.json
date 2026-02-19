@@ -115,7 +115,9 @@
     "viewInIntervalsICU": "Ver no intervals.icu",
     "vsTypical": "vs tipico",
     "vsYourAvg": "vs sua media",
-    "whatIsThis": "O que e isso?"
+    "whatIsThis": "O que e isso?",
+    "xAxisDistance": "Distância",
+    "xAxisTime": "Tempo"
   },
   "activityDetail": {
     "avgHR": "FC media",

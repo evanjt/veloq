@@ -115,7 +115,9 @@
     "viewInIntervalsICU": "在 intervals.icu 中查看",
     "vsTypical": "vs 典型值",
     "vsYourAvg": "vs 您的平均值",
-    "whatIsThis": "这是什么？"
+    "whatIsThis": "这是什么？",
+    "xAxisDistance": "距离",
+    "xAxisTime": "时间"
   },
   "activityDetail": {
     "avgHR": "平均心率",

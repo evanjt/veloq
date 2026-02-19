@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/hooks';
 import { CartesianChart, Area } from 'victory-native';
 import { LinearGradient, vec, Line as SkiaLine, DashPathEffect } from '@shopify/react-native-skia';
@@ -13,10 +13,12 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, layout, shadows, chartStyles } from '@/theme';
 import { useMetricSystem } from '@/hooks';
 import type { ChartConfig, ChartTypeId } from '@/lib';
+import { formatDuration } from '@/lib';
 import type { ActivityStreams } from '@/types';
 import { CHART_CONFIG } from '@/constants';
 import { ChartErrorBoundary } from '@/components/ui';
@@ -37,6 +39,12 @@ interface CombinedPlotProps {
   onInteractionChange?: (isInteracting: boolean) => void;
   /** When set, show Y-axis for this metric (for long-press preview in multi-metric mode) */
   previewMetricId?: ChartTypeId | null;
+  /** X-axis mode: 'distance' (default) or 'time' */
+  xAxisMode?: 'distance' | 'time';
+  /** Called when user taps the x-axis pill to toggle mode */
+  onXAxisModeToggle?: () => void;
+  /** Whether the x-axis mode can be toggled (has both distance and time data) */
+  canToggleXAxis?: boolean;
 }
 
 interface MetricValue {
@@ -66,6 +74,9 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   onPointSelect,
   onInteractionChange,
   previewMetricId,
+  xAxisMode = 'distance',
+  onXAxisModeToggle,
+  canToggleXAxis = false,
 }: CombinedPlotProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -80,7 +91,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
 
   // React state for metrics panel (bridges to JS only for text updates)
   const [metricValues, setMetricValues] = useState<MetricValue[]>([]);
-  const [currentDistance, setCurrentDistance] = useState<number | null>(null);
+  const [currentX, setCurrentX] = useState<number | null>(null);
   const [isActive, setIsActive] = useState(false);
 
   const onPointSelectRef = useRef(onPointSelect);
@@ -93,9 +104,11 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   const lastNotifiedIdx = useRef<number | null>(null);
 
   // Build normalized data for all selected series (+ preview if unselected)
-  const { chartData, seriesInfo, indexMap, maxDist } = useMemo(() => {
-    const distance = streams.distance || [];
-    if (distance.length === 0) {
+  const { chartData, seriesInfo, indexMap, maxX } = useMemo(() => {
+    // Choose x-axis source array based on mode
+    const xSource =
+      xAxisMode === 'time' ? streams.time || [] : streams.distance || [];
+    if (xSource.length === 0) {
       return {
         chartData: [],
         seriesInfo: [] as (DataSeries & {
@@ -103,7 +116,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
           isPreview?: boolean;
         })[],
         indexMap: [] as number[],
-        maxDist: 1,
+        maxX: 1,
       };
     }
 
@@ -137,13 +150,13 @@ export const CombinedPlot = React.memo(function CombinedPlot({
           isPreview?: boolean;
         })[],
         indexMap: [] as number[],
-        maxDist: 1,
+        maxX: 1,
       };
     }
 
     // Downsample and normalize
     const maxPoints = CHART_CONFIG.MAX_DATA_POINTS;
-    const step = Math.max(1, Math.floor(distance.length / maxPoints));
+    const step = Math.max(1, Math.floor(xSource.length / maxPoints));
     const points: Record<string, number>[] = [];
     const indices: number[] = [];
 
@@ -155,9 +168,16 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       return { min, max, range: max - min || 1 };
     });
 
-    for (let i = 0; i < distance.length; i += step) {
-      const distKm = distance[i] / 1000;
-      const xValue = isMetric ? distKm : distKm * 0.621371;
+    for (let i = 0; i < xSource.length; i += step) {
+      let xValue: number;
+      if (xAxisMode === 'time') {
+        // Time in seconds (raw)
+        xValue = xSource[i];
+      } else {
+        // Distance in km or miles
+        const distKm = xSource[i] / 1000;
+        xValue = isMetric ? distKm : distKm * 0.621371;
+      }
 
       const point: Record<string, number> = { x: xValue };
 
@@ -173,17 +193,16 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       indices.push(i);
     }
 
-    const distances = points.map((p) => p.x);
-    const computedMaxDist = Math.max(...distances);
+    const xValues = points.map((p) => p.x);
+    const computedMaxX = Math.max(...xValues);
 
     return {
       chartData: points,
       seriesInfo: series.map((s, idx) => ({ ...s, range: seriesRanges[idx] })),
       indexMap: indices,
-      maxDist: computedMaxDist,
-      xValues: distances,
+      maxX: computedMaxX,
     };
-  }, [streams, selectedCharts, chartConfigs, isMetric, previewMetricId]);
+  }, [streams, selectedCharts, chartConfigs, isMetric, previewMetricId, xAxisMode]);
 
   // Sync x-values to shared value for UI thread access
   React.useEffect(() => {
@@ -214,7 +233,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         if (lastNotifiedIdx.current !== null) {
           setIsActive(false);
           isActiveRef.current = false;
-          setCurrentDistance(null);
+          setCurrentX(null);
           lastNotifiedIdx.current = null;
           if (onPointSelectRef.current) onPointSelectRef.current(null);
           if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
@@ -262,7 +281,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       });
 
       setMetricValues(values);
-      setCurrentDistance(chartData[idx]?.x ?? 0);
+      setCurrentX(chartData[idx]?.x ?? 0);
 
       // Notify parent of original data index for map sync
       if (onPointSelectRef.current && idx < indexMap.length) {
@@ -317,7 +336,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     };
   }, []);
 
-  const distanceUnit = isMetric ? 'km' : 'mi';
+  const xUnit = xAxisMode === 'time' ? '' : isMetric ? 'km' : 'mi';
 
   // Calculate averages for display when not scrubbing
   const averageValues = useMemo(() => {
@@ -518,12 +537,16 @@ export const CombinedPlot = React.memo(function CombinedPlot({
 
             {/* X-axis labels with hint */}
             <View style={styles.xAxis} pointerEvents="none">
-              <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>0</Text>
+              <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>
+                {xAxisMode === 'time' ? '0:00' : '0'}
+              </Text>
               <Text style={[styles.xAxisHint, isDark && styles.xAxisHintDark]}>
                 {t('activity.chartHint', 'Hold to scrub • Hold chip for axis')}
               </Text>
               <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>
-                {(maxDist / 2).toFixed(1)}
+                {xAxisMode === 'time'
+                  ? formatDuration(maxX)
+                  : maxX.toFixed(1)}
               </Text>
             </View>
 
@@ -553,17 +576,50 @@ export const CombinedPlot = React.memo(function CombinedPlot({
               </View>
             )}
 
-            {/* Distance indicator - overlaid on bottom right of chart */}
-            <View
-              style={[styles.distanceIndicator, isDark && styles.distanceIndicatorDark]}
-              pointerEvents="none"
-            >
-              <Text style={[styles.distanceText, isDark && styles.distanceTextDark]}>
-                {isActive && currentDistance !== null
-                  ? `${currentDistance.toFixed(2)} ${distanceUnit}`
-                  : `${maxDist.toFixed(1)} ${distanceUnit}`}
-              </Text>
-            </View>
+            {/* X-axis indicator - overlaid on bottom right of chart */}
+            {canToggleXAxis && onXAxisModeToggle ? (
+              <TouchableOpacity
+                style={[
+                  styles.distanceIndicator,
+                  styles.distanceIndicatorTappable,
+                  isDark && styles.distanceIndicatorDark,
+                  isDark && styles.distanceIndicatorTappableDark,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onXAxisModeToggle();
+                }}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={[styles.distanceText, isDark && styles.distanceTextDark]}>
+                  {xAxisMode === 'time'
+                    ? formatDuration(isActive && currentX !== null ? currentX : maxX)
+                    : isActive && currentX !== null
+                      ? `${currentX.toFixed(2)} ${xUnit}`
+                      : `${maxX.toFixed(1)} ${xUnit}`}
+                </Text>
+                <MaterialCommunityIcons
+                  name="swap-horizontal"
+                  size={12}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  style={styles.swapIcon}
+                />
+              </TouchableOpacity>
+            ) : (
+              <View
+                style={[styles.distanceIndicator, isDark && styles.distanceIndicatorDark]}
+                pointerEvents="none"
+              >
+                <Text style={[styles.distanceText, isDark && styles.distanceTextDark]}>
+                  {xAxisMode === 'time'
+                    ? formatDuration(isActive && currentX !== null ? currentX : maxX)
+                    : isActive && currentX !== null
+                      ? `${currentX.toFixed(2)} ${xUnit}`
+                      : `${maxX.toFixed(1)} ${xUnit}`}
+                </Text>
+              </View>
+            )}
           </View>
         </GestureDetector>
       </View>
@@ -625,8 +681,21 @@ const styles = StyleSheet.create({
     // Platform-optimized shadow
     ...shadows.pill,
   },
+  distanceIndicatorTappable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  distanceIndicatorTappableDark: {
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
   distanceIndicatorDark: {
     backgroundColor: darkColors.surfaceOverlay,
+  },
+  swapIcon: {
+    marginLeft: 3,
   },
   distanceText: {
     fontSize: typography.label.fontSize,

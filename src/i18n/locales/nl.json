@@ -115,7 +115,9 @@
     "viewInIntervalsICU": "Bekijken in intervals.icu",
     "vsTypical": "vs typisch",
     "vsYourAvg": "vs jouw gem.",
-    "whatIsThis": "Wat is dit?"
+    "whatIsThis": "Wat is dit?",
+    "xAxisDistance": "Afstand",
+    "xAxisTime": "Tijd"
   },
   "activityDetail": {
     "avgHR": "Gem. HF",

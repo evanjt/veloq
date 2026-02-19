@@ -152,15 +152,14 @@ export default function ActivityDetailScreen() {
   const [is3DMapActive, setIs3DMapActive] = useState(false);
   // Track which chart types are selected (multi-select)
   const [selectedCharts, setSelectedCharts] = useState<ChartTypeId[]>([]);
-  // Track if charts are expanded (stacked) or combined (overlay)
-  const [chartsExpanded, setChartsExpanded] = useState(false);
   // Track which metric is being previewed (long-press on chip shows its Y-axis)
   const [previewMetricId, setPreviewMetricId] = useState<ChartTypeId | null>(null);
   // Track if we've initialized the default chart selection
   const [chartsInitialized, setChartsInitialized] = useState(false);
   // Track fullscreen chart mode
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
-  // Track current map style for attribution
+  // Track chart x-axis mode (distance vs time)
+  const [xAxisMode, setXAxisMode] = useState<'distance' | 'time'>('distance');
 
   // Section creation mode
   const [sectionCreationMode, setSectionCreationMode] = useState(false);
@@ -595,6 +594,12 @@ export default function ActivityDetailScreen() {
     return getAvailableCharts(streams || {});
   }, [streams]);
 
+  // Determine effective x-axis mode and whether toggle is available
+  const hasDistance = (streams?.distance?.length ?? 0) > 0;
+  const hasTime = (streams?.time?.length ?? 0) > 0;
+  const effectiveXAxisMode = !hasDistance ? 'time' : xAxisMode;
+  const canToggleXAxis = hasDistance && hasTime;
+
   // Initialize with single default chart when data loads
   useEffect(() => {
     if (!chartsInitialized && availableCharts.length > 0 && activity) {
@@ -617,6 +622,11 @@ export default function ActivityDetailScreen() {
       }
       return [...prev, chartId as ChartTypeId];
     });
+  }, []);
+
+  // Toggle x-axis between distance and time
+  const handleXAxisToggle = useCallback(() => {
+    setXAxisMode((m) => (m === 'distance' ? 'time' : 'distance'));
   }, []);
 
   // Handle chart point selection
@@ -885,19 +895,6 @@ export default function ActivityDetailScreen() {
           {availableCharts.length > 0 && (
             <View style={styles.chartSection}>
               <View style={styles.chartControls}>
-                <TouchableOpacity
-                  style={[styles.expandButton, isDark && styles.expandButtonDark]}
-                  onPress={() => setChartsExpanded(!chartsExpanded)}
-                  activeOpacity={0.7}
-                  accessibilityLabel="Chart display options"
-                  accessibilityRole="button"
-                >
-                  <MaterialCommunityIcons
-                    name="cog"
-                    size={16}
-                    color={isDark ? colors.textOnDark : colors.textPrimary}
-                  />
-                </TouchableOpacity>
                 <View style={styles.chartSelectorContainer}>
                   <ChartTypeSelector
                     available={availableCharts}
@@ -922,47 +919,24 @@ export default function ActivityDetailScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Charts - consistent height for both views */}
-              {streams &&
-                selectedCharts.length > 0 &&
-                (chartsExpanded ? (
-                  // Expanded view - stacked individual charts
-                  selectedCharts.map((chartId) => {
-                    const config = CHART_CONFIGS[chartId];
-                    if (!config) return null;
-                    const chartData = config.getStream?.(streams);
-                    if (!chartData || chartData.length === 0) return null;
-
-                    return (
-                      <View key={chartId} style={[styles.chartCard, isDark && styles.cardDark]}>
-                        <CombinedPlot
-                          key={chartId}
-                          streams={streams}
-                          selectedCharts={[chartId]}
-                          chartConfigs={CHART_CONFIGS}
-                          height={180}
-                          onPointSelect={handlePointSelect}
-                          onInteractionChange={handleInteractionChange}
-                          previewMetricId={previewMetricId}
-                        />
-                      </View>
-                    );
-                  })
-                ) : (
-                  // Combined view - overlay chart
-                  <View style={[styles.chartCard, isDark && styles.cardDark]}>
-                    <CombinedPlot
-                      key={selectedCharts.join(',')}
-                      streams={streams}
-                      selectedCharts={selectedCharts}
-                      chartConfigs={CHART_CONFIGS}
-                      height={180}
-                      onPointSelect={handlePointSelect}
-                      onInteractionChange={handleInteractionChange}
-                      previewMetricId={previewMetricId}
-                    />
-                  </View>
-                ))}
+              {/* Chart */}
+              {streams && selectedCharts.length > 0 && (
+                <View style={[styles.chartCard, isDark && styles.cardDark]}>
+                  <CombinedPlot
+                    key={selectedCharts.join(',')}
+                    streams={streams}
+                    selectedCharts={selectedCharts}
+                    chartConfigs={CHART_CONFIGS}
+                    height={180}
+                    onPointSelect={handlePointSelect}
+                    onInteractionChange={handleInteractionChange}
+                    previewMetricId={previewMetricId}
+                    xAxisMode={effectiveXAxisMode}
+                    onXAxisModeToggle={handleXAxisToggle}
+                    canToggleXAxis={canToggleXAxis}
+                  />
+                </View>
+              )}
 
               {/* Compact Stats Row - averages */}
               <View style={[styles.compactStats, isDark && styles.cardDark]}>
@@ -1214,7 +1188,7 @@ export default function ActivityDetailScreen() {
               />
             </TouchableOpacity>
 
-            {/* Chart type selector in fullscreen - centered, no config button needed */}
+            {/* Chart type selector in fullscreen - centered */}
             <View
               style={[
                 styles.fullscreenControls,
@@ -1242,6 +1216,9 @@ export default function ActivityDetailScreen() {
                   onPointSelect={handlePointSelect}
                   onInteractionChange={handleInteractionChange}
                   previewMetricId={previewMetricId}
+                  xAxisMode={effectiveXAxisMode}
+                  onXAxisModeToggle={handleXAxisToggle}
+                  canToggleXAxis={canToggleXAxis}
                 />
               </View>
             )}
@@ -1373,15 +1350,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: spacing.xs,
   },
-  expandButton: {
-    width: 28,
-    height: 28,
-    borderRadius: layout.borderRadius,
-    backgroundColor: opacity.overlay.light,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 6,
-  },
   expandButtonDark: {
     backgroundColor: opacity.overlayDark.heavy,
   },
@@ -1464,15 +1432,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: spacing.xs,
-  },
-  fullscreenExpandButton: {
-    width: 28,
-    height: 28,
-    borderRadius: layout.borderRadius,
-    backgroundColor: opacity.overlay.light,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 6,
   },
   fullscreenChartWrapper: {
     flex: 1,

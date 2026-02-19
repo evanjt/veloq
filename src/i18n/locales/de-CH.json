@@ -115,7 +115,9 @@
     "viewInIntervalsICU": "Uf intervals.icu luege",
     "vsTypical": "vs normal",
     "vsYourAvg": "vs din Schnitt",
-    "whatIsThis": "Was isch das?"
+    "whatIsThis": "Was isch das?",
+    "xAxisDistance": "Dischtanz",
+    "xAxisTime": "Ziit"
   },
   "activityDetail": {
     "avgHR": "Ø Puls",

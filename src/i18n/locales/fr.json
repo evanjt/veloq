@@ -115,7 +115,9 @@
     "viewInIntervalsICU": "Voir dans intervals.icu",
     "vsTypical": "vs typique",
     "vsYourAvg": "vs votre moy",
-    "whatIsThis": "Qu'est-ce que c'est ?"
+    "whatIsThis": "Qu'est-ce que c'est ?",
+    "xAxisDistance": "Distance",
+    "xAxisTime": "Temps"
   },
   "activityDetail": {
     "avgHR": "FC Moy",
