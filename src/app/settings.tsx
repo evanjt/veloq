@@ -9,7 +9,6 @@ import {
   Alert,
   LayoutChangeEvent,
 } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { router, Href, useLocalSearchParams } from 'expo-router';
@@ -51,13 +50,18 @@ import {
   type PrimarySport,
   type UnitPreference,
   type MetricId,
-  useDebugStore,
 } from '@/providers';
-import Constants from 'expo-constants';
 import { type SupportedLocale } from '@/i18n';
 import { type MapStyleType } from '@/components/maps';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import { ProfileSection, DisplaySettings, MapStylePreviewPicker } from '@/components/settings';
+import {
+  ProfileSection,
+  DisplaySettings,
+  MapStylePreviewPicker,
+  AccountSection,
+  DataSourcesSection,
+  SupportSection,
+} from '@/components/settings';
 import { SummaryCard } from '@/components/home';
 import type { ActivityType } from '@/types';
 
@@ -176,36 +180,13 @@ export default function SettingsScreen() {
     [scrollTo]
   );
 
-  // Debug mode
-  const debugUnlocked = useDebugStore((s) => s.unlocked);
-  const debugEnabled = useDebugStore((s) => s.enabled);
-  const setDebugEnabled = useDebugStore((s) => s.setEnabled);
-  const debugTapCount = useRef(0);
-  const debugTapTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const handleVersionTap = useCallback(() => {
-    if (debugUnlocked) return;
-    debugTapCount.current += 1;
-    clearTimeout(debugTapTimer.current);
-    if (debugTapCount.current >= 5) {
-      debugTapCount.current = 0;
-      useDebugStore.getState().unlock();
-    } else {
-      debugTapTimer.current = setTimeout(() => {
-        debugTapCount.current = 0;
-      }, 2000);
-    }
-  }, [debugUnlocked]);
-
   const { data: athlete } = useAthlete();
   const {
     preferences: mapPreferences,
     setDefaultStyle,
     setActivityGroupStyle,
   } = useMapPreferences();
-  const clearCredentials = useAuthStore((state) => state.clearCredentials);
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
-  const hideDemoBanner = useAuthStore((state) => state.hideDemoBanner);
-  const setHideDemoBanner = useAuthStore((state) => state.setHideDemoBanner);
   const primarySport = useSportPreference((s) => s.primarySport);
   const setPrimarySport = useSportPreference((s) => s.setPrimarySport);
   const language = useLanguageStore((s) => s.language);
@@ -470,37 +451,6 @@ export default function SettingsScreen() {
             refreshCacheSizes();
           } catch {
             Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
-          }
-        },
-      },
-    ]);
-  };
-
-  const handleLogout = () => {
-    Alert.alert(t('alerts.disconnectTitle'), t('alerts.disconnectMessage'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('alerts.disconnect'),
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            // 1. FIRST: Clear credentials to set isAuthenticated=false
-            // This disables GlobalDataSync's useActivities query immediately
-            await clearCredentials();
-
-            // 2. Cancel any in-flight queries
-            await queryClient.cancelQueries();
-
-            // 3. Clear ALL cached data (safe now - no fetches can trigger)
-            await clearAllAppCaches(queryClient);
-
-            // 4. Reset sync date range to default 90 days (for next login)
-            resetSyncDateRange();
-
-            // 5. Navigate to login
-            router.replace('/login' as Href);
-          } catch {
-            Alert.alert(t('alerts.error'), t('alerts.failedToDisconnect'));
           }
         },
       },
@@ -1030,211 +980,11 @@ export default function SettingsScreen() {
           </Text>
         </View>
 
-        {/* Account Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-          {t('settings.account').toUpperCase()}
-        </Text>
-        <View style={[styles.section, isDark && styles.sectionDark]}>
-          <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/about' as Href)}>
-            <MaterialCommunityIcons name="information-outline" size={22} color={colors.primary} />
-            <Text style={[styles.actionText, isDark && styles.textLight]}>{t('about.title')}</Text>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={20}
-              color={isDark ? darkColors.textMuted : colors.textSecondary}
-            />
-          </TouchableOpacity>
+        <AccountSection />
 
-          <View style={[styles.divider, isDark && styles.dividerDark]} />
+        <DataSourcesSection />
 
-          <TouchableOpacity
-            testID="settings-logout-button"
-            style={styles.actionRow}
-            onPress={handleLogout}
-          >
-            <MaterialCommunityIcons name="logout" size={22} color={colors.error} />
-            <Text style={[styles.actionText, styles.actionTextDanger]}>
-              {t('settings.disconnectAccount')}
-            </Text>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={20}
-              color={isDark ? darkColors.textMuted : colors.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Data Sources Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-          {t('settings.dataSources').toUpperCase()}
-        </Text>
-        <View style={[styles.section, isDark && styles.sectionDark]}>
-          <View style={styles.dataSourcesContent}>
-            <Text style={[styles.dataSourcesText, isDark && styles.textMuted]}>
-              {t('settings.dataSourcesDescription')}
-            </Text>
-            <View style={styles.dataSourcesLogos}>
-              <View style={styles.dataSourceItem}>
-                <MaterialCommunityIcons
-                  name="watch"
-                  size={20}
-                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                />
-                <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Garmin</Text>
-              </View>
-              <View style={styles.dataSourceItem}>
-                <MaterialCommunityIcons
-                  name="run"
-                  size={20}
-                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                />
-                <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Strava</Text>
-              </View>
-              <View style={styles.dataSourceItem}>
-                <MaterialCommunityIcons
-                  name="watch"
-                  size={20}
-                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                />
-                <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Polar</Text>
-              </View>
-              <View style={styles.dataSourceItem}>
-                <MaterialCommunityIcons
-                  name="watch"
-                  size={20}
-                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                />
-                <Text style={[styles.dataSourceName, isDark && styles.textLight]}>Wahoo</Text>
-              </View>
-            </View>
-            <Text style={[styles.trademarkText, isDark && styles.textMuted]}>
-              {t('attribution.garminTrademark')}
-            </Text>
-          </View>
-        </View>
-
-        {/* Demo Data Sources Section - Only visible in demo mode */}
-        {isDemoMode && (
-          <>
-            <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-              {t('settings.demoDataSources').toUpperCase()}
-            </Text>
-            <View style={[styles.section, isDark && styles.sectionDark]}>
-              <View style={styles.toggleRow}>
-                <View style={styles.toggleInfo}>
-                  <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
-                    {t('settings.hideDemoBanner')}
-                  </Text>
-                  <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
-                    {t('settings.hideDemoBannerHint')}
-                  </Text>
-                </View>
-                <Switch
-                  testID="hide-demo-banner-switch"
-                  value={hideDemoBanner}
-                  onValueChange={setHideDemoBanner}
-                  color={colors.primary}
-                />
-              </View>
-              <View style={[styles.divider, isDark && styles.dividerDark]} />
-              <View style={styles.dataSourcesContent}>
-                <Text style={[styles.dataSourcesText, isDark && styles.textMuted]}>
-                  {t('attribution.demoData')}
-                </Text>
-              </View>
-            </View>
-          </>
-        )}
-
-        {/* Support Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-          {t('settings.support').toUpperCase()}
-        </Text>
-        <View style={styles.supportRow}>
-          <TouchableOpacity
-            style={[styles.supportCard, isDark && styles.supportCardDark]}
-            onPress={() =>
-              WebBrowser.openBrowserAsync('https://intervals.icu/settings/subscription')
-            }
-            activeOpacity={0.7}
-          >
-            <View style={[styles.supportIconBg, { backgroundColor: 'rgba(233, 30, 99, 0.12)' }]}>
-              <MaterialCommunityIcons name="heart" size={24} color={colors.chartPink} />
-            </View>
-            <Text style={[styles.supportTitle, isDark && styles.textLight]}>intervals.icu</Text>
-            <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>
-              {t('settings.subscribe')}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.supportCard, isDark && styles.supportCardDark]}
-            onPress={() => WebBrowser.openBrowserAsync('https://github.com/sponsors/evanjt')}
-            activeOpacity={0.7}
-          >
-            <View
-              style={[
-                styles.supportIconBg,
-                {
-                  backgroundColor: isDark ? darkColors.surfaceElevated : colors.divider,
-                },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name="github"
-                size={24}
-                color={isDark ? colors.textOnDark : colors.textPrimary}
-              />
-            </View>
-            <Text style={[styles.supportTitle, isDark && styles.textLight]}>@evanjt</Text>
-            <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>
-              {t('settings.sponsorDev')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Version */}
-        <Pressable onPress={handleVersionTap}>
-          <Text
-            testID="settings-version-text"
-            style={[styles.versionText, isDark && styles.textMuted]}
-          >
-            {t('settings.version')} {Constants.expoConfig?.version ?? '0.0.1'}
-          </Text>
-        </Pressable>
-
-        {(debugUnlocked || debugEnabled) && (
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleInfo}>
-              <Text style={[styles.toggleLabel, isDark && styles.textLight]}>Debug Mode</Text>
-              <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
-                Show internal diagnostics in detail pages
-              </Text>
-            </View>
-            <Switch value={debugEnabled} onValueChange={setDebugEnabled} color={colors.primary} />
-          </View>
-        )}
-        {debugEnabled && (
-          <TouchableOpacity
-            style={styles.toggleRow}
-            onPress={() => router.push('/debug' as Href)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.toggleInfo}>
-              <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
-                Developer Dashboard
-              </Text>
-              <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
-                Engine stats, FFI performance, memory
-              </Text>
-            </View>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={24}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
-          </TouchableOpacity>
-        )}
+        <SupportSection />
       </ScrollView>
     </ScreenSafeAreaView>
   );
@@ -1284,9 +1034,6 @@ const styles = StyleSheet.create({
     marginHorizontal: layout.screenPadding,
     borderRadius: 12,
     overflow: 'hidden',
-  },
-  sectionSpaced: {
-    marginTop: spacing.md,
   },
   sectionDark: {
     backgroundColor: darkColors.surfaceCard,
@@ -1397,45 +1144,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     lineHeight: 18,
   },
-  supportRow: {
-    flexDirection: 'row',
-    marginHorizontal: layout.screenPadding,
-    gap: spacing.sm,
-  },
-  supportCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.md,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  supportCardDark: {
-    backgroundColor: darkColors.surfaceCard,
-    shadowOpacity: 0,
-  },
-  supportIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  supportTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  supportSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1462,12 +1170,6 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: darkColors.textSecondary,
-  },
-  themePickerContainer: {
-    padding: spacing.md,
-  },
-  themePicker: {
-    // React Native Paper SegmentedButtons handles styling
   },
   mapStyleRow: {
     paddingHorizontal: spacing.md,
@@ -1504,44 +1206,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.md,
     fontStyle: 'italic',
-  },
-  dataSourcesContent: {
-    padding: spacing.md,
-  },
-  dataSourcesText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: spacing.md,
-  },
-  dataSourcesLogos: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-    marginBottom: spacing.md,
-  },
-  dataSourceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  dataSourceName: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  trademarkText: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    opacity: 0.7,
-    lineHeight: 14,
-  },
-  versionText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: spacing.xl,
-    marginBottom: spacing.md,
   },
   // Summary Card styles
   summaryCardContainer: {
