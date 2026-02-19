@@ -35,6 +35,8 @@ import {
   useMetricSystem,
   useCacheDays,
   useGpxExport,
+  useSectionOverlays,
+  useSectionTimeStreams,
 } from '@/hooks';
 import { useDisabledSections } from '@/providers';
 import { createSharedStyles } from '@/styles';
@@ -42,7 +44,6 @@ import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
 import { useSectionMatches, type SectionMatch } from '@/hooks/routes/useSectionMatches';
 import { routeEngine } from 'veloqrs';
-import { intervalsApi } from '@/api';
 import {
   ActivityMapView,
   CombinedPlot,
@@ -62,7 +63,6 @@ import {
 } from '@/components/routes';
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
-import type { SectionOverlay } from '@/components/maps/ActivityMapView';
 import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import type {
   SectionCreationResult,
@@ -378,223 +378,13 @@ export default function ActivityDetailScreen() {
     return items;
   }, [engineSectionMatches, customMatchedSections]);
 
-  // Computed activity traces for this activity on each section
-  // Uses engine's extractSectionTrace for accurate trace extraction
-  const [computedActivityTraces, setComputedActivityTraces] = useState<
-    Record<string, { latitude: number; longitude: number }[]>
-  >({});
-
-  // Create stable section IDs string to avoid infinite loops
-  const engineSectionIds = useMemo(
-    () =>
-      engineSectionMatches
-        .map((m) => m.section.id)
-        .sort()
-        .join(','),
-    [engineSectionMatches]
-  );
-  const customSectionIds = useMemo(
-    () =>
-      customMatchedSections
-        .map((s) => s.id)
-        .sort()
-        .join(','),
-    [customMatchedSections]
-  );
-
-  // Compute activity traces using Rust engine's extractSectionTrace
-  useEffect(() => {
-    if (activeTab !== 'sections' || !id) {
-      return;
-    }
-
-    // Deduplicate sections by ID (custom sections might appear in both lists)
-    const seenIds = new Set<string>();
-    const combinedSections = [
-      ...engineSectionMatches.map((m) => m.section),
-      ...customMatchedSections,
-    ].filter((section) => {
-      if (seenIds.has(section.id)) return false;
-      seenIds.add(section.id);
-      return true;
-    });
-    if (combinedSections.length === 0) {
-      setComputedActivityTraces({});
-      return;
-    }
-
-    const traces: Record<string, { latitude: number; longitude: number }[]> = {};
-
-    for (const section of combinedSections) {
-      // Use section polyline directly (already has data from engine)
-      const polyline = section.polyline || [];
-
-      if (polyline.length < 2) continue;
-
-      // Convert polyline to JSON for Rust engine (expects latitude/longitude)
-      const polylineJson = JSON.stringify(
-        polyline.map(
-          (p: { lat?: number; lng?: number; latitude?: number; longitude?: number }) => ({
-            latitude: p.lat ?? p.latitude ?? 0,
-            longitude: p.lng ?? p.longitude ?? 0,
-          })
-        )
-      );
-
-      // Use Rust engine's extractSectionTrace
-      const extractedTrace = routeEngine.extractSectionTrace(id, polylineJson);
-
-      if (extractedTrace && extractedTrace.length > 0) {
-        // Convert GpsPoint[] to LatLng format
-        traces[section.id] = extractedTrace.map((p) => ({
-          latitude: p.latitude,
-          longitude: p.longitude,
-        }));
-      }
-    }
-
-    setComputedActivityTraces(traces);
-    // Use stable string IDs instead of array references to prevent infinite loops
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, id, engineSectionIds, customSectionIds]);
-
-  // Build section overlays when on Sections tab
-  const sectionOverlays = useMemo((): SectionOverlay[] | null => {
-    if (activeTab !== 'sections') return null;
-    if (!engineSectionMatches.length && !customMatchedSections.length) return null;
-    if (coordinates.length === 0) return null;
-
-    const overlays: SectionOverlay[] = [];
-    const processedIds = new Set<string>();
-
-    // Process engine-detected sections
-    for (const match of engineSectionMatches) {
-      // Skip if already processed (deduplication)
-      if (processedIds.has(match.section.id)) continue;
-      processedIds.add(match.section.id);
-
-      // Use section polyline directly (already has data from engine)
-      const polylineSource = match.section.polyline || [];
-
-      // Handle both RoutePoint ({lat, lng}) and GpsPoint ({latitude, longitude}) formats
-      const sectionPolyline = polylineSource.map(
-        (p: { lat?: number; lng?: number; latitude?: number; longitude?: number }) => ({
-          latitude: p.lat ?? p.latitude ?? 0,
-          longitude: p.lng ?? p.longitude ?? 0,
-        })
-      );
-
-      // Try to get activity's portion from multiple sources (in order of preference):
-      // 1. computedActivityTraces (extracted via engine.extractSectionTrace - most accurate)
-      // 2. activityTraces from section data (pre-computed by engine)
-      // 3. portion indices (slice from coordinates - least accurate)
-      let activityPortion;
-
-      // First try computed traces - these use extractSectionTrace for accuracy
-      const computedTrace = computedActivityTraces[match.section.id];
-      if (computedTrace && computedTrace.length > 0) {
-        activityPortion = computedTrace;
-      } else {
-        // Try activityTraces from section data
-        const activityTrace = match.section.activityTraces?.[id!];
-        if (activityTrace && activityTrace.length > 0) {
-          // Convert RoutePoint to LatLng format
-          activityPortion = activityTrace.map(
-            (p: { lat?: number; lng?: number; latitude?: number; longitude?: number }) => ({
-              latitude: p.lat ?? p.latitude ?? 0,
-              longitude: p.lng ?? p.longitude ?? 0,
-            })
-          );
-        }
-      }
-
-      overlays.push({
-        id: match.section.id,
-        sectionPolyline,
-        activityPortion,
-      });
-    }
-
-    // Process custom sections
-    for (const section of customMatchedSections) {
-      // Skip if already processed (deduplication - custom sections may appear in engine results)
-      if (processedIds.has(section.id)) continue;
-      processedIds.add(section.id);
-
-      const sectionPolyline = section.polyline.map((p) => ({
-        latitude: p.lat,
-        longitude: p.lng,
-      }));
-
-      // Try computed traces first (from extractSectionTrace)
-      let activityPortion;
-      const computedTrace = computedActivityTraces[section.id];
-      if (computedTrace && computedTrace.length > 0) {
-        activityPortion = computedTrace;
-      } else {
-        // Fall back to using indices
-        const activityPortion_record = section.activityPortions?.find((p) => p.activityId === id);
-        if (
-          activityPortion_record?.startIndex != null &&
-          activityPortion_record?.endIndex != null
-        ) {
-          // Use portion indices from junction table
-          const start = Math.max(0, activityPortion_record.startIndex);
-          const end = Math.min(coordinates.length - 1, activityPortion_record.endIndex);
-          if (end > start) {
-            activityPortion = coordinates.slice(start, end + 1);
-          }
-        } else if (
-          section.sourceActivityId === id &&
-          section.startIndex != null &&
-          section.endIndex != null
-        ) {
-          // This is the source activity - use the section's original indices
-          const start = Math.max(0, section.startIndex);
-          const end = Math.min(coordinates.length - 1, section.endIndex);
-          if (end > start) {
-            activityPortion = coordinates.slice(start, end + 1);
-          }
-        }
-      }
-
-      overlays.push({
-        id: section.id,
-        sectionPolyline,
-        activityPortion,
-      });
-    }
-
-    return overlays;
-  }, [
+  // Section overlay computation (traces + map overlays)
+  const { sectionOverlays, getActivityPortion } = useSectionOverlays(
     activeTab,
+    id,
     engineSectionMatches,
     customMatchedSections,
-    coordinates,
-    id,
-    computedActivityTraces,
-  ]);
-
-  // Helper to get activity portion as RoutePoint[] for MiniTraceView
-  // Uses computed traces when available, falls back to portion indices
-  const getActivityPortion = useCallback(
-    (sectionId: string, portion?: { startIndex?: number; endIndex?: number }) => {
-      // First try computed traces
-      const computedTrace = computedActivityTraces[sectionId];
-      if (computedTrace && computedTrace.length > 0) {
-        return computedTrace.map((c) => ({
-          lat: c.latitude,
-          lng: c.longitude,
-        }));
-      }
-      // Fall back to portion indices
-      if (portion?.startIndex == null || portion?.endIndex == null) return undefined;
-      const start = Math.max(0, portion.startIndex);
-      const end = Math.min(coordinates.length - 1, portion.endIndex);
-      if (end <= start || coordinates.length === 0) return undefined;
-      return coordinates.slice(start, end + 1).map((c) => ({ lat: c.latitude, lng: c.longitude }));
-    },
-    [coordinates, computedActivityTraces]
+    coordinates
   );
 
   // Helper to calculate section elapsed time from streams
@@ -623,89 +413,11 @@ export default function ActivityDetailScreen() {
     [isMetric]
   );
 
-  // Collect all activity IDs from matched sections for performance data
-  const sectionActivityIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const match of engineSectionMatches) {
-      for (const actId of match.section.activityIds) {
-        ids.add(actId);
-      }
-    }
-    for (const section of customMatchedSections) {
-      // Include source activity
-      if (section.sourceActivityId) {
-        ids.add(section.sourceActivityId);
-      }
-      // Include activity IDs from the section
-      for (const activityId of section.activityIds ?? []) {
-        ids.add(activityId);
-      }
-    }
-    return Array.from(ids);
-  }, [engineSectionMatches, customMatchedSections]);
-
-  // Fetch and sync time streams to Rust engine for section performance calculations
-  const [performanceDataReady, setPerformanceDataReady] = useState(false);
-  useEffect(() => {
-    if (activeTab !== 'sections' || sectionActivityIds.length === 0) {
-      return;
-    }
-
-    let cancelled = false;
-    const fetchTimeStreams = async () => {
-      try {
-        const streamsToSync: Array<{ activityId: string; times: number[] }> = [];
-
-        // Fetch in batches of 5 to avoid overwhelming the API
-        const batchSize = 5;
-        for (let i = 0; i < sectionActivityIds.length && !cancelled; i += batchSize) {
-          const batch = sectionActivityIds.slice(i, i + batchSize);
-          const results = await Promise.all(
-            batch.map(async (activityId) => {
-              try {
-                const apiStreams = await intervalsApi.getActivityStreams(activityId, ['time']);
-                return { activityId, times: apiStreams.time || [] };
-              } catch {
-                return { activityId, times: [] as number[] };
-              }
-            })
-          );
-
-          for (const result of results) {
-            if (result.times.length > 0) {
-              streamsToSync.push(result);
-            }
-          }
-        }
-
-        if (!cancelled && streamsToSync.length > 0) {
-          // Sync time streams to Rust engine
-          routeEngine.setTimeStreams(streamsToSync);
-          setPerformanceDataReady(true);
-        }
-      } catch {
-        // Ignore errors
-      }
-    };
-
-    fetchTimeStreams();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, sectionActivityIds]);
-
-  // Get best time for a section from Rust engine (uses synced time streams)
-  const getSectionBestTime = useCallback(
-    (sectionId: string): number | undefined => {
-      if (!performanceDataReady) return undefined;
-      try {
-        const result = routeEngine.getSectionPerformances(sectionId);
-        return result?.bestRecord?.bestTime;
-      } catch {
-        return undefined;
-      }
-    },
-    [performanceDataReady]
+  // Time stream syncing + performance data for section best times
+  const { getSectionBestTime } = useSectionTimeStreams(
+    activeTab,
+    engineSectionMatches,
+    customMatchedSections
   );
 
   // Format time delta with +/- sign

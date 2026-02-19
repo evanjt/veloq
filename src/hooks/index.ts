@@ -1,5 +1,7 @@
 // Activity hooks
 export { useActivities, useActivityBoundsCache, useEFTPHistory } from './activities';
+export { useSectionOverlays } from './activities/useSectionOverlays';
+export { useSectionTimeStreams } from './activities/useSectionTimeStreams';
 
 // Fitness & Wellness hooks
 export {
