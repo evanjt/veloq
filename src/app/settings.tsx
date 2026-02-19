@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Pressable,
   Alert,
   LayoutChangeEvent,
 } from 'react-native';
@@ -13,7 +12,7 @@ import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { router, Href, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SegmentedButtons, Switch } from 'react-native-paper';
+import { Switch } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,100 +24,36 @@ import {
   useOldestActivityDate,
   useTheme,
   useUnifiedSections,
-  useSummaryCardData,
   useExportBackup,
   useImportBackup,
   useBulkExport,
 } from '@/hooks';
-import * as FileSystem from 'expo-file-system/legacy';
 import { TimelineSlider } from '@/components/maps';
 import { formatLocalDate, formatFullDate } from '@/lib';
 import { estimateRoutesDatabaseSize, clearAllAppCaches } from '@/lib';
 import {
   getThemePreference,
   setThemePreference,
-  useMapPreferences,
   useAuthStore,
   useSportPreference,
   useRouteSettings,
   useLanguageStore,
   useSyncDateRange,
   useUnitPreference,
-  useDashboardPreferences,
-  getMetricDefinition,
   type ThemePreference,
   type PrimarySport,
   type UnitPreference,
-  type MetricId,
 } from '@/providers';
-import { type SupportedLocale } from '@/i18n';
-import { type MapStyleType } from '@/components/maps';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import {
   ProfileSection,
   DisplaySettings,
-  MapStylePreviewPicker,
+  MapsSection,
+  SummaryCardSection,
   AccountSection,
   DataSourcesSection,
   SupportSection,
 } from '@/components/settings';
-import { SummaryCard } from '@/components/home';
-import type { ActivityType } from '@/types';
-
-// Activity type groups for map settings
-// Each group applies the same map style to all its activity types
-// Covers ALL ActivityType values from types/activity.ts
-type FilterLabelKey =
-  | 'filters.cycling'
-  | 'filters.running'
-  | 'filters.hiking'
-  | 'filters.walking'
-  | 'filters.swimming'
-  | 'filters.snowSports'
-  | 'filters.waterSports'
-  | 'filters.climbing'
-  | 'filters.racketSports'
-  | 'filters.other';
-const MAP_ACTIVITY_GROUPS: {
-  key: string;
-  labelKey: FilterLabelKey;
-  types: ActivityType[];
-}[] = [
-  {
-    key: 'cycling',
-    labelKey: 'filters.cycling',
-    types: ['Ride', 'VirtualRide'],
-  },
-  {
-    key: 'running',
-    labelKey: 'filters.running',
-    types: ['Run', 'TrailRun', 'VirtualRun'],
-  },
-  { key: 'hiking', labelKey: 'filters.hiking', types: ['Hike', 'Snowshoe'] },
-  { key: 'walking', labelKey: 'filters.walking', types: ['Walk'] },
-  {
-    key: 'swimming',
-    labelKey: 'filters.swimming',
-    types: ['Swim', 'OpenWaterSwim'],
-  },
-  {
-    key: 'snow',
-    labelKey: 'filters.snowSports',
-    types: ['AlpineSki', 'NordicSki', 'BackcountrySki', 'Snowboard'],
-  },
-  {
-    key: 'water',
-    labelKey: 'filters.waterSports',
-    types: ['Rowing', 'Kayaking', 'Canoeing'],
-  },
-  { key: 'climbing', labelKey: 'filters.climbing', types: ['RockClimbing'] },
-  { key: 'racket', labelKey: 'filters.racketSports', types: ['Tennis'] },
-  {
-    key: 'other',
-    labelKey: 'filters.other',
-    types: ['Workout', 'WeightTraining', 'Yoga', 'Other'],
-  },
-];
 
 function formatDateOrDash(dateStr: string | null): string {
   if (!dateStr) return '-';
@@ -143,7 +78,6 @@ export default function SettingsScreen() {
   const { isDark } = useTheme();
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
   const [showLanguages, setShowLanguages] = useState(false);
-  const [showActivityStyles, setShowActivityStyles] = useState(false);
   const { exportBackup, exporting: backupExporting } = useExportBackup();
   const { importBackup, importing: backupImporting } = useImportBackup();
   const {
@@ -181,11 +115,6 @@ export default function SettingsScreen() {
   );
 
   const { data: athlete } = useAthlete();
-  const {
-    preferences: mapPreferences,
-    setDefaultStyle,
-    setActivityGroupStyle,
-  } = useMapPreferences();
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const primarySport = useSportPreference((s) => s.primarySport);
   const setPrimarySport = useSportPreference((s) => s.setPrimarySport);
@@ -194,13 +123,6 @@ export default function SettingsScreen() {
   const unitPreference = useUnitPreference((s) => s.unitPreference);
   const setUnitPreference = useUnitPreference((s) => s.setUnitPreference);
   const intervalsPreferences = useUnitPreference((s) => s.intervalsPreferences);
-
-  // Summary card customization
-  const { summaryCard, setSummaryCardPreferences } = useDashboardPreferences();
-  const [showSummaryCardConfig, setShowSummaryCardConfig] = useState(false);
-
-  // Real summary card data (same as home screen) for live preview
-  const summaryCardData = useSummaryCardData();
 
   // Load saved theme preference on mount
   useEffect(() => {
@@ -228,19 +150,6 @@ export default function SettingsScreen() {
 
   const handleUnitChange = async (value: string) => {
     await setUnitPreference(value as UnitPreference);
-  };
-
-  const handleDefaultMapStyleChange = async (value: string) => {
-    const style = value as MapStyleType;
-    await setDefaultStyle(style);
-  };
-
-  const handleActivityGroupMapStyleChange = async (groupKey: string, value: string) => {
-    const group = MAP_ACTIVITY_GROUPS.find((g) => g.key === groupKey);
-    if (!group) return;
-
-    const style = value === 'default' ? null : (value as MapStyleType);
-    await setActivityGroupStyle(group.types, style);
   };
 
   // Get sync state from global store first
@@ -493,130 +402,7 @@ export default function SettingsScreen() {
           <ProfileSection athlete={athlete} />
         </View>
 
-        {/* Summary Card Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-          {t('settings.summaryCard').toUpperCase()}
-        </Text>
-        <View style={[styles.section, isDark && styles.sectionDark]}>
-          {/* Live Preview using actual SummaryCard with real data */}
-          <View style={styles.summaryCardPreview}>
-            <SummaryCard
-              profileUrl={summaryCardData.profileUrl}
-              onProfilePress={() => {}}
-              heroValue={summaryCardData.heroValue}
-              heroLabel={summaryCardData.heroLabel}
-              heroColor={summaryCardData.heroColor}
-              heroZoneLabel={summaryCardData.heroZoneLabel}
-              heroZoneColor={summaryCardData.heroZoneColor}
-              heroTrend={summaryCardData.heroTrend}
-              sparklineData={summaryCardData.sparklineData}
-              showSparkline={summaryCardData.showSparkline}
-              supportingMetrics={summaryCardData.supportingMetrics}
-            />
-          </View>
-
-          {/* Hero Metric Picker - always visible */}
-          <View style={styles.summaryCardContainer}>
-            <View style={styles.heroMetricHeader}>
-              <Text style={[styles.summaryCardLabel, isDark && styles.textLight]}>
-                {t('settings.heroMetric')}
-              </Text>
-              <View style={styles.sparklineToggleInline}>
-                <Text style={[styles.sparklineToggleLabel, isDark && styles.textMuted]}>
-                  {t('settings.showSparkline')}
-                </Text>
-                <Switch
-                  value={summaryCard.showSparkline}
-                  onValueChange={(value) => setSummaryCardPreferences({ showSparkline: value })}
-                  color={colors.primary}
-                />
-              </View>
-            </View>
-            <SegmentedButtons
-              value={summaryCard.heroMetric}
-              onValueChange={(value) =>
-                setSummaryCardPreferences({ heroMetric: value as MetricId })
-              }
-              buttons={[
-                { value: 'form', label: t('metrics.form') },
-                { value: 'fitness', label: t('metrics.fitness') },
-                { value: 'hrv', label: t('metrics.hrv') },
-              ]}
-              style={styles.summaryCardPicker}
-            />
-          </View>
-
-          {/* Supporting Metrics - collapsible */}
-          <TouchableOpacity
-            style={[styles.actionRow, styles.actionRowBorder]}
-            onPress={() => setShowSummaryCardConfig(!showSummaryCardConfig)}
-          >
-            <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
-            <Text style={[styles.actionText, isDark && styles.textLight]}>
-              {t('settings.supportingMetrics')}
-            </Text>
-            <MaterialCommunityIcons
-              name={showSummaryCardConfig ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={isDark ? darkColors.textMuted : colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          {showSummaryCardConfig && (
-            <View style={styles.summaryCardContainer}>
-              <Text style={[styles.summaryCardHint, isDark && styles.textMuted]}>
-                {t('settings.maxMetricsHint')}
-              </Text>
-
-              {(
-                [
-                  'fitness',
-                  'ftp',
-                  'weekHours',
-                  'weekCount',
-                  'form',
-                  'hrv',
-                  'rhr',
-                  'thresholdPace',
-                  'css',
-                ] as MetricId[]
-              ).map((metricId) => {
-                const isEnabled = summaryCard.supportingMetrics.includes(metricId);
-                const maxReached = summaryCard.supportingMetrics.length >= 4;
-                const def = getMetricDefinition(metricId);
-                if (!def) return null;
-
-                return (
-                  <View
-                    key={metricId}
-                    style={[styles.summaryMetricRow, isDark && styles.summaryMetricRowDark]}
-                  >
-                    <Text style={[styles.summaryMetricLabel, isDark && styles.textLight]}>
-                      {t(def.labelKey as never)}
-                    </Text>
-                    <Switch
-                      value={isEnabled}
-                      disabled={!isEnabled && maxReached}
-                      onValueChange={(enabled) => {
-                        const current = summaryCard.supportingMetrics;
-                        if (enabled && current.length < 4) {
-                          setSummaryCardPreferences({
-                            supportingMetrics: [...current, metricId],
-                          });
-                        } else if (!enabled) {
-                          setSummaryCardPreferences({
-                            supportingMetrics: current.filter((id) => id !== metricId),
-                          });
-                        }
-                      }}
-                      color={colors.primary}
-                    />
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </View>
+        <SummaryCardSection />
 
         {/* Display Settings: Appearance, Units, Language, Primary Sport */}
         <DisplaySettings
@@ -633,69 +419,7 @@ export default function SettingsScreen() {
           setShowLanguages={setShowLanguages}
         />
 
-        {/* Maps Section */}
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-          {t('settings.maps').toUpperCase()}
-        </Text>
-        <View style={[styles.section, isDark && styles.sectionDark]}>
-          <View style={styles.mapStyleRow}>
-            <Text style={[styles.mapStyleLabel, isDark && styles.textLight]}>
-              {t('settings.defaultStyle')}
-            </Text>
-          </View>
-          <MapStylePreviewPicker
-            value={mapPreferences.defaultStyle}
-            onValueChange={handleDefaultMapStyleChange}
-          />
-
-          {/* Per-activity-type styles toggle */}
-          <TouchableOpacity
-            style={[styles.actionRow, styles.actionRowBorder]}
-            onPress={() => setShowActivityStyles(!showActivityStyles)}
-          >
-            <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
-            <Text style={[styles.actionText, isDark && styles.textLight]}>
-              {t('settings.customiseByActivity')}
-            </Text>
-            <MaterialCommunityIcons
-              name={showActivityStyles ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={isDark ? darkColors.textMuted : colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          {/* Per-activity-group pickers */}
-          {showActivityStyles && (
-            <View style={styles.activityStylesContainer}>
-              {MAP_ACTIVITY_GROUPS.map(({ key, labelKey, types }) => {
-                // Use the first type in the group to determine current style
-                const currentStyle = mapPreferences.activityTypeStyles[types[0]] ?? 'default';
-                return (
-                  <View key={key} style={styles.activityStyleRow}>
-                    <Text style={[styles.activityStyleLabel, isDark && styles.textLight]}>
-                      {t(labelKey)}
-                    </Text>
-                    <SegmentedButtons
-                      value={currentStyle}
-                      onValueChange={(value) => handleActivityGroupMapStyleChange(key, value)}
-                      buttons={[
-                        { value: 'default', label: t('settings.default') },
-                        { value: 'light', label: t('settings.light') },
-                        { value: 'dark', label: t('settings.dark') },
-                        { value: 'satellite', label: t('settings.satellite') },
-                      ]}
-                      density="small"
-                      style={styles.activityStylePicker}
-                    />
-                  </View>
-                );
-              })}
-              <Text style={[styles.activityStyleHint, isDark && styles.textMuted]}>
-                {t('settings.defaultMapHint')}
-              </Text>
-            </View>
-          )}
-        </View>
+        <MapsSection />
 
         {/* Data Cache Section - Consolidated */}
         <View onLayout={handleDataCacheSectionLayout}>
@@ -1170,95 +894,5 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: darkColors.textSecondary,
-  },
-  mapStyleRow: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
-  },
-  mapStyleLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  actionRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  activityStylesContainer: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  activityStyleRow: {
-    marginTop: spacing.md,
-  },
-  activityStyleLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  activityStylePicker: {
-    // Handled by React Native Paper
-  },
-  activityStyleHint: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-    fontStyle: 'italic',
-  },
-  // Summary Card styles
-  summaryCardContainer: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  summaryCardLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  summaryCardPicker: {
-    // Handled by React Native Paper
-  },
-  heroMetricHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  sparklineToggleInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  sparklineToggleLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  summaryCardHint: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  summaryMetricRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  summaryMetricRowDark: {
-    borderBottomColor: darkColors.border,
-  },
-  summaryMetricLabel: {
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  // Summary Card Preview styles
-  summaryCardPreview: {
-    marginHorizontal: -layout.screenPadding,
-    paddingTop: spacing.sm,
   },
 });
