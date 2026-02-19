@@ -11,8 +11,7 @@ import React, { ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { GestureDetector, GestureType } from 'react-native-gesture-handler';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
+import { colors, darkColors, typography } from '@/theme';
 import { useTheme } from '@/hooks';
 
 export interface ChartPadding {

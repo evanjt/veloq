@@ -144,10 +144,7 @@ import {
   getMapLibreBounds,
   getSectionStyle,
 } from '@/lib';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing, layout } from '@/theme/spacing';
-import { shadows } from '@/theme/shadows';
+import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';

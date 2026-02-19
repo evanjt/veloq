@@ -14,13 +14,12 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing, layout } from '@/theme/spacing';
+import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { usePaceCurve } from '@/hooks';
 import { useActivities } from '@/hooks';
-import { formatFullDate, formatDistance } from '@/lib';
+import { formatFullDate, formatDistance, speedToSecsPerKm } from '@/lib';
+import { formatDuration } from '@/lib/utils/format';
 
 interface PaceCurveChartProps {
   sport?: string;
@@ -46,30 +45,6 @@ function formatPace(secondsPerKm: number): string {
   const minutes = Math.floor(secondsPerKm / 60);
   const seconds = Math.round(secondsPerKm % 60);
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
-// Format time as mm:ss or h:mm:ss
-function formatTime(totalSeconds: number): string {
-  if (totalSeconds <= 0 || !isFinite(totalSeconds)) return '--:--';
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = Math.round(totalSeconds % 60);
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  }
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
-// Format date range
-function formatDateRange(startDate?: string, endDate?: string): string {
-  if (!startDate || !endDate) return '';
-  return `${formatFullDate(startDate)} - ${formatFullDate(endDate)}`;
-}
-
-// Convert m/s to seconds per km
-function speedToSecsPerKm(metersPerSecond: number): number {
-  if (metersPerSecond <= 0) return 0;
-  return 1000 / metersPerSecond;
 }
 
 interface ChartPoint {
@@ -422,7 +397,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         <View style={styles.valueItem}>
           <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('stats.time')}</Text>
           <Text style={[styles.valueNumber, isDark && styles.textLight]}>
-            {formatTime(displayData.time)}
+            {formatDuration(displayData.time)}
           </Text>
         </View>
         <View style={styles.valueItem}>
@@ -564,7 +539,9 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         <View style={styles.modelInfo}>
           <Text style={[styles.dateRange, isDark && styles.textDark]}>
             {curve?.days ? `${curve.days} days: ` : ''}
-            {formatDateRange(curve?.startDate, curve?.endDate)}
+            {curve?.startDate && curve?.endDate
+              ? `${formatFullDate(curve.startDate)} - ${formatFullDate(curve.endDate)}`
+              : ''}
           </Text>
           {criticalSpeedPace && (
             <Text style={[styles.modelStats, isDark && styles.textDark]}>

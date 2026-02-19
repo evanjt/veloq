@@ -13,9 +13,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors } from '@/theme/colors';
-import { spacing, layout } from '@/theme/spacing';
-import { shadows } from '@/theme/shadows';
+import { colors, darkColors, spacing, layout, shadows } from '@/theme';
 import { getActivityTypeConfig } from './ActivityTypeFilter';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import {

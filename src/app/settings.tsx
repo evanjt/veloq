@@ -29,7 +29,7 @@ import {
   useBulkExport,
 } from '@/hooks';
 import { TimelineSlider } from '@/components/maps';
-import { formatLocalDate, formatFullDate } from '@/lib';
+import { formatLocalDate, formatFullDate, formatFileSize } from '@/lib';
 import { estimateRoutesDatabaseSize, clearAllAppCaches } from '@/lib';
 import {
   getThemePreference,
@@ -58,12 +58,6 @@ import {
 function formatDateOrDash(dateStr: string | null): string {
   if (!dateStr) return '-';
   return formatFullDate(dateStr);
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export default function SettingsScreen() {
@@ -577,7 +571,7 @@ export default function SettingsScreen() {
                   </View>
                   <Text style={[styles.progressDetail, isDark && styles.textMuted]}>
                     {bulkTotal > 0 ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%` : '0%'}
-                    {bulkSizeBytes > 0 && ` · ${formatBytes(bulkSizeBytes)}`}
+                    {bulkSizeBytes > 0 && ` · ${formatFileSize(bulkSizeBytes)}`}
                   </Text>
                 </>
               )}
@@ -676,7 +670,7 @@ export default function SettingsScreen() {
               {t('settings.database')}
             </Text>
             <Text style={[styles.infoValue, isDark && styles.textLight]}>
-              {formatBytes(cacheSizes.routes)}
+              {formatFileSize(cacheSizes.routes)}
             </Text>
           </View>
 

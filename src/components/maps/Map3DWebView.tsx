@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { colors, darkColors } from '@/theme/colors';
+import { colors, darkColors } from '@/theme';
 import { getBoundsFromPoints } from '@/lib';
 import type { MapStyleType } from './mapStyles';
 import { getCombinedSatelliteStyle, SATELLITE_SOURCES } from './mapStyles';

@@ -7,7 +7,7 @@
 
 import type { WellnessData } from '@/types';
 import type { StatDetail } from './types';
-import { colors } from '@/theme/colors';
+import { colors } from '@/theme';
 import { createMetricHook } from './createMetricHook';
 
 interface UseFormAndTSBOptions {

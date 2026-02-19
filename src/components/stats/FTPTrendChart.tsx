@@ -5,9 +5,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area } from 'victory-native';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing, layout } from '@/theme/spacing';
+import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import type { eFTPPoint } from '@/types';
 import { formatMonth } from '@/lib';
 

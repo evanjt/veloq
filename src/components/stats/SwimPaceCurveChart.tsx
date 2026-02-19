@@ -13,9 +13,7 @@ import Animated, {
   useDerivedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing } from '@/theme/spacing';
+import { colors, darkColors, typography, spacing } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { usePaceCurve, paceToMinPer100m } from '@/hooks';
 import { formatDistance } from '@/lib';

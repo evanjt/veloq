@@ -1,19 +1,9 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { useAuthStore } from '@/providers';
-import { formatLocalDate, getMonday } from '@/lib';
+import { formatLocalDate, getMonday, getSunday } from '@/lib';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { AthleteSummary } from '@/types';
-
-/**
- * Get the Sunday of the week for a given date (ISO week: Monday-Sunday)
- */
-function getSunday(date: Date): Date {
-  const monday = getMonday(date);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  return sunday;
-}
 
 /**
  * Get ISO week number for a date

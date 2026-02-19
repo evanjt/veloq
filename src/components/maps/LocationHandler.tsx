@@ -11,9 +11,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import type { Camera } from '@maplibre/maplibre-react-native';
-import { colors } from '@/theme/colors';
-import { shadows } from '@/theme/shadows';
-import { spacing } from '@/theme/spacing';
+import { colors, shadows, spacing } from '@/theme';
 
 interface LocationHandlerProps {
   /** MapLibre Camera ref for animating to location */

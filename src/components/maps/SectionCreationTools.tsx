@@ -10,8 +10,7 @@ import { View, StyleSheet, Text } from 'react-native';
 import type { LatLng } from '@/lib';
 import { SectionCreationOverlay, type CreationState } from './SectionCreationOverlay';
 import type { SectionCreationResult } from './ActivityMapView';
-import { typography } from '@/theme/typography';
-import { spacing } from '@/theme/spacing';
+import { typography, spacing } from '@/theme';
 
 interface SectionCreationToolsProps {
   /** Whether section creation mode is active */

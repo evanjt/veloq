@@ -527,3 +527,30 @@ export function getMonday(date: Date): Date {
   d.setHours(0, 0, 0, 0);
   return d;
 }
+
+/**
+ * Get Sunday of the week for a given date (ISO week: Monday-Sunday).
+ */
+export function getSunday(date: Date): Date {
+  const monday = getMonday(date);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return sunday;
+}
+
+/**
+ * Format byte count as human-readable file size (e.g., "1.5 MB").
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Convert speed in m/s to pace in seconds per km.
+ */
+export function speedToSecsPerKm(metersPerSecond: number): number {
+  if (metersPerSecond <= 0) return 0;
+  return 1000 / metersPerSecond;
+}

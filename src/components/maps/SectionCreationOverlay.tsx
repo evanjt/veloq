@@ -17,10 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing, layout } from '@/theme/spacing';
-import { shadows } from '@/theme/shadows';
+import { colors, typography, spacing, layout, shadows } from '@/theme';
 import { formatDistance } from '@/lib';
 import { useMetricSystem } from '@/hooks';
 

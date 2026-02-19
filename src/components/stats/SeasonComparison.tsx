@@ -7,9 +7,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { CHART_CONFIG } from '@/constants';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing, layout } from '@/theme/spacing';
+import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import type { Activity } from '@/types';
 
 interface SeasonComparisonProps {
