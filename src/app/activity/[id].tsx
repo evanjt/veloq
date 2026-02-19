@@ -38,6 +38,8 @@ import {
   useGpxExport,
   useSectionOverlays,
   useSectionTimeStreams,
+  POWER_ZONE_COLORS,
+  HR_ZONE_COLORS,
 } from '@/hooks';
 import { useDisabledSections } from '@/providers';
 import { createSharedStyles } from '@/styles';
@@ -48,17 +50,16 @@ import { routeEngine } from 'veloqrs';
 import {
   ActivityMapView,
   CombinedPlot,
+  type ChartMetricValue,
   ChartTypeSelector,
   HRZonesChart,
   PowerZonesChart,
   IntervalsTable,
-  IntervalsChart,
   InsightfulStats,
   RoutePerformanceSection,
   MiniTraceView,
 } from '@/components';
 import { SectionListItem } from '@/components/activity/SectionListItem';
-import { CompactStat } from '@/components/activity/stats/CompactStat';
 import {
   DataRangeFooter,
   SectionMiniPreview,
@@ -76,14 +77,13 @@ import type { CreationState } from '@/components/maps/SectionCreationOverlay';
 import {
   formatDistance,
   formatDuration,
+  formatDurationHuman,
   formatElevation,
-  formatHeartRate,
-  formatPower,
-  formatSpeed,
   formatPace,
   formatDateTime,
   getActivityColor,
   isRunningActivity,
+  isCyclingActivity,
   decodePolyline,
   convertLatLngTuples,
   getAvailableCharts,
@@ -149,11 +149,11 @@ export default function ActivityDetailScreen() {
   const { data: activityWellness } = useWellnessForDate(activityDate);
 
   // Tab state for swipeable tabs (defined early for conditional hook)
-  type TabType = 'charts' | 'intervals' | 'routes' | 'sections';
+  type TabType = 'charts' | 'routes' | 'sections';
   const [activeTab, setActiveTab] = useState<TabType>('charts');
 
-  // Fetch intervals data (only when on intervals tab)
-  const { data: intervalsData } = useActivityIntervals(activeTab === 'intervals' ? id || '' : '');
+  // Fetch intervals data (used for both charts tab overlay and intervals tab)
+  const { data: intervalsData } = useActivityIntervals(id || '');
 
   // Track the selected point index from charts for map highlight
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
@@ -171,6 +171,10 @@ export default function ActivityDetailScreen() {
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   // Track chart x-axis mode (distance vs time)
   const [xAxisMode, setXAxisMode] = useState<'distance' | 'time'>('distance');
+  // Chart metric values (avg or scrub) for display in selector chips
+  const [chartMetrics, setChartMetrics] = useState<ChartMetricValue[]>([]);
+  // Intervals collapsible section
+  const [intervalsExpanded, setIntervalsExpanded] = useState(false);
 
   // Section creation mode
   const [sectionCreationMode, setSectionCreationMode] = useState(false);
@@ -582,12 +586,6 @@ export default function ActivityDetailScreen() {
         icon: 'chart-line',
       },
       {
-        key: 'intervals',
-        label: t('activityDetail.tabs.intervals'),
-        icon: 'format-list-numbered',
-        count: intervalsData?.icu_intervals?.length,
-      },
-      {
         key: 'routes',
         label: t('activityDetail.tabs.route'),
         icon: 'map-marker-path',
@@ -599,7 +597,7 @@ export default function ActivityDetailScreen() {
         count: totalSectionCount,
       },
     ],
-    [t, matchedRouteCount, totalSectionCount, intervalsData?.icu_intervals?.length]
+    [t, matchedRouteCount, totalSectionCount]
   );
 
   // Get available chart types based on stream data
@@ -655,6 +653,11 @@ export default function ActivityDetailScreen() {
   // Handle 3D map mode changes
   const handle3DModeChange = useCallback((is3D: boolean) => {
     setIs3DMapActive(is3D);
+  }, []);
+
+  // Handle chart metrics updates (avg values or scrub position values)
+  const handleMetricsChange = useCallback((metrics: ChartMetricValue[]) => {
+    setChartMetrics(metrics);
   }, []);
 
   // Open fullscreen chart with landscape orientation
@@ -747,6 +750,73 @@ export default function ActivityDetailScreen() {
     setSectionCreationState(undefined);
     setSectionCreationError(null);
   }, []);
+
+  // Zone summary for intervals bar (colored chips showing all interval types)
+  const intervalZoneSummary = useMemo(() => {
+    if (!intervalsData?.icu_intervals || !activity) return [];
+    const isCycling = isCyclingActivity(activity.type);
+    const zoneColors = isCycling ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
+
+    // Group all intervals by type+zone, maintain order of first appearance
+    type ChipInfo = { label: string; color: string; count: number; totalTime: number };
+    const chips: ChipInfo[] = [];
+    const chipMap = new Map<string, number>(); // key -> index in chips array
+
+    for (const interval of intervalsData.icu_intervals) {
+      const isWork = interval.type === 'WORK';
+      const isRecovery = interval.type === 'RECOVERY' || interval.type === 'REST';
+      const isWarmup = interval.type === 'WARMUP';
+      const isCooldown = interval.type === 'COOLDOWN';
+
+      let label: string;
+      let color: string;
+      let key: string;
+
+      if (isWork && interval.zone != null && interval.zone >= 1) {
+        key = `Z${interval.zone}`;
+        label = `Z${interval.zone}`;
+        color = zoneColors[Math.min(interval.zone - 1, zoneColors.length - 1)];
+      } else if (isWork) {
+        key = 'WORK';
+        label = 'W';
+        color = colors.primary;
+      } else if (isRecovery) {
+        key = 'REC';
+        label = 'Rec';
+        color = '#4CAF50';
+      } else if (isWarmup) {
+        key = 'WU';
+        label = 'WU';
+        color = '#22C55E';
+      } else if (isCooldown) {
+        key = 'CD';
+        label = 'CD';
+        color = '#8B5CF6';
+      } else {
+        key = interval.type;
+        label = interval.type.slice(0, 3);
+        color = '#808080';
+      }
+
+      if (chipMap.has(key)) {
+        const idx = chipMap.get(key)!;
+        chips[idx].count++;
+        chips[idx].totalTime += interval.moving_time;
+      } else {
+        chipMap.set(key, chips.length);
+        chips.push({ label, color, count: 1, totalTime: interval.moving_time });
+      }
+    }
+    return chips;
+  }, [intervalsData, activity]);
+
+  // Summary text for collapsed intervals section
+  const intervalsWorkSummary = useMemo(() => {
+    if (!intervalsData?.icu_intervals) return '';
+    const total = intervalsData.icu_intervals.length;
+    const totalTime = intervalsData.icu_intervals.reduce((s, i) => s + i.moving_time, 0);
+    return `${total} × ${formatDurationHuman(totalTime)}`;
+  }, [intervalsData]);
 
   if (isLoading) {
     return (
@@ -909,7 +979,7 @@ export default function ActivityDetailScreen() {
         </View>
       ) : null}
 
-      {/* Swipeable Tabs: Charts, Intervals, Routes, Sections */}
+      {/* Swipeable Tabs: Charts, Routes, Sections */}
       <SwipeableTabs
         tabs={tabs}
         activeTab={activeTab}
@@ -934,6 +1004,7 @@ export default function ActivityDetailScreen() {
                     onToggle={handleChartToggle}
                     onPreviewStart={(id) => setPreviewMetricId(id as ChartTypeId)}
                     onPreviewEnd={() => setPreviewMetricId(null)}
+                    metricValues={chartMetrics}
                   />
                 </View>
                 <TouchableOpacity
@@ -966,65 +1037,55 @@ export default function ActivityDetailScreen() {
                     xAxisMode={effectiveXAxisMode}
                     onXAxisModeToggle={handleXAxisToggle}
                     canToggleXAxis={canToggleXAxis}
+                    intervals={intervalsExpanded ? intervalsData?.icu_intervals : undefined}
+                    activityType={activity.type}
+                    onMetricsChange={handleMetricsChange}
                   />
+
+                  {/* Intervals zone bar — thin expandable strip directly under chart */}
+                  {intervalsData?.icu_intervals && intervalsData.icu_intervals.length > 0 && (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.intervalsBar, isDark && styles.intervalsBarDark]}
+                        onPress={() => setIntervalsExpanded((v) => !v)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.intervalsBarLeft}>
+                          {intervalZoneSummary.map((z, i) => (
+                            <View
+                              key={i}
+                              style={[styles.zoneChip, { backgroundColor: z.color + '25' }]}
+                            >
+                              <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
+                              <Text style={[styles.zoneChipText, { color: z.color }]}>
+                                {z.label} ×{z.count}
+                              </Text>
+                            </View>
+                          ))}
+                          {intervalsWorkSummary ? (
+                            <Text style={[styles.intervalsSummaryText, isDark && styles.textMuted]}>
+                              {intervalsWorkSummary}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <MaterialCommunityIcons
+                          name={intervalsExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={18}
+                          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                      {intervalsExpanded && (
+                        <IntervalsTable
+                          intervals={intervalsData.icu_intervals}
+                          activityType={activity.type}
+                          isMetric={isMetric}
+                          isDark={isDark}
+                        />
+                      )}
+                    </>
+                  )}
                 </View>
               )}
-
-              {/* Compact Stats Row - averages */}
-              <View style={[styles.compactStats, isDark && styles.cardDark]}>
-                {showPace ? (
-                  <CompactStat
-                    label={t('activityDetail.avgPace')}
-                    value={formatPace(activity.average_speed, isMetric)}
-                    isDark={isDark}
-                  />
-                ) : (
-                  <CompactStat
-                    label={t('activityDetail.avgSpeed')}
-                    value={formatSpeed(activity.average_speed, isMetric)}
-                    isDark={isDark}
-                  />
-                )}
-                {(activity.average_heartrate || activity.icu_average_hr) && (
-                  <CompactStat
-                    label={t('activityDetail.avgHR')}
-                    value={formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
-                    isDark={isDark}
-                    color={colors.chartPink}
-                  />
-                )}
-                {(activity.average_watts || activity.icu_average_watts) && (
-                  <CompactStat
-                    label={t('activityDetail.avgPower')}
-                    value={formatPower(activity.average_watts || activity.icu_average_watts!)}
-                    isDark={isDark}
-                    color={colors.chartPurple}
-                  />
-                )}
-                {activity.weighted_average_watts &&
-                  activity.weighted_average_watts !== activity.average_watts && (
-                    <CompactStat
-                      label={t('activityDetail.np')}
-                      value={formatPower(activity.weighted_average_watts)}
-                      isDark={isDark}
-                      color={colors.chartPurple}
-                    />
-                  )}
-                {activity.average_cadence && (
-                  <CompactStat
-                    label={t('activity.cadence')}
-                    value={`${Math.round(activity.average_cadence)}`}
-                    isDark={isDark}
-                  />
-                )}
-                {activity.elapsed_time > activity.moving_time + 60 && (
-                  <CompactStat
-                    label={t('activityDetail.elapsedTime')}
-                    value={formatDuration(activity.elapsed_time)}
-                    isDark={isDark}
-                  />
-                )}
-              </View>
 
               {/* HR Zones Chart - show if heart rate data available */}
               {streams?.heartrate && streams.heartrate.length > 0 && (
@@ -1166,54 +1227,7 @@ export default function ActivityDetailScreen() {
             })()}
         </ScrollView>
 
-        {/* Tab 2: Intervals */}
-        <ScrollView
-          style={styles.tabScrollView}
-          contentContainerStyle={styles.tabScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {intervalsData?.icu_intervals && intervalsData.icu_intervals.length > 0 ? (
-            <>
-              {streams && (
-                <View
-                  style={[
-                    styles.chartCard,
-                    isDark && styles.cardDark,
-                    { marginHorizontal: spacing.md, marginTop: spacing.sm },
-                  ]}
-                >
-                  <ComponentErrorBoundary componentName="Intervals Chart">
-                    <IntervalsChart
-                      streams={streams}
-                      intervals={intervalsData.icu_intervals}
-                      activityType={activity.type}
-                      isDark={isDark}
-                    />
-                  </ComponentErrorBoundary>
-                </View>
-              )}
-              <IntervalsTable
-                intervals={intervalsData.icu_intervals}
-                activityType={activity.type}
-                isMetric={isMetric}
-                isDark={isDark}
-              />
-            </>
-          ) : (
-            <View style={styles.emptyStateContainer}>
-              <MaterialCommunityIcons
-                name="format-list-numbered"
-                size={48}
-                color={isDark ? darkColors.border : colors.divider}
-              />
-              <Text style={[styles.emptyStateTitle, isDark && styles.textLight]}>
-                {t('activityDetail.noIntervals')}
-              </Text>
-            </View>
-          )}
-        </ScrollView>
-
-        {/* Tab 3: Routes */}
+        {/* Tab 2: Routes */}
         <ScrollView
           style={styles.tabScrollView}
           contentContainerStyle={styles.tabScrollContent}
@@ -1243,7 +1257,7 @@ export default function ActivityDetailScreen() {
           <DataRangeFooter days={cacheDays} isDark={isDark} />
         </ScrollView>
 
-        {/* Tab 4: Sections */}
+        {/* Tab 3: Sections */}
         <View style={styles.tabScrollView} onTouchEnd={handleSectionsTouchEnd}>
           <FlatList
             data={unifiedSections}
@@ -1305,6 +1319,7 @@ export default function ActivityDetailScreen() {
                 onToggle={handleChartToggle}
                 onPreviewStart={(id) => setPreviewMetricId(id as ChartTypeId)}
                 onPreviewEnd={() => setPreviewMetricId(null)}
+                metricValues={chartMetrics}
               />
             </View>
 
@@ -1323,6 +1338,9 @@ export default function ActivityDetailScreen() {
                   xAxisMode={effectiveXAxisMode}
                   onXAxisModeToggle={handleXAxisToggle}
                   canToggleXAxis={canToggleXAxis}
+                  intervals={intervalsExpanded ? intervalsData?.icu_intervals : undefined}
+                  activityType={activity.type}
+                  onMetricsChange={handleMetricsChange}
                 />
               </View>
             )}
@@ -1507,19 +1525,46 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
   },
 
-  // Compact stats
-  compactStats: {
+  // Intervals zone bar
+  intervalsBar: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: colors.surface,
-    marginBottom: spacing.sm,
-    borderRadius: layout.cardPadding,
-    paddingVertical: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: spacing.sm,
-    elevation: 2,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+  },
+  intervalsBarDark: {
+    borderTopColor: darkColors.border,
+  },
+  intervalsBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    flex: 1,
+    gap: 4,
+  },
+  zoneChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    gap: 3,
+  },
+  zoneDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  zoneChipText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  intervalsSummaryText: {
+    fontSize: typography.pillLabel.fontSize,
+    color: colors.textSecondary,
   },
 
   // Device attribution container

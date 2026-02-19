@@ -36,6 +36,17 @@ interface DataSeries {
   color: string;
 }
 
+/** Per-series metric value exposed to parent for display in chips */
+export interface ChartMetricValue {
+  id: ChartTypeId;
+  label: string;
+  value: string;
+  unit: string;
+  color: string;
+  /** Longest formatted value (for stable chip width during scrubbing) */
+  maxValueWidth?: string;
+}
+
 interface CombinedPlotProps {
   streams: ActivityStreams;
   selectedCharts: ChartTypeId[];
@@ -51,6 +62,12 @@ interface CombinedPlotProps {
   onXAxisModeToggle?: () => void;
   /** Whether the x-axis mode can be toggled (has both distance and time data) */
   canToggleXAxis?: boolean;
+  /** Interval data — when provided, renders zone-colored bands behind the chart */
+  intervals?: ActivityInterval[];
+  /** Activity type — needed for zone color selection (power vs HR) */
+  activityType?: ActivityType;
+  /** Called with per-series values when scrubbing or averages when idle */
+  onMetricsChange?: (metrics: ChartMetricValue[], isScrubbing: boolean) => void;
 }
 
 interface MetricValue {
@@ -83,6 +100,9 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   xAxisMode = 'distance',
   onXAxisModeToggle,
   canToggleXAxis = false,
+  intervals,
+  activityType,
+  onMetricsChange,
 }: CombinedPlotProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -102,9 +122,11 @@ export const CombinedPlot = React.memo(function CombinedPlot({
 
   const onPointSelectRef = useRef(onPointSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
+  const onMetricsChangeRef = useRef(onMetricsChange);
   const isActiveRef = useRef(false);
   onPointSelectRef.current = onPointSelect;
   onInteractionChangeRef.current = onInteractionChange;
+  onMetricsChangeRef.current = onMetricsChange;
 
   // Track last notified index to avoid redundant updates
   const lastNotifiedIdx = useRef<number | null>(null);
@@ -242,6 +264,10 @@ export const CombinedPlot = React.memo(function CombinedPlot({
           lastNotifiedIdx.current = null;
           if (onPointSelectRef.current) onPointSelectRef.current(null);
           if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
+          // Re-emit all averages when scrub ends
+          if (onMetricsChangeRef.current && allAverages.length > 0) {
+            onMetricsChangeRef.current(allAverages, false);
+          }
         }
         return;
       }
@@ -287,6 +313,21 @@ export const CombinedPlot = React.memo(function CombinedPlot({
 
       setMetricValues(values);
       setCurrentX(chartData[idx]?.x ?? 0);
+
+      // Emit scrub values for selected series + averages for unselected
+      if (onMetricsChangeRef.current) {
+        const scrubIds = new Set(values.map((v) => v.id));
+        // Carry maxValueWidth from allAverages into scrub values for stable chip width
+        const valuesWithMax = values.map((v) => ({
+          ...v,
+          maxValueWidth: allAverages.find((a) => a.id === v.id)?.maxValueWidth,
+        }));
+        const merged = [
+          ...valuesWithMax,
+          ...allAverages.filter((a) => !scrubIds.has(a.id)),
+        ];
+        onMetricsChangeRef.current(merged, true);
+      }
 
       // Notify parent of original data index for map sync
       if (onPointSelectRef.current && idx < indexMap.length) {
@@ -363,6 +404,56 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     });
   }, [seriesInfo, isMetric]);
 
+  // Compute averages for ALL available chart types (not just selected)
+  const allAverages = useMemo((): ChartMetricValue[] => {
+    const results: ChartMetricValue[] = [];
+    for (const chartId of Object.keys(chartConfigs) as ChartTypeId[]) {
+      const config = chartConfigs[chartId];
+      if (!config) continue;
+      const rawData = config.getStream?.(streams);
+      if (!rawData || rawData.length === 0) continue;
+
+      const validValues = rawData.filter((v) => !isNaN(v) && isFinite(v));
+      if (validValues.length === 0) continue;
+
+      let avg = validValues.reduce((sum, v) => sum + v, 0) / validValues.length;
+      if (!isMetric && config.convertToImperial) {
+        avg = config.convertToImperial(avg);
+      }
+      const formatted = config.formatValue
+        ? config.formatValue(avg, isMetric)
+        : Math.round(avg).toString();
+
+      // Compute widest formatted value (max of stream) for stable chip width
+      let maxRaw = Math.max(...validValues);
+      if (!isMetric && config.convertToImperial) {
+        maxRaw = config.convertToImperial(maxRaw);
+      }
+      const maxFormatted = config.formatValue
+        ? config.formatValue(maxRaw, isMetric)
+        : Math.round(maxRaw).toString();
+
+      const unit = isMetric ? config.unit || '' : config.unitImperial || config.unit || '';
+
+      results.push({
+        id: chartId,
+        label: config.label,
+        value: formatted,
+        unit,
+        color: config.color,
+        maxValueWidth: maxFormatted,
+      });
+    }
+    return results;
+  }, [chartConfigs, streams, isMetric]);
+
+  // Emit all averages to parent when not scrubbing
+  React.useEffect(() => {
+    if (!isActiveRef.current && onMetricsChangeRef.current && allAverages.length > 0) {
+      onMetricsChangeRef.current(allAverages, false);
+    }
+  }, [allAverages]);
+
   // Format Y-axis values for single metric display
   const formatYAxisValue = useCallback(
     (value: number, series: (typeof seriesInfo)[0]) => {
@@ -402,6 +493,84 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     return (rawAvg - min) / range;
   }, [yAxisSeries]);
 
+  // Compute interval bands when interval data is provided
+  const intervalBands = useMemo(() => {
+    if (!intervals || intervals.length === 0 || chartData.length === 0) return [];
+    const xSource = xAxisMode === 'time' ? streams.time || [] : streams.distance || [];
+    if (xSource.length === 0) return [];
+
+    const isCycling = activityType ? isCyclingActivity(activityType) : false;
+
+    // Find the series whose avg values we'll use for dashed lines
+    // Prefer the first selected series (power for cycling users, HR for runners)
+    const primarySeries = seriesInfo[0];
+
+    return intervals.map((interval) => {
+      const startIdx = Math.max(0, Math.min(interval.start_index, xSource.length - 1));
+      const endIdx = Math.max(0, Math.min(interval.end_index, xSource.length - 1));
+
+      let startX: number;
+      let endX: number;
+      if (xAxisMode === 'time') {
+        startX = xSource[startIdx];
+        endX = xSource[endIdx];
+      } else {
+        const toUnit = (v: number) => {
+          const km = v / 1000;
+          return isMetric ? km : km * 0.621371;
+        };
+        startX = toUnit(xSource[startIdx]);
+        endX = toUnit(xSource[endIdx]);
+      }
+
+      const isWork = interval.type === 'WORK';
+      const isRecovery = interval.type === 'RECOVERY' || interval.type === 'REST';
+
+      // Zone color
+      let bandColor: string;
+      let bandOpacity: number;
+      if (isWork && interval.zone != null && interval.zone >= 1) {
+        const zoneArr = isCycling ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
+        bandColor = zoneArr[Math.min(interval.zone - 1, zoneArr.length - 1)];
+        if (isDark && interval.zone === 7) bandColor = '#B0B0B0';
+        bandOpacity = 0.35;
+      } else if (isWork) {
+        bandColor = colors.primary;
+        bandOpacity = 0.30;
+      } else if (isRecovery) {
+        bandColor = '#808080';
+        bandOpacity = 0.15;
+      } else if (interval.type === 'WARMUP') {
+        bandColor = '#22C55E';
+        bandOpacity = 0.15;
+      } else if (interval.type === 'COOLDOWN') {
+        bandColor = '#8B5CF6';
+        bandOpacity = 0.15;
+      } else {
+        bandColor = '#808080';
+        bandOpacity = 0.08;
+      }
+
+      // Normalized avg Y for dashed line (only for WORK intervals)
+      let avgNormY: number | null = null;
+      if (isWork && primarySeries) {
+        // Pick the avg value that matches the primary series type
+        const avgRaw =
+          primarySeries.id === 'power'
+            ? interval.average_watts
+            : primarySeries.id === 'heartrate'
+              ? interval.average_heartrate
+              : null;
+        if (avgRaw != null && isFinite(avgRaw)) {
+          const { min, range } = primarySeries.range;
+          avgNormY = Math.max(0, Math.min(1, (avgRaw - min) / range));
+        }
+      }
+
+      return { startX, endX, bandColor, bandOpacity, avgNormY, isWork };
+    });
+  }, [intervals, chartData, streams, xAxisMode, isMetric, isDark, activityType, seriesInfo]);
+
   if (chartData.length === 0 || seriesInfo.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
@@ -414,39 +583,13 @@ export const CombinedPlot = React.memo(function CombinedPlot({
 
   // Build yKeys array for CartesianChart
   const yKeys = seriesInfo.map((s) => s.id);
-  const chartHeight = height - 40; // Reserve space for metrics panel
 
   return (
     <ChartErrorBoundary height={height} label="Activity Chart">
       <View style={[styles.container, { height }]}>
-        {/* Hero Metrics Panel - shows current values when scrubbing, averages otherwise */}
-        <View style={styles.metricsPanel}>
-          {seriesInfo.map((series, idx) => {
-            const displayValue = isActive && metricValues.length > idx ? metricValues[idx] : null;
-            const avgData = averageValues[idx];
-            const unit = isMetric
-              ? series.config.unit
-              : series.config.unitImperial || series.config.unit;
-
-            return (
-              <View key={series.id} style={styles.metricItem}>
-                <View style={styles.metricValueRow}>
-                  <Text style={[styles.metricValue, { color: series.color }]}>
-                    {displayValue?.value ?? avgData?.formatted ?? '-'}
-                  </Text>
-                  <Text style={[styles.metricUnit, isDark && styles.metricUnitDark]}>{unit}</Text>
-                </View>
-                <Text style={[styles.metricLabel, isDark && styles.metricLabelDark]}>
-                  {isActive ? series.config.label : t('activity.avg')}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-
-        {/* Chart area */}
+        {/* Chart area — full height, metrics displayed in parent chips */}
         <GestureDetector gesture={gesture}>
-          <View style={[chartStyles.chartWrapper, { height: chartHeight }]}>
+          <View style={[chartStyles.chartWrapper, { height }]}>
             {/* Victory Native requires string literal types for yKeys,
               but ChartTypeId[] is dynamically computed. Cast is unavoidable. */}
             <CartesianChart
@@ -487,8 +630,55 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                   }
                 }
 
+                const chartWidth = chartBounds.right - chartBounds.left;
+                const chartH = chartBounds.bottom - chartBounds.top;
+                const xMin = chartData[0]?.x ?? 0;
+                const xMax = chartData[chartData.length - 1]?.x ?? 1;
+                const xRange = xMax - xMin || 1;
+
+                const toPixelX = (xVal: number) =>
+                  chartBounds.left + ((xVal - xMin) / xRange) * chartWidth;
+                const toPixelY = (normVal: number) =>
+                  chartBounds.top + (1 - normVal) * chartH;
+
                 return (
                   <>
+                    {/* Interval zone bands (behind stream data) */}
+                    {intervalBands.map((band, i) => {
+                      const x1 = toPixelX(band.startX);
+                      const x2 = toPixelX(band.endX);
+                      return (
+                        <Rect
+                          key={`ib-${i}`}
+                          x={x1}
+                          y={chartBounds.top}
+                          width={Math.max(1, x2 - x1)}
+                          height={chartH}
+                          color={band.bandColor}
+                          opacity={band.bandOpacity}
+                        />
+                      );
+                    })}
+
+                    {/* Zone color strip at bottom of each WORK interval */}
+                    {intervalBands.map((band, i) => {
+                      if (!band.isWork) return null;
+                      const x1 = toPixelX(band.startX);
+                      const x2 = toPixelX(band.endX);
+                      return (
+                        <Rect
+                          key={`zs-${i}`}
+                          x={x1}
+                          y={chartBounds.bottom - 4}
+                          width={Math.max(1, x2 - x1)}
+                          height={4}
+                          color={band.bandColor}
+                          opacity={0.85}
+                        />
+                      );
+                    })}
+
+                    {/* Stream area fills */}
                     {seriesInfo.map((series) => {
                       // Preview series gets slightly lower opacity to indicate temporary
                       const baseOpacity = seriesInfo.length > 1 ? 0.7 : 0.85;
@@ -509,6 +699,27 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                         </Area>
                       );
                     })}
+
+                    {/* Dashed average lines per WORK interval */}
+                    {intervalBands.map((band, i) => {
+                      if (!band.isWork || band.avgNormY == null) return null;
+                      const x1 = toPixelX(band.startX);
+                      const x2 = toPixelX(band.endX);
+                      const y = toPixelY(band.avgNormY);
+                      return (
+                        <SkiaLine
+                          key={`ia-${i}`}
+                          p1={vec(x1, y)}
+                          p2={vec(x2, y)}
+                          color={band.bandColor}
+                          strokeWidth={2}
+                          opacity={0.8}
+                        >
+                          <DashPathEffect intervals={[4, 3]} />
+                        </SkiaLine>
+                      );
+                    })}
+
                     {/* Subtle average line for the Y-axis metric */}
                     {yAxisSeries && yAxisAvgNormalized != null && (
                       <SkiaLine
@@ -632,47 +843,6 @@ export const CombinedPlot = React.memo(function CombinedPlot({
 
 const styles = StyleSheet.create({
   container: {},
-  metricsPanel: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-    minHeight: 40,
-  },
-  metricItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  metricValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  metricValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-  },
-  metricUnit: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    marginLeft: 2,
-  },
-  metricUnitDark: {
-    color: darkColors.textSecondary,
-  },
-  metricLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    marginTop: 1,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  metricLabelDark: {
-    color: darkColors.textMuted,
-  },
   distanceIndicator: {
     position: 'absolute',
     bottom: 24,

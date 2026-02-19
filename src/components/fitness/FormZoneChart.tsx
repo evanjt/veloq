@@ -14,6 +14,7 @@ import {
   useDerivedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { colors, darkColors, opacity, typography, spacing, layout, chartStyles } from '@/theme';
 import { ChartCrosshair } from '@/components/charts/base';
 import { CHART_CONFIG } from '@/constants';
@@ -174,8 +175,54 @@ export const FormZoneChart = React.memo(function FormZoneChart({
     [updateTooltipOnJS]
   );
 
-  // Gesture handler on UI thread
+  // Manual activation so the ScrollView can scroll freely during the long-press wait.
+  // JS setTimeout handles the 200ms timer so haptic + crosshair fire even when still.
+  const gestureStartY = useSharedValue(0);
+  const gestureInitialX = useSharedValue(0);
+  const gestureReady = useSharedValue(false);
+  const gestureActive = useSharedValue(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const fireLongPress = useCallback(() => {
+    longPressTimer.current = setTimeout(() => {
+      touchX.value = gestureInitialX.value;
+      gestureReady.value = true;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }, CHART_CONFIG.LONG_PRESS_DURATION);
+  }, [touchX, gestureInitialX, gestureReady]);
+  const cancelLongPress = useCallback(() => {
+    clearTimeout(longPressTimer.current);
+    gestureReady.value = false;
+  }, [gestureReady]);
   const gesture = Gesture.Pan()
+    .manualActivation(true)
+    .onTouchesDown((e) => {
+      'worklet';
+      gestureStartY.value = e.allTouches[0].absoluteY;
+      gestureInitialX.value = e.allTouches[0].x;
+      gestureReady.value = false;
+      gestureActive.value = false;
+      runOnJS(fireLongPress)();
+    })
+    .onTouchesMove((e, mgr) => {
+      'worklet';
+      if (gestureActive.value) return;
+      if (Math.abs(e.allTouches[0].absoluteY - gestureStartY.value) > 10) {
+        runOnJS(cancelLongPress)();
+        mgr.fail();
+        return;
+      }
+      if (gestureReady.value) {
+        gestureActive.value = true;
+        mgr.activate();
+      }
+    })
+    .onTouchesUp((_e, mgr) => {
+      'worklet';
+      if (gestureActive.value) return;
+      runOnJS(cancelLongPress)();
+      touchX.value = -1;
+      mgr.fail();
+    })
     .onStart((e) => {
       'worklet';
       touchX.value = e.x;
@@ -187,10 +234,8 @@ export const FormZoneChart = React.memo(function FormZoneChart({
     .onEnd(() => {
       'worklet';
       touchX.value = -1;
-    })
-    .minDistance(0)
-    .failOffsetY([-10, 10])
-    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
+      gestureActive.value = false;
+    });
 
   // Update shared selected index when local selection changes (for instant sync)
   useAnimatedReaction(
