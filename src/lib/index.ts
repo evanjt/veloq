@@ -5,7 +5,7 @@ export * from './algorithms';
 export * from './geo';
 
 // Spatial indexing
-export { activitySpatialIndex, mapBoundsToViewport, type Viewport } from './spatialIndex';
+export { activitySpatialIndex, mapBoundsToViewport, type Viewport } from './geo/spatialIndex';
 
 // Storage
 export * from './storage';
