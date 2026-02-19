@@ -47,6 +47,8 @@ export interface ChartConfig {
   convertToImperial?: (value: number) => number;
   /** Format value for display */
   formatValue?: (value: number, metric: boolean) => string;
+  /** How to compute the default chip value. Default: 'avg' */
+  defaultMetric?: 'avg' | 'gain';
 }
 
 /** Chart configuration registry - labels kept short for compact chip display */
@@ -75,7 +77,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'cadence',
     label: 'Cad',
     icon: 'rotate-3d',
-    color: '#F4A261',
+    color: '#F97316', // Orange — distinct from amber power
     streamKey: 'cadence',
     unit: 'rpm',
     getStream: (streams) => streams.cadence,
@@ -98,7 +100,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'pace',
     label: 'Pace',
     icon: 'clock-outline',
-    color: '#264653',
+    color: '#818CF8', // Indigo — visible on dark backgrounds
     unit: '/km',
     unitImperial: '/mi',
     // Pace is derived from velocity_smooth (m/s -> min/km or min/mi)
@@ -117,13 +119,14 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'elevation',
     label: 'Elev',
     icon: 'terrain',
-    color: '#8B7355',
+    color: '#A3E635', // Lime green — pops on both light/dark
     streamKey: 'altitude',
     unit: 'm',
     unitImperial: 'ft',
     getStream: (streams) => streams.altitude,
     convertToImperial: (v) => v * 3.28084,
     formatValue: (v) => Math.round(v).toString(),
+    defaultMetric: 'gain',
   },
   grade: {
     id: 'grade',

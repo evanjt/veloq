@@ -810,14 +810,6 @@ export default function ActivityDetailScreen() {
     return chips;
   }, [intervalsData, activity]);
 
-  // Summary text for collapsed intervals section
-  const intervalsWorkSummary = useMemo(() => {
-    if (!intervalsData?.icu_intervals) return '';
-    const total = intervalsData.icu_intervals.length;
-    const totalTime = intervalsData.icu_intervals.reduce((s, i) => s + i.moving_time, 0);
-    return `${total} × ${formatDurationHuman(totalTime)}`;
-  }, [intervalsData]);
-
   if (isLoading) {
     return (
       <ScreenSafeAreaView
@@ -1022,11 +1014,10 @@ export default function ActivityDetailScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Chart */}
+              {/* Chart — no key prop so toggling series doesn't unmount/flash */}
               {streams && selectedCharts.length > 0 && (
                 <View style={[styles.chartCard, isDark && styles.cardDark]}>
                   <CombinedPlot
-                    key={selectedCharts.join(',')}
                     streams={streams}
                     selectedCharts={selectedCharts}
                     chartConfigs={CHART_CONFIGS}
@@ -1051,6 +1042,9 @@ export default function ActivityDetailScreen() {
                         activeOpacity={0.7}
                       >
                         <View style={styles.intervalsBarLeft}>
+                          <Text style={[styles.intervalsTitle, isDark && styles.textMuted]}>
+                            {t('activityDetail.tabs.intervals')}
+                          </Text>
                           {intervalZoneSummary.map((z, i) => (
                             <View
                               key={i}
@@ -1058,15 +1052,10 @@ export default function ActivityDetailScreen() {
                             >
                               <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
                               <Text style={[styles.zoneChipText, { color: z.color }]}>
-                                {z.label} ×{z.count}
+                                {z.label} ×{z.count} {formatDurationHuman(z.totalTime)}
                               </Text>
                             </View>
                           ))}
-                          {intervalsWorkSummary ? (
-                            <Text style={[styles.intervalsSummaryText, isDark && styles.textMuted]}>
-                              {intervalsWorkSummary}
-                            </Text>
-                          ) : null}
                         </View>
                         <MaterialCommunityIcons
                           name={intervalsExpanded ? 'chevron-up' : 'chevron-down'}
@@ -1327,7 +1316,6 @@ export default function ActivityDetailScreen() {
             {streams && selectedCharts.length > 0 && (
               <View style={styles.fullscreenChartWrapper}>
                 <CombinedPlot
-                  key={selectedCharts.join(',')}
                   streams={streams}
                   selectedCharts={selectedCharts}
                   chartConfigs={CHART_CONFIGS}
@@ -1517,6 +1505,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: spacing.sm,
     elevation: 2,
+    minHeight: 180,
+    overflow: 'hidden',
   },
   cardDark: {
     backgroundColor: darkColors.surface,
@@ -1545,6 +1535,12 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
+  intervalsTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginRight: 2,
+  },
   zoneChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1561,10 +1557,6 @@ const styles = StyleSheet.create({
   zoneChipText: {
     fontSize: 10,
     fontWeight: '600',
-  },
-  intervalsSummaryText: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
   },
 
   // Device attribution container

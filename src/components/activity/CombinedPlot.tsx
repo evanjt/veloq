@@ -1,13 +1,14 @@
 import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/hooks';
-import { CartesianChart, Area } from 'victory-native';
+import { CartesianChart, Area, Line } from 'victory-native';
 import {
   LinearGradient,
   vec,
   Line as SkiaLine,
   DashPathEffect,
   Rect,
+  Shadow,
 } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -237,20 +238,36 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   }, [chartData, xValuesShared]);
 
   // Derive the selected index on UI thread using chartBounds
+  // Maps touch pixel → x-value domain → binary search for nearest data point
   const selectedIdx = useDerivedValue(() => {
     'worklet';
-    const len = xValuesShared.value.length;
+    const xVals = xValuesShared.value;
+    const len = xVals.length;
     const bounds = chartBoundsShared.value;
     const chartWidth = bounds.right - bounds.left;
 
     if (touchX.value < 0 || chartWidth <= 0 || len === 0) return -1;
 
-    // Map touch position to chart area, then to array index
+    // Map touch pixel to x-value in data space
     const chartX = touchX.value - bounds.left;
     const ratio = Math.max(0, Math.min(1, chartX / chartWidth));
-    const idx = Math.round(ratio * (len - 1));
+    const xMin = xVals[0];
+    const xMax = xVals[len - 1];
+    const targetX = xMin + ratio * (xMax - xMin);
 
-    return Math.min(Math.max(0, idx), len - 1);
+    // Binary search for nearest x-value
+    let lo = 0;
+    let hi = len - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (xVals[mid] < targetX) lo = mid + 1;
+      else hi = mid;
+    }
+    // Check left neighbor to find closest
+    if (lo > 0 && Math.abs(xVals[lo - 1] - targetX) < Math.abs(xVals[lo] - targetX)) {
+      return lo - 1;
+    }
+    return lo;
   }, []);
 
   // Bridge to JS only when index changes (for metrics panel and parent notification)
@@ -322,10 +339,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
           ...v,
           maxValueWidth: allAverages.find((a) => a.id === v.id)?.maxValueWidth,
         }));
-        const merged = [
-          ...valuesWithMax,
-          ...allAverages.filter((a) => !scrubIds.has(a.id)),
-        ];
+        const merged = [...valuesWithMax, ...allAverages.filter((a) => !scrubIds.has(a.id))];
         onMetricsChangeRef.current(merged, true);
       }
 
@@ -416,22 +430,53 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       const validValues = rawData.filter((v) => !isNaN(v) && isFinite(v));
       if (validValues.length === 0) continue;
 
-      let avg = validValues.reduce((sum, v) => sum + v, 0) / validValues.length;
-      if (!isMetric && config.convertToImperial) {
-        avg = config.convertToImperial(avg);
-      }
-      const formatted = config.formatValue
-        ? config.formatValue(avg, isMetric)
-        : Math.round(avg).toString();
+      let computed: number;
+      let valuePrefix = '';
 
-      // Compute widest formatted value (max of stream) for stable chip width
-      let maxRaw = Math.max(...validValues);
-      if (!isMetric && config.convertToImperial) {
-        maxRaw = config.convertToImperial(maxRaw);
+      if (config.defaultMetric === 'gain') {
+        // Sum of positive deltas (elevation gain)
+        let gain = 0;
+        for (let i = 1; i < rawData.length; i++) {
+          const delta = rawData[i] - rawData[i - 1];
+          if (delta > 0 && isFinite(delta)) gain += delta;
+        }
+        computed = gain;
+        valuePrefix = '+';
+      } else {
+        computed = validValues.reduce((sum, v) => sum + v, 0) / validValues.length;
       }
-      const maxFormatted = config.formatValue
-        ? config.formatValue(maxRaw, isMetric)
-        : Math.round(maxRaw).toString();
+
+      if (!isMetric && config.convertToImperial) {
+        computed = config.convertToImperial(computed);
+      }
+      const formatted =
+        valuePrefix +
+        (config.formatValue
+          ? config.formatValue(computed, isMetric)
+          : Math.round(computed).toString());
+
+      // Compute widest formatted value for stable chip width
+      let maxFormatted: string;
+      if (config.defaultMetric === 'gain') {
+        // Gain is fixed — use it as max width; also check max altitude for scrub case
+        let maxRaw = Math.max(...validValues);
+        if (!isMetric && config.convertToImperial) {
+          maxRaw = config.convertToImperial(maxRaw);
+        }
+        const maxAltFormatted = config.formatValue
+          ? config.formatValue(maxRaw, isMetric)
+          : Math.round(maxRaw).toString();
+        // Use the wider of gain formatted or max altitude formatted
+        maxFormatted = formatted.length >= maxAltFormatted.length ? formatted : maxAltFormatted;
+      } else {
+        let maxRaw = Math.max(...validValues);
+        if (!isMetric && config.convertToImperial) {
+          maxRaw = config.convertToImperial(maxRaw);
+        }
+        maxFormatted = config.formatValue
+          ? config.formatValue(maxRaw, isMetric)
+          : Math.round(maxRaw).toString();
+      }
 
       const unit = isMetric ? config.unit || '' : config.unitImperial || config.unit || '';
 
@@ -483,14 +528,14 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Always show color accent when any metric is displayed (helps identify the data type)
   const showYAxisAccent = seriesInfo.length > 0;
 
-  // Calculate normalized average position for the Y-axis series (for average line)
-  const yAxisAvgNormalized = useMemo(() => {
+  // Calculate normalized average position and raw value for the Y-axis series (for average line + label)
+  const yAxisAvgInfo = useMemo(() => {
     if (!yAxisSeries) return null;
     const validValues = yAxisSeries.rawData.filter((v) => !isNaN(v) && isFinite(v));
     if (validValues.length === 0) return null;
     const rawAvg = validValues.reduce((sum, v) => sum + v, 0) / validValues.length;
     const { min, range } = yAxisSeries.range;
-    return (rawAvg - min) / range;
+    return { normalized: (rawAvg - min) / range, raw: rawAvg };
   }, [yAxisSeries]);
 
   // Compute interval bands when interval data is provided
@@ -536,7 +581,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         bandOpacity = 0.35;
       } else if (isWork) {
         bandColor = colors.primary;
-        bandOpacity = 0.30;
+        bandOpacity = 0.3;
       } else if (isRecovery) {
         bandColor = '#808080';
         bandOpacity = 0.15;
@@ -638,8 +683,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
 
                 const toPixelX = (xVal: number) =>
                   chartBounds.left + ((xVal - xMin) / xRange) * chartWidth;
-                const toPixelY = (normVal: number) =>
-                  chartBounds.top + (1 - normVal) * chartH;
+                const toPixelY = (normVal: number) => chartBounds.top + (1 - normVal) * chartH;
 
                 return (
                   <>
@@ -678,25 +722,41 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                       );
                     })}
 
-                    {/* Stream area fills */}
+                    {/* Stream area fills — rich gradient beneath lines */}
                     {seriesInfo.map((series) => {
-                      // Preview series gets slightly lower opacity to indicate temporary
-                      const baseOpacity = seriesInfo.length > 1 ? 0.7 : 0.85;
-                      const opacity = series.isPreview ? 0.5 : baseOpacity;
+                      const isMulti = seriesInfo.length > 1;
+                      const topAlpha = series.isPreview ? '30' : isMulti ? '70' : '90';
+                      const bottomAlpha = series.isPreview ? '08' : isMulti ? '10' : '15';
                       return (
                         <Area
-                          key={series.id}
+                          key={`area-${series.id}`}
                           points={points[series.id] as Parameters<typeof Area>[0]['points']}
                           y0={chartBounds.bottom}
                           curveType="natural"
-                          opacity={opacity}
                         >
                           <LinearGradient
                             start={vec(0, chartBounds.top)}
                             end={vec(0, chartBounds.bottom)}
-                            colors={[series.color + 'CC', series.color + '30']}
+                            colors={[series.color + topAlpha, series.color + bottomAlpha]}
                           />
                         </Area>
+                      );
+                    })}
+
+                    {/* Stream line strokes — hairline edge for clarity */}
+                    {seriesInfo.map((series) => {
+                      const width = series.isPreview ? 0.75 : 1;
+                      const glowAlpha = series.isPreview ? '20' : '35';
+                      return (
+                        <Line
+                          key={`line-${series.id}`}
+                          points={points[series.id] as Parameters<typeof Line>[0]['points']}
+                          color={series.color}
+                          strokeWidth={width}
+                          curveType="natural"
+                        >
+                          <Shadow dx={0} dy={0} blur={2} color={series.color + glowAlpha} />
+                        </Line>
                       );
                     })}
 
@@ -720,25 +780,48 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                       );
                     })}
 
-                    {/* Subtle average line for the Y-axis metric */}
-                    {yAxisSeries && yAxisAvgNormalized != null && (
-                      <SkiaLine
-                        p1={vec(
-                          chartBounds.left,
-                          chartBounds.top +
-                            (1 - yAxisAvgNormalized) * (chartBounds.bottom - chartBounds.top)
+                    {/* Y-axis reference lines: min, max, avg */}
+                    {yAxisSeries && (
+                      <>
+                        {/* Max reference line */}
+                        <SkiaLine
+                          p1={vec(chartBounds.left, chartBounds.top)}
+                          p2={vec(chartBounds.right, chartBounds.top)}
+                          color={yAxisSeries.color}
+                          strokeWidth={0.5}
+                          opacity={0.2}
+                        />
+                        {/* Min reference line */}
+                        <SkiaLine
+                          p1={vec(chartBounds.left, chartBounds.bottom)}
+                          p2={vec(chartBounds.right, chartBounds.bottom)}
+                          color={yAxisSeries.color}
+                          strokeWidth={0.5}
+                          opacity={0.2}
+                        />
+                        {/* Avg dashed line */}
+                        {yAxisAvgInfo != null && (
+                          <SkiaLine
+                            p1={vec(
+                              chartBounds.left,
+                              chartBounds.top +
+                                (1 - yAxisAvgInfo.normalized) *
+                                  (chartBounds.bottom - chartBounds.top)
+                            )}
+                            p2={vec(
+                              chartBounds.right,
+                              chartBounds.top +
+                                (1 - yAxisAvgInfo.normalized) *
+                                  (chartBounds.bottom - chartBounds.top)
+                            )}
+                            color={yAxisSeries.color}
+                            strokeWidth={1}
+                            opacity={0.4}
+                          >
+                            <DashPathEffect intervals={[4, 4]} />
+                          </SkiaLine>
                         )}
-                        p2={vec(
-                          chartBounds.right,
-                          chartBounds.top +
-                            (1 - yAxisAvgNormalized) * (chartBounds.bottom - chartBounds.top)
-                        )}
-                        color={yAxisSeries.color}
-                        strokeWidth={1}
-                        opacity={0.4}
-                      >
-                        <DashPathEffect intervals={[4, 4]} />
-                      </SkiaLine>
+                      </>
                     )}
                   </>
                 );
@@ -764,30 +847,59 @@ export const CombinedPlot = React.memo(function CombinedPlot({
               </Text>
             </View>
 
-            {/* Y-axis labels - always shown for first metric (or preview) */}
+            {/* Y-axis labels sitting on reference lines */}
             {yAxisSeries && (
-              <View style={styles.yAxis} pointerEvents="none">
+              <>
+                {/* Max label — on the max reference line at chart top */}
                 <Text
                   style={[
                     styles.yLabel,
-                    styles.yLabelTop,
                     isDark && styles.yLabelDark,
                     showYAxisAccent && { borderLeftWidth: 2, borderLeftColor: yAxisSeries.color },
+                    { position: 'absolute', left: 4, top: CHART_PADDING.top },
                   ]}
+                  pointerEvents="none"
                 >
                   {formatYAxisValue(yAxisSeries.range.max, yAxisSeries)}
                 </Text>
+                {/* Min label — on the min reference line at chart bottom */}
                 <Text
                   style={[
                     styles.yLabel,
-                    styles.yLabelBottom,
                     isDark && styles.yLabelDark,
                     showYAxisAccent && { borderLeftWidth: 2, borderLeftColor: yAxisSeries.color },
+                    { position: 'absolute', left: 4, top: height - CHART_PADDING.bottom - 14 },
                   ]}
+                  pointerEvents="none"
                 >
                   {formatYAxisValue(yAxisSeries.range.min, yAxisSeries)}
                 </Text>
-              </View>
+                {/* Avg label — on the dashed average line */}
+                {yAxisAvgInfo && (
+                  <Text
+                    style={[
+                      styles.yLabel,
+                      isDark && styles.yLabelDark,
+                      showYAxisAccent && {
+                        borderLeftWidth: 2,
+                        borderLeftColor: yAxisSeries.color,
+                      },
+                      {
+                        position: 'absolute',
+                        left: 4,
+                        top:
+                          CHART_PADDING.top +
+                          (1 - yAxisAvgInfo.normalized) *
+                            (height - CHART_PADDING.top - CHART_PADDING.bottom) -
+                          7,
+                      },
+                    ]}
+                    pointerEvents="none"
+                  >
+                    {formatYAxisValue(yAxisAvgInfo.raw, yAxisSeries)}
+                  </Text>
+                )}
+              </>
             )}
 
             {/* X-axis indicator - overlaid on bottom right of chart */}
@@ -924,14 +1036,6 @@ const styles = StyleSheet.create({
   xLabelDark: {
     color: darkColors.textMuted,
   },
-  yAxis: {
-    position: 'absolute',
-    left: 4,
-    top: 0,
-    bottom: 20,
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
   yLabel: {
     fontSize: typography.micro.fontSize,
     fontWeight: '500',
@@ -942,16 +1046,8 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     overflow: 'hidden',
   },
-  yLabelTop: {
-    // Offset down so label is centered on the top line
-    marginTop: -2,
-  },
-  yLabelBottom: {
-    // Offset up so label is centered on the bottom line
-    marginBottom: -4,
-  },
   yLabelDark: {
-    color: darkColors.textMuted,
+    color: darkColors.textSecondary,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
 });
