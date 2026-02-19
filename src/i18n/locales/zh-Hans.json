@@ -672,6 +672,7 @@
     "performanceHistory": "表现历史",
     "traversalsSummary": "{{count}} 次通过 · 最佳 {{time}}",
     "yearPr": "年度PR",
+    "visits": "访问",
     "visitsCount": "{{count}} 次访问"
   },
   "settings": {

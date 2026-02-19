@@ -672,6 +672,7 @@
     "performanceHistory": "Præstationshistorik",
     "traversalsSummary": "{{count}} gennemkørsler · bedste {{time}}",
     "yearPr": "Års-PR",
+    "visits": "besøg",
     "visitsCount": "{{count}} besøg"
   },
   "settings": {

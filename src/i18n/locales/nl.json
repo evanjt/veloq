@@ -672,6 +672,7 @@
     "performanceHistory": "Prestatiegeschiedenis",
     "traversalsSummary": "{{count}} passages · beste {{time}}",
     "yearPr": "Jaar-PR",
+    "visits": "bezoeken",
     "visitsCount": "{{count}} bezoeken"
   },
   "settings": {

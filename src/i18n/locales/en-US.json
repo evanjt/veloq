@@ -249,27 +249,39 @@
   "emptyState": {
     "clearFilters": "Clear filters",
     "error": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "We couldn't load this content",
+      "expandInSettings": "Expand in Settings",
       "title": "Something went wrong"
     },
     "networkError": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Check your internet connection and try again",
+      "expandInSettings": "Expand in Settings",
       "title": "Connection error"
     },
     "noActivities": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Your activities will appear here once you sync with Intervals.icu",
+      "expandInSettings": "Expand in Settings",
       "title": "No activities yet"
     },
     "noData": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Complete some activities to see your stats",
+      "expandInSettings": "Expand in Settings",
       "title": "No data available"
     },
     "noResults": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Try adjusting your search or filters",
+      "expandInSettings": "Expand in Settings",
       "title": "No results found"
     },
     "offline": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Some features may be limited",
+      "expandInSettings": "Expand in Settings",
       "title": "You're offline"
     },
     "refresh": "Refresh"
@@ -650,6 +662,7 @@
     "totalTraversals": "Total Traversals",
     "traversals": "traversals",
     "traversalsCount": "{{count}} traversals",
+    "visits": "visits",
     "visitsCount": "{{count}} visits",
     "reference": "Reference",
     "setAsReference": "Set as Reference",

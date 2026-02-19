@@ -1070,26 +1070,28 @@ export default function ActivityDetailScreen() {
       <View testID="activity-detail-content" style={styles.heroSection}>
         {/* Map - full bleed */}
         <View style={styles.mapContainer}>
-          <ActivityMapView
-            coordinates={coordinates}
-            polyline={activity.polyline}
-            activityType={activity.type}
-            height={MAP_HEIGHT}
-            showStyleToggle={!sectionCreationMode}
-            showAttribution={true}
-            highlightIndex={highlightIndex}
-            enableFullscreen={!sectionCreationMode}
-            on3DModeChange={handle3DModeChange}
-            creationMode={sectionCreationMode}
-            creationState={sectionCreationState}
-            creationError={sectionCreationError}
-            onSectionCreated={handleSectionCreated}
-            onCreationCancelled={handleSectionCreationCancelled}
-            onCreationErrorDismiss={handleSectionCreationErrorDismiss}
-            routeOverlay={activeTab === 'routes' ? routeOverlayCoordinates : null}
-            sectionOverlays={activeTab === 'sections' ? sectionOverlays : null}
-            highlightedSectionId={activeTab === 'sections' ? highlightedSectionId : null}
-          />
+          <ComponentErrorBoundary componentName="Activity Map">
+            <ActivityMapView
+              coordinates={coordinates}
+              polyline={activity.polyline}
+              activityType={activity.type}
+              height={MAP_HEIGHT}
+              showStyleToggle={!sectionCreationMode}
+              showAttribution={true}
+              highlightIndex={highlightIndex}
+              enableFullscreen={!sectionCreationMode}
+              on3DModeChange={handle3DModeChange}
+              creationMode={sectionCreationMode}
+              creationState={sectionCreationState}
+              creationError={sectionCreationError}
+              onSectionCreated={handleSectionCreated}
+              onCreationCancelled={handleSectionCreationCancelled}
+              onCreationErrorDismiss={handleSectionCreationErrorDismiss}
+              routeOverlay={activeTab === 'routes' ? routeOverlayCoordinates : null}
+              sectionOverlays={activeTab === 'sections' ? sectionOverlays : null}
+              highlightedSectionId={activeTab === 'sections' ? highlightedSectionId : null}
+            />
+          </ComponentErrorBoundary>
         </View>
 
         {/* Gradient overlay at bottom */}
@@ -1305,18 +1307,22 @@ export default function ActivityDetailScreen() {
               {/* HR Zones Chart - show if heart rate data available */}
               {streams?.heartrate && streams.heartrate.length > 0 && (
                 <View style={[styles.chartCard, isDark && styles.cardDark]}>
-                  <HRZonesChart
-                    streams={streams}
-                    activityType={activity.type}
-                    activity={activity}
-                  />
+                  <ComponentErrorBoundary componentName="HR Zones Chart">
+                    <HRZonesChart
+                      streams={streams}
+                      activityType={activity.type}
+                      activity={activity}
+                    />
+                  </ComponentErrorBoundary>
                 </View>
               )}
             </View>
           )}
 
           {/* Insightful Stats - Interactive stats with context and explanations */}
-          <InsightfulStats activity={activity} wellness={activityWellness} />
+          <ComponentErrorBoundary componentName="Activity Stats">
+            <InsightfulStats activity={activity} wellness={activityWellness} />
+          </ComponentErrorBoundary>
 
           {/* Export GPX button */}
           {coordinates.length > 0 && (

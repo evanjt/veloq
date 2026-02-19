@@ -672,6 +672,7 @@
     "performanceHistory": "Historique des performances",
     "traversalsSummary": "{{count}} passages · meilleur {{time}}",
     "yearPr": "RP de l'année",
+    "visits": "visites",
     "visitsCount": "{{count}} passages"
   },
   "settings": {

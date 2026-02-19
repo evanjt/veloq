@@ -672,6 +672,7 @@
     "performanceHistory": "Historial de rendimiento",
     "traversalsSummary": "{{count}} recorridos · mejor {{time}}",
     "yearPr": "RP del año",
+    "visits": "visitas",
     "visitsCount": "{{count}} visitas"
   },
   "settings": {

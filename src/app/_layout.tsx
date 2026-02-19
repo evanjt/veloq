@@ -4,7 +4,11 @@ import { enableFreeze } from 'react-native-screens';
 enableFreeze(true);
 
 import { LogBox } from 'react-native';
-LogBox.ignoreAllLogs();
+LogBox.ignoreLogs([
+  'Non-serializable values were found in the navigation state',
+  'Sending `onAnimatedValueUpdate` with no listeners registered',
+  'VirtualizedLists should never be nested inside plain ScrollViews',
+]);
 
 import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';

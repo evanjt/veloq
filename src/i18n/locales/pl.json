@@ -672,6 +672,7 @@
     "performanceHistory": "Historia wyników",
     "traversalsSummary": "{{count}} przejazdów · najlepszy {{time}}",
     "yearPr": "PR roku",
+    "visits": "wizyty",
     "visitsCount": "{{count}} wizyt"
   },
   "settings": {

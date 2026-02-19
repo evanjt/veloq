@@ -690,15 +690,17 @@ export default function SectionDetailScreen() {
           {
             text: t('common.confirm'),
             onPress: () => {
-              console.log(
-                '[SetReference] Attempting to set reference:',
-                'sectionId=',
-                id,
-                'activityId=',
-                activityId
-              );
+              if (__DEV__) {
+                console.log(
+                  '[SetReference] Attempting to set reference:',
+                  'sectionId=',
+                  id,
+                  'activityId=',
+                  activityId
+                );
+              }
               const success = engine.setSectionReference(id, activityId);
-              console.log('[SetReference] Result:', success);
+              if (__DEV__) console.log('[SetReference] Result:', success);
               if (success) {
                 // Update local state immediately for responsive UI
                 setOverrideReferenceId(activityId);
@@ -1069,7 +1071,8 @@ export default function SectionDetailScreen() {
           }
         : null;
 
-    console.log(`[PERF] client-side bucketing: ${(performance.now() - t0).toFixed(1)}ms`);
+    if (__DEV__)
+      console.log(`[PERF] client-side bucketing: ${(performance.now() - t0).toFixed(1)}ms`);
 
     return {
       buckets,
@@ -1221,7 +1224,8 @@ export default function SectionDetailScreen() {
       if (!engine) return null;
       const t0 = performance.now();
       const result = engine.getSectionCalendarSummary(section.id);
-      console.log(`[PERF] getSectionCalendarSummary: ${(performance.now() - t0).toFixed(1)}ms`);
+      if (__DEV__)
+        console.log(`[PERF] getSectionCalendarSummary: ${(performance.now() - t0).toFixed(1)}ms`);
       if (result && result.years.length > 0 && expandedYears.size === 0) {
         // Auto-expand the most recent year on first load
         setExpandedYears(new Set([result.years[0].year]));
@@ -1278,12 +1282,14 @@ export default function SectionDetailScreen() {
   // Prepare chart data for UnifiedPerformanceChart
   // Uses actual section times from records when available, otherwise proportional estimate
   const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
-    console.log('[SectionDetail] chartData recompute:', {
-      isLoadingRecords,
-      hasSection: !!section,
-      sectionActivitiesCount: sectionActivities.length,
-      performanceRecordsCount: performanceRecords?.length ?? 0,
-    });
+    if (__DEV__) {
+      console.log('[SectionDetail] chartData recompute:', {
+        isLoadingRecords,
+        hasSection: !!section,
+        sectionActivitiesCount: sectionActivities.length,
+        performanceRecordsCount: performanceRecords?.length ?? 0,
+      });
+    }
 
     if (!section)
       return {
@@ -1399,12 +1405,14 @@ export default function SectionDetailScreen() {
   // Also compute summary statistics
   const { rankMap, bestActivityId, bestTimeValue, bestPaceValue, averageTime, lastActivityDate } =
     useMemo(() => {
-      console.log('[SectionDetail] stats recompute:', {
-        chartDataLength: chartData.length,
-        firstEntry: chartData[0]
-          ? { time: chartData[0].sectionTime, speed: chartData[0].speed }
-          : null,
-      });
+      if (__DEV__) {
+        console.log('[SectionDetail] stats recompute:', {
+          chartDataLength: chartData.length,
+          firstEntry: chartData[0]
+            ? { time: chartData[0].sectionTime, speed: chartData[0].speed }
+            : null,
+        });
+      }
 
       if (chartData.length === 0) {
         return {
@@ -1460,24 +1468,62 @@ export default function SectionDetailScreen() {
     };
   }, [bestTimeValue, averageTime, chartData.length, lastActivityDate]);
 
-  const computedForwardStats = useMemo(
-    (): DirectionSummaryStats | null => forwardStats,
-    [forwardStats]
-  );
+  const computedForwardStats: DirectionSummaryStats | null = forwardStats;
+  const computedReverseStats: DirectionSummaryStats | null = reverseStats;
+  const computedBestForward: { bestTime: number; activityDate: Date } | null =
+    bestForwardRecord ?? null;
+  const computedBestReverse: { bestTime: number; activityDate: Date } | null =
+    bestReverseRecord ?? null;
 
-  const computedReverseStats = useMemo(
-    (): DirectionSummaryStats | null => reverseStats,
-    [reverseStats]
-  );
+  const keyExtractor = useCallback((item: Activity) => item.id, []);
 
-  const computedBestForward = useMemo(
-    (): { bestTime: number; activityDate: Date } | null => bestForwardRecord ?? null,
-    [bestForwardRecord]
-  );
+  const renderActivityRow = useCallback(
+    ({ item: activity }: { item: Activity }) => {
+      const portion = portionMap.get(activity.id);
+      const record = performanceRecordMap.get(activity.id);
+      const isHighlighted = listHighlightedActivityId === activity.id;
+      const isBest = bestActivityId === activity.id;
+      const rank = rankMap.get(activity.id);
+      const activityTracePoints = sectionWithTraces?.activityTraces?.[activity.id];
+      const isReference = effectiveReferenceId === activity.id;
 
-  const computedBestReverse = useMemo(
-    (): { bestTime: number; activityDate: Date } | null => bestReverseRecord ?? null,
-    [bestReverseRecord]
+      return (
+        <ActivityRow
+          activity={activity}
+          isDark={isDark}
+          direction={record?.direction || portion?.direction}
+          activityPoints={activityTracePoints}
+          sectionPoints={section?.polyline}
+          isHighlighted={isHighlighted}
+          sectionDistance={record?.sectionDistance || portion?.distanceMeters}
+          lapCount={record?.lapCount}
+          actualSectionTime={record?.bestTime}
+          actualSectionPace={record?.bestPace}
+          isBest={isBest}
+          rank={rank}
+          bestTime={bestTimeValue}
+          bestPace={bestPaceValue}
+          isReference={isReference}
+          onHighlightChange={handleRowHighlightChange}
+          onSetAsReference={handleSetAsReference}
+        />
+      );
+    },
+    [
+      portionMap,
+      performanceRecordMap,
+      listHighlightedActivityId,
+      bestActivityId,
+      rankMap,
+      sectionWithTraces?.activityTraces,
+      effectiveReferenceId,
+      isDark,
+      section?.polyline,
+      bestTimeValue,
+      bestPaceValue,
+      handleRowHighlightChange,
+      handleSetAsReference,
+    ]
   );
 
   if (!section) {
@@ -1512,57 +1558,6 @@ export default function SectionDetailScreen() {
 
   const activityColor = getActivityColor(section.sportType as ActivityType);
   const iconName = getActivityIcon(section.sportType as ActivityType);
-
-  const keyExtractor = useCallback((item: Activity) => item.id, []);
-
-  const renderActivityRow = useCallback(
-    ({ item: activity }: { item: Activity }) => {
-      const portion = portionMap.get(activity.id);
-      const record = performanceRecordMap.get(activity.id);
-      const isHighlighted = listHighlightedActivityId === activity.id;
-      const isBest = bestActivityId === activity.id;
-      const rank = rankMap.get(activity.id);
-      const activityTracePoints = sectionWithTraces?.activityTraces?.[activity.id];
-      const isReference = effectiveReferenceId === activity.id;
-
-      return (
-        <ActivityRow
-          activity={activity}
-          isDark={isDark}
-          direction={record?.direction || portion?.direction}
-          activityPoints={activityTracePoints}
-          sectionPoints={section.polyline}
-          isHighlighted={isHighlighted}
-          sectionDistance={record?.sectionDistance || portion?.distanceMeters}
-          lapCount={record?.lapCount}
-          actualSectionTime={record?.bestTime}
-          actualSectionPace={record?.bestPace}
-          isBest={isBest}
-          rank={rank}
-          bestTime={bestTimeValue}
-          bestPace={bestPaceValue}
-          isReference={isReference}
-          onHighlightChange={handleRowHighlightChange}
-          onSetAsReference={handleSetAsReference}
-        />
-      );
-    },
-    [
-      portionMap,
-      performanceRecordMap,
-      listHighlightedActivityId,
-      bestActivityId,
-      rankMap,
-      sectionWithTraces?.activityTraces,
-      effectiveReferenceId,
-      isDark,
-      section.polyline,
-      bestTimeValue,
-      bestPaceValue,
-      handleRowHighlightChange,
-      handleSetAsReference,
-    ]
-  );
 
   return (
     <View testID="section-detail-screen" style={[styles.container, isDark && styles.containerDark]}>

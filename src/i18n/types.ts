@@ -14,7 +14,6 @@ export const SUPPORTED_LOCALES = [
   // French
   'fr',
   // German variants (including Swiss)
-  'de',
   'de-DE',
   'de-CH',
   // Dutch
@@ -130,7 +129,6 @@ export const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
   // French
   fr: 'Français',
   // German
-  de: 'Deutsch',
   'de-DE': 'Deutsch (Deutschland)',
   'de-CH': 'Schwiizerdütsch',
   // Dutch

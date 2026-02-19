@@ -24,10 +24,7 @@ function generateState(): string {
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
     crypto.getRandomValues(array);
   } else {
-    // Fallback for React Native
-    for (let i = 0; i < array.length; i++) {
-      array[i] = Math.floor(Math.random() * 256);
-    }
+    throw new Error('crypto.getRandomValues is not available — cannot generate secure OAuth state');
   }
   return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }

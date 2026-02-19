@@ -152,6 +152,8 @@ describe('isRunningActivity', () => {
     expect(isRunningActivity('VirtualRun')).toBe(true);
     expect(isRunningActivity('Walk')).toBe(true);
     expect(isRunningActivity('Hike')).toBe(true);
+    expect(isRunningActivity('TrailRun')).toBe(true);
+    expect(isRunningActivity('Treadmill')).toBe(true);
   });
 
   it('returns false for non-running activities', () => {
