@@ -8,6 +8,7 @@ import { typography } from '@/theme/typography';
 import { spacing, layout } from '@/theme/spacing';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS, DEFAULT_POWER_ZONES, DEFAULT_HR_ZONES } from '@/hooks';
 import type { ZoneDistribution } from '@/types';
+import { formatDurationHuman } from '@/lib/utils/format';
 
 interface ZoneDistributionChartProps {
   /** Zone distribution data */
@@ -20,15 +21,6 @@ interface ZoneDistributionChartProps {
   title?: string;
   /** Time period label */
   periodLabel?: string;
-}
-
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) {
-    return `${hours}h ${mins}m`;
-  }
-  return `${mins}m`;
 }
 
 export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
@@ -119,7 +111,7 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
             <View style={styles.barValue}>
               <Text style={[styles.percentage, { color: zone.color }]}>{zone.percentage}%</Text>
               <Text style={[styles.duration, isDark && styles.textDark]}>
-                {formatDuration(zone.seconds)}
+                {formatDurationHuman(zone.seconds)}
               </Text>
             </View>
           </View>
@@ -130,7 +122,7 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
       <View style={styles.totalRow}>
         <Text style={[styles.totalLabel, isDark && styles.textDark]}>{t('stats.totalTime')}</Text>
         <Text style={[styles.totalValue, isDark && styles.textLight]}>
-          {formatDuration(processedData.reduce((sum, d) => sum + d.seconds, 0))}
+          {formatDurationHuman(processedData.reduce((sum, d) => sum + d.seconds, 0))}
         </Text>
       </View>
     </View>

@@ -1,16 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import type { Athlete } from '@/types';
-
-// Lazy import to avoid circular dependencies
-function getRouteEngine() {
-  try {
-    const module = require('veloqrs');
-    return module.routeEngine || module.default?.routeEngine || null;
-  } catch {
-    return null;
-  }
-}
+import { getRouteEngine } from '@/lib/native/routeEngine';
 
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
 const ATHLETE_ID_STORAGE_KEY = 'intervals_athlete_id';

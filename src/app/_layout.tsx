@@ -43,21 +43,7 @@ import { formatLocalDate } from '@/lib';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import { DemoBanner, GlobalDataSync, OfflineBanner, BottomTabBar } from '@/components/ui';
-
-// Lazy load native module to avoid bundler errors
-function getRouteEngine() {
-  try {
-    const module = require('veloqrs');
-    // The module exports both a default export and a named routeEngine export
-    // Try to get the named export first, fall back to the default
-    return module.routeEngine || module.default?.routeEngine || null;
-  } catch (error) {
-    if (__DEV__) {
-      console.warn('[RouteMatcher] Failed to load native module:', error);
-    }
-    return null;
-  }
-}
+import { getRouteEngine } from '@/lib/native/routeEngine';
 
 // Database path for persistent route engine (SQLite)
 // FileSystem.documentDirectory returns a file:// URI, but SQLite needs a plain path

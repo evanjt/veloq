@@ -15,6 +15,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { debug } from '../utils/debug';
 import { safeJsonParseWithSchema, type SchemaValidator } from '../utils/validation';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 
 /**
  * Type guard for GPS track data - array of [lat, lng] tuples
@@ -538,18 +539,6 @@ export async function estimateRoutesDatabaseSize(): Promise<number> {
 // =============================================================================
 // Comprehensive Cache Clearing (for auth transitions)
 // =============================================================================
-
-/**
- * Lazy load native route engine module to avoid bundler errors.
- * Returns null if module is unavailable.
- */
-function getRouteEngine() {
-  try {
-    return require('veloqrs').routeEngine;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Clear all app caches comprehensively.

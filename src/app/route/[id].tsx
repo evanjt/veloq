@@ -31,15 +31,7 @@ import { useGroupDetail } from '@/hooks/routes/useRouteEngine';
 import { getAllRouteDisplayNames, getRouteDisplayName } from '@/hooks/routes/useRouteGroups';
 import { createSharedStyles } from '@/styles';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
-
-// Lazy load native module to avoid bundler errors
-function getRouteEngine() {
-  try {
-    return require('veloqrs').routeEngine;
-  } catch {
-    return null;
-  }
-}
+import { getRouteEngine } from '@/lib/native/routeEngine';
 
 import {
   RouteMapView,
@@ -479,17 +471,7 @@ export default function RouteDetailScreen() {
     const engine = getRouteEngine();
     if (!engine) return [];
 
-    const metrics: {
-      activityId: string;
-      name: string;
-      sportType: string;
-      date: number;
-      distance: number;
-      movingTime: number;
-      elapsedTime: number;
-      elevationGain: number;
-      avgHr: number | null;
-    }[] = engine.getActivityMetricsForIds(routeGroupBase.activityIds);
+    const metrics = engine.getActivityMetricsForIds(routeGroupBase.activityIds);
 
     // Convert engine metrics to Activity-compatible objects
     const activities: Activity[] = metrics.map(

@@ -18,6 +18,7 @@ import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
 import { CHART_CONFIG } from '@/constants';
 import { usePowerCurve } from '@/hooks';
+import { formatDurationHuman } from '@/lib/utils/format';
 
 interface PowerCurveChartProps {
   sport?: string;
@@ -33,19 +34,6 @@ interface PowerCurveChartProps {
 // Chart colors
 const DEFAULT_COLOR = '#5B9BD5'; // Brand blue
 const FTP_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
-
-// Format duration for display
-function formatDuration(secs: number): string {
-  if (secs < 60) return `${Math.round(secs)}s`;
-  if (secs < 3600) {
-    const mins = Math.floor(secs / 60);
-    const remainingSecs = Math.round(secs % 60);
-    return remainingSecs > 0 ? `${mins}:${remainingSecs.toString().padStart(2, '0')}` : `${mins}m`;
-  }
-  const hours = Math.floor(secs / 3600);
-  const mins = Math.floor((secs % 3600) / 60);
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
 
 // Format duration compact for axis labels
 function formatDurationCompact(secs: number): string {
@@ -275,7 +263,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
           <View style={styles.valueItem}>
             <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('stats.time')}</Text>
             <Text testID="power-curve-duration" style={[styles.valueNumber, { color }]}>
-              {formatDuration(displayData.secs)}
+              {formatDurationHuman(displayData.secs)}
             </Text>
           </View>
           <View style={styles.valueItem}>

@@ -108,6 +108,21 @@ export function formatDuration(seconds: number): string {
 }
 
 /**
+ * Format duration in human-readable form: "45s", "5m 30s", "1h 30m".
+ * Drops zero trailing components (e.g., "5m" not "5m 0s").
+ */
+export function formatDurationHuman(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0s';
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  if (mins < 60) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  const remainingMins = mins % 60;
+  return remainingMins > 0 ? `${hrs}h ${remainingMins}m` : `${hrs}h`;
+}
+
+/**
  * Format pace as minutes per kilometer (metric) or per mile (imperial).
  *
  * Shows running/cycling pace in MM:SS /km or /mi format.

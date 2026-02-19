@@ -5,19 +5,7 @@
 
 import { useCallback, useState } from 'react';
 import type { ActivityType } from '@/types';
-
-// Lazy load native module to avoid bundler errors
-let _routeEngine: typeof import('veloqrs').routeEngine | null = null;
-function getRouteEngine() {
-  if (!_routeEngine) {
-    try {
-      _routeEngine = require('veloqrs').routeEngine;
-    } catch {
-      return null;
-    }
-  }
-  return _routeEngine;
-}
+import { getRouteEngine } from '@/lib/native/routeEngine';
 
 interface RouteProcessingProgress {
   status: 'idle' | 'processing' | 'complete' | 'error';

@@ -7,6 +7,7 @@ import { useHRZones } from '@/providers';
 import { useSportSettings, getSettingsForSport, HR_ZONE_COLORS } from '@/hooks';
 import type { ActivityStreams, ActivityDetail } from '@/types';
 import { ChartErrorBoundary } from '@/components/ui';
+import { formatDurationHuman } from '@/lib/utils/format';
 
 interface HRZonesChartProps {
   streams: ActivityStreams;
@@ -14,16 +15,6 @@ interface HRZonesChartProps {
   activityType?: string;
   /** Activity data with pre-computed zone times */
   activity?: ActivityDetail;
-}
-
-function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.round(seconds % 60);
-  if (mins < 60) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  const remainingMins = mins % 60;
-  return remainingMins > 0 ? `${hrs}h ${remainingMins}m` : `${hrs}h`;
 }
 
 export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZonesChartProps) {
@@ -97,7 +88,7 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
             ...zone,
             seconds,
             percent: (seconds / totalTime) * 100,
-            formatted: formatDuration(seconds),
+            formatted: formatDurationHuman(seconds),
           };
         });
         return { zones: builtZones, zoneData: computedData };
@@ -136,7 +127,7 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
       ...zone,
       seconds: zoneTimes[idx],
       percent: (zoneTimes[idx] / totalTime) * 100,
-      formatted: formatDuration(zoneTimes[idx]),
+      formatted: formatDurationHuman(zoneTimes[idx]),
     }));
 
     return { zones: builtZones, zoneData: computedData };
