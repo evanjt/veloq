@@ -139,6 +139,8 @@ export interface Activity {
   average_weather_humidity?: number; // Humidity percentage
   // Device temperature (from watch sensor, not weather)
   average_temp?: number;
+  // Skyline chart - compact protobuf encoding of interval zones/durations
+  skyline_chart_bytes?: string;
 }
 
 export interface ActivityDetail extends Activity {

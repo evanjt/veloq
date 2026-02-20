@@ -341,6 +341,16 @@ export function RouteMapView({
       {/* iOS crash fix: Always render ShapeSource */}
       <ShapeSource id="routeSource" shape={routeGeoJSON}>
         <LineLayer
+          id="routeLineCasing"
+          style={{
+            lineColor: '#FFFFFF',
+            lineOpacity: hasRouteData ? consensusOpacity : 0,
+            lineWidth: 5,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+        <LineLayer
           id="routeLine"
           style={{
             lineColor: activityColor,
@@ -356,9 +366,19 @@ export function RouteMapView({
       {/* iOS crash fix: Always render ShapeSource */}
       <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
         <LineLayer
+          id="highlightedLineCasing"
+          style={{
+            lineColor: '#FFFFFF',
+            lineOpacity: hasHighlightedTrace ? 1 : 0,
+            lineWidth: 5,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+        <LineLayer
           id="highlightedLine"
           style={{
-            lineColor: colors.chartCyan, // Cyan for highlighted activity
+            lineColor: colors.chartCyan,
             lineOpacity: hasHighlightedTrace ? 1 : 0,
             lineWidth: 4,
             lineCap: 'round',
@@ -372,9 +392,7 @@ export function RouteMapView({
       {/* Use opacity to hide when point is undefined */}
       <MarkerView coordinate={startPoint ? [startPoint.lng, startPoint.lat] : [0, 0]}>
         <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
-          <View style={[styles.marker, styles.startMarker]}>
-            <MaterialCommunityIcons name="play" size={12} color={colors.textOnDark} />
-          </View>
+          <View style={[styles.marker, styles.startMarker]} />
         </View>
       </MarkerView>
 
@@ -382,9 +400,7 @@ export function RouteMapView({
       {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
       <MarkerView coordinate={endPoint ? [endPoint.lng, endPoint.lat] : [0, 0]}>
         <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
-          <View style={[styles.marker, styles.endMarker]}>
-            <MaterialCommunityIcons name="flag-checkered" size={12} color={colors.textOnDark} />
-          </View>
+          <View style={[styles.marker, styles.endMarker]} />
         </View>
       </MarkerView>
     </MapView>
@@ -442,6 +458,16 @@ export function RouteMapView({
           {/* Highlighted trace - iOS crash fix: always render */}
           <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
             <LineLayer
+              id="highlightedLineCasing"
+              style={{
+                lineColor: '#FFFFFF',
+                lineOpacity: hasHighlightedTrace ? 0.5 : 0,
+                lineWidth: 7,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+            <LineLayer
               id="highlightedLine"
               style={{
                 lineColor: colors.chartCyan,
@@ -457,9 +483,7 @@ export function RouteMapView({
           {startPoint && (
             <MarkerView coordinate={[startPoint.lng, startPoint.lat]}>
               <View style={styles.markerContainer}>
-                <View style={[styles.marker, styles.startMarker]}>
-                  <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
-                </View>
+                <View style={[styles.marker, styles.startMarker]} />
               </View>
             </MarkerView>
           )}
@@ -468,13 +492,7 @@ export function RouteMapView({
           {endPoint && (
             <MarkerView coordinate={[endPoint.lng, endPoint.lat]}>
               <View style={styles.markerContainer}>
-                <View style={[styles.marker, styles.endMarker]}>
-                  <MaterialCommunityIcons
-                    name="flag-checkered"
-                    size={14}
-                    color={colors.textOnDark}
-                  />
-                </View>
+                <View style={[styles.marker, styles.endMarker]} />
               </View>
             </MarkerView>
           )}
@@ -502,24 +520,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   marker: {
-    width: 24,
-    height: 24,
-    borderRadius: layout.borderRadius,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1.5,
     borderColor: colors.textOnDark,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
   },
   startMarker: {
-    backgroundColor: colors.success,
+    backgroundColor: 'rgba(34,197,94,0.75)',
   },
   endMarker: {
-    backgroundColor: colors.error,
+    backgroundColor: 'rgba(239,68,68,0.75)',
   },
   expandOverlay: {
     position: 'absolute',

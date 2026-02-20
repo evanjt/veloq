@@ -1226,6 +1226,22 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
             <ShapeSource id="routeSource" shape={routeGeoJSON}>
               <LineLayer
+                id="routeLineCasing"
+                style={{
+                  lineColor: '#FFFFFF',
+                  lineWidth: 5,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                  lineOpacity: sectionOverlaysGeoJSON
+                    ? highlightedSectionId
+                      ? 0.25
+                      : 0.8
+                    : overlayHasData
+                      ? 0.85
+                      : 1,
+                }}
+              />
+              <LineLayer
                 id="routeLine"
                 style={{
                   lineColor: activityColor,
@@ -1293,9 +1309,7 @@ export const ActivityMapView = memo(function ActivityMapView({
               coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
             >
               <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
-                <View style={[styles.marker, styles.startMarker]}>
-                  <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
-                </View>
+                <View style={[styles.marker, styles.startMarker]} />
               </View>
             </MarkerView>
 
@@ -1303,13 +1317,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
             <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
               <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
-                <View style={[styles.marker, styles.endMarker]}>
-                  <MaterialCommunityIcons
-                    name="flag-checkered"
-                    size={14}
-                    color={colors.textOnDark}
-                  />
-                </View>
+                <View style={[styles.marker, styles.endMarker]} />
               </View>
             </MarkerView>
 
@@ -1323,9 +1331,7 @@ export const ActivityMapView = memo(function ActivityMapView({
               }
             >
               <View style={[styles.markerContainer, { opacity: highlightPoint ? 1 : 0 }]}>
-                <View style={styles.highlightMarker}>
-                  <View style={styles.highlightMarkerInner} />
-                </View>
+                <View style={styles.highlightMarker} />
               </View>
             </MarkerView>
 
@@ -1631,9 +1637,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
           >
             <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
-              <View style={[styles.marker, styles.startMarker]}>
-                <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
-              </View>
+              <View style={[styles.marker, styles.startMarker]} />
             </View>
           </MarkerView>
 
@@ -1641,9 +1645,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
           <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
             <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
-              <View style={[styles.marker, styles.endMarker]}>
-                <MaterialCommunityIcons name="flag-checkered" size={14} color={colors.textOnDark} />
-              </View>
+              <View style={[styles.marker, styles.endMarker]} />
             </View>
           </MarkerView>
         </BaseMapView>
@@ -1702,20 +1704,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   marker: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1.5,
     borderColor: colors.textOnDark,
-    ...shadows.elevated,
   },
   startMarker: {
-    backgroundColor: colors.success,
+    backgroundColor: 'rgba(34,197,94,0.75)',
   },
   endMarker: {
-    backgroundColor: colors.error,
+    backgroundColor: 'rgba(239,68,68,0.75)',
   },
   sectionStartMarker: {
     backgroundColor: '#00BCD4', // Cyan - distinct from activity start (green)
@@ -1724,21 +1723,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#9C27B0', // Purple - distinct from activity end (red)
   },
   highlightMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
+    borderWidth: 1.5,
     borderColor: colors.textOnDark,
-    ...shadows.elevated,
-  },
-  highlightMarkerInner: {
-    width: spacing.sm,
-    height: spacing.sm,
-    borderRadius: spacing.xs,
-    backgroundColor: colors.textOnDark,
   },
   controlsContainer: {
     position: 'absolute',

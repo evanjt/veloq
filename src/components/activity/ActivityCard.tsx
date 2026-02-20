@@ -33,6 +33,7 @@ import { colors, darkColors, typography, spacing, shadows } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { useMapPreferences } from '@/providers';
 import { ActivityMapPreview } from './ActivityMapPreview';
+import { SkylineBar } from './SkylineBar';
 
 function formatLocation(activity: Activity): string | null {
   if (!activity.locality) return null;
@@ -263,7 +264,11 @@ export const ActivityCard = React.memo(function ActivityCard({
                 </RNText>
               )}
             </Pressable>
-            <View style={[styles.dividerLine, { backgroundColor: theme.divider }]} />
+            {activity.skyline_chart_bytes ? (
+              <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
+            ) : (
+              <View style={[styles.dividerLine, { backgroundColor: theme.divider }]} />
+            )}
             {/* Secondary stats */}
             <ScrollView
               ref={scrollRef}
@@ -439,7 +444,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingTop: 20,
-    paddingBottom: 6,
+    paddingBottom: 2,
   },
   primaryStats: {
     flexDirection: 'row',
@@ -469,6 +474,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
   },
   secondaryScroll: {
+    paddingTop: 2,
     paddingBottom: 8,
   },
   secondaryStats: {

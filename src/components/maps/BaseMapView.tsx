@@ -434,6 +434,16 @@ export function BaseMapView({
           {/* Route line - CRITICAL: Always render to avoid iOS crash */}
           <ShapeSource id="routeSource" shape={routeGeoJSON}>
             <LineLayer
+              id="routeLineCasing"
+              style={{
+                lineColor: '#FFFFFF',
+                lineOpacity: 1,
+                lineWidth: 5,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+            <LineLayer
               id="routeLine"
               style={{
                 lineColor: routeColor,

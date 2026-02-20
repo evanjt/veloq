@@ -246,6 +246,16 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
         {/* Route line - iOS crash fix: always render ShapeSource */}
         <ShapeSource id="routeSource" shape={routeGeoJSON}>
           <LineLayer
+            id="routeLineCasing"
+            style={{
+              lineColor: '#FFFFFF',
+              lineOpacity: hasRouteData ? 1 : 0,
+              lineWidth: 4,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+          />
+          <LineLayer
             id="routeLine"
             style={{
               lineColor: activityColor,
@@ -262,9 +272,7 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
         {/* Use opacity to hide when point is undefined */}
         <MarkerView coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}>
           <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
-            <View style={[styles.marker, styles.startMarker]}>
-              <MaterialCommunityIcons name="play" size={10} color={colors.textOnDark} />
-            </View>
+            <View style={[styles.marker, styles.startMarker]} />
           </View>
         </MarkerView>
 
@@ -272,9 +280,7 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
         {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
         <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
           <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
-            <View style={[styles.marker, styles.endMarker]}>
-              <MaterialCommunityIcons name="flag-checkered" size={10} color={colors.textOnDark} />
-            </View>
+            <View style={[styles.marker, styles.endMarker]} />
           </View>
         </MarkerView>
       </MapView>
@@ -316,23 +322,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   marker: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1.5,
     borderColor: colors.textOnDark,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
   },
   startMarker: {
-    backgroundColor: colors.success,
+    backgroundColor: 'rgba(34,197,94,0.75)',
   },
   endMarker: {
-    backgroundColor: colors.error,
+    backgroundColor: 'rgba(239,68,68,0.75)',
   },
 });

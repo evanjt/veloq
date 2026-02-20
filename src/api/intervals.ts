@@ -87,6 +87,7 @@ export const intervalsApi = {
       'stream_types',
       'locality',
       'country', // Location info
+      'skyline_chart_bytes',
     ];
 
     // Stats fields for performance/stats page

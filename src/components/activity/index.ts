@@ -7,4 +7,5 @@ export { CombinedPlot, type ChartMetricValue } from './CombinedPlot';
 export { HRZonesChart } from './HRZonesChart';
 export { PowerZonesChart } from './PowerZonesChart';
 export { IntervalsTable } from './IntervalsTable';
+export { SkylineBar } from './SkylineBar';
 export { InsightfulStats } from './stats';

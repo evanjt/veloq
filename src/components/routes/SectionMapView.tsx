@@ -307,6 +307,16 @@ export const SectionMapView = memo(function SectionMapView({
       {/* Section polyline */}
       <ShapeSource id="sectionSource" shape={sectionGeoJSON}>
         <LineLayer
+          id="sectionLineCasing"
+          style={{
+            lineColor: '#FFFFFF',
+            lineOpacity: sectionOpacity,
+            lineWidth: 5,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+        <LineLayer
           id="sectionLine"
           style={{
             lineColor: activityColor,
@@ -320,6 +330,17 @@ export const SectionMapView = memo(function SectionMapView({
 
       {/* Pre-loaded activity traces with filter */}
       <ShapeSource id="allTracesSource" shape={allTracesFeatureCollection}>
+        <LineLayer
+          id="allTracesLineCasing"
+          filter={highlightedTraceFilter}
+          style={{
+            lineColor: '#FFFFFF',
+            lineWidth: 5,
+            lineCap: 'round',
+            lineJoin: 'round',
+            lineOpacity: hasAllTraces && highlightedTraceFilter ? 1 : 0,
+          }}
+        />
         <LineLayer
           id="allTracesLine"
           filter={highlightedTraceFilter}
@@ -336,6 +357,16 @@ export const SectionMapView = memo(function SectionMapView({
       {/* Highlighted lap points overlay */}
       <ShapeSource id="highlightedLapSource" shape={highlightedLapGeoJSON}>
         <LineLayer
+          id="highlightedLapLineCasing"
+          style={{
+            lineColor: '#FFFFFF',
+            lineOpacity: 1,
+            lineWidth: 6,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+        <LineLayer
           id="highlightedLapLine"
           style={{
             lineColor: colors.chartCyan,
@@ -348,6 +379,16 @@ export const SectionMapView = memo(function SectionMapView({
 
       {/* Fallback: Highlighted activity trace */}
       <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
+        <LineLayer
+          id="highlightedLineCasing"
+          style={{
+            lineColor: '#FFFFFF',
+            lineOpacity: 1,
+            lineWidth: 5,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
         <LineLayer
           id="highlightedLine"
           style={{
@@ -364,9 +405,7 @@ export const SectionMapView = memo(function SectionMapView({
       {/* Use opacity to hide when point is undefined */}
       <MarkerView coordinate={startPoint ? [startPoint.lng, startPoint.lat] : [0, 0]}>
         <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
-          <View style={[styles.marker, styles.startMarker]}>
-            <MaterialCommunityIcons name="play" size={12} color={colors.textOnDark} />
-          </View>
+          <View style={[styles.marker, styles.startMarker]} />
         </View>
       </MarkerView>
 
@@ -374,9 +413,7 @@ export const SectionMapView = memo(function SectionMapView({
       {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
       <MarkerView coordinate={endPoint ? [endPoint.lng, endPoint.lat] : [0, 0]}>
         <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
-          <View style={[styles.marker, styles.endMarker]}>
-            <MaterialCommunityIcons name="flag-checkered" size={12} color={colors.textOnDark} />
-          </View>
+          <View style={[styles.marker, styles.endMarker]} />
         </View>
       </MarkerView>
     </MapView>
@@ -468,6 +505,17 @@ export const SectionMapView = memo(function SectionMapView({
           {/* Pre-loaded activity traces with filter */}
           <ShapeSource id="fullscreenAllTracesSource" shape={allTracesFeatureCollection}>
             <LineLayer
+              id="fullscreenAllTracesLineCasing"
+              filter={highlightedTraceFilter}
+              style={{
+                lineColor: '#FFFFFF',
+                lineWidth: 6,
+                lineCap: 'round',
+                lineJoin: 'round',
+                lineOpacity: hasAllTraces && highlightedTraceFilter ? 1 : 0,
+              }}
+            />
+            <LineLayer
               id="fullscreenAllTracesLine"
               filter={highlightedTraceFilter}
               style={{
@@ -483,6 +531,16 @@ export const SectionMapView = memo(function SectionMapView({
           {/* Highlighted lap points overlay */}
           <ShapeSource id="fullscreenHighlightedLapSource" shape={highlightedLapGeoJSON}>
             <LineLayer
+              id="fullscreenHighlightedLapLineCasing"
+              style={{
+                lineColor: '#FFFFFF',
+                lineOpacity: 1,
+                lineWidth: 6,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+            <LineLayer
               id="fullscreenHighlightedLapLine"
               style={{
                 lineColor: colors.chartCyan,
@@ -495,6 +553,16 @@ export const SectionMapView = memo(function SectionMapView({
 
           {/* Fallback: Highlighted activity trace */}
           <ShapeSource id="fullscreenHighlightedSource" shape={highlightedTraceGeoJSON}>
+            <LineLayer
+              id="fullscreenHighlightedLineCasing"
+              style={{
+                lineColor: '#FFFFFF',
+                lineOpacity: 1,
+                lineWidth: 5,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
             <LineLayer
               id="fullscreenHighlightedLine"
               style={{
@@ -510,9 +578,7 @@ export const SectionMapView = memo(function SectionMapView({
           {startPoint && (
             <MarkerView coordinate={[startPoint.lng, startPoint.lat]}>
               <View style={styles.markerContainer}>
-                <View style={[styles.marker, styles.startMarker]}>
-                  <MaterialCommunityIcons name="play" size={14} color={colors.textOnDark} />
-                </View>
+                <View style={[styles.marker, styles.startMarker]} />
               </View>
             </MarkerView>
           )}
@@ -521,13 +587,7 @@ export const SectionMapView = memo(function SectionMapView({
           {endPoint && (
             <MarkerView coordinate={[endPoint.lng, endPoint.lat]}>
               <View style={styles.markerContainer}>
-                <View style={[styles.marker, styles.endMarker]}>
-                  <MaterialCommunityIcons
-                    name="flag-checkered"
-                    size={14}
-                    color={colors.textOnDark}
-                  />
-                </View>
+                <View style={[styles.marker, styles.endMarker]} />
               </View>
             </MarkerView>
           )}
@@ -555,24 +615,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   marker: {
-    width: 24,
-    height: 24,
-    borderRadius: layout.borderRadius,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1.5,
     borderColor: colors.textOnDark,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
   },
   startMarker: {
-    backgroundColor: colors.success,
+    backgroundColor: 'rgba(34,197,94,0.75)',
   },
   endMarker: {
-    backgroundColor: colors.error,
+    backgroundColor: 'rgba(239,68,68,0.75)',
   },
   expandOverlay: {
     position: 'absolute',
