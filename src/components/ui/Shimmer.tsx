@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, ViewStyle, DimensionValue } from 'react-native';
-import { colors, darkColors, opacity, layout, spacing } from '@/theme';
+import { colors, darkColors, layout, spacing } from '@/theme';
 import { useTheme } from '@/hooks';
 
 interface ShimmerProps {
@@ -74,34 +74,8 @@ export function ActivityCardSkeleton() {
   const { isDark } = useTheme();
 
   return (
-    <View style={[styles.card, isDark && styles.cardDark]}>
-      {/* Header row */}
-      <View style={styles.headerRow}>
-        <Shimmer width={40} height={40} borderRadius={20} />
-        <View style={styles.headerText}>
-          <Shimmer width={180} height={18} borderRadius={4} />
-          <Shimmer width={120} height={14} borderRadius={4} style={{ marginTop: 6 }} />
-        </View>
-      </View>
-
-      {/* Stats row */}
-      <View style={styles.statsRow}>
-        <View style={styles.stat}>
-          <Shimmer width={50} height={24} borderRadius={4} />
-          <Shimmer width={40} height={12} borderRadius={4} style={{ marginTop: 4 }} />
-        </View>
-        <View style={styles.stat}>
-          <Shimmer width={50} height={24} borderRadius={4} />
-          <Shimmer width={40} height={12} borderRadius={4} style={{ marginTop: 4 }} />
-        </View>
-        <View style={styles.stat}>
-          <Shimmer width={50} height={24} borderRadius={4} />
-          <Shimmer width={40} height={12} borderRadius={4} style={{ marginTop: 4 }} />
-        </View>
-      </View>
-
-      {/* Map placeholder */}
-      <Shimmer width="100%" height={120} borderRadius={8} style={{ marginTop: 12 }} />
+    <View style={[styles.activityCard, isDark && styles.cardDark]}>
+      <Shimmer width="100%" height={252} borderRadius={0} />
     </View>
   );
 }
@@ -132,7 +106,7 @@ export function WellnessCardSkeleton() {
   const { isDark } = useTheme();
 
   return (
-    <View style={[styles.card, isDark && styles.cardDark]}>
+    <View style={[styles.wellnessCard, isDark && styles.cardDark]}>
       <Shimmer width={120} height={18} borderRadius={4} />
       <View style={styles.wellnessGrid}>
         {[1, 2, 3, 4].map((i) => (
@@ -150,33 +124,15 @@ const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
   },
-  card: {
+  activityCard: {
     backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    marginBottom: layout.cardMargin,
+    borderRadius: 12,
+    marginHorizontal: 12,
+    marginBottom: 12,
+    overflow: 'hidden',
   },
   cardDark: {
     backgroundColor: darkColors.surface,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerText: {
-    marginLeft: layout.cardMargin,
-    flex: 1,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: spacing.md,
-    paddingTop: layout.cardMargin,
-    borderTopWidth: 1,
-    borderTopColor: opacity.overlay.light,
-  },
-  stat: {
-    alignItems: 'center',
   },
   chartHeader: {
     flexDirection: 'row',
@@ -193,5 +149,11 @@ const styles = StyleSheet.create({
   },
   wellnessItem: {
     alignItems: 'center',
+  },
+  wellnessCard: {
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadius,
+    padding: spacing.md,
+    marginBottom: layout.cardMargin,
   },
 });

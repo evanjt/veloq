@@ -14,7 +14,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { convertLatLngTuples, getActivityColor, getMapLibreBounds } from '@/lib';
-import { colors, layout } from '@/theme';
+import { colors } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { getMapStyle } from '@/components/maps';
 import { useActivityStreams } from '@/hooks';
@@ -237,7 +237,7 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
               ne: bounds ? [bounds.ne[0], bounds.ne[1]] : [0, 0],
               sw: bounds ? [bounds.sw[0], bounds.sw[1]] : [0, 0],
             },
-            padding: { paddingTop: 30, paddingRight: 30, paddingBottom: 30, paddingLeft: 30 },
+            padding: { paddingTop: 50, paddingRight: 30, paddingBottom: 75, paddingLeft: 30 },
             animationMode: 'moveTo',
             animationDuration: 0,
           }}
@@ -298,7 +298,6 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
 const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
-    borderRadius: layout.borderRadiusSm,
   },
   map: {
     flex: 1,
@@ -311,7 +310,6 @@ const styles = StyleSheet.create({
   placeholder: {
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: layout.borderRadiusSm,
   },
   markerContainer: {
     alignItems: 'center',

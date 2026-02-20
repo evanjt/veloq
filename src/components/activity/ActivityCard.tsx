@@ -1,7 +1,16 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Platform, Share } from 'react-native';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  Pressable,
+  Platform,
+  Share,
+  Text as RNText,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useMetricSystem } from '@/hooks';
-import { Text, Menu } from 'react-native-paper';
+import { Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -20,8 +29,9 @@ import {
   getActivityIcon,
   getActivityColor,
 } from '@/lib';
-import { colors, darkColors, opacity, typography, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors, typography, spacing, shadows } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
+import { useMapPreferences } from '@/providers';
 import { ActivityMapPreview } from './ActivityMapPreview';
 
 function formatLocation(activity: Activity): string | null {
@@ -37,14 +47,59 @@ interface ActivityCardProps {
   index?: number;
 }
 
-// Breakpoint for narrow screens (icon-only mode for stats)
+// White text theme (used on any dark/satellite map, or dark theme + light map)
+const WHITE_TEXT = {
+  text: '#FFFFFF',
+  textMuted: 'rgba(255,255,255,0.85)',
+  dot: 'rgba(255,255,255,0.5)',
+  divider: 'rgba(255,255,255,0.15)',
+  secondaryText: 'rgba(255,255,255,0.9)',
+  shadow: 'rgba(0,0,0,0.8)',
+};
 
-// Pre-computed icon background styles to avoid object creation on render
-const ICON_BG_TSS = { backgroundColor: colors.primary + '20' };
-const ICON_BG_HR = { backgroundColor: colors.error + '20' };
-const ICON_BG_POWER = { backgroundColor: colors.warning + '20' };
-const ICON_BG_CALORIES = { backgroundColor: colors.success + '20' };
-const ICON_BG_WEATHER = { backgroundColor: colors.info + '20' };
+// Dark text theme (only for light theme + light map)
+const DARK_TEXT = {
+  text: colors.textPrimary,
+  textMuted: colors.textSecondary,
+  dot: 'rgba(0,0,0,0.25)',
+  divider: 'rgba(0,0,0,0.1)',
+  secondaryText: colors.textSecondary,
+  shadow: 'rgba(255,255,255,0.9)',
+};
+
+// Gradient + text combos driven by app theme x map style
+const GRADIENT = {
+  // Light theme + light map: white wash blends into light UI
+  lightLight: {
+    top: ['rgba(255,255,255,0.92)', 'rgba(255,255,255,0.5)', 'transparent'] as const,
+    bottom: ['transparent', 'rgba(255,255,255,0.6)', 'rgba(255,255,255,0.95)'] as const,
+    ...DARK_TEXT,
+  },
+  // Light theme + dark map: subtle scrim, map already provides contrast
+  lightDark: {
+    top: ['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.2)', 'transparent'] as const,
+    bottom: ['transparent', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.55)'] as const,
+    ...WHITE_TEXT,
+  },
+  // Dark theme + light map: strong dark scrim to blend into dark UI
+  darkLight: {
+    top: ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.3)', 'transparent'] as const,
+    bottom: ['transparent', 'rgba(0,0,0,0.35)', 'rgba(0,0,0,0.72)'] as const,
+    ...WHITE_TEXT,
+  },
+  // Dark theme + dark map: subtle scrim, everything already dark
+  darkDark: {
+    top: ['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.2)', 'transparent'] as const,
+    bottom: ['transparent', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.6)'] as const,
+    ...WHITE_TEXT,
+  },
+};
+
+function getGradientTheme(isDark: boolean, mapStyle: string) {
+  const isMapDark = mapStyle === 'dark' || mapStyle === 'satellite';
+  if (isDark) return isMapDark ? GRADIENT.darkDark : GRADIENT.darkLight;
+  return isMapDark ? GRADIENT.lightDark : GRADIENT.lightLight;
+}
 
 export const ActivityCard = React.memo(function ActivityCard({
   activity,
@@ -65,7 +120,6 @@ export const ActivityCard = React.memo(function ActivityCard({
 
   const handleLongPress = useCallback(
     (event: { nativeEvent: { pageX: number; pageY: number } }) => {
-      // iOS-style context menu on long press
       if (Platform.OS === 'ios') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
@@ -104,142 +158,187 @@ export const ActivityCard = React.memo(function ActivityCard({
     }
   }, []);
 
+  const { getStyleForActivity } = useMapPreferences();
   const activityColor = getActivityColor(activity.type);
   const iconName = getActivityIcon(activity.type);
   const location = formatLocation(activity);
+  const mapStyle = getStyleForActivity(activity.type);
+  const theme = getGradientTheme(isDark, mapStyle);
 
   return (
     <View style={styles.cardWrapper}>
       <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
-        {/* Pressable wraps only header + map so horizontal scroll on stats row works */}
-        <Pressable
-          testID={`activity-card-${activity.id}`}
-          onPress={handlePress}
-          onLongPress={handleLongPress}
-          delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-        >
-          {/* Colored accent bar at top - subtle opacity */}
-          <View style={[styles.accentBar, { backgroundColor: activityColor + '80' }]} />
+        <View style={styles.mapContainer}>
+          <ActivityMapPreview activity={activity} height={240} index={index} />
 
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-              <MaterialCommunityIcons name={iconName} size={20} color={colors.textOnDark} />
-            </View>
-            <View style={styles.headerText}>
-              <Text style={[styles.activityName, isDark && styles.textLight]} numberOfLines={1}>
+          {/* Pressable overlay for tap/long-press */}
+          <Pressable
+            testID={`activity-card-${activity.id}`}
+            onPress={handlePress}
+            onLongPress={handleLongPress}
+            delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            style={styles.pressableOverlay}
+            accessibilityRole="button"
+            accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
+          />
+
+          {/* Top gradient: sport icon + name + date */}
+          <LinearGradient
+            colors={theme.top as [string, string, string]}
+            style={styles.topOverlay}
+            pointerEvents="none"
+          >
+            <View style={styles.overlayHeader}>
+              <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
+                <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
+              </View>
+              <RNText
+                style={[styles.overlayName, { color: theme.text, textShadowColor: theme.shadow }]}
+                numberOfLines={1}
+              >
                 {activity.name}
-              </Text>
-              <Text style={[styles.date, isDark && styles.dateDark]} numberOfLines={1}>
+              </RNText>
+              <RNText
+                style={[
+                  styles.overlayDate,
+                  { color: theme.textMuted, textShadowColor: theme.shadow },
+                ]}
+                numberOfLines={1}
+              >
                 {formatRelativeDate(activity.start_date_local)}
-                {location && ` · ${location}`}
-              </Text>
+              </RNText>
             </View>
-          </View>
+          </LinearGradient>
 
-          {/* Map preview with stats overlay */}
-          <View style={styles.mapContainer}>
-            <ActivityMapPreview activity={activity} height={220} index={index} />
-            {/* Stats overlay at bottom of map */}
-            <View style={styles.statsOverlay}>
-              <View style={styles.statPill}>
-                <Text
+          {/* Bottom: all stats unified */}
+          <View style={styles.bottomSection}>
+            <LinearGradient
+              colors={theme.bottom as [string, string, string]}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            {/* Primary stats + location */}
+            <Pressable onPress={handlePress} style={styles.primaryRow}>
+              <View style={styles.primaryStats}>
+                <RNText
                   testID={`activity-card-${activity.id}-distance`}
-                  style={[styles.statValue, { color: activityColor }]}
+                  style={[
+                    styles.primaryStatValue,
+                    { color: theme.text, textShadowColor: theme.shadow },
+                  ]}
                 >
                   {formatDistance(activity.distance, isMetric)}
-                </Text>
-              </View>
-              <View style={styles.statPill}>
-                <Text testID={`activity-card-${activity.id}-duration`} style={styles.statValue}>
+                </RNText>
+                <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
+                <RNText
+                  testID={`activity-card-${activity.id}-duration`}
+                  style={[
+                    styles.primaryStatValue,
+                    { color: theme.text, textShadowColor: theme.shadow },
+                  ]}
+                >
                   {formatDuration(activity.moving_time)}
-                </Text>
-              </View>
-              <View style={styles.statPill}>
-                <Text testID={`activity-card-${activity.id}-elevation`} style={styles.statValue}>
+                </RNText>
+                <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
+                <RNText
+                  testID={`activity-card-${activity.id}-elevation`}
+                  style={[
+                    styles.primaryStatValue,
+                    { color: theme.text, textShadowColor: theme.shadow },
+                  ]}
+                >
                   {formatElevation(activity.total_elevation_gain, isMetric)}
-                </Text>
+                </RNText>
               </View>
-            </View>
-          </View>
-        </Pressable>
-
-        {/* Secondary stats - outside Pressable so horizontal scroll works */}
-        <View style={[styles.secondaryStatsOuter, isDark && styles.secondaryStatsOuterDark]}>
-          <ScrollView
-            ref={scrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={true}
-            onContentSizeChange={handleContentSizeChange}
-          >
-            <Pressable
-              onPress={handlePress}
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-              style={styles.secondaryStats}
-            >
-              {activity.icu_training_load && (
-                <View style={styles.secondaryStat}>
-                  <View style={[styles.secondaryStatIcon, ICON_BG_TSS]}>
-                    <MaterialCommunityIcons name="fire" size={12} color={colors.primary} />
-                  </View>
-                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
-                    {formatTSS(activity.icu_training_load)}
-                  </Text>
-                </View>
-              )}
-              {(activity.average_heartrate || activity.icu_average_hr) && (
-                <View style={styles.secondaryStat}>
-                  <View style={[styles.secondaryStatIcon, ICON_BG_HR]}>
-                    <MaterialCommunityIcons name="heart-pulse" size={12} color={colors.error} />
-                  </View>
-                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
-                    {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
-                  </Text>
-                </View>
-              )}
-              {(activity.average_watts || activity.icu_average_watts) && (
-                <View style={styles.secondaryStat}>
-                  <View style={[styles.secondaryStatIcon, ICON_BG_POWER]}>
-                    <MaterialCommunityIcons
-                      name="lightning-bolt"
-                      size={12}
-                      color={colors.warning}
-                    />
-                  </View>
-                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
-                    {formatPower(activity.average_watts || activity.icu_average_watts!)}
-                  </Text>
-                </View>
-              )}
-              {activity.calories && (
-                <View style={styles.secondaryStat}>
-                  <View style={[styles.secondaryStatIcon, ICON_BG_CALORIES]}>
-                    <MaterialCommunityIcons name="food-apple" size={12} color={colors.success} />
-                  </View>
-                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
-                    {formatCalories(activity.calories)}
-                  </Text>
-                </View>
-              )}
-              {activity.has_weather && activity.average_weather_temp != null && (
-                <View style={styles.secondaryStat}>
-                  <View style={[styles.secondaryStatIcon, ICON_BG_WEATHER]}>
-                    <MaterialCommunityIcons
-                      name="weather-partly-cloudy"
-                      size={12}
-                      color={colors.info}
-                    />
-                  </View>
-                  <Text style={[styles.secondaryStatValue, isDark && styles.textLight]}>
-                    {formatTemperature(activity.average_weather_temp, isMetric)}
-                  </Text>
-                </View>
+              {location && (
+                <RNText
+                  style={[
+                    styles.overlayLocation,
+                    { color: theme.textMuted, textShadowColor: theme.shadow },
+                  ]}
+                >
+                  {location}
+                </RNText>
               )}
             </Pressable>
-          </ScrollView>
+            <View style={[styles.dividerLine, { backgroundColor: theme.divider }]} />
+            {/* Secondary stats */}
+            <ScrollView
+              ref={scrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              onContentSizeChange={handleContentSizeChange}
+              style={styles.secondaryScroll}
+            >
+              <Pressable onPress={handlePress} style={styles.secondaryStats}>
+                {activity.icu_training_load && (
+                  <View
+                    style={styles.secondaryStat}
+                    accessibilityLabel={`${t('activity.stats.trainingLoad')}: ${formatTSS(activity.icu_training_load)}`}
+                  >
+                    <MaterialCommunityIcons name="fire" size={14} color={colors.primary} />
+                    <RNText style={[styles.secondaryStatValue, { color: theme.secondaryText }]}>
+                      {formatTSS(activity.icu_training_load)}
+                    </RNText>
+                  </View>
+                )}
+                {(activity.average_heartrate || activity.icu_average_hr) && (
+                  <View
+                    style={styles.secondaryStat}
+                    accessibilityLabel={`${t('activity.heartRate')}: ${formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)} ${t('units.bpm')}`}
+                  >
+                    <MaterialCommunityIcons name="heart-pulse" size={14} color={colors.error} />
+                    <RNText style={[styles.secondaryStatValue, { color: theme.secondaryText }]}>
+                      {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
+                    </RNText>
+                  </View>
+                )}
+                {(activity.average_watts || activity.icu_average_watts) && (
+                  <View
+                    style={styles.secondaryStat}
+                    accessibilityLabel={`${t('activity.power')}: ${formatPower(activity.average_watts || activity.icu_average_watts!)} ${t('units.watts')}`}
+                  >
+                    <MaterialCommunityIcons
+                      name="lightning-bolt"
+                      size={14}
+                      color={colors.warning}
+                    />
+                    <RNText style={[styles.secondaryStatValue, { color: theme.secondaryText }]}>
+                      {formatPower(activity.average_watts || activity.icu_average_watts!)}
+                    </RNText>
+                  </View>
+                )}
+                {activity.calories && (
+                  <View
+                    style={styles.secondaryStat}
+                    accessibilityLabel={`${t('activity.calories')}: ${formatCalories(activity.calories)} ${t('units.kcal')}`}
+                  >
+                    <MaterialCommunityIcons name="food-apple" size={14} color={colors.success} />
+                    <RNText style={[styles.secondaryStatValue, { color: theme.secondaryText }]}>
+                      {formatCalories(activity.calories)}
+                    </RNText>
+                  </View>
+                )}
+                {activity.has_weather && activity.average_weather_temp != null && (
+                  <View
+                    style={styles.secondaryStat}
+                    accessibilityLabel={`${t('activity.stats.temperature')}: ${formatTemperature(activity.average_weather_temp, isMetric)}`}
+                  >
+                    <MaterialCommunityIcons
+                      name="weather-partly-cloudy"
+                      size={14}
+                      color={colors.info}
+                    />
+                    <RNText style={[styles.secondaryStatValue, { color: theme.secondaryText }]}>
+                      {formatTemperature(activity.average_weather_temp, isMetric)}
+                    </RNText>
+                  </View>
+                )}
+              </Pressable>
+            </ScrollView>
+          </View>
         </View>
       </View>
 
@@ -263,101 +362,119 @@ export const ActivityCard = React.memo(function ActivityCard({
 
 const styles = StyleSheet.create({
   cardWrapper: {
-    marginHorizontal: layout.screenPadding,
-    marginBottom: spacing.md,
+    marginHorizontal: 12,
+    marginBottom: 12,
   },
   cardPressed: {
     transform: [{ scale: 0.98 }],
     opacity: 0.9,
   },
   card: {
-    borderRadius: spacing.md,
+    borderRadius: 12,
     backgroundColor: colors.surface,
     overflow: 'hidden',
-    // Platform-optimized shadows
     ...shadows.elevated,
   },
   cardDark: {
     backgroundColor: darkColors.surface,
-    // Dark mode: stronger shadow for contrast
+    borderWidth: 1,
+    borderColor: darkColors.border,
     ...shadows.modal,
-  },
-  accentBar: {
-    height: 2,
-    width: '100%',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: layout.cardPadding,
-    paddingBottom: spacing.sm,
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: layout.borderRadius,
-    justifyContent: 'center',
-    alignItems: 'center',
-    // Platform-optimized subtle shadow
-    ...shadows.button,
-  },
-  headerText: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  activityName: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    letterSpacing: -0.3,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  date: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  dateDark: {
-    color: darkColors.textSecondary,
   },
   mapContainer: {
     position: 'relative',
+    height: 240,
   },
-  statsOverlay: {
+  pressableOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
+  topOverlay: {
     position: 'absolute',
-    bottom: spacing.sm,
-    left: spacing.sm,
-    right: spacing.sm,
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 10,
+    paddingHorizontal: 12,
+    paddingBottom: 28,
+    zIndex: 2,
+  },
+  overlayHeader: {
     flexDirection: 'row',
-    gap: spacing.xs,
+    alignItems: 'center',
   },
-  statPill: {
-    backgroundColor: opacity.overlay.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadiusSm,
+  iconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  statValue: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '700',
-    color: colors.textOnDark,
+  overlayName: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '600',
     letterSpacing: -0.3,
+    marginLeft: spacing.sm,
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  secondaryStatsOuter: {
-    position: 'relative',
-    borderTopWidth: 1,
-    borderTopColor: opacity.overlay.light,
+  overlayDate: {
+    fontSize: typography.bodyCompact.fontSize,
+    fontWeight: '600',
+    marginLeft: spacing.sm,
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  secondaryStatsOuterDark: {
-    borderTopColor: opacity.overlayDark.medium,
+  bottomSection: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
+  },
+  primaryRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingTop: 20,
+    paddingBottom: 6,
+  },
+  primaryStats: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  primaryStatValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  statDot: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginHorizontal: 6,
+  },
+  overlayLocation: {
+    fontSize: typography.caption.fontSize,
+    marginLeft: spacing.sm,
+    flexShrink: 1,
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  dividerLine: {
+    height: 1,
+    marginHorizontal: 12,
+  },
+  secondaryScroll: {
+    paddingBottom: 8,
   },
   secondaryStats: {
     flexDirection: 'row',
-    paddingLeft: layout.cardPadding,
-    paddingRight: spacing.sm,
-    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    paddingHorizontal: 12,
     gap: 12,
   },
   secondaryStat: {
@@ -365,17 +482,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 3,
   },
-  secondaryStatIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   secondaryStatValue: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    fontSize: typography.caption.fontSize,
+    fontWeight: '600',
   },
   menuContent: {
     backgroundColor: colors.surface,
