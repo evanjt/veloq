@@ -771,7 +771,11 @@
     "heroMetric": "Hero Metric",
     "showSparkline": "Show Sparkline",
     "supportingMetrics": "Supporting Metrics",
-    "maxMetricsHint": "Maximum 4 metrics"
+    "maxMetricsHint": "Maximum 4 metrics",
+    "terrain3D": "3D Terrain",
+    "terrain3DHint": "Pre-rendered 3D terrain in feed cards",
+    "terrainCacheSize": "Cache: {{size}}",
+    "clearCache": "Clear"
   },
   "stats": {
     "activities": "Activities",

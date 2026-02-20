@@ -21,6 +21,8 @@ const STORAGE_KEY = 'veloq-map-preferences';
 const DEFAULT_PREFERENCES = {
   defaultStyle: 'light' as MapStyleType,
   activityTypeStyles: {},
+  terrain3DDefault: false,
+  terrain3DByType: {},
 };
 
 // Wrapper for testing hooks

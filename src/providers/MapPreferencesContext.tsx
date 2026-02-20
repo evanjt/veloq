@@ -4,6 +4,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   ReactNode,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,6 +18,8 @@ const STORAGE_KEY = 'veloq-map-preferences';
 export interface MapPreferences {
   defaultStyle: MapStyleType;
   activityTypeStyles: Partial<Record<ActivityType, MapStyleType>>;
+  terrain3DDefault: boolean;
+  terrain3DByType: Partial<Record<ActivityType, boolean>>;
 }
 
 interface MapPreferencesContextValue {
@@ -29,11 +32,16 @@ interface MapPreferencesContextValue {
     style: MapStyleType | null
   ) => Promise<void>;
   getStyleForActivity: (activityType: ActivityType) => MapStyleType;
+  setTerrain3D: (activityType: ActivityType | null, enabled: boolean) => Promise<void>;
+  isTerrain3DEnabled: (activityType: ActivityType) => boolean;
+  isAnyTerrain3DEnabled: boolean;
 }
 
 const DEFAULT_PREFERENCES: MapPreferences = {
   defaultStyle: 'light',
   activityTypeStyles: {},
+  terrain3DDefault: false,
+  terrain3DByType: {},
 };
 
 /** Valid map style values */
@@ -62,6 +70,23 @@ function isValidMapPreferences(value: unknown): value is MapPreferences {
     }
     for (const [key, val] of Object.entries(obj.activityTypeStyles)) {
       if (!isActivityType(key) || !VALID_MAP_STYLES.has(val as MapStyleType)) {
+        return false;
+      }
+    }
+  }
+
+  // Validate terrain3DDefault if present (optional, defaults to false)
+  if (obj.terrain3DDefault !== undefined && typeof obj.terrain3DDefault !== 'boolean') {
+    return false;
+  }
+
+  // Validate terrain3DByType if present (optional)
+  if (obj.terrain3DByType !== undefined) {
+    if (typeof obj.terrain3DByType !== 'object' || obj.terrain3DByType === null) {
+      return false;
+    }
+    for (const [key, val] of Object.entries(obj.terrain3DByType)) {
+      if (!isActivityType(key) || typeof val !== 'boolean') {
         return false;
       }
     }
@@ -168,6 +193,48 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     [preferences]
   );
 
+  // Set 3D terrain preference - null activityType sets the default
+  const setTerrain3D = useCallback(
+    async (activityType: ActivityType | null, enabled: boolean) => {
+      setPreferences((prev) => {
+        let newPrefs: MapPreferences;
+        if (activityType === null) {
+          newPrefs = { ...prev, terrain3DDefault: enabled };
+        } else {
+          const newByType = { ...prev.terrain3DByType };
+          if (enabled === prev.terrain3DDefault) {
+            // Remove override if it matches default
+            delete newByType[activityType];
+          } else {
+            newByType[activityType] = enabled;
+          }
+          newPrefs = { ...prev, terrain3DByType: newByType };
+        }
+        savePreferences(newPrefs).catch((error) => {
+          if (__DEV__) {
+            console.warn('[MapPreferences] Failed to persist:', error);
+          }
+        });
+        return newPrefs;
+      });
+    },
+    [savePreferences]
+  );
+
+  // Check if 3D terrain is enabled for a specific activity type
+  const isTerrain3DEnabled = useCallback(
+    (activityType: ActivityType): boolean => {
+      return preferences.terrain3DByType[activityType] ?? preferences.terrain3DDefault;
+    },
+    [preferences]
+  );
+
+  // Check if any activity type has 3D terrain enabled
+  const isAnyTerrain3DEnabled = useMemo(() => {
+    if (preferences.terrain3DDefault) return true;
+    return Object.values(preferences.terrain3DByType).some((v) => v === true);
+  }, [preferences.terrain3DDefault, preferences.terrain3DByType]);
+
   return (
     <MapPreferencesContext.Provider
       value={{
@@ -177,6 +244,9 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
         setActivityTypeStyle,
         setActivityGroupStyle,
         getStyleForActivity,
+        setTerrain3D,
+        isTerrain3DEnabled,
+        isAnyTerrain3DEnabled,
       }}
     >
       {children}

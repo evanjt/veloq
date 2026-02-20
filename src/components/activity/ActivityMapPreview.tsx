@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { View, Image, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 
 // Exported for compatibility but no longer used for scroll tracking
 export function notifyMapScroll(_visibleIndex: number) {
@@ -18,18 +18,47 @@ import { colors } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { getMapStyle } from '@/components/maps';
 import { useActivityStreams } from '@/hooks';
+import { hasTerrainPreview, getTerrainPreviewUri } from '@/lib/storage/terrainPreviewCache';
+import { calculateTerrainCamera } from '@/lib/utils/cameraAngle';
+import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
 import type { Activity } from '@/types';
 
 interface ActivityMapPreviewProps {
   activity: Activity;
   height?: number;
   index?: number;
+  /** Ref to the shared snapshot WebView for requesting 3D terrain previews */
+  snapshotRef?: React.RefObject<TerrainSnapshotWebViewRef | null>;
+  /** Incremented when a terrain snapshot completes, triggering re-check of cache */
+  terrainSnapshotVersion?: number;
 }
 
-export function ActivityMapPreview({ activity, height = 160, index = 0 }: ActivityMapPreviewProps) {
-  const { getStyleForActivity } = useMapPreferences();
+export function ActivityMapPreview({
+  activity,
+  height = 160,
+  index = 0,
+  snapshotRef,
+  terrainSnapshotVersion = 0,
+}: ActivityMapPreviewProps) {
+  const { getStyleForActivity, isTerrain3DEnabled } = useMapPreferences();
   const mapStyle = getStyleForActivity(activity.type);
   const activityColor = getActivityColor(activity.type);
+  const terrain3D = isTerrain3DEnabled(activity.type);
+
+  // Track whether we have a cached 3D terrain image
+  const [terrainImageUri, setTerrainImageUri] = useState<string | null>(() => {
+    if (terrain3D && hasTerrainPreview(activity.id)) {
+      return getTerrainPreviewUri(activity.id);
+    }
+    return null;
+  });
+
+  // Re-check cache when snapshot version changes (new snapshot completed)
+  useEffect(() => {
+    if (terrain3D && hasTerrainPreview(activity.id)) {
+      setTerrainImageUri(getTerrainPreviewUri(activity.id));
+    }
+  }, [terrain3D, activity.id, terrainSnapshotVersion]);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
 
@@ -185,6 +214,35 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
   const startPoint = validCoordinates[0];
   const endPoint = validCoordinates[validCoordinates.length - 1];
 
+  // Request 3D terrain snapshot when enabled and coordinates are available
+  useEffect(() => {
+    if (!terrain3D || !snapshotRef?.current || validCoordinates.length < 2) return;
+    if (hasTerrainPreview(activity.id)) {
+      setTerrainImageUri(getTerrainPreviewUri(activity.id));
+      return;
+    }
+
+    const lngLatCoords: [number, number][] = validCoordinates.map((c) => [c.longitude, c.latitude]);
+    const camera = calculateTerrainCamera(lngLatCoords, streams?.altitude);
+
+    console.log(`[ActivityMapPreview] Requesting 3D snapshot for ${activity.id}`);
+    snapshotRef.current.requestSnapshot({
+      activityId: activity.id,
+      coordinates: lngLatCoords,
+      camera,
+      mapStyle,
+      routeColor: activityColor,
+    });
+  }, [
+    terrain3D,
+    validCoordinates,
+    activity.id,
+    mapStyle,
+    activityColor,
+    snapshotRef,
+    streams?.altitude,
+  ]);
+
   // No GPS data available for this activity (stream_types doesn't include latlng)
   if (!hasGpsData) {
     return (
@@ -208,6 +266,15 @@ export function ActivityMapPreview({ activity, height = 160, index = 0 }: Activi
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
         <MaterialCommunityIcons name="map-marker-off" size={32} color={activityColor} />
+      </View>
+    );
+  }
+
+  // Show cached 3D terrain image when available
+  if (terrain3D && terrainImageUri) {
+    return (
+      <View style={[styles.container, { height }]}>
+        <Image source={{ uri: terrainImageUri }} style={styles.terrainImage} resizeMode="cover" />
       </View>
     );
   }
@@ -306,6 +373,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   map: {
+    flex: 1,
+  },
+  terrainImage: {
     flex: 1,
   },
   loadingOverlay: {

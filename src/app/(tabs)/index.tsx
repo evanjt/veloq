@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useInfiniteActivities, useTheme, useSummaryCardData } from '@/hooks';
 import type { Activity } from '@/types';
-import { useDashboardPreferences } from '@/providers';
+import { useDashboardPreferences, useMapPreferences } from '@/providers';
 import { ActivityCard, notifyMapScroll } from '@/components/activity';
 import {
   ActivityCardSkeleton,
@@ -29,6 +29,11 @@ import {
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
 import { SummaryCard } from '@/components/home';
+import {
+  TerrainSnapshotWebView,
+  type TerrainSnapshotWebViewRef,
+} from '@/components/maps/TerrainSnapshotWebView';
+import { initTerrainPreviewCache } from '@/lib/storage/terrainPreviewCache';
 import { useNetwork } from '@/providers';
 import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
 import { createSharedStyles } from '@/styles';
@@ -70,6 +75,22 @@ export default function FeedScreen() {
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
 
   const { isOnline } = useNetwork();
+
+  // 3D terrain snapshot WebView
+  const { isAnyTerrain3DEnabled } = useMapPreferences();
+  const snapshotRef = useRef<TerrainSnapshotWebViewRef | null>(null);
+  const [terrainSnapshotVersion, setTerrainSnapshotVersion] = useState(0);
+
+  // Initialize terrain preview cache on mount
+  useEffect(() => {
+    if (isAnyTerrain3DEnabled) {
+      initTerrainPreviewCache();
+    }
+  }, [isAnyTerrain3DEnabled]);
+
+  const handleSnapshotComplete = useCallback((_activityId: string, _uri: string) => {
+    setTerrainSnapshotVersion((v) => v + 1);
+  }, []);
 
   // Dashboard preferences for navigation
   const { summaryCard } = useDashboardPreferences();
@@ -158,9 +179,14 @@ export default function FeedScreen() {
 
   const renderActivity = useCallback(
     ({ item, index }: { item: Activity; index: number }) => (
-      <ActivityCard activity={item} index={index} />
+      <ActivityCard
+        activity={item}
+        index={index}
+        snapshotRef={snapshotRef}
+        terrainSnapshotVersion={terrainSnapshotVersion}
+      />
     ),
-    []
+    [terrainSnapshotVersion]
   );
 
   // Notify map previews when items become visible for lazy loading
@@ -387,6 +413,7 @@ export default function FeedScreen() {
         testID="home-activity-list"
         data={filteredActivities}
         renderItem={renderActivity}
+        extraData={terrainSnapshotVersion}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={renderListHeader}
         ListEmptyComponent={isError ? renderError : renderEmpty}
@@ -417,6 +444,11 @@ export default function FeedScreen() {
         onViewableItemsChanged={handleViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
       />
+
+      {/* Hidden WebView for generating 3D terrain snapshots */}
+      {isAnyTerrain3DEnabled && (
+        <TerrainSnapshotWebView ref={snapshotRef} onSnapshotComplete={handleSnapshotComplete} />
+      )}
     </ScreenSafeAreaView>
   );
 }

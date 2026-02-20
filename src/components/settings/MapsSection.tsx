@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 import { Text, SegmentedButtons } from 'react-native-paper';
 import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMapPreferences } from '@/providers';
 import { type MapStyleType } from '@/components/maps';
 import { MapStylePreviewPicker } from './MapStylePreviewPicker';
+import {
+  clearTerrainPreviews,
+  getTerrainPreviewCacheSize,
+} from '@/lib/storage/terrainPreviewCache';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import type { ActivityType } from '@/types';
 
@@ -63,6 +67,12 @@ const MAP_ACTIVITY_GROUPS: {
   },
 ];
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function MapsSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
@@ -71,7 +81,16 @@ export function MapsSection() {
     preferences: mapPreferences,
     setDefaultStyle,
     setActivityGroupStyle,
+    setTerrain3D,
+    isTerrain3DEnabled,
   } = useMapPreferences();
+
+  // Terrain cache stats
+  const [terrainCacheSize, setTerrainCacheSize] = useState(0);
+
+  useEffect(() => {
+    getTerrainPreviewCacheSize().then(setTerrainCacheSize);
+  }, [mapPreferences.terrain3DDefault]);
 
   const handleDefaultMapStyleChange = async (value: string) => {
     const style = value as MapStyleType;
@@ -84,6 +103,15 @@ export function MapsSection() {
 
     const style = value === 'default' ? null : (value as MapStyleType);
     await setActivityGroupStyle(group.types, style);
+  };
+
+  const handleTerrain3DDefaultToggle = async (enabled: boolean) => {
+    await setTerrain3D(null, enabled);
+  };
+
+  const handleClearTerrainCache = async () => {
+    await clearTerrainPreviews();
+    setTerrainCacheSize(0);
   };
 
   return (
@@ -101,6 +129,46 @@ export function MapsSection() {
           value={mapPreferences.defaultStyle}
           onValueChange={handleDefaultMapStyleChange}
         />
+
+        {/* 3D Terrain toggle */}
+        <View style={[styles.actionRow, styles.actionRowBorder]}>
+          <MaterialCommunityIcons name="image-filter-hdr" size={22} color={colors.primary} />
+          <View style={styles.terrain3DTextContainer}>
+            <Text style={[styles.actionText, isDark && styles.textLight]}>
+              {t('settings.terrain3D', { defaultValue: '3D Terrain' })}
+            </Text>
+            <Text style={[styles.terrain3DHint, isDark && styles.textMuted]}>
+              {t('settings.terrain3DHint', {
+                defaultValue: 'Pre-rendered 3D terrain in feed cards',
+              })}
+            </Text>
+          </View>
+          <Switch
+            value={mapPreferences.terrain3DDefault}
+            onValueChange={handleTerrain3DDefaultToggle}
+            trackColor={{ false: isDark ? darkColors.border : colors.border, true: colors.primary }}
+            thumbColor={colors.surface}
+          />
+        </View>
+
+        {/* Terrain cache info */}
+        {mapPreferences.terrain3DDefault && terrainCacheSize > 0 && (
+          <TouchableOpacity
+            style={[styles.actionRow, { paddingTop: 0 }]}
+            onPress={handleClearTerrainCache}
+          >
+            <View style={{ width: 22 }} />
+            <Text style={[styles.terrain3DHint, isDark && styles.textMuted, { flex: 1 }]}>
+              {t('settings.terrainCacheSize', {
+                defaultValue: 'Cache: {{size}}',
+                size: formatBytes(terrainCacheSize),
+              })}
+            </Text>
+            <Text style={[styles.clearCacheText]}>
+              {t('settings.clearCache', { defaultValue: 'Clear' })}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Per-activity-type styles toggle */}
         <TouchableOpacity
@@ -124,11 +192,29 @@ export function MapsSection() {
             {MAP_ACTIVITY_GROUPS.map(({ key, labelKey, types }) => {
               // Use the first type in the group to determine current style
               const currentStyle = mapPreferences.activityTypeStyles[types[0]] ?? 'default';
+              const terrain3DForGroup = isTerrain3DEnabled(types[0]);
               return (
                 <View key={key} style={styles.activityStyleRow}>
-                  <Text style={[styles.activityStyleLabel, isDark && styles.textLight]}>
-                    {t(labelKey)}
-                  </Text>
+                  <View style={styles.activityStyleHeader}>
+                    <Text style={[styles.activityStyleLabel, isDark && styles.textLight]}>
+                      {t(labelKey)}
+                    </Text>
+                    <View style={styles.terrain3DGroupToggle}>
+                      <Text style={[styles.terrain3DGroupLabel, isDark && styles.textMuted]}>
+                        3D
+                      </Text>
+                      <Switch
+                        value={terrain3DForGroup}
+                        onValueChange={(enabled) => setTerrain3D(types[0], enabled)}
+                        trackColor={{
+                          false: isDark ? darkColors.border : colors.border,
+                          true: colors.primary,
+                        }}
+                        thumbColor={colors.surface}
+                        style={styles.terrain3DGroupSwitch}
+                      />
+                    </View>
+                  </View>
                   <SegmentedButtons
                     value={currentStyle}
                     onValueChange={(value) => handleActivityGroupMapStyleChange(key, value)}
@@ -199,6 +285,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textPrimary,
   },
+  terrain3DTextContainer: {
+    flex: 1,
+  },
+  terrain3DHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  clearCacheText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '500',
+  },
   activityStylesContainer: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
@@ -206,11 +305,16 @@ const styles = StyleSheet.create({
   activityStyleRow: {
     marginTop: spacing.md,
   },
+  activityStyleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
   activityStyleLabel: {
     fontSize: 14,
     fontWeight: '500',
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
   },
   activityStylePicker: {
     // Handled by React Native Paper
@@ -220,6 +324,19 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.md,
     fontStyle: 'italic',
+  },
+  terrain3DGroupToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  terrain3DGroupLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  terrain3DGroupSwitch: {
+    transform: [{ scaleX: 0.7 }, { scaleY: 0.7 }],
   },
   textLight: {
     color: colors.textOnDark,

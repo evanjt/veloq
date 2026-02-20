@@ -34,6 +34,7 @@ import { CHART_CONFIG } from '@/constants';
 import { useMapPreferences } from '@/providers';
 import { ActivityMapPreview } from './ActivityMapPreview';
 import { SkylineBar } from './SkylineBar';
+import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
 
 function formatLocation(activity: Activity): string | null {
   if (!activity.locality) return null;
@@ -46,6 +47,10 @@ function formatLocation(activity: Activity): string | null {
 interface ActivityCardProps {
   activity: Activity;
   index?: number;
+  /** Ref to the shared snapshot WebView for 3D terrain previews */
+  snapshotRef?: React.RefObject<TerrainSnapshotWebViewRef | null>;
+  /** Incremented when a terrain snapshot completes */
+  terrainSnapshotVersion?: number;
 }
 
 // White text theme (used on any dark/satellite map, or dark theme + light map)
@@ -105,6 +110,8 @@ function getGradientTheme(isDark: boolean, mapStyle: string) {
 export const ActivityCard = React.memo(function ActivityCard({
   activity,
   index,
+  snapshotRef,
+  terrainSnapshotVersion,
 }: ActivityCardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -170,7 +177,13 @@ export const ActivityCard = React.memo(function ActivityCard({
     <View style={styles.cardWrapper}>
       <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
         <View style={styles.mapContainer}>
-          <ActivityMapPreview activity={activity} height={240} index={index} />
+          <ActivityMapPreview
+            activity={activity}
+            height={240}
+            index={index}
+            snapshotRef={snapshotRef}
+            terrainSnapshotVersion={terrainSnapshotVersion}
+          />
 
           {/* Pressable overlay for tap/long-press */}
           <Pressable
