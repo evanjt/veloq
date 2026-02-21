@@ -34,6 +34,7 @@ import {
   type TerrainSnapshotWebViewRef,
 } from '@/components/maps/TerrainSnapshotWebView';
 import { initTerrainPreviewCache } from '@/lib/storage/terrainPreviewCache';
+import { initCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { useNetwork } from '@/providers';
 import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
 import { createSharedStyles } from '@/styles';
@@ -79,18 +80,14 @@ export default function FeedScreen() {
   // 3D terrain snapshot WebView
   const { isAnyTerrain3DEnabled } = useMapPreferences();
   const snapshotRef = useRef<TerrainSnapshotWebViewRef | null>(null);
-  const [terrainSnapshotVersion, setTerrainSnapshotVersion] = useState(0);
 
-  // Initialize terrain preview cache on mount
+  // Initialize terrain preview cache and camera overrides on mount
   useEffect(() => {
     if (isAnyTerrain3DEnabled) {
       initTerrainPreviewCache();
+      initCameraOverrides();
     }
   }, [isAnyTerrain3DEnabled]);
-
-  const handleSnapshotComplete = useCallback((_activityId: string, _uri: string) => {
-    setTerrainSnapshotVersion((v) => v + 1);
-  }, []);
 
   // Dashboard preferences for navigation
   const { summaryCard } = useDashboardPreferences();
@@ -179,14 +176,9 @@ export default function FeedScreen() {
 
   const renderActivity = useCallback(
     ({ item, index }: { item: Activity; index: number }) => (
-      <ActivityCard
-        activity={item}
-        index={index}
-        snapshotRef={snapshotRef}
-        terrainSnapshotVersion={terrainSnapshotVersion}
-      />
+      <ActivityCard activity={item} index={index} snapshotRef={snapshotRef} />
     ),
-    [terrainSnapshotVersion]
+    []
   );
 
   // Notify map previews when items become visible for lazy loading
@@ -413,7 +405,6 @@ export default function FeedScreen() {
         testID="home-activity-list"
         data={filteredActivities}
         renderItem={renderActivity}
-        extraData={terrainSnapshotVersion}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={renderListHeader}
         ListEmptyComponent={isError ? renderError : renderEmpty}
@@ -446,9 +437,7 @@ export default function FeedScreen() {
       />
 
       {/* Hidden WebView for generating 3D terrain snapshots */}
-      {isAnyTerrain3DEnabled && (
-        <TerrainSnapshotWebView ref={snapshotRef} onSnapshotComplete={handleSnapshotComplete} />
-      )}
+      {isAnyTerrain3DEnabled && <TerrainSnapshotWebView ref={snapshotRef} />}
     </ScreenSafeAreaView>
   );
 }

@@ -299,6 +299,20 @@ interface ActivityMapViewProps {
   sectionOverlays?: SectionOverlay[] | null;
   /** Section ID to highlight (dims other sections when set) */
   highlightedSectionId?: string | null;
+  /** Called when user exits 3D mode with a custom camera position */
+  onCameraCapture?: (camera: {
+    center: [number, number];
+    zoom: number;
+    bearing: number;
+    pitch: number;
+  }) => void;
+  /** Saved camera override for 3D mode — restores a previously captured angle */
+  initial3DCamera?: {
+    center: [number, number];
+    zoom: number;
+    bearing: number;
+    pitch: number;
+  } | null;
 }
 
 export const ActivityMapView = memo(function ActivityMapView({
@@ -323,17 +337,28 @@ export const ActivityMapView = memo(function ActivityMapView({
   routeOverlay,
   sectionOverlays,
   highlightedSectionId,
+  onCameraCapture,
+  initial3DCamera,
 }: ActivityMapViewProps) {
   const { t } = useTranslation();
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType);
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [is3DMode, setIs3DMode] = useState(false);
+  const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);
   const [is3DReady, setIs3DReady] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const map3DOpacity = useRef(new Animated.Value(0)).current;
+
+  // Track the latest 3D camera state for capture on exit
+  const camera3DRef = useRef<{
+    center: [number, number];
+    zoom: number;
+    bearing: number;
+    pitch: number;
+  } | null>(null);
+  const prev3DModeRef = useRef(false);
 
   // Track if user manually overrode the style
   const [userOverride, setUserOverride] = useState(false);
@@ -501,9 +526,14 @@ export const ActivityMapView = memo(function ActivityMapView({
   }, []);
 
   // Notify parent when 3D mode changes (outside of render cycle)
+  // Also fire onCameraCapture when exiting 3D mode with a saved camera
   useEffect(() => {
+    if (prev3DModeRef.current && !is3DMode && camera3DRef.current) {
+      onCameraCapture?.(camera3DRef.current);
+    }
+    prev3DModeRef.current = is3DMode;
     on3DModeChange?.(is3DMode);
-  }, [is3DMode, on3DModeChange]);
+  }, [is3DMode, on3DModeChange, onCameraCapture]);
 
   // Notify parent when map style changes (for external attribution display)
   useEffect(() => {
@@ -517,6 +547,14 @@ export const ActivityMapView = memo(function ActivityMapView({
       map3DOpacity.setValue(0);
     }
   }, [is3DMode, map3DOpacity]);
+
+  // Track 3D camera state for capture on exit
+  const handleCameraStateChange = useCallback(
+    (camera: { center: [number, number]; zoom: number; bearing: number; pitch: number }) => {
+      camera3DRef.current = camera;
+    },
+    []
+  );
 
   // Handle 3D map ready
   const handleMap3DReady = useCallback(() => {
@@ -1419,6 +1457,8 @@ export const ActivityMapView = memo(function ActivityMapView({
               routeColor={activityColor}
               onMapReady={handleMap3DReady}
               onBearingChange={handleBearingChange}
+              onCameraStateChange={handleCameraStateChange}
+              initialCamera={initial3DCamera}
             />
           </Animated.View>
         )}

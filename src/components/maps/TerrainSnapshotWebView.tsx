@@ -14,8 +14,10 @@ import { getCombinedSatelliteStyle } from './mapStyles';
 import { DARK_MATTER_STYLE } from './darkMatterStyle';
 import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import { saveTerrainPreview, hasTerrainPreview } from '@/lib/storage/terrainPreviewCache';
+import { emitSnapshotComplete } from '@/lib/events/terrainSnapshotEvents';
 
 const SNAPSHOT_TIMEOUT_MS = 20000;
+const MAX_QUEUE_SIZE = 30;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface SnapshotRequest {
@@ -30,13 +32,8 @@ export interface TerrainSnapshotWebViewRef {
   requestSnapshot: (request: SnapshotRequest) => void;
 }
 
-interface Props {
-  /** Called when a snapshot is saved for an activity */
-  onSnapshotComplete?: (activityId: string, uri: string) => void;
-}
-
-export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, Props>(
-  function TerrainSnapshotWebView({ onSnapshotComplete }, ref) {
+export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, object>(
+  function TerrainSnapshotWebView(_props, ref) {
     const webViewRef = useRef<WebView>(null);
     const queueRef = useRef<SnapshotRequest[]>([]);
     const processingRef = useRef(false);
@@ -50,8 +47,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, Prop
 
       const request = queueRef.current.shift()!;
 
-      // Skip if already cached
-      if (hasTerrainPreview(request.activityId)) {
+      // Skip if already cached for this style
+      if (hasTerrainPreview(request.activityId, request.mapStyle)) {
         processNext();
         return;
       }
@@ -74,7 +71,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, Prop
       const coordsJSON = JSON.stringify(request.coordinates);
       const cameraJSON = JSON.stringify(request.camera);
 
-      // Inject render command using polling (proven pattern from Map3DWebView)
+      // Inject render command — adds terrain first, waits for tiles, then adds
+      // route ON TOP of loaded terrain to ensure draping, captures on 'idle'.
       webViewRef.current?.injectJavaScript(`
         (function() {
           try {
@@ -86,14 +84,16 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, Prop
             var styleObj = ${styleConfig};
             var activityId = '${request.activityId}';
 
-            window._rn_log('Setting style for ' + activityId);
+            window._rn_log('Snapshot ' + activityId + ': ' + coords.length + ' coords, style=' + (isSatellite ? 'satellite' : isDark ? 'dark' : 'light'));
 
             // Remove existing layers/sources
             try {
+              if (window.map.getLayer('start-end-fill')) window.map.removeLayer('start-end-fill');
+              if (window.map.getLayer('start-end-border')) window.map.removeLayer('start-end-border');
+              if (window.map.getSource('start-end-markers')) window.map.removeSource('start-end-markers');
               if (window.map.getLayer('route-line')) window.map.removeLayer('route-line');
               if (window.map.getLayer('route-outline')) window.map.removeLayer('route-outline');
               if (window.map.getSource('route')) window.map.removeSource('route');
-              if (window.map.getLayer('sky')) window.map.removeLayer('sky');
               if (window.map.getLayer('hillshading')) window.map.removeLayer('hillshading');
               if (window.map.getSource('terrain')) {
                 window.map.setTerrain(null);
@@ -106,9 +106,9 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, Prop
             // Set new style
             window.map.setStyle(styleObj);
 
-            // Poll for style to be loaded (reliable, avoids style.load race condition)
+            // Poll for style to be loaded
             var styleRetries = 0;
-            var maxStyleRetries = 50; // 50 * 200ms = 10s max
+            var maxStyleRetries = 50;
 
             function waitForStyle() {
               styleRetries++;
@@ -139,17 +139,6 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, Prop
                 });
                 window.map.setTerrain({ source: 'terrain', exaggeration: 1.5 });
 
-                // Sky layer
-                window.map.addLayer({
-                  id: 'sky',
-                  type: 'sky',
-                  paint: {
-                    'sky-type': 'atmosphere',
-                    'sky-atmosphere-sun': [0.0, 90.0],
-                    'sky-atmosphere-sun-intensity': 15,
-                  },
-                });
-
                 // Hillshade (non-satellite only)
                 if (!isSatellite) {
                   try {
@@ -179,33 +168,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, Prop
                   }
                 }
 
-                // Add route
-                if (coords.length > 0) {
-                  window.map.addSource('route', {
-                    type: 'geojson',
-                    data: {
-                      type: 'Feature',
-                      properties: {},
-                      geometry: { type: 'LineString', coordinates: coords },
-                    },
-                  });
-                  window.map.addLayer({
-                    id: 'route-outline',
-                    type: 'line',
-                    source: 'route',
-                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: { 'line-color': '#FFFFFF', 'line-width': 6, 'line-opacity': 0.8 },
-                  });
-                  window.map.addLayer({
-                    id: 'route-line',
-                    type: 'line',
-                    source: 'route',
-                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: { 'line-color': routeColor, 'line-width': 4 },
-                  });
-                }
-
-                // Move camera
+                // Move camera BEFORE loading terrain tiles
                 window.map.jumpTo({
                   center: camera.center,
                   zoom: camera.zoom,
@@ -213,30 +176,116 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, Prop
                   pitch: camera.pitch,
                 });
 
-                window._rn_log('Layers added, waiting for tiles...');
+                window._rn_log('Terrain + camera set, waiting for tiles...');
 
-                // Poll for all tiles to load, then capture
+                // Wait for terrain tiles to load FIRST
                 var tileRetries = 0;
-                var maxTileRetries = 40; // 40 * 250ms = 10s max
+                var maxTileRetries = 40;
 
                 function waitForTiles() {
                   tileRetries++;
                   if (window.map.loaded() && window.map.areTilesLoaded()) {
-                    window._rn_log('Tiles loaded after ' + tileRetries + ' polls, capturing...');
-                    // Small delay for final render
-                    setTimeout(captureSnapshot, 100);
+                    window._rn_log('Tiles loaded after ' + tileRetries + ' polls, adding route...');
+                    addRouteAndCapture();
                   } else if (tileRetries >= maxTileRetries) {
-                    window._rn_log('Tiles timeout, capturing anyway...');
-                    captureSnapshot();
+                    window._rn_log('Tiles timeout, adding route anyway...');
+                    addRouteAndCapture();
                   } else {
                     setTimeout(waitForTiles, 250);
+                  }
+                }
+
+                // Add route ON TOP of fully-loaded terrain, then capture on idle
+                function addRouteAndCapture() {
+                  try {
+                    if (coords.length > 0) {
+                      window.map.addSource('route', {
+                        type: 'geojson',
+                        data: {
+                          type: 'Feature',
+                          properties: {},
+                          geometry: { type: 'LineString', coordinates: coords },
+                        },
+                      });
+                      window.map.addLayer({
+                        id: 'route-outline',
+                        type: 'line',
+                        source: 'route',
+                        layout: { 'line-join': 'round', 'line-cap': 'round' },
+                        paint: { 'line-color': '#FFFFFF', 'line-width': 10, 'line-opacity': 0.85 },
+                      });
+                      window.map.addLayer({
+                        id: 'route-line',
+                        type: 'line',
+                        source: 'route',
+                        layout: { 'line-join': 'round', 'line-cap': 'round' },
+                        paint: { 'line-color': routeColor, 'line-width': 6 },
+                      });
+
+                      // Start/end circle markers
+                      var startPt = coords[0];
+                      var endPt = coords[coords.length - 1];
+                      window.map.addSource('start-end-markers', {
+                        type: 'geojson',
+                        data: {
+                          type: 'FeatureCollection',
+                          features: [
+                            { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: startPt } },
+                            { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: endPt } },
+                          ],
+                        },
+                      });
+                      window.map.addLayer({
+                        id: 'start-end-border',
+                        type: 'circle',
+                        source: 'start-end-markers',
+                        paint: { 'circle-radius': 8, 'circle-color': '#FFFFFF' },
+                      });
+                      window.map.addLayer({
+                        id: 'start-end-fill',
+                        type: 'circle',
+                        source: 'start-end-markers',
+                        paint: {
+                          'circle-radius': 6,
+                          'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.85)', 'rgba(239,68,68,0.85)'],
+                        },
+                      });
+                      window._rn_log('Route layers + markers added (' + coords.length + ' pts)');
+                    } else {
+                      window._rn_log('WARNING: No coordinates for route!');
+                    }
+
+                    // Use idle event for reliable capture — fires after all rendering is done
+                    var idleFired = false;
+                    window.map.once('idle', function() {
+                      if (idleFired) return;
+                      idleFired = true;
+                      window._rn_log('Map idle, capturing...');
+                      // Extra frame to ensure GPU has painted the route
+                      requestAnimationFrame(function() {
+                        setTimeout(captureSnapshot, 50);
+                      });
+                    });
+
+                    // Fallback if idle never fires (shouldn't happen but safety net)
+                    setTimeout(function() {
+                      if (!idleFired) {
+                        idleFired = true;
+                        window._rn_log('Idle timeout fallback, capturing...');
+                        captureSnapshot();
+                      }
+                    }, 3000);
+
+                  } catch(e) {
+                    window._rn_log('addRouteAndCapture error: ' + e.message);
+                    captureSnapshot();
                   }
                 }
 
                 function captureSnapshot() {
                   try {
                     var canvas = window.map.getCanvas();
-                    var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    var dataUrl = canvas.toDataURL('image/jpeg', 0.92);
                     var base64 = dataUrl.split(',')[1];
                     window._rn_log('Captured ' + activityId + ' (' + Math.round(base64.length / 1024) + 'KB)');
                     window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -310,15 +359,16 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, Prop
             processNext();
           } else if (data.type === 'snapshot' && data.activityId && data.base64) {
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
+            const style = currentRequestRef.current?.mapStyle ?? 'light';
             processingRef.current = false;
             currentRequestRef.current = null;
 
             console.log(
               `[TerrainSnapshot] Captured ${data.activityId} (${Math.round(data.base64.length / 1024)}KB base64)`
             );
-            const uri = await saveTerrainPreview(data.activityId, data.base64);
+            const uri = await saveTerrainPreview(data.activityId, style, data.base64);
             console.log(`[TerrainSnapshot] Saved ${data.activityId} → ${uri}`);
-            onSnapshotComplete?.(data.activityId, uri);
+            emitSnapshotComplete(data.activityId, uri);
             processNext();
           } else if (data.type === 'snapshotError') {
             console.warn(`[TerrainSnapshot] Error for ${data.activityId}: ${data.error}`);
@@ -331,17 +381,26 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, Prop
           // Ignore parse errors
         }
       },
-      [onSnapshotComplete, processNext]
+      [processNext]
     );
 
     useImperativeHandle(
       ref,
       () => ({
         requestSnapshot: (request: SnapshotRequest) => {
-          // Deduplicate: skip if already cached or already in queue
-          if (hasTerrainPreview(request.activityId)) return;
-          if (queueRef.current.some((r) => r.activityId === request.activityId)) return;
+          // Deduplicate: skip if already cached for this style, or already queued
+          if (hasTerrainPreview(request.activityId, request.mapStyle)) return;
+          if (
+            queueRef.current.some(
+              (r) => r.activityId === request.activityId && r.mapStyle === request.mapStyle
+            )
+          )
+            return;
 
+          // Drop oldest if queue is full
+          if (queueRef.current.length >= MAX_QUEUE_SIZE) {
+            queueRef.current.shift();
+          }
           queueRef.current.push(request);
           processNext();
         },
@@ -388,6 +447,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, Prop
       pitch: 60,
       attributionControl: false,
       preserveDrawingBuffer: true,
+      antialias: true,
     });
 
     window.map.on('load', function() {
@@ -417,6 +477,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, Prop
           startInLoadingState={false}
           originWhitelist={['*']}
           mixedContentMode="always"
+          androidLayerType="hardware"
           onMessage={handleMessage}
         />
       </View>

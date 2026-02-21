@@ -181,6 +181,8 @@ export interface TranslationResource {
     hideDetails: string;
     reset: string;
     activities: string;
+    syncing: string;
+    undo: string;
   };
 
   navigation: {
@@ -885,6 +887,9 @@ export interface TranslationResource {
     noIntervals: string;
     intervalWork: string;
     intervalRecovery: string;
+    chartDisplayOptions: string;
+    fullscreenChart: string;
+    feedPreviewUpdated: string;
   };
 
   routeDetail: {

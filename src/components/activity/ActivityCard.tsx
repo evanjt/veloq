@@ -49,8 +49,6 @@ interface ActivityCardProps {
   index?: number;
   /** Ref to the shared snapshot WebView for 3D terrain previews */
   snapshotRef?: React.RefObject<TerrainSnapshotWebViewRef | null>;
-  /** Incremented when a terrain snapshot completes */
-  terrainSnapshotVersion?: number;
 }
 
 // White text theme (used on any dark/satellite map, or dark theme + light map)
@@ -111,7 +109,6 @@ export const ActivityCard = React.memo(function ActivityCard({
   activity,
   index,
   snapshotRef,
-  terrainSnapshotVersion,
 }: ActivityCardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -182,7 +179,6 @@ export const ActivityCard = React.memo(function ActivityCard({
             height={240}
             index={index}
             snapshotRef={snapshotRef}
-            terrainSnapshotVersion={terrainSnapshotVersion}
           />
 
           {/* Pressable overlay for tap/long-press */}

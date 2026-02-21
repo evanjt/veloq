@@ -138,6 +138,7 @@
     "noIntervals": "インターバルが検出されませんでした",
     "intervalWork": "ワーク",
     "intervalRecovery": "リカバリー",
+    "feedPreviewUpdated": "フィードプレビューを更新しました",
     "tabs": {
       "charts": "チャート",
       "intervals": "インターバル",
@@ -251,7 +252,8 @@
     "hide": "非表示",
     "hideDetails": "詳細を非表示",
     "show": "表示",
-    "showDetails": "開発者向け詳細を表示"
+    "showDetails": "開発者向け詳細を表示",
+    "undo": "元に戻す"
   },
   "demo": {
     "banner": "デモモード",

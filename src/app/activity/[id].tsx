@@ -14,7 +14,7 @@ import {
   Animated,
   Platform,
 } from 'react-native';
-import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
+import { Text, IconButton, ActivityIndicator, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
@@ -93,6 +93,12 @@ import {
 import { colors, darkColors, spacing, typography, layout, opacity } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { DeviceAttribution, ComponentErrorBoundary } from '@/components/ui';
+import {
+  setCameraOverride,
+  getCameraOverride,
+  deleteCameraOverride,
+} from '@/lib/storage/terrainCameraOverrides';
+import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import type { ChartTypeId } from '@/lib';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -175,6 +181,9 @@ export default function ActivityDetailScreen() {
   const [chartMetrics, setChartMetrics] = useState<ChartMetricValue[]>([]);
   // Intervals collapsible section
   const [intervalsExpanded, setIntervalsExpanded] = useState(false);
+
+  // Snackbar for 3D camera override feedback
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   // Section creation mode
   const [sectionCreationMode, setSectionCreationMode] = useState(false);
@@ -655,6 +664,31 @@ export default function ActivityDetailScreen() {
     setIs3DMapActive(is3D);
   }, []);
 
+  // Save custom camera angle when user exits 3D mode
+  const handleCameraCapture = useCallback(
+    (camera: TerrainCamera) => {
+      if (activity?.id) {
+        setCameraOverride(activity.id, camera);
+        setSnackbarVisible(true);
+      }
+    },
+    [activity?.id]
+  );
+
+  // Undo camera override (revert to auto-calculated angle)
+  const handleUndoCameraOverride = useCallback(() => {
+    if (activity?.id) {
+      deleteCameraOverride(activity.id);
+    }
+    setSnackbarVisible(false);
+  }, [activity?.id]);
+
+  // Restore saved 3D camera angle if available
+  const saved3DCamera = useMemo(
+    () => (activity?.id ? (getCameraOverride(activity.id) ?? null) : null),
+    [activity?.id]
+  );
+
   // Handle chart metrics updates (avg values or scrub position values)
   const handleMetricsChange = useCallback((metrics: ChartMetricValue[]) => {
     setChartMetrics(metrics);
@@ -866,6 +900,8 @@ export default function ActivityDetailScreen() {
               highlightIndex={highlightIndex}
               enableFullscreen={!sectionCreationMode}
               on3DModeChange={handle3DModeChange}
+              onCameraCapture={handleCameraCapture}
+              initial3DCamera={saved3DCamera}
               creationMode={sectionCreationMode}
               creationState={sectionCreationState}
               creationError={sectionCreationError}
@@ -1267,6 +1303,16 @@ export default function ActivityDetailScreen() {
           />
         </View>
       </SwipeableTabs>
+
+      {/* Snackbar: 3D camera override saved */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={4000}
+        action={{ label: t('common.undo'), onPress: handleUndoCameraOverride }}
+      >
+        {t('activityDetail.feedPreviewUpdated')}
+      </Snackbar>
 
       {/* Fullscreen Chart Modal - Landscape */}
       <Modal

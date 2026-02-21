@@ -138,6 +138,7 @@
     "intervalRecovery": "Recovery",
     "chartDisplayOptions": "Chart display options",
     "fullscreenChart": "Fullscreen chart",
+    "feedPreviewUpdated": "Feed preview updated",
     "tabs": {
       "charts": "Charts",
       "intervals": "Intervals",
@@ -251,7 +252,8 @@
     "search": "Search",
     "show": "Show",
     "showDetails": "Show details for developer",
-    "syncing": "Syncing..."
+    "syncing": "Syncing...",
+    "undo": "Undo"
   },
   "demo": {
     "banner": "Demo Mode",

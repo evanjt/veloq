@@ -138,6 +138,7 @@
     "noIntervals": "Nie wykryto interwałów",
     "intervalWork": "Praca",
     "intervalRecovery": "Odpoczynek",
+    "feedPreviewUpdated": "Podgląd kanału zaktualizowany",
     "tabs": {
       "charts": "Wykresy",
       "intervals": "Interwały",
@@ -251,7 +252,8 @@
     "hide": "Ukryj",
     "hideDetails": "Ukryj szczegóły",
     "show": "Pokaż",
-    "showDetails": "Pokaż szczegóły dla dewelopera"
+    "showDetails": "Pokaż szczegóły dla dewelopera",
+    "undo": "Cofnij"
   },
   "demo": {
     "banner": "Tryb demo",

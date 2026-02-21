@@ -17,8 +17,11 @@ import { convertLatLngTuples, getActivityColor, getMapLibreBounds } from '@/lib'
 import { colors } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { getMapStyle } from '@/components/maps';
+import { StaticCompassArrow } from '@/components/ui';
 import { useActivityStreams } from '@/hooks';
 import { hasTerrainPreview, getTerrainPreviewUri } from '@/lib/storage/terrainPreviewCache';
+import { getCameraOverride } from '@/lib/storage/terrainCameraOverrides';
+import { subscribeSnapshot } from '@/lib/events/terrainSnapshotEvents';
 import { calculateTerrainCamera } from '@/lib/utils/cameraAngle';
 import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
 import type { Activity } from '@/types';
@@ -29,8 +32,6 @@ interface ActivityMapPreviewProps {
   index?: number;
   /** Ref to the shared snapshot WebView for requesting 3D terrain previews */
   snapshotRef?: React.RefObject<TerrainSnapshotWebViewRef | null>;
-  /** Incremented when a terrain snapshot completes, triggering re-check of cache */
-  terrainSnapshotVersion?: number;
 }
 
 export function ActivityMapPreview({
@@ -38,7 +39,6 @@ export function ActivityMapPreview({
   height = 160,
   index = 0,
   snapshotRef,
-  terrainSnapshotVersion = 0,
 }: ActivityMapPreviewProps) {
   const { getStyleForActivity, isTerrain3DEnabled } = useMapPreferences();
   const mapStyle = getStyleForActivity(activity.type);
@@ -47,18 +47,19 @@ export function ActivityMapPreview({
 
   // Track whether we have a cached 3D terrain image
   const [terrainImageUri, setTerrainImageUri] = useState<string | null>(() => {
-    if (terrain3D && hasTerrainPreview(activity.id)) {
-      return getTerrainPreviewUri(activity.id);
+    if (terrain3D && hasTerrainPreview(activity.id, mapStyle)) {
+      return getTerrainPreviewUri(activity.id, mapStyle);
     }
     return null;
   });
 
-  // Re-check cache when snapshot version changes (new snapshot completed)
+  // Subscribe to snapshot completion events for this activity
   useEffect(() => {
-    if (terrain3D && hasTerrainPreview(activity.id)) {
-      setTerrainImageUri(getTerrainPreviewUri(activity.id));
-    }
-  }, [terrain3D, activity.id, terrainSnapshotVersion]);
+    if (!terrain3D) return;
+    return subscribeSnapshot(activity.id, (uri) => {
+      setTerrainImageUri(uri);
+    });
+  }, [terrain3D, activity.id]);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
 
@@ -214,33 +215,42 @@ export function ActivityMapPreview({
   const startPoint = validCoordinates[0];
   const endPoint = validCoordinates[validCoordinates.length - 1];
 
+  // Memoize terrain camera: use user override if saved, else auto-calculate
+  const terrainCamera = useMemo(() => {
+    if (!terrain3D || validCoordinates.length < 2) return null;
+    const override = getCameraOverride(activity.id);
+    if (override) return override;
+    const lngLatCoords: [number, number][] = validCoordinates.map((c) => [c.longitude, c.latitude]);
+    return calculateTerrainCamera(lngLatCoords, streams?.altitude);
+  }, [terrain3D, validCoordinates, streams?.altitude, activity.id]);
+
   // Request 3D terrain snapshot when enabled and coordinates are available
+  // Only cards within the first N positions request snapshots to limit queue pressure
   useEffect(() => {
-    if (!terrain3D || !snapshotRef?.current || validCoordinates.length < 2) return;
-    if (hasTerrainPreview(activity.id)) {
-      setTerrainImageUri(getTerrainPreviewUri(activity.id));
+    if (!terrain3D || !snapshotRef?.current || !terrainCamera) return;
+    if (hasTerrainPreview(activity.id, mapStyle)) {
+      setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle));
       return;
     }
 
     const lngLatCoords: [number, number][] = validCoordinates.map((c) => [c.longitude, c.latitude]);
-    const camera = calculateTerrainCamera(lngLatCoords, streams?.altitude);
 
     console.log(`[ActivityMapPreview] Requesting 3D snapshot for ${activity.id}`);
     snapshotRef.current.requestSnapshot({
       activityId: activity.id,
       coordinates: lngLatCoords,
-      camera,
+      camera: terrainCamera,
       mapStyle,
       routeColor: activityColor,
     });
   }, [
     terrain3D,
+    terrainCamera,
     validCoordinates,
     activity.id,
     mapStyle,
     activityColor,
     snapshotRef,
-    streams?.altitude,
   ]);
 
   // No GPS data available for this activity (stream_types doesn't include latlng)
@@ -272,9 +282,15 @@ export function ActivityMapPreview({
 
   // Show cached 3D terrain image when available
   if (terrain3D && terrainImageUri) {
+    const bearing = terrainCamera?.bearing ?? 0;
     return (
       <View style={[styles.container, { height }]}>
         <Image source={{ uri: terrainImageUri }} style={styles.terrainImage} resizeMode="cover" />
+        {Math.abs(bearing) > 5 && (
+          <View style={styles.compassOverlay}>
+            <StaticCompassArrow bearing={bearing} size={16} southColor="rgba(255,255,255,0.7)" />
+          </View>
+        )}
       </View>
     );
   }
@@ -377,6 +393,17 @@ const styles = StyleSheet.create({
   },
   terrainImage: {
     flex: 1,
+  },
+  compassOverlay: {
+    position: 'absolute',
+    bottom: 68,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

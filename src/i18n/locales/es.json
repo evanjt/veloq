@@ -138,6 +138,7 @@
     "noIntervals": "Sin intervalos detectados",
     "intervalWork": "Trabajo",
     "intervalRecovery": "Recuperación",
+    "feedPreviewUpdated": "Vista previa del feed actualizada",
     "tabs": {
       "charts": "Gráficos",
       "intervals": "Intervalos",
@@ -251,7 +252,8 @@
     "hide": "Hide",
     "hideDetails": "Hide details",
     "show": "Show",
-    "showDetails": "Show details for developer"
+    "showDetails": "Show details for developer",
+    "undo": "Deshacer"
   },
   "demo": {
     "banner": "Modo Demo",

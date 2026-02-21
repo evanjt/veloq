@@ -138,6 +138,7 @@
     "noIntervals": "Ingen intervaller fundet",
     "intervalWork": "Arbejde",
     "intervalRecovery": "Restitution",
+    "feedPreviewUpdated": "Forhåndsvisning af feed opdateret",
     "tabs": {
       "charts": "Grafer",
       "intervals": "Intervaller",
@@ -251,7 +252,8 @@
     "hide": "Skjul",
     "hideDetails": "Skjul detaljer",
     "show": "Vis",
-    "showDetails": "Vis detaljer for udvikler"
+    "showDetails": "Vis detaljer for udvikler",
+    "undo": "Fortryd"
   },
   "demo": {
     "banner": "Demotilstand",

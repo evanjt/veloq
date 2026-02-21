@@ -138,6 +138,7 @@
     "noIntervals": "No intervals detected",
     "intervalWork": "Work",
     "intervalRecovery": "Recovery",
+    "feedPreviewUpdated": "Feed preview updated",
     "tabs": {
       "charts": "Graphs",
       "intervals": "Intervals",
@@ -251,7 +252,8 @@
     "hide": "Hide",
     "hideDetails": "Hide details",
     "show": "Show",
-    "showDetails": "Show the guts for the dev"
+    "showDetails": "Show the guts for the dev",
+    "undo": "Undo"
   },
   "demo": {
     "banner": "Just having a squiz",

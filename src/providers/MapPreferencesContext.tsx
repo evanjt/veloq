@@ -33,6 +33,7 @@ interface MapPreferencesContextValue {
   ) => Promise<void>;
   getStyleForActivity: (activityType: ActivityType) => MapStyleType;
   setTerrain3D: (activityType: ActivityType | null, enabled: boolean) => Promise<void>;
+  setTerrain3DGroup: (activityTypes: ActivityType[], enabled: boolean) => Promise<void>;
   isTerrain3DEnabled: (activityType: ActivityType) => boolean;
   isAnyTerrain3DEnabled: boolean;
 }
@@ -221,6 +222,30 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     [savePreferences]
   );
 
+  // Set 3D terrain for a group of activity types (batch update)
+  const setTerrain3DGroup = useCallback(
+    async (activityTypes: ActivityType[], enabled: boolean) => {
+      setPreferences((prev) => {
+        const newByType = { ...prev.terrain3DByType };
+        for (const activityType of activityTypes) {
+          if (enabled === prev.terrain3DDefault) {
+            delete newByType[activityType];
+          } else {
+            newByType[activityType] = enabled;
+          }
+        }
+        const newPrefs: MapPreferences = { ...prev, terrain3DByType: newByType };
+        savePreferences(newPrefs).catch((error) => {
+          if (__DEV__) {
+            console.warn('[MapPreferences] Failed to persist:', error);
+          }
+        });
+        return newPrefs;
+      });
+    },
+    [savePreferences]
+  );
+
   // Check if 3D terrain is enabled for a specific activity type
   const isTerrain3DEnabled = useCallback(
     (activityType: ActivityType): boolean => {
@@ -245,6 +270,7 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
         setActivityGroupStyle,
         getStyleForActivity,
         setTerrain3D,
+        setTerrain3DGroup,
         isTerrain3DEnabled,
         isAnyTerrain3DEnabled,
       }}

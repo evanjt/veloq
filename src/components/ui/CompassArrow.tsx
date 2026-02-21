@@ -1,5 +1,5 @@
 import React from 'react';
-import { Animated, StyleSheet } from 'react-native';
+import { Animated, View, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 interface CompassArrowProps {
@@ -41,8 +41,43 @@ export function CompassArrow({
   );
 }
 
+interface StaticCompassArrowProps {
+  /** Size of the compass arrow (default 16) */
+  size?: number;
+  /** Map bearing in degrees — arrow rotates to point north */
+  bearing: number;
+  /** Color for north (top) half */
+  northColor?: string;
+  /** Color for south (bottom) half */
+  southColor?: string;
+}
+
+/**
+ * Static (non-animated) compass arrow for overlaying on terrain previews.
+ * Takes a plain bearing number instead of Animated.Value.
+ */
+export function StaticCompassArrow({
+  size = 16,
+  bearing,
+  northColor = '#E53935',
+  southColor = '#FFFFFF',
+}: StaticCompassArrowProps) {
+  return (
+    <View style={[styles.staticContainer, { transform: [{ rotate: `${-bearing}deg` }] }]}>
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M12 2 L16 12 L12 10 L8 12 Z" fill={northColor} />
+        <Path d="M12 22 L8 12 L12 14 L16 12 Z" fill={southColor} />
+      </Svg>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  staticContainer: {
     justifyContent: 'center',
     alignItems: 'center',
   },

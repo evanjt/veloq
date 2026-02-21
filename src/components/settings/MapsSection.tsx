@@ -41,7 +41,7 @@ const MAP_ACTIVITY_GROUPS: {
     labelKey: 'filters.running',
     types: ['Run', 'TrailRun', 'VirtualRun'],
   },
-  { key: 'hiking', labelKey: 'filters.hiking', types: ['Hike', 'Snowshoe'] },
+  { key: 'hiking', labelKey: 'filters.hiking', types: ['Hike'] },
   { key: 'walking', labelKey: 'filters.walking', types: ['Walk'] },
   {
     key: 'swimming',
@@ -51,7 +51,7 @@ const MAP_ACTIVITY_GROUPS: {
   {
     key: 'snow',
     labelKey: 'filters.snowSports',
-    types: ['AlpineSki', 'NordicSki', 'BackcountrySki', 'Snowboard'],
+    types: ['AlpineSki', 'NordicSki', 'BackcountrySki', 'Snowboard', 'Snowshoe'],
   },
   {
     key: 'water',
@@ -82,6 +82,7 @@ export function MapsSection() {
     setDefaultStyle,
     setActivityGroupStyle,
     setTerrain3D,
+    setTerrain3DGroup,
     isTerrain3DEnabled,
   } = useMapPreferences();
 
@@ -90,7 +91,23 @@ export function MapsSection() {
 
   useEffect(() => {
     getTerrainPreviewCacheSize().then(setTerrainCacheSize);
-  }, [mapPreferences.terrain3DDefault]);
+  }, [mapPreferences.terrain3DDefault, mapPreferences.terrain3DByType]);
+
+  // Migrate stale per-type 3D overrides: old code only set types[0] per group.
+  // Normalize so all types in a group share the same override.
+  useEffect(() => {
+    const byType = mapPreferences.terrain3DByType;
+    for (const group of MAP_ACTIVITY_GROUPS) {
+      const lead = byType[group.types[0]];
+      if (lead === undefined) continue;
+      const needsFix = group.types.some((t) => byType[t] !== lead);
+      if (needsFix) {
+        setTerrain3DGroup(group.types, lead);
+      }
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDefaultMapStyleChange = async (value: string) => {
     const style = value as MapStyleType;
@@ -116,9 +133,25 @@ export function MapsSection() {
 
   return (
     <>
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-        {t('settings.maps').toUpperCase()}
-      </Text>
+      <View style={styles.sectionLabelRow}>
+        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          {t('settings.maps').toUpperCase()}
+        </Text>
+        {terrainCacheSize > 0 && (
+          <TouchableOpacity onPress={handleClearTerrainCache} style={styles.cacheClearButton}>
+            <Text style={[styles.cacheClearText, isDark && styles.textMuted]}>
+              {t('settings.terrainCacheSize', {
+                defaultValue: 'Cache: {{size}}',
+                size: formatBytes(terrainCacheSize),
+              })}
+              {'  '}
+            </Text>
+            <Text style={styles.cacheClearAction}>
+              {t('settings.clearCache', { defaultValue: 'Clear' })}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
       <View style={[styles.section, isDark && styles.sectionDark]}>
         <View style={styles.mapStyleRow}>
           <Text style={[styles.mapStyleLabel, isDark && styles.textLight]}>
@@ -150,25 +183,6 @@ export function MapsSection() {
             thumbColor={colors.surface}
           />
         </View>
-
-        {/* Terrain cache info */}
-        {mapPreferences.terrain3DDefault && terrainCacheSize > 0 && (
-          <TouchableOpacity
-            style={[styles.actionRow, { paddingTop: 0 }]}
-            onPress={handleClearTerrainCache}
-          >
-            <View style={{ width: 22 }} />
-            <Text style={[styles.terrain3DHint, isDark && styles.textMuted, { flex: 1 }]}>
-              {t('settings.terrainCacheSize', {
-                defaultValue: 'Cache: {{size}}',
-                size: formatBytes(terrainCacheSize),
-              })}
-            </Text>
-            <Text style={[styles.clearCacheText]}>
-              {t('settings.clearCache', { defaultValue: 'Clear' })}
-            </Text>
-          </TouchableOpacity>
-        )}
 
         {/* Per-activity-type styles toggle */}
         <TouchableOpacity
@@ -205,7 +219,7 @@ export function MapsSection() {
                       </Text>
                       <Switch
                         value={terrain3DForGroup}
-                        onValueChange={(enabled) => setTerrain3D(types[0], enabled)}
+                        onValueChange={(enabled) => setTerrain3DGroup(types, enabled)}
                         trackColor={{
                           false: isDark ? darkColors.border : colors.border,
                           true: colors.primary,
@@ -241,14 +255,32 @@ export function MapsSection() {
 }
 
 const styles = StyleSheet.create({
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    marginHorizontal: layout.screenPadding,
+  },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '600',
     color: colors.textSecondary,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    marginHorizontal: layout.screenPadding,
     letterSpacing: 0.5,
+  },
+  cacheClearButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cacheClearText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  cacheClearAction: {
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '500',
   },
   section: {
     backgroundColor: colors.surface,
@@ -292,11 +324,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 2,
-  },
-  clearCacheText: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '500',
   },
   activityStylesContainer: {
     paddingHorizontal: spacing.md,

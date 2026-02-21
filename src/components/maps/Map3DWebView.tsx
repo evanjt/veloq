@@ -51,6 +51,20 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
   onMapReady?: () => void;
   /** Called when bearing changes (for compass sync) */
   onBearingChange?: (bearing: number) => void;
+  /** Called when the full camera state updates (center, zoom, bearing, pitch) */
+  onCameraStateChange?: (camera: {
+    center: [number, number];
+    zoom: number;
+    bearing: number;
+    pitch: number;
+  }) => void;
+  /** Saved camera override — if provided, skips fitBounds and uses this on first load */
+  initialCamera?: {
+    center: [number, number];
+    zoom: number;
+    bearing: number;
+    pitch: number;
+  } | null;
 }
 
 /**
@@ -77,6 +91,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       tracesGeoJSON,
       onMapReady,
       onBearingChange,
+      onCameraStateChange,
+      initialCamera,
     },
     ref
   ) {
@@ -95,10 +111,11 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const sectionsGeoJSONRef = useRef(sectionsGeoJSON);
     const tracesGeoJSONRef = useRef(tracesGeoJSON);
 
-    // Store initial center/zoom in refs - only used on first render
+    // Store initial center/zoom/camera in refs - only used on first render
     // This prevents HTML regeneration when parent updates these values
     const initialCenterRef = useRef(initialCenter);
     const initialZoomRef = useRef(initialZoom);
+    const initialCameraRef = useRef(initialCamera);
 
     // Keep refs in sync with props
     useEffect(() => {
@@ -250,12 +267,13 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           } else if (data.type === 'cameraState' && data.camera) {
             // Save camera state for restoration
             savedCameraRef.current = data.camera;
+            onCameraStateChange?.(data.camera);
           }
         } catch {
           // Ignore parse errors
         }
       },
-      [onMapReady, onBearingChange, updateLayers]
+      [onMapReady, onBearingChange, onCameraStateChange, updateLayers]
     );
 
     // Update layers when GeoJSON props change (without reloading WebView)
@@ -309,9 +327,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 
       const coordsJSON = JSON.stringify(coordinates);
       const boundsJSON = bounds ? JSON.stringify(bounds) : 'null';
-      // Use saved camera position if available (from previous style), otherwise use initial
-      // Read from refs to avoid HTML regeneration when parent updates center/zoom
-      const savedCamera = savedCameraRef.current;
+      // Use saved camera position if available (from previous style change),
+      // then fall back to initialCamera override (from parent), then to initial props.
+      const savedCamera = savedCameraRef.current ?? initialCameraRef.current;
       const centerJSON = savedCamera
         ? JSON.stringify(savedCamera.center)
         : initialCenterRef.current
@@ -365,6 +383,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       maxPitch: 85,
       bearing: savedBearing,
       attributionControl: false,
+      antialias: true,
     };
 
     // Only use bounds for initial load (no saved camera)
@@ -436,17 +455,6 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         exaggeration: ${terrainExaggeration},
       });
 
-      // Add sky layer for atmosphere effect
-      map.addLayer({
-        id: 'sky',
-        type: 'sky',
-        paint: {
-          'sky-type': 'atmosphere',
-          'sky-atmosphere-sun': [0.0, 90.0],
-          'sky-atmosphere-sun-intensity': 15,
-        },
-      });
-
       // Add hillshade for better depth perception (skip for satellite - already has shadows)
       // Reuses the existing 'terrain' raster-dem source to avoid downloading tiles twice
       if (!isSatellite) {
@@ -488,7 +496,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           },
           paint: {
             'line-color': '#FFFFFF',
-            'line-width': 6,
+            'line-width': 8,
             'line-opacity': 0.8,
           },
         });
@@ -504,7 +512,41 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           },
           paint: {
             'line-color': '${routeColor}',
-            'line-width': 4,
+            'line-width': 5,
+          },
+        });
+
+        // Start/end circle markers
+        var startPt = coordinates[0];
+        var endPt = coordinates[coordinates.length - 1];
+        map.addSource('start-end-markers', {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection',
+            features: [
+              { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: startPt } },
+              { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: endPt } },
+            ],
+          },
+        });
+        // White border ring
+        map.addLayer({
+          id: 'start-end-border',
+          type: 'circle',
+          source: 'start-end-markers',
+          paint: {
+            'circle-radius': 7,
+            'circle-color': '#FFFFFF',
+          },
+        });
+        // Colored fill (green start, red end)
+        map.addLayer({
+          id: 'start-end-fill',
+          type: 'circle',
+          source: 'start-end-markers',
+          paint: {
+            'circle-radius': 5,
+            'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'],
           },
         });
       }
@@ -545,6 +587,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           showsHorizontalScrollIndicator={false}
           originWhitelist={['*']}
           mixedContentMode="always"
+          androidLayerType="hardware"
           onMessage={handleMessage}
         />
       </View>

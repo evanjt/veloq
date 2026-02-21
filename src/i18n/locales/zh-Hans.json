@@ -138,6 +138,7 @@
     "noIntervals": "未检测到间歇",
     "intervalWork": "工作",
     "intervalRecovery": "恢复",
+    "feedPreviewUpdated": "动态预览已更新",
     "tabs": {
       "charts": "图表",
       "intervals": "间歇",
@@ -251,7 +252,8 @@
     "hide": "隐藏",
     "hideDetails": "隐藏详情",
     "show": "显示",
-    "showDetails": "显示开发者详情"
+    "showDetails": "显示开发者详情",
+    "undo": "撤销"
   },
   "demo": {
     "banner": "演示模式",

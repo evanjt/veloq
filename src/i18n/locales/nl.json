@@ -138,6 +138,7 @@
     "noIntervals": "Geen intervallen gedetecteerd",
     "intervalWork": "Werk",
     "intervalRecovery": "Herstel",
+    "feedPreviewUpdated": "Feedvoorbeeld bijgewerkt",
     "tabs": {
       "charts": "Grafieken",
       "intervals": "Intervallen",
@@ -251,7 +252,8 @@
     "hide": "Verbergen",
     "hideDetails": "Details verbergen",
     "show": "Tonen",
-    "showDetails": "Details tonen voor ontwikkelaar"
+    "showDetails": "Details tonen voor ontwikkelaar",
+    "undo": "Ongedaan maken"
   },
   "demo": {
     "banner": "Demo-modus",

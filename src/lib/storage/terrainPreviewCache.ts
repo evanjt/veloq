@@ -5,6 +5,9 @@
  * on the number of cached images. Uses an in-memory index for fast lookups
  * without filesystem calls.
  *
+ * Cache keys are compound: `{activityId}_{style}` so switching map styles
+ * doesn't serve stale images.
+ *
  * Storage location: cacheDirectory/terrain_previews/
  */
 
@@ -12,10 +15,15 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
 const TERRAIN_DIR = `${FileSystem.cacheDirectory}terrain_previews/`;
-const MAX_CACHED_PREVIEWS = 10;
+const MAX_CACHED_PREVIEWS = 50;
 
-/** In-memory index of cached activity IDs (ordered by insertion) */
-let cachedIds: string[] = [];
+/** Compound cache key */
+function cacheKey(activityId: string, style: string): string {
+  return `${activityId}_${style}`;
+}
+
+/** In-memory index of cached compound keys (ordered by insertion) */
+let cachedKeys: string[] = [];
 let initialized = false;
 
 /**
@@ -27,16 +35,16 @@ export async function initTerrainPreviewCache(): Promise<void> {
     const dirInfo = await FileSystem.getInfoAsync(TERRAIN_DIR);
     if (!dirInfo.exists) {
       await FileSystem.makeDirectoryAsync(TERRAIN_DIR, { intermediates: true });
-      cachedIds = [];
+      cachedKeys = [];
       initialized = true;
       return;
     }
 
     const files = await FileSystem.readDirectoryAsync(TERRAIN_DIR);
-    cachedIds = files.filter((f) => f.endsWith('.jpg')).map((f) => f.replace('.jpg', ''));
+    cachedKeys = files.filter((f) => f.endsWith('.jpg')).map((f) => f.replace('.jpg', ''));
     initialized = true;
   } catch {
-    cachedIds = [];
+    cachedKeys = [];
     initialized = true;
   }
 }
@@ -50,61 +58,87 @@ async function ensureDir(): Promise<void> {
 }
 
 /**
- * Check if a preview exists (sync via in-memory index).
+ * Check if a preview exists for the given activity and style (sync via in-memory index).
  */
-export function hasTerrainPreview(activityId: string): boolean {
-  return cachedIds.includes(activityId);
+export function hasTerrainPreview(activityId: string, style: string): boolean {
+  return cachedKeys.includes(cacheKey(activityId, style));
 }
 
 /**
  * Get cached preview URI (file:// path).
  */
-export function getTerrainPreviewUri(activityId: string): string {
-  return `${TERRAIN_DIR}${activityId}.jpg`;
+export function getTerrainPreviewUri(activityId: string, style: string): string {
+  return `${TERRAIN_DIR}${cacheKey(activityId, style)}.jpg`;
 }
 
 /**
  * Save preview from base64 data. Evicts oldest if over cap.
  * Returns the file URI of the saved image.
  */
-export async function saveTerrainPreview(activityId: string, base64: string): Promise<string> {
+export async function saveTerrainPreview(
+  activityId: string,
+  style: string,
+  base64: string
+): Promise<string> {
   await ensureDir();
 
-  // Evict oldest if at cap (and the activity to save isn't already cached)
-  if (!cachedIds.includes(activityId) && cachedIds.length >= MAX_CACHED_PREVIEWS) {
-    const evictId = cachedIds.shift();
-    if (evictId) {
-      const evictPath = `${TERRAIN_DIR}${evictId}.jpg`;
+  const key = cacheKey(activityId, style);
+
+  // Evict oldest if at cap (and the key to save isn't already cached)
+  if (!cachedKeys.includes(key) && cachedKeys.length >= MAX_CACHED_PREVIEWS) {
+    const evictKey = cachedKeys.shift();
+    if (evictKey) {
+      const evictPath = `${TERRAIN_DIR}${evictKey}.jpg`;
       await FileSystem.deleteAsync(evictPath, { idempotent: true }).catch(() => {});
     }
   }
 
-  const filePath = `${TERRAIN_DIR}${activityId}.jpg`;
+  const filePath = `${TERRAIN_DIR}${key}.jpg`;
   await FileSystem.writeAsStringAsync(filePath, base64, {
     encoding: FileSystem.EncodingType.Base64,
   });
 
   // Update index - remove if already present, add to end
-  cachedIds = cachedIds.filter((id) => id !== activityId);
-  cachedIds.push(activityId);
+  cachedKeys = cachedKeys.filter((k) => k !== key);
+  cachedKeys.push(key);
 
   return filePath;
 }
 
 /**
- * Garbage collect: given the current ordered list of feed activity IDs,
- * delete any cached images not in the top N.
+ * Delete all cached snapshots for a specific activity (all styles).
+ * Used when camera override changes to force regeneration.
  */
-export async function gcTerrainPreviews(visibleActivityIds: string[]): Promise<void> {
-  const keepSet = new Set(visibleActivityIds.slice(0, MAX_CACHED_PREVIEWS));
-  const toEvict = cachedIds.filter((id) => !keepSet.has(id));
+export async function deleteTerrainPreviewsForActivity(activityId: string): Promise<void> {
+  const prefix = `${activityId}_`;
+  const toDelete = cachedKeys.filter((k) => k.startsWith(prefix));
 
-  for (const id of toEvict) {
-    const path = `${TERRAIN_DIR}${id}.jpg`;
+  for (const key of toDelete) {
+    const path = `${TERRAIN_DIR}${key}.jpg`;
     await FileSystem.deleteAsync(path, { idempotent: true }).catch(() => {});
   }
 
-  cachedIds = cachedIds.filter((id) => keepSet.has(id));
+  cachedKeys = cachedKeys.filter((k) => !k.startsWith(prefix));
+}
+
+/**
+ * Garbage collect: given the current ordered list of feed activity IDs,
+ * delete any cached images not matching those activities.
+ */
+export async function gcTerrainPreviews(visibleActivityIds: string[]): Promise<void> {
+  const keepSet = new Set(visibleActivityIds.slice(0, MAX_CACHED_PREVIEWS));
+  // Keep any key whose activityId portion matches a visible activity
+  const toEvict = cachedKeys.filter((key) => {
+    const activityId = key.substring(0, key.lastIndexOf('_'));
+    return !keepSet.has(activityId);
+  });
+
+  for (const key of toEvict) {
+    const path = `${TERRAIN_DIR}${key}.jpg`;
+    await FileSystem.deleteAsync(path, { idempotent: true }).catch(() => {});
+  }
+
+  cachedKeys = cachedKeys.filter((key) => !toEvict.includes(key));
 }
 
 /**
@@ -119,7 +153,7 @@ export async function clearTerrainPreviews(): Promise<void> {
   } catch {
     // Best effort cleanup
   }
-  cachedIds = [];
+  cachedKeys = [];
 }
 
 /**
@@ -151,5 +185,5 @@ export async function getTerrainPreviewCacheSize(): Promise<number> {
  * Get count of cached previews.
  */
 export function getTerrainPreviewCount(): number {
-  return cachedIds.length;
+  return cachedKeys.length;
 }
