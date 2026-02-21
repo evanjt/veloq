@@ -518,10 +518,52 @@
     "settings": "設定",
     "stats": "統計",
     "training": "トレーニング",
-    "wellness": "ウェルネス"
+    "wellness": "ウェルネス",
+    "insights": "インサイト"
   },
   "healthScreen": {
     "title": "健康"
+  },
+  "insights": {
+    "title": "インサイト",
+    "noInsights": "トレーニングに応じてインサイトが表示されます",
+    "noInsightsHint": "パーソナライズされたインサイトを見るには、より多くのアクティビティを完了してください",
+    "sectionPr": "{{name}}でPR",
+    "sectionPrSubtitle": "{{time}} — {{daysAgo}}日前",
+    "sectionTrendSummary": "{{total}}区間中{{improving}}区間が上昇傾向",
+    "sectionTrendSummaryBody": "改善中: {{names}}。{{stable}}区間安定、{{declining}}区間低下。",
+    "sectionImproving": "{{name}}が速くなっています",
+    "sectionImprovingBody": "最近の中央値: {{median}}。ベスト: {{best}}（{{count}}回の走行）。",
+    "sectionDeclining": "{{name}}が遅くなっています",
+    "sectionDecliningBody": "最近の中央値: {{median}}、ベスト: {{best}}。見直してみませんか？",
+    "ftpIncrease": "FTP +{{delta}}W",
+    "paceImproved": "ペース改善 {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% 週間ボリューム",
+    "weeklyVolumeDown": "{{percent}}% 今週減少",
+    "weeklyLoadUp": "+{{percent}}% トレーニング負荷",
+    "weeklyLoadDown": "{{percent}}% 負荷減少",
+    "loadBody": "TSS: 今週 {{currentTss}} vs 先週 {{previousTss}}。時間: {{currentDuration}} vs {{previousDuration}}。",
+    "patternMatch": "{{day}} — 通常 {{verb}} ~{{duration}}",
+    "consistencyStreak": "{{count}}週連続",
+    "peakFitness": "ピークフィットネス: {{value}} CTL",
+    "formAdvice": {
+      "fresh": "高強度に適した日",
+      "grey": "適度な運動を推奨",
+      "optimal": "ピークフォーム期間",
+      "tired": "回復を検討",
+      "overreaching": "休息を推奨"
+    },
+    "volumeBody": "トレーニング時間: 今週 {{current}} vs 先週 {{previous}}。これは時間であり、トレーニング負荷 (TSS) ではありません。",
+    "formBody": {
+      "fresh": "フォーム (TSB) は {{tsb}} です。フィットネス (CTL: {{ctl}}) – 疲労 (ATL: {{atl}})。フレッシュゾーン — よく回復しています。高強度トレーニングに最適です。",
+      "grey": "フォーム (TSB) は {{tsb}} です。フィットネス (CTL: {{ctl}}) – 疲労 (ATL: {{atl}})。移行ゾーン — 適度な運動を推奨します。",
+      "optimal": "フォーム (TSB) は {{tsb}} です。フィットネス (CTL: {{ctl}}) – 疲労 (ATL: {{atl}})。最適ゾーン — ピークパフォーマンスの期間です。",
+      "tired": "フォーム (TSB) は {{tsb}} です。フィットネス (CTL: {{ctl}}) – 疲労 (ATL: {{atl}})。疲労ゾーン — 軽めのセッションまたは休息を検討してください。",
+      "overreaching": "フォーム (TSB) は {{tsb}} です。フィットネス (CTL: {{ctl}}) – 疲労 (ATL: {{atl}})。オーバーリーチング — 休息を強くお勧めします。"
+    },
+    "viewDetails": "詳細を見る",
+    "today": "今日",
+    "tomorrow": "明日"
   },
   "routeDetail": {
     "avgTime": "平均時間",

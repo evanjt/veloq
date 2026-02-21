@@ -2,17 +2,12 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { View, StyleSheet } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/components/ui';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import {
-  RoutesList,
-  SectionsList,
-  DateRangeSummary,
-  SyncDebugTab,
-  TodayBanner,
-} from '@/components';
+import { RoutesList, SectionsList, DateRangeSummary, SyncDebugTab } from '@/components';
+import { InsightsPanel } from '@/components/insights';
 import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import {
   useRouteProcessing,
@@ -21,6 +16,7 @@ import {
   useTheme,
   useRoutesScreenData,
   useCustomSections,
+  useInsights,
 } from '@/hooks';
 import { useRouteSettings, useSyncDateRange, useDebugStore } from '@/providers';
 import { colors, darkColors, spacing } from '@/theme';
@@ -39,6 +35,14 @@ export default function RoutesScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const { insights, markAsSeen } = useInsights();
+
+  // Mark insights as seen when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      markAsSeen();
+    }, [markAsSeen])
+  );
 
   // Check if route matching is enabled
   const routeSettings = useRouteSettings((s) => s.settings);
@@ -267,7 +271,7 @@ export default function RoutesScreen() {
       <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
           <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-            {t('routesScreen.title')}
+            {t('insights.title', 'Insights')}
           </Text>
         </View>
 
@@ -304,7 +308,7 @@ export default function RoutesScreen() {
     >
       <View style={styles.header}>
         <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-          {t('routesScreen.title')}
+          {t('insights.title', 'Insights')}
         </Text>
       </View>
 
@@ -320,8 +324,8 @@ export default function RoutesScreen() {
         }
       />
 
-      {/* Route Intelligence: today's workout, patterns, or readiness */}
-      <TodayBanner />
+      {/* Insights: today's context + insight cards */}
+      <InsightsPanel insights={insights} />
 
       {/* Swipeable Routes/Sections tabs */}
       <SwipeableTabs

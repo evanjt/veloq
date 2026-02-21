@@ -518,10 +518,52 @@
     "settings": "Configuración",
     "stats": "Estadísticas",
     "training": "Entrenamiento",
-    "wellness": "Bienestar"
+    "wellness": "Bienestar",
+    "insights": "Perspectivas"
   },
   "healthScreen": {
     "title": "Salud"
+  },
+  "insights": {
+    "title": "Perspectivas",
+    "noInsights": "Las perspectivas aparecerán mientras entrenas",
+    "noInsightsHint": "Completa más actividades para ver perspectivas personalizadas",
+    "sectionPr": "PR en {{name}}",
+    "sectionPrSubtitle": "{{time}} — hace {{daysAgo}}d",
+    "sectionTrendSummary": "{{improving}} de {{total}} tramos mejorando",
+    "sectionTrendSummaryBody": "Mejorando: {{names}}. {{stable}} estables, {{declining}} en descenso.",
+    "sectionImproving": "{{name}} cada vez más rápido",
+    "sectionImprovingBody": "Mediana reciente: {{median}}. Mejor: {{best}} en {{count}} esfuerzos.",
+    "sectionDeclining": "{{name}} perdiendo ritmo",
+    "sectionDecliningBody": "Mediana reciente: {{median}} vs mejor de {{best}}. ¿Hora de volver?",
+    "ftpIncrease": "FTP +{{delta}}W",
+    "paceImproved": "Ritmo mejorado {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% volumen semanal",
+    "weeklyVolumeDown": "{{percent}}% menos esta semana",
+    "weeklyLoadUp": "+{{percent}}% carga de entrenamiento",
+    "weeklyLoadDown": "{{percent}}% menos de carga",
+    "loadBody": "TSS: {{currentTss}} esta semana vs {{previousTss}} la semana pasada. Duración: {{currentDuration}} vs {{previousDuration}}.",
+    "patternMatch": "{{day}} — generalmente {{verb}} ~{{duration}}",
+    "consistencyStreak": "Racha de {{count}} semanas",
+    "peakFitness": "Mejor forma: {{value}} CTL",
+    "formAdvice": {
+      "fresh": "Buen día para intensidad",
+      "grey": "Esfuerzo moderado recomendado",
+      "optimal": "Ventana de mejor forma",
+      "tired": "Considera recuperación",
+      "overreaching": "Descanso recomendado"
+    },
+    "volumeBody": "Duración del entrenamiento: {{current}} esta semana vs {{previous}} la semana pasada. Esto mide tiempo, no carga de entrenamiento (TSS).",
+    "formBody": {
+      "fresh": "Tu forma (TSB) es {{tsb}}. Fitness (CTL: {{ctl}}) – Fatiga (ATL: {{atl}}). Zona fresca — bien recuperado, buen día para esfuerzos intensos.",
+      "grey": "Tu forma (TSB) es {{tsb}}. Fitness (CTL: {{ctl}}) – Fatiga (ATL: {{atl}}). Zona de transición — se recomienda esfuerzo moderado.",
+      "optimal": "Tu forma (TSB) es {{tsb}}. Fitness (CTL: {{ctl}}) – Fatiga (ATL: {{atl}}). Zona óptima — ventana de máximo rendimiento.",
+      "tired": "Tu forma (TSB) es {{tsb}}. Fitness (CTL: {{ctl}}) – Fatiga (ATL: {{atl}}). Zona de cansancio — considera sesiones más suaves o descanso.",
+      "overreaching": "Tu forma (TSB) es {{tsb}}. Fitness (CTL: {{ctl}}) – Fatiga (ATL: {{atl}}). Sobreentrenamiento — se recomienda descanso."
+    },
+    "viewDetails": "Ver detalles",
+    "today": "HOY",
+    "tomorrow": "MAÑANA"
   },
   "routeDetail": {
     "avgTime": "Tiempo promedio",

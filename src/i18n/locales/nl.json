@@ -518,10 +518,52 @@
     "settings": "Instellingen",
     "stats": "Statistieken",
     "training": "Training",
-    "wellness": "Welzijn"
+    "wellness": "Welzijn",
+    "insights": "Inzichten"
   },
   "healthScreen": {
     "title": "Gezondheid"
+  },
+  "insights": {
+    "title": "Inzichten",
+    "noInsights": "Inzichten verschijnen naarmate je traint",
+    "noInsightsHint": "Voltooi meer activiteiten voor gepersonaliseerde inzichten",
+    "sectionPr": "PR op {{name}}",
+    "sectionPrSubtitle": "{{time}} — {{daysAgo}}d geleden",
+    "sectionTrendSummary": "{{improving}} van {{total}} secties stijgend",
+    "sectionTrendSummaryBody": "Verbetering: {{names}}. {{stable}} stabiel, {{declining}} dalend.",
+    "sectionImproving": "{{name}} wordt sneller",
+    "sectionImprovingBody": "Recente mediaan: {{median}}. Beste: {{best}} over {{count}} pogingen.",
+    "sectionDeclining": "{{name}} wordt langzamer",
+    "sectionDecliningBody": "Recente mediaan: {{median}} tegen beste van {{best}}. Tijd om te herzien?",
+    "ftpIncrease": "FTP +{{delta}}W",
+    "paceImproved": "Tempo verbeterd {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% weekvolume",
+    "weeklyVolumeDown": "{{percent}}% minder deze week",
+    "weeklyLoadUp": "+{{percent}}% trainingsbelasting",
+    "weeklyLoadDown": "{{percent}}% minder belasting",
+    "loadBody": "TSS: {{currentTss}} deze week vs {{previousTss}} vorige week. Duur: {{currentDuration}} vs {{previousDuration}}.",
+    "patternMatch": "{{day}} — meestal {{verb}} ~{{duration}}",
+    "consistencyStreak": "{{count}}-weken reeks",
+    "peakFitness": "Piekfitness: {{value}} CTL",
+    "formAdvice": {
+      "fresh": "Goede dag voor intensiteit",
+      "grey": "Matige inspanning aanbevolen",
+      "optimal": "Piekvorm-venster",
+      "tired": "Overweeg herstel",
+      "overreaching": "Rust aanbevolen"
+    },
+    "volumeBody": "Trainingsduur: {{current}} deze week vs {{previous}} vorige week. Dit meet tijd, niet trainingsbelasting (TSS).",
+    "formBody": {
+      "fresh": "Je vorm (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Vermoeidheid (ATL: {{atl}}). Frisse zone — goed hersteld, goede dag voor zware inspanningen.",
+      "grey": "Je vorm (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Vermoeidheid (ATL: {{atl}}). Overgangszone — matige inspanning aanbevolen.",
+      "optimal": "Je vorm (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Vermoeidheid (ATL: {{atl}}). Optimale zone — piekprestatie-venster.",
+      "tired": "Je vorm (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Vermoeidheid (ATL: {{atl}}). Vermoeidheidzone — overweeg lichtere sessies of rust.",
+      "overreaching": "Je vorm (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Vermoeidheid (ATL: {{atl}}). Overbelasting — rust sterk aanbevolen."
+    },
+    "viewDetails": "Details bekijken",
+    "today": "VANDAAG",
+    "tomorrow": "MORGEN"
   },
   "routeDetail": {
     "avgTime": "Gem. tijd",

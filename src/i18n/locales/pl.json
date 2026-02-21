@@ -518,10 +518,52 @@
     "settings": "Ustawienia",
     "stats": "Statystyki",
     "training": "Trening",
-    "wellness": "Zdrowie"
+    "wellness": "Zdrowie",
+    "insights": "Analizy"
   },
   "healthScreen": {
     "title": "Zdrowie"
+  },
+  "insights": {
+    "title": "Analizy",
+    "noInsights": "Analizy pojawią się w miarę treningów",
+    "noInsightsHint": "Ukończ więcej aktywności, aby zobaczyć spersonalizowane analizy",
+    "sectionPr": "PR na {{name}}",
+    "sectionPrSubtitle": "{{time}} — {{daysAgo}}d temu",
+    "sectionTrendSummary": "{{improving}} z {{total}} odcinków z tendencją wzrostową",
+    "sectionTrendSummaryBody": "Poprawa: {{names}}. {{stable}} stabilnych, {{declining}} spadających.",
+    "sectionImproving": "{{name}} przyspiesza",
+    "sectionImprovingBody": "Ostatnia mediana: {{median}}. Najlepszy: {{best}} z {{count}} prób.",
+    "sectionDeclining": "{{name}} zwalnia",
+    "sectionDecliningBody": "Ostatnia mediana: {{median}} vs najlepszy {{best}}. Czas na powrót?",
+    "ftpIncrease": "FTP +{{delta}}W",
+    "paceImproved": "Tempo poprawione {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% tygodniowego wolumenu",
+    "weeklyVolumeDown": "{{percent}}% mniej w tym tygodniu",
+    "weeklyLoadUp": "+{{percent}}% obciążenia treningowego",
+    "weeklyLoadDown": "{{percent}}% mniej obciążenia",
+    "loadBody": "TSS: {{currentTss}} w tym tygodniu vs {{previousTss}} w zeszłym tygodniu. Czas: {{currentDuration}} vs {{previousDuration}}.",
+    "patternMatch": "{{day}} — zwykle {{verb}} ~{{duration}}",
+    "consistencyStreak": "{{count}}-tygodniowa seria",
+    "peakFitness": "Szczytowa forma: {{value}} CTL",
+    "formAdvice": {
+      "fresh": "Dobry dzień na intensywność",
+      "grey": "Zalecany umiarkowany wysiłek",
+      "optimal": "Okno szczytowej formy",
+      "tired": "Rozważ regenerację",
+      "overreaching": "Zalecany odpoczynek"
+    },
+    "volumeBody": "Czas treningu: {{current}} w tym tygodniu vs {{previous}} w zeszłym tygodniu. Mierzy czas, nie obciążenie treningowe (TSS).",
+    "formBody": {
+      "fresh": "Twoja forma (TSB) wynosi {{tsb}}. Fitness (CTL: {{ctl}}) – Zmęczenie (ATL: {{atl}}). Strefa świeżości — dobrze zregenerowany, dobry dzień na intensywne wysiłki.",
+      "grey": "Twoja forma (TSB) wynosi {{tsb}}. Fitness (CTL: {{ctl}}) – Zmęczenie (ATL: {{atl}}). Strefa przejściowa — zalecany umiarkowany wysiłek.",
+      "optimal": "Twoja forma (TSB) wynosi {{tsb}}. Fitness (CTL: {{ctl}}) – Zmęczenie (ATL: {{atl}}). Strefa optymalna — okno szczytowej wydajności.",
+      "tired": "Twoja forma (TSB) wynosi {{tsb}}. Fitness (CTL: {{ctl}}) – Zmęczenie (ATL: {{atl}}). Strefa zmęczenia — rozważ lżejsze sesje lub odpoczynek.",
+      "overreaching": "Twoja forma (TSB) wynosi {{tsb}}. Fitness (CTL: {{ctl}}) – Zmęczenie (ATL: {{atl}}). Przetrenowanie — odpoczynek zdecydowanie zalecany."
+    },
+    "viewDetails": "Zobacz szczegóły",
+    "today": "DZIŚ",
+    "tomorrow": "JUTRO"
   },
   "routeDetail": {
     "avgTime": "Śr. czas",

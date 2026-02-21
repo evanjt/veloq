@@ -117,6 +117,9 @@ export { useTodayWorkout } from './home';
 export { useWorkoutSections, type WorkoutSection } from './home';
 export { useActivityPatterns } from './home';
 
+// Insights hooks
+export { useInsights } from './insights';
+
 // Export hooks
 export { useGpxExport } from './export';
 export { useExportBackup, useImportBackup } from './export';

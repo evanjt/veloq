@@ -18,7 +18,7 @@ import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { useInfiniteActivities, useTheme, useSummaryCardData } from '@/hooks';
+import { useInfiniteActivities, useTheme, useSummaryCardData, useInsights } from '@/hooks';
 import type { Activity } from '@/types';
 import { useDashboardPreferences, useMapPreferences } from '@/providers';
 import { ActivityCard, notifyMapScroll } from '@/components/activity';
@@ -28,7 +28,7 @@ import {
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
-import { SummaryCard } from '@/components/home';
+import { SummaryCard, InsightLine } from '@/components/home';
 import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
@@ -112,6 +112,8 @@ export default function FeedScreen() {
     supportingMetrics,
     refetch: refetchSummary,
   } = useSummaryCardData();
+
+  const { insights } = useInsights();
 
   const {
     data,
@@ -400,6 +402,7 @@ export default function FeedScreen() {
         formData={formData}
         showSparkline={showSparkline}
         supportingMetrics={supportingMetrics}
+        insightLine={<InsightLine insights={insights} />}
       />
 
       <FlatList

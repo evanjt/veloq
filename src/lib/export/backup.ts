@@ -19,6 +19,7 @@ import {
   initializePotentialSections,
   initializeDashboardPreferences,
   initializeDebugStore,
+  initializeInsightsStore,
 } from '@/providers';
 import { reloadCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 
@@ -42,6 +43,7 @@ const PREFERENCE_KEYS = [
   'dashboard_preferences',
   'dashboard_summary_card',
   '@terrain_camera_overrides',
+  'veloq-insights-last-seen',
 ] as const;
 
 interface BackupCustomSection {
@@ -261,6 +263,7 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
       initializePotentialSections(),
       initializeDashboardPreferences(),
       initializeDebugStore(),
+      initializeInsightsStore(),
       reloadCameraOverrides(),
     ]);
   }

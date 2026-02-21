@@ -518,10 +518,52 @@
     "settings": "Einstellungen",
     "stats": "Statistiken",
     "training": "Training",
-    "wellness": "Wohlbefinden"
+    "wellness": "Wohlbefinden",
+    "insights": "Einblicke"
   },
   "healthScreen": {
     "title": "Gesundheit"
+  },
+  "insights": {
+    "title": "Einblicke",
+    "noInsights": "Einblicke erscheinen mit dem Training",
+    "noInsightsHint": "Absolviere mehr Aktivitäten für personalisierte Einblicke",
+    "sectionPr": "PR auf {{name}}",
+    "sectionPrSubtitle": "{{time}} — vor {{daysAgo}}T",
+    "sectionTrendSummary": "{{improving}} von {{total}} Abschnitten im Aufwärtstrend",
+    "sectionTrendSummaryBody": "Verbessert: {{names}}. {{stable}} stabil, {{declining}} rückläufig.",
+    "sectionImproving": "{{name}} wird schneller",
+    "sectionImprovingBody": "Aktueller Median: {{median}}. Bestzeit: {{best}} aus {{count}} Versuchen.",
+    "sectionDeclining": "{{name}} wird langsamer",
+    "sectionDecliningBody": "Aktueller Median: {{median}} vs Bestzeit {{best}}. Zeit für einen neuen Anlauf?",
+    "ftpIncrease": "FTP +{{delta}}W",
+    "paceImproved": "Tempo verbessert {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% Wochenvolumen",
+    "weeklyVolumeDown": "{{percent}}% weniger diese Woche",
+    "weeklyLoadUp": "+{{percent}}% Trainingsbelastung",
+    "weeklyLoadDown": "{{percent}}% weniger Trainingsbelastung",
+    "loadBody": "TSS: {{currentTss}} diese Woche vs {{previousTss}} letzte Woche. Dauer: {{currentDuration}} vs {{previousDuration}}.",
+    "patternMatch": "{{day}} — meistens {{verb}} ~{{duration}}",
+    "consistencyStreak": "{{count}}-Wochen-Serie",
+    "peakFitness": "Topfitness: {{value}} CTL",
+    "formAdvice": {
+      "fresh": "Guter Tag für Intensität",
+      "grey": "Moderate Belastung empfohlen",
+      "optimal": "Topform-Fenster",
+      "tired": "Erholung empfohlen",
+      "overreaching": "Ruhe empfohlen"
+    },
+    "volumeBody": "Trainingsdauer: {{current}} diese Woche vs {{previous}} letzte Woche. Dies misst die Zeit, nicht die Trainingsbelastung (TSS).",
+    "formBody": {
+      "fresh": "Deine Form (TSB) liegt bei {{tsb}}. Fitness (CTL: {{ctl}}) – Ermüdung (ATL: {{atl}}). Frische Zone — gut erholt, guter Tag für harte Einheiten.",
+      "grey": "Deine Form (TSB) liegt bei {{tsb}}. Fitness (CTL: {{ctl}}) – Ermüdung (ATL: {{atl}}). Übergangszone — moderate Belastung empfohlen.",
+      "optimal": "Deine Form (TSB) liegt bei {{tsb}}. Fitness (CTL: {{ctl}}) – Ermüdung (ATL: {{atl}}). Optimale Zone — Fenster für Höchstleistung.",
+      "tired": "Deine Form (TSB) liegt bei {{tsb}}. Fitness (CTL: {{ctl}}) – Ermüdung (ATL: {{atl}}). Müde Zone — leichtere Einheiten oder Ruhe empfohlen.",
+      "overreaching": "Deine Form (TSB) liegt bei {{tsb}}. Fitness (CTL: {{ctl}}) – Ermüdung (ATL: {{atl}}). Übertraining — Ruhe dringend empfohlen."
+    },
+    "viewDetails": "Details anzeigen",
+    "today": "HEUTE",
+    "tomorrow": "MORGEN"
   },
   "routeDetail": {
     "avgTime": "Ø Zeit",

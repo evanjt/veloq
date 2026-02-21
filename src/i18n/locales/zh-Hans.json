@@ -518,10 +518,52 @@
     "settings": "设置",
     "stats": "统计",
     "training": "训练",
-    "wellness": "健康"
+    "wellness": "健康",
+    "insights": "洞察"
   },
   "healthScreen": {
     "title": "健康"
+  },
+  "insights": {
+    "title": "洞察",
+    "noInsights": "训练后将显示洞察",
+    "noInsightsHint": "完成更多活动以查看个性化洞察",
+    "sectionPr": "{{name}}上的PR",
+    "sectionPrSubtitle": "{{time}} — {{daysAgo}}天前",
+    "sectionTrendSummary": "{{total}}个路段中{{improving}}个呈上升趋势",
+    "sectionTrendSummaryBody": "改善中: {{names}}。{{stable}}个稳定，{{declining}}个下降。",
+    "sectionImproving": "{{name}}正在变快",
+    "sectionImprovingBody": "近期中位数: {{median}}。最佳: {{best}}，共{{count}}次。",
+    "sectionDeclining": "{{name}}正在变慢",
+    "sectionDecliningBody": "近期中位数: {{median}}，最佳为{{best}}。是时候重新挑战了？",
+    "ftpIncrease": "FTP +{{delta}}W",
+    "paceImproved": "配速提升 {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% 周训练量",
+    "weeklyVolumeDown": "{{percent}}% 本周减少",
+    "weeklyLoadUp": "+{{percent}}% 训练负荷",
+    "weeklyLoadDown": "{{percent}}% 负荷减少",
+    "loadBody": "TSS: 本周 {{currentTss}} vs 上周 {{previousTss}}。时长: {{currentDuration}} vs {{previousDuration}}。",
+    "patternMatch": "{{day}} — 通常 {{verb}} ~{{duration}}",
+    "consistencyStreak": "{{count}}周连续",
+    "peakFitness": "巅峰体能: {{value}} CTL",
+    "formAdvice": {
+      "fresh": "适合高强度训练",
+      "grey": "建议适度运动",
+      "optimal": "巅峰状态窗口",
+      "tired": "考虑恢复",
+      "overreaching": "建议休息"
+    },
+    "volumeBody": "训练时长: 本周 {{current}} vs 上周 {{previous}}。这衡量的是时间，不是训练负荷 (TSS)。",
+    "formBody": {
+      "fresh": "你的状态 (TSB) 为 {{tsb}}。体能 (CTL: {{ctl}}) – 疲劳 (ATL: {{atl}})。新鲜区 — 恢复良好，适合高强度训练。",
+      "grey": "你的状态 (TSB) 为 {{tsb}}。体能 (CTL: {{ctl}}) – 疲劳 (ATL: {{atl}})。过渡区 — 建议适度运动。",
+      "optimal": "你的状态 (TSB) 为 {{tsb}}。体能 (CTL: {{ctl}}) – 疲劳 (ATL: {{atl}})。最佳区 — 巅峰表现窗口期。",
+      "tired": "你的状态 (TSB) 为 {{tsb}}。体能 (CTL: {{ctl}}) – 疲劳 (ATL: {{atl}})。疲劳区 — 考虑轻松训练或休息。",
+      "overreaching": "你的状态 (TSB) 为 {{tsb}}。体能 (CTL: {{ctl}}) – 疲劳 (ATL: {{atl}})。过度训练 — 强烈建议休息。"
+    },
+    "viewDetails": "查看详情",
+    "today": "今天",
+    "tomorrow": "明天"
   },
   "routeDetail": {
     "avgTime": "平均时间",

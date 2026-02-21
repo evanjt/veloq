@@ -506,7 +506,7 @@
     "pace": "Tempo",
     "rhr": "RHR",
     "week": "Uge",
-    "weight": "V\u00e6gt"
+    "weight": "Vægt"
   },
   "navigation": {
     "activities": "Aktiviteter",
@@ -518,10 +518,52 @@
     "settings": "Indstillinger",
     "stats": "Statistik",
     "training": "Træning",
-    "wellness": "Velvære"
+    "wellness": "Velvære",
+    "insights": "Indsigt"
   },
   "healthScreen": {
     "title": "Sundhed"
+  },
+  "insights": {
+    "title": "Indsigt",
+    "noInsights": "Indsigt vises, efterhånden som du træner",
+    "noInsightsHint": "Gennemfør flere aktiviteter for at se personlige indsigter",
+    "sectionPr": "PR på {{name}}",
+    "sectionPrSubtitle": "{{time}} — {{daysAgo}}d siden",
+    "sectionTrendSummary": "{{improving}} af {{total}} sektioner med opadgående tendens",
+    "sectionTrendSummaryBody": "Forbedring: {{names}}. {{stable}} stabile, {{declining}} faldende.",
+    "sectionImproving": "{{name}} bliver hurtigere",
+    "sectionImprovingBody": "Seneste median: {{median}}. Bedste: {{best}} over {{count}} forsøg.",
+    "sectionDeclining": "{{name}} bliver langsommere",
+    "sectionDecliningBody": "Seneste median: {{median}} mod bedste på {{best}}. Tid til at genbesøge?",
+    "ftpIncrease": "FTP op {{delta}}W",
+    "paceImproved": "Tempo forbedret {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% ugentlig volumen",
+    "weeklyVolumeDown": "{{percent}}% mindre denne uge",
+    "weeklyLoadUp": "+{{percent}}% træningsbelastning",
+    "weeklyLoadDown": "{{percent}}% mindre belastning",
+    "loadBody": "TSS: {{currentTss}} denne uge vs {{previousTss}} sidste uge. Varighed: {{currentDuration}} vs {{previousDuration}}.",
+    "patternMatch": "{{day}} — plejer at {{verb}} ~{{duration}}",
+    "consistencyStreak": "{{count}}-ugers streak",
+    "peakFitness": "Topform: {{value}} CTL",
+    "formAdvice": {
+      "fresh": "God dag til intensitet",
+      "grey": "Moderat indsats anbefales",
+      "optimal": "Topform-vindue",
+      "tired": "Overvej restitution",
+      "overreaching": "Hvile anbefales"
+    },
+    "volumeBody": "Træningstid: {{current}} denne uge vs {{previous}} sidste uge. Dette måler tid, ikke træningsbelastning (TSS).",
+    "formBody": {
+      "fresh": "Din form (TSB) er {{tsb}}. Fitness (CTL: {{ctl}}) – Træthed (ATL: {{atl}}). Frisk zone — godt restitueret, god dag til hårde indsatser.",
+      "grey": "Din form (TSB) er {{tsb}}. Fitness (CTL: {{ctl}}) – Træthed (ATL: {{atl}}). Overgangszone — moderat indsats anbefales.",
+      "optimal": "Din form (TSB) er {{tsb}}. Fitness (CTL: {{ctl}}) – Træthed (ATL: {{atl}}). Optimal zone — vindue for toppræstation.",
+      "tired": "Din form (TSB) er {{tsb}}. Fitness (CTL: {{ctl}}) – Træthed (ATL: {{atl}}). Træt zone — overvej lettere sessioner eller hvile.",
+      "overreaching": "Din form (TSB) er {{tsb}}. Fitness (CTL: {{ctl}}) – Træthed (ATL: {{atl}}). Overtræning — hvile stærkt anbefalet."
+    },
+    "viewDetails": "Se detaljer",
+    "today": "I DAG",
+    "tomorrow": "I MORGEN"
   },
   "routeDetail": {
     "avgTime": "Gns. tid",

@@ -1,0 +1,1011 @@
+import {
+  generateInsights,
+  formatDurationCompact,
+  InsightInputData,
+} from '@/hooks/insights/generateInsights';
+import type { Insight } from '@/types';
+
+// Mock translation function — returns key with interpolated params
+const mockT = (key: string, params?: Record<string, string | number>): string => {
+  if (!params) return key;
+  const paramStr = Object.entries(params)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(', ');
+  return `${key} {${paramStr}}`;
+};
+
+const EMPTY_INPUT: InsightInputData = {
+  currentPeriod: null,
+  previousPeriod: null,
+  ftpTrend: null,
+  paceTrend: null,
+  recentPRs: [],
+  todayPattern: null,
+  sectionTrends: [],
+  formTsb: null,
+  formCtl: null,
+  formAtl: null,
+  peakCtl: null,
+  currentCtl: null,
+};
+
+describe('generateInsights', () => {
+  // ============================================================
+  // EDGE CASES
+  // ============================================================
+
+  describe('edge cases', () => {
+    it('returns empty array for all-null input without formTsb', () => {
+      const result = generateInsights(EMPTY_INPUT, mockT);
+      expect(result).toEqual([]);
+    });
+
+    it('returns form advice when formTsb is provided with wellness data', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: 0, formCtl: 50, formAtl: 50 },
+        mockT
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].category).toBe('training_consistency');
+      expect(result[0].id).toBe('training_consistency-form');
+    });
+
+    it('formTsb = NaN does not generate form insight', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: NaN, formCtl: 50, formAtl: 50 },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'training_consistency-form')).toBeUndefined();
+    });
+
+    it('formTsb = Infinity does not generate form insight', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: Infinity, formCtl: 50, formAtl: 50 },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'training_consistency-form')).toBeUndefined();
+    });
+
+    it('previous period with zero duration does not crash', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+          previousPeriod: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+        },
+        mockT
+      );
+      // previousPeriod.totalDuration <= 0, so the guard returns early — no volume insight
+      expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+    });
+  });
+
+  // ============================================================
+  // SECTION PRs (Priority 1)
+  // ============================================================
+
+  describe('section PRs', () => {
+    it('generates insight for recent PR', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          recentPRs: [{ sectionId: 's1', sectionName: 'Hill Climb', bestTime: 300, daysAgo: 1 }],
+        },
+        mockT
+      );
+      const pr = result.find((i) => i.category === 'section_pr');
+      expect(pr).toBeDefined();
+      expect(pr!.priority).toBe(1);
+      expect(pr!.navigationTarget).toBe('/section/s1');
+      expect(pr!.title).toContain('insights.sectionPr');
+    });
+
+    it('limits to 3 PRs max', () => {
+      const prs = Array.from({ length: 5 }, (_, i) => ({
+        sectionId: `s${i}`,
+        sectionName: `Section ${i}`,
+        bestTime: 100 + i,
+        daysAgo: i,
+      }));
+      const result = generateInsights({ ...EMPTY_INPUT, recentPRs: prs }, mockT);
+      const prInsights = result.filter((i) => i.category === 'section_pr');
+      expect(prInsights).toHaveLength(3);
+    });
+
+    it('skips PRs with invalid data', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          recentPRs: [
+            { sectionId: '', sectionName: 'Test', bestTime: 100, daysAgo: 0 },
+            { sectionId: 's1', sectionName: '', bestTime: 100, daysAgo: 0 },
+            { sectionId: 's2', sectionName: 'Test', bestTime: NaN, daysAgo: 0 },
+          ],
+        },
+        mockT
+      );
+      const prInsights = result.filter((i) => i.category === 'section_pr');
+      expect(prInsights).toHaveLength(0);
+    });
+  });
+
+  // ============================================================
+  // FITNESS MILESTONES (Priority 2)
+  // ============================================================
+
+  describe('fitness milestones', () => {
+    it('detects FTP increase', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          ftpTrend: {
+            latestFtp: 260,
+            latestDate: BigInt(1000),
+            previousFtp: 250,
+            previousDate: BigInt(500),
+          },
+        },
+        mockT
+      );
+      const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
+      expect(ftp).toBeDefined();
+      expect(ftp!.priority).toBe(2);
+      expect(ftp!.title).toContain('delta: 10');
+    });
+
+    it('does not generate FTP insight when FTP decreased', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          ftpTrend: {
+            latestFtp: 240,
+            latestDate: BigInt(1000),
+            previousFtp: 250,
+            previousDate: BigInt(500),
+          },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'fitness_milestone-ftp')).toBeUndefined();
+    });
+
+    it('detects pace improvement (lower is better)', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          paceTrend: {
+            latestPace: 280,
+            latestDate: BigInt(1000),
+            previousPace: 300,
+            previousDate: BigInt(500),
+          },
+        },
+        mockT
+      );
+      const pace = result.find((i) => i.id === 'fitness_milestone-pace');
+      expect(pace).toBeDefined();
+      expect(pace!.title).toContain('delta: 20');
+    });
+
+    it('does not generate pace insight when pace got worse', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          paceTrend: {
+            latestPace: 320,
+            latestDate: BigInt(1000),
+            previousPace: 300,
+            previousDate: BigInt(500),
+          },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'fitness_milestone-pace')).toBeUndefined();
+    });
+
+    it('detects peak CTL (within 5%)', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentCtl: 96,
+          peakCtl: 100,
+        },
+        mockT
+      );
+      const peak = result.find((i) => i.id === 'fitness_milestone-peak-ctl');
+      expect(peak).toBeDefined();
+    });
+
+    it('does not generate peak CTL when too far below', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentCtl: 80,
+          peakCtl: 100,
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'fitness_milestone-peak-ctl')).toBeUndefined();
+    });
+  });
+
+  // ============================================================
+  // PERIOD COMPARISON (Priority 3)
+  // ============================================================
+
+  describe('period comparison', () => {
+    it('detects load increase >10% (uses TSS when available)', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+        },
+        mockT
+      );
+      const vol = result.find((i) => i.id === 'period_comparison-volume');
+      expect(vol).toBeDefined();
+      expect(vol!.icon).toBe('trending-up');
+      expect(vol!.title).toContain('weeklyLoadUp'); // TSS-based key
+    });
+
+    it('detects load decrease >10% (uses TSS when available)', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 2, totalDuration: 3000, totalDistance: 40000, totalTss: 80 },
+          previousPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+        },
+        mockT
+      );
+      const vol = result.find((i) => i.id === 'period_comparison-volume');
+      expect(vol).toBeDefined();
+      expect(vol!.icon).toBe('trending-down');
+      expect(vol!.title).toContain('weeklyLoadDown'); // TSS-based key
+    });
+
+    it('no insight when load change <10%', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 5200, totalDistance: 100000, totalTss: 195 },
+          previousPeriod: { count: 5, totalDuration: 5000, totalDistance: 100000, totalTss: 200 },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+    });
+
+    it('falls back to duration when TSS is zero', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 0 },
+          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 0 },
+        },
+        mockT
+      );
+      const vol = result.find((i) => i.id === 'period_comparison-volume');
+      expect(vol).toBeDefined();
+      expect(vol!.title).toContain('weeklyVolumeUp'); // Duration-based fallback
+    });
+  });
+
+  // ============================================================
+  // ACTIVITY PATTERNS (Priority 4)
+  // ============================================================
+
+  describe('activity patterns', () => {
+    it('generates pattern insight when confidence >= 0.6', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 2,
+            avgDurationSecs: 5400,
+            confidence: 0.7,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      const pattern = result.find((i) => i.category === 'activity_pattern');
+      expect(pattern).toBeDefined();
+      expect(pattern!.priority).toBe(4);
+    });
+
+    it('skips pattern when confidence < 0.6', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 2,
+            avgDurationSecs: 5400,
+            confidence: 0.4,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.category === 'activity_pattern')).toBeUndefined();
+    });
+  });
+
+  // ============================================================
+  // CONSISTENCY (Priority 5)
+  // ============================================================
+
+  describe('consistency streak', () => {
+    it('generates streak when both periods have 3+ activities', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+          previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+        },
+        mockT
+      );
+      const streak = result.find((i) => i.id === 'training_consistency-streak');
+      expect(streak).toBeDefined();
+      expect(streak!.priority).toBe(5);
+    });
+
+    it('no streak when a period has fewer than 3 activities', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 2, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+          previousPeriod: { count: 5, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'training_consistency-streak')).toBeUndefined();
+    });
+  });
+
+  // ============================================================
+  // FORM ADVICE (Priority 5)
+  // ============================================================
+
+  describe('form advice', () => {
+    it('generates form advice when formTsb is provided with wellness data', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: -5, formCtl: 50, formAtl: 55 },
+        mockT
+      );
+      const form = result.find((i) => i.id === 'training_consistency-form');
+      expect(form).toBeDefined();
+      expect(form!.navigationTarget).toBe('/fitness');
+    });
+
+    it('does not generate form advice when formTsb is null', () => {
+      const result = generateInsights(EMPTY_INPUT, mockT);
+      expect(result.find((i) => i.id === 'training_consistency-form')).toBeUndefined();
+    });
+
+    it.each([
+      [20, 'fresh'],
+      [10, 'grey'],
+      [-5, 'optimal'],
+      [-20, 'tired'],
+      [-50, 'overreaching'],
+    ])('formTsb=%i maps to %s zone', (tsb, zone) => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: tsb, formCtl: 50, formAtl: 50 },
+        mockT
+      );
+      const form = result.find((i) => i.id === 'training_consistency-form');
+      expect(form!.title).toContain(zone);
+    });
+
+    it('form insight not generated when no wellness data (ctl and atl both null)', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: 0, formCtl: null, formAtl: null },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'training_consistency-form')).toBeUndefined();
+    });
+  });
+
+  // ============================================================
+  // THRESHOLD BOUNDARIES
+  // ============================================================
+
+  describe('threshold boundaries', () => {
+    // VOLUME_CHANGE_THRESHOLD = 0.1 (10%)
+    // Check uses strict greater than: ratio > 0.1
+    // NOTE: IEEE 754 floating point means 5500/5000 - 1 = 0.10000000000000009 (not exactly 0.1),
+    //       so it triggers. Use 9.9% to test below threshold.
+    it('load change at 9.9% does not trigger insight', () => {
+      // If TSS is present, it's used. Set TSS to match duration ratio.
+      // ratio = 5495/5000 - 1 = 0.099 — below 0.1 threshold
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 5495, totalDistance: 100000, totalTss: 5495 },
+          previousPeriod: { count: 5, totalDuration: 5000, totalDistance: 100000, totalTss: 5000 },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+    });
+
+    it('load change at 10.02% triggers insight', () => {
+      // ratio = 5501/5000 - 1 = 0.1002 > 0.1
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 5501, totalDistance: 100000, totalTss: 5501 },
+          previousPeriod: { count: 5, totalDuration: 5000, totalDistance: 100000, totalTss: 5000 },
+        },
+        mockT
+      );
+      const vol = result.find((i) => i.id === 'period_comparison-volume');
+      expect(vol).toBeDefined();
+      expect(vol!.icon).toBe('trending-up');
+      expect(vol!.title).toContain('weeklyLoadUp');
+    });
+
+    it('load decrease at -9.9% does not trigger insight', () => {
+      // ratio = 4505/5000 - 1 = -0.099 — above -0.1 threshold (closer to zero)
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 4505, totalDistance: 100000, totalTss: 4505 },
+          previousPeriod: { count: 5, totalDuration: 5000, totalDistance: 100000, totalTss: 5000 },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+    });
+
+    it('load decrease at -10.02% triggers insight', () => {
+      // ratio = 4499/5000 - 1 = -0.1002 < -0.1
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 4499, totalDistance: 100000, totalTss: 4499 },
+          previousPeriod: { count: 5, totalDuration: 5000, totalDistance: 100000, totalTss: 5000 },
+        },
+        mockT
+      );
+      const vol = result.find((i) => i.id === 'period_comparison-volume');
+      expect(vol).toBeDefined();
+      expect(vol!.icon).toBe('trending-down');
+      expect(vol!.title).toContain('weeklyLoadDown');
+    });
+
+    // PATTERN_CONFIDENCE_THRESHOLD = 0.6
+    // Check uses strict less than: confidence < 0.6
+    it('confidence at exactly 0.6 triggers pattern insight', () => {
+      // confidence = 0.6, check is < 0.6, so 0.6 is NOT less than 0.6 — triggers
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 2,
+            avgDurationSecs: 5400,
+            confidence: 0.6,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.category === 'activity_pattern')).toBeDefined();
+    });
+
+    it('confidence at 0.59 does not trigger pattern insight', () => {
+      // confidence = 0.59 < 0.6, so returns early
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 2,
+            avgDurationSecs: 5400,
+            confidence: 0.59,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.category === 'activity_pattern')).toBeUndefined();
+    });
+
+    // PEAK_CTL_PROXIMITY = 0.05 (within 5%)
+    // Check uses >=: currentCtl >= peakCtl * (1 - 0.05) = peakCtl * 0.95
+    it('CTL at exactly 95% of peak triggers peak CTL insight', () => {
+      // currentCtl = 95, peakCtl = 100
+      // 95 >= 100 * 0.95 = 95 — triggers (>= boundary)
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentCtl: 95,
+          peakCtl: 100,
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'fitness_milestone-peak-ctl')).toBeDefined();
+    });
+
+    it('CTL at 94% of peak does not trigger', () => {
+      // currentCtl = 94, peakCtl = 100
+      // 94 < 100 * 0.95 = 95 — does not trigger
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentCtl: 94,
+          peakCtl: 100,
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'fitness_milestone-peak-ctl')).toBeUndefined();
+    });
+
+    // Form zone boundaries: fresh > 15, grey > 5, optimal > -10, tired > -30
+    it('formTsb at exactly 15 maps to grey zone (boundary between fresh and grey)', () => {
+      // resolveFormZone: tsb > 15 => fresh, else tsb > 5 => grey
+      // 15 is NOT > 15, so falls to grey
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: 15, formCtl: 50, formAtl: 50 },
+        mockT
+      );
+      const form = result.find((i) => i.id === 'training_consistency-form');
+      expect(form).toBeDefined();
+      expect(form!.title).toContain('grey');
+    });
+
+    it('formTsb at 15.01 maps to fresh zone', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: 15.01, formCtl: 50, formAtl: 50 },
+        mockT
+      );
+      const form = result.find((i) => i.id === 'training_consistency-form');
+      expect(form).toBeDefined();
+      expect(form!.title).toContain('fresh');
+    });
+
+    it('formTsb at exactly 5 maps to optimal zone (boundary between grey and optimal)', () => {
+      // 5 is NOT > 5, so falls to optimal
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: 5, formCtl: 50, formAtl: 50 },
+        mockT
+      );
+      const form = result.find((i) => i.id === 'training_consistency-form');
+      expect(form).toBeDefined();
+      expect(form!.title).toContain('optimal');
+    });
+
+    it('formTsb at exactly -10 maps to tired zone (boundary between optimal and tired)', () => {
+      // -10 is NOT > -10, so falls to tired
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: -10, formCtl: 50, formAtl: 50 },
+        mockT
+      );
+      const form = result.find((i) => i.id === 'training_consistency-form');
+      expect(form).toBeDefined();
+      expect(form!.title).toContain('tired');
+    });
+
+    it('formTsb at exactly -30 maps to overreaching zone (boundary between tired and overreaching)', () => {
+      // -30 is NOT > -30, so falls to overreaching
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: -30, formCtl: 50, formAtl: 50 },
+        mockT
+      );
+      const form = result.find((i) => i.id === 'training_consistency-form');
+      expect(form).toBeDefined();
+      expect(form!.title).toContain('overreaching');
+    });
+  });
+
+  // ============================================================
+  // ACTIVITY PATTERN EDGE CASES
+  // ============================================================
+
+  describe('activity pattern edge cases', () => {
+    it('pattern with primaryDay out of range (7) is skipped', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 7,
+            avgDurationSecs: 5400,
+            confidence: 0.8,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.category === 'activity_pattern')).toBeUndefined();
+    });
+
+    it('pattern with primaryDay negative (-1) is skipped', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: -1,
+            avgDurationSecs: 5400,
+            confidence: 0.8,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.category === 'activity_pattern')).toBeUndefined();
+    });
+
+    it('pattern with negative avgDurationSecs is skipped', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 2,
+            avgDurationSecs: -100,
+            confidence: 0.8,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.category === 'activity_pattern')).toBeUndefined();
+    });
+
+    it('pattern with zero avgDurationSecs is skipped', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 2,
+            avgDurationSecs: 0,
+            confidence: 0.8,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.category === 'activity_pattern')).toBeUndefined();
+    });
+
+    it('pattern with NaN avgDurationSecs is skipped', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 2,
+            avgDurationSecs: NaN,
+            confidence: 0.8,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.category === 'activity_pattern')).toBeUndefined();
+    });
+
+    it('pattern with sportType Run produces verb "run"', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Run',
+            primaryDay: 2,
+            avgDurationSecs: 3600,
+            confidence: 0.8,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      const pattern = result.find((i) => i.category === 'activity_pattern');
+      expect(pattern).toBeDefined();
+      expect(pattern!.title).toContain('verb: run');
+    });
+
+    it('pattern with sportType Ride produces verb "ride"', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 4,
+            avgDurationSecs: 5400,
+            confidence: 0.8,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      const pattern = result.find((i) => i.category === 'activity_pattern');
+      expect(pattern).toBeDefined();
+      expect(pattern!.title).toContain('verb: ride');
+    });
+
+    it('pattern with unknown sportType defaults to verb "ride"', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Swim',
+            primaryDay: 1,
+            avgDurationSecs: 3600,
+            confidence: 0.8,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      const pattern = result.find((i) => i.category === 'activity_pattern');
+      expect(pattern).toBeDefined();
+      expect(pattern!.title).toContain('verb: ride');
+    });
+
+    it('pattern includes correct day name', () => {
+      // primaryDay 0 = Mon, 6 = Sun
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 0,
+            avgDurationSecs: 3600,
+            confidence: 0.8,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      const pattern = result.find((i) => i.category === 'activity_pattern');
+      expect(pattern).toBeDefined();
+      expect(pattern!.title).toContain('day: Mon');
+    });
+
+    it('pattern includes formatted duration', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 6,
+            avgDurationSecs: 5400,
+            confidence: 0.8,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      const pattern = result.find((i) => i.category === 'activity_pattern');
+      expect(pattern).toBeDefined();
+      expect(pattern!.title).toContain('duration: 1h30');
+    });
+  });
+
+  // ============================================================
+  // PRIORITY ORDERING
+  // ============================================================
+
+  describe('priority ordering', () => {
+    it('sorts PRs before milestones before comparisons before patterns before consistency', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          recentPRs: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 0 }],
+          ftpTrend: {
+            latestFtp: 260,
+            latestDate: BigInt(1000),
+            previousFtp: 250,
+            previousDate: BigInt(500),
+          },
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 2,
+            avgDurationSecs: 5400,
+            confidence: 0.8,
+            activityCount: 10,
+          },
+          formTsb: 0,
+          formCtl: 50,
+          formAtl: 50,
+        },
+        mockT
+      );
+
+      // Should have: PR(1), FTP(2), Volume(3), Pattern(4), Streak(5), Form(5)
+      expect(result.length).toBeGreaterThanOrEqual(5);
+      for (let i = 1; i < result.length; i++) {
+        expect(result[i].priority).toBeGreaterThanOrEqual(result[i - 1].priority);
+      }
+    });
+
+    it('contains all priority levels 1-5 when all data present', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          recentPRs: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 0 }],
+          ftpTrend: {
+            latestFtp: 260,
+            latestDate: BigInt(1000),
+            previousFtp: 250,
+            previousDate: BigInt(500),
+          },
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 2,
+            avgDurationSecs: 5400,
+            confidence: 0.8,
+            activityCount: 10,
+          },
+          formTsb: 0,
+          formCtl: 50,
+          formAtl: 50,
+        },
+        mockT
+      );
+
+      const priorities = new Set(result.map((i) => i.priority));
+      expect(priorities.has(1)).toBe(true); // section_pr
+      expect(priorities.has(2)).toBe(true); // fitness_milestone
+      expect(priorities.has(3)).toBe(true); // period_comparison
+      expect(priorities.has(4)).toBe(true); // activity_pattern
+      expect(priorities.has(5)).toBe(true); // training_consistency
+    });
+  });
+
+  // ============================================================
+  // isNew FIELD
+  // ============================================================
+
+  describe('isNew field', () => {
+    it('all generated insights have isNew = true', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          recentPRs: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 0 }],
+          formTsb: 0,
+          formCtl: 50,
+          formAtl: 50,
+        },
+        mockT
+      );
+      expect(result.length).toBeGreaterThan(0);
+      result.forEach((insight) => expect(insight.isNew).toBe(true));
+    });
+
+    it('insights from every category have isNew = true', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          recentPRs: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 0 }],
+          ftpTrend: {
+            latestFtp: 260,
+            latestDate: BigInt(1000),
+            previousFtp: 250,
+            previousDate: BigInt(500),
+          },
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 2,
+            avgDurationSecs: 5400,
+            confidence: 0.8,
+            activityCount: 10,
+          },
+          formTsb: 0,
+          formCtl: 50,
+          formAtl: 50,
+        },
+        mockT
+      );
+      result.forEach((insight) => expect(insight.isNew).toBe(true));
+    });
+  });
+
+  // ============================================================
+  // BODY TEXT
+  // ============================================================
+
+  describe('body text', () => {
+    it('load insight has body with TSS and duration context', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+        },
+        mockT
+      );
+      const vol = result.find((i) => i.id === 'period_comparison-volume');
+      expect(vol?.body).toBeDefined();
+      expect(vol!.body).toContain('insights.loadBody'); // TSS-based body
+    });
+
+    it('load body contains TSS and duration values', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+        },
+        mockT
+      );
+      const vol = result.find((i) => i.id === 'period_comparison-volume');
+      // mockT formats as "key {k: v, ...}" so body should contain TSS and duration values
+      expect(vol!.body).toContain('currentTss: 200');
+      expect(vol!.body).toContain('previousTss: 150');
+      expect(vol!.body).toContain('currentDuration: 2h');
+      expect(vol!.body).toContain('previousDuration: 1h23');
+    });
+
+    it('load decrease also has body', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 2, totalDuration: 3000, totalDistance: 40000, totalTss: 80 },
+          previousPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+        },
+        mockT
+      );
+      const vol = result.find((i) => i.id === 'period_comparison-volume');
+      expect(vol?.body).toBeDefined();
+      expect(vol!.body).toContain('insights.loadBody'); // TSS-based body
+    });
+
+    it('form advice has body with TSB/CTL/ATL values', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: -5, formCtl: 50, formAtl: 55 },
+        mockT
+      );
+      const form = result.find((i) => i.id === 'training_consistency-form');
+      expect(form?.body).toBeDefined();
+      expect(form!.body).toContain('formBody');
+    });
+
+    it('form body contains rounded TSB, CTL, ATL values', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: -5.7, formCtl: 50.3, formAtl: 55.9 },
+        mockT
+      );
+      const form = result.find((i) => i.id === 'training_consistency-form');
+      expect(form?.body).toBeDefined();
+      // mockT renders params, so body should contain rounded values
+      expect(form!.body).toContain('tsb: -6');
+      expect(form!.body).toContain('ctl: 50');
+      expect(form!.body).toContain('atl: 56');
+    });
+  });
+});
+
+// ============================================================
+// formatDurationCompact
+// ============================================================
+
+describe('formatDurationCompact', () => {
+  it.each([
+    [0, '0m'],
+    [-1, '0m'],
+    [NaN, '0m'],
+    [Infinity, '0m'],
+    [60, '1m'],
+    [300, '5m'],
+    [3600, '1h'],
+    [5400, '1h30'],
+    [3660, '1h01'],
+    [7200, '2h'],
+  ])('formats %d seconds as %s', (secs, expected) => {
+    expect(formatDurationCompact(secs)).toBe(expected);
+  });
+});

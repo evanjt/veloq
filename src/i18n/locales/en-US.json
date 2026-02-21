@@ -515,6 +515,7 @@
     "health": "Health",
     "map": "Map",
     "routes": "Routes",
+    "insights": "Insights",
     "settings": "Settings",
     "stats": "Stats",
     "training": "Training",
@@ -522,6 +523,47 @@
   },
   "healthScreen": {
     "title": "Health"
+  },
+  "insights": {
+    "title": "Insights",
+    "noInsights": "Insights will appear as you train",
+    "noInsightsHint": "Complete more activities to see personalized insights",
+    "sectionPr": "PR on {{name}}",
+    "sectionPrSubtitle": "{{time}} — {{daysAgo}}d ago",
+    "sectionTrendSummary": "{{improving}} of {{total}} sections trending up",
+    "sectionTrendSummaryBody": "Improving: {{names}}. {{stable}} stable, {{declining}} declining.",
+    "sectionImproving": "{{name}} getting faster",
+    "sectionImprovingBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts.",
+    "sectionDeclining": "{{name}} slowing down",
+    "sectionDecliningBody": "Recent median: {{median}} vs best of {{best}}. Time to revisit?",
+    "ftpIncrease": "FTP up {{delta}}W",
+    "paceImproved": "Pace improved {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% weekly volume",
+    "weeklyVolumeDown": "{{percent}}% less this week",
+    "weeklyLoadUp": "+{{percent}}% training load",
+    "weeklyLoadDown": "{{percent}}% less training load",
+    "loadBody": "TSS: {{currentTss}} this week vs {{previousTss}} last week. Duration: {{currentDuration}} vs {{previousDuration}}.",
+    "patternMatch": "{{day}} — usually {{verb}} ~{{duration}}",
+    "consistencyStreak": "{{count}}-week streak",
+    "peakFitness": "Peak fitness: {{value}} CTL",
+    "formAdvice": {
+      "fresh": "Good day for intensity",
+      "grey": "Moderate effort recommended",
+      "optimal": "Peak form window",
+      "tired": "Consider recovery",
+      "overreaching": "Rest recommended"
+    },
+    "volumeBody": "Training duration: {{current}} this week vs {{previous}} last week. This measures time, not training load (TSS).",
+    "formBody": {
+      "fresh": "Your form (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Fatigue (ATL: {{atl}}). Fresh zone — well recovered, good day for hard efforts.",
+      "grey": "Your form (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Fatigue (ATL: {{atl}}). Transitional zone — moderate efforts recommended.",
+      "optimal": "Your form (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Fatigue (ATL: {{atl}}). Optimal zone — peak performance window.",
+      "tired": "Your form (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Fatigue (ATL: {{atl}}). Tired zone — consider easier sessions or rest.",
+      "overreaching": "Your form (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Fatigue (ATL: {{atl}}). Overreaching — rest strongly recommended."
+    },
+    "viewDetails": "View details",
+    "today": "TODAY",
+    "tomorrow": "TOMORROW"
   },
   "routeDetail": {
     "avgTime": "Avg Time",

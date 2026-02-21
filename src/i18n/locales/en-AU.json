@@ -518,10 +518,52 @@
     "settings": "Settings",
     "stats": "Numbers",
     "training": "Training",
-    "wellness": "How ya goin'"
+    "wellness": "How ya goin'",
+    "insights": "Insights"
   },
   "healthScreen": {
     "title": "Health"
+  },
+  "insights": {
+    "title": "The Lowdown",
+    "noInsights": "Insights will rock up as you train",
+    "noInsightsHint": "Get out there and do more activities to see your personalised lowdown",
+    "sectionPr": "New PB on {{name}}",
+    "sectionPrSubtitle": "{{time}} — {{daysAgo}}d back",
+    "sectionTrendSummary": "{{improving}} of {{total}} sections on the up",
+    "sectionTrendSummaryBody": "Flying: {{names}}. {{stable}} cruising, {{declining}} going backwards.",
+    "sectionImproving": "{{name}} is flying!",
+    "sectionImprovingBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts, ripper.",
+    "sectionDeclining": "{{name}} needs a shake-up",
+    "sectionDecliningBody": "Recent median: {{median}} vs best of {{best}}. Time for another crack?",
+    "ftpIncrease": "FTP up {{delta}}W, legend",
+    "paceImproved": "Pace improved {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% volume this week",
+    "weeklyVolumeDown": "{{percent}}% less this week",
+    "weeklyLoadUp": "+{{percent}}% training load, legend",
+    "weeklyLoadDown": "{{percent}}% less load this week",
+    "loadBody": "TSS: {{currentTss}} this week vs {{previousTss}} last week. Time on the bike: {{currentDuration}} vs {{previousDuration}}.",
+    "patternMatch": "{{day}} — usually {{verb}} ~{{duration}}",
+    "consistencyStreak": "{{count}}-week streak, you weapon",
+    "peakFitness": "Peak fitness: {{value}} CTL",
+    "formAdvice": {
+      "fresh": "Ripper day to send it",
+      "grey": "Ease up a touch today",
+      "optimal": "You're in the sweet spot, mate",
+      "tired": "Take it easy, mate",
+      "overreaching": "Pull up stumps and rest"
+    },
+    "volumeBody": "Training time: {{current}} this week vs {{previous}} last week. This measures time, not training load (TSS).",
+    "formBody": {
+      "fresh": "Your form (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Fatigue (ATL: {{atl}}). Fresh as — well recovered, ripper day for a big effort.",
+      "grey": "Your form (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Fatigue (ATL: {{atl}}). Bit in between — keep it cruisy today.",
+      "optimal": "Your form (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Fatigue (ATL: {{atl}}). Sweet spot — you're primed for a belter.",
+      "tired": "Your form (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Fatigue (ATL: {{atl}}). You're cooked — easy spin or put the feet up.",
+      "overreaching": "Your form (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Fatigue (ATL: {{atl}}). Absolutely flogged — park it and rest up, mate."
+    },
+    "viewDetails": "Have a geez",
+    "today": "TODAY",
+    "tomorrow": "TOMORROW"
   },
   "routeDetail": {
     "avgTime": "Avg Time",

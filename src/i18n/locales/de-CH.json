@@ -518,10 +518,52 @@
     "settings": "Istellige",
     "stats": "Zahle",
     "training": "Training",
-    "wellness": "Wohlsii"
+    "wellness": "Wohlsii",
+    "insights": "Einblicke"
   },
   "healthScreen": {
     "title": "Gsundheit"
+  },
+  "insights": {
+    "title": "S Wichigschte",
+    "noInsights": "Tipps chömed wenn du trainiersch",
+    "noInsightsHint": "Mach meh Aktivitäte für persönlichi Tipps",
+    "sectionPr": "PR uf {{name}}!",
+    "sectionPrSubtitle": "{{time}} — vor {{daysAgo}}T",
+    "sectionTrendSummary": "{{improving}} vo {{total}} Abschnitt im Ufwärtstrend",
+    "sectionTrendSummaryBody": "Am Gas gee: {{names}}. {{stable}} stabil, {{declining}} am nachla.",
+    "sectionImproving": "{{name}} wird schnäller!",
+    "sectionImprovingBody": "Letschte Median: {{median}}. Bestziit: {{best}} us {{count}} Versüech.",
+    "sectionDeclining": "{{name}} wird langsamer",
+    "sectionDecliningBody": "Letschte Median: {{median}} vs Bestziit {{best}}. Ziit für en neue Aalauf?",
+    "ftpIncrease": "FTP +{{delta}}W, lässig!",
+    "paceImproved": "Tempo besser {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% die Wuche",
+    "weeklyVolumeDown": "{{percent}}% weniger die Wuche",
+    "weeklyLoadUp": "+{{percent}}% Trainingsbelastig",
+    "weeklyLoadDown": "{{percent}}% weniger Belastig",
+    "loadBody": "TSS: {{currentTss}} die Wuche vs {{previousTss}} letschti Wuche. Ziit: {{currentDuration}} vs {{previousDuration}}.",
+    "patternMatch": "{{day}} — meischtens {{verb}} ~{{duration}}",
+    "consistencyStreak": "{{count}}-Wuche-Serie, cheibe guet!",
+    "peakFitness": "Topform: {{value}} CTL",
+    "formAdvice": {
+      "fresh": "Lässige Tag zum Gas gee!",
+      "grey": "Hüt lieber gemüetlich",
+      "optimal": "Du bisch im Schuss, Siech!",
+      "tired": "Mach mal langsam, gäll",
+      "overreaching": "Ab ufs Sofa, Siech!"
+    },
+    "volumeBody": "Trainingsziit: {{current}} die Wuche vs {{previous}} letscht Wuche. Das misst d Ziit, nöd d Trainingsbelastig (TSS).",
+    "formBody": {
+      "fresh": "Dini Form (TSB) isch {{tsb}}. Fitness (CTL: {{ctl}}) – Müedigkeit (ATL: {{atl}}). Fit wie en Turnschueh — lässige Tag für herts Training.",
+      "grey": "Dini Form (TSB) isch {{tsb}}. Fitness (CTL: {{ctl}}) – Müedigkeit (ATL: {{atl}}). So mittelmässig — lieber gemüetlich hüt.",
+      "optimal": "Dini Form (TSB) isch {{tsb}}. Fitness (CTL: {{ctl}}) – Müedigkeit (ATL: {{atl}}). Cheibe lässig — du bisch i de Topform!",
+      "tired": "Dini Form (TSB) isch {{tsb}}. Fitness (CTL: {{ctl}}) – Müedigkeit (ATL: {{atl}}). Bisch müed — mach es ruhig oder rueht di us.",
+      "overreaching": "Dini Form (TSB) isch {{tsb}}. Fitness (CTL: {{ctl}}) – Müedigkeit (ATL: {{atl}}). Total am Aschlag — rueht di us, Siech!"
+    },
+    "viewDetails": "Details luege",
+    "today": "HÜTT",
+    "tomorrow": "MORN"
   },
   "routeDetail": {
     "avgTime": "Ø Ziit",

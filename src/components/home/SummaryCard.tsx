@@ -44,6 +44,9 @@ export interface SummaryCardProps {
 
   // Supporting metrics (max 4)
   supportingMetrics: SupportingMetric[];
+
+  // Optional insight line rendered right-aligned in top row
+  insightLine?: React.ReactNode;
 }
 
 /**
@@ -74,6 +77,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   showSparkline,
   showSparklineLabels = false,
   supportingMetrics,
+  insightLine,
 }: SummaryCardProps) {
   const { isDark, colors: themeColors } = useTheme();
   const [profileImageError, setProfileImageError] = React.useState(false);
@@ -174,6 +178,8 @@ export const SummaryCard = React.memo(function SummaryCard({
             )}
           </View>
         </TouchableOpacity>
+
+        {insightLine}
       </View>
 
       {/* Sparkline row — fitness line + form zone bar */}

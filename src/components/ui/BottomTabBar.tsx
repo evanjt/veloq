@@ -12,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { brand } from '@/theme';
+import { useInsightsStore } from '@/providers/InsightsStore';
 import { PERF_DEBUG } from '@/lib/debug/renderTimer';
 
 // Menu items with routes and icons (labels come from i18n)
@@ -19,7 +20,7 @@ const MENU_ITEMS = [
   { key: 'feed', icon: 'home-outline', route: '/' },
   { key: 'fitness', icon: 'chart-line', route: '/fitness' },
   { key: 'map', icon: 'map-outline', route: '/map' },
-  { key: 'routes', icon: 'map-marker-path', route: '/routes' },
+  { key: 'insights', icon: 'lightbulb-outline', route: '/routes' },
   { key: 'health', icon: 'heart-pulse', route: '/training' },
 ] as const;
 
@@ -47,6 +48,7 @@ function BottomTabBarComponent() {
   const pathname = usePathname();
   const { isDark } = useTheme();
   const { t } = useTranslation();
+  const hasNewInsights = useInsightsStore((s) => s.hasNewInsights);
 
   // Colors with proper contrast for accessibility
   const activeColor = isDark ? ACTIVE_COLOR_DARK : brand.tealLight;
@@ -123,11 +125,16 @@ function BottomTabBarComponent() {
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
             >
-              <MaterialCommunityIcons
-                name={item.icon as never}
-                size={isActive ? ICON_SIZE + 2 : ICON_SIZE}
-                color={isActive ? activeColor : inactiveColor}
-              />
+              <View>
+                <MaterialCommunityIcons
+                  name={item.icon as never}
+                  size={isActive ? ICON_SIZE + 2 : ICON_SIZE}
+                  color={isActive ? activeColor : inactiveColor}
+                />
+                {item.key === 'insights' && hasNewInsights && (
+                  <View style={styles.notificationDot} />
+                )}
+              </View>
               <Text
                 style={[
                   styles.label,
@@ -176,5 +183,14 @@ const styles = StyleSheet.create({
   },
   labelActive: {
     fontWeight: '700',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 0,
+    right: -4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FC4C02',
   },
 });

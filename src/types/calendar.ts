@@ -60,6 +60,6 @@ export interface PatternSection {
   appearanceRate: number; // 0.0-1.0
   bestTimeSecs: number;
   medianRecentSecs: number; // median of last 5 traversals
-  trend: number | null; // null=insufficient data, -1=declining, 0=stable, 1=improving
+  trend: number | null | undefined; // null/undefined=insufficient data, -1=declining, 0=stable, 1=improving
   traversalCount: number;
 }

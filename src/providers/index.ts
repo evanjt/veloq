@@ -85,3 +85,4 @@ export {
   type MetricPreference,
 } from './DashboardPreferencesStore';
 export { useDebugStore, isDebugEnabled, initializeDebugStore } from './DebugStore';
+export { useInsightsStore, initializeInsightsStore } from './InsightsStore';
