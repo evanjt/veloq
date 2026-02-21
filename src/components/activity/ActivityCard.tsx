@@ -169,6 +169,184 @@ export const ActivityCard = React.memo(function ActivityCard({
   const location = formatLocation(activity);
   const mapStyle = getStyleForActivity(activity.type);
   const theme = getGradientTheme(isDark, mapStyle);
+  const hasGpsData = activity.stream_types?.includes('latlng');
+
+  const compactTextColor = isDark ? darkColors.textPrimary : colors.textPrimary;
+  const compactMutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const compactDotColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)';
+  const compactDividerColor = isDark ? darkColors.border : 'rgba(0,0,0,0.1)';
+
+  // Shared secondary stats row used by both compact and full card
+  const secondaryStatsRow = (textColor: string) => (
+    <ScrollView
+      ref={scrollRef}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      onContentSizeChange={handleContentSizeChange}
+      style={styles.secondaryScroll}
+    >
+      <Pressable onPress={handlePress} style={styles.secondaryStats}>
+        {activity.icu_training_load && (
+          <View
+            style={styles.secondaryStat}
+            accessibilityLabel={`${t('activity.stats.trainingLoad')}: ${formatTSS(activity.icu_training_load)}`}
+          >
+            <MaterialCommunityIcons name="fire" size={14} color={colors.primary} />
+            <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+              {formatTSS(activity.icu_training_load)}
+            </RNText>
+          </View>
+        )}
+        {(activity.average_heartrate || activity.icu_average_hr) && (
+          <View
+            style={styles.secondaryStat}
+            accessibilityLabel={`${t('activity.heartRate')}: ${formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)} ${t('units.bpm')}`}
+          >
+            <MaterialCommunityIcons name="heart-pulse" size={14} color={colors.error} />
+            <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+              {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
+            </RNText>
+          </View>
+        )}
+        {(activity.average_watts || activity.icu_average_watts) && (
+          <View
+            style={styles.secondaryStat}
+            accessibilityLabel={`${t('activity.power')}: ${formatPower(activity.average_watts || activity.icu_average_watts!)} ${t('units.watts')}`}
+          >
+            <MaterialCommunityIcons name="lightning-bolt" size={14} color={colors.warning} />
+            <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+              {formatPower(activity.average_watts || activity.icu_average_watts!)}
+            </RNText>
+          </View>
+        )}
+        {activity.calories && (
+          <View
+            style={styles.secondaryStat}
+            accessibilityLabel={`${t('activity.calories')}: ${formatCalories(activity.calories)} ${t('units.kcal')}`}
+          >
+            <MaterialCommunityIcons name="food-apple" size={14} color={colors.success} />
+            <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+              {formatCalories(activity.calories)}
+            </RNText>
+          </View>
+        )}
+        {activity.has_weather && activity.average_weather_temp != null && (
+          <View
+            style={styles.secondaryStat}
+            accessibilityLabel={`${t('activity.stats.temperature')}: ${formatTemperature(activity.average_weather_temp, isMetric)}`}
+          >
+            <MaterialCommunityIcons name="weather-partly-cloudy" size={14} color={colors.info} />
+            <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+              {formatTemperature(activity.average_weather_temp, isMetric)}
+            </RNText>
+          </View>
+        )}
+      </Pressable>
+    </ScrollView>
+  );
+
+  // Context menu (shared between compact and full card)
+  const contextMenu = (
+    <Menu
+      visible={menuVisible}
+      onDismiss={() => setMenuVisible(false)}
+      anchor={menuAnchor}
+      contentStyle={[styles.menuContent, isDark && styles.menuContentDark]}
+    >
+      <Menu.Item onPress={handleShare} title={t('activity.share')} leadingIcon="share-variant" />
+      <Menu.Item
+        onPress={handleViewDetails}
+        title={t('activity.viewDetails')}
+        leadingIcon="information-outline"
+      />
+    </Menu>
+  );
+
+  // Compact card for activities without GPS data
+  if (!hasGpsData) {
+    return (
+      <View style={styles.cardWrapper}>
+        <Pressable
+          testID={`activity-card-${activity.id}`}
+          onPress={handlePress}
+          onLongPress={handleLongPress}
+          delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          accessibilityRole="button"
+          accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
+        >
+          <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
+            <View style={styles.compactContent}>
+              {/* Header: icon + name + no-map indicator + date */}
+              <View style={styles.compactHeader}>
+                <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
+                  <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
+                </View>
+                <RNText style={[styles.compactName, { color: compactTextColor }]} numberOfLines={1}>
+                  {activity.name}
+                </RNText>
+                <MaterialCommunityIcons
+                  name="map-marker-off"
+                  size={14}
+                  color={activityColor}
+                  style={styles.compactNoMapIcon}
+                />
+                <RNText
+                  style={[styles.compactDate, { color: compactMutedColor }]}
+                  numberOfLines={1}
+                >
+                  {formatRelativeDate(activity.start_date_local)}
+                </RNText>
+              </View>
+
+              {/* Primary stats + location */}
+              <View style={styles.compactPrimaryRow}>
+                <View style={styles.primaryStats}>
+                  <RNText
+                    testID={`activity-card-${activity.id}-distance`}
+                    style={[styles.compactStatValue, { color: compactTextColor }]}
+                  >
+                    {formatDistance(activity.distance, isMetric)}
+                  </RNText>
+                  <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
+                  <RNText
+                    testID={`activity-card-${activity.id}-duration`}
+                    style={[styles.compactStatValue, { color: compactTextColor }]}
+                  >
+                    {formatDuration(activity.moving_time)}
+                  </RNText>
+                  <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
+                  <RNText
+                    testID={`activity-card-${activity.id}-elevation`}
+                    style={[styles.compactStatValue, { color: compactTextColor }]}
+                  >
+                    {formatElevation(activity.total_elevation_gain, isMetric)}
+                  </RNText>
+                </View>
+                {location && (
+                  <RNText style={[styles.compactLocation, { color: compactMutedColor }]}>
+                    {location}
+                  </RNText>
+                )}
+              </View>
+
+              {/* Skyline bar or divider */}
+              {activity.skyline_chart_bytes ? (
+                <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
+              ) : (
+                <View style={[styles.dividerLine, { backgroundColor: compactDividerColor }]} />
+              )}
+
+              {/* Secondary stats */}
+              {secondaryStatsRow(compactMutedColor)}
+            </View>
+          </View>
+        </Pressable>
+        {contextMenu}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.cardWrapper}>
@@ -279,97 +457,13 @@ export const ActivityCard = React.memo(function ActivityCard({
               <View style={[styles.dividerLine, { backgroundColor: theme.divider }]} />
             )}
             {/* Secondary stats */}
-            <ScrollView
-              ref={scrollRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              onContentSizeChange={handleContentSizeChange}
-              style={styles.secondaryScroll}
-            >
-              <Pressable onPress={handlePress} style={styles.secondaryStats}>
-                {activity.icu_training_load && (
-                  <View
-                    style={styles.secondaryStat}
-                    accessibilityLabel={`${t('activity.stats.trainingLoad')}: ${formatTSS(activity.icu_training_load)}`}
-                  >
-                    <MaterialCommunityIcons name="fire" size={14} color={colors.primary} />
-                    <RNText style={[styles.secondaryStatValue, { color: theme.secondaryText }]}>
-                      {formatTSS(activity.icu_training_load)}
-                    </RNText>
-                  </View>
-                )}
-                {(activity.average_heartrate || activity.icu_average_hr) && (
-                  <View
-                    style={styles.secondaryStat}
-                    accessibilityLabel={`${t('activity.heartRate')}: ${formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)} ${t('units.bpm')}`}
-                  >
-                    <MaterialCommunityIcons name="heart-pulse" size={14} color={colors.error} />
-                    <RNText style={[styles.secondaryStatValue, { color: theme.secondaryText }]}>
-                      {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
-                    </RNText>
-                  </View>
-                )}
-                {(activity.average_watts || activity.icu_average_watts) && (
-                  <View
-                    style={styles.secondaryStat}
-                    accessibilityLabel={`${t('activity.power')}: ${formatPower(activity.average_watts || activity.icu_average_watts!)} ${t('units.watts')}`}
-                  >
-                    <MaterialCommunityIcons
-                      name="lightning-bolt"
-                      size={14}
-                      color={colors.warning}
-                    />
-                    <RNText style={[styles.secondaryStatValue, { color: theme.secondaryText }]}>
-                      {formatPower(activity.average_watts || activity.icu_average_watts!)}
-                    </RNText>
-                  </View>
-                )}
-                {activity.calories && (
-                  <View
-                    style={styles.secondaryStat}
-                    accessibilityLabel={`${t('activity.calories')}: ${formatCalories(activity.calories)} ${t('units.kcal')}`}
-                  >
-                    <MaterialCommunityIcons name="food-apple" size={14} color={colors.success} />
-                    <RNText style={[styles.secondaryStatValue, { color: theme.secondaryText }]}>
-                      {formatCalories(activity.calories)}
-                    </RNText>
-                  </View>
-                )}
-                {activity.has_weather && activity.average_weather_temp != null && (
-                  <View
-                    style={styles.secondaryStat}
-                    accessibilityLabel={`${t('activity.stats.temperature')}: ${formatTemperature(activity.average_weather_temp, isMetric)}`}
-                  >
-                    <MaterialCommunityIcons
-                      name="weather-partly-cloudy"
-                      size={14}
-                      color={colors.info}
-                    />
-                    <RNText style={[styles.secondaryStatValue, { color: theme.secondaryText }]}>
-                      {formatTemperature(activity.average_weather_temp, isMetric)}
-                    </RNText>
-                  </View>
-                )}
-              </Pressable>
-            </ScrollView>
+            {secondaryStatsRow(theme.secondaryText)}
           </View>
         </View>
       </View>
 
       {/* Context menu for long press */}
-      <Menu
-        visible={menuVisible}
-        onDismiss={() => setMenuVisible(false)}
-        anchor={menuAnchor}
-        contentStyle={[styles.menuContent, isDark && styles.menuContentDark]}
-      >
-        <Menu.Item onPress={handleShare} title={t('activity.share')} leadingIcon="share-variant" />
-        <Menu.Item
-          onPress={handleViewDetails}
-          title={t('activity.viewDetails')}
-          leadingIcon="information-outline"
-        />
-      </Menu>
+      {contextMenu}
     </View>
   );
 });
@@ -500,6 +594,45 @@ const styles = StyleSheet.create({
   secondaryStatValue: {
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
+  },
+  compactContent: {
+    padding: 12,
+  },
+  compactHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  compactName: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+    marginLeft: spacing.sm,
+  },
+  compactNoMapIcon: {
+    marginHorizontal: 6,
+    opacity: 0.5,
+  },
+  compactDate: {
+    fontSize: typography.bodyCompact.fontSize,
+    fontWeight: '600',
+  },
+  compactPrimaryRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
+  compactStatValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  compactLocation: {
+    fontSize: typography.caption.fontSize,
+    marginLeft: spacing.sm,
+    flexShrink: 1,
   },
   menuContent: {
     backgroundColor: colors.surface,
