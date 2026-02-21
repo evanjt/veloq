@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue, runOnJS } from 'react-native-reanimated';
-import { colors, darkColors, spacing, typography, opacity } from '@/theme';
+import { colors, spacing, typography, opacity, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import {
   sortByDateId,
@@ -430,10 +430,10 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     return (
       <View style={[styles.container, { height }]}>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>
+          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
             {t('wellness.noTrendData')}
           </Text>
-          <Text style={[styles.emptyHint, isDark && styles.textDark]}>
+          <Text style={[styles.emptyHint, isDark && chartStyles.textDark]}>
             {t('wellness.trendHint')}
           </Text>
         </View>
@@ -451,7 +451,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
           {selectedDate ? formatShortDateWithWeekday(selectedDate) : t('time.today')}
         </Text>
         {selectedIdx !== null && (
-          <Text style={[styles.dateHint, isDark && styles.textDark]}>
+          <Text style={[styles.dateHint, isDark && chartStyles.textDark]}>
             {t('wellness.dragToExplore')}
           </Text>
         )}
@@ -471,7 +471,9 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
               {/* Left: label */}
               <View style={styles.metricInfo}>
                 <View style={[styles.metricDot, { backgroundColor: metric.color }]} />
-                <Text style={[styles.metricLabel, isDark && styles.textDark]}>{metric.label}</Text>
+                <Text style={[styles.metricLabel, isDark && chartStyles.textDark]}>
+                  {metric.label}
+                </Text>
               </View>
 
               {/* Center: spacer for sparkline area (canvas is overlaid absolutely) */}
@@ -491,9 +493,11 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                     ? metric.formatValue(metricDisplayValues[i].displayValue.rawValue)
                     : '-'}
                 </Text>
-                <Text style={[styles.metricUnit, isDark && styles.textDark]}>{metric.unit}</Text>
+                <Text style={[styles.metricUnit, isDark && chartStyles.textDark]}>
+                  {metric.unit}
+                </Text>
                 {!metricDisplayValues[i]?.isSelected && (
-                  <Text style={[styles.metricAvg, isDark && styles.textDark]}>
+                  <Text style={[styles.metricAvg, isDark && chartStyles.textDark]}>
                     avg {metric.formatValue(metricDisplayValues[i]?.avgValue ?? 0)}
                   </Text>
                 )}
@@ -522,7 +526,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       </GestureDetector>
 
       {/* Period label */}
-      <Text style={[styles.periodLabel, isDark && styles.textDark]}>
+      <Text style={[styles.periodLabel, isDark && chartStyles.textDark]}>
         {t('wellness.lastDays', { count: data.length })}
       </Text>
     </View>
@@ -566,9 +570,6 @@ const styles = StyleSheet.create({
   },
   textLight: {
     color: colors.textOnDark,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
   },
   metricRow: {
     flexDirection: 'row',

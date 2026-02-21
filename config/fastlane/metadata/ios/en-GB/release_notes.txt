@@ -1,5 +1,12 @@
-v0.1.4 (16 Feb 2026)
+v0.2.0 (Feb 2026)
 
-• Fixed stats card showing 0 until GPS download completes — weekly stats now appear immediately after activity sync
+• Activity cards now show +/− change indicators for each metric
+• Cards without map data are minimised automatically to save space
+• Fitness chart combines CTL/ATL with form shown as a horizontal line, with zone boundary markers
+• Activity feed: filter buttons unnested, search bar moves below the fold on load (swipe down to reveal), longer sparklines, and bottom-row chips are now tappable
+• Maps: smaller start/end markers, trace line has a contrasting border for better visibility on satellite view, map expands into the card with overlaid text
+• Charts: swap between time and distance on the x-axis, average value shown on line, improved scrubbing on fitness plot
+• Power zones and intervals table added to activity detail
+• Season best values now shown alongside personal records
 
-Full details: https://github.com/evanjt/veloq/releases/tag/v0.1.4
+Full details: https://github.com/evanjt/veloq/releases/tag/v0.2.0

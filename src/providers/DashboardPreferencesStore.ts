@@ -18,7 +18,8 @@ export type MetricId =
   | 'thresholdPace'
   | 'css'
   | 'fitness'
-  | 'form';
+  | 'form'
+  | 'weight';
 
 // Metric definition with display info
 export interface MetricDefinition {
@@ -39,6 +40,7 @@ export const AVAILABLE_METRICS: MetricDefinition[] = [
   { id: 'css', labelKey: 'metrics.css', sportSpecific: 'Swimming' },
   { id: 'fitness', labelKey: 'metrics.fitness' },
   { id: 'form', labelKey: 'metrics.form' },
+  { id: 'weight', labelKey: 'metrics.weight' },
 ];
 
 // User's preference for a metric
@@ -56,17 +58,17 @@ export interface SummaryCardPreferences {
 }
 
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
-  heroMetric: 'form',
+  heroMetric: 'fitness',
   showSparkline: true,
-  supportingMetrics: ['fitness', 'ftp', 'weekHours', 'weekCount'],
+  supportingMetrics: ['fitness', 'ftp', 'weekHours', 'weight'],
 };
 
 // Default metrics by sport
 const DEFAULT_METRICS_BY_SPORT: Record<string, MetricId[]> = {
-  Cycling: ['fitness', 'form', 'ftp', 'weekHours'],
-  Running: ['fitness', 'form', 'thresholdPace', 'weekHours'],
-  Swimming: ['fitness', 'form', 'css', 'weekHours'],
-  Other: ['fitness', 'form', 'weekHours', 'hrv'],
+  Cycling: ['fitness', 'ftp', 'weekHours', 'weight'],
+  Running: ['fitness', 'thresholdPace', 'weekHours', 'weight'],
+  Swimming: ['fitness', 'css', 'weekHours', 'weight'],
+  Other: ['fitness', 'weekHours', 'hrv', 'weight'],
 };
 
 // Create default preferences from a list of enabled metric IDs
@@ -215,9 +217,15 @@ export async function initializeDashboardPreferences(
       metrics = createDefaultPreferences(defaultIds);
     }
 
-    const summaryCard: SummaryCardPreferences = storedSummaryCard
+    let summaryCard: SummaryCardPreferences = storedSummaryCard
       ? JSON.parse(storedSummaryCard)
       : DEFAULT_SUMMARY_CARD;
+
+    // Migration: form is no longer a hero metric option — combined into sparkline
+    if (summaryCard.heroMetric === 'form') {
+      summaryCard = { ...summaryCard, heroMetric: 'fitness' };
+      persistSummaryCard(summaryCard);
+    }
 
     useDashboardPreferences.setState({ metrics, summaryCard, isInitialized: true });
   } catch (error) {

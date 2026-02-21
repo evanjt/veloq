@@ -9,6 +9,7 @@ export {
   ACTIVITY_CATEGORIES,
 } from './ActivityTypeFilter';
 export { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
+export { TerrainSnapshotWebView, type TerrainSnapshotWebViewRef } from './TerrainSnapshotWebView';
 export { BaseMapView, type BaseMapViewProps } from './BaseMapView';
 export { ActivityPopup, SectionPopup } from './regional';
 export * from './mapStyles';

@@ -139,6 +139,8 @@ export interface Activity {
   average_weather_humidity?: number; // Humidity percentage
   // Device temperature (from watch sensor, not weather)
   average_temp?: number;
+  // Skyline chart - compact protobuf encoding of interval zones/durations
+  skyline_chart_bytes?: string;
 }
 
 export interface ActivityDetail extends Activity {
@@ -170,6 +172,51 @@ export interface ActivityStreams {
   cadence?: number[];
   velocity_smooth?: number[];
   distance?: number[];
+  grade_smooth?: number[];
+}
+
+// Interval within an activity (lap/interval data from intervals.icu)
+export interface ActivityInterval {
+  id: number;
+  type: 'WORK' | 'RECOVERY' | 'REST' | 'WARMUP' | 'COOLDOWN' | 'ACTIVE_RECOVERY';
+  label?: string | null;
+  start_index: number;
+  end_index: number;
+  distance: number;
+  moving_time: number;
+  elapsed_time: number;
+  average_speed: number;
+  average_heartrate?: number;
+  average_watts?: number;
+  weighted_average_watts?: number;
+  average_cadence?: number;
+  max_heartrate?: number;
+  max_watts?: number;
+  total_elevation_gain?: number;
+  zone?: number;
+  gap?: number; // Grade-adjusted pace (running)
+}
+
+// Response from /api/v1/activity/{id}/intervals
+export interface IntervalsDTO {
+  icu_intervals: ActivityInterval[];
+  icu_groups: ActivityIntervalGroup[];
+}
+
+// Group of intervals with matching characteristics
+export interface ActivityIntervalGroup {
+  id: string;
+  count: number;
+  distance: number;
+  moving_time: number;
+  elapsed_time: number;
+  average_speed: number;
+  average_heartrate?: number;
+  average_watts?: number;
+  average_cadence?: number;
+  max_heartrate?: number;
+  max_watts?: number;
+  total_elevation_gain?: number;
 }
 
 export interface Athlete {

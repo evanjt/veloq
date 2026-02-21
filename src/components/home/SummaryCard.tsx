@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { router, Href } from 'expo-router';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
 import { SummaryCardSparkline } from './SummaryCardSparkline';
@@ -14,6 +15,7 @@ interface SupportingMetric {
   value: string | number;
   color?: string;
   trend?: '↑' | '↓' | '';
+  navigationTarget?: '/fitness' | '/training';
 }
 
 /**
@@ -33,9 +35,12 @@ export interface SummaryCardProps {
   heroTrend?: '↑' | '↓' | '';
   onHeroPress?: () => void;
 
-  // Sparkline data (7 days)
-  sparklineData?: number[];
+  // Sparkline data (30 days) — fitness line + form zone bar
+  fitnessData?: number[];
+  formData?: number[];
   showSparkline: boolean;
+  /** Show inline labels on sparkline (settings preview) */
+  showSparklineLabels?: boolean;
 
   // Supporting metrics (max 4)
   supportingMetrics: SupportingMetric[];
@@ -44,14 +49,15 @@ export interface SummaryCardProps {
 /**
  * Summary card for the home screen hero section.
  *
- * Displays a profile photo with gear badge, hero metric with sparkline,
- * and supporting metrics row in a compact layout.
- *
  * Layout:
- * ┌─────────────────────────────────────────────────────┐
- * │ [👤⚙]   +20 Form Fresh●    ▁▂▃▄▃▅▆▇▆▅▄▃  7d       │
- * │   Fitness 34  ·  FTP 168  ·  0.4h  ·  #1           │
- * └─────────────────────────────────────────────────────┘
+ * ┌──────────────────────────────────────────────────────────┐
+ * │  [👤⚙]   +13  Form · Fresh                              │
+ * │                                                          │
+ * │  ▁▂▃▅▇▆▅▃▂▁▂▃▅▆▇▅▃▂▁▃▅▆▇▆▅▃▂▁  30d                   │
+ * │  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━                   │
+ * │                                                          │
+ * │  Fitness 26↓  ·  FTP 155  ·  Week 1.6h  ·  Weight 72kg │
+ * └──────────────────────────────────────────────────────────┘
  */
 export const SummaryCard = React.memo(function SummaryCard({
   profileUrl,
@@ -63,25 +69,45 @@ export const SummaryCard = React.memo(function SummaryCard({
   heroZoneColor,
   heroTrend,
   onHeroPress,
-  sparklineData,
+  fitnessData,
+  formData,
   showSparkline,
+  showSparklineLabels = false,
   supportingMetrics,
 }: SummaryCardProps) {
   const { isDark, colors: themeColors } = useTheme();
   const [profileImageError, setProfileImageError] = React.useState(false);
+  const [scrubValues, setScrubValues] = useState<{
+    fitness: number;
+    form: number;
+    dateLabel: string;
+  } | null>(null);
+
+  const handleScrub = useCallback(
+    (values: { fitness: number; form: number; dateLabel: string } | null) => {
+      setScrubValues(values);
+    },
+    []
+  );
 
   // Validate profile URL - must be a non-empty string starting with http
   const hasValidProfileUrl =
     profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
-  // Format hero value with sign for positive numbers
-  const formattedHeroValue =
-    typeof heroValue === 'number' && heroValue > 0 ? `+${heroValue}` : String(heroValue);
+  // During scrub, override the hero display with scrubbed fitness value
+  const displayValue = scrubValues !== null ? scrubValues.fitness : heroValue;
+  const displayColor = scrubValues !== null ? colors.fitnessBlue : heroColor;
+
+  // Format hero value (no sign prefix — CTL/fitness values are always positive)
+  const formattedHeroValue = String(displayValue);
+
+  // Compute explicit sparkline width (screen minus card margins and padding)
+  const sparklineWidth = Dimensions.get('window').width - layout.screenPadding * 2 - spacing.md * 2;
 
   return (
     <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
-      {/* Main row: Profile + Hero + Sparkline */}
-      <View style={styles.mainRow}>
+      {/* Top row: Profile + Hero value + zone */}
+      <View style={styles.topRow}>
         {/* Profile photo with gear badge */}
         <TouchableOpacity
           onPress={onProfilePress}
@@ -112,7 +138,7 @@ export const SummaryCard = React.memo(function SummaryCard({
           </View>
         </TouchableOpacity>
 
-        {/* Hero metric - compact inline */}
+        {/* Hero metric - tappable */}
         <TouchableOpacity
           style={styles.heroSection}
           onPress={onHeroPress}
@@ -120,35 +146,54 @@ export const SummaryCard = React.memo(function SummaryCard({
           activeOpacity={onHeroPress ? 0.7 : 1}
         >
           <View style={styles.heroValueRow}>
-            <Text style={[styles.heroValue, { color: heroColor }]}>
+            <Text style={[styles.heroValue, { color: displayColor }]}>
               {formattedHeroValue}
-              {heroTrend && <Text style={styles.heroTrend}>{heroTrend}</Text>}
+              {!scrubValues && heroTrend && <Text style={styles.heroTrend}>{heroTrend}</Text>}
             </Text>
-            <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{heroLabel}</Text>
-            {heroZoneLabel && (
+            {scrubValues ? (
               <>
-                <View style={[styles.zoneDot, { backgroundColor: heroZoneColor || heroColor }]} />
-                <Text style={[styles.zoneLabel, { color: heroZoneColor || heroColor }]}>
-                  {heroZoneLabel}
+                <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{heroLabel}</Text>
+                <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>
+                  {scrubValues.dateLabel}
                 </Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{heroLabel}</Text>
+                {heroZoneLabel && (
+                  <>
+                    <View
+                      style={[styles.zoneDot, { backgroundColor: heroZoneColor || heroColor }]}
+                    />
+                    <Text style={[styles.zoneLabel, { color: heroZoneColor || heroColor }]}>
+                      {heroZoneLabel}
+                    </Text>
+                  </>
+                )}
               </>
             )}
           </View>
         </TouchableOpacity>
-
-        {/* Sparkline - zone-colored line */}
-        {showSparkline && sparklineData && sparklineData.length > 0 && (
-          <SummaryCardSparkline
-            data={sparklineData}
-            color={heroColor}
-            width={140}
-            height={48}
-            label="30d"
-          />
-        )}
       </View>
 
-      {/* Supporting metrics row */}
+      {/* Sparkline row — fitness line + form zone bar */}
+      {showSparkline &&
+        fitnessData &&
+        fitnessData.length > 0 &&
+        formData &&
+        formData.length > 0 && (
+          <View style={styles.sparklineRow}>
+            <SummaryCardSparkline
+              fitnessData={fitnessData}
+              formData={formData}
+              width={sparklineWidth}
+              showLabels={showSparklineLabels}
+              onScrub={showSparklineLabels ? undefined : handleScrub}
+            />
+          </View>
+        )}
+
+      {/* Supporting metrics row — each metric tappable */}
       <View style={styles.supportingRow}>
         {supportingMetrics.slice(0, 4).map((metric, index) => (
           <React.Fragment key={metric.label}>
@@ -157,18 +202,41 @@ export const SummaryCard = React.memo(function SummaryCard({
                 {'\u00B7'}
               </Text>
             )}
-            <View style={styles.supportingMetric}>
-              <Text style={[styles.metricLabel, isDark && styles.textMuted]}>{metric.label}</Text>
-              <Text
-                style={[
-                  styles.metricValue,
-                  { color: metric.color || (isDark ? darkColors.textPrimary : colors.textPrimary) },
-                ]}
+            {metric.navigationTarget ? (
+              <TouchableOpacity
+                style={styles.supportingMetric}
+                onPress={() => router.push(metric.navigationTarget as Href)}
+                activeOpacity={0.7}
               >
-                {metric.value}
-                {metric.trend && <Text style={styles.metricTrend}>{metric.trend}</Text>}
-              </Text>
-            </View>
+                <Text style={[styles.metricLabel, isDark && styles.textMuted]}>{metric.label}</Text>
+                <Text
+                  style={[
+                    styles.metricValue,
+                    {
+                      color: metric.color || (isDark ? darkColors.textPrimary : colors.textPrimary),
+                    },
+                  ]}
+                >
+                  {metric.value}
+                  {metric.trend && <Text style={styles.metricTrend}>{metric.trend}</Text>}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.supportingMetric}>
+                <Text style={[styles.metricLabel, isDark && styles.textMuted]}>{metric.label}</Text>
+                <Text
+                  style={[
+                    styles.metricValue,
+                    {
+                      color: metric.color || (isDark ? darkColors.textPrimary : colors.textPrimary),
+                    },
+                  ]}
+                >
+                  {metric.value}
+                  {metric.trend && <Text style={styles.metricTrend}>{metric.trend}</Text>}
+                </Text>
+              </View>
+            )}
           </React.Fragment>
         ))}
       </View>
@@ -179,7 +247,7 @@ export const SummaryCard = React.memo(function SummaryCard({
 const styles = StyleSheet.create({
   card: {
     borderRadius: layout.borderRadius,
-    padding: spacing.sm,
+    paddingTop: spacing.sm,
     paddingHorizontal: spacing.md,
     marginHorizontal: layout.screenPadding,
     marginBottom: spacing.sm,
@@ -195,8 +263,8 @@ const styles = StyleSheet.create({
     borderColor: darkColors.border,
   },
 
-  // Main row - all elements in one line
-  mainRow: {
+  // Top row - profile + hero inline
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
@@ -279,16 +347,9 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
 
-  // Sparkline - larger and prominent
-  sparklineContainer: {
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  sparklineLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: colors.textMuted,
+  // Sparkline — own row, full width
+  sparklineRow: {
+    marginTop: spacing.xs,
   },
 
   // Supporting metrics row
@@ -297,35 +358,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingTop: spacing.sm,
-    marginTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
+    paddingBottom: spacing.sm,
     flexWrap: 'wrap',
-    gap: spacing.xs,
+    gap: 2,
   },
   supportingMetric: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 2,
   },
   metricLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '400',
     color: colors.textSecondary,
   },
   metricValue: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   metricTrend: {
-    fontSize: 11,
+    fontSize: 10,
     marginLeft: 1,
   },
   metricDivider: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.textMuted,
-    marginHorizontal: spacing.xs,
+    marginHorizontal: 3,
   },
   metricDividerDark: {
     color: darkColors.textMuted,

@@ -14,7 +14,6 @@ export const SUPPORTED_LOCALES = [
   // French
   'fr',
   // German variants (including Swiss)
-  'de',
   'de-DE',
   'de-CH',
   // Dutch
@@ -130,7 +129,6 @@ export const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
   // French
   fr: 'Français',
   // German
-  de: 'Deutsch',
   'de-DE': 'Deutsch (Deutschland)',
   'de-CH': 'Schwiizerdütsch',
   // Dutch
@@ -183,6 +181,8 @@ export interface TranslationResource {
     hideDetails: string;
     reset: string;
     activities: string;
+    syncing: string;
+    undo: string;
   };
 
   navigation: {
@@ -234,6 +234,7 @@ export interface TranslationResource {
     fitness: string;
     fatigue: string;
     hr: string;
+    weight: string;
   };
 
   login: {
@@ -446,9 +447,13 @@ export interface TranslationResource {
     temp: string;
     noHeartRateData: string;
     timeInHRZones: string;
+    timeInPowerZones: string;
+    ftp: string;
     maxHR: string;
     noDataAvailable: string;
     avg: string;
+    xAxisDistance: string;
+    xAxisTime: string;
     noMetricData: string;
     noElevationData: string;
     activityStats: string;
@@ -630,6 +635,7 @@ export interface TranslationResource {
     months6: string;
     year1: string;
     lactateThreshold: string;
+    noEffortData: string;
     pace: string;
     heartRate: string;
     maxHr: string;
@@ -639,6 +645,7 @@ export interface TranslationResource {
     powerCurveInfo: string;
     ref: string;
     garminNote: string;
+    seasonBests: string;
     swimPaceCurve: string;
     trainingZones: string;
     eFTPTrend: string;
@@ -850,6 +857,7 @@ export interface TranslationResource {
     speed: string;
     pace: string;
     elev: string;
+    grade: string;
     dist: string;
     alt: string;
     temp: string;
@@ -864,8 +872,11 @@ export interface TranslationResource {
     avgSpeed: string;
     avgHR: string;
     avgPower: string;
+    np: string;
+    elapsedTime: string;
     tabs: {
       charts: string;
+      intervals: string;
       route: string;
       routes: string;
       sections: string;
@@ -874,6 +885,12 @@ export interface TranslationResource {
     noMatchedSectionsDescription: string;
     noRouteMatch: string;
     noRouteMatchDescription: string;
+    noIntervals: string;
+    intervalWork: string;
+    intervalRecovery: string;
+    chartDisplayOptions: string;
+    fullscreenChart: string;
+    feedPreviewUpdated: string;
   };
 
   routeDetail: {

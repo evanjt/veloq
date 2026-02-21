@@ -31,25 +31,8 @@ import { useGroupDetail } from '@/hooks/routes/useRouteEngine';
 import { getAllRouteDisplayNames, getRouteDisplayName } from '@/hooks/routes/useRouteGroups';
 import { createSharedStyles } from '@/styles';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 
-// Lazy load native module to avoid bundler errors
-function getRouteEngine() {
-  try {
-    return require('veloqrs').routeEngine;
-  } catch {
-    return null;
-  }
-}
-
-// Helper to convert GPS points (latitude/longitude) to route points (lat/lng)
-function gpsPointsToRoutePoints(
-  points: Array<{ latitude: number; longitude: number }>
-): Array<{ lat: number; lng: number }> {
-  return points.map((p) => ({
-    lat: p.latitude,
-    lng: p.longitude,
-  }));
-}
 import {
   RouteMapView,
   MiniTraceView,
@@ -72,6 +55,7 @@ import {
   formatPace,
   formatSpeed,
   isRunningActivity,
+  formatPerformanceDelta,
 } from '@/lib';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import type { Activity, ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
@@ -113,7 +97,7 @@ interface ActivityRowProps {
   bestSpeed?: number;
 }
 
-function ActivityRow({
+const ActivityRow = React.memo(function ActivityRow({
   activity,
   isDark,
   isMetric,
@@ -152,49 +136,21 @@ function ActivityRow({
   const showPace = isRunningActivity(activity.type);
 
   // Format delta from PR for display
-  // For running: show pace delta (e.g., "+0:15 /km")
-  // For cycling: show time delta (e.g., "+0:45")
   const { deltaDisplay, deltaColor } = useMemo(() => {
-    if (isBest) return { deltaDisplay: null, deltaColor: colors.textSecondary };
-
-    if (showPace && displaySpeed > 0 && bestSpeed && bestSpeed > 0) {
-      // Calculate pace delta (seconds per km)
-      const currentPace = 1000 / displaySpeed; // seconds per km
-      const bestPace = 1000 / bestSpeed; // seconds per km
-      const paceDelta = currentPace - bestPace; // positive = slower
-
-      if (!Number.isFinite(paceDelta) || Math.abs(paceDelta) < 1) {
-        return { deltaDisplay: null, deltaColor: colors.textSecondary };
-      }
-
-      const absDelta = Math.abs(paceDelta);
-      const minutes = Math.floor(absDelta / 60);
-      const seconds = Math.round(absDelta % 60);
-      const sign = paceDelta > 0 ? '+' : '-';
-      const formatted =
-        minutes > 0
-          ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
-          : `${sign}${seconds}s`;
-
-      return {
-        deltaDisplay: formatted,
-        deltaColor: paceDelta <= 0 ? colors.success : colors.error,
-      };
-    }
-
-    // Fall back to time delta for non-running activities
-    if (deltaFromPR === undefined || !Number.isFinite(deltaFromPR)) {
-      return { deltaDisplay: null, deltaColor: colors.textSecondary };
-    }
-
-    const absDelta = Math.abs(deltaFromPR);
-    const minutes = Math.floor(absDelta / 60);
-    const seconds = Math.round(absDelta % 60);
-    const sign = deltaFromPR > 0 ? '+' : '-';
-
+    const result = formatPerformanceDelta({
+      isBest,
+      showPace,
+      currentSpeed: displaySpeed,
+      bestSpeed,
+      timeDelta: deltaFromPR,
+    });
     return {
-      deltaDisplay: `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`,
-      deltaColor: deltaFromPR <= 0 ? colors.success : colors.error,
+      deltaDisplay: result.deltaDisplay,
+      deltaColor: result.deltaDisplay
+        ? result.isFaster
+          ? colors.success
+          : colors.error
+        : colors.textSecondary,
     };
   }, [isBest, showPace, displaySpeed, bestSpeed, deltaFromPR]);
 
@@ -288,7 +244,7 @@ function ActivityRow({
       />
     </Pressable>
   );
-}
+});
 
 export default function RouteDetailScreen() {
   // Performance timing
@@ -457,30 +413,24 @@ export default function RouteDetailScreen() {
     return map;
   }, [performances]);
 
-  // Load GPS tracks for each activity in the group for mini trace preview
+  // Load simplified GPS signatures for mini trace preview (single batch FFI call)
   const signatures = useMemo(() => {
     if (!engineGroup?.activityIds?.length) return {};
     try {
       const engine = getRouteEngine();
       if (!engine) return {};
 
+      const activityIdSet = new Set(engineGroup.activityIds);
+      const allSigs = engine.getAllMapSignatures();
       const result: Record<string, { points: Array<{ lat: number; lng: number }> }> = {};
 
-      // Load GPS track for each activity (simplified for mini trace display)
-      for (const activityId of engineGroup.activityIds) {
-        try {
-          const gpsPoints = engine.getGpsTrack(activityId);
-          if (gpsPoints && gpsPoints.length > 0) {
-            // Convert from GpsPoint (latitude/longitude) to RoutePoint (lat/lng)
-            const routePoints = gpsPointsToRoutePoints(gpsPoints);
-            // Simplify to ~50 points for mini trace preview
-            const step = Math.max(1, Math.floor(routePoints.length / 50));
-            const simplified = routePoints.filter((_, i: number) => i % step === 0);
-            result[activityId] = { points: simplified };
-          }
-        } catch {
-          // Skip activities without GPS data
+      for (const sig of allSigs) {
+        if (!activityIdSet.has(sig.activityId) || sig.coords.length < 4) continue;
+        const points: Array<{ lat: number; lng: number }> = [];
+        for (let i = 0; i < sig.coords.length - 1; i += 2) {
+          points.push({ lat: sig.coords[i], lng: sig.coords[i + 1] });
         }
+        result[sig.activityId] = { points };
       }
       return result;
     } catch {
@@ -494,17 +444,7 @@ export default function RouteDetailScreen() {
     const engine = getRouteEngine();
     if (!engine) return [];
 
-    const metrics: {
-      activityId: string;
-      name: string;
-      sportType: string;
-      date: number;
-      distance: number;
-      movingTime: number;
-      elapsedTime: number;
-      elevationGain: number;
-      avgHr: number | null;
-    }[] = engine.getActivityMetricsForIds(routeGroupBase.activityIds);
+    const metrics = engine.getActivityMetricsForIds(routeGroupBase.activityIds);
 
     // Convert engine metrics to Activity-compatible objects
     const activities: Activity[] = metrics.map(

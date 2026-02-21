@@ -8,8 +8,7 @@
 import React from 'react';
 import { StyleSheet, ViewStyle } from 'react-native';
 import Animated, { AnimatedStyle } from 'react-native-reanimated';
-import { colors, darkColors } from '@/theme/colors';
-import { spacing } from '@/theme/spacing';
+import { colors, darkColors, spacing } from '@/theme';
 import { useTheme } from '@/hooks';
 
 export interface ChartCrosshairProps {

@@ -19,13 +19,7 @@ import { createSharedStyles } from '@/styles';
 import { SMOOTHING_PRESETS, getSmoothingDescription, type SmoothingWindow } from '@/lib';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 
-const TIME_RANGES: { id: TimeRange; label: string }[] = [
-  { id: '7d', label: '1W' },
-  { id: '1m', label: '1M' },
-  { id: '3m', label: '3M' },
-  { id: '6m', label: '6M' },
-  { id: '1y', label: '1Y' },
-];
+import { TIME_RANGES } from '@/lib/utils/constants';
 
 export default function HealthScreen() {
   const perfEnd = logScreenRender('HealthScreen');
@@ -54,17 +48,22 @@ export default function HealthScreen() {
   const [showSmoothingModal, setShowSmoothingModal] = useState(false);
 
   // Fetch activities for calendar year comparison (current + previous year)
-  const now = new Date();
-  const currentYearStart = new Date(now.getFullYear(), 0, 1);
-  const prevYearStart = new Date(now.getFullYear() - 1, 0, 1);
+  const { oldest, newest, currentYearStart } = useMemo(() => {
+    const n = new Date();
+    return {
+      oldest: new Date(n.getFullYear() - 1, 0, 1).toISOString().split('T')[0],
+      newest: n.toISOString().split('T')[0],
+      currentYearStart: new Date(n.getFullYear(), 0, 1),
+    };
+  }, []);
   const {
     data: activities,
     isLoading: activitiesLoading,
     isFetching: activitiesFetching,
     refetch: refetchActivities,
   } = useActivities({
-    oldest: prevYearStart.toISOString().split('T')[0],
-    newest: now.toISOString().split('T')[0],
+    oldest,
+    newest,
     includeStats: true,
   });
 

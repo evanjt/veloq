@@ -110,18 +110,24 @@
     "tapToClose": "Tap anywhere to close this",
     "temp": "TEMP",
     "timeInHRZones": "Time in ticker zones",
+    "timeInPowerZones": "Time in Power Zones",
+    "ftp": "FTP: {{value}}W",
     "tss": "TSS",
     "viewDetails": "Have a geez",
     "viewInIntervalsICU": "Check it out on intervals.icu",
     "vsTypical": "vs usual",
     "vsYourAvg": "vs your usual",
-    "whatIsThis": "What's all this then?"
+    "whatIsThis": "What's all this then?",
+    "xAxisDistance": "Distance",
+    "xAxisTime": "Time"
   },
   "activityDetail": {
     "avgHR": "Avg ticker",
     "avgPace": "Avg pace",
     "avgPower": "Avg watts",
     "avgSpeed": "Avg speed",
+    "np": "NP",
+    "elapsedTime": "Elapsed",
     "chartDisplayOptions": "Chart display options",
     "failedToLoad": "Couldn't load that activity",
     "fullscreenChart": "Fullscreen chart",
@@ -129,8 +135,13 @@
     "noMatchedSectionsDescription": "Sections matching this activity will rock up here",
     "noRouteMatch": "No route match yet",
     "noRouteMatchDescription": "Do this route a few more times to start tracking your performance, or expand your timeline in Settings to include older activities.",
+    "noIntervals": "No intervals detected",
+    "intervalWork": "Work",
+    "intervalRecovery": "Recovery",
+    "feedPreviewUpdated": "Feed preview updated",
     "tabs": {
       "charts": "Graphs",
+      "intervals": "Intervals",
       "route": "Route",
       "routes": "Routes",
       "sections": "Sections"
@@ -201,6 +212,7 @@
   "chartTypes": {
     "cad": "Cad",
     "elev": "Elev",
+    "grade": "Grade",
     "hr": "HR",
     "pace": "Pace",
     "power": "Power",
@@ -240,7 +252,8 @@
     "hide": "Hide",
     "hideDetails": "Hide details",
     "show": "Show",
-    "showDetails": "Show the guts for the dev"
+    "showDetails": "Show the guts for the dev",
+    "undo": "Undo"
   },
   "demo": {
     "banner": "Just having a squiz",
@@ -492,7 +505,8 @@
     "hrv": "HRV",
     "pace": "Pace",
     "rhr": "RHR",
-    "week": "Week"
+    "week": "Week",
+    "weight": "Weight"
   },
   "navigation": {
     "activities": "Your stuff",
@@ -726,6 +740,10 @@
     "light": "Light",
     "maps": "Maps",
     "maxMetricsHint": "Maximum 4 metrics",
+    "terrain3D": "3D Terrain",
+    "terrain3DHint": "Pre-rendered 3D terrain in feed cards",
+    "terrainCacheSize": "Cache: {{size}}",
+    "clearCache": "Clear",
     "metricsHint": "Flick metrics on/off and shuffle them with the arrows. Only the ones turned on show up top.",
     "noData": "Nothin' here",
     "notCached": "Not stashed",
@@ -851,6 +869,7 @@
     "maxHr": "Max ticker",
     "months3": "3 months",
     "months6": "6 months",
+    "noEffortData": "No best effort data available",
     "pace": "Pace",
     "paceCurve": "Pace Curve",
     "powerCurve": "Power Curve",
@@ -860,7 +879,8 @@
     "year1": "1 year",
     "paceCurveInfo": "CS (critical speed) and D' are worked out using the 2 parameter model. Intervals.icu grabs your best 1k, 2k, 3k, 4k and 5k times that take between 2 and 15+ minutes.",
     "powerCurveInfo": "Estimated FTP is worked out using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. Just needs 1 flat-out effort between 180 seconds and 30 minutes. W' is relative to eFTP.",
-    "ref": "Ref"
+    "ref": "Ref",
+    "seasonBests": "Season Bests"
   },
   "time": {
     "current": "Right now",

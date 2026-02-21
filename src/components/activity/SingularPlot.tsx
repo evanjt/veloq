@@ -5,7 +5,7 @@ import { Text } from 'react-native-paper';
 import { CartesianChart, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
+import {
   useSharedValue,
   useAnimatedReaction,
   runOnJS,
@@ -13,10 +13,11 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, typography, layout } from '@/theme';
+import { colors, darkColors, typography, layout, chartStyles } from '@/theme';
 import { useMetricSystem } from '@/hooks';
 import { CHART_CONFIG } from '@/constants';
 import { ChartErrorBoundary } from '@/components/ui';
+import { ChartCrosshair } from '@/components/charts/base';
 
 interface SingularPlotProps {
   altitude?: number[];
@@ -208,7 +209,7 @@ export function SingularPlot({
   if (data.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>
+        <Text style={[styles.placeholderText, isDark && chartStyles.textDark]}>
           {t('activity.noElevationData')}
         </Text>
       </View>
@@ -219,11 +220,14 @@ export function SingularPlot({
     <ChartErrorBoundary height={height} label="Elevation">
       <View style={[styles.container, { height }]}>
         <GestureDetector gesture={gesture}>
-          <View style={styles.chartWrapper}>
+          <View style={chartStyles.chartWrapper}>
             {/* Tooltip display */}
             {isActive && tooltipData && (
-              <View style={[styles.tooltip, isDark && styles.tooltipDark]} pointerEvents="none">
-                <Text style={[styles.tooltipText, isDark && styles.tooltipTextDark]}>
+              <View
+                style={[chartStyles.tooltip, isDark && chartStyles.tooltipDark]}
+                pointerEvents="none"
+              >
+                <Text style={[chartStyles.tooltipText, isDark && chartStyles.tooltipTextDark]}>
                   {tooltipData.x.toFixed(2)} {distanceUnit} • {Math.round(tooltipData.y)}{' '}
                   {elevationUnit}
                 </Text>
@@ -270,18 +274,21 @@ export function SingularPlot({
             </CartesianChart>
 
             {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
-            <Animated.View
-              style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-              pointerEvents="none"
+            <ChartCrosshair
+              style={crosshairStyle}
+              width={1}
+              topOffset={4}
+              bottomOffset={16}
+              color={isDark ? darkColors.textPrimary : colors.textSecondary}
             />
 
             {/* Y-axis labels overlaid on chart */}
             <View style={styles.yAxisOverlay} pointerEvents="none">
-              <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
+              <Text style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>
                 {maxAlt}
                 {elevationUnit}
               </Text>
-              <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
+              <Text style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>
                 {minAlt}
                 {elevationUnit}
               </Text>
@@ -289,8 +296,8 @@ export function SingularPlot({
 
             {/* X-axis labels overlaid on chart */}
             <View style={styles.xAxisOverlay} pointerEvents="none">
-              <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>0</Text>
-              <Text style={[styles.overlayLabel, isDark && styles.overlayLabelDark]}>
+              <Text style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>0</Text>
+              <Text style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>
                 {maxDist.toFixed(1)} {distanceUnit}
               </Text>
             </View>
@@ -303,20 +310,6 @@ export function SingularPlot({
 
 const styles = StyleSheet.create({
   container: {},
-  chartWrapper: {
-    flex: 1,
-    position: 'relative',
-  },
-  crosshair: {
-    position: 'absolute',
-    top: 4,
-    bottom: 16,
-    width: 1,
-    backgroundColor: colors.textSecondary,
-  },
-  crosshairDark: {
-    backgroundColor: darkColors.textPrimary,
-  },
   yAxisOverlay: {
     position: 'absolute',
     top: 6,
@@ -332,18 +325,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  overlayLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 2,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  overlayLabelDark: {
-    color: darkColors.textPrimary,
-    backgroundColor: darkColors.surfaceOverlay,
-  },
   placeholder: {
     backgroundColor: colors.background,
     justifyContent: 'center',
@@ -353,31 +334,5 @@ const styles = StyleSheet.create({
   placeholderText: {
     ...typography.caption,
     color: colors.textSecondary,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
-  },
-  tooltip: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    zIndex: 10,
-    alignItems: 'center',
-  },
-  tooltipDark: {
-    backgroundColor: darkColors.surfaceOverlay,
-  },
-  tooltipText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  tooltipTextDark: {
-    color: colors.textOnDark,
   },
 });

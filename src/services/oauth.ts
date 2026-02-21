@@ -1,5 +1,6 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import * as Crypto from 'expo-crypto';
 import { OAUTH } from '@/lib/utils/constants';
 
 /**
@@ -20,15 +21,7 @@ import { OAUTH } from '@/lib/utils/constants';
 let oauthState: string | null = null;
 
 function generateState(): string {
-  const array = new Uint8Array(32);
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    crypto.getRandomValues(array);
-  } else {
-    // Fallback for React Native
-    for (let i = 0; i < array.length; i++) {
-      array[i] = Math.floor(Math.random() * 256);
-    }
-  }
+  const array = Crypto.getRandomBytes(32);
   return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 

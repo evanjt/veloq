@@ -13,13 +13,14 @@ import {
 import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/components/ui';
 import { logScreenRender, PERF_DEBUG } from '@/lib/debug/renderTimer';
+import { isNetworkError } from '@/lib/utils/errorHandler';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useInfiniteActivities, useTheme, useSummaryCardData } from '@/hooks';
 import type { Activity } from '@/types';
-import { useDashboardPreferences } from '@/providers';
+import { useDashboardPreferences, useMapPreferences } from '@/providers';
 import { ActivityCard, notifyMapScroll } from '@/components/activity';
 import {
   ActivityCardSkeleton,
@@ -27,7 +28,13 @@ import {
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
-import { SummaryCard, TodayTeaser } from '@/components/home';
+import { SummaryCard } from '@/components/home';
+import {
+  TerrainSnapshotWebView,
+  type TerrainSnapshotWebViewRef,
+} from '@/components/maps/TerrainSnapshotWebView';
+import { initTerrainPreviewCache } from '@/lib/storage/terrainPreviewCache';
+import { initCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { useNetwork } from '@/providers';
 import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
 import { createSharedStyles } from '@/styles';
@@ -52,6 +59,9 @@ const ACTIVITY_TYPE_GROUPS = {
 
 const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
 
+// Height of the search section (search bar + chips + padding) for scroll-to-reveal
+const SEARCH_SECTION_HEIGHT = 78;
+
 export default function FeedScreen() {
   // Performance timing
   const perfEndRef = useRef<(() => void) | null>(null);
@@ -65,10 +75,24 @@ export default function FeedScreen() {
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
 
   const { isOnline } = useNetwork();
+
+  // 3D terrain snapshot WebView
+  const { isAnyTerrain3DEnabled } = useMapPreferences();
+  const snapshotRef = useRef<TerrainSnapshotWebViewRef | null>(null);
+
+  // FlatList ref for scroll-to-reveal search
+  const listRef = useRef<FlatList>(null);
+
+  // Initialize terrain preview cache and camera overrides on mount
+  useEffect(() => {
+    if (isAnyTerrain3DEnabled) {
+      initTerrainPreviewCache();
+      initCameraOverrides();
+    }
+  }, [isAnyTerrain3DEnabled]);
 
   // Dashboard preferences for navigation
   const { summaryCard } = useDashboardPreferences();
@@ -82,7 +106,8 @@ export default function FeedScreen() {
     heroZoneLabel,
     heroZoneColor,
     heroTrend,
-    sparklineData,
+    fitnessData,
+    formData,
     showSparkline,
     supportingMetrics,
     refetch: refetchSummary,
@@ -133,9 +158,6 @@ export default function FeedScreen() {
   }, [allActivities, searchQuery, selectedTypeGroup]);
 
   // Comprehensive refresh: resets feed, triggers route engine sync, refreshes all data
-  // - resetQueries forces fresh initialPageParam with today's date (fixes stale cache)
-  // - Invalidating ['activities'] triggers GlobalDataSync → route engine GPS sync
-  // - Invalidating wellness/curves/summary refreshes fitness and stats data
   const handleRefresh = async () => {
     await Promise.all([
       queryClient.resetQueries({ queryKey: ['activities-infinite'] }),
@@ -146,6 +168,12 @@ export default function FeedScreen() {
       queryClient.invalidateQueries({ queryKey: ['paceCurve'] }),
       refetchSummary(),
     ]);
+    // Re-hide search section after refresh (if no active filter)
+    if (!searchQuery && !selectedTypeGroup) {
+      setTimeout(() => {
+        listRef.current?.scrollToOffset({ offset: SEARCH_SECTION_HEIGHT, animated: true });
+      }, 100);
+    }
   };
 
   // Load more when scrolling to the end
@@ -157,7 +185,7 @@ export default function FeedScreen() {
 
   const renderActivity = useCallback(
     ({ item, index }: { item: Activity; index: number }) => (
-      <ActivityCard activity={item} index={index} />
+      <ActivityCard activity={item} index={index} snapshotRef={snapshotRef} />
     ),
     []
   );
@@ -184,7 +212,6 @@ export default function FeedScreen() {
 
   const navigateToHeroMetric = () => {
     switch (summaryCard.heroMetric) {
-      case 'form':
       case 'fitness':
         router.push('/fitness' as Href);
         break;
@@ -196,24 +223,97 @@ export default function FeedScreen() {
     }
   };
 
-  const toggleFilters = () => setShowFilters(!showFilters);
-
   const selectTypeGroup = (group: string | null) => {
     setSelectedTypeGroup(selectedTypeGroup === group ? null : group);
   };
 
-  // Memoized section header for FlatList - only depends on filtered count
+  // Initial content offset to hide search section (iOS-style hidden search)
+  const initialContentOffset = useMemo(() => ({ x: 0, y: SEARCH_SECTION_HEIGHT }), []);
+
+  // List header: search bar + filter chips + section title
   const renderListHeader = useCallback(
     () => (
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-          {searchQuery || selectedTypeGroup
-            ? t('feed.activitiesCount', { count: filteredActivities.length })
-            : t('feed.recentActivities')}
-        </Text>
-      </View>
+      <>
+        {/* Search bar + filter chips — initially hidden by scrollToOffset */}
+        <View style={styles.searchSection}>
+          <View style={styles.searchContainer}>
+            <View style={[styles.searchBar, isDark && styles.searchBarDark]}>
+              <MaterialCommunityIcons name="magnify" size={20} color={themeColors.textSecondary} />
+              <TextInput
+                testID="home-search-input"
+                style={[styles.searchInput, isDark && styles.searchInputDark]}
+                placeholder={t('feed.searchPlaceholder')}
+                placeholderTextColor={themeColors.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onSubmitEditing={Keyboard.dismiss}
+                returnKeyType="search"
+                autoCorrect={false}
+                autoCapitalize="none"
+                keyboardAppearance={isDark ? 'dark' : 'light'}
+                enablesReturnKeyAutomatically={Platform.OS === 'ios'}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setSearchQuery('')}
+                  accessibilityLabel={t('common.clearSearch')}
+                  accessibilityRole="button"
+                >
+                  <MaterialCommunityIcons
+                    name="close-circle"
+                    size={18}
+                    color={themeColors.textMuted}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {/* Filter chips — always visible below search */}
+          <View style={styles.filterChips}>
+            {Object.keys(ACTIVITY_TYPE_GROUPS).map((group) => (
+              <TouchableOpacity
+                key={group}
+                style={[
+                  styles.filterChip,
+                  isDark && styles.filterChipDark,
+                  selectedTypeGroup === group && styles.filterChipActive,
+                ]}
+                onPress={() => selectTypeGroup(group)}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    isDark && styles.filterChipTextDark,
+                    selectedTypeGroup === group && styles.filterChipTextActive,
+                  ]}
+                >
+                  {group}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Show count only when filtering */}
+        {(searchQuery || selectedTypeGroup) && (
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+              {t('feed.activitiesCount', { count: filteredActivities.length })}
+            </Text>
+          </View>
+        )}
+      </>
     ),
-    [isDark, searchQuery, selectedTypeGroup, filteredActivities.length, t]
+    [
+      isDark,
+      searchQuery,
+      selectedTypeGroup,
+      filteredActivities.length,
+      t,
+      themeColors,
+      selectTypeGroup,
+    ]
   );
 
   const renderEmpty = useCallback(
@@ -230,14 +330,7 @@ export default function FeedScreen() {
   );
 
   const renderError = useCallback(() => {
-    // Check if this is a network error (axios error codes)
-    const axiosError = error as { code?: string };
-    const isNetworkError =
-      axiosError?.code === 'ERR_NETWORK' ||
-      axiosError?.code === 'ECONNABORTED' ||
-      axiosError?.code === 'ETIMEDOUT';
-
-    if (isNetworkError) {
+    if (isNetworkError(error)) {
       return <NetworkErrorState onRetry={() => refetch()} />;
     }
 
@@ -281,12 +374,6 @@ export default function FeedScreen() {
               <View style={[styles.skeletonMetric, isDark && styles.skeletonElementDark]} />
             </View>
           </View>
-          {/* Section header skeleton */}
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-              {t('feed.recentActivities')}
-            </Text>
-          </View>
           {/* Activity card skeletons */}
           <ActivityCardSkeleton />
           <ActivityCardSkeleton />
@@ -309,90 +396,14 @@ export default function FeedScreen() {
         heroZoneColor={heroZoneColor}
         heroTrend={heroTrend}
         onHeroPress={navigateToHeroMetric}
-        sparklineData={sparklineData}
+        fitnessData={fitnessData}
+        formData={formData}
         showSparkline={showSparkline}
         supportingMetrics={supportingMetrics}
       />
 
-      {/* Route Intelligence teaser — tapping navigates to Routes tab */}
-      <TodayTeaser />
-
-      {/* Search and Filter bar - outside FlatList to preserve focus */}
-      <View style={styles.searchContainer}>
-        <View style={[styles.searchBar, isDark && styles.searchBarDark]}>
-          <MaterialCommunityIcons name="magnify" size={20} color={themeColors.textSecondary} />
-          <TextInput
-            testID="home-search-input"
-            style={[styles.searchInput, isDark && styles.searchInputDark]}
-            placeholder={t('feed.searchPlaceholder')}
-            placeholderTextColor={themeColors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={Keyboard.dismiss}
-            returnKeyType="search"
-            autoCorrect={false}
-            autoCapitalize="none"
-            // iOS-specific keyboard optimizations
-            keyboardAppearance={isDark ? 'dark' : 'light'}
-            enablesReturnKeyAutomatically={Platform.OS === 'ios'}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery('')}
-              accessibilityLabel={t('common.clearSearch')}
-              accessibilityRole="button"
-            >
-              <MaterialCommunityIcons name="close-circle" size={18} color={themeColors.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
-        <TouchableOpacity
-          testID="home-filter-button"
-          style={[
-            styles.filterButton,
-            isDark && styles.filterButtonDark,
-            (showFilters || selectedTypeGroup) && styles.filterButtonActive,
-          ]}
-          onPress={toggleFilters}
-          accessibilityLabel={showFilters ? t('filters.hideFilters') : t('filters.showFilters')}
-          accessibilityRole="button"
-        >
-          <MaterialCommunityIcons
-            name="filter-variant"
-            size={20}
-            color={showFilters || selectedTypeGroup ? colors.textOnDark : themeColors.textSecondary}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Filter chips - outside FlatList */}
-      {showFilters && (
-        <View style={styles.filterChips}>
-          {Object.keys(ACTIVITY_TYPE_GROUPS).map((group) => (
-            <TouchableOpacity
-              key={group}
-              style={[
-                styles.filterChip,
-                isDark && styles.filterChipDark,
-                selectedTypeGroup === group && styles.filterChipActive,
-              ]}
-              onPress={() => selectTypeGroup(group)}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  isDark && styles.filterChipTextDark,
-                  selectedTypeGroup === group && styles.filterChipTextActive,
-                ]}
-              >
-                {group}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
       <FlatList
+        ref={listRef}
         testID="home-activity-list"
         data={filteredActivities}
         renderItem={renderActivity}
@@ -401,6 +412,7 @@ export default function FeedScreen() {
         ListEmptyComponent={isError ? renderError : renderEmpty}
         ListFooterComponent={renderFooter}
         contentContainerStyle={styles.listContent}
+        contentOffset={initialContentOffset}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -426,6 +438,9 @@ export default function FeedScreen() {
         onViewableItemsChanged={handleViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
       />
+
+      {/* Hidden WebView for generating 3D terrain snapshots */}
+      {isAnyTerrain3DEnabled && <TerrainSnapshotWebView ref={snapshotRef} />}
     </ScreenSafeAreaView>
   );
 }
@@ -502,12 +517,16 @@ const styles = StyleSheet.create({
   textDark: {
     color: darkColors.textSecondary,
   },
+
+  // Search section (inside ListHeaderComponent, initially scrolled past)
+  searchSection: {
+    paddingBottom: spacing.xs,
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: layout.screenPadding,
     paddingBottom: spacing.sm,
-    gap: 8,
   },
   searchBar: {
     flex: 1,
@@ -531,25 +550,11 @@ const styles = StyleSheet.create({
   searchInputDark: {
     color: colors.textOnDark,
   },
-  filterButton: {
-    width: 44, // Accessibility minimum
-    height: 44, // Accessibility minimum
-    borderRadius: 10,
-    backgroundColor: opacity.overlay.light,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterButtonDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  filterButtonActive: {
-    backgroundColor: colors.primary,
-  },
   filterChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: layout.screenPadding,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.xs,
     gap: 8,
   },
   filterChip: {

@@ -440,7 +440,7 @@ impl PersistentRouteEngine {
 
     /// Current schema version for app-level tracking.
     /// This is separate from rusqlite_migration and tracks the overall schema state.
-    const SCHEMA_VERSION: i32 = 6; // v0.1.3 schema (route_groups activity_count column)
+    const SCHEMA_VERSION: i32 = 7; // v0.1.4 schema (pace_history table)
 
     /// Get the database migrations.
     /// Each migration is applied in order, tracked in `__rusqlite_migrations` table.
@@ -466,6 +466,8 @@ impl PersistentRouteEngine {
             M::up(include_str!("migrations/009_section_bounds_cache.sql")),
             // M10: Cache activity_count on route_groups (avoid JSON parsing for count)
             M::up(include_str!("migrations/010_route_groups_activity_count.sql")),
+            // M11: Pace history cache for running/swimming trend tracking
+            M::up(include_str!("migrations/011_pace_history.sql")),
         ])
     }
 
@@ -4572,11 +4574,11 @@ impl PersistentRouteEngine {
         };
 
         // Use dedicated FTP history table for 10-30x speedup (was 10-30ms, now <1ms)
-        // Query with LIMIT 2 uses index efficiently
+        // LIMIT 20 to scan past repeated identical FTP values to find the first different one
         let mut stmt = match self.db.prepare(
             "SELECT ftp, date FROM ftp_history
              ORDER BY date DESC
-             LIMIT 2"
+             LIMIT 20"
         ) {
             Ok(s) => s,
             Err(_) => return default,
@@ -4602,6 +4604,69 @@ impl PersistentRouteEngine {
             latest_ftp: Some(latest_ftp),
             latest_date: Some(latest_date),
             previous_ftp: previous.map(|(ftp, _)| *ftp as u16),
+            previous_date: previous.map(|(_, date)| *date),
+        }
+    }
+
+    /// Save a pace (critical speed) snapshot for trend tracking.
+    pub fn save_pace_snapshot(
+        &self,
+        sport_type: &str,
+        critical_speed: f64,
+        d_prime: Option<f64>,
+        r2: Option<f64>,
+        date: i64,
+    ) {
+        let _ = self.db.execute(
+            "INSERT OR REPLACE INTO pace_history (date, sport_type, critical_speed, d_prime, r2)
+             VALUES (?, ?, ?, ?, ?)",
+            rusqlite::params![date, sport_type, critical_speed, d_prime, r2],
+        );
+    }
+
+    /// Get pace trend: latest and previous distinct critical speed values with dates.
+    pub fn get_pace_trend(&self, sport_type: &str) -> crate::FfiPaceTrend {
+        let default = crate::FfiPaceTrend {
+            latest_pace: None,
+            latest_date: None,
+            previous_pace: None,
+            previous_date: None,
+        };
+
+        let mut stmt = match self.db.prepare(
+            "SELECT critical_speed, date FROM pace_history
+             WHERE sport_type = ?
+             ORDER BY date DESC
+             LIMIT 20",
+        ) {
+            Ok(s) => s,
+            Err(_) => return default,
+        };
+
+        let rows: Vec<(f64, i64)> = stmt
+            .query_map(rusqlite::params![sport_type], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .ok()
+            .map(|iter| iter.flatten().collect())
+            .unwrap_or_default();
+
+        if rows.is_empty() {
+            return default;
+        }
+
+        let latest_speed = rows[0].0;
+        let latest_date = rows[0].1;
+
+        // Find the first row with a meaningfully different critical speed (>0.02 m/s ≈ 1 sec/km)
+        let previous = rows
+            .iter()
+            .find(|(speed, _)| (speed - latest_speed).abs() > 0.02);
+
+        crate::FfiPaceTrend {
+            latest_pace: Some(latest_speed),
+            latest_date: Some(latest_date),
+            previous_pace: previous.map(|(speed, _)| *speed),
             previous_date: previous.map(|(_, date)| *date),
         }
     }
@@ -6778,6 +6843,29 @@ pub mod persistent_engine_ffi {
             latest_ftp: None,
             latest_date: None,
             previous_ftp: None,
+            previous_date: None,
+        })
+    }
+
+    /// Save a pace (critical speed) snapshot for trend tracking.
+    #[uniffi::export]
+    pub fn persistent_engine_save_pace_snapshot(
+        sport_type: String,
+        critical_speed: f64,
+        d_prime: Option<f64>,
+        r2: Option<f64>,
+        date: i64,
+    ) {
+        with_persistent_engine(|e| e.save_pace_snapshot(&sport_type, critical_speed, d_prime, r2, date));
+    }
+
+    /// Get pace trend: latest and previous distinct critical speed values with dates.
+    #[uniffi::export]
+    pub fn persistent_engine_get_pace_trend(sport_type: String) -> crate::FfiPaceTrend {
+        with_persistent_engine(|e| e.get_pace_trend(&sport_type)).unwrap_or(crate::FfiPaceTrend {
+            latest_pace: None,
+            latest_date: None,
+            previous_pace: None,
             previous_date: None,
         })
     }

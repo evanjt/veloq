@@ -110,18 +110,24 @@
     "tapToClose": "Tryk hvor som helst for at lukke",
     "temp": "TEMP",
     "timeInHRZones": "Tid i pulszoner",
+    "timeInPowerZones": "Tid i effektzoner",
+    "ftp": "FTP: {{value}}W",
     "tss": "TSS",
     "viewDetails": "Vis detaljer",
     "viewInIntervalsICU": "Vis i intervals.icu",
     "vsTypical": "vs typisk",
     "vsYourAvg": "vs dit gennemsnit",
-    "whatIsThis": "Hvad er dette?"
+    "whatIsThis": "Hvad er dette?",
+    "xAxisDistance": "Afstand",
+    "xAxisTime": "Tid"
   },
   "activityDetail": {
     "avgHR": "Gns puls",
     "avgPace": "Gns tempo",
     "avgPower": "Gns kraft",
     "avgSpeed": "Gns hastighed",
+    "np": "NP",
+    "elapsedTime": "Forløbet",
     "chartDisplayOptions": "Diagramvisningsindstillinger",
     "failedToLoad": "Kunne ikke indlæse aktivitet",
     "fullscreenChart": "Fuldskærmsdiagram",
@@ -129,8 +135,13 @@
     "noMatchedSectionsDescription": "Sektioner, der matcher denne aktivitet, vises her",
     "noRouteMatch": "Ingen rutematch endnu",
     "noRouteMatchDescription": "Gennemfør denne rute et par gange mere for at begynde at spore din præstation, eller udvid din tidslinje i Indstillinger for at inkludere ældre aktiviteter.",
+    "noIntervals": "Ingen intervaller fundet",
+    "intervalWork": "Arbejde",
+    "intervalRecovery": "Restitution",
+    "feedPreviewUpdated": "Forhåndsvisning af feed opdateret",
     "tabs": {
       "charts": "Grafer",
+      "intervals": "Intervaller",
       "route": "Rute",
       "routes": "Ruter",
       "sections": "Sektioner"
@@ -204,6 +215,7 @@
     "dist": "Dist",
     "elapsedTime": "Forløbet tid",
     "elev": "Højde",
+    "grade": "Hældning",
     "hr": "Puls",
     "movingTime": "Bevægelsestid",
     "pace": "Tempo",
@@ -240,7 +252,8 @@
     "hide": "Skjul",
     "hideDetails": "Skjul detaljer",
     "show": "Vis",
-    "showDetails": "Vis detaljer for udvikler"
+    "showDetails": "Vis detaljer for udvikler",
+    "undo": "Fortryd"
   },
   "demo": {
     "banner": "Demotilstand",
@@ -492,7 +505,8 @@
     "hrv": "HRV",
     "pace": "Tempo",
     "rhr": "RHR",
-    "week": "Uge"
+    "week": "Uge",
+    "weight": "V\u00e6gt"
   },
   "navigation": {
     "activities": "Aktiviteter",
@@ -676,6 +690,7 @@
     "performanceHistory": "Præstationshistorik",
     "traversalsSummary": "{{count}} gennemkørsler · bedste {{time}}",
     "yearPr": "Års-PR",
+    "visits": "besøg",
     "visitsCount": "{{count}} besøg"
   },
   "settings": {
@@ -725,6 +740,10 @@
     "light": "Lys",
     "maps": "Kort",
     "maxMetricsHint": "Maksimalt 4 metrikker",
+    "terrain3D": "3D Terræn",
+    "terrain3DHint": "Forudrenderet 3D-terræn i feedkort",
+    "terrainCacheSize": "Cache: {{size}}",
+    "clearCache": "Ryd",
     "metricsHint": "Slå målinger til/fra og omarranger dem med pilene. Kun aktiverede målinger vises i dashboard-headeren.",
     "noData": "Ingen data",
     "notCached": "Ikke cachelagret",
@@ -850,12 +869,14 @@
     "maxHr": "Maks puls",
     "months3": "3 måneder",
     "months6": "6 måneder",
+    "noEffortData": "Ingen data om bedste præstationer",
     "pace": "Tempo",
     "paceCurve": "Tempokurve",
     "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
     "powerCurve": "Kraftkurve",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
     "ref": "Ref",
+    "seasonBests": "Sæsonbedste",
     "swimPaceCurve": "Svømmetempokurve",
     "title": "Præstation",
     "trainingZones": "Træningszoner",

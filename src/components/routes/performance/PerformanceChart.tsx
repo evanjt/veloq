@@ -19,9 +19,10 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { ChartCrosshair } from '@/components/charts/base';
 import { CHART_CONFIG } from '@/constants';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
-import { formatShortDate as formatShortDateLib } from '@/lib';
+import { formatShortDate } from '@/lib';
 
 // Direction colors
 const SAME_COLOR = colors.sameDirection;
@@ -49,10 +50,6 @@ interface PerformanceChartProps {
   formatSpeedValue: (speed: number) => string;
   currentActivityColor: string;
   onTooltipUpdate: (point: RoutePerformancePoint | null, isPersisted: boolean) => void;
-}
-
-function formatShortDate(date: Date): string {
-  return formatShortDateLib(date);
 }
 
 export function PerformanceChart({
@@ -346,10 +343,7 @@ export function PerformanceChart({
               }}
             </CartesianChart>
 
-            <Animated.View
-              style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-              pointerEvents="none"
-            />
+            <ChartCrosshair style={crosshairStyle} topOffset={40} bottomOffset={24} />
 
             <View style={styles.yAxisOverlay} pointerEvents="none">
               <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
@@ -394,16 +388,6 @@ const styles = StyleSheet.create({
   chartContainer: {
     height: CHART_HEIGHT,
     position: 'relative',
-  },
-  crosshair: {
-    position: 'absolute',
-    top: 40,
-    bottom: 24,
-    width: 1.5,
-    backgroundColor: colors.textSecondary,
-  },
-  crosshairDark: {
-    backgroundColor: darkColors.textSecondary,
   },
   yAxisOverlay: {
     position: 'absolute',

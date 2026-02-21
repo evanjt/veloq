@@ -14,12 +14,13 @@ import {
   useDerivedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import Animated from 'react-native-reanimated';
-import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
+import * as Haptics from 'expo-haptics';
+import { colors, darkColors, opacity, typography, spacing, layout, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { calculateTSB } from '@/hooks';
 import { sortByDateId, formatShortDate } from '@/lib';
 import { ChartErrorBoundary } from '@/components/ui';
+import { ChartCrosshair } from '@/components/charts/base';
 import type { WellnessData } from '@/types';
 
 // Chart colors
@@ -49,10 +50,6 @@ interface ChartDataPoint {
   form: number;
   load: number;
   [key: string]: string | number;
-}
-
-function formatDate(dateStr: string): string {
-  return formatShortDate(dateStr);
 }
 
 const CHART_PADDING = { left: 0, right: 0, top: 8, bottom: 20 } as const;
@@ -227,8 +224,55 @@ export const FitnessChart = React.memo(function FitnessChart({
     [updateTooltipOnJS]
   );
 
-  // Gesture handler on UI thread
+  // Manual activation so the ScrollView can scroll freely during the long-press wait
+  // (UNDETERMINED state doesn't claim the touch). A JS setTimeout handles the 200ms
+  // timer so haptic + crosshair fire even when the finger is perfectly still.
+  const gestureStartY = useSharedValue(0);
+  const gestureInitialX = useSharedValue(0);
+  const gestureReady = useSharedValue(false);
+  const gestureActive = useSharedValue(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const fireLongPress = useCallback(() => {
+    longPressTimer.current = setTimeout(() => {
+      touchX.value = gestureInitialX.value;
+      gestureReady.value = true;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }, CHART_CONFIG.LONG_PRESS_DURATION);
+  }, [touchX, gestureInitialX, gestureReady]);
+  const cancelLongPress = useCallback(() => {
+    clearTimeout(longPressTimer.current);
+    gestureReady.value = false;
+  }, [gestureReady]);
   const gesture = Gesture.Pan()
+    .manualActivation(true)
+    .onTouchesDown((e) => {
+      'worklet';
+      gestureStartY.value = e.allTouches[0].absoluteY;
+      gestureInitialX.value = e.allTouches[0].x;
+      gestureReady.value = false;
+      gestureActive.value = false;
+      runOnJS(fireLongPress)();
+    })
+    .onTouchesMove((e, mgr) => {
+      'worklet';
+      if (gestureActive.value) return;
+      if (Math.abs(e.allTouches[0].absoluteY - gestureStartY.value) > 10) {
+        runOnJS(cancelLongPress)();
+        mgr.fail();
+        return;
+      }
+      if (gestureReady.value) {
+        gestureActive.value = true;
+        mgr.activate();
+      }
+    })
+    .onTouchesUp((_e, mgr) => {
+      'worklet';
+      if (gestureActive.value) return;
+      runOnJS(cancelLongPress)();
+      touchX.value = -1;
+      mgr.fail();
+    })
     .onStart((e) => {
       'worklet';
       touchX.value = e.x;
@@ -240,9 +284,8 @@ export const FitnessChart = React.memo(function FitnessChart({
     .onEnd(() => {
       'worklet';
       touchX.value = -1;
-    })
-    .minDistance(0)
-    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
+      gestureActive.value = false;
+    });
 
   // Update shared selected index when local selection changes (for instant sync)
   useAnimatedReaction(
@@ -282,7 +325,7 @@ export const FitnessChart = React.memo(function FitnessChart({
   if (chartData.length === 0) {
     return (
       <View style={[styles.placeholder, { height }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>
+        <Text style={[styles.placeholderText, isDark && chartStyles.textDark]}>
           {t('fitness.noData')}
         </Text>
       </View>
@@ -301,13 +344,13 @@ export const FitnessChart = React.memo(function FitnessChart({
           <View style={styles.dateContainer}>
             <Text style={[styles.dateText, isDark && styles.textLight]}>
               {(isActive && tooltipData) || selectedDate
-                ? formatDate(tooltipData?.date || selectedDate || '')
+                ? formatShortDate(tooltipData?.date || selectedDate || '')
                 : t('time.current')}
             </Text>
           </View>
           <View style={styles.valuesRow}>
             <View style={styles.valueItem}>
-              <Text style={[styles.valueLabel, isDark && styles.textDark]}>
+              <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
                 {t('metrics.fitness')}
               </Text>
               <Text
@@ -318,7 +361,7 @@ export const FitnessChart = React.memo(function FitnessChart({
               </Text>
             </View>
             <View style={styles.valueItem}>
-              <Text style={[styles.valueLabel, isDark && styles.textDark]}>
+              <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
                 {t('metrics.fatigue')}
               </Text>
               <Text
@@ -333,7 +376,7 @@ export const FitnessChart = React.memo(function FitnessChart({
 
         {/* Chart */}
         <GestureDetector gesture={gesture}>
-          <View style={styles.chartWrapper}>
+          <View style={chartStyles.chartWrapper}>
             <CartesianChart
               data={chartData}
               xKey="x"
@@ -403,18 +446,15 @@ export const FitnessChart = React.memo(function FitnessChart({
             </CartesianChart>
 
             {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
-            <Animated.View
-              style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-              pointerEvents="none"
-            />
+            <ChartCrosshair style={crosshairStyle} topOffset={8} />
 
             {/* X-axis labels */}
             <View style={styles.xAxisOverlay} pointerEvents="none">
-              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                {chartData.length > 0 ? formatDate(chartData[0].date) : ''}
+              <Text style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>
+                {chartData.length > 0 ? formatShortDate(chartData[0].date) : ''}
               </Text>
-              <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-                {chartData.length > 0 ? formatDate(chartData[chartData.length - 1].date) : ''}
+              <Text style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>
+                {chartData.length > 0 ? formatShortDate(chartData[chartData.length - 1].date) : ''}
               </Text>
             </View>
           </View>
@@ -437,7 +477,7 @@ export const FitnessChart = React.memo(function FitnessChart({
             <Text
               style={[
                 styles.legendText,
-                isDark && styles.textDark,
+                isDark && chartStyles.textDark,
                 !visibleLines.fitness && styles.legendTextDisabled,
               ]}
             >
@@ -459,7 +499,7 @@ export const FitnessChart = React.memo(function FitnessChart({
             <Text
               style={[
                 styles.legendText,
-                isDark && styles.textDark,
+                isDark && chartStyles.textDark,
                 !visibleLines.fatigue && styles.legendTextDisabled,
               ]}
             >
@@ -483,9 +523,6 @@ const styles = StyleSheet.create({
   placeholderText: {
     ...typography.caption,
     color: colors.textSecondary,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
   },
   textLight: {
     color: colors.textOnDark,
@@ -520,20 +557,6 @@ const styles = StyleSheet.create({
     fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
   },
-  chartWrapper: {
-    flex: 1,
-    position: 'relative',
-  },
-  crosshair: {
-    position: 'absolute',
-    top: 8,
-    bottom: 20,
-    width: 1.5,
-    backgroundColor: colors.textSecondary,
-  },
-  crosshairDark: {
-    backgroundColor: darkColors.textSecondary,
-  },
   xAxisOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -541,17 +564,6 @@ const styles = StyleSheet.create({
     right: 4,
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  axisLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 2,
-    borderRadius: 2,
-  },
-  axisLabelDark: {
-    color: darkColors.textPrimary,
-    backgroundColor: darkColors.surfaceOverlay,
   },
   legend: {
     flexDirection: 'row',

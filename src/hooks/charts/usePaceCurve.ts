@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { PaceCurve } from '@/types';
 
 interface UsePaceCurveOptions {
@@ -14,7 +16,7 @@ interface UsePaceCurveOptions {
 export function usePaceCurve(options: UsePaceCurveOptions = {}) {
   const { sport = 'Run', days = 42, gap = false, enabled = true } = options;
 
-  return useQuery<PaceCurve>({
+  const result = useQuery<PaceCurve>({
     queryKey: ['paceCurve', sport, days, gap],
     queryFn: () => intervalsApi.getPaceCurve({ sport, days, gap }),
     enabled,
@@ -22,6 +24,22 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
     retry: 1,
     placeholderData: keepPreviousData,
   });
+
+  // Snapshot critical speed for trend tracking (idempotent: INSERT OR REPLACE by date+sport)
+  const lastSnapshotted = useRef<string | null>(null);
+  useEffect(() => {
+    const cs = result.data?.criticalSpeed;
+    if (cs == null || cs <= 0) return;
+    const key = `${sport}:${cs}`;
+    if (lastSnapshotted.current === key) return;
+    lastSnapshotted.current = key;
+    const engine = getRouteEngine();
+    if (!engine) return;
+    const todayTs = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
+    engine.savePaceSnapshot(sport, cs, result.data?.dPrime, result.data?.r2, todayTs);
+  }, [result.data?.criticalSpeed, sport, result.data?.dPrime, result.data?.r2]);
+
+  return result;
 }
 
 // Standard distances for running pace curve (in meters)
@@ -73,6 +91,44 @@ export function getPaceAtDistance(
     }
   }
   return curve.pace[closestIndex] || null;
+}
+
+/**
+ * Get the array index for a given distance (exact or closest match)
+ */
+export function getIndexAtDistance(
+  curve: PaceCurve | undefined,
+  targetDistance: number
+): number | null {
+  if (!curve?.distances || curve.distances.length === 0) return null;
+
+  const exactIndex = curve.distances.findIndex((d) => Math.abs(d - targetDistance) < 1);
+  if (exactIndex !== -1) return exactIndex;
+
+  let closestIndex = 0;
+  let closestDiff = Math.abs(curve.distances[0] - targetDistance);
+  for (let i = 1; i < curve.distances.length; i++) {
+    const diff = Math.abs(curve.distances[i] - targetDistance);
+    if (diff < closestDiff) {
+      closestDiff = diff;
+      closestIndex = i;
+    }
+  }
+  return closestIndex;
+}
+
+/**
+ * Get the time in seconds to cover a given distance
+ */
+export function getTimeAtDistance(
+  curve: PaceCurve | undefined,
+  targetDistance: number
+): number | null {
+  if (!curve?.distances || !curve?.times) return null;
+
+  const index = getIndexAtDistance(curve, targetDistance);
+  if (index === null) return null;
+  return curve.times[index] ?? null;
 }
 
 /**

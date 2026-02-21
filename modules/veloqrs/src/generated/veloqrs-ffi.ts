@@ -144,9 +144,6 @@ interface NativeModuleInterface {
     ids: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_patterns(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_activities_complete(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -200,7 +197,8 @@ interface NativeModuleInterface {
     metric: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_pattern_for_today(
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_pace_trend(
+    sportType: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_period_stats(
@@ -296,6 +294,14 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_func_persistent_engine_save_pace_snapshot(
+    sportType: Uint8Array,
+    criticalSpeed: number,
+    dPrime: Uint8Array,
+    r2: Uint8Array,
+    date: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_activity_metrics(
     metrics: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
@@ -389,7 +395,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_heatmap(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_ids(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_patterns(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_activities_complete(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_signatures(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_route_names(): number;
@@ -405,7 +410,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_groups(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_map_activities_filtered(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_monthly_aggregates(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_pattern_for_today(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_pace_trend(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_period_stats(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_route_name(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_route_performances(): number;
@@ -429,6 +434,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_poll_sections(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_query_viewport(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_remove_activity(): number;
+  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_save_pace_snapshot(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_activity_metrics(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_athlete_profile(): number;
   ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_name_translations(): number;

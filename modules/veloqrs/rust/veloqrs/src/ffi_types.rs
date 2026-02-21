@@ -204,6 +204,19 @@ pub struct FfiFtpTrend {
     pub previous_date: Option<i64>,
 }
 
+/// Pace trend data (critical speed for running/swimming).
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiPaceTrend {
+    /// Most recent critical speed in m/s
+    pub latest_pace: Option<f64>,
+    /// Date of most recent snapshot (Unix timestamp seconds)
+    pub latest_date: Option<i64>,
+    /// Previous different critical speed in m/s
+    pub previous_pace: Option<f64>,
+    /// Date of previous snapshot (Unix timestamp seconds)
+    pub previous_date: Option<i64>,
+}
+
 /// Weekly comparison: current week, previous week, and FTP trend bundled.
 /// Reduces FFI overhead from 3 calls to 1 call (30ms → 10ms).
 #[derive(Debug, Clone, uniffi::Record)]

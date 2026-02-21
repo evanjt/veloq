@@ -6,18 +6,18 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
+import {
   useSharedValue,
   useAnimatedReaction,
   runOnJS,
   useDerivedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing } from '@/theme/spacing';
+import { ChartCrosshair } from '@/components/charts/base';
+import { colors, darkColors, typography, spacing, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { usePowerCurve } from '@/hooks';
+import { formatDurationHuman } from '@/lib/utils/format';
 
 interface PowerCurveChartProps {
   sport?: string;
@@ -33,19 +33,6 @@ interface PowerCurveChartProps {
 // Chart colors
 const DEFAULT_COLOR = '#5B9BD5'; // Brand blue
 const FTP_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
-
-// Format duration for display
-function formatDuration(secs: number): string {
-  if (secs < 60) return `${Math.round(secs)}s`;
-  if (secs < 3600) {
-    const mins = Math.floor(secs / 60);
-    const remainingSecs = Math.round(secs % 60);
-    return remainingSecs > 0 ? `${mins}:${remainingSecs.toString().padStart(2, '0')}` : `${mins}m`;
-  }
-  const hours = Math.floor(secs / 3600);
-  const mins = Math.floor((secs % 3600) / 60);
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
 
 // Format duration compact for axis labels
 function formatDurationCompact(secs: number): string {
@@ -244,7 +231,9 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       <View style={[styles.container, { height }]}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.powerCurve')}</Text>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, isDark && styles.textDark]}>{t('common.loading')}</Text>
+          <Text style={[styles.loadingText, isDark && chartStyles.textDark]}>
+            {t('common.loading')}
+          </Text>
         </View>
       </View>
     );
@@ -255,7 +244,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       <View style={[styles.container, { height }]}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.powerCurve')}</Text>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>
+          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
             {t('stats.noPowerData')}
           </Text>
         </View>
@@ -273,13 +262,15 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.powerCurve')}</Text>
         <View style={styles.valuesRow}>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>{t('stats.time')}</Text>
+            <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
+              {t('stats.time')}
+            </Text>
             <Text testID="power-curve-duration" style={[styles.valueNumber, { color }]}>
-              {formatDuration(displayData.secs)}
+              {formatDurationHuman(displayData.secs)}
             </Text>
           </View>
           <View style={styles.valueItem}>
-            <Text style={[styles.valueLabel, isDark && styles.textDark]}>
+            <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
               {t('activity.power')}
             </Text>
             <Text testID="power-curve-watts" style={[styles.valueNumber, { color }]}>
@@ -291,7 +282,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 
       {/* Chart */}
       <GestureDetector gesture={gesture}>
-        <View style={styles.chartWrapper}>
+        <View style={chartStyles.chartWrapper}>
           <CartesianChart
             data={chartData}
             xKey="x"
@@ -349,29 +340,52 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
           </CartesianChart>
 
           {/* Crosshair */}
-          <Animated.View
-            style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-            pointerEvents="none"
-          />
+          <ChartCrosshair style={crosshairStyle} />
 
           {/* X-axis labels */}
           <View style={styles.xAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>5s</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>1m</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>5m</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>20m</Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>1h</Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              5s
+            </Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              1m
+            </Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              5m
+            </Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              20m
+            </Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              1h
+            </Text>
           </View>
 
           {/* Y-axis labels */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
               {Math.round(yDomain[1])}w
             </Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
               {Math.round((yDomain[0] + yDomain[1]) / 2)}w
             </Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
               {Math.round(yDomain[0])}w
             </Text>
           </View>
@@ -382,7 +396,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       {ftpValue && (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: FTP_LINE_COLOR }]} />
-          <Text style={[styles.legendText, isDark && styles.textDark]}>
+          <Text style={[styles.legendText, isDark && chartStyles.textDark]}>
             {t('statsScreen.ftpLabel', { value: ftpValue })}
           </Text>
         </View>
@@ -399,7 +413,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   textLight: { color: colors.textOnDark },
-  textDark: { color: darkColors.textSecondary },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -422,10 +435,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
   },
-  chartWrapper: {
-    flex: 1,
-    position: 'relative',
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -444,16 +453,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
-  crosshair: {
-    position: 'absolute',
-    top: spacing.xs,
-    bottom: 20,
-    width: 1.5,
-    backgroundColor: colors.textSecondary,
-  },
-  crosshairDark: {
-    backgroundColor: darkColors.textSecondary,
-  },
   xAxisOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -469,14 +468,6 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: spacing.xs,
     justifyContent: 'space-between',
-  },
-  axisLabel: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  axisLabelDark: {
-    color: darkColors.textSecondary,
   },
   legend: {
     flexDirection: 'row',

@@ -2,9 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text, StyleProp, ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing } from '@/theme/spacing';
+import { colors, darkColors, typography, spacing } from '@/theme';
 import { useTheme } from '@/hooks';
 import { Button } from './Button';
 

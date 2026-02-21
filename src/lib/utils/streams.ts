@@ -40,6 +40,9 @@ export function parseStreams(rawStreams: RawStreamItem[]): ActivityStreams {
       case 'distance':
         streams.distance = stream.data;
         break;
+      case 'grade_smooth':
+        streams.grade_smooth = stream.data;
+        break;
     }
   }
 

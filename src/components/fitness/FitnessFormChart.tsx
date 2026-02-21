@@ -6,14 +6,16 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area, Bar } from 'victory-native';
 import { LinearGradient, vec, Shadow, Rect } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
+import {
   useSharedValue,
   useAnimatedReaction,
   runOnJS,
   useDerivedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import * as Haptics from 'expo-haptics';
+import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
+import { ChartCrosshair } from '@/components/charts/base';
 import { CHART_CONFIG } from '@/constants';
 import { calculateTSB, getFormZone, FORM_ZONE_COLORS } from '@/hooks';
 import { sortByDateId, formatShortDate, formatShortDateWithWeekday } from '@/lib';
@@ -88,14 +90,6 @@ interface ChartDataPoint {
   form: number;
   load: number;
   [key: string]: string | number;
-}
-
-function formatDate(dateStr: string): string {
-  return formatShortDate(dateStr);
-}
-
-function formatFullDateLocal(dateStr: string): string {
-  return formatShortDateWithWeekday(dateStr);
 }
 
 const FITNESS_CHART_PADDING = { left: 0, right: 0, top: 8, bottom: 0 } as const;
@@ -240,8 +234,54 @@ export const FitnessFormChart = memo(function FitnessFormChart({
     [updateTooltipOnJS]
   );
 
-  // Gesture handler
+  // Manual activation so the ScrollView can scroll freely during the long-press wait.
+  // JS setTimeout handles the 200ms timer so haptic + crosshair fire even when still.
+  const gestureStartY = useSharedValue(0);
+  const gestureInitialX = useSharedValue(0);
+  const gestureReady = useSharedValue(false);
+  const gestureActive = useSharedValue(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const fireLongPress = useCallback(() => {
+    longPressTimer.current = setTimeout(() => {
+      touchX.value = gestureInitialX.value;
+      gestureReady.value = true;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }, CHART_CONFIG.LONG_PRESS_DURATION);
+  }, [touchX, gestureInitialX, gestureReady]);
+  const cancelLongPress = useCallback(() => {
+    clearTimeout(longPressTimer.current);
+    gestureReady.value = false;
+  }, [gestureReady]);
   const gesture = Gesture.Pan()
+    .manualActivation(true)
+    .onTouchesDown((e) => {
+      'worklet';
+      gestureStartY.value = e.allTouches[0].absoluteY;
+      gestureInitialX.value = e.allTouches[0].x;
+      gestureReady.value = false;
+      gestureActive.value = false;
+      runOnJS(fireLongPress)();
+    })
+    .onTouchesMove((e, mgr) => {
+      'worklet';
+      if (gestureActive.value) return;
+      if (Math.abs(e.allTouches[0].absoluteY - gestureStartY.value) > 10) {
+        runOnJS(cancelLongPress)();
+        mgr.fail();
+        return;
+      }
+      if (gestureReady.value) {
+        gestureActive.value = true;
+        mgr.activate();
+      }
+    })
+    .onTouchesUp((_e, mgr) => {
+      'worklet';
+      if (gestureActive.value) return;
+      runOnJS(cancelLongPress)();
+      touchX.value = -1;
+      mgr.fail();
+    })
     .onStart((e) => {
       'worklet';
       touchX.value = e.x;
@@ -253,9 +293,8 @@ export const FitnessFormChart = memo(function FitnessFormChart({
     .onEnd(() => {
       'worklet';
       touchX.value = -1;
-    })
-    .minDistance(0)
-    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
+      gestureActive.value = false;
+    });
 
   // Crosshair style
   const crosshairStyle = useAnimatedStyle(() => {
@@ -276,7 +315,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
   if (chartData.length === 0) {
     return (
       <View style={[styles.placeholder, { height: fitnessHeight + formHeight }]}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>
+        <Text style={[styles.placeholderText, isDark && chartStyles.textDark]}>
           {t('fitness.noData')}
         </Text>
       </View>
@@ -299,8 +338,8 @@ export const FitnessFormChart = memo(function FitnessFormChart({
       <View style={styles.header}>
         <Text style={[styles.dateText, isDark && styles.textLight]}>
           {isActive && tooltipData
-            ? formatFullDateLocal(tooltipData.date)
-            : formatFullDateLocal(currentData.date)}
+            ? formatShortDateWithWeekday(tooltipData.date)
+            : formatShortDateWithWeekday(currentData.date)}
         </Text>
         <View style={styles.valuesRow}>
           <View style={styles.valueItem}>
@@ -391,10 +430,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
             </CartesianChart>
 
             {/* Crosshair */}
-            <Animated.View
-              style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-              pointerEvents="none"
-            />
+            <ChartCrosshair style={crosshairStyle} width={1} topOffset={4} bottomOffset={0} />
 
             {/* Y-axis labels */}
             <View style={styles.yAxisOverlay} pointerEvents="none">
@@ -499,10 +535,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
               </CartesianChart>
 
               {/* Crosshair for form chart */}
-              <Animated.View
-                style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
-                pointerEvents="none"
-              />
+              <ChartCrosshair style={crosshairStyle} width={1} topOffset={4} bottomOffset={0} />
 
               {/* Form zone labels on right */}
               <View style={styles.zoneLabels} pointerEvents="none">
@@ -528,10 +561,10 @@ export const FitnessFormChart = memo(function FitnessFormChart({
           {/* X-axis labels */}
           <View style={styles.xAxisOverlay}>
             <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {chartData.length > 0 ? formatDate(chartData[0].date) : ''}
+              {chartData.length > 0 ? formatShortDate(chartData[0].date) : ''}
             </Text>
             <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {chartData.length > 0 ? formatDate(chartData[chartData.length - 1].date) : ''}
+              {chartData.length > 0 ? formatShortDate(chartData[chartData.length - 1].date) : ''}
             </Text>
           </View>
         </View>
@@ -568,9 +601,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
-  textDark: {
-    color: darkColors.textSecondary,
-  },
   textLight: {
     color: colors.textOnDark,
   },
@@ -606,16 +636,6 @@ const styles = StyleSheet.create({
   },
   chartWrapper: {
     position: 'relative',
-  },
-  crosshair: {
-    position: 'absolute',
-    top: 4,
-    bottom: 0,
-    width: 1,
-    backgroundColor: colors.textSecondary,
-  },
-  crosshairDark: {
-    backgroundColor: darkColors.textSecondary,
   },
   yAxisOverlay: {
     position: 'absolute',

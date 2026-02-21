@@ -110,18 +110,24 @@
     "tapToClose": "Tipp zum Zuemache",
     "temp": "TEMP",
     "timeInHRZones": "Ziit i de Pulszone",
+    "timeInPowerZones": "Ziit i Leistigszone",
+    "ftp": "FTP: {{value}}W",
     "tss": "TSS",
     "viewDetails": "Details luege",
     "viewInIntervalsICU": "Uf intervals.icu luege",
     "vsTypical": "vs normal",
     "vsYourAvg": "vs din Schnitt",
-    "whatIsThis": "Was isch das?"
+    "whatIsThis": "Was isch das?",
+    "xAxisDistance": "Dischtanz",
+    "xAxisTime": "Ziit"
   },
   "activityDetail": {
     "avgHR": "Ø Puls",
     "avgPace": "Ø Tempo",
     "avgPower": "Ø Watt",
     "avgSpeed": "Ø Speed",
+    "np": "NP",
+    "elapsedTime": "Gsamt",
     "chartDisplayOptions": "Diagramm-Aazeigeopzione",
     "failedToLoad": "Gopferteckel, Aktivität hät nöd wele lade!",
     "fullscreenChart": "Vollbild-Diagramm",
@@ -129,8 +135,13 @@
     "noMatchedSectionsDescription": "Passendi Abschnitt chömed da",
     "noRouteMatch": "No kei Routeüberischtimmig",
     "noRouteMatchDescription": "Fahr die Route no es paar Mol, um dini Leistig z verfolge, oder erwitere din Ziitruumm i de Istellige.",
+    "noIntervals": "Kei Intervall gfunde",
+    "intervalWork": "Arbet",
+    "intervalRecovery": "Erholig",
+    "feedPreviewUpdated": "Feed-Vorschau aktualisiert",
     "tabs": {
       "charts": "Charts",
+      "intervals": "Intervall",
       "route": "Route",
       "routes": "Route",
       "sections": "Abschnitt"
@@ -204,6 +215,7 @@
     "dist": "Dist",
     "elapsedTime": "Vergangni Ziit",
     "elev": "Höhe",
+    "grade": "Stiiig",
     "hr": "HF",
     "movingTime": "Beweigs-Ziit",
     "pace": "Pace",
@@ -240,7 +252,8 @@
     "hide": "Verberge",
     "hideDetails": "Details verberge",
     "show": "Zeige",
-    "showDetails": "Details für Entwickler zeige"
+    "showDetails": "Details für Entwickler zeige",
+    "undo": "Rückgängig"
   },
   "demo": {
     "banner": "Demo-Modus",
@@ -492,7 +505,8 @@
     "hrv": "HRV",
     "pace": "Tempo",
     "rhr": "Ruehpuls",
-    "week": "Wuche"
+    "week": "Wuche",
+    "weight": "Gwicht"
   },
   "navigation": {
     "activities": "Aktivitäte",
@@ -726,6 +740,10 @@
     "light": "Hell",
     "maps": "Charte",
     "maxMetricsHint": "Maximal 4 Metrike",
+    "terrain3D": "3D Terrain",
+    "terrain3DHint": "Vorgerenderets 3D-Terrain in Feed-Charte",
+    "terrainCacheSize": "Cache: {{size}}",
+    "clearCache": "Lösche",
     "metricsHint": "Metrike aa-/usschalte und mit de Pfiil neu ordne. Nur aktivierti Metrike chömed im Dashboard-Chopf.",
     "noData": "Nüüt da",
     "notCached": "Nöd cached",
@@ -851,12 +869,14 @@
     "maxHr": "Max Puls",
     "months3": "3 Mönet",
     "months6": "6 Mönet",
+    "noEffortData": "Keine Bestleistungsdaten verfügbar",
     "pace": "Tempo",
     "paceCurve": "Tempokurve",
     "paceCurveInfo": "CS (Critical Speed) und D' wärded mit em 2-Parameter-Modell berechnet. Intervals.icu nimmt dini beschte 1k, 2k, 3k, 4k und 5k Ziite wo zwüsche 2 und 15+ Minute bruuched.",
     "powerCurve": "Wattkurve",
     "powerCurveInfo": "D gschätzti FTP wird mit Wattkurve vo FastFitness.Tips und em Morton 3-Parameter Critical Power Modell berechnet. S bruucht nur 1 maximale Effort zwüsche 180 Sekunde und 30 Minute. W' isch relativ zu eFTP.",
     "ref": "Ref",
+    "seasonBests": "Saisonbestleistungen",
     "swimPaceCurve": "Schwümmtempokurve",
     "title": "Leistig",
     "trainingZones": "Trainingszone",

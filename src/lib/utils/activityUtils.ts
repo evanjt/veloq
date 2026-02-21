@@ -135,7 +135,7 @@ export function getActivityColor(type: ActivityType): string {
  * @returns True if activity is running-related
  */
 export function isRunningActivity(type: ActivityType): boolean {
-  return ['Run', 'VirtualRun', 'Walk', 'Hike'].includes(type);
+  return ['Run', 'VirtualRun', 'Walk', 'Hike', 'TrailRun', 'Treadmill'].includes(type);
 }
 
 /**

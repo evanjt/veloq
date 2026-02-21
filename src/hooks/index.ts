@@ -1,5 +1,7 @@
 // Activity hooks
 export { useActivities, useActivityBoundsCache, useEFTPHistory } from './activities';
+export { useSectionOverlays } from './activities/useSectionOverlays';
+export { useSectionTimeStreams } from './activities/useSectionTimeStreams';
 
 // Fitness & Wellness hooks
 export {
@@ -21,7 +23,8 @@ export {
 } from '@/lib';
 
 // Chart hooks
-export { usePowerCurve, usePaceCurve, useChartColors } from './charts';
+export { usePowerCurve, usePaceCurve, useChartColors, useSeasonBests } from './charts';
+export type { BestEffort, UseSeasonBestsResult } from './charts';
 
 // UI hooks
 export { useTheme, useMetricSystem } from './ui';
@@ -32,7 +35,12 @@ export type { Theme, ThemeColors } from './ui';
 // Remaining hooks (not yet reorganized)
 export { useAthlete } from './useAthlete';
 export { useWellnessForDate, type TimeRange } from './fitness';
-export { useInfiniteActivities, useActivity, useActivityStreams } from './activities';
+export {
+  useInfiniteActivities,
+  useActivity,
+  useActivityStreams,
+  useActivityIntervals,
+} from './activities';
 export {
   useSportSettings,
   getSettingsForSport,
@@ -45,10 +53,13 @@ export {
 export {
   POWER_CURVE_DURATIONS,
   getPowerAtDuration,
+  getIndexAtDuration,
   formatPowerCurveForChart,
   PACE_CURVE_DISTANCES,
   SWIM_PACE_CURVE_DISTANCES,
   getPaceAtDistance,
+  getIndexAtDistance,
+  getTimeAtDistance,
   paceToMinPerKm,
   paceToMinPer100m,
 } from './charts';
@@ -94,6 +105,7 @@ export {
   useSectionPolyline,
 } from './routes/useRouteEngine';
 export { useRouteDataSync } from './routes/useRouteDataSync';
+export { useSectionChartData } from './routes/useSectionChartData';
 export { useRouteReoptimization } from './routes/useRouteReoptimization';
 export { useRoutesScreenData } from './routes/useRoutesScreenData';
 // Section detail hook from route engine

@@ -6,7 +6,7 @@
 
 import type { Activity } from '@/types';
 import type { StatDetail } from './types';
-import { colors } from '@/theme/colors';
+import { colors } from '@/theme';
 import { TEMPERATURE_THRESHOLDS, FEELS_LIKE_THRESHOLD } from '@/constants';
 import { WIND_THRESHOLDS } from '@/constants';
 import { createMetricHook } from './createMetricHook';

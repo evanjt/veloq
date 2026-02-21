@@ -12,10 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
-import { colors, darkColors, opacity } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing, layout } from '@/theme/spacing';
-import { shadows } from '@/theme/shadows';
+import { colors, darkColors, opacity, typography, spacing, layout, shadows } from '@/theme';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { CompassArrow } from '@/components/ui';
 import {
@@ -436,6 +433,16 @@ export function BaseMapView({
 
           {/* Route line - CRITICAL: Always render to avoid iOS crash */}
           <ShapeSource id="routeSource" shape={routeGeoJSON}>
+            <LineLayer
+              id="routeLineCasing"
+              style={{
+                lineColor: '#FFFFFF',
+                lineOpacity: 1,
+                lineWidth: 5,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
             <LineLayer
               id="routeLine"
               style={{

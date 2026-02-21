@@ -110,18 +110,24 @@
     "tapToClose": "タップして閉じる",
     "temp": "温度",
     "timeInHRZones": "心拍ゾーン別時間",
+    "timeInPowerZones": "パワーゾーン別時間",
+    "ftp": "FTP: {{value}}W",
     "tss": "TSS",
     "viewDetails": "詳細を表示",
     "viewInIntervalsICU": "intervals.icuで表示",
     "vsTypical": "vs 一般的",
     "vsYourAvg": "vs あなたの平均",
-    "whatIsThis": "これは何ですか？"
+    "whatIsThis": "これは何ですか？",
+    "xAxisDistance": "距離",
+    "xAxisTime": "時間"
   },
   "activityDetail": {
     "avgHR": "平均心拍",
     "avgPace": "平均ペース",
     "avgPower": "平均パワー",
     "avgSpeed": "平均速度",
+    "np": "NP",
+    "elapsedTime": "経過",
     "chartDisplayOptions": "グラフ表示オプション",
     "failedToLoad": "アクティビティの読み込みに失敗しました",
     "fullscreenChart": "フルスクリーンチャート",
@@ -129,8 +135,13 @@
     "noMatchedSectionsDescription": "このアクティビティに一致する区間がここに表示されます",
     "noRouteMatch": "ルートの一致がありません",
     "noRouteMatchDescription": "このルートをあと数回完了すると、パフォーマンスの追跡を開始できます。または、設定でタイムラインを拡張して古いアクティビティを含めてください。",
+    "noIntervals": "インターバルが検出されませんでした",
+    "intervalWork": "ワーク",
+    "intervalRecovery": "リカバリー",
+    "feedPreviewUpdated": "フィードプレビューを更新しました",
     "tabs": {
       "charts": "チャート",
+      "intervals": "インターバル",
       "route": "ルート",
       "routes": "ルート",
       "sections": "区間"
@@ -204,6 +215,7 @@
     "dist": "距離",
     "elapsedTime": "経過時間",
     "elev": "標高",
+    "grade": "勾配",
     "hr": "心拍",
     "movingTime": "移動時間",
     "pace": "ペース",
@@ -240,7 +252,8 @@
     "hide": "非表示",
     "hideDetails": "詳細を非表示",
     "show": "表示",
-    "showDetails": "開発者向け詳細を表示"
+    "showDetails": "開発者向け詳細を表示",
+    "undo": "元に戻す"
   },
   "demo": {
     "banner": "デモモード",
@@ -492,7 +505,8 @@
     "hrv": "HRV",
     "pace": "ペース",
     "rhr": "安静時心拍",
-    "week": "週"
+    "week": "週",
+    "weight": "体重"
   },
   "navigation": {
     "activities": "アクティビティ",
@@ -726,6 +740,10 @@
     "light": "ライト",
     "maps": "マップ",
     "maxMetricsHint": "最大4つの指標",
+    "terrain3D": "3D地形",
+    "terrain3DHint": "フィードカードに事前レンダリングされた3D地形",
+    "terrainCacheSize": "キャッシュ: {{size}}",
+    "clearCache": "クリア",
     "metricsHint": "指標のオン/オフを切り替え、矢印で並べ替えます。有効な指標のみがダッシュボードヘッダーに表示されます。",
     "noData": "データなし",
     "notCached": "未キャッシュ",
@@ -851,12 +869,14 @@
     "maxHr": "最大心拍",
     "months3": "3ヶ月",
     "months6": "6ヶ月",
+    "noEffortData": "ベストエフォートデータがありません",
     "pace": "ペース",
     "paceCurve": "ペースカーブ",
     "paceCurveInfo": "CS（クリティカルスピード）とD'は2パラメータモデルで計算されます。Intervals.icuは1k、2k、3k、4k、5kのベストタイムのうち、2分から15分以上かかるものを使用します。",
     "powerCurve": "パワーカーブ",
     "powerCurveInfo": "推定FTPはFastFitness.Tipsのパワーカーブとモートンの3パラメータクリティカルパワーモデルで計算されます。180秒から30分の間の最大努力が1回あれば算出できます。W'はeFTPに対する相対値です。",
     "ref": "基準",
+    "seasonBests": "シーズンベスト",
     "swimPaceCurve": "スイムペースカーブ",
     "title": "パフォーマンス",
     "trainingZones": "トレーニングゾーン",

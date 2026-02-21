@@ -110,18 +110,24 @@
     "tapToClose": "Tik om te sluiten",
     "temp": "TEMP",
     "timeInHRZones": "Tijd in HF-zones",
+    "timeInPowerZones": "Tijd in vermogenszones",
+    "ftp": "FTP: {{value}}W",
     "tss": "TSS",
     "viewDetails": "Details bekijken",
     "viewInIntervalsICU": "Bekijken in intervals.icu",
     "vsTypical": "vs typisch",
     "vsYourAvg": "vs jouw gem.",
-    "whatIsThis": "Wat is dit?"
+    "whatIsThis": "Wat is dit?",
+    "xAxisDistance": "Afstand",
+    "xAxisTime": "Tijd"
   },
   "activityDetail": {
     "avgHR": "Gem. HF",
     "avgPace": "Gem. tempo",
     "avgPower": "Gem. vermogen",
     "avgSpeed": "Gem. snelh.",
+    "np": "NP",
+    "elapsedTime": "Verstreken",
     "chartDisplayOptions": "Grafiekweergaveopties",
     "failedToLoad": "Activiteit laden mislukt",
     "fullscreenChart": "Grafiek op volledig scherm",
@@ -129,8 +135,13 @@
     "noMatchedSectionsDescription": "Secties die overeenkomen met deze activiteit verschijnen hier",
     "noRouteMatch": "Nog geen route-overeenkomst",
     "noRouteMatchDescription": "Voltooi deze route nog een paar keer om je prestaties te volgen, of breid je tijdlijn uit in Instellingen om oudere activiteiten mee te nemen.",
+    "noIntervals": "Geen intervallen gedetecteerd",
+    "intervalWork": "Werk",
+    "intervalRecovery": "Herstel",
+    "feedPreviewUpdated": "Feedvoorbeeld bijgewerkt",
     "tabs": {
       "charts": "Grafieken",
+      "intervals": "Intervallen",
       "route": "Route",
       "routes": "Routes",
       "sections": "Secties"
@@ -204,6 +215,7 @@
     "dist": "Dist",
     "elapsedTime": "Verstreken tijd",
     "elev": "Hoogte",
+    "grade": "Helling",
     "hr": "HF",
     "movingTime": "Beweegtijd",
     "pace": "Tempo",
@@ -240,7 +252,8 @@
     "hide": "Verbergen",
     "hideDetails": "Details verbergen",
     "show": "Tonen",
-    "showDetails": "Details tonen voor ontwikkelaar"
+    "showDetails": "Details tonen voor ontwikkelaar",
+    "undo": "Ongedaan maken"
   },
   "demo": {
     "banner": "Demo-modus",
@@ -492,7 +505,8 @@
     "hrv": "HRV",
     "pace": "Tempo",
     "rhr": "RHR",
-    "week": "Week"
+    "week": "Week",
+    "weight": "Gewicht"
   },
   "navigation": {
     "activities": "Activiteiten",
@@ -676,6 +690,7 @@
     "performanceHistory": "Prestatiegeschiedenis",
     "traversalsSummary": "{{count}} passages · beste {{time}}",
     "yearPr": "Jaar-PR",
+    "visits": "bezoeken",
     "visitsCount": "{{count}} bezoeken"
   },
   "settings": {
@@ -725,6 +740,10 @@
     "light": "Licht",
     "maps": "Kaarten",
     "maxMetricsHint": "Maximaal 4 metrieken",
+    "terrain3D": "3D Terrein",
+    "terrain3DHint": "Vooraf gerenderd 3D-terrein in feedkaarten",
+    "terrainCacheSize": "Cache: {{size}}",
+    "clearCache": "Wissen",
     "metricsHint": "Schakel statistieken aan/uit en herorden ze met de pijlen. Alleen ingeschakelde statistieken verschijnen in de dashboardkop.",
     "noData": "Geen gegevens",
     "notCached": "Niet gecacht",
@@ -850,12 +869,14 @@
     "maxHr": "Max HF",
     "months3": "3 Maanden",
     "months6": "6 Maanden",
+    "noEffortData": "Geen beste prestatie gegevens beschikbaar",
     "pace": "Tempo",
     "paceCurve": "Tempocurve",
     "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
     "powerCurve": "Vermogenscurve",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
     "ref": "Ref",
+    "seasonBests": "Seizoensbesten",
     "swimPaceCurve": "Zwemtempocurve",
     "title": "Prestaties",
     "trainingZones": "Trainingszones",

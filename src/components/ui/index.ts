@@ -7,7 +7,7 @@ export {
 } from './Shimmer';
 export { GradientText } from './GradientText';
 export { BottomTabBar, TAB_BAR_HEIGHT, TAB_BAR_SAFE_PADDING } from './BottomTabBar';
-export { CompassArrow } from './CompassArrow';
+export { CompassArrow, StaticCompassArrow } from './CompassArrow';
 export {
   AnimatedPressable,
   AnimatedCard,

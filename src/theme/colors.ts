@@ -345,13 +345,13 @@ export const activityTypeColors: Record<string, string> = {
 // =============================================================================
 
 export const zoneColors = {
-  zone1: '#94A3B8', // Slate-400 - Recovery
-  zone2: '#22C55E', // Green-500 - Endurance
-  zone3: '#EAB308', // Yellow-500 - Tempo
-  zone4: '#F59E0B', // Amber-500 - Threshold
-  zone5: '#EF4444', // Red-500 - VO2max
-  zone6: '#A855F7', // Purple-500 - Anaerobic
-  zone7: '#EC4899', // Pink-500 - Neuromuscular
+  zone1: '#009E80', // Teal - Recovery (intervals.icu)
+  zone2: '#009E00', // Green - Endurance (intervals.icu)
+  zone3: '#FFCB0E', // Yellow - Tempo (intervals.icu)
+  zone4: '#FF7F0E', // Orange - Threshold (intervals.icu)
+  zone5: '#DD0447', // Red-pink - VO2max (intervals.icu)
+  zone6: '#6633CC', // Purple - Anaerobic (intervals.icu)
+  zone7: '#1A1A1A', // Near-black - Neuromuscular (intervals.icu)
 } as const;
 
 // =============================================================================

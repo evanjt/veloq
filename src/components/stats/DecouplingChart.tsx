@@ -3,9 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing, layout } from '@/theme/spacing';
+import { colors, darkColors, typography, spacing, layout } from '@/theme';
 
 interface DecouplingChartProps {
   /** Power or pace data */

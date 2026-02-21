@@ -9,7 +9,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Activity, WellnessData } from '@/types';
 import type { StatDetail } from './types';
-import { colors } from '@/theme/colors';
+import { colors } from '@/theme';
 
 interface UsePowerMetricsOptions {
   activity: Activity;

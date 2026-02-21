@@ -40,11 +40,9 @@ import {
   FfiConverterArray,
   FfiConverterBool,
   FfiConverterCallback,
-  FfiConverterFloat32,
   FfiConverterFloat64,
   FfiConverterInt32,
   FfiConverterInt64,
-  FfiConverterInt8,
   FfiConverterMap,
   FfiConverterOptional,
   FfiConverterUInt16,
@@ -640,23 +638,6 @@ export function persistentEngineGetActivityMetricsForIds(
   );
 }
 /**
- * Detect recurring training patterns using k-means clustering on activity features.
- * Groups activities by sport type, clusters by day/duration/tss/distance,
- * and enriches with commonly-traversed sections.
- */
-export function persistentEngineGetActivityPatterns(): Array<FfiActivityPattern> {
-  return FfiConverterArrayTypeFfiActivityPattern.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_patterns(
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
-  );
-}
-/**
  * Get all activities with complete data for map display.
  * Joins metadata (bounds) with metrics (name, date, distance) in a single call.
  * Much faster than fetching separately and merging in JS.
@@ -917,16 +898,14 @@ export function persistentEngineGetMonthlyAggregates(
   );
 }
 /**
- * Get the best-matching training pattern for today's day of week and season.
- * Returns the highest-confidence pattern within +/-1 day tolerance.
+ * Get pace trend: latest and previous distinct critical speed values with dates.
  */
-export function persistentEngineGetPatternForToday():
-  | FfiActivityPattern
-  | undefined {
-  return FfiConverterOptionalTypeFfiActivityPattern.lift(
+export function persistentEngineGetPaceTrend(sportType: string): FfiPaceTrend {
+  return FfiConverterTypeFfiPaceTrend.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_pattern_for_today(
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_pace_trend(
+          FfiConverterString.lower(sportType),
           callStatus,
         );
       },
@@ -1352,6 +1331,30 @@ export function persistentEngineRemoveActivity(activityId: string): boolean {
       },
       /*liftString:*/ FfiConverterString.lift,
     ),
+  );
+}
+/**
+ * Save a pace (critical speed) snapshot for trend tracking.
+ */
+export function persistentEngineSavePaceSnapshot(
+  sportType: string,
+  criticalSpeed: /*f64*/ number,
+  dPrime: /*f64*/ number | undefined,
+  r2: /*f64*/ number | undefined,
+  date: /*i64*/ bigint,
+): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_save_pace_snapshot(
+        FfiConverterString.lower(sportType),
+        FfiConverterFloat64.lower(criticalSpeed),
+        FfiConverterOptionalFloat64.lower(dPrime),
+        FfiConverterOptionalFloat64.lower(r2),
+        FfiConverterInt64.lower(date),
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift,
   );
 }
 /**
@@ -2262,152 +2265,6 @@ const FfiConverterTypeFfiActivityMetrics = (() => {
         FfiConverterOptionalUInt16.allocationSize(value.ftp) +
         FfiConverterOptionalString.allocationSize(value.powerZoneTimes) +
         FfiConverterOptionalString.allocationSize(value.hrZoneTimes)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * A detected recurring training pattern from k-means clustering.
- */
-export type FfiActivityPattern = {
-  /**
-   * Sport type (e.g., "Ride", "Run")
-   */
-  sportType: string;
-  /**
-   * Cluster identifier within the sport group
-   */
-  clusterId: /*u8*/ number;
-  /**
-   * Most common day of week (0=Mon..6=Sun)
-   */
-  primaryDay: /*u8*/ number;
-  /**
-   * Dominant season label ("winter", "spring", "summer", "autumn", "all")
-   */
-  seasonLabel: string;
-  /**
-   * Number of activities in this pattern
-   */
-  activityCount: /*u32*/ number;
-  /**
-   * Average moving time in seconds
-   */
-  avgDurationSecs: /*u32*/ number;
-  /**
-   * Average training load (TSS)
-   */
-  avgTss: /*f32*/ number;
-  /**
-   * Average distance in meters
-   */
-  avgDistanceMeters: /*f32*/ number;
-  /**
-   * How often this pattern occurs per month
-   */
-  frequencyPerMonth: /*f32*/ number;
-  /**
-   * Weighted confidence score (0.0-1.0)
-   */
-  confidence: /*f32*/ number;
-  /**
-   * Silhouette score for cluster quality (0.0-1.0)
-   */
-  silhouetteScore: /*f32*/ number;
-  /**
-   * Days since the most recent activity in this cluster
-   */
-  daysSinceLast: /*u32*/ number;
-  /**
-   * Sections commonly traversed by activities in this pattern
-   */
-  commonSections: Array<FfiPatternSection>;
-};
-
-/**
- * Generated factory for {@link FfiActivityPattern} record objects.
- */
-export const FfiActivityPattern = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiActivityPattern, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    /**
-     * Create a frozen instance of {@link FfiActivityPattern}, with defaults specified
-     * in Rust, in the {@link veloqrs} crate.
-     */
-    create,
-
-    /**
-     * Create a frozen instance of {@link FfiActivityPattern}, with defaults specified
-     * in Rust, in the {@link veloqrs} crate.
-     */
-    new: create,
-
-    /**
-     * Defaults specified in the {@link veloqrs} crate.
-     */
-    defaults: () => Object.freeze(defaults()) as Partial<FfiActivityPattern>,
-  });
-})();
-
-const FfiConverterTypeFfiActivityPattern = (() => {
-  type TypeName = FfiActivityPattern;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        sportType: FfiConverterString.read(from),
-        clusterId: FfiConverterUInt8.read(from),
-        primaryDay: FfiConverterUInt8.read(from),
-        seasonLabel: FfiConverterString.read(from),
-        activityCount: FfiConverterUInt32.read(from),
-        avgDurationSecs: FfiConverterUInt32.read(from),
-        avgTss: FfiConverterFloat32.read(from),
-        avgDistanceMeters: FfiConverterFloat32.read(from),
-        frequencyPerMonth: FfiConverterFloat32.read(from),
-        confidence: FfiConverterFloat32.read(from),
-        silhouetteScore: FfiConverterFloat32.read(from),
-        daysSinceLast: FfiConverterUInt32.read(from),
-        commonSections: FfiConverterArrayTypeFfiPatternSection.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterString.write(value.sportType, into);
-      FfiConverterUInt8.write(value.clusterId, into);
-      FfiConverterUInt8.write(value.primaryDay, into);
-      FfiConverterString.write(value.seasonLabel, into);
-      FfiConverterUInt32.write(value.activityCount, into);
-      FfiConverterUInt32.write(value.avgDurationSecs, into);
-      FfiConverterFloat32.write(value.avgTss, into);
-      FfiConverterFloat32.write(value.avgDistanceMeters, into);
-      FfiConverterFloat32.write(value.frequencyPerMonth, into);
-      FfiConverterFloat32.write(value.confidence, into);
-      FfiConverterFloat32.write(value.silhouetteScore, into);
-      FfiConverterUInt32.write(value.daysSinceLast, into);
-      FfiConverterArrayTypeFfiPatternSection.write(value.commonSections, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.sportType) +
-        FfiConverterUInt8.allocationSize(value.clusterId) +
-        FfiConverterUInt8.allocationSize(value.primaryDay) +
-        FfiConverterString.allocationSize(value.seasonLabel) +
-        FfiConverterUInt32.allocationSize(value.activityCount) +
-        FfiConverterUInt32.allocationSize(value.avgDurationSecs) +
-        FfiConverterFloat32.allocationSize(value.avgTss) +
-        FfiConverterFloat32.allocationSize(value.avgDistanceMeters) +
-        FfiConverterFloat32.allocationSize(value.frequencyPerMonth) +
-        FfiConverterFloat32.allocationSize(value.confidence) +
-        FfiConverterFloat32.allocationSize(value.silhouetteScore) +
-        FfiConverterUInt32.allocationSize(value.daysSinceLast) +
-        FfiConverterArrayTypeFfiPatternSection.allocationSize(
-          value.commonSections,
-        )
       );
     }
   }
@@ -3735,58 +3592,46 @@ const FfiConverterTypeFfiMultiScaleSectionResult = (() => {
 })();
 
 /**
- * A section commonly associated with a training pattern.
+ * Pace trend data (critical speed for running/swimming).
  */
-export type FfiPatternSection = {
+export type FfiPaceTrend = {
   /**
-   * Section identifier
+   * Most recent critical speed in m/s
    */
-  sectionId: string;
+  latestPace: /*f64*/ number | undefined;
   /**
-   * Section display name
+   * Date of most recent snapshot (Unix timestamp seconds)
    */
-  sectionName: string;
+  latestDate: /*i64*/ bigint | undefined;
   /**
-   * Fraction of cluster activities that traverse this section (0.0-1.0)
+   * Previous different critical speed in m/s
    */
-  appearanceRate: /*f32*/ number;
+  previousPace: /*f64*/ number | undefined;
   /**
-   * Best (fastest) traversal time in seconds
+   * Date of previous snapshot (Unix timestamp seconds)
    */
-  bestTimeSecs: /*f32*/ number;
-  /**
-   * Median of the 5 most recent traversal times in seconds
-   */
-  medianRecentSecs: /*f32*/ number;
-  /**
-   * Performance trend: None=insufficient data, -1=declining, 0=stable, 1=improving
-   */
-  trend: /*i8*/ number | undefined;
-  /**
-   * Total number of traversals across cluster activities
-   */
-  traversalCount: /*u32*/ number;
+  previousDate: /*i64*/ bigint | undefined;
 };
 
 /**
- * Generated factory for {@link FfiPatternSection} record objects.
+ * Generated factory for {@link FfiPaceTrend} record objects.
  */
-export const FfiPatternSection = (() => {
+export const FfiPaceTrend = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiPatternSection, ReturnType<typeof defaults>>(
+    return uniffiCreateRecord<FfiPaceTrend, ReturnType<typeof defaults>>(
       defaults,
     );
   })();
   return Object.freeze({
     /**
-     * Create a frozen instance of {@link FfiPatternSection}, with defaults specified
+     * Create a frozen instance of {@link FfiPaceTrend}, with defaults specified
      * in Rust, in the {@link veloqrs} crate.
      */
     create,
 
     /**
-     * Create a frozen instance of {@link FfiPatternSection}, with defaults specified
+     * Create a frozen instance of {@link FfiPaceTrend}, with defaults specified
      * in Rust, in the {@link veloqrs} crate.
      */
     new: create,
@@ -3794,42 +3639,33 @@ export const FfiPatternSection = (() => {
     /**
      * Defaults specified in the {@link veloqrs} crate.
      */
-    defaults: () => Object.freeze(defaults()) as Partial<FfiPatternSection>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiPaceTrend>,
   });
 })();
 
-const FfiConverterTypeFfiPatternSection = (() => {
-  type TypeName = FfiPatternSection;
+const FfiConverterTypeFfiPaceTrend = (() => {
+  type TypeName = FfiPaceTrend;
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     read(from: RustBuffer): TypeName {
       return {
-        sectionId: FfiConverterString.read(from),
-        sectionName: FfiConverterString.read(from),
-        appearanceRate: FfiConverterFloat32.read(from),
-        bestTimeSecs: FfiConverterFloat32.read(from),
-        medianRecentSecs: FfiConverterFloat32.read(from),
-        trend: FfiConverterOptionalInt8.read(from),
-        traversalCount: FfiConverterUInt32.read(from),
+        latestPace: FfiConverterOptionalFloat64.read(from),
+        latestDate: FfiConverterOptionalInt64.read(from),
+        previousPace: FfiConverterOptionalFloat64.read(from),
+        previousDate: FfiConverterOptionalInt64.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
-      FfiConverterString.write(value.sectionId, into);
-      FfiConverterString.write(value.sectionName, into);
-      FfiConverterFloat32.write(value.appearanceRate, into);
-      FfiConverterFloat32.write(value.bestTimeSecs, into);
-      FfiConverterFloat32.write(value.medianRecentSecs, into);
-      FfiConverterOptionalInt8.write(value.trend, into);
-      FfiConverterUInt32.write(value.traversalCount, into);
+      FfiConverterOptionalFloat64.write(value.latestPace, into);
+      FfiConverterOptionalInt64.write(value.latestDate, into);
+      FfiConverterOptionalFloat64.write(value.previousPace, into);
+      FfiConverterOptionalInt64.write(value.previousDate, into);
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterString.allocationSize(value.sectionId) +
-        FfiConverterString.allocationSize(value.sectionName) +
-        FfiConverterFloat32.allocationSize(value.appearanceRate) +
-        FfiConverterFloat32.allocationSize(value.bestTimeSecs) +
-        FfiConverterFloat32.allocationSize(value.medianRecentSecs) +
-        FfiConverterOptionalInt8.allocationSize(value.trend) +
-        FfiConverterUInt32.allocationSize(value.traversalCount)
+        FfiConverterOptionalFloat64.allocationSize(value.latestPace) +
+        FfiConverterOptionalInt64.allocationSize(value.latestDate) +
+        FfiConverterOptionalFloat64.allocationSize(value.previousPace) +
+        FfiConverterOptionalInt64.allocationSize(value.previousDate)
       );
     }
   }
@@ -5982,17 +5818,9 @@ const FfiConverterOptionalFloat64 = new FfiConverterOptional(
 // FfiConverter for /*i64*/bigint | undefined
 const FfiConverterOptionalInt64 = new FfiConverterOptional(FfiConverterInt64);
 
-// FfiConverter for /*i8*/number | undefined
-const FfiConverterOptionalInt8 = new FfiConverterOptional(FfiConverterInt8);
-
 // FfiConverter for FetchAndStoreResult | undefined
 const FfiConverterOptionalTypeFetchAndStoreResult = new FfiConverterOptional(
   FfiConverterTypeFetchAndStoreResult,
-);
-
-// FfiConverter for FfiActivityPattern | undefined
-const FfiConverterOptionalTypeFfiActivityPattern = new FfiConverterOptional(
-  FfiConverterTypeFfiActivityPattern,
 );
 
 // FfiConverter for FfiBounds | undefined
@@ -6075,11 +5903,6 @@ const FfiConverterArrayTypeFfiActivityMetrics = new FfiConverterArray(
   FfiConverterTypeFfiActivityMetrics,
 );
 
-// FfiConverter for Array<FfiActivityPattern>
-const FfiConverterArrayTypeFfiActivityPattern = new FfiConverterArray(
-  FfiConverterTypeFfiActivityPattern,
-);
-
 // FfiConverter for Array<FfiBatchTrace>
 const FfiConverterArrayTypeFfiBatchTrace = new FfiConverterArray(
   FfiConverterTypeFfiBatchTrace,
@@ -6123,11 +5946,6 @@ const FfiConverterArrayTypeFfiMapSignature = new FfiConverterArray(
 // FfiConverter for Array<FfiMonthlyAggregate>
 const FfiConverterArrayTypeFfiMonthlyAggregate = new FfiConverterArray(
   FfiConverterTypeFfiMonthlyAggregate,
-);
-
-// FfiConverter for Array<FfiPatternSection>
-const FfiConverterArrayTypeFfiPatternSection = new FfiConverterArray(
-  FfiConverterTypeFfiPatternSection,
 );
 
 // FfiConverter for Array<FfiPotentialSection>
@@ -6430,14 +6248,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_patterns() !==
-    1124
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_persistent_engine_get_activity_patterns",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_activities_complete() !==
     61778
   ) {
@@ -6558,11 +6368,11 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_pattern_for_today() !==
-    35149
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_pace_trend() !==
+    6970
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_persistent_engine_get_pattern_for_today",
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_pace_trend",
     );
   }
   if (
@@ -6750,6 +6560,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_save_pace_snapshot() !==
+    50754
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_save_pace_snapshot",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_activity_metrics() !==
     42378
   ) {
@@ -6889,7 +6707,6 @@ export default Object.freeze({
     FfiConverterTypeFetchAndStoreResult,
     FfiConverterTypeFfiActivityMapResult,
     FfiConverterTypeFfiActivityMetrics,
-    FfiConverterTypeFfiActivityPattern,
     FfiConverterTypeFfiBatchTrace,
     FfiConverterTypeFfiBounds,
     FfiConverterTypeFfiCalendarDirectionBest,
@@ -6906,7 +6723,7 @@ export default Object.freeze({
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMonthlyAggregate,
     FfiConverterTypeFfiMultiScaleSectionResult,
-    FfiConverterTypeFfiPatternSection,
+    FfiConverterTypeFfiPaceTrend,
     FfiConverterTypeFfiPeriodStats,
     FfiConverterTypeFfiPotentialSection,
     FfiConverterTypeFfiRouteGroup,

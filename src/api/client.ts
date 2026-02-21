@@ -89,9 +89,13 @@ apiClient.interceptors.response.use(
     if (shouldRetry) {
       config.__retryCount = retryCount + 1;
 
+      // Respect Retry-After header from server if present
+      const retryAfterHeader = error.response?.headers?.['retry-after'];
+      const retryAfterMs = retryAfterHeader ? parseFloat(retryAfterHeader) * 1000 : 0;
+
       // Use longer backoff for network errors since they may need more time to recover
       const baseBackoff = isNetworkError ? NETWORK_BACKOFF : INITIAL_BACKOFF;
-      const backoffTime = baseBackoff * Math.pow(2, retryCount);
+      const backoffTime = Math.max(retryAfterMs, baseBackoff * Math.pow(2, retryCount));
 
       await new Promise((resolve) => setTimeout(resolve, backoffTime));
       return apiClient.request(config);

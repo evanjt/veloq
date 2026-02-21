@@ -14,7 +14,7 @@ import {
   Animated,
   Platform,
 } from 'react-native';
-import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
+import { Text, IconButton, ActivityIndicator, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
@@ -30,11 +30,16 @@ import * as Haptics from 'expo-haptics';
 import {
   useActivity,
   useActivityStreams,
+  useActivityIntervals,
   useWellnessForDate,
   useTheme,
   useMetricSystem,
   useCacheDays,
   useGpxExport,
+  useSectionOverlays,
+  useSectionTimeStreams,
+  POWER_ZONE_COLORS,
+  HR_ZONE_COLORS,
 } from '@/hooks';
 import { useDisabledSections } from '@/providers';
 import { createSharedStyles } from '@/styles';
@@ -42,12 +47,14 @@ import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
 import { useSectionMatches, type SectionMatch } from '@/hooks/routes/useSectionMatches';
 import { routeEngine } from 'veloqrs';
-import { intervalsApi } from '@/api';
 import {
   ActivityMapView,
   CombinedPlot,
+  type ChartMetricValue,
   ChartTypeSelector,
   HRZonesChart,
+  PowerZonesChart,
+  IntervalsTable,
   InsightfulStats,
   RoutePerformanceSection,
   MiniTraceView,
@@ -61,7 +68,6 @@ import {
 } from '@/components/routes';
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
-import type { SectionOverlay } from '@/components/maps/ActivityMapView';
 import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import type {
   SectionCreationResult,
@@ -71,14 +77,13 @@ import type { CreationState } from '@/components/maps/SectionCreationOverlay';
 import {
   formatDistance,
   formatDuration,
+  formatDurationHuman,
   formatElevation,
-  formatHeartRate,
-  formatPower,
-  formatSpeed,
   formatPace,
   formatDateTime,
   getActivityColor,
   isRunningActivity,
+  isCyclingActivity,
   decodePolyline,
   convertLatLngTuples,
   getAvailableCharts,
@@ -88,6 +93,14 @@ import {
 import { colors, darkColors, spacing, typography, layout, opacity } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { DeviceAttribution, ComponentErrorBoundary } from '@/components/ui';
+import {
+  setCameraOverride,
+  getCameraOverride,
+  deleteCameraOverride,
+} from '@/lib/storage/terrainCameraOverrides';
+import type { TerrainCamera } from '@/lib/utils/cameraAngle';
+import { calculateTerrainCamera } from '@/lib/utils/cameraAngle';
+import { useMapPreferences } from '@/providers';
 import type { ChartTypeId } from '@/lib';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -143,6 +156,13 @@ export default function ActivityDetailScreen() {
   const activityDate = activity?.start_date_local?.split('T')[0];
   const { data: activityWellness } = useWellnessForDate(activityDate);
 
+  // Tab state for swipeable tabs (defined early for conditional hook)
+  type TabType = 'charts' | 'routes' | 'sections';
+  const [activeTab, setActiveTab] = useState<TabType>('charts');
+
+  // Fetch intervals data (used for both charts tab overlay and intervals tab)
+  const { data: intervalsData } = useActivityIntervals(id || '');
+
   // Track the selected point index from charts for map highlight
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   // Track whether any chart is being interacted with to disable ScrollView
@@ -151,15 +171,21 @@ export default function ActivityDetailScreen() {
   const [is3DMapActive, setIs3DMapActive] = useState(false);
   // Track which chart types are selected (multi-select)
   const [selectedCharts, setSelectedCharts] = useState<ChartTypeId[]>([]);
-  // Track if charts are expanded (stacked) or combined (overlay)
-  const [chartsExpanded, setChartsExpanded] = useState(false);
   // Track which metric is being previewed (long-press on chip shows its Y-axis)
   const [previewMetricId, setPreviewMetricId] = useState<ChartTypeId | null>(null);
   // Track if we've initialized the default chart selection
   const [chartsInitialized, setChartsInitialized] = useState(false);
   // Track fullscreen chart mode
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
-  // Track current map style for attribution
+  // Track chart x-axis mode (distance vs time)
+  const [xAxisMode, setXAxisMode] = useState<'distance' | 'time'>('distance');
+  // Chart metric values (avg or scrub) for display in selector chips
+  const [chartMetrics, setChartMetrics] = useState<ChartMetricValue[]>([]);
+  // Intervals collapsible section
+  const [intervalsExpanded, setIntervalsExpanded] = useState(false);
+
+  // Snackbar for 3D camera override feedback
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   // Section creation mode
   const [sectionCreationMode, setSectionCreationMode] = useState(false);
@@ -304,10 +330,6 @@ export default function ActivityDetailScreen() {
     [handleDeleteSection, handleToggleDisable, t]
   );
 
-  // Tab state for swipeable tabs
-  type TabType = 'charts' | 'routes' | 'sections';
-  const [activeTab, setActiveTab] = useState<TabType>('charts');
-
   // Get matched route for this activity
   const { routeGroup: matchedRoute, representativeActivityId } = useRouteMatch(id);
   const matchedRouteCount = matchedRoute ? 1 : 0;
@@ -377,223 +399,13 @@ export default function ActivityDetailScreen() {
     return items;
   }, [engineSectionMatches, customMatchedSections]);
 
-  // Computed activity traces for this activity on each section
-  // Uses engine's extractSectionTrace for accurate trace extraction
-  const [computedActivityTraces, setComputedActivityTraces] = useState<
-    Record<string, { latitude: number; longitude: number }[]>
-  >({});
-
-  // Create stable section IDs string to avoid infinite loops
-  const engineSectionIds = useMemo(
-    () =>
-      engineSectionMatches
-        .map((m) => m.section.id)
-        .sort()
-        .join(','),
-    [engineSectionMatches]
-  );
-  const customSectionIds = useMemo(
-    () =>
-      customMatchedSections
-        .map((s) => s.id)
-        .sort()
-        .join(','),
-    [customMatchedSections]
-  );
-
-  // Compute activity traces using Rust engine's extractSectionTrace
-  useEffect(() => {
-    if (activeTab !== 'sections' || !id) {
-      return;
-    }
-
-    // Deduplicate sections by ID (custom sections might appear in both lists)
-    const seenIds = new Set<string>();
-    const combinedSections = [
-      ...engineSectionMatches.map((m) => m.section),
-      ...customMatchedSections,
-    ].filter((section) => {
-      if (seenIds.has(section.id)) return false;
-      seenIds.add(section.id);
-      return true;
-    });
-    if (combinedSections.length === 0) {
-      setComputedActivityTraces({});
-      return;
-    }
-
-    const traces: Record<string, { latitude: number; longitude: number }[]> = {};
-
-    for (const section of combinedSections) {
-      // Use section polyline directly (already has data from engine)
-      const polyline = section.polyline || [];
-
-      if (polyline.length < 2) continue;
-
-      // Convert polyline to JSON for Rust engine (expects latitude/longitude)
-      const polylineJson = JSON.stringify(
-        polyline.map(
-          (p: { lat?: number; lng?: number; latitude?: number; longitude?: number }) => ({
-            latitude: p.lat ?? p.latitude ?? 0,
-            longitude: p.lng ?? p.longitude ?? 0,
-          })
-        )
-      );
-
-      // Use Rust engine's extractSectionTrace
-      const extractedTrace = routeEngine.extractSectionTrace(id, polylineJson);
-
-      if (extractedTrace && extractedTrace.length > 0) {
-        // Convert GpsPoint[] to LatLng format
-        traces[section.id] = extractedTrace.map((p) => ({
-          latitude: p.latitude,
-          longitude: p.longitude,
-        }));
-      }
-    }
-
-    setComputedActivityTraces(traces);
-    // Use stable string IDs instead of array references to prevent infinite loops
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, id, engineSectionIds, customSectionIds]);
-
-  // Build section overlays when on Sections tab
-  const sectionOverlays = useMemo((): SectionOverlay[] | null => {
-    if (activeTab !== 'sections') return null;
-    if (!engineSectionMatches.length && !customMatchedSections.length) return null;
-    if (coordinates.length === 0) return null;
-
-    const overlays: SectionOverlay[] = [];
-    const processedIds = new Set<string>();
-
-    // Process engine-detected sections
-    for (const match of engineSectionMatches) {
-      // Skip if already processed (deduplication)
-      if (processedIds.has(match.section.id)) continue;
-      processedIds.add(match.section.id);
-
-      // Use section polyline directly (already has data from engine)
-      const polylineSource = match.section.polyline || [];
-
-      // Handle both RoutePoint ({lat, lng}) and GpsPoint ({latitude, longitude}) formats
-      const sectionPolyline = polylineSource.map(
-        (p: { lat?: number; lng?: number; latitude?: number; longitude?: number }) => ({
-          latitude: p.lat ?? p.latitude ?? 0,
-          longitude: p.lng ?? p.longitude ?? 0,
-        })
-      );
-
-      // Try to get activity's portion from multiple sources (in order of preference):
-      // 1. computedActivityTraces (extracted via engine.extractSectionTrace - most accurate)
-      // 2. activityTraces from section data (pre-computed by engine)
-      // 3. portion indices (slice from coordinates - least accurate)
-      let activityPortion;
-
-      // First try computed traces - these use extractSectionTrace for accuracy
-      const computedTrace = computedActivityTraces[match.section.id];
-      if (computedTrace && computedTrace.length > 0) {
-        activityPortion = computedTrace;
-      } else {
-        // Try activityTraces from section data
-        const activityTrace = match.section.activityTraces?.[id!];
-        if (activityTrace && activityTrace.length > 0) {
-          // Convert RoutePoint to LatLng format
-          activityPortion = activityTrace.map(
-            (p: { lat?: number; lng?: number; latitude?: number; longitude?: number }) => ({
-              latitude: p.lat ?? p.latitude ?? 0,
-              longitude: p.lng ?? p.longitude ?? 0,
-            })
-          );
-        }
-      }
-
-      overlays.push({
-        id: match.section.id,
-        sectionPolyline,
-        activityPortion,
-      });
-    }
-
-    // Process custom sections
-    for (const section of customMatchedSections) {
-      // Skip if already processed (deduplication - custom sections may appear in engine results)
-      if (processedIds.has(section.id)) continue;
-      processedIds.add(section.id);
-
-      const sectionPolyline = section.polyline.map((p) => ({
-        latitude: p.lat,
-        longitude: p.lng,
-      }));
-
-      // Try computed traces first (from extractSectionTrace)
-      let activityPortion;
-      const computedTrace = computedActivityTraces[section.id];
-      if (computedTrace && computedTrace.length > 0) {
-        activityPortion = computedTrace;
-      } else {
-        // Fall back to using indices
-        const activityPortion_record = section.activityPortions?.find((p) => p.activityId === id);
-        if (
-          activityPortion_record?.startIndex != null &&
-          activityPortion_record?.endIndex != null
-        ) {
-          // Use portion indices from junction table
-          const start = Math.max(0, activityPortion_record.startIndex);
-          const end = Math.min(coordinates.length - 1, activityPortion_record.endIndex);
-          if (end > start) {
-            activityPortion = coordinates.slice(start, end + 1);
-          }
-        } else if (
-          section.sourceActivityId === id &&
-          section.startIndex != null &&
-          section.endIndex != null
-        ) {
-          // This is the source activity - use the section's original indices
-          const start = Math.max(0, section.startIndex);
-          const end = Math.min(coordinates.length - 1, section.endIndex);
-          if (end > start) {
-            activityPortion = coordinates.slice(start, end + 1);
-          }
-        }
-      }
-
-      overlays.push({
-        id: section.id,
-        sectionPolyline,
-        activityPortion,
-      });
-    }
-
-    return overlays;
-  }, [
+  // Section overlay computation (traces + map overlays)
+  const { sectionOverlays, getActivityPortion } = useSectionOverlays(
     activeTab,
+    id,
     engineSectionMatches,
     customMatchedSections,
-    coordinates,
-    id,
-    computedActivityTraces,
-  ]);
-
-  // Helper to get activity portion as RoutePoint[] for MiniTraceView
-  // Uses computed traces when available, falls back to portion indices
-  const getActivityPortion = useCallback(
-    (sectionId: string, portion?: { startIndex?: number; endIndex?: number }) => {
-      // First try computed traces
-      const computedTrace = computedActivityTraces[sectionId];
-      if (computedTrace && computedTrace.length > 0) {
-        return computedTrace.map((c) => ({
-          lat: c.latitude,
-          lng: c.longitude,
-        }));
-      }
-      // Fall back to portion indices
-      if (portion?.startIndex == null || portion?.endIndex == null) return undefined;
-      const start = Math.max(0, portion.startIndex);
-      const end = Math.min(coordinates.length - 1, portion.endIndex);
-      if (end <= start || coordinates.length === 0) return undefined;
-      return coordinates.slice(start, end + 1).map((c) => ({ lat: c.latitude, lng: c.longitude }));
-    },
-    [coordinates, computedActivityTraces]
+    coordinates
   );
 
   // Helper to calculate section elapsed time from streams
@@ -612,110 +424,19 @@ export default function ActivityDetailScreen() {
     [streams?.time]
   );
 
-  // Format time in mm:ss or h:mm:ss
-  const formatSectionTime = (seconds: number): string => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    if (h > 0) {
-      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    }
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
-  // Calculate pace (min/km or min/mi) from time and distance
-  const formatSectionPace = (seconds: number, meters: number): string => {
-    if (meters <= 0 || seconds <= 0) return '--';
-    const distance = isMetric ? meters / 1000 : meters / 1609.344; // km or mi
-    const minPer = seconds / 60 / distance;
-    const paceMin = Math.floor(minPer);
-    const paceSec = Math.round((minPer - paceMin) * 60);
-    return `${paceMin}:${paceSec.toString().padStart(2, '0')}${isMetric ? '/km' : '/mi'}`;
-  };
-
-  // Collect all activity IDs from matched sections for performance data
-  const sectionActivityIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const match of engineSectionMatches) {
-      for (const actId of match.section.activityIds) {
-        ids.add(actId);
-      }
-    }
-    for (const section of customMatchedSections) {
-      // Include source activity
-      if (section.sourceActivityId) {
-        ids.add(section.sourceActivityId);
-      }
-      // Include activity IDs from the section
-      for (const activityId of section.activityIds ?? []) {
-        ids.add(activityId);
-      }
-    }
-    return Array.from(ids);
-  }, [engineSectionMatches, customMatchedSections]);
-
-  // Fetch and sync time streams to Rust engine for section performance calculations
-  const [performanceDataReady, setPerformanceDataReady] = useState(false);
-  useEffect(() => {
-    if (activeTab !== 'sections' || sectionActivityIds.length === 0) {
-      return;
-    }
-
-    let cancelled = false;
-    const fetchTimeStreams = async () => {
-      try {
-        const streamsToSync: Array<{ activityId: string; times: number[] }> = [];
-
-        // Fetch in batches of 5 to avoid overwhelming the API
-        const batchSize = 5;
-        for (let i = 0; i < sectionActivityIds.length && !cancelled; i += batchSize) {
-          const batch = sectionActivityIds.slice(i, i + batchSize);
-          const results = await Promise.all(
-            batch.map(async (activityId) => {
-              try {
-                const apiStreams = await intervalsApi.getActivityStreams(activityId, ['time']);
-                return { activityId, times: apiStreams.time || [] };
-              } catch {
-                return { activityId, times: [] as number[] };
-              }
-            })
-          );
-
-          for (const result of results) {
-            if (result.times.length > 0) {
-              streamsToSync.push(result);
-            }
-          }
-        }
-
-        if (!cancelled && streamsToSync.length > 0) {
-          // Sync time streams to Rust engine
-          routeEngine.setTimeStreams(streamsToSync);
-          setPerformanceDataReady(true);
-        }
-      } catch {
-        // Ignore errors
-      }
-    };
-
-    fetchTimeStreams();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, sectionActivityIds]);
-
-  // Get best time for a section from Rust engine (uses synced time streams)
-  const getSectionBestTime = useCallback(
-    (sectionId: string): number | undefined => {
-      if (!performanceDataReady) return undefined;
-      try {
-        const result = routeEngine.getSectionPerformances(sectionId);
-        return result?.bestRecord?.bestTime;
-      } catch {
-        return undefined;
-      }
+  const formatSectionPace = useCallback(
+    (seconds: number, meters: number): string => {
+      if (meters <= 0 || seconds <= 0) return '--';
+      return formatPace(meters / seconds, isMetric);
     },
-    [performanceDataReady]
+    [isMetric]
+  );
+
+  // Time stream syncing + performance data for section best times
+  const { getSectionBestTime } = useSectionTimeStreams(
+    activeTab,
+    engineSectionMatches,
+    customMatchedSections
   );
 
   // Format time delta with +/- sign
@@ -801,7 +522,7 @@ export default function ActivityDetailScreen() {
             renderSectionSwipeActions(sectionId, isCustom, isDisabled, progress, dragX)
           }
           swipeableRefs={swipeableRefs}
-          formatSectionTime={formatSectionTime}
+          formatSectionTime={formatDuration}
           formatSectionPace={formatSectionPace}
         />
       );
@@ -820,7 +541,7 @@ export default function ActivityDetailScreen() {
       getSectionTime,
       getSectionBestTime,
       formatTimeDelta,
-      formatSectionTime,
+      formatDuration,
       formatSectionPace,
       swipeableRefs,
     ]
@@ -895,6 +616,12 @@ export default function ActivityDetailScreen() {
     return getAvailableCharts(streams || {});
   }, [streams]);
 
+  // Determine effective x-axis mode and whether toggle is available
+  const hasDistance = (streams?.distance?.length ?? 0) > 0;
+  const hasTime = (streams?.time?.length ?? 0) > 0;
+  const effectiveXAxisMode = !hasDistance ? 'time' : xAxisMode;
+  const canToggleXAxis = hasDistance && hasTime;
+
   // Initialize with single default chart when data loads
   useEffect(() => {
     if (!chartsInitialized && availableCharts.length > 0 && activity) {
@@ -919,6 +646,11 @@ export default function ActivityDetailScreen() {
     });
   }, []);
 
+  // Toggle x-axis between distance and time
+  const handleXAxisToggle = useCallback(() => {
+    setXAxisMode((m) => (m === 'distance' ? 'time' : 'distance'));
+  }, []);
+
   // Handle chart point selection
   const handlePointSelect = useCallback((index: number | null) => {
     setHighlightIndex(index);
@@ -932,6 +664,47 @@ export default function ActivityDetailScreen() {
   // Handle 3D map mode changes
   const handle3DModeChange = useCallback((is3D: boolean) => {
     setIs3DMapActive(is3D);
+  }, []);
+
+  // Save custom camera angle when user exits 3D mode
+  const handleCameraCapture = useCallback(
+    (camera: TerrainCamera) => {
+      if (activity?.id) {
+        setCameraOverride(activity.id, camera);
+        setSnackbarVisible(true);
+      }
+    },
+    [activity?.id]
+  );
+
+  // Undo camera override (revert to auto-calculated angle)
+  const handleUndoCameraOverride = useCallback(() => {
+    if (activity?.id) {
+      deleteCameraOverride(activity.id);
+    }
+    setSnackbarVisible(false);
+  }, [activity?.id]);
+
+  // Restore saved 3D camera angle, or auto-calculate if terrain 3D is enabled
+  const { isTerrain3DEnabled } = useMapPreferences();
+  const terrain3DEnabled = activity?.type ? isTerrain3DEnabled(activity.type) : false;
+
+  const saved3DCamera = useMemo(() => {
+    if (!activity?.id) return null;
+    // Saved override takes priority (user manually adjusted the angle)
+    const override = getCameraOverride(activity.id);
+    if (override) return override;
+    // Auto-calculate if terrain 3D is enabled for this activity type
+    if (terrain3DEnabled && coordinates.length >= 2) {
+      const lngLatCoords: [number, number][] = coordinates.map((c) => [c.longitude, c.latitude]);
+      return calculateTerrainCamera(lngLatCoords, streams?.altitude);
+    }
+    return null;
+  }, [activity?.id, terrain3DEnabled, coordinates, streams?.altitude]);
+
+  // Handle chart metrics updates (avg values or scrub position values)
+  const handleMetricsChange = useCallback((metrics: ChartMetricValue[]) => {
+    setChartMetrics(metrics);
   }, []);
 
   // Open fullscreen chart with landscape orientation
@@ -1025,6 +798,65 @@ export default function ActivityDetailScreen() {
     setSectionCreationError(null);
   }, []);
 
+  // Zone summary for intervals bar (colored chips showing all interval types)
+  const intervalZoneSummary = useMemo(() => {
+    if (!intervalsData?.icu_intervals || !activity) return [];
+    const isCycling = isCyclingActivity(activity.type);
+    const zoneColors = isCycling ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
+
+    // Group all intervals by type+zone, maintain order of first appearance
+    type ChipInfo = { label: string; color: string; count: number; totalTime: number };
+    const chips: ChipInfo[] = [];
+    const chipMap = new Map<string, number>(); // key -> index in chips array
+
+    for (const interval of intervalsData.icu_intervals) {
+      const isWork = interval.type === 'WORK';
+      const isRecovery = interval.type === 'RECOVERY' || interval.type === 'REST';
+      const isWarmup = interval.type === 'WARMUP';
+      const isCooldown = interval.type === 'COOLDOWN';
+
+      let label: string;
+      let color: string;
+      let key: string;
+
+      if (isWork && interval.zone != null && interval.zone >= 1) {
+        key = `Z${interval.zone}`;
+        label = `Z${interval.zone}`;
+        color = zoneColors[Math.min(interval.zone - 1, zoneColors.length - 1)];
+      } else if (isWork) {
+        key = 'WORK';
+        label = 'W';
+        color = colors.primary;
+      } else if (isRecovery) {
+        key = 'REC';
+        label = 'Rec';
+        color = '#4CAF50';
+      } else if (isWarmup) {
+        key = 'WU';
+        label = 'WU';
+        color = '#22C55E';
+      } else if (isCooldown) {
+        key = 'CD';
+        label = 'CD';
+        color = '#8B5CF6';
+      } else {
+        key = interval.type;
+        label = interval.type.slice(0, 3);
+        color = '#808080';
+      }
+
+      if (chipMap.has(key)) {
+        const idx = chipMap.get(key)!;
+        chips[idx].count++;
+        chips[idx].totalTime += interval.moving_time;
+      } else {
+        chipMap.set(key, chips.length);
+        chips.push({ label, color, count: 1, totalTime: interval.moving_time });
+      }
+    }
+    return chips;
+  }, [intervalsData, activity]);
+
   if (isLoading) {
     return (
       <ScreenSafeAreaView
@@ -1070,26 +902,30 @@ export default function ActivityDetailScreen() {
       <View testID="activity-detail-content" style={styles.heroSection}>
         {/* Map - full bleed */}
         <View style={styles.mapContainer}>
-          <ActivityMapView
-            coordinates={coordinates}
-            polyline={activity.polyline}
-            activityType={activity.type}
-            height={MAP_HEIGHT}
-            showStyleToggle={!sectionCreationMode}
-            showAttribution={true}
-            highlightIndex={highlightIndex}
-            enableFullscreen={!sectionCreationMode}
-            on3DModeChange={handle3DModeChange}
-            creationMode={sectionCreationMode}
-            creationState={sectionCreationState}
-            creationError={sectionCreationError}
-            onSectionCreated={handleSectionCreated}
-            onCreationCancelled={handleSectionCreationCancelled}
-            onCreationErrorDismiss={handleSectionCreationErrorDismiss}
-            routeOverlay={activeTab === 'routes' ? routeOverlayCoordinates : null}
-            sectionOverlays={activeTab === 'sections' ? sectionOverlays : null}
-            highlightedSectionId={activeTab === 'sections' ? highlightedSectionId : null}
-          />
+          <ComponentErrorBoundary componentName="Activity Map">
+            <ActivityMapView
+              coordinates={coordinates}
+              polyline={activity.polyline}
+              activityType={activity.type}
+              height={MAP_HEIGHT}
+              showStyleToggle={!sectionCreationMode}
+              showAttribution={true}
+              highlightIndex={highlightIndex}
+              enableFullscreen={!sectionCreationMode}
+              on3DModeChange={handle3DModeChange}
+              onCameraCapture={handleCameraCapture}
+              initial3DCamera={saved3DCamera}
+              creationMode={sectionCreationMode}
+              creationState={sectionCreationState}
+              creationError={sectionCreationError}
+              onSectionCreated={handleSectionCreated}
+              onCreationCancelled={handleSectionCreationCancelled}
+              onCreationErrorDismiss={handleSectionCreationErrorDismiss}
+              routeOverlay={activeTab === 'routes' ? routeOverlayCoordinates : null}
+              sectionOverlays={activeTab === 'sections' ? sectionOverlays : null}
+              highlightedSectionId={activeTab === 'sections' ? highlightedSectionId : null}
+            />
+          </ComponentErrorBoundary>
         </View>
 
         {/* Gradient overlay at bottom */}
@@ -1162,8 +998,27 @@ export default function ActivityDetailScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Location */}
+          {(activity.locality || activity.country) && (
+            <Text style={styles.locationText}>
+              {[activity.locality, activity.country].filter(Boolean).join(', ')}
+            </Text>
+          )}
         </View>
       </View>
+
+      {/* Activity description */}
+      {activity.description ? (
+        <View style={[styles.descriptionContainer, isDark && styles.descriptionContainerDark]}>
+          <Text
+            numberOfLines={3}
+            style={[styles.descriptionText, isDark && styles.descriptionTextDark]}
+          >
+            {activity.description}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Swipeable Tabs: Charts, Routes, Sections */}
       <SwipeableTabs
@@ -1183,19 +1038,6 @@ export default function ActivityDetailScreen() {
           {availableCharts.length > 0 && (
             <View style={styles.chartSection}>
               <View style={styles.chartControls}>
-                <TouchableOpacity
-                  style={[styles.expandButton, isDark && styles.expandButtonDark]}
-                  onPress={() => setChartsExpanded(!chartsExpanded)}
-                  activeOpacity={0.7}
-                  accessibilityLabel="Chart display options"
-                  accessibilityRole="button"
-                >
-                  <MaterialCommunityIcons
-                    name="cog"
-                    size={16}
-                    color={isDark ? colors.textOnDark : colors.textPrimary}
-                  />
-                </TouchableOpacity>
                 <View style={styles.chartSelectorContainer}>
                   <ChartTypeSelector
                     available={availableCharts}
@@ -1203,6 +1045,7 @@ export default function ActivityDetailScreen() {
                     onToggle={handleChartToggle}
                     onPreviewStart={(id) => setPreviewMetricId(id as ChartTypeId)}
                     onPreviewEnd={() => setPreviewMetricId(null)}
+                    metricValues={chartMetrics}
                   />
                 </View>
                 <TouchableOpacity
@@ -1220,103 +1063,96 @@ export default function ActivityDetailScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Charts - consistent height for both views */}
-              {streams &&
-                selectedCharts.length > 0 &&
-                (chartsExpanded ? (
-                  // Expanded view - stacked individual charts
-                  selectedCharts.map((chartId) => {
-                    const config = CHART_CONFIGS[chartId];
-                    if (!config) return null;
-                    const chartData = config.getStream?.(streams);
-                    if (!chartData || chartData.length === 0) return null;
+              {/* Chart — no key prop so toggling series doesn't unmount/flash */}
+              {streams && selectedCharts.length > 0 && (
+                <View style={[styles.chartCard, isDark && styles.cardDark]}>
+                  <CombinedPlot
+                    streams={streams}
+                    selectedCharts={selectedCharts}
+                    chartConfigs={CHART_CONFIGS}
+                    height={180}
+                    onPointSelect={handlePointSelect}
+                    onInteractionChange={handleInteractionChange}
+                    previewMetricId={previewMetricId}
+                    xAxisMode={effectiveXAxisMode}
+                    onXAxisModeToggle={handleXAxisToggle}
+                    canToggleXAxis={canToggleXAxis}
+                    intervals={intervalsExpanded ? intervalsData?.icu_intervals : undefined}
+                    activityType={activity.type}
+                    onMetricsChange={handleMetricsChange}
+                  />
 
-                    return (
-                      <View key={chartId} style={[styles.chartCard, isDark && styles.cardDark]}>
-                        <CombinedPlot
-                          key={chartId}
-                          streams={streams}
-                          selectedCharts={[chartId]}
-                          chartConfigs={CHART_CONFIGS}
-                          height={180}
-                          onPointSelect={handlePointSelect}
-                          onInteractionChange={handleInteractionChange}
-                          previewMetricId={previewMetricId}
+                  {/* Intervals zone bar — thin expandable strip directly under chart */}
+                  {intervalsData?.icu_intervals && intervalsData.icu_intervals.length > 0 && (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.intervalsBar, isDark && styles.intervalsBarDark]}
+                        onPress={() => setIntervalsExpanded((v) => !v)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.intervalsBarLeft}>
+                          <Text style={[styles.intervalsTitle, isDark && styles.textMuted]}>
+                            {t('activityDetail.tabs.intervals')}
+                          </Text>
+                          {intervalZoneSummary.map((z, i) => (
+                            <View
+                              key={i}
+                              style={[styles.zoneChip, { backgroundColor: z.color + '25' }]}
+                            >
+                              <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
+                              <Text style={[styles.zoneChipText, { color: z.color }]}>
+                                {z.label} ×{z.count} {formatDurationHuman(z.totalTime)}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                        <MaterialCommunityIcons
+                          name={intervalsExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={18}
+                          color={isDark ? darkColors.textSecondary : colors.textSecondary}
                         />
-                      </View>
-                    );
-                  })
-                ) : (
-                  // Combined view - overlay chart
-                  <View style={[styles.chartCard, isDark && styles.cardDark]}>
-                    <CombinedPlot
-                      key={selectedCharts.join(',')}
-                      streams={streams}
-                      selectedCharts={selectedCharts}
-                      chartConfigs={CHART_CONFIGS}
-                      height={180}
-                      onPointSelect={handlePointSelect}
-                      onInteractionChange={handleInteractionChange}
-                      previewMetricId={previewMetricId}
-                    />
-                  </View>
-                ))}
-
-              {/* Compact Stats Row - averages */}
-              <View style={[styles.compactStats, isDark && styles.cardDark]}>
-                {showPace ? (
-                  <CompactStat
-                    label={t('activityDetail.avgPace')}
-                    value={formatPace(activity.average_speed, isMetric)}
-                    isDark={isDark}
-                  />
-                ) : (
-                  <CompactStat
-                    label={t('activityDetail.avgSpeed')}
-                    value={formatSpeed(activity.average_speed, isMetric)}
-                    isDark={isDark}
-                  />
-                )}
-                {(activity.average_heartrate || activity.icu_average_hr) && (
-                  <CompactStat
-                    label={t('activityDetail.avgHR')}
-                    value={formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
-                    isDark={isDark}
-                    color={colors.chartPink}
-                  />
-                )}
-                {(activity.average_watts || activity.icu_average_watts) && (
-                  <CompactStat
-                    label={t('activityDetail.avgPower')}
-                    value={formatPower(activity.average_watts || activity.icu_average_watts!)}
-                    isDark={isDark}
-                    color={colors.chartPurple}
-                  />
-                )}
-                {activity.average_cadence && (
-                  <CompactStat
-                    label={t('activity.cadence')}
-                    value={`${Math.round(activity.average_cadence)}`}
-                    isDark={isDark}
-                  />
-                )}
-              </View>
+                      </TouchableOpacity>
+                      {intervalsExpanded && (
+                        <IntervalsTable
+                          intervals={intervalsData.icu_intervals}
+                          activityType={activity.type}
+                          isMetric={isMetric}
+                          isDark={isDark}
+                        />
+                      )}
+                    </>
+                  )}
+                </View>
+              )}
 
               {/* HR Zones Chart - show if heart rate data available */}
               {streams?.heartrate && streams.heartrate.length > 0 && (
                 <View style={[styles.chartCard, isDark && styles.cardDark]}>
-                  <HRZonesChart
-                    streams={streams}
-                    activityType={activity.type}
-                    activity={activity}
-                  />
+                  <ComponentErrorBoundary componentName="HR Zones Chart">
+                    <HRZonesChart
+                      streams={streams}
+                      activityType={activity.type}
+                      activity={activity}
+                    />
+                  </ComponentErrorBoundary>
+                </View>
+              )}
+
+              {/* Power Zones Chart - show if power zone data available */}
+              {activity.icu_zone_times && activity.icu_zone_times.length > 0 && (
+                <View style={[styles.chartCard, isDark && styles.cardDark]}>
+                  <ComponentErrorBoundary componentName="Power Zones Chart">
+                    <PowerZonesChart activity={activity} />
+                  </ComponentErrorBoundary>
                 </View>
               )}
             </View>
           )}
 
           {/* Insightful Stats - Interactive stats with context and explanations */}
-          <InsightfulStats activity={activity} wellness={activityWellness} />
+          <ComponentErrorBoundary componentName="Activity Stats">
+            <InsightfulStats activity={activity} wellness={activityWellness} />
+          </ComponentErrorBoundary>
 
           {/* Export GPX button */}
           {coordinates.length > 0 && (
@@ -1481,6 +1317,16 @@ export default function ActivityDetailScreen() {
         </View>
       </SwipeableTabs>
 
+      {/* Snackbar: 3D camera override saved */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={4000}
+        action={{ label: t('common.undo'), onPress: handleUndoCameraOverride }}
+      >
+        {t('activityDetail.feedPreviewUpdated')}
+      </Snackbar>
+
       {/* Fullscreen Chart Modal - Landscape */}
       <Modal
         visible={isChartFullscreen}
@@ -1508,7 +1354,7 @@ export default function ActivityDetailScreen() {
               />
             </TouchableOpacity>
 
-            {/* Chart type selector in fullscreen - centered, no config button needed */}
+            {/* Chart type selector in fullscreen - centered */}
             <View
               style={[
                 styles.fullscreenControls,
@@ -1521,6 +1367,7 @@ export default function ActivityDetailScreen() {
                 onToggle={handleChartToggle}
                 onPreviewStart={(id) => setPreviewMetricId(id as ChartTypeId)}
                 onPreviewEnd={() => setPreviewMetricId(null)}
+                metricValues={chartMetrics}
               />
             </View>
 
@@ -1528,7 +1375,6 @@ export default function ActivityDetailScreen() {
             {streams && selectedCharts.length > 0 && (
               <View style={styles.fullscreenChartWrapper}>
                 <CombinedPlot
-                  key={selectedCharts.join(',')}
                   streams={streams}
                   selectedCharts={selectedCharts}
                   chartConfigs={CHART_CONFIGS}
@@ -1536,34 +1382,18 @@ export default function ActivityDetailScreen() {
                   onPointSelect={handlePointSelect}
                   onInteractionChange={handleInteractionChange}
                   previewMetricId={previewMetricId}
+                  xAxisMode={effectiveXAxisMode}
+                  onXAxisModeToggle={handleXAxisToggle}
+                  canToggleXAxis={canToggleXAxis}
+                  intervals={intervalsExpanded ? intervalsData?.icu_intervals : undefined}
+                  activityType={activity.type}
+                  onMetricsChange={handleMetricsChange}
                 />
               </View>
             )}
           </View>
         </GestureHandlerRootView>
       </Modal>
-    </View>
-  );
-}
-
-// Compact inline stat
-function CompactStat({
-  label,
-  value,
-  isDark,
-  color,
-}: {
-  label: string;
-  value: string;
-  isDark: boolean;
-  color?: string;
-}) {
-  return (
-    <View style={styles.compactStatItem}>
-      <Text style={[styles.compactStatValue, isDark && styles.textLight, color && { color }]}>
-        {value}
-      </Text>
-      <Text style={styles.compactStatLabel}>{label}</Text>
     </View>
   );
 }
@@ -1675,6 +1505,36 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     marginHorizontal: 6,
   },
+  locationText: {
+    fontSize: typography.label.fontSize,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 2,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  // Description
+  descriptionContainer: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.divider,
+  },
+  descriptionContainerDark: {
+    backgroundColor: darkColors.surface,
+    borderBottomColor: darkColors.border,
+  },
+  descriptionText: {
+    fontSize: typography.bodyCompact.fontSize,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  descriptionTextDark: {
+    color: darkColors.textSecondary,
+  },
+
   // Chart section
   chartSection: {
     paddingHorizontal: spacing.md,
@@ -1688,15 +1548,6 @@ const styles = StyleSheet.create({
   chartSelectorContainer: {
     flex: 1,
     marginHorizontal: spacing.xs,
-  },
-  expandButton: {
-    width: 28,
-    height: 28,
-    borderRadius: layout.borderRadius,
-    backgroundColor: opacity.overlay.light,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 6,
   },
   expandButtonDark: {
     backgroundColor: opacity.overlayDark.heavy,
@@ -1713,6 +1564,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: spacing.sm,
     elevation: 2,
+    minHeight: 180,
+    overflow: 'hidden',
   },
   cardDark: {
     backgroundColor: darkColors.surface,
@@ -1721,33 +1574,48 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
   },
 
-  // Compact stats
-  compactStats: {
+  // Intervals zone bar
+  intervalsBar: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: colors.surface,
-    marginBottom: spacing.sm,
-    borderRadius: layout.cardPadding,
-    paddingVertical: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: spacing.sm,
-    elevation: 2,
-  },
-  compactStatItem: {
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+  },
+  intervalsBarDark: {
+    borderTopColor: darkColors.border,
+  },
+  intervalsBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
     flex: 1,
+    gap: 4,
   },
-  compactStatValue: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  compactStatLabel: {
-    fontSize: typography.label.fontSize,
+  intervalsTitle: {
+    fontSize: 11,
+    fontWeight: '600',
     color: colors.textSecondary,
-    marginTop: 2,
+    marginRight: 2,
+  },
+  zoneChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    gap: 3,
+  },
+  zoneDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  zoneChipText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
 
   // Device attribution container
@@ -1794,15 +1662,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: spacing.xs,
-  },
-  fullscreenExpandButton: {
-    width: 28,
-    height: 28,
-    borderRadius: layout.borderRadius,
-    backgroundColor: opacity.overlay.light,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 6,
   },
   fullscreenChartWrapper: {
     flex: 1,

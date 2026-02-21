@@ -66,12 +66,9 @@ describe('LanguageStore', () => {
     });
 
     it('resolves language-only code to default variant (when not in SUPPORTED_LOCALES)', () => {
-      // Note: Some language-only codes like 'de', 'fr', 'nl' ARE in SUPPORTED_LOCALES
-      // and are returned as-is. Only codes not in the list are resolved.
       expect(resolveLanguageToLocale('en')).toBe('en-GB'); // 'en' not in list, resolves
-      // 'de' IS in SUPPORTED_LOCALES, so it returns 'de' as-is
-      expect(SUPPORTED_LOCALES).toContain('de');
-      expect(resolveLanguageToLocale('de')).toBe('de');
+      // 'de' is not in SUPPORTED_LOCALES — resolves to 'de-DE' via fallback
+      expect(resolveLanguageToLocale('de')).toBe('de-DE');
     });
 
     it('returns en-GB for unknown language', () => {
@@ -142,8 +139,8 @@ describe('LanguageStore', () => {
 
       const result = await initializeLanguage();
 
-      // 'de' is a valid supported locale, so it returns as-is
-      expect(result).toBe('de');
+      // 'de' is not a full locale — resolves to 'de-DE' via fallback
+      expect(result).toBe('de-DE');
       expect(useLanguageStore.getState().language).toBe('de');
     });
   });
@@ -191,8 +188,8 @@ describe('LanguageStore', () => {
     it('returns resolved locale from current state', () => {
       useLanguageStore.setState({ language: 'de', isInitialized: true });
 
-      // 'de' is in SUPPORTED_LOCALES, so it returns 'de'
-      expect(getEffectiveLanguage()).toBe('de');
+      // 'de' is not a full locale — resolves to 'de-DE' via fallback
+      expect(getEffectiveLanguage()).toBe('de-DE');
     });
 
     it('returns device locale when language is null', () => {

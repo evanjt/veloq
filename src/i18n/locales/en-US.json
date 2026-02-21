@@ -110,27 +110,38 @@
     "tapToClose": "Tap anywhere to close",
     "temp": "TEMP",
     "timeInHRZones": "Time in HR Zones",
+    "timeInPowerZones": "Time in Power Zones",
+    "ftp": "FTP: {{value}}W",
     "tss": "TSS",
     "viewDetails": "View Details",
     "viewInIntervalsICU": "View in intervals.icu",
     "vsTypical": "vs typical",
     "vsYourAvg": "vs your avg",
-    "whatIsThis": "What is this?"
+    "whatIsThis": "What is this?",
+    "xAxisDistance": "Distance",
+    "xAxisTime": "Time"
   },
   "activityDetail": {
     "avgHR": "Avg HR",
     "avgPace": "Avg Pace",
     "avgPower": "Avg Power",
     "avgSpeed": "Avg Speed",
+    "np": "NP",
+    "elapsedTime": "Elapsed",
     "failedToLoad": "Failed to load activity",
     "noMatchedSections": "No matched sections",
     "noMatchedSectionsDescription": "Sections matching this activity will appear here",
     "noRouteMatch": "No route match yet",
     "noRouteMatchDescription": "Complete this route a few more times to start tracking your performance, or expand your timeline in Settings to include older activities.",
+    "noIntervals": "No intervals detected",
+    "intervalWork": "Work",
+    "intervalRecovery": "Recovery",
     "chartDisplayOptions": "Chart display options",
     "fullscreenChart": "Fullscreen chart",
+    "feedPreviewUpdated": "Feed preview updated",
     "tabs": {
       "charts": "Charts",
+      "intervals": "Intervals",
       "route": "Route",
       "routes": "Routes",
       "sections": "Sections"
@@ -205,6 +216,7 @@
     "speed": "Speed",
     "pace": "Pace",
     "elev": "Elev",
+    "grade": "Grade",
     "dist": "Dist",
     "alt": "Alt",
     "temp": "Temp",
@@ -240,7 +252,8 @@
     "search": "Search",
     "show": "Show",
     "showDetails": "Show details for developer",
-    "syncing": "Syncing..."
+    "syncing": "Syncing...",
+    "undo": "Undo"
   },
   "demo": {
     "banner": "Demo Mode",
@@ -249,27 +262,39 @@
   "emptyState": {
     "clearFilters": "Clear filters",
     "error": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "We couldn't load this content",
+      "expandInSettings": "Expand in Settings",
       "title": "Something went wrong"
     },
     "networkError": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Check your internet connection and try again",
+      "expandInSettings": "Expand in Settings",
       "title": "Connection error"
     },
     "noActivities": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Your activities will appear here once you sync with Intervals.icu",
+      "expandInSettings": "Expand in Settings",
       "title": "No activities yet"
     },
     "noData": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Complete some activities to see your stats",
+      "expandInSettings": "Expand in Settings",
       "title": "No data available"
     },
     "noResults": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Try adjusting your search or filters",
+      "expandInSettings": "Expand in Settings",
       "title": "No results found"
     },
     "offline": {
+      "dataRangeHint": "Based on {{duration}} of activity data",
       "description": "Some features may be limited",
+      "expandInSettings": "Expand in Settings",
       "title": "You're offline"
     },
     "refresh": "Refresh"
@@ -480,7 +505,8 @@
     "hrv": "HRV",
     "pace": "Pace",
     "rhr": "RHR",
-    "week": "Week"
+    "week": "Week",
+    "weight": "Weight"
   },
   "navigation": {
     "activities": "Activities",
@@ -654,6 +680,7 @@
     "totalTraversals": "Total Traversals",
     "traversals": "traversals",
     "traversalsCount": "{{count}} traversals",
+    "visits": "visits",
     "visitsCount": "{{count}} visits",
     "reference": "Reference",
     "setAsReference": "Set as Reference",
@@ -751,7 +778,11 @@
     "heroMetric": "Hero Metric",
     "showSparkline": "Show Sparkline",
     "supportingMetrics": "Supporting Metrics",
-    "maxMetricsHint": "Maximum 4 metrics"
+    "maxMetricsHint": "Maximum 4 metrics",
+    "terrain3D": "3D Terrain",
+    "terrain3DHint": "Pre-rendered 3D terrain in feed cards",
+    "terrainCacheSize": "Cache: {{size}}",
+    "clearCache": "Clear"
   },
   "stats": {
     "activities": "Activities",
@@ -838,12 +869,14 @@
     "maxHr": "Max HR",
     "months3": "3 Months",
     "months6": "6 Months",
+    "noEffortData": "No best effort data available",
     "pace": "Pace",
     "paceCurve": "Pace Curve",
     "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
     "powerCurve": "Power Curve",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
     "ref": "Ref",
+    "seasonBests": "Season Bests",
     "swimPaceCurve": "Swim Pace Curve",
     "title": "Performance",
     "trainingZones": "Training Zones",

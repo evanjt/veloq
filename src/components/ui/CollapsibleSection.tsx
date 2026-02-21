@@ -8,9 +8,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing } from '@/theme/spacing';
+import { colors, darkColors, typography, spacing } from '@/theme';
 import { useTheme } from '@/hooks';
 import { AnimatedPressable } from './AnimatedPressable';
 

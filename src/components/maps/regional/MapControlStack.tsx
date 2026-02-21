@@ -7,9 +7,7 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Animated, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors } from '@/theme/colors';
-import { spacing } from '@/theme/spacing';
-import { shadows } from '@/theme/shadows';
+import { colors, darkColors, spacing, shadows } from '@/theme';
 import { CompassArrow } from '@/components/ui';
 import type { FrequentSection } from '@/types';
 

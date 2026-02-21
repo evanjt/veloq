@@ -60,6 +60,9 @@ export function GlobalDataSync() {
     enabled: isAuthenticated && routeSettings.enabled,
   });
 
+  // Prefetch 1 year of activities with stats for fitness tab cache warming
+  useActivities({ days: 365, includeStats: true, enabled: isAuthenticated });
+
   // Update fetching state in store
   useEffect(() => {
     setFetchingExtended(isFetching);

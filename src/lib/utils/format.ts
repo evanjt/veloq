@@ -108,6 +108,21 @@ export function formatDuration(seconds: number): string {
 }
 
 /**
+ * Format duration in human-readable form: "45s", "5m 30s", "1h 30m".
+ * Drops zero trailing components (e.g., "5m" not "5m 0s").
+ */
+export function formatDurationHuman(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0s';
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  if (mins < 60) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  const remainingMins = mins % 60;
+  return remainingMins > 0 ? `${hrs}h ${remainingMins}m` : `${hrs}h`;
+}
+
+/**
  * Format pace as minutes per kilometer (metric) or per mile (imperial).
  *
  * Shows running/cycling pace in MM:SS /km or /mi format.
@@ -438,6 +453,69 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+export interface PerformanceDelta {
+  deltaDisplay: string | null;
+  isFaster: boolean;
+}
+
+/**
+ * Format a time delta as a signed duration string (e.g., "+1:30", "-45s").
+ * Returns null if the delta is less than 1 second.
+ */
+export function formatTimeDelta(deltaSeconds: number): string | null {
+  if (!Number.isFinite(deltaSeconds) || Math.abs(deltaSeconds) < 1) return null;
+  const absDelta = Math.abs(deltaSeconds);
+  const minutes = Math.floor(absDelta / 60);
+  const seconds = Math.round(absDelta % 60);
+  const sign = deltaSeconds > 0 ? '+' : '-';
+  return minutes > 0
+    ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
+    : `${sign}${seconds}s`;
+}
+
+/**
+ * Compute the performance delta for a section/route traversal.
+ *
+ * For running activities (showPace=true): compares pace (seconds/km).
+ * For other activities: compares elapsed time.
+ *
+ * @param options.isBest - Whether this is the best performance (skip delta)
+ * @param options.showPace - Whether to use pace comparison (running)
+ * @param options.currentSpeed - Current speed in m/s
+ * @param options.bestSpeed - Best speed in m/s
+ * @param options.timeDelta - Pre-computed time delta in seconds (positive = slower)
+ */
+export function formatPerformanceDelta(options: {
+  isBest: boolean;
+  showPace?: boolean;
+  currentSpeed?: number;
+  bestSpeed?: number;
+  timeDelta?: number;
+}): PerformanceDelta {
+  const { isBest, showPace, currentSpeed, bestSpeed, timeDelta } = options;
+
+  if (isBest) return { deltaDisplay: null, isFaster: false };
+
+  // Pace comparison for running activities
+  if (showPace && currentSpeed && currentSpeed > 0 && bestSpeed && bestSpeed > 0) {
+    const paceDelta = 1000 / currentSpeed - 1000 / bestSpeed; // positive = slower
+    return {
+      deltaDisplay: formatTimeDelta(paceDelta),
+      isFaster: paceDelta <= 0,
+    };
+  }
+
+  // Time comparison for other activities
+  if (timeDelta !== undefined && Number.isFinite(timeDelta)) {
+    return {
+      deltaDisplay: formatTimeDelta(timeDelta),
+      isFaster: timeDelta <= 0,
+    };
+  }
+
+  return { deltaDisplay: null, isFaster: false };
+}
+
 /**
  * Get Monday of the week for a given date (ISO week: Monday-Sunday).
  */
@@ -448,4 +526,31 @@ export function getMonday(date: Date): Date {
   d.setDate(diff);
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+/**
+ * Get Sunday of the week for a given date (ISO week: Monday-Sunday).
+ */
+export function getSunday(date: Date): Date {
+  const monday = getMonday(date);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return sunday;
+}
+
+/**
+ * Format byte count as human-readable file size (e.g., "1.5 MB").
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Convert speed in m/s to pace in seconds per km.
+ */
+export function speedToSecsPerKm(metersPerSecond: number): number {
+  if (metersPerSecond <= 0) return 0;
+  return 1000 / metersPerSecond;
 }

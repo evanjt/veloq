@@ -6,6 +6,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { shareFile } from './shareFile';
+import {
+  initializeTheme,
+  initializeLanguage,
+  initializeSportPreference,
+  initializeHRZones,
+  initializeUnitPreference,
+  initializeRouteSettings,
+  initializeDisabledSections,
+  initializeSectionDismissals,
+  initializeSupersededSections,
+  initializePotentialSections,
+  initializeDashboardPreferences,
+  initializeDebugStore,
+} from '@/providers';
+import { reloadCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 
 const APP_VERSION = '0.1.2';
 const BACKUP_VERSION = 2;
@@ -26,6 +41,7 @@ const PREFERENCE_KEYS = [
   'veloq-potential-sections',
   'dashboard_preferences',
   'dashboard_summary_card',
+  '@terrain_camera_overrides',
 ] as const;
 
 interface BackupCustomSection {
@@ -230,6 +246,23 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
         // Skip unwritable keys
       }
     }
+
+    // Reload in-memory stores from the freshly-written AsyncStorage values
+    await Promise.all([
+      initializeTheme(),
+      initializeLanguage(),
+      initializeSportPreference(),
+      initializeHRZones(),
+      initializeUnitPreference(),
+      initializeRouteSettings(),
+      initializeDisabledSections(),
+      initializeSectionDismissals(),
+      initializeSupersededSections(),
+      initializePotentialSections(),
+      initializeDashboardPreferences(),
+      initializeDebugStore(),
+      reloadCameraOverrides(),
+    ]);
   }
 
   return result;

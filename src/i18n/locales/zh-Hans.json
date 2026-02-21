@@ -110,18 +110,24 @@
     "tapToClose": "点击任意处关闭",
     "temp": "温度",
     "timeInHRZones": "心率区间时间",
+    "timeInPowerZones": "功率区间时间",
+    "ftp": "FTP: {{value}}W",
     "tss": "训练压力分数",
     "viewDetails": "查看详情",
     "viewInIntervalsICU": "在 intervals.icu 中查看",
     "vsTypical": "vs 典型值",
     "vsYourAvg": "vs 您的平均值",
-    "whatIsThis": "这是什么？"
+    "whatIsThis": "这是什么？",
+    "xAxisDistance": "距离",
+    "xAxisTime": "时间"
   },
   "activityDetail": {
     "avgHR": "平均心率",
     "avgPace": "平均配速",
     "avgPower": "平均功率",
     "avgSpeed": "平均速度",
+    "np": "NP",
+    "elapsedTime": "总时间",
     "chartDisplayOptions": "图表显示选项",
     "failedToLoad": "加载活动失败",
     "fullscreenChart": "全屏图表",
@@ -129,8 +135,13 @@
     "noMatchedSectionsDescription": "与此活动匹配的路段将显示在这里",
     "noRouteMatch": "暂无路线匹配",
     "noRouteMatchDescription": "再完成这条路线几次以开始跟踪您的表现，或在设置中扩展时间线以包含更早的活动。",
+    "noIntervals": "未检测到间歇",
+    "intervalWork": "工作",
+    "intervalRecovery": "恢复",
+    "feedPreviewUpdated": "动态预览已更新",
     "tabs": {
       "charts": "图表",
+      "intervals": "间歇",
       "route": "路线",
       "routes": "路线",
       "sections": "路段"
@@ -204,6 +215,7 @@
     "dist": "Dist",
     "elapsedTime": "总用时",
     "elev": "海拔",
+    "grade": "坡度",
     "hr": "心率",
     "movingTime": "运动时间",
     "pace": "配速",
@@ -240,7 +252,8 @@
     "hide": "隐藏",
     "hideDetails": "隐藏详情",
     "show": "显示",
-    "showDetails": "显示开发者详情"
+    "showDetails": "显示开发者详情",
+    "undo": "撤销"
   },
   "demo": {
     "banner": "演示模式",
@@ -492,7 +505,8 @@
     "hrv": "心率变异性",
     "pace": "配速",
     "rhr": "静息心率",
-    "week": "周"
+    "week": "周",
+    "weight": "体重"
   },
   "navigation": {
     "activities": "活动",
@@ -676,6 +690,7 @@
     "performanceHistory": "表现历史",
     "traversalsSummary": "{{count}} 次通过 · 最佳 {{time}}",
     "yearPr": "年度PR",
+    "visits": "访问",
     "visitsCount": "{{count}} 次访问"
   },
   "settings": {
@@ -725,6 +740,10 @@
     "light": "浅色",
     "maps": "地图",
     "maxMetricsHint": "最多 4 个指标",
+    "terrain3D": "3D 地形",
+    "terrain3DHint": "在动态卡片中预渲染 3D 地形",
+    "terrainCacheSize": "缓存：{{size}}",
+    "clearCache": "清除",
     "metricsHint": "开关指标并使用箭头重新排序。仅启用的指标会显示在仪表板标题中。",
     "noData": "无数据",
     "notCached": "未缓存",
@@ -850,12 +869,14 @@
     "maxHr": "最大心率",
     "months3": "3 个月",
     "months6": "6 个月",
+    "noEffortData": "暂无最佳成绩数据",
     "pace": "配速",
     "paceCurve": "配速曲线",
     "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
     "powerCurve": "功率曲线",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
     "ref": "Ref",
+    "seasonBests": "赛季最佳",
     "swimPaceCurve": "游泳配速曲线",
     "title": "表现",
     "trainingZones": "训练区间",

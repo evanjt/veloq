@@ -10,10 +10,9 @@ import {
 } from '@/hooks';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, opacity } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing, layout } from '@/theme/spacing';
-import { formatDistance, getMonday } from '@/lib';
+import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
+import { formatDistance, getMonday, getSunday } from '@/lib';
+import { formatDurationHuman } from '@/lib/utils/format';
 import type { Activity } from '@/types';
 
 type TimeRange = 'week' | 'month' | '3m' | '6m' | 'year';
@@ -28,22 +27,6 @@ interface WeeklySummaryProps {
 }
 
 const TIME_RANGE_IDS: TimeRange[] = ['week', 'month', '3m', '6m', 'year'];
-
-function getSunday(date: Date): Date {
-  const monday = getMonday(date);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  return sunday;
-}
-
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) {
-    return `${hours}h ${mins}m`;
-  }
-  return `${mins}m`;
-}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getTimeRangeLabel(
@@ -407,7 +390,7 @@ export function WeeklySummary({
                   testID="weekly-summary-duration"
                   style={[styles.statValue, isDark && styles.textLight]}
                 >
-                  {formatDuration(currentStats.duration)}
+                  {formatDurationHuman(currentStats.duration)}
                 </Text>
                 {previousStats.duration > 0 &&
                   Math.abs(currentStats.duration - previousStats.duration) > 300 && (

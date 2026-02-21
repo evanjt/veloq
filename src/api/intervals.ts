@@ -18,6 +18,7 @@ import type {
   ActivityMapData,
   RawStreamItem,
   CalendarEvent,
+  IntervalsDTO,
 } from '@/types';
 
 // Check if we're in demo mode
@@ -87,6 +88,7 @@ export const intervalsApi = {
       'stream_types',
       'locality',
       'country', // Location info
+      'skyline_chart_bytes',
     ];
 
     // Stats fields for performance/stats page
@@ -164,6 +166,12 @@ export const intervalsApi = {
     return parseStreams(response.data);
   },
 
+  async getActivityIntervals(id: string): Promise<IntervalsDTO> {
+    if (isDemoMode()) return mockIntervalsApi.getActivityIntervals(id);
+    const response = await apiClient.get(`/activity/${id}/intervals`);
+    return response.data;
+  },
+
   async getWellness(params?: { oldest?: string; newest?: string }): Promise<WellnessData[]> {
     if (isDemoMode()) return mockIntervalsApi.getWellness(params);
     const athleteId = getAthleteId();
@@ -198,7 +206,7 @@ export const intervalsApi = {
 
     // Response format: { list: [{ secs: [], values: [], ... }], activities: {} }
     const response = await apiClient.get<{
-      list: Array<{ secs: number[]; values: number[] }>;
+      list: Array<{ secs: number[]; values: number[]; activity_id?: string[] }>;
     }>(`/athlete/${athleteId}/power-curves.json`, {
       params: { type: sportType, curves: curvesParam },
     });
@@ -210,6 +218,7 @@ export const intervalsApi = {
     return {
       secs: curve?.secs || [],
       watts: curve?.values || [],
+      activity_ids: curve?.activity_id,
     } as PowerCurve;
   },
 

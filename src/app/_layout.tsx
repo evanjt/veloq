@@ -4,7 +4,11 @@ import { enableFreeze } from 'react-native-screens';
 enableFreeze(true);
 
 import { LogBox } from 'react-native';
-LogBox.ignoreAllLogs();
+LogBox.ignoreLogs([
+  'Non-serializable values were found in the navigation state',
+  'Sending `onAnimatedValueUpdate` with no listeners registered',
+  'VirtualizedLists should never be nested inside plain ScrollViews',
+]);
 
 import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
@@ -14,7 +18,6 @@ import { AppState, useColorScheme, View, ActivityIndicator, Platform } from 'rea
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
-import * as FileSystem from 'expo-file-system/legacy';
 import MapLibre, { Logger as MapLibreLogger } from '@maplibre/maplibre-react-native';
 import {
   QueryProvider,
@@ -39,31 +42,7 @@ import { formatLocalDate } from '@/lib';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import { DemoBanner, GlobalDataSync, OfflineBanner, BottomTabBar } from '@/components/ui';
-
-// Lazy load native module to avoid bundler errors
-function getRouteEngine() {
-  try {
-    const module = require('veloqrs');
-    // The module exports both a default export and a named routeEngine export
-    // Try to get the named export first, fall back to the default
-    return module.routeEngine || module.default?.routeEngine || null;
-  } catch (error) {
-    if (__DEV__) {
-      console.warn('[RouteMatcher] Failed to load native module:', error);
-    }
-    return null;
-  }
-}
-
-// Database path for persistent route engine (SQLite)
-// FileSystem.documentDirectory returns a file:// URI, but SQLite needs a plain path
-const getRouteDbPath = () => {
-  const docDir = FileSystem.documentDirectory;
-  if (!docDir) return null;
-  // Strip file:// prefix if present for SQLite compatibility
-  const plainPath = docDir.startsWith('file://') ? docDir.slice(7) : docDir;
-  return `${plainPath}routes.db`;
-};
+import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
 // These occur because Victory uses shared values during render (known library behavior)

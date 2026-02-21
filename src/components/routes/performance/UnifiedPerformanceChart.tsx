@@ -43,7 +43,7 @@ import {
   formatShortDate as formatShortDateLib,
 } from '@/lib';
 import { CHART_CONFIG } from '@/constants';
-import { colors, darkColors } from '@/theme';
+import { colors, darkColors, chartStyles } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -785,7 +785,7 @@ export function UnifiedPerformanceChart({
         : -1;
 
       return (
-        <View style={styles.laneChart}>
+        <View style={chartStyles.chartWrapper}>
           <View style={StyleSheet.absoluteFill}>
             <CartesianChart
               data={lane.points as unknown as Record<string, unknown>[]}
@@ -1636,10 +1636,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.chartGold,
-  },
-  laneChart: {
-    flex: 1,
-    position: 'relative',
   },
   tapTargetContainer: {
     ...StyleSheet.absoluteFillObject,

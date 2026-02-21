@@ -1,12 +1,18 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, CollapsibleSection } from '@/components/ui';
 import { logScreenRender, logMemory } from '@/lib/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { FitnessChart, FormZoneChart, ActivityDotsChart } from '@/components/fitness';
+import {
+  FitnessChart,
+  FormZoneChart,
+  ActivityDotsChart,
+  SeasonBestsSection,
+} from '@/components/fitness';
 import {
   PowerCurveChart,
   PaceCurveChart,
@@ -27,6 +33,7 @@ import {
   useSportSettings,
   getSettingsForSport,
   usePaceCurve,
+  useSeasonBests,
   useTheme,
   getFormZone,
   FORM_ZONE_COLORS,
@@ -43,13 +50,8 @@ import {
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
-const TIME_RANGES: { id: TimeRange; label: string }[] = [
-  { id: '7d', label: '1W' },
-  { id: '1m', label: '1M' },
-  { id: '3m', label: '3M' },
-  { id: '6m', label: '6M' },
-  { id: '1y', label: '1Y' },
-];
+import { TIME_RANGES } from '@/lib/utils/constants';
+import { isNetworkError } from '@/lib/utils/errorHandler';
 
 // Convert TimeRange to days for activity fetching
 const timeRangeToDays = (range: TimeRange): number => {
@@ -93,6 +95,7 @@ export default function FitnessScreen() {
 
   // Collapsible section state - performance collapsed by default to reduce initial render load
   const [performanceExpanded, setPerformanceExpanded] = useState(false);
+  const [bestsExpanded, setBestsExpanded] = useState(false);
   const [zonesExpanded, setZonesExpanded] = useState(false);
   const [trendsExpanded, setTrendsExpanded] = useState(false);
   const [efficiencyExpanded, setEfficiencyExpanded] = useState(false);
@@ -141,9 +144,6 @@ export default function FitnessScreen() {
     includeStats: true,
   });
 
-  // Background sync: prefetch 1 year of activities on first load for cache
-  useActivities({ days: 365 });
-
   // Compute zone distributions - filtered by current sport mode
   const powerZones = useZoneDistribution({
     type: 'power',
@@ -179,6 +179,13 @@ export default function FitnessScreen() {
     days: timeRangeToDays(timeRange),
   });
   const swimThresholdPace = swimPaceCurve?.criticalSpeed;
+
+  // Season bests from existing power/pace curve data
+  const {
+    efforts: bestsEfforts,
+    isLoading: loadingBests,
+    headerSummary: bestsHeader,
+  } = useSeasonBests({ sport: sportMode, days: timeRangeToDays(timeRange) });
 
   // Find a recent activity with power data for decoupling analysis
   const decouplingActivity = useMemo(() => {
@@ -295,12 +302,7 @@ export default function FitnessScreen() {
   }
 
   if (isError || !wellness) {
-    // Check if this is a network error
-    const axiosError = error as { code?: string };
-    const isNetworkError =
-      axiosError?.code === 'ERR_NETWORK' ||
-      axiosError?.code === 'ECONNABORTED' ||
-      axiosError?.code === 'ETIMEDOUT';
+    const networkError = isNetworkError(error);
 
     return (
       <ScreenSafeAreaView style={shared.container}>
@@ -308,7 +310,7 @@ export default function FitnessScreen() {
           <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
         </View>
         <View style={shared.loadingContainer}>
-          {isNetworkError ? (
+          {networkError ? (
             <NetworkErrorState onRetry={() => refetch()} />
           ) : (
             <ErrorStatePreset message={t('fitnessScreen.failedToLoad')} onRetry={() => refetch()} />
@@ -549,6 +551,34 @@ export default function FitnessScreen() {
               {sportMode === 'Swimming' && (
                 <SwimPaceCurveChart height={200} days={timeRangeToDays(timeRange)} />
               )}
+            </View>
+          </CollapsibleSection>
+        </View>
+
+        {/* Season Bests Section */}
+        <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
+          <CollapsibleSection
+            testID="fitness-section-bests"
+            title={t('statsScreen.seasonBests')}
+            icon="trophy-outline"
+            expanded={bestsExpanded}
+            onToggle={setBestsExpanded}
+            estimatedHeight={200}
+            headerRight={
+              bestsHeader ? (
+                <Text style={[styles.headerValue, { color: SPORT_COLORS[sportMode] }]}>
+                  {bestsHeader}
+                </Text>
+              ) : null
+            }
+          >
+            <View style={styles.collapsibleContent}>
+              <SeasonBestsSection
+                efforts={bestsEfforts}
+                sport={sportMode}
+                days={timeRangeToDays(timeRange)}
+                isLoading={loadingBests}
+              />
             </View>
           </CollapsibleSection>
         </View>

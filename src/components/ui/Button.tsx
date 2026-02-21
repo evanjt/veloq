@@ -9,10 +9,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { AnimatedPressable } from './AnimatedPressable';
-import { colors, darkColors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
-import { spacing, layout } from '@/theme/spacing';
-import { shadows } from '@/theme/shadows';
+import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
 import { useTheme } from '@/hooks';
 
 type ButtonVariant = 'primary' | 'secondary' | 'subtle' | 'danger';

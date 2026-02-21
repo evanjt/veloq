@@ -195,12 +195,16 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
     // Call Nominatim API
     const url = `${NOMINATIM_BASE_URL}/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Veloq/1.0 (Fitness App)',
         'Accept-Language': 'en',
       },
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       log.warn(`Nominatim returned ${response.status}`);

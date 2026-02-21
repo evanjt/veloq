@@ -110,18 +110,24 @@
     "tapToClose": "Appuyez n'importe où pour fermer",
     "temp": "TEMP",
     "timeInHRZones": "Temps dans les zones FC",
+    "timeInPowerZones": "Temps en zones de puissance",
+    "ftp": "FTP: {{value}}W",
     "tss": "TSS",
     "viewDetails": "Voir les détails",
     "viewInIntervalsICU": "Voir dans intervals.icu",
     "vsTypical": "vs typique",
     "vsYourAvg": "vs votre moy",
-    "whatIsThis": "Qu'est-ce que c'est ?"
+    "whatIsThis": "Qu'est-ce que c'est ?",
+    "xAxisDistance": "Distance",
+    "xAxisTime": "Temps"
   },
   "activityDetail": {
     "avgHR": "FC Moy",
     "avgPace": "Allure Moy",
     "avgPower": "Puiss Moy",
     "avgSpeed": "Vit Moy",
+    "np": "NP",
+    "elapsedTime": "Écoulé",
     "chartDisplayOptions": "Options d'affichage du graphique",
     "failedToLoad": "Échec du chargement de l'activité",
     "fullscreenChart": "Graphique plein écran",
@@ -129,8 +135,13 @@
     "noMatchedSectionsDescription": "Les sections correspondant à cette activité apparaîtront ici",
     "noRouteMatch": "Pas encore de correspondance",
     "noRouteMatchDescription": "Effectuez ce parcours quelques fois de plus pour suivre vos performances, ou élargissez votre période dans les Paramètres.",
+    "noIntervals": "Aucun intervalle détecté",
+    "intervalWork": "Travail",
+    "intervalRecovery": "Récupération",
+    "feedPreviewUpdated": "Aperçu du flux mis à jour",
     "tabs": {
       "charts": "Graphiques",
+      "intervals": "Intervalles",
       "route": "Parcours",
       "routes": "Parcours",
       "sections": "Sections"
@@ -204,6 +215,7 @@
     "dist": "Dist",
     "elapsedTime": "Temps total",
     "elev": "Élév",
+    "grade": "Pente",
     "hr": "FC",
     "movingTime": "Temps en mouvement",
     "pace": "Allure",
@@ -240,7 +252,8 @@
     "hide": "Masquer",
     "hideDetails": "Masquer les details",
     "show": "Afficher",
-    "showDetails": "Afficher les details pour le developpeur"
+    "showDetails": "Afficher les details pour le developpeur",
+    "undo": "Annuler"
   },
   "demo": {
     "banner": "Mode Démo",
@@ -492,7 +505,8 @@
     "hrv": "VFC",
     "pace": "Allure",
     "rhr": "FCR",
-    "week": "Semaine"
+    "week": "Semaine",
+    "weight": "Poids"
   },
   "navigation": {
     "activities": "Activités",
@@ -676,6 +690,7 @@
     "performanceHistory": "Historique des performances",
     "traversalsSummary": "{{count}} passages · meilleur {{time}}",
     "yearPr": "RP de l'année",
+    "visits": "visites",
     "visitsCount": "{{count}} passages"
   },
   "settings": {
@@ -725,6 +740,10 @@
     "light": "Clair",
     "maps": "Cartes",
     "maxMetricsHint": "Maximum 4 métriques",
+    "terrain3D": "3D Terrain",
+    "terrain3DHint": "Terrain 3D prérendu dans les cartes du fil d'actualité",
+    "terrainCacheSize": "Cache : {{size}}",
+    "clearCache": "Effacer",
     "metricsHint": "Activez/désactivez les métriques et réorganisez-les avec les flèches. Seules les métriques activées apparaissent dans l'en-tête du tableau de bord.",
     "noData": "Pas de données",
     "notCached": "Non mis en cache",
@@ -850,12 +869,14 @@
     "maxHr": "FC Max",
     "months3": "3 Mois",
     "months6": "6 Mois",
+    "noEffortData": "Aucune donnée de meilleur effort",
     "pace": "Allure",
     "paceCurve": "Courbe d'allure",
     "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
     "powerCurve": "Courbe de puissance",
     "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
     "ref": "Ref",
+    "seasonBests": "Meilleurs efforts",
     "swimPaceCurve": "Courbe d'allure natation",
     "title": "Performance",
     "trainingZones": "Zones d'entraînement",

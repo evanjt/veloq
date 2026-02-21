@@ -175,7 +175,7 @@ export function useRoutesScreenData(opts?: {
     data,
     loadMoreGroups,
     loadMoreSections,
-    hasMoreGroups: hasMoreGroupsRef.current,
-    hasMoreSections: hasMoreSectionsRef.current,
+    hasMoreGroups: data?.hasMoreGroups ?? false,
+    hasMoreSections: data?.hasMoreSections ?? false,
   };
 }

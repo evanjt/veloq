@@ -15,6 +15,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { debug } from '../utils/debug';
 import { safeJsonParseWithSchema, type SchemaValidator } from '../utils/validation';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 
 /**
  * Type guard for GPS track data - array of [lat, lng] tuples
@@ -482,7 +483,13 @@ export async function loadCustomRouteNames(): Promise<Record<string, string>> {
     if (!info.exists) return {};
 
     const data = await FileSystem.readAsStringAsync(ROUTE_NAMES_FILE);
-    return JSON.parse(data);
+    const parsed: unknown = JSON.parse(data);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+    const result: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === 'string') result[key] = value;
+    }
+    return result;
   } catch {
     return {};
   }
@@ -534,18 +541,6 @@ export async function estimateRoutesDatabaseSize(): Promise<number> {
 // =============================================================================
 
 /**
- * Lazy load native route engine module to avoid bundler errors.
- * Returns null if module is unavailable.
- */
-function getRouteEngine() {
-  try {
-    return require('veloqrs').routeEngine;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Clear all app caches comprehensively.
  * Should be called when transitioning between auth states (login/logout/demo).
  *
@@ -573,8 +568,12 @@ export async function clearAllAppCaches(queryClient: { clear: () => void }): Pro
   const routeEngine = getRouteEngine();
   if (routeEngine) routeEngine.clear();
 
-  // 4. Clear FileSystem caches (GPS tracks and bounds)
-  await Promise.all([clearAllGpsTracks(), clearBoundsCache()]);
+  // 4. Clear FileSystem caches (GPS tracks, bounds, and route names)
+  await Promise.all([
+    clearAllGpsTracks(),
+    clearBoundsCache(),
+    FileSystem.deleteAsync(ROUTE_NAMES_FILE, { idempotent: true }),
+  ]);
 
   log.log('Cleared all app caches');
 }
