@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useCallback,
 } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, PixelRatio } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { colors, darkColors } from '@/theme';
 import { getBoundsFromPoints } from '@/lib';
@@ -325,6 +325,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // Reset map ready state when HTML regenerates
       mapReadyRef.current = false;
 
+      const devicePixelRatio = PixelRatio.get();
       const coordsJSON = JSON.stringify(coordinates);
       const boundsJSON = bounds ? JSON.stringify(bounds) : 'null';
       // Use saved camera position if available (from previous style change),
@@ -384,6 +385,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       bearing: savedBearing,
       attributionControl: false,
       antialias: true,
+      pixelRatio: ${devicePixelRatio},
     };
 
     // Only use bounds for initial load (no saved camera)
@@ -483,6 +485,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               coordinates: coordinates,
             },
           },
+          tolerance: 0,
         });
 
         // Route outline (for contrast)

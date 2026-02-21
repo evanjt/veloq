@@ -4,10 +4,15 @@
  * Rendered once in the feed screen, behind content (zIndex: -1, opacity: 0).
  * Processes a queue of snapshot requests one at a time. Uses polling to detect
  * when MapLibre has finished loading, then captures via `canvas.toDataURL()`.
+ *
+ * RACE CONDITION GUARD: Each request gets a monotonically increasing generation
+ * counter (`window._snapshotGen`). All async JS callbacks check the counter
+ * before proceeding — if a newer request has started, the stale callback aborts.
+ * This prevents a timed-out request from capturing a newer request's map content.
  */
 
 import React, { useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions, PixelRatio } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { MapStyleType } from './mapStyles';
 import { getCombinedSatelliteStyle } from './mapStyles';
@@ -16,6 +21,7 @@ import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import { saveTerrainPreview, hasTerrainPreview } from '@/lib/storage/terrainPreviewCache';
 import { emitSnapshotComplete } from '@/lib/events/terrainSnapshotEvents';
 
+const DEVICE_PIXEL_RATIO = PixelRatio.get();
 const SNAPSHOT_TIMEOUT_MS = 20000;
 const MAX_QUEUE_SIZE = 30;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -40,6 +46,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
     const mapReadyRef = useRef(false);
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const currentRequestRef = useRef<SnapshotRequest | null>(null);
+    // Generation counter — incremented each request, passed into JS and back in messages
+    const generationRef = useRef(0);
 
     const processNext = useCallback(() => {
       if (processingRef.current || !mapReadyRef.current) return;
@@ -55,8 +63,10 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
 
       processingRef.current = true;
       currentRequestRef.current = request;
+      generationRef.current++;
+      const gen = generationRef.current;
       console.log(
-        `[TerrainSnapshot] Processing ${request.activityId} (style: ${request.mapStyle})`
+        `[TerrainSnapshot] Processing ${request.activityId} gen=${gen} (style: ${request.mapStyle})`
       );
 
       const isSatellite = request.mapStyle === 'satellite';
@@ -83,8 +93,18 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             var routeColor = '${request.routeColor}';
             var styleObj = ${styleConfig};
             var activityId = '${request.activityId}';
+            var mapStyle = '${request.mapStyle}';
+            var myGen = ${gen};
 
-            window._rn_log('Snapshot ' + activityId + ': ' + coords.length + ' coords, style=' + (isSatellite ? 'satellite' : isDark ? 'dark' : 'light'));
+            // Set generation on window — newer requests will overwrite this
+            window._snapshotGen = myGen;
+
+            // Check if this request is still current (not superseded by a newer one)
+            function isStale() {
+              return window._snapshotGen !== myGen;
+            }
+
+            window._rn_log('Snapshot ' + activityId + ' gen=' + myGen + ': ' + coords.length + ' coords, style=' + mapStyle);
 
             // Remove existing layers/sources
             try {
@@ -111,6 +131,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             var maxStyleRetries = 50;
 
             function waitForStyle() {
+              if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in waitForStyle, aborting'); return; }
               styleRetries++;
               if (window.map.isStyleLoaded()) {
                 window._rn_log('Style loaded after ' + styleRetries + ' polls');
@@ -120,6 +141,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 window.ReactNativeWebView.postMessage(JSON.stringify({
                   type: 'snapshotError',
                   activityId: activityId,
+                  gen: myGen,
                   error: 'Style load timeout',
                 }));
               } else {
@@ -128,6 +150,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             }
 
             function onStyleReady() {
+              if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in onStyleReady, aborting'); return; }
               try {
                 // Add terrain
                 window.map.addSource('terrain', {
@@ -183,6 +206,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 var maxTileRetries = 40;
 
                 function waitForTiles() {
+                  if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in waitForTiles, aborting'); return; }
                   tileRetries++;
                   if (window.map.loaded() && window.map.areTilesLoaded()) {
                     window._rn_log('Tiles loaded after ' + tileRetries + ' polls, adding route...');
@@ -197,6 +221,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
 
                 // Add route ON TOP of fully-loaded terrain, then capture on idle
                 function addRouteAndCapture() {
+                  if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in addRouteAndCapture, aborting'); return; }
                   try {
                     if (coords.length > 0) {
                       window.map.addSource('route', {
@@ -206,6 +231,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                           properties: {},
                           geometry: { type: 'LineString', coordinates: coords },
                         },
+                        tolerance: 0,
                       });
                       window.map.addLayer({
                         id: 'route-outline',
@@ -258,7 +284,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     // Use idle event for reliable capture — fires after all rendering is done
                     var idleFired = false;
                     window.map.once('idle', function() {
-                      if (idleFired) return;
+                      if (idleFired || isStale()) return;
                       idleFired = true;
                       window._rn_log('Map idle, capturing...');
                       // Extra frame to ensure GPU has painted the route
@@ -269,7 +295,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
 
                     // Fallback if idle never fires (shouldn't happen but safety net)
                     setTimeout(function() {
-                      if (!idleFired) {
+                      if (!idleFired && !isStale()) {
                         idleFired = true;
                         window._rn_log('Idle timeout fallback, capturing...');
                         captureSnapshot();
@@ -278,19 +304,22 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
 
                   } catch(e) {
                     window._rn_log('addRouteAndCapture error: ' + e.message);
-                    captureSnapshot();
+                    if (!isStale()) captureSnapshot();
                   }
                 }
 
                 function captureSnapshot() {
+                  if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in captureSnapshot, aborting'); return; }
                   try {
                     var canvas = window.map.getCanvas();
                     var dataUrl = canvas.toDataURL('image/jpeg', 0.92);
                     var base64 = dataUrl.split(',')[1];
-                    window._rn_log('Captured ' + activityId + ' (' + Math.round(base64.length / 1024) + 'KB)');
+                    window._rn_log('Captured ' + activityId + ' gen=' + myGen + ' (' + Math.round(base64.length / 1024) + 'KB)');
                     window.ReactNativeWebView.postMessage(JSON.stringify({
                       type: 'snapshot',
                       activityId: activityId,
+                      mapStyle: mapStyle,
+                      gen: myGen,
                       base64: base64,
                     }));
                   } catch(e) {
@@ -298,6 +327,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     window.ReactNativeWebView.postMessage(JSON.stringify({
                       type: 'snapshotError',
                       activityId: activityId,
+                      gen: myGen,
                       error: e.message,
                     }));
                   }
@@ -309,6 +339,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 window.ReactNativeWebView.postMessage(JSON.stringify({
                   type: 'snapshotError',
                   activityId: activityId,
+                  gen: myGen,
                   error: e.message,
                 }));
               }
@@ -323,6 +354,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               window.ReactNativeWebView.postMessage(JSON.stringify({
                 type: 'snapshotError',
                 activityId: '${request.activityId}',
+                gen: ${gen},
                 error: e.message,
               }));
             }
@@ -335,7 +367,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       timeoutRef.current = setTimeout(() => {
         if (processingRef.current) {
           console.warn(
-            `[TerrainSnapshot] Timeout for ${request.activityId} (${SNAPSHOT_TIMEOUT_MS}ms)`
+            `[TerrainSnapshot] Timeout for ${request.activityId} gen=${gen} (${SNAPSHOT_TIMEOUT_MS}ms)`
           );
           processingRef.current = false;
           currentRequestRef.current = null;
@@ -358,8 +390,18 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             mapReadyRef.current = true;
             processNext();
           } else if (data.type === 'snapshot' && data.activityId && data.base64) {
+            // Discard stale snapshots from superseded requests
+            if (typeof data.gen === 'number' && data.gen !== generationRef.current) {
+              console.warn(
+                `[TerrainSnapshot] Discarding stale snapshot for ${data.activityId} (gen=${data.gen}, current=${generationRef.current})`
+              );
+              return;
+            }
+
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
-            const style = currentRequestRef.current?.mapStyle ?? 'light';
+            // Use style from the JS response (authoritative) instead of currentRequestRef
+            const style =
+              (data.mapStyle as MapStyleType) ?? currentRequestRef.current?.mapStyle ?? 'light';
             processingRef.current = false;
             currentRequestRef.current = null;
 
@@ -371,6 +413,14 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             emitSnapshotComplete(data.activityId, uri);
             processNext();
           } else if (data.type === 'snapshotError') {
+            // Discard stale errors from superseded requests
+            if (typeof data.gen === 'number' && data.gen !== generationRef.current) {
+              console.warn(
+                `[TerrainSnapshot] Discarding stale error for ${data.activityId} (gen=${data.gen}, current=${generationRef.current})`
+              );
+              return;
+            }
+
             console.warn(`[TerrainSnapshot] Error for ${data.activityId}: ${data.error}`);
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
             processingRef.current = false;
@@ -437,6 +487,9 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       } catch(e) {}
     };
 
+    // Generation counter for race condition guard
+    window._snapshotGen = 0;
+
     window._rn_log('Initializing MapLibre...');
 
     window.map = new maplibregl.Map({
@@ -448,6 +501,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       attributionControl: false,
       preserveDrawingBuffer: true,
       antialias: true,
+      pixelRatio: ${DEVICE_PIXEL_RATIO},
     });
 
     window.map.on('load', function() {

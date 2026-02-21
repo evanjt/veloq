@@ -99,6 +99,8 @@ import {
   deleteCameraOverride,
 } from '@/lib/storage/terrainCameraOverrides';
 import type { TerrainCamera } from '@/lib/utils/cameraAngle';
+import { calculateTerrainCamera } from '@/lib/utils/cameraAngle';
+import { useMapPreferences } from '@/providers';
 import type { ChartTypeId } from '@/lib';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -683,11 +685,22 @@ export default function ActivityDetailScreen() {
     setSnackbarVisible(false);
   }, [activity?.id]);
 
-  // Restore saved 3D camera angle if available
-  const saved3DCamera = useMemo(
-    () => (activity?.id ? (getCameraOverride(activity.id) ?? null) : null),
-    [activity?.id]
-  );
+  // Restore saved 3D camera angle, or auto-calculate if terrain 3D is enabled
+  const { isTerrain3DEnabled } = useMapPreferences();
+  const terrain3DEnabled = activity?.type ? isTerrain3DEnabled(activity.type) : false;
+
+  const saved3DCamera = useMemo(() => {
+    if (!activity?.id) return null;
+    // Saved override takes priority (user manually adjusted the angle)
+    const override = getCameraOverride(activity.id);
+    if (override) return override;
+    // Auto-calculate if terrain 3D is enabled for this activity type
+    if (terrain3DEnabled && coordinates.length >= 2) {
+      const lngLatCoords: [number, number][] = coordinates.map((c) => [c.longitude, c.latitude]);
+      return calculateTerrainCamera(lngLatCoords, streams?.altitude);
+    }
+    return null;
+  }, [activity?.id, terrain3DEnabled, coordinates, streams?.altitude]);
 
   // Handle chart metrics updates (avg values or scrub position values)
   const handleMetricsChange = useCallback((metrics: ChartMetricValue[]) => {

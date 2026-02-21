@@ -53,6 +53,15 @@ export function ActivityMapPreview({
     return null;
   });
 
+  // Reset terrain image when map style or 3D preference changes
+  useEffect(() => {
+    if (terrain3D && hasTerrainPreview(activity.id, mapStyle)) {
+      setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle));
+    } else {
+      setTerrainImageUri(null);
+    }
+  }, [terrain3D, mapStyle, activity.id]);
+
   // Subscribe to snapshot completion events for this activity
   useEffect(() => {
     if (!terrain3D) return;

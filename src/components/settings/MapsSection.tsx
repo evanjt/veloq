@@ -112,6 +112,8 @@ export function MapsSection() {
   const handleDefaultMapStyleChange = async (value: string) => {
     const style = value as MapStyleType;
     await setDefaultStyle(style);
+    await clearTerrainPreviews();
+    setTerrainCacheSize(0);
   };
 
   const handleActivityGroupMapStyleChange = async (groupKey: string, value: string) => {
@@ -120,10 +122,20 @@ export function MapsSection() {
 
     const style = value === 'default' ? null : (value as MapStyleType);
     await setActivityGroupStyle(group.types, style);
+    await clearTerrainPreviews();
+    setTerrainCacheSize(0);
   };
 
   const handleTerrain3DDefaultToggle = async (enabled: boolean) => {
     await setTerrain3D(null, enabled);
+    await clearTerrainPreviews();
+    setTerrainCacheSize(0);
+  };
+
+  const handleTerrain3DGroupToggle = async (types: ActivityType[], enabled: boolean) => {
+    await setTerrain3DGroup(types, enabled);
+    await clearTerrainPreviews();
+    setTerrainCacheSize(0);
   };
 
   const handleClearTerrainCache = async () => {
@@ -219,7 +231,7 @@ export function MapsSection() {
                       </Text>
                       <Switch
                         value={terrain3DForGroup}
-                        onValueChange={(enabled) => setTerrain3DGroup(types, enabled)}
+                        onValueChange={(enabled) => handleTerrain3DGroupToggle(types, enabled)}
                         trackColor={{
                           false: isDark ? darkColors.border : colors.border,
                           true: colors.primary,
