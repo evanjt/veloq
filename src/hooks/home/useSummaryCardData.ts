@@ -100,10 +100,18 @@ export function useSummaryCardData(): SummaryCardData {
   const { summaryCard } = useDashboardPreferences();
   const isMetric = useMetricSystem();
 
-  // Fetch pace curve for running threshold pace
+  // Check if pace/CSS metrics are enabled (determines which pace curves to fetch)
+  const hasPaceMetric = summaryCard.supportingMetrics.includes('thresholdPace');
+  const hasCssMetric = summaryCard.supportingMetrics.includes('css');
+
+  // Fetch pace curves — also triggers snapshot of critical speed for trend tracking
   const { data: runPaceCurve } = usePaceCurve({
     sport: 'Run',
-    enabled: primarySport === 'Running',
+    enabled: primarySport === 'Running' || hasPaceMetric,
+  });
+  const { data: swimPaceCurve } = usePaceCurve({
+    sport: 'Swim',
+    enabled: hasCssMetric,
   });
 
   // Profile URL
@@ -143,7 +151,12 @@ export function useSummaryCardData(): SummaryCardData {
     const prevForm = prevFitness - prevFatigue;
     const prevHrv = previous?.hrv ?? hrv;
     const prevRhr = previous?.restingHR ?? rhr;
-    const prevWeight = previous?.weight ?? weight;
+    // Look back ~7 days for weight trend (day-to-day changes are too small)
+    const prevWeight =
+      sorted.slice(1).find((w) => w.weight !== null && w.weight !== undefined)?.weight ?? weight;
+    const weekAgoWeight =
+      sorted.slice(5).find((w) => w.weight !== null && w.weight !== undefined)?.weight ??
+      prevWeight;
 
     const getTrend = (
       current: number | null,
@@ -166,7 +179,7 @@ export function useSummaryCardData(): SummaryCardData {
       rhr,
       rhrTrend: getTrend(rhr, prevRhr, 1),
       weight,
-      weightTrend: getTrend(weight, prevWeight, 0.5),
+      weightTrend: getTrend(weight, weekAgoWeight, 0.3),
     };
   }, [wellnessData]);
 
@@ -179,6 +192,8 @@ export function useSummaryCardData(): SummaryCardData {
       weekCountTrend: '' as const,
       ftp: null as number | null,
       ftpTrend: '' as const,
+      thresholdPaceTrend: '' as const,
+      cssTrend: '' as const,
     };
 
     const engine = getRouteEngine();
@@ -237,13 +252,27 @@ export function useSummaryCardData(): SummaryCardData {
     const latestFtp = ftpResult.latestFtp ?? null;
     const prevFtp = ftpResult.previousFtp ?? null;
 
+    // Pace trends (running threshold pace, swim CSS)
+    const runPaceTrend = engine.getPaceTrend('Run');
+    const swimPaceTrend = engine.getPaceTrend('Swim');
+
     return {
       weekHours,
       weekHoursTrend: getTrend(weekHours, prevWeekHours, 0.5),
       weekCount,
       weekCountTrend: getTrend(weekCount, prevWeekStats.count, 1),
       ftp: latestFtp,
-      ftpTrend: getTrend(latestFtp, prevFtp ?? latestFtp, 3),
+      ftpTrend: getTrend(latestFtp, prevFtp, 2),
+      thresholdPaceTrend: getTrend(
+        runPaceTrend.latestPace ?? null,
+        runPaceTrend.previousPace ?? null,
+        0.05
+      ),
+      cssTrend: getTrend(
+        swimPaceTrend.latestPace ?? null,
+        swimPaceTrend.previousPace ?? null,
+        0.05
+      ),
     };
   }, [engineTrigger]);
 
@@ -262,7 +291,6 @@ export function useSummaryCardData(): SummaryCardData {
 
     switch (metric) {
       case 'form':
-      case 'fitness':
         return {
           value: quickStats.form,
           label: t('metrics.form'),
@@ -280,14 +308,15 @@ export function useSummaryCardData(): SummaryCardData {
           zoneColor: undefined,
           trend: quickStats.hrvTrend,
         };
+      case 'fitness':
       default:
         return {
-          value: quickStats.form,
-          label: t('metrics.form'),
-          color: formColor,
-          zoneLabel: formZone ? FORM_ZONE_LABELS[formZone] : undefined,
-          zoneColor: formColor,
-          trend: quickStats.formTrend,
+          value: quickStats.fitness,
+          label: t('metrics.fitness'),
+          color: colors.fitnessBlue,
+          zoneLabel: undefined,
+          zoneColor: undefined,
+          trend: quickStats.fitnessTrend,
         };
     }
   }, [summaryCard.heroMetric, quickStats, formColor, formZone, t]);
@@ -321,9 +350,9 @@ export function useSummaryCardData(): SummaryCardData {
     return {
       thresholdPace,
       runLthr: runSettings?.lthr ?? null,
-      css: swimSettings?.threshold_pace ?? null,
+      css: swimSettings?.threshold_pace ?? swimPaceCurve?.criticalSpeed ?? null,
     };
-  }, [sportSettings, runPaceCurve]);
+  }, [sportSettings, runPaceCurve, swimPaceCurve]);
 
   // Format weight value with unit
   const formattedWeight = useMemo(() => {
@@ -385,7 +414,7 @@ export function useSummaryCardData(): SummaryCardData {
             label: t('metrics.pace'),
             value: sportMetrics.thresholdPace ? formatPaceCompact(sportMetrics.thresholdPace) : '-',
             color: SPORT_COLORS.Running,
-            trend: undefined,
+            trend: quickStats.thresholdPaceTrend,
             navigationTarget: '/fitness' as const,
           };
         case 'css':
@@ -393,7 +422,7 @@ export function useSummaryCardData(): SummaryCardData {
             label: t('metrics.css'),
             value: sportMetrics.css ? formatSwimPace(sportMetrics.css) : '-',
             color: SPORT_COLORS.Swimming,
-            trend: undefined,
+            trend: quickStats.cssTrend,
             navigationTarget: '/fitness' as const,
           };
         case 'weekHours':
@@ -408,7 +437,7 @@ export function useSummaryCardData(): SummaryCardData {
             label: '#',
             value: quickStats.weekCount,
             color: undefined,
-            trend: undefined,
+            trend: quickStats.weekCountTrend,
           };
         case 'weight':
           return {

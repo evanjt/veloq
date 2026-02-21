@@ -66,6 +66,7 @@ import {
   type FfiMonthlyAggregate,
   type FfiHeatmapDay,
   type FfiFtpTrend,
+  type FfiPaceTrend,
   type FfiRoutesScreenData,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
@@ -98,6 +99,7 @@ export type PeriodStats = FfiPeriodStats;
 export type MonthlyAggregate = FfiMonthlyAggregate;
 export type HeatmapDay = FfiHeatmapDay;
 export type FtpTrend = FfiFtpTrend;
+export type PaceTrend = FfiPaceTrend;
 // Routes screen batch types
 export type RoutesScreenData = FfiRoutesScreenData;
 export type GroupWithPolyline = FfiGroupWithPolyline;

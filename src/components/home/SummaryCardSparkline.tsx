@@ -107,8 +107,19 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   };
 
   // LongPress gates activation, then Pan handles dragging
+  const scrubEnabled = !!onScrub;
   const longPress = Gesture.LongPress()
     .minDuration(LONG_PRESS_MS)
+    .enabled(scrubEnabled)
+    .onBegin(() => {
+      'worklet';
+      // Reset stale state from a previous interaction where
+      // Pan never activated (e.g., long-press then lift without moving)
+      if (crosshairX.value >= 0) {
+        crosshairX.value = -1;
+        runOnJS(clearScrub)();
+      }
+    })
     .onStart((e) => {
       'worklet';
       crosshairX.value = e.x;
@@ -119,6 +130,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
 
   const pan = Gesture.Pan()
     .manualActivation(true)
+    .enabled(scrubEnabled)
     .onTouchesMove((_, manager) => {
       // Only activate if longPress already fired (crosshairX >= 0)
       if (crosshairX.value >= 0) {

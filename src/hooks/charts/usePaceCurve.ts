@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { PaceCurve } from '@/types';
 
 interface UsePaceCurveOptions {
@@ -14,7 +16,7 @@ interface UsePaceCurveOptions {
 export function usePaceCurve(options: UsePaceCurveOptions = {}) {
   const { sport = 'Run', days = 42, gap = false, enabled = true } = options;
 
-  return useQuery<PaceCurve>({
+  const result = useQuery<PaceCurve>({
     queryKey: ['paceCurve', sport, days, gap],
     queryFn: () => intervalsApi.getPaceCurve({ sport, days, gap }),
     enabled,
@@ -22,6 +24,22 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
     retry: 1,
     placeholderData: keepPreviousData,
   });
+
+  // Snapshot critical speed for trend tracking (idempotent: INSERT OR REPLACE by date+sport)
+  const lastSnapshotted = useRef<string | null>(null);
+  useEffect(() => {
+    const cs = result.data?.criticalSpeed;
+    if (cs == null || cs <= 0) return;
+    const key = `${sport}:${cs}`;
+    if (lastSnapshotted.current === key) return;
+    lastSnapshotted.current = key;
+    const engine = getRouteEngine();
+    if (!engine) return;
+    const todayTs = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
+    engine.savePaceSnapshot(sport, cs, result.data?.dPrime, result.data?.r2, todayTs);
+  }, [result.data?.criticalSpeed, sport, result.data?.dPrime, result.data?.r2]);
+
+  return result;
 }
 
 // Standard distances for running pace curve (in meters)

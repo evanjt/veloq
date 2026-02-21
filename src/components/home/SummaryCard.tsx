@@ -5,7 +5,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
-import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/lib';
 import { SummaryCardSparkline } from './SummaryCardSparkline';
 
 /**
@@ -95,16 +94,12 @@ export const SummaryCard = React.memo(function SummaryCard({
   const hasValidProfileUrl =
     profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
-  // During scrub, override the hero display with scrubbed form value
-  const displayValue = scrubValues !== null ? scrubValues.form : heroValue;
-  const displayColor =
-    scrubValues !== null ? FORM_ZONE_COLORS[getFormZone(scrubValues.form)] : heroColor;
+  // During scrub, override the hero display with scrubbed fitness value
+  const displayValue = scrubValues !== null ? scrubValues.fitness : heroValue;
+  const displayColor = scrubValues !== null ? colors.fitnessBlue : heroColor;
 
-  // Format hero value with sign for positive numbers
-  const formattedHeroValue =
-    typeof displayValue === 'number' && displayValue > 0
-      ? `+${displayValue}`
-      : String(displayValue);
+  // Format hero value (no sign prefix — CTL/fitness values are always positive)
+  const formattedHeroValue = String(displayValue);
 
   // Compute explicit sparkline width (screen minus card margins and padding)
   const sparklineWidth = Dimensions.get('window').width - layout.screenPadding * 2 - spacing.md * 2;
@@ -157,12 +152,9 @@ export const SummaryCard = React.memo(function SummaryCard({
             </Text>
             {scrubValues ? (
               <>
+                <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{heroLabel}</Text>
                 <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>
                   {scrubValues.dateLabel}
-                </Text>
-                <View style={[styles.zoneDot, { backgroundColor: displayColor }]} />
-                <Text style={[styles.zoneLabel, { color: displayColor }]}>
-                  {FORM_ZONE_LABELS[getFormZone(scrubValues.form)]}
                 </Text>
               </>
             ) : (
@@ -196,7 +188,7 @@ export const SummaryCard = React.memo(function SummaryCard({
               formData={formData}
               width={sparklineWidth}
               showLabels={showSparklineLabels}
-              onScrub={handleScrub}
+              onScrub={showSparklineLabels ? undefined : handleScrub}
             />
           </View>
         )}

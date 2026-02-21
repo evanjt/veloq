@@ -76,12 +76,12 @@ export function calculateTerrainCamera(
   const lngSpan = maxLng - minLng;
 
   // Calculate zoom from bounds span
-  // paddingFactor 1.5 gives ~15% margin around the route in terrain previews
+  // paddingFactor 2.0 gives ~30% margin around the route in terrain previews
   let zoom: number;
   if (latSpan < 0.0001 && lngSpan < 0.0001) {
     zoom = 14;
   } else {
-    const paddingFactor = 1.5;
+    const paddingFactor = 2.0;
     const latZoom = Math.log2(180 / (latSpan * paddingFactor || 0.001));
     const lngZoom = Math.log2(360 / (lngSpan * paddingFactor || 0.001));
     zoom = Math.min(latZoom, lngZoom);

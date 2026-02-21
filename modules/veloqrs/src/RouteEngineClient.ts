@@ -48,6 +48,8 @@ import {
   persistentEngineGetPeriodStats,
   persistentEngineGetZoneDistribution,
   persistentEngineGetFtpTrend,
+  persistentEngineSavePaceSnapshot,
+  persistentEngineGetPaceTrend,
   persistentEngineGetAvailableSportTypes,
   // Athlete profile & sport settings cache (Phase 3A-3B)
   persistentEngineSetAthleteProfile,
@@ -80,6 +82,7 @@ import {
   type MapActivityComplete,
   type FfiPeriodStats,
   type FfiFtpTrend,
+  type FfiPaceTrend,
   type FfiRoutesScreenData,
 } from './generated/veloqrs';
 
@@ -693,6 +696,29 @@ class RouteEngineClient {
    */
   getFtpTrend(): FfiFtpTrend {
     return this.timed('getFtpTrend', () => persistentEngineGetFtpTrend());
+  }
+
+  /**
+   * Save a pace (critical speed) snapshot for trend tracking.
+   */
+  savePaceSnapshot(
+    sportType: string,
+    criticalSpeed: number,
+    dPrime?: number,
+    r2?: number,
+    date?: number
+  ): void {
+    const ts = date ?? Math.floor(Date.now() / 1000);
+    this.timed('savePaceSnapshot', () =>
+      persistentEngineSavePaceSnapshot(sportType, criticalSpeed, dPrime, r2, BigInt(ts))
+    );
+  }
+
+  /**
+   * Get pace trend: latest and previous distinct critical speed values with dates.
+   */
+  getPaceTrend(sportType: string): FfiPaceTrend {
+    return this.timed('getPaceTrend', () => persistentEngineGetPaceTrend(sportType));
   }
 
   /**

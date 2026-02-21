@@ -898,6 +898,22 @@ export function persistentEngineGetMonthlyAggregates(
   );
 }
 /**
+ * Get pace trend: latest and previous distinct critical speed values with dates.
+ */
+export function persistentEngineGetPaceTrend(sportType: string): FfiPaceTrend {
+  return FfiConverterTypeFfiPaceTrend.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_pace_trend(
+          FfiConverterString.lower(sportType),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Get aggregated stats for a date range.
  * Returns count, total duration (seconds), total distance (meters), total TSS.
  */
@@ -1315,6 +1331,30 @@ export function persistentEngineRemoveActivity(activityId: string): boolean {
       },
       /*liftString:*/ FfiConverterString.lift,
     ),
+  );
+}
+/**
+ * Save a pace (critical speed) snapshot for trend tracking.
+ */
+export function persistentEngineSavePaceSnapshot(
+  sportType: string,
+  criticalSpeed: /*f64*/ number,
+  dPrime: /*f64*/ number | undefined,
+  r2: /*f64*/ number | undefined,
+  date: /*i64*/ bigint,
+): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_veloqrs_fn_func_persistent_engine_save_pace_snapshot(
+        FfiConverterString.lower(sportType),
+        FfiConverterFloat64.lower(criticalSpeed),
+        FfiConverterOptionalFloat64.lower(dPrime),
+        FfiConverterOptionalFloat64.lower(r2),
+        FfiConverterInt64.lower(date),
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift,
   );
 }
 /**
@@ -3545,6 +3585,87 @@ const FfiConverterTypeFfiMultiScaleSectionResult = (() => {
           value.potentials,
         ) +
         FfiConverterTypeFfiDetectionStats.allocationSize(value.stats)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Pace trend data (critical speed for running/swimming).
+ */
+export type FfiPaceTrend = {
+  /**
+   * Most recent critical speed in m/s
+   */
+  latestPace: /*f64*/ number | undefined;
+  /**
+   * Date of most recent snapshot (Unix timestamp seconds)
+   */
+  latestDate: /*i64*/ bigint | undefined;
+  /**
+   * Previous different critical speed in m/s
+   */
+  previousPace: /*f64*/ number | undefined;
+  /**
+   * Date of previous snapshot (Unix timestamp seconds)
+   */
+  previousDate: /*i64*/ bigint | undefined;
+};
+
+/**
+ * Generated factory for {@link FfiPaceTrend} record objects.
+ */
+export const FfiPaceTrend = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiPaceTrend, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiPaceTrend}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiPaceTrend}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiPaceTrend>,
+  });
+})();
+
+const FfiConverterTypeFfiPaceTrend = (() => {
+  type TypeName = FfiPaceTrend;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        latestPace: FfiConverterOptionalFloat64.read(from),
+        latestDate: FfiConverterOptionalInt64.read(from),
+        previousPace: FfiConverterOptionalFloat64.read(from),
+        previousDate: FfiConverterOptionalInt64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterOptionalFloat64.write(value.latestPace, into);
+      FfiConverterOptionalInt64.write(value.latestDate, into);
+      FfiConverterOptionalFloat64.write(value.previousPace, into);
+      FfiConverterOptionalInt64.write(value.previousDate, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalFloat64.allocationSize(value.latestPace) +
+        FfiConverterOptionalInt64.allocationSize(value.latestDate) +
+        FfiConverterOptionalFloat64.allocationSize(value.previousPace) +
+        FfiConverterOptionalInt64.allocationSize(value.previousDate)
       );
     }
   }
@@ -6247,6 +6368,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_pace_trend() !==
+    6970
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_get_pace_trend",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_period_stats() !==
     18491
   ) {
@@ -6431,6 +6560,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_save_pace_snapshot() !==
+    50754
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_persistent_engine_save_pace_snapshot",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_activity_metrics() !==
     42378
   ) {
@@ -6586,6 +6723,7 @@ export default Object.freeze({
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMonthlyAggregate,
     FfiConverterTypeFfiMultiScaleSectionResult,
+    FfiConverterTypeFfiPaceTrend,
     FfiConverterTypeFfiPeriodStats,
     FfiConverterTypeFfiPotentialSection,
     FfiConverterTypeFfiRouteGroup,

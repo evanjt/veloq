@@ -238,14 +238,14 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                         type: 'line',
                         source: 'route',
                         layout: { 'line-join': 'round', 'line-cap': 'round' },
-                        paint: { 'line-color': '#FFFFFF', 'line-width': 10, 'line-opacity': 0.85 },
+                        paint: { 'line-color': '#FFFFFF', 'line-width': 5, 'line-opacity': 0.7 },
                       });
                       window.map.addLayer({
                         id: 'route-line',
                         type: 'line',
                         source: 'route',
                         layout: { 'line-join': 'round', 'line-cap': 'round' },
-                        paint: { 'line-color': routeColor, 'line-width': 6 },
+                        paint: { 'line-color': routeColor, 'line-width': 3 },
                       });
 
                       // Start/end circle markers
@@ -265,14 +265,14 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                         id: 'start-end-border',
                         type: 'circle',
                         source: 'start-end-markers',
-                        paint: { 'circle-radius': 8, 'circle-color': '#FFFFFF' },
+                        paint: { 'circle-radius': 5, 'circle-color': '#FFFFFF' },
                       });
                       window.map.addLayer({
                         id: 'start-end-fill',
                         type: 'circle',
                         source: 'start-end-markers',
                         paint: {
-                          'circle-radius': 6,
+                          'circle-radius': 3.5,
                           'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.85)', 'rgba(239,68,68,0.85)'],
                         },
                       });

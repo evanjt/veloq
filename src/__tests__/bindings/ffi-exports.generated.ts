@@ -19,7 +19,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 75 exports
+ * Total: 77 exports
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -383,6 +383,18 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 6454,
   },
   {
+    name: 'persistent_engine_save_pace_snapshot',
+    camelName: 'persistentEngineSavePaceSnapshot',
+    file: 'persistence.rs',
+    line: 0,
+  },
+  {
+    name: 'persistent_engine_get_pace_trend',
+    camelName: 'persistentEngineGetPaceTrend',
+    file: 'persistence.rs',
+    line: 0,
+  },
+  {
     name: 'persistent_engine_get_available_sport_types',
     camelName: 'persistentEngineGetAvailableSportTypes',
     file: 'persistence.rs',
@@ -550,6 +562,8 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'persistentEngineGetActivityHeatmap',
   'persistentEngineGetZoneDistribution',
   'persistentEngineGetFtpTrend',
+  'persistentEngineSavePaceSnapshot',
+  'persistentEngineGetPaceTrend',
   'persistentEngineGetAvailableSportTypes',
   'persistentEngineSetAthleteProfile',
   'persistentEngineGetAthleteProfile',
@@ -634,6 +648,8 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   persistent_engine_get_activity_heatmap: 'persistentEngineGetActivityHeatmap',
   persistent_engine_get_zone_distribution: 'persistentEngineGetZoneDistribution',
   persistent_engine_get_ftp_trend: 'persistentEngineGetFtpTrend',
+  persistent_engine_save_pace_snapshot: 'persistentEngineSavePaceSnapshot',
+  persistent_engine_get_pace_trend: 'persistentEngineGetPaceTrend',
   persistent_engine_get_available_sport_types: 'persistentEngineGetAvailableSportTypes',
   persistent_engine_set_athlete_profile: 'persistentEngineSetAthleteProfile',
   persistent_engine_get_athlete_profile: 'persistentEngineGetAthleteProfile',
