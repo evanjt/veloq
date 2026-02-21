@@ -33,8 +33,10 @@ export function SummaryCardSection() {
             heroZoneLabel={summaryCardData.heroZoneLabel}
             heroZoneColor={summaryCardData.heroZoneColor}
             heroTrend={summaryCardData.heroTrend}
-            sparklineData={summaryCardData.sparklineData}
+            fitnessData={summaryCardData.fitnessData}
+            formData={summaryCardData.formData}
             showSparkline={summaryCardData.showSparkline}
+            showSparklineLabels
             supportingMetrics={summaryCardData.supportingMetrics}
           />
         </View>
@@ -60,7 +62,6 @@ export function SummaryCardSection() {
             value={summaryCard.heroMetric}
             onValueChange={(value) => setSummaryCardPreferences({ heroMetric: value as MetricId })}
             buttons={[
-              { value: 'form', label: t('metrics.form') },
               { value: 'fitness', label: t('metrics.fitness') },
               { value: 'hrv', label: t('metrics.hrv') },
             ]}

@@ -25,7 +25,7 @@ const STORAGE_KEY = 'dashboard_preferences';
 const SUMMARY_CARD_STORAGE_KEY = 'dashboard_summary_card';
 
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
-  heroMetric: 'form',
+  heroMetric: 'fitness',
   showSparkline: true,
   supportingMetrics: ['fitness', 'ftp', 'weekHours', 'weight'],
 };

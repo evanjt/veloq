@@ -106,7 +106,8 @@ export default function FeedScreen() {
     heroZoneLabel,
     heroZoneColor,
     heroTrend,
-    sparklineData,
+    fitnessData,
+    formData,
     showSparkline,
     supportingMetrics,
     refetch: refetchSummary,
@@ -211,7 +212,6 @@ export default function FeedScreen() {
 
   const navigateToHeroMetric = () => {
     switch (summaryCard.heroMetric) {
-      case 'form':
       case 'fitness':
         router.push('/fitness' as Href);
         break;
@@ -396,7 +396,8 @@ export default function FeedScreen() {
         heroZoneColor={heroZoneColor}
         heroTrend={heroTrend}
         onHeroPress={navigateToHeroMetric}
-        sparklineData={sparklineData}
+        fitnessData={fitnessData}
+        formData={formData}
         showSparkline={showSparkline}
         supportingMetrics={supportingMetrics}
       />

@@ -58,7 +58,7 @@ export interface SummaryCardPreferences {
 }
 
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
-  heroMetric: 'form',
+  heroMetric: 'fitness',
   showSparkline: true,
   supportingMetrics: ['fitness', 'ftp', 'weekHours', 'weight'],
 };
@@ -217,9 +217,15 @@ export async function initializeDashboardPreferences(
       metrics = createDefaultPreferences(defaultIds);
     }
 
-    const summaryCard: SummaryCardPreferences = storedSummaryCard
+    let summaryCard: SummaryCardPreferences = storedSummaryCard
       ? JSON.parse(storedSummaryCard)
       : DEFAULT_SUMMARY_CARD;
+
+    // Migration: form is no longer a hero metric option — combined into sparkline
+    if (summaryCard.heroMetric === 'form') {
+      summaryCard = { ...summaryCard, heroMetric: 'fitness' };
+      persistSummaryCard(summaryCard);
+    }
 
     useDashboardPreferences.setState({ metrics, summaryCard, isInitialized: true });
   } catch (error) {

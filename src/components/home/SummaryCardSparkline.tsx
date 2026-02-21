@@ -1,177 +1,291 @@
-import React, { memo, useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet, Text, type LayoutChangeEvent } from 'react-native';
+import React, { memo, useMemo, useRef } from 'react';
+import { View, StyleSheet, Text as RNText } from 'react-native';
 import { CartesianChart, Line } from 'victory-native';
-import { Shadow } from '@shopify/react-native-skia';
+import { Canvas, Rect, Line as SkiaLine, vec } from '@shopify/react-native-skia';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTheme } from '@/hooks';
 import { darkColors, colors } from '@/theme';
+import { getFormZone, FORM_ZONE_COLORS } from '@/lib';
 
-// Form zone colors (matching intervals.icu)
-function getFormZoneColor(form: number): string {
-  if (form < -30) return '#EF5350'; // High Risk - Red
-  if (form < -10) return '#66BB6A'; // Optimal - Green
-  if (form < 5) return '#9E9E9E'; // Grey Zone - Grey
-  if (form < 25) return '#81C784'; // Fresh - Light Green
-  return '#64B5F6'; // Transition - Blue
+const CHART_HEIGHT = 44;
+const FORM_BAR_HEIGHT = 4;
+const GAP = 3;
+const LONG_PRESS_MS = 200;
+
+interface ScrubValues {
+  fitness: number;
+  form: number;
+  dateLabel: string;
 }
 
 interface SummaryCardSparklineProps {
-  data: number[]; // values (oldest to newest)
-  color: string; // Fallback color (used for non-form metrics)
-  width?: number; // Explicit width; omit to fill container via flex
-  height?: number; // Default 48
-  label?: string; // Optional label inside chart (e.g., "30d")
-  useZoneColors?: boolean; // Color line segments by form zone
-}
-
-interface Segment {
-  points: { x: number; y: number }[];
-  color: string;
+  fitnessData: number[];
+  formData: number[];
+  width: number;
+  /** Show inline labels ("Fitness", "Form") — used in settings preview */
+  showLabels?: boolean;
+  /** Called during scrub with selected index values, or null on release */
+  onScrub?: (values: ScrubValues | null) => void;
 }
 
 /**
- * Sparkline for Summary Card displaying trend.
- * Supports zone-colored segments for form data.
- * When no explicit width is given, fills its container via flex and measures via onLayout.
+ * Dual Fitness/Form sparkline chart for the SummaryCard.
+ *
+ * Fitness (CTL) rendered as an outlined sparkline.
+ * Below: thin form zone bar colored by zone per day.
+ * Long-press to scrub — updates hero value via onScrub callback.
  */
 export const SummaryCardSparkline = memo(function SummaryCardSparkline({
-  data,
-  color,
-  width: explicitWidth,
-  height = 48,
-  label,
-  useZoneColors = true,
+  fitnessData,
+  formData,
+  width,
+  showLabels = false,
+  onScrub,
 }: SummaryCardSparklineProps) {
   const { isDark } = useTheme();
-  const [measuredWidth, setMeasuredWidth] = useState(0);
 
-  const handleLayout = useCallback(
-    (e: LayoutChangeEvent) => {
-      const w = Math.floor(e.nativeEvent.layout.width);
-      if (w > 0 && w !== measuredWidth) setMeasuredWidth(w);
-    },
-    [measuredWidth]
+  // Refs for stable access inside gesture callbacks (avoids stale closures)
+  const fitnessRef = useRef(fitnessData);
+  fitnessRef.current = fitnessData;
+  const formRef = useRef(formData);
+  formRef.current = formData;
+  const onScrubRef = useRef(onScrub);
+  onScrubRef.current = onScrub;
+
+  const chartData = useMemo(
+    () => fitnessData.map((value, index) => ({ x: index, y: value })),
+    [fitnessData]
   );
 
-  const chartWidth = explicitWidth ?? measuredWidth;
-  const useFlex = !explicitWidth;
-
-  // Transform data array into chart points
-  const chartData = useMemo(() => {
-    return data.map((value, index) => ({
-      x: index,
-      y: value,
-    }));
-  }, [data]);
-
-  // Split data into segments by zone color
-  const segments = useMemo((): Segment[] => {
-    if (!useZoneColors || data.length < 2) return [];
-
-    const result: Segment[] = [];
-    let currentColor = getFormZoneColor(data[0]);
-    let currentSegment: { x: number; y: number }[] = [{ x: 0, y: data[0] }];
-
-    for (let i = 1; i < data.length; i++) {
-      const pointColor = getFormZoneColor(data[i]);
-      const point = { x: i, y: data[i] };
-
-      if (pointColor !== currentColor) {
-        // Color changed - end current segment with this point and start new one
-        currentSegment.push(point);
-        result.push({ points: currentSegment, color: currentColor });
-        currentSegment = [point]; // New segment starts with overlap point
-        currentColor = pointColor;
-      } else {
-        currentSegment.push(point);
-      }
-    }
-
-    // Push final segment
-    if (currentSegment.length > 0) {
-      result.push({ points: currentSegment, color: currentColor });
-    }
-
-    return result;
-  }, [data, useZoneColors]);
-
-  // Calculate y-axis domain
   const domain = useMemo(() => {
-    if (data.length === 0) return { y: [-30, 30] as [number, number] };
-    const min = Math.min(...data);
-    const max = Math.max(...data);
+    if (fitnessData.length === 0) return { y: [0, 100] as [number, number] };
+    const min = Math.min(...fitnessData);
+    const max = Math.max(...fitnessData);
     const range = max - min;
     const padding = Math.max(range * 0.3, 5);
     return { y: [min - padding, max + padding] as [number, number] };
-  }, [data]);
+  }, [fitnessData]);
 
-  if (data.length === 0) {
-    return <View style={useFlex ? { flex: 1, height } : { width: chartWidth, height }} />;
+  // Crosshair position shared value
+  const crosshairX = useSharedValue(-1);
+
+  // Chart bounds — synced from CartesianChart render callback
+  const chartLeft = useSharedValue(0);
+  const chartRight = useSharedValue(1);
+
+  // JS-side scrub notification (called via runOnJS from worklet)
+  const notifyScrub = (index: number) => {
+    const fitness = fitnessRef.current;
+    const form = formRef.current;
+    const cb = onScrubRef.current;
+    if (!cb || index < 0 || index >= fitness.length) return;
+    const daysAgo = fitness.length - 1 - index;
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    const dateLabel = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    cb({ fitness: fitness[index], form: form[index], dateLabel });
+  };
+
+  const clearScrub = () => {
+    onScrubRef.current?.(null);
+  };
+
+  // Compute index from touch position (worklet)
+  // Uses full chart width (0 → chartWidth) to match form bar rect positions
+  const dataLength = useSharedValue(fitnessData.length);
+  dataLength.value = fitnessData.length;
+  const cWidth = useSharedValue(width);
+  cWidth.value = width - (showLabels ? 42 : 0);
+
+  const computeIndex = (x: number): number => {
+    'worklet';
+    const w = cWidth.value;
+    if (w <= 0) return 0;
+    const ratio = Math.max(0, Math.min(1, x / w));
+    return Math.round(ratio * (dataLength.value - 1));
+  };
+
+  // LongPress gates activation, then Pan handles dragging
+  const longPress = Gesture.LongPress()
+    .minDuration(LONG_PRESS_MS)
+    .onStart((e) => {
+      'worklet';
+      crosshairX.value = e.x;
+      const idx = computeIndex(e.x);
+      runOnJS(notifyScrub)(idx);
+    })
+    .shouldCancelWhenOutside(false);
+
+  const pan = Gesture.Pan()
+    .manualActivation(true)
+    .onTouchesMove((_, manager) => {
+      // Only activate if longPress already fired (crosshairX >= 0)
+      if (crosshairX.value >= 0) {
+        manager.activate();
+      } else {
+        manager.fail();
+      }
+    })
+    .onUpdate((e) => {
+      'worklet';
+      crosshairX.value = e.x;
+      const idx = computeIndex(e.x);
+      runOnJS(notifyScrub)(idx);
+    })
+    .onEnd(() => {
+      'worklet';
+      crosshairX.value = -1;
+      runOnJS(clearScrub)();
+    })
+    .onFinalize(() => {
+      'worklet';
+      crosshairX.value = -1;
+      runOnJS(clearScrub)();
+    });
+
+  const composed = Gesture.Simultaneous(longPress, pan);
+
+  const crosshairStyle = useAnimatedStyle(() => {
+    if (crosshairX.value < 0) {
+      return { opacity: 0, transform: [{ translateX: 0 }] };
+    }
+    const xPos = Math.max(0, Math.min(cWidth.value, crosshairX.value));
+    return { opacity: 1, transform: [{ translateX: xPos }] };
+  });
+
+  const labelWidth = showLabels ? 42 : 0;
+  const chartWidth = width - labelWidth;
+  const totalHeight = CHART_HEIGHT + GAP + FORM_BAR_HEIGHT;
+
+  if (fitnessData.length === 0 || formData.length === 0 || width <= 0) {
+    return <View style={{ width, height: totalHeight }} />;
   }
 
-  const containerStyle = useFlex
-    ? [styles.container, { flex: 1, height }]
-    : [styles.container, { width: chartWidth, height }];
+  const labelColor = isDark ? darkColors.textMuted : colors.textMuted;
+  // Dark outline adds definition without washing out zone colors
+  // (White casing works on maps with varied backgrounds, but overpowers muted colors on uniform cards)
+  const casingColor = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)';
+  const fitnessLineColor = isDark ? '#42A5F5' : 'rgba(66,165,245,0.85)';
+
+  const dividerColor = isDark ? '#18181B' : '#FFFFFF';
+
+  const { formBarRects, transitions } = useMemo(() => {
+    const barW = chartWidth / formData.length;
+    const rects = formData.map((value, i) => ({
+      x: i * barW,
+      width: barW + 0.5,
+      color: FORM_ZONE_COLORS[getFormZone(value)],
+    }));
+    // Find zone transition positions for divider lines
+    const trans: number[] = [];
+    for (let i = 0; i < formData.length - 1; i++) {
+      if (getFormZone(formData[i]) !== getFormZone(formData[i + 1])) {
+        trans.push((i + 1) * barW);
+      }
+    }
+    return { formBarRects: rects, transitions: trans };
+  }, [formData, chartWidth]);
 
   return (
-    <View style={containerStyle} onLayout={useFlex ? handleLayout : undefined}>
-      {chartWidth > 0 && (
-        <>
-          <CartesianChart
-            data={chartData}
-            xKey="x"
-            yKeys={['y']}
-            domain={domain}
-            padding={{ left: 0, right: 0, top: 2, bottom: 2 }}
-          >
-            {({ points, chartBounds }) => {
-              // If using zone colors, render each segment separately
-              if (useZoneColors && segments.length > 0) {
-                const xScale = (chartBounds.right - chartBounds.left) / (data.length - 1);
-                const yRange = domain.y[1] - domain.y[0];
-                const yScale = (chartBounds.bottom - chartBounds.top) / yRange;
-
-                return (
-                  <>
-                    {segments.map((segment, idx) => {
-                      const mappedPoints = segment.points.map((p) => ({
-                        x: chartBounds.left + p.x * xScale,
-                        xValue: p.x,
-                        y: chartBounds.top + (domain.y[1] - p.y) * yScale,
-                        yValue: p.y,
-                      }));
-
-                      return (
-                        <Line
-                          key={idx}
-                          points={mappedPoints}
-                          color={segment.color}
-                          strokeWidth={2.5}
-                          curveType="natural"
-                        >
-                          <Shadow dx={0} dy={0} blur={4} color={segment.color + '60'} />
-                        </Line>
-                      );
-                    })}
-                  </>
-                );
-              }
-
-              // Fallback: single color line
-              return (
-                <Line points={points.y} color={color} strokeWidth={2.5} curveType="natural">
-                  <Shadow dx={0} dy={0} blur={5} color={color + '70'} />
-                </Line>
-              );
-            }}
-          </CartesianChart>
-          {label && (
-            <Text style={[styles.label, isDark ? styles.labelDark : styles.labelLight]}>
-              {label}
-            </Text>
+    <GestureDetector gesture={composed}>
+      <View style={[styles.container, { width, height: totalHeight }]}>
+        <View style={styles.chartRow}>
+          {/* Optional inline labels (settings preview only) */}
+          {showLabels && (
+            <View style={[styles.labelColumn, { width: labelWidth }]}>
+              <RNText style={[styles.inlineLabel, { color: colors.fitnessBlue }]}>Fitness</RNText>
+              <View style={{ flex: 1 }} />
+              <RNText style={[styles.inlineLabel, { color: labelColor }]}>Form</RNText>
+            </View>
           )}
-        </>
-      )}
-    </View>
+
+          {/* Chart area */}
+          <View style={{ width: chartWidth, height: totalHeight }}>
+            {/* Fitness sparkline with border outline */}
+            <View style={{ height: CHART_HEIGHT }}>
+              <CartesianChart
+                data={chartData}
+                xKey="x"
+                yKeys={['y']}
+                domain={domain}
+                padding={{ left: 0, right: 0, top: 4, bottom: 4 }}
+              >
+                {({ points, chartBounds }) => {
+                  // Sync bounds to shared values for gesture computation
+                  chartLeft.value = chartBounds.left;
+                  chartRight.value = chartBounds.right;
+                  return (
+                    <>
+                      {/* Casing — 0.5px border on each side (matches map polyline style) */}
+                      <Line
+                        points={points.y}
+                        color={casingColor}
+                        strokeWidth={2.5}
+                        curveType="natural"
+                      />
+                      {/* Fitness line — colored fill on top */}
+                      <Line
+                        points={points.y}
+                        color={fitnessLineColor}
+                        strokeWidth={1.5}
+                        curveType="natural"
+                      />
+                    </>
+                  );
+                }}
+              </CartesianChart>
+            </View>
+
+            {/* Gap */}
+            <View style={{ height: GAP }} />
+
+            {/* Form zone bar — colored rects with dividers at zone transitions */}
+            <Canvas style={{ width: chartWidth, height: FORM_BAR_HEIGHT }}>
+              {formBarRects.map((rect, i) => (
+                <Rect
+                  key={i}
+                  x={rect.x}
+                  y={0}
+                  width={rect.width}
+                  height={FORM_BAR_HEIGHT}
+                  color={rect.color}
+                />
+              ))}
+              {transitions.map((x, i) => (
+                <SkiaLine
+                  key={`div-${i}`}
+                  p1={vec(x, 0)}
+                  p2={vec(x, FORM_BAR_HEIGHT)}
+                  color={dividerColor}
+                  strokeWidth={1}
+                />
+              ))}
+            </Canvas>
+
+            {/* Time range label */}
+            <RNText
+              style={[
+                styles.rangeLabel,
+                { color: isDark ? darkColors.textMuted : colors.textMuted },
+              ]}
+            >
+              {fitnessData.length}d
+            </RNText>
+
+            {/* Crosshair overlay */}
+            <Animated.View style={[styles.crosshair, crosshairStyle]} pointerEvents="none">
+              <View
+                style={[
+                  styles.crosshairLine,
+                  { backgroundColor: isDark ? darkColors.textSecondary : colors.textSecondary },
+                ]}
+              />
+            </Animated.View>
+          </View>
+        </View>
+      </View>
+    </GestureDetector>
   );
 });
 
@@ -179,17 +293,34 @@ const styles = StyleSheet.create({
   container: {
     position: 'relative',
   },
-  label: {
-    position: 'absolute',
-    bottom: 2,
-    right: 4,
-    fontSize: 10,
+  chartRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    flex: 1,
+  },
+  labelColumn: {
+    justifyContent: 'space-between',
+    paddingVertical: 1,
+  },
+  inlineLabel: {
+    fontSize: 9,
     fontWeight: '500',
   },
-  labelLight: {
-    color: colors.textMuted,
+  rangeLabel: {
+    position: 'absolute',
+    top: 0,
+    right: 2,
+    fontSize: 8,
+    fontWeight: '500',
   },
-  labelDark: {
-    color: darkColors.textMuted,
+  crosshair: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 1.5,
+  },
+  crosshairLine: {
+    flex: 1,
+    width: 1.5,
   },
 });

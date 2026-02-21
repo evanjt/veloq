@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
+import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/lib';
 import { SummaryCardSparkline } from './SummaryCardSparkline';
 
 /**
@@ -35,12 +36,12 @@ export interface SummaryCardProps {
   heroTrend?: '↑' | '↓' | '';
   onHeroPress?: () => void;
 
-  // Accent bar color (form zone color)
-  accentColor?: string;
-
-  // Sparkline data (30 days)
-  sparklineData?: number[];
+  // Sparkline data (30 days) — fitness line + form zone bar
+  fitnessData?: number[];
+  formData?: number[];
   showSparkline: boolean;
+  /** Show inline labels on sparkline (settings preview) */
+  showSparklineLabels?: boolean;
 
   // Supporting metrics (max 4)
   supportingMetrics: SupportingMetric[];
@@ -69,23 +70,41 @@ export const SummaryCard = React.memo(function SummaryCard({
   heroZoneColor,
   heroTrend,
   onHeroPress,
-  accentColor,
-  sparklineData,
+  fitnessData,
+  formData,
   showSparkline,
+  showSparklineLabels = false,
   supportingMetrics,
 }: SummaryCardProps) {
   const { isDark, colors: themeColors } = useTheme();
   const [profileImageError, setProfileImageError] = React.useState(false);
+  const [scrubValues, setScrubValues] = useState<{
+    fitness: number;
+    form: number;
+    dateLabel: string;
+  } | null>(null);
+
+  const handleScrub = useCallback(
+    (values: { fitness: number; form: number; dateLabel: string } | null) => {
+      setScrubValues(values);
+    },
+    []
+  );
 
   // Validate profile URL - must be a non-empty string starting with http
   const hasValidProfileUrl =
     profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
+  // During scrub, override the hero display with scrubbed form value
+  const displayValue = scrubValues !== null ? scrubValues.form : heroValue;
+  const displayColor =
+    scrubValues !== null ? FORM_ZONE_COLORS[getFormZone(scrubValues.form)] : heroColor;
+
   // Format hero value with sign for positive numbers
   const formattedHeroValue =
-    typeof heroValue === 'number' && heroValue > 0 ? `+${heroValue}` : String(heroValue);
-
-  const resolvedAccentColor = accentColor || heroZoneColor || heroColor;
+    typeof displayValue === 'number' && displayValue > 0
+      ? `+${displayValue}`
+      : String(displayValue);
 
   // Compute explicit sparkline width (screen minus card margins and padding)
   const sparklineWidth = Dimensions.get('window').width - layout.screenPadding * 2 - spacing.md * 2;
@@ -132,43 +151,55 @@ export const SummaryCard = React.memo(function SummaryCard({
           activeOpacity={onHeroPress ? 0.7 : 1}
         >
           <View style={styles.heroValueRow}>
-            <Text style={[styles.heroValue, { color: heroColor }]}>
+            <Text style={[styles.heroValue, { color: displayColor }]}>
               {formattedHeroValue}
-              {heroTrend && <Text style={styles.heroTrend}>{heroTrend}</Text>}
+              {!scrubValues && heroTrend && <Text style={styles.heroTrend}>{heroTrend}</Text>}
             </Text>
-            <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{heroLabel}</Text>
-            {heroZoneLabel && (
+            {scrubValues ? (
               <>
-                <View style={[styles.zoneDot, { backgroundColor: heroZoneColor || heroColor }]} />
-                <Text style={[styles.zoneLabel, { color: heroZoneColor || heroColor }]}>
-                  {heroZoneLabel}
+                <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>
+                  {scrubValues.dateLabel}
                 </Text>
+                <View style={[styles.zoneDot, { backgroundColor: displayColor }]} />
+                <Text style={[styles.zoneLabel, { color: displayColor }]}>
+                  {FORM_ZONE_LABELS[getFormZone(scrubValues.form)]}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{heroLabel}</Text>
+                {heroZoneLabel && (
+                  <>
+                    <View
+                      style={[styles.zoneDot, { backgroundColor: heroZoneColor || heroColor }]}
+                    />
+                    <Text style={[styles.zoneLabel, { color: heroZoneColor || heroColor }]}>
+                      {heroZoneLabel}
+                    </Text>
+                  </>
+                )}
               </>
             )}
           </View>
         </TouchableOpacity>
       </View>
 
-      {/* Sparkline row — wide, tappable along with hero */}
-      {showSparkline && sparklineData && sparklineData.length > 0 && (
-        <TouchableOpacity
-          onPress={onHeroPress}
-          disabled={!onHeroPress}
-          activeOpacity={onHeroPress ? 0.7 : 1}
-          style={styles.sparklineRow}
-        >
-          <SummaryCardSparkline
-            data={sparklineData}
-            color={heroColor}
-            width={sparklineWidth}
-            height={44}
-            label="30d"
-          />
-        </TouchableOpacity>
-      )}
-
-      {/* Accent bar — thin form-zone-colored bar */}
-      <View style={[styles.accentBar, { backgroundColor: resolvedAccentColor }]} />
+      {/* Sparkline row — fitness line + form zone bar */}
+      {showSparkline &&
+        fitnessData &&
+        fitnessData.length > 0 &&
+        formData &&
+        formData.length > 0 && (
+          <View style={styles.sparklineRow}>
+            <SummaryCardSparkline
+              fitnessData={fitnessData}
+              formData={formData}
+              width={sparklineWidth}
+              showLabels={showSparklineLabels}
+              onScrub={handleScrub}
+            />
+          </View>
+        )}
 
       {/* Supporting metrics row — each metric tappable */}
       <View style={styles.supportingRow}>
@@ -327,14 +358,6 @@ const styles = StyleSheet.create({
   // Sparkline — own row, full width
   sparklineRow: {
     marginTop: spacing.xs,
-  },
-
-  // Accent bar — thin colored line below sparkline
-  accentBar: {
-    height: 2,
-    borderRadius: 1,
-    marginTop: spacing.xs,
-    marginHorizontal: 0,
   },
 
   // Supporting metrics row

@@ -39,8 +39,9 @@ export interface SummaryCardData {
   heroZoneColor?: string;
   heroTrend?: '↑' | '↓' | '';
 
-  // Sparkline
-  sparklineData?: number[];
+  // Sparkline (fitness/form dual chart)
+  fitnessData?: number[];
+  formData?: number[];
   showSparkline: boolean;
 
   // Supporting metrics
@@ -261,6 +262,7 @@ export function useSummaryCardData(): SummaryCardData {
 
     switch (metric) {
       case 'form':
+      case 'fitness':
         return {
           value: quickStats.form,
           label: t('metrics.form'),
@@ -268,15 +270,6 @@ export function useSummaryCardData(): SummaryCardData {
           zoneLabel: formZone ? FORM_ZONE_LABELS[formZone] : undefined,
           zoneColor: formColor,
           trend: quickStats.formTrend,
-        };
-      case 'fitness':
-        return {
-          value: quickStats.fitness,
-          label: t('metrics.fitness'),
-          color: colors.fitnessBlue,
-          zoneLabel: undefined,
-          zoneColor: undefined,
-          trend: quickStats.fitnessTrend,
         };
       case 'hrv':
         return {
@@ -299,28 +292,24 @@ export function useSummaryCardData(): SummaryCardData {
     }
   }, [summaryCard.heroMetric, quickStats, formColor, formZone, t]);
 
-  // Build sparkline data from wellness (last 30 days)
-  const sparklineData = useMemo(() => {
+  // Build fitness and form data arrays from wellness (last 30 days)
+  const fitnessData = useMemo(() => {
     if (!summaryCard.showSparkline) return undefined;
     if (!wellnessData || wellnessData.length === 0) return undefined;
-
     const sorted = [...wellnessData].sort((a, b) => a.id.localeCompare(b.id)).slice(-30);
+    return sorted.map((w) => Math.round(w.ctl ?? w.ctlLoad ?? 0));
+  }, [wellnessData, summaryCard.showSparkline]);
 
-    switch (summaryCard.heroMetric) {
-      case 'form':
-        return sorted.map((w) => {
-          const ctl = w.ctl ?? w.ctlLoad ?? 0;
-          const atl = w.atl ?? w.atlLoad ?? 0;
-          return ctl - atl;
-        });
-      case 'fitness':
-        return sorted.map((w) => w.ctl ?? w.ctlLoad ?? 0);
-      case 'hrv':
-        return sorted.map((w) => w.hrv ?? 0);
-      default:
-        return undefined;
-    }
-  }, [wellnessData, summaryCard.heroMetric, summaryCard.showSparkline]);
+  const formData = useMemo(() => {
+    if (!summaryCard.showSparkline) return undefined;
+    if (!wellnessData || wellnessData.length === 0) return undefined;
+    const sorted = [...wellnessData].sort((a, b) => a.id.localeCompare(b.id)).slice(-30);
+    return sorted.map((w) => {
+      const ctl = w.ctl ?? w.ctlLoad ?? 0;
+      const atl = w.atl ?? w.atlLoad ?? 0;
+      return Math.round(ctl - atl);
+    });
+  }, [wellnessData, summaryCard.showSparkline]);
 
   // Get sport-specific metrics
   const sportMetrics = useMemo(() => {
@@ -442,7 +431,8 @@ export function useSummaryCardData(): SummaryCardData {
 
   // Stabilize references to prevent downstream re-renders when values are unchanged
   const stableHeroData = useStableValue(heroData);
-  const stableSparklineData = useStableArray(sparklineData);
+  const stableFitnessData = useStableArray(fitnessData);
+  const stableFormData = useStableArray(formData);
   const stableSupportingMetrics = useStableValue(supportingMetrics);
 
   return useMemo(
@@ -454,7 +444,8 @@ export function useSummaryCardData(): SummaryCardData {
       heroZoneLabel: stableHeroData.zoneLabel,
       heroZoneColor: stableHeroData.zoneColor,
       heroTrend: stableHeroData.trend,
-      sparklineData: stableSparklineData,
+      fitnessData: stableFitnessData,
+      formData: stableFormData,
       showSparkline: summaryCard.showSparkline,
       supportingMetrics: stableSupportingMetrics,
       isLoading,
@@ -463,7 +454,8 @@ export function useSummaryCardData(): SummaryCardData {
     [
       profileUrl,
       stableHeroData,
-      stableSparklineData,
+      stableFitnessData,
+      stableFormData,
       summaryCard.showSparkline,
       stableSupportingMetrics,
       isLoading,
