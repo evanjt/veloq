@@ -790,6 +790,171 @@ describe('generateInsights', () => {
   });
 
   // ============================================================
+  // SECTION TRENDS (Priority 2)
+  // ============================================================
+
+  describe('section trends', () => {
+    const makeTrend = (
+      id: string,
+      name: string,
+      trend: number,
+      traversalCount = 10
+    ): {
+      sectionId: string;
+      sectionName: string;
+      trend: number;
+      medianRecentSecs: number;
+      bestTimeSecs: number;
+      traversalCount: number;
+    } => ({
+      sectionId: id,
+      sectionName: name,
+      trend,
+      medianRecentSecs: 300,
+      bestTimeSecs: 270,
+      traversalCount,
+    });
+
+    it('generates summary insight when 3+ sections with at least 1 improving', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          sectionTrends: [
+            makeTrend('s1', 'Hill A', 1),
+            makeTrend('s2', 'Hill B', 0),
+            makeTrend('s3', 'Hill C', -1),
+          ],
+        },
+        mockT
+      );
+      const summary = result.find((i) => i.id === 'section_trend-summary');
+      expect(summary).toBeDefined();
+      expect(summary!.priority).toBe(2);
+      expect(summary!.title).toContain('improving: 1');
+      expect(summary!.title).toContain('total: 3');
+      expect(summary!.navigationTarget).toBe('/routes');
+    });
+
+    it('does not generate summary with fewer than 3 sections', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          sectionTrends: [makeTrend('s1', 'Hill A', 1), makeTrend('s2', 'Hill B', 0)],
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'section_trend-summary')).toBeUndefined();
+    });
+
+    it('does not generate summary when no sections are improving', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          sectionTrends: [
+            makeTrend('s1', 'Hill A', 0),
+            makeTrend('s2', 'Hill B', 0),
+            makeTrend('s3', 'Hill C', -1),
+          ],
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'section_trend-summary')).toBeUndefined();
+    });
+
+    it('generates individual improving insight for top section by traversal count', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          sectionTrends: [
+            makeTrend('s1', 'Hill A', 1, 5),
+            makeTrend('s2', 'Hill B', 1, 20), // most traversals
+          ],
+        },
+        mockT
+      );
+      const improving = result.find((i) => i.id === 'section_trend-improving-s2');
+      expect(improving).toBeDefined();
+      expect(improving!.icon).toBe('trending-up');
+      expect(improving!.navigationTarget).toBe('/section/s2');
+    });
+
+    it('skips individual improving insight if section already has PR insight', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          recentPRs: [{ sectionId: 's1', sectionName: 'Hill A', bestTime: 270, daysAgo: 1 }],
+          sectionTrends: [makeTrend('s1', 'Hill A', 1, 20)],
+        },
+        mockT
+      );
+      // Should have PR insight but not a duplicate improving insight
+      expect(result.find((i) => i.id === 'section_pr-s1')).toBeDefined();
+      expect(result.find((i) => i.id === 'section_trend-improving-s1')).toBeUndefined();
+    });
+
+    it('shows declining insight only when no sections are improving', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          sectionTrends: [makeTrend('s1', 'Hill A', -1, 15), makeTrend('s2', 'Hill B', 0)],
+        },
+        mockT
+      );
+      const declining = result.find((i) => i.id === 'section_trend-declining-s1');
+      expect(declining).toBeDefined();
+      expect(declining!.icon).toBe('trending-down');
+      expect(declining!.priority).toBe(4); // lower priority than improving
+    });
+
+    it('does not show declining insight when improving sections exist', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          sectionTrends: [makeTrend('s1', 'Hill A', 1), makeTrend('s2', 'Hill B', -1)],
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'section_trend-declining-s2')).toBeUndefined();
+    });
+
+    it('empty sectionTrends array produces no section trend insights', () => {
+      const result = generateInsights(EMPTY_INPUT, mockT);
+      const trendInsights = result.filter((i) => i.id.startsWith('section_trend'));
+      expect(trendInsights).toHaveLength(0);
+    });
+
+    it('summary body includes section names', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          sectionTrends: [
+            makeTrend('s1', 'Col du Galibier', 1),
+            makeTrend('s2', "Alpe d'Huez", 1),
+            makeTrend('s3', 'Mont Ventoux', 0),
+          ],
+        },
+        mockT
+      );
+      const summary = result.find((i) => i.id === 'section_trend-summary');
+      expect(summary?.body).toContain('Col du Galibier');
+      expect(summary?.body).toContain("Alpe d'Huez");
+    });
+
+    it('improving insight body includes duration values', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          sectionTrends: [makeTrend('s1', 'Hill A', 1)],
+        },
+        mockT
+      );
+      const improving = result.find((i) => i.id === 'section_trend-improving-s1');
+      expect(improving?.body).toContain('median: 5m');
+      expect(improving?.body).toContain('best: 4m');
+    });
+  });
+
+  // ============================================================
   // PRIORITY ORDERING
   // ============================================================
 
