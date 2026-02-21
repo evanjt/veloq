@@ -27,12 +27,12 @@ const SUMMARY_CARD_STORAGE_KEY = 'dashboard_summary_card';
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
   heroMetric: 'form',
   showSparkline: true,
-  supportingMetrics: ['fitness', 'ftp', 'weekHours', 'weekCount'],
+  supportingMetrics: ['fitness', 'ftp', 'weekHours', 'weight'],
 };
 
 // Helper to create fresh default state
 function createFreshCyclingDefaults(): MetricPreference[] {
-  const defaultIds: MetricId[] = ['fitness', 'form', 'ftp', 'weekHours'];
+  const defaultIds: MetricId[] = ['fitness', 'ftp', 'weekHours', 'weight'];
   return AVAILABLE_METRICS.map((metric, index) => ({
     id: metric.id,
     enabled: defaultIds.includes(metric.id),
@@ -192,7 +192,7 @@ describe('DashboardPreferencesStore', () => {
     });
 
     it('disabling all metrics leaves getEnabledMetrics() empty', () => {
-      const allIds: MetricId[] = ['fitness', 'form', 'ftp', 'weekHours'];
+      const allIds: MetricId[] = ['fitness', 'ftp', 'weekHours', 'weight'];
       allIds.forEach((id) => {
         useDashboardPreferences.getState().setMetricEnabled(id, false);
       });
@@ -275,11 +275,11 @@ describe('DashboardPreferencesStore', () => {
       useDashboardPreferences.getState().resetToDefaults('Cycling');
 
       const enabled = useDashboardPreferences.getState().getEnabledMetrics();
-      // Default Cycling order: fitness, form, ftp, weekHours
+      // Default Cycling order: fitness, ftp, weekHours, weight
       expect(enabled[0].id).toBe('fitness');
-      expect(enabled[1].id).toBe('form');
-      expect(enabled[2].id).toBe('ftp');
-      expect(enabled[3].id).toBe('weekHours');
+      expect(enabled[1].id).toBe('ftp');
+      expect(enabled[2].id).toBe('weekHours');
+      expect(enabled[3].id).toBe('weight');
     });
   });
 

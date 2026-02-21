@@ -99,6 +99,7 @@ export function SummaryCardSection() {
                 'form',
                 'hrv',
                 'rhr',
+                'weight',
                 'thresholdPace',
                 'css',
               ] as MetricId[]

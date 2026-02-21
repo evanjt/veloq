@@ -505,7 +505,8 @@
     "hrv": "VFC",
     "pace": "Ritmo",
     "rhr": "FCR",
-    "week": "Semana"
+    "week": "Semana",
+    "weight": "Peso"
   },
   "navigation": {
     "activities": "Atividades",

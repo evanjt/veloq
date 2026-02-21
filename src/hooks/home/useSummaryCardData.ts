@@ -8,6 +8,7 @@ import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/lib';
 import { useDashboardPreferences, useSportPreference, SPORT_COLORS } from '@/providers';
 import type { MetricId } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
+import { useMetricSystem } from '@/hooks/ui/useMetricSystem';
 import { colors } from '@/theme';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
@@ -20,6 +21,7 @@ interface SupportingMetric {
   value: string | number;
   color?: string;
   trend?: '↑' | '↓' | '';
+  navigationTarget?: '/fitness' | '/training';
 }
 
 /**
@@ -95,6 +97,7 @@ export function useSummaryCardData(): SummaryCardData {
   const { primarySport } = useSportPreference();
   const { data: sportSettings } = useSportSettings();
   const { summaryCard } = useDashboardPreferences();
+  const isMetric = useMetricSystem();
 
   // Fetch pace curve for running threshold pace
   const { data: runPaceCurve } = usePaceCurve({
@@ -132,12 +135,14 @@ export function useSummaryCardData(): SummaryCardData {
     const form = fitness - fatigue;
     const hrv = latest?.hrv ?? null;
     const rhr = latest?.restingHR ?? null;
+    const weight = latest?.weight ?? null;
 
     const prevFitness = Math.round(previous?.ctl ?? previous?.ctlLoad ?? fitness);
     const prevFatigue = Math.round(previous?.atl ?? previous?.atlLoad ?? fatigue);
     const prevForm = prevFitness - prevFatigue;
     const prevHrv = previous?.hrv ?? hrv;
     const prevRhr = previous?.restingHR ?? rhr;
+    const prevWeight = previous?.weight ?? weight;
 
     const getTrend = (
       current: number | null,
@@ -159,6 +164,8 @@ export function useSummaryCardData(): SummaryCardData {
       hrvTrend: getTrend(hrv, prevHrv, 2),
       rhr,
       rhrTrend: getTrend(rhr, prevRhr, 1),
+      weight,
+      weightTrend: getTrend(weight, prevWeight, 0.5),
     };
   }, [wellnessData]);
 
@@ -329,9 +336,20 @@ export function useSummaryCardData(): SummaryCardData {
     };
   }, [sportSettings, runPaceCurve]);
 
+  // Format weight value with unit
+  const formattedWeight = useMemo(() => {
+    if (quickStats.weight === null) return '-';
+    if (isMetric) return `${Math.round(quickStats.weight * 10) / 10}kg`;
+    return `${Math.round(quickStats.weight * 2.20462 * 10) / 10}lb`;
+  }, [quickStats.weight, isMetric]);
+
   // Build supporting metrics array from preferences
   const supportingMetrics = useMemo(() => {
-    return summaryCard.supportingMetrics.slice(0, 4).map((metricId: MetricId) => {
+    // Filter out weight when no data is available
+    const metricIds = summaryCard.supportingMetrics
+      .filter((id: MetricId) => id !== 'weight' || quickStats.weight !== null)
+      .slice(0, 4);
+    return metricIds.map((metricId: MetricId) => {
       switch (metricId) {
         case 'fitness':
           return {
@@ -339,6 +357,7 @@ export function useSummaryCardData(): SummaryCardData {
             value: quickStats.fitness,
             color: colors.fitnessBlue,
             trend: quickStats.fitnessTrend,
+            navigationTarget: '/fitness' as const,
           };
         case 'form':
           return {
@@ -346,6 +365,7 @@ export function useSummaryCardData(): SummaryCardData {
             value: quickStats.form > 0 ? `+${quickStats.form}` : quickStats.form,
             color: formColor,
             trend: quickStats.formTrend,
+            navigationTarget: '/fitness' as const,
           };
         case 'hrv':
           return {
@@ -353,6 +373,7 @@ export function useSummaryCardData(): SummaryCardData {
             value: quickStats.hrv ?? '-',
             color: colors.chartPink,
             trend: quickStats.hrvTrend,
+            navigationTarget: '/training' as const,
           };
         case 'rhr':
           return {
@@ -360,6 +381,7 @@ export function useSummaryCardData(): SummaryCardData {
             value: quickStats.rhr ?? '-',
             color: undefined,
             trend: quickStats.rhrTrend,
+            navigationTarget: '/training' as const,
           };
         case 'ftp':
           return {
@@ -367,6 +389,7 @@ export function useSummaryCardData(): SummaryCardData {
             value: quickStats.ftp ?? '-',
             color: SPORT_COLORS.Cycling,
             trend: quickStats.ftpTrend,
+            navigationTarget: '/fitness' as const,
           };
         case 'thresholdPace':
           return {
@@ -374,6 +397,7 @@ export function useSummaryCardData(): SummaryCardData {
             value: sportMetrics.thresholdPace ? formatPaceCompact(sportMetrics.thresholdPace) : '-',
             color: SPORT_COLORS.Running,
             trend: undefined,
+            navigationTarget: '/fitness' as const,
           };
         case 'css':
           return {
@@ -381,11 +405,12 @@ export function useSummaryCardData(): SummaryCardData {
             value: sportMetrics.css ? formatSwimPace(sportMetrics.css) : '-',
             color: SPORT_COLORS.Swimming,
             trend: undefined,
+            navigationTarget: '/fitness' as const,
           };
         case 'weekHours':
           return {
             label: t('metrics.week'),
-            value: `${quickStats.weekHours}h (${quickStats.weekCount})`,
+            value: `${quickStats.weekHours}h`,
             color: undefined,
             trend: quickStats.weekHoursTrend,
           };
@@ -396,6 +421,14 @@ export function useSummaryCardData(): SummaryCardData {
             color: undefined,
             trend: undefined,
           };
+        case 'weight':
+          return {
+            label: '\u2696\uFE0F',
+            value: formattedWeight,
+            color: undefined,
+            trend: quickStats.weightTrend,
+            navigationTarget: '/training' as const,
+          };
         default:
           return {
             label: metricId,
@@ -405,7 +438,7 @@ export function useSummaryCardData(): SummaryCardData {
           };
       }
     });
-  }, [summaryCard.supportingMetrics, quickStats, formColor, sportMetrics, t]);
+  }, [summaryCard.supportingMetrics, quickStats, formColor, formattedWeight, sportMetrics, t]);
 
   // Stabilize references to prevent downstream re-renders when values are unchanged
   const stableHeroData = useStableValue(heroData);

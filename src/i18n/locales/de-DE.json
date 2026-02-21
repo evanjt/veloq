@@ -505,7 +505,8 @@
     "hrv": "HRV",
     "pace": "Tempo",
     "rhr": "RHF",
-    "week": "Woche"
+    "week": "Woche",
+    "weight": "Gewicht"
   },
   "navigation": {
     "activities": "Aktivitäten",

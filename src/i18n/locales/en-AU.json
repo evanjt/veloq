@@ -505,7 +505,8 @@
     "hrv": "HRV",
     "pace": "Pace",
     "rhr": "RHR",
-    "week": "Week"
+    "week": "Week",
+    "weight": "Weight"
   },
   "navigation": {
     "activities": "Your stuff",

@@ -234,6 +234,7 @@ export interface TranslationResource {
     fitness: string;
     fatigue: string;
     hr: string;
+    weight: string;
   };
 
   login: {

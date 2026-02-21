@@ -505,7 +505,8 @@
     "hrv": "心率变异性",
     "pace": "配速",
     "rhr": "静息心率",
-    "week": "周"
+    "week": "周",
+    "weight": "体重"
   },
   "navigation": {
     "activities": "活动",

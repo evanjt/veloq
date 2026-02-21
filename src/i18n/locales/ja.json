@@ -505,7 +505,8 @@
     "hrv": "HRV",
     "pace": "ペース",
     "rhr": "安静時心拍",
-    "week": "週"
+    "week": "週",
+    "weight": "体重"
   },
   "navigation": {
     "activities": "アクティビティ",
