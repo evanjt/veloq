@@ -45,9 +45,10 @@ describe('generateInsights', () => {
         { ...EMPTY_INPUT, formTsb: 0, formCtl: 50, formAtl: 50 },
         mockT
       );
-      expect(result).toHaveLength(1);
-      expect(result[0].category).toBe('training_consistency');
-      expect(result[0].id).toBe('training_consistency-form');
+      // Form trajectory (priority 3) + form advice (priority 5)
+      expect(result).toHaveLength(2);
+      expect(result.find((i) => i.id === 'training_consistency-form')).toBeDefined();
+      expect(result.find((i) => i.id === 'form_trajectory')).toBeDefined();
     });
 
     it('formTsb = NaN does not generate form insight', () => {
@@ -1150,6 +1151,751 @@ describe('generateInsights', () => {
       expect(form!.body).toContain('tsb: -6');
       expect(form!.body).toContain('ctl: 50');
       expect(form!.body).toContain('atl: 56');
+    });
+  });
+
+  // ============================================================
+  // FORM ADVICE ALTERNATIVES (Phase 4a)
+  // ============================================================
+
+  describe('form advice alternatives', () => {
+    it('provides alternatives array with 5 form zones', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: -5, formCtl: 50, formAtl: 55 },
+        mockT
+      );
+      const form = result.find((i) => i.id === 'training_consistency-form');
+      expect(form!.alternatives).toBeDefined();
+      expect(form!.alternatives).toHaveLength(5);
+    });
+
+    it('marks the correct zone as selected', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: -5, formCtl: 50, formAtl: 55 },
+        mockT
+      );
+      const form = result.find((i) => i.id === 'training_consistency-form');
+      const selected = form!.alternatives!.filter((a) => a.isSelected);
+      expect(selected).toHaveLength(1);
+      expect(selected[0].key).toBe('optimal');
+    });
+
+    it('includes supportingData with CTL, ATL, TSB', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: -5, formCtl: 50, formAtl: 55 },
+        mockT
+      );
+      const form = result.find((i) => i.id === 'training_consistency-form');
+      expect(form!.supportingData?.dataPoints).toBeDefined();
+      const labels = form!.supportingData!.dataPoints!.map((dp) => dp.label);
+      expect(labels).toContain('CTL');
+      expect(labels).toContain('ATL');
+      expect(labels).toContain('TSB');
+    });
+
+    it('includes methodology with Banister reference', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: -5, formCtl: 50, formAtl: 55 },
+        mockT
+      );
+      const form = result.find((i) => i.id === 'training_consistency-form');
+      expect(form!.methodology).toBeDefined();
+      expect(form!.methodology!.formula).toBe('TSB = CTL - ATL');
+      expect(form!.methodology!.reference).toContain('Banister');
+    });
+  });
+
+  // ============================================================
+  // RECOVERY READINESS (Priority 2, Phase 2)
+  // ============================================================
+
+  describe('recovery readiness', () => {
+    const makeWellnessWindow = (hrvValues: number[], tsb = 0): InsightInputData => ({
+      ...EMPTY_INPUT,
+      formTsb: tsb,
+      formCtl: 50,
+      formAtl: 50 - tsb,
+      wellnessWindow: hrvValues.map((hrv, i) => ({
+        date: `2026-02-${15 + i}`,
+        hrv,
+        ctl: 50,
+        atl: 50 - tsb,
+      })),
+    });
+
+    it('generates recovery insight with 3+ HRV values', () => {
+      const result = generateInsights(makeWellnessWindow([50, 52, 55, 58, 60]), mockT);
+      const recovery = result.find((i) => i.id === 'recovery_readiness');
+      expect(recovery).toBeDefined();
+      expect(recovery!.category).toBe('recovery_readiness');
+      expect(recovery!.priority).toBe(2);
+    });
+
+    it('does not generate recovery insight with fewer than 3 HRV values', () => {
+      const result = generateInsights(makeWellnessWindow([50, 52]), mockT);
+      expect(result.find((i) => i.id === 'recovery_readiness')).toBeUndefined();
+    });
+
+    it('selects wellRecovered when HRV above baseline and TSB positive', () => {
+      // HRV values where last value is >5% above average, TSB > 5
+      const result = generateInsights(makeWellnessWindow([50, 50, 50, 50, 60], 10), mockT);
+      const recovery = result.find((i) => i.id === 'recovery_readiness');
+      expect(recovery).toBeDefined();
+      const selected = recovery!.alternatives!.find((a) => a.isSelected);
+      expect(selected!.key).toBe('wellRecovered');
+    });
+
+    it('selects recoveryNeeded when HRV below baseline and TSB very negative', () => {
+      // HRV declining, TSB between -20 and -30
+      const result = generateInsights(makeWellnessWindow([60, 58, 55, 52, 48], -25), mockT);
+      const recovery = result.find((i) => i.id === 'recovery_readiness');
+      expect(recovery).toBeDefined();
+      const selected = recovery!.alternatives!.find((a) => a.isSelected);
+      expect(selected!.key).toBe('recoveryNeeded');
+    });
+
+    it('includes HRV sparkline in supporting data', () => {
+      const result = generateInsights(makeWellnessWindow([50, 52, 55, 58, 60]), mockT);
+      const recovery = result.find((i) => i.id === 'recovery_readiness');
+      expect(recovery!.supportingData?.sparklineData).toEqual([50, 52, 55, 58, 60]);
+    });
+
+    it('includes methodology with Plews reference', () => {
+      const result = generateInsights(makeWellnessWindow([50, 52, 55, 58, 60]), mockT);
+      const recovery = result.find((i) => i.id === 'recovery_readiness');
+      expect(recovery!.methodology?.reference).toContain('Plews');
+    });
+
+    it('has 5 alternatives', () => {
+      const result = generateInsights(makeWellnessWindow([50, 52, 55, 58, 60]), mockT);
+      const recovery = result.find((i) => i.id === 'recovery_readiness');
+      expect(recovery!.alternatives).toHaveLength(5);
+    });
+
+    it('skips when all HRV values are zero', () => {
+      const result = generateInsights(makeWellnessWindow([0, 0, 0, 0, 0]), mockT);
+      expect(result.find((i) => i.id === 'recovery_readiness')).toBeUndefined();
+    });
+  });
+
+  // ============================================================
+  // ACWR (Priority 2, Phase 2)
+  // ============================================================
+
+  describe('ACWR', () => {
+    const makeAcwrInput = (acuteTss: number, chronicTss: number): InsightInputData => ({
+      ...EMPTY_INPUT,
+      currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: acuteTss },
+      chronicPeriod: { count: 5, totalDuration: 5000, totalDistance: 80000, totalTss: chronicTss },
+    });
+
+    it('generates ACWR insight when both periods available', () => {
+      const result = generateInsights(makeAcwrInput(200, 200), mockT);
+      const acwr = result.find((i) => i.id === 'workload_risk-acwr');
+      expect(acwr).toBeDefined();
+      expect(acwr!.category).toBe('workload_risk');
+      expect(acwr!.priority).toBe(2);
+    });
+
+    it('does not generate ACWR when chronic period is null', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+          chronicPeriod: null,
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'workload_risk-acwr')).toBeUndefined();
+    });
+
+    it('does not generate ACWR when chronic TSS is zero', () => {
+      const result = generateInsights(makeAcwrInput(200, 0), mockT);
+      expect(result.find((i) => i.id === 'workload_risk-acwr')).toBeUndefined();
+    });
+
+    it('selects undertrained zone when ACWR < 0.8', () => {
+      // acute = 100, chronic = 200 => ACWR = 0.5
+      const result = generateInsights(makeAcwrInput(100, 200), mockT);
+      const acwr = result.find((i) => i.id === 'workload_risk-acwr');
+      const selected = acwr!.alternatives!.find((a) => a.isSelected);
+      expect(selected!.key).toBe('undertrained');
+    });
+
+    it('selects sweetSpot zone when ACWR 0.8-1.3', () => {
+      // acute = 200, chronic = 200 => ACWR = 1.0
+      const result = generateInsights(makeAcwrInput(200, 200), mockT);
+      const acwr = result.find((i) => i.id === 'workload_risk-acwr');
+      const selected = acwr!.alternatives!.find((a) => a.isSelected);
+      expect(selected!.key).toBe('sweetSpot');
+    });
+
+    it('selects highLoad zone when ACWR 1.3-1.5', () => {
+      // acute = 280, chronic = 200 => ACWR = 1.4
+      const result = generateInsights(makeAcwrInput(280, 200), mockT);
+      const acwr = result.find((i) => i.id === 'workload_risk-acwr');
+      const selected = acwr!.alternatives!.find((a) => a.isSelected);
+      expect(selected!.key).toBe('highLoad');
+    });
+
+    it('selects spikeRisk zone when ACWR > 1.5', () => {
+      // acute = 350, chronic = 200 => ACWR = 1.75
+      const result = generateInsights(makeAcwrInput(350, 200), mockT);
+      const acwr = result.find((i) => i.id === 'workload_risk-acwr');
+      const selected = acwr!.alternatives!.find((a) => a.isSelected);
+      expect(selected!.key).toBe('spikeRisk');
+    });
+
+    it('has 4 alternatives', () => {
+      const result = generateInsights(makeAcwrInput(200, 200), mockT);
+      const acwr = result.find((i) => i.id === 'workload_risk-acwr');
+      expect(acwr!.alternatives).toHaveLength(4);
+    });
+
+    it('includes methodology with Gabbett reference', () => {
+      const result = generateInsights(makeAcwrInput(200, 200), mockT);
+      const acwr = result.find((i) => i.id === 'workload_risk-acwr');
+      expect(acwr!.methodology?.reference).toContain('Gabbett');
+    });
+  });
+
+  // ============================================================
+  // TRAINING MONOTONY (Priority 3, Phase 2)
+  // ============================================================
+
+  describe('training monotony', () => {
+    const makeMonotonyInput = (atlValues: number[]): InsightInputData => ({
+      ...EMPTY_INPUT,
+      wellnessWindow: atlValues.map((atl, i) => ({
+        date: `2026-02-${15 + i}`,
+        atl,
+        ctl: 50,
+      })),
+    });
+
+    it('generates monotony insight with 3+ daily load values', () => {
+      const result = generateInsights(makeMonotonyInput([50, 55, 60, 45, 52]), mockT);
+      const monotony = result.find((i) => i.id === 'workload_risk-monotony');
+      expect(monotony).toBeDefined();
+      expect(monotony!.category).toBe('workload_risk');
+      expect(monotony!.priority).toBe(3);
+    });
+
+    it('does not generate with fewer than 3 load values', () => {
+      const result = generateInsights(makeMonotonyInput([50, 55]), mockT);
+      expect(result.find((i) => i.id === 'workload_risk-monotony')).toBeUndefined();
+    });
+
+    it('detects high monotony when all loads are similar', () => {
+      // Identical loads -> stddev ~0 -> monotony very high
+      // Use slightly different values to avoid division by zero
+      const result = generateInsights(makeMonotonyInput([50, 50, 50, 51, 50]), mockT);
+      const monotony = result.find((i) => i.id === 'workload_risk-monotony');
+      expect(monotony).toBeDefined();
+      expect(monotony!.title).toContain('highMonotony');
+    });
+
+    it('detects good variety when loads vary significantly', () => {
+      // High variation relative to mean -> low monotony (mean/stddev < 1.5)
+      const result = generateInsights(makeMonotonyInput([10, 100, 10, 100, 10]), mockT);
+      const monotony = result.find((i) => i.id === 'workload_risk-monotony');
+      expect(monotony).toBeDefined();
+      expect(monotony!.title).toContain('goodVariety');
+    });
+
+    it('includes methodology with Foster reference', () => {
+      const result = generateInsights(makeMonotonyInput([50, 55, 60, 45, 52]), mockT);
+      const monotony = result.find((i) => i.id === 'workload_risk-monotony');
+      expect(monotony!.methodology?.reference).toContain('Foster');
+    });
+
+    it('skips when all load values are zero', () => {
+      const result = generateInsights(makeMonotonyInput([0, 0, 0, 0, 0]), mockT);
+      expect(result.find((i) => i.id === 'workload_risk-monotony')).toBeUndefined();
+    });
+  });
+
+  // ============================================================
+  // FORM TRAJECTORY (Priority 3, Phase 2)
+  // ============================================================
+
+  describe('form trajectory', () => {
+    it('generates form trajectory when CTL and ATL available', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: -5, formCtl: 50, formAtl: 55 },
+        mockT
+      );
+      const trajectory = result.find((i) => i.id === 'form_trajectory');
+      expect(trajectory).toBeDefined();
+      expect(trajectory!.category).toBe('form_trajectory');
+      expect(trajectory!.priority).toBe(3);
+    });
+
+    it('does not generate when CTL and ATL are both zero', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: 0, formCtl: 0, formAtl: 0 },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'form_trajectory')).toBeUndefined();
+    });
+
+    it('detects improving form when ATL >> CTL (ATL decays faster)', () => {
+      // ATL much higher than CTL means ATL will decay faster, TSB will rise
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: -20, formCtl: 50, formAtl: 70 },
+        mockT
+      );
+      const trajectory = result.find((i) => i.id === 'form_trajectory');
+      expect(trajectory).toBeDefined();
+      expect(trajectory!.title).toContain('improving');
+    });
+
+    it('includes sparkline from wellness window TSB values', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          formTsb: -5,
+          formCtl: 50,
+          formAtl: 55,
+          wellnessWindow: [
+            { date: '2026-02-15', ctl: 48, atl: 58 },
+            { date: '2026-02-16', ctl: 49, atl: 57 },
+            { date: '2026-02-17', ctl: 50, atl: 55 },
+          ],
+        },
+        mockT
+      );
+      const trajectory = result.find((i) => i.id === 'form_trajectory');
+      expect(trajectory!.supportingData?.sparklineData).toEqual([-10, -8, -5]);
+    });
+
+    it('includes methodology with Banister reference', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: -5, formCtl: 50, formAtl: 55 },
+        mockT
+      );
+      const trajectory = result.find((i) => i.id === 'form_trajectory');
+      expect(trajectory!.methodology?.reference).toContain('Banister');
+    });
+
+    it('does not generate when formCtl is null', () => {
+      const result = generateInsights(
+        { ...EMPTY_INPUT, formTsb: -5, formCtl: null, formAtl: 55 },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'form_trajectory')).toBeUndefined();
+    });
+  });
+
+  // ============================================================
+  // RAMP RATE (Priority 3, Phase 2)
+  // ============================================================
+
+  describe('ramp rate', () => {
+    it('generates ramp rate insight when rampRate available', () => {
+      const result = generateInsights({ ...EMPTY_INPUT, rampRate: 3.5, formCtl: 60 }, mockT);
+      const ramp = result.find((i) => i.id === 'form_trajectory-ramp');
+      expect(ramp).toBeDefined();
+      expect(ramp!.category).toBe('form_trajectory');
+      expect(ramp!.priority).toBe(3);
+    });
+
+    it('does not generate when rampRate is null', () => {
+      const result = generateInsights(EMPTY_INPUT, mockT);
+      expect(result.find((i) => i.id === 'form_trajectory-ramp')).toBeUndefined();
+    });
+
+    it('does not generate when rampRate is NaN', () => {
+      const result = generateInsights({ ...EMPTY_INPUT, rampRate: NaN }, mockT);
+      expect(result.find((i) => i.id === 'form_trajectory-ramp')).toBeUndefined();
+    });
+
+    it('selects detraining when ramp < 1', () => {
+      const result = generateInsights({ ...EMPTY_INPUT, rampRate: 0.5 }, mockT);
+      const ramp = result.find((i) => i.id === 'form_trajectory-ramp');
+      const selected = ramp!.alternatives!.find((a) => a.isSelected);
+      expect(selected!.key).toBe('detraining');
+    });
+
+    it('selects maintenance when ramp 1-3', () => {
+      const result = generateInsights({ ...EMPTY_INPUT, rampRate: 2.0 }, mockT);
+      const ramp = result.find((i) => i.id === 'form_trajectory-ramp');
+      const selected = ramp!.alternatives!.find((a) => a.isSelected);
+      expect(selected!.key).toBe('maintenance');
+    });
+
+    it('selects building when ramp 3-5', () => {
+      const result = generateInsights({ ...EMPTY_INPUT, rampRate: 4.0 }, mockT);
+      const ramp = result.find((i) => i.id === 'form_trajectory-ramp');
+      const selected = ramp!.alternatives!.find((a) => a.isSelected);
+      expect(selected!.key).toBe('building');
+    });
+
+    it('selects aggressive when ramp > 5', () => {
+      const result = generateInsights({ ...EMPTY_INPUT, rampRate: 6.0 }, mockT);
+      const ramp = result.find((i) => i.id === 'form_trajectory-ramp');
+      const selected = ramp!.alternatives!.find((a) => a.isSelected);
+      expect(selected!.key).toBe('aggressive');
+    });
+
+    it('has 4 alternatives', () => {
+      const result = generateInsights({ ...EMPTY_INPUT, rampRate: 3.5 }, mockT);
+      const ramp = result.find((i) => i.id === 'form_trajectory-ramp');
+      expect(ramp!.alternatives).toHaveLength(4);
+    });
+
+    it('includes methodology with Coggan reference', () => {
+      const result = generateInsights({ ...EMPTY_INPUT, rampRate: 3.5 }, mockT);
+      const ramp = result.find((i) => i.id === 'form_trajectory-ramp');
+      expect(ramp!.methodology?.reference).toContain('Coggan');
+    });
+  });
+
+  // ============================================================
+  // SECTION PERFORMANCE VS FITNESS (Priority 2, Phase 2)
+  // ============================================================
+
+  describe('section performance vs fitness', () => {
+    it('generates insight when CTL positive and improving sections exist', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          formCtl: 65,
+          sectionTrends: [
+            {
+              sectionId: 's1',
+              sectionName: 'Hill A',
+              trend: 1,
+              medianRecentSecs: 300,
+              bestTimeSecs: 270,
+              traversalCount: 10,
+            },
+          ],
+        },
+        mockT
+      );
+      const perf = result.find((i) => i.id.startsWith('section_performance-fitness'));
+      expect(perf).toBeDefined();
+      expect(perf!.category).toBe('section_performance');
+      expect(perf!.priority).toBe(2);
+    });
+
+    it('does not generate when CTL is zero', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          formCtl: 0,
+          sectionTrends: [
+            {
+              sectionId: 's1',
+              sectionName: 'Hill A',
+              trend: 1,
+              medianRecentSecs: 300,
+              bestTimeSecs: 270,
+              traversalCount: 10,
+            },
+          ],
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id.startsWith('section_performance-fitness'))).toBeUndefined();
+    });
+
+    it('does not generate when no improving sections', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          formCtl: 65,
+          sectionTrends: [
+            {
+              sectionId: 's1',
+              sectionName: 'Hill A',
+              trend: -1,
+              medianRecentSecs: 300,
+              bestTimeSecs: 270,
+              traversalCount: 10,
+            },
+          ],
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id.startsWith('section_performance-fitness'))).toBeUndefined();
+    });
+
+    it('picks highest traversal count section', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          formCtl: 65,
+          sectionTrends: [
+            {
+              sectionId: 's1',
+              sectionName: 'Hill A',
+              trend: 1,
+              medianRecentSecs: 300,
+              bestTimeSecs: 270,
+              traversalCount: 5,
+            },
+            {
+              sectionId: 's2',
+              sectionName: 'Hill B',
+              trend: 1,
+              medianRecentSecs: 300,
+              bestTimeSecs: 270,
+              traversalCount: 20,
+            },
+          ],
+        },
+        mockT
+      );
+      const perf = result.find((i) => i.id.startsWith('section_performance-fitness'));
+      expect(perf!.id).toContain('s2');
+      expect(perf!.navigationTarget).toBe('/section/s2');
+    });
+  });
+
+  // ============================================================
+  // REST DAY CONTENT (Phase 5)
+  // ============================================================
+
+  describe('rest day content', () => {
+    it('generates recovery progress when HRV trending up on rest day', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          isRestDay: true,
+          wellnessWindow: [
+            { date: '2026-02-15', hrv: 40 },
+            { date: '2026-02-16', hrv: 42 },
+            { date: '2026-02-17', hrv: 48 },
+            { date: '2026-02-18', hrv: 52 },
+          ],
+        },
+        mockT
+      );
+      const recovery = result.find((i) => i.id === 'rest_day-recovery-progress');
+      expect(recovery).toBeDefined();
+      expect(recovery!.category).toBe('recovery_readiness');
+    });
+
+    it('does not generate recovery progress when HRV declining', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          isRestDay: true,
+          wellnessWindow: [
+            { date: '2026-02-15', hrv: 60 },
+            { date: '2026-02-16', hrv: 55 },
+            { date: '2026-02-17', hrv: 50 },
+            { date: '2026-02-18', hrv: 45 },
+          ],
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'rest_day-recovery-progress')).toBeUndefined();
+    });
+
+    it('generates section deep dive on rest day when sections available', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          isRestDay: true,
+          sectionTrends: [
+            {
+              sectionId: 's1',
+              sectionName: 'Hill A',
+              trend: 1,
+              medianRecentSecs: 300,
+              bestTimeSecs: 270,
+              traversalCount: 10,
+            },
+          ],
+        },
+        mockT
+      );
+      const deepDive = result.find((i) => i.id === 'rest_day-section-deep-dive');
+      expect(deepDive).toBeDefined();
+      expect(deepDive!.category).toBe('section_performance');
+    });
+
+    it('generates tomorrow pattern on rest day', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          isRestDay: true,
+          tomorrowPattern: {
+            sportType: 'Ride',
+            primaryDay: 6,
+            avgDurationSecs: 5400,
+            confidence: 0.7,
+            activityCount: 12,
+          },
+        },
+        mockT
+      );
+      const tomorrow = result.find((i) => i.id === 'rest_day-tomorrow-pattern');
+      expect(tomorrow).toBeDefined();
+      expect(tomorrow!.category).toBe('activity_pattern');
+    });
+
+    it('skips tomorrow pattern when confidence too low', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          isRestDay: true,
+          tomorrowPattern: {
+            sportType: 'Ride',
+            primaryDay: 6,
+            avgDurationSecs: 5400,
+            confidence: 0.4,
+            activityCount: 12,
+          },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'rest_day-tomorrow-pattern')).toBeUndefined();
+    });
+
+    it('does not generate rest day content when isRestDay is false', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          isRestDay: false,
+          wellnessWindow: [
+            { date: '2026-02-15', hrv: 40 },
+            { date: '2026-02-16', hrv: 42 },
+            { date: '2026-02-17', hrv: 48 },
+            { date: '2026-02-18', hrv: 52 },
+          ],
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id.startsWith('rest_day'))).toBeUndefined();
+    });
+  });
+
+  // ============================================================
+  // SUPPORTING DATA AND METHODOLOGY (Phase 4)
+  // ============================================================
+
+  describe('supporting data on existing insights', () => {
+    it('section PR insight includes supporting data', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          recentPRs: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 1 }],
+        },
+        mockT
+      );
+      const pr = result.find((i) => i.id === 'section_pr-s1');
+      expect(pr!.supportingData).toBeDefined();
+      expect(pr!.supportingData!.dataPoints!.length).toBeGreaterThan(0);
+      expect(pr!.supportingData!.sections!.length).toBe(1);
+    });
+
+    it('section PR insight includes methodology', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          recentPRs: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 1 }],
+        },
+        mockT
+      );
+      const pr = result.find((i) => i.id === 'section_pr-s1');
+      expect(pr!.methodology).toBeDefined();
+      expect(pr!.methodology!.name).toContain('record');
+    });
+
+    it('period comparison includes comparison data', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+        },
+        mockT
+      );
+      const vol = result.find((i) => i.id === 'period_comparison-volume');
+      expect(vol!.supportingData?.comparisonData).toBeDefined();
+      expect(vol!.supportingData!.comparisonData!.current).toBeDefined();
+      expect(vol!.supportingData!.comparisonData!.previous).toBeDefined();
+      expect(vol!.supportingData!.comparisonData!.change).toBeDefined();
+    });
+
+    it('FTP increase includes supporting data with values', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          ftpTrend: {
+            latestFtp: 260,
+            latestDate: BigInt(1000),
+            previousFtp: 250,
+            previousDate: BigInt(500),
+          },
+        },
+        mockT
+      );
+      const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
+      expect(ftp!.supportingData?.dataPoints).toBeDefined();
+      const currentFtp = ftp!.supportingData!.dataPoints!.find((dp) => dp.value === 260);
+      expect(currentFtp).toBeDefined();
+    });
+
+    it('activity pattern includes methodology', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          todayPattern: {
+            sportType: 'Ride',
+            primaryDay: 2,
+            avgDurationSecs: 5400,
+            confidence: 0.8,
+            activityCount: 10,
+          },
+        },
+        mockT
+      );
+      const pattern = result.find((i) => i.category === 'activity_pattern');
+      expect(pattern!.methodology).toBeDefined();
+      expect(pattern!.methodology!.name).toContain('K-means');
+    });
+
+    it('section trend includes supporting sections', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          sectionTrends: [
+            {
+              sectionId: 's1',
+              sectionName: 'Hill A',
+              trend: 1,
+              medianRecentSecs: 300,
+              bestTimeSecs: 270,
+              traversalCount: 10,
+            },
+            {
+              sectionId: 's2',
+              sectionName: 'Hill B',
+              trend: 0,
+              medianRecentSecs: 300,
+              bestTimeSecs: 270,
+              traversalCount: 8,
+            },
+            {
+              sectionId: 's3',
+              sectionName: 'Hill C',
+              trend: -1,
+              medianRecentSecs: 300,
+              bestTimeSecs: 270,
+              traversalCount: 5,
+            },
+          ],
+        },
+        mockT
+      );
+      const summary = result.find((i) => i.id === 'section_trend-summary');
+      expect(summary!.supportingData?.sections).toBeDefined();
+      expect(summary!.supportingData!.sections!.length).toBe(3);
     });
   });
 });

@@ -6,10 +6,18 @@ import { useTheme } from '@/hooks';
 import { useTodayWorkout } from '@/hooks/home/useTodayWorkout';
 import { useActivityPatterns } from '@/hooks/home/useActivityPatterns';
 import { useWellness } from '@/hooks/fitness';
-import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, formatDuration } from '@/lib';
+import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, formatDurationHuman } from '@/lib';
 import { colors, darkColors, spacing, layout } from '@/theme';
 
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_NAMES_PLURAL = [
+  'Mondays',
+  'Tuesdays',
+  'Wednesdays',
+  'Thursdays',
+  'Fridays',
+  'Saturdays',
+  'Sundays',
+];
 
 /**
  * Compact insight card for the Feed tab that surfaces one headline from Route Intelligence.
@@ -46,8 +54,8 @@ export const TodayTeaser = React.memo(function TodayTeaser() {
     }
   } else if (todayPattern) {
     const sportLabel = todayPattern.sportType === 'Run' ? 'run' : 'ride';
-    const dayName = DAY_NAMES[todayPattern.primaryDay] ?? '';
-    headline = `${dayName}s you usually ${sportLabel} ~${formatDuration(todayPattern.avgDurationSecs)}`;
+    const dayName = DAY_NAMES_PLURAL[todayPattern.primaryDay] ?? '';
+    headline = `${dayName} you usually ${sportLabel} ~${formatDurationHuman(todayPattern.avgDurationSecs)}`;
     const topSection = todayPattern.commonSections?.[0];
     if (topSection) {
       const trendLabel =

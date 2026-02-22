@@ -8,14 +8,28 @@ import { useTodayWorkout } from '@/hooks/home/useTodayWorkout';
 import { useWorkoutSections } from '@/hooks/home/useWorkoutSections';
 import { useActivityPatterns } from '@/hooks/home/useActivityPatterns';
 import { useWellness } from '@/hooks/fitness';
-import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, formatDuration } from '@/lib';
+import {
+  getFormZone,
+  FORM_ZONE_COLORS,
+  FORM_ZONE_LABELS,
+  formatDuration,
+  formatDurationHuman,
+} from '@/lib';
 import { WorkoutStepBar } from './WorkoutStepBar';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 import type { CalendarEvent } from '@/types';
 import type { WorkoutSection } from '@/hooks/home/useWorkoutSections';
 import type { ActivityPattern } from '@/types';
 
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_NAMES_PLURAL = [
+  'Mondays',
+  'Tuesdays',
+  'Wednesdays',
+  'Thursdays',
+  'Fridays',
+  'Saturdays',
+  'Sundays',
+];
 
 /**
  * Routes page banner showing today's context: planned workout, activity patterns, or readiness.
@@ -122,16 +136,16 @@ const PatternCard = React.memo(function PatternCard({
   isDark: boolean;
 }) {
   const sportLabel = pattern.sportType === 'Run' ? 'run' : 'ride';
-  const dayName = DAY_NAMES[pattern.primaryDay] ?? '';
+  const dayName = DAY_NAMES_PLURAL[pattern.primaryDay] ?? '';
 
   return (
     <View style={styles.patternCard}>
       <Text style={[styles.patternText, isDark && styles.textLight]}>
-        {dayName}s you usually {sportLabel} ~{formatDuration(pattern.avgDurationSecs)}
+        {dayName} you usually {sportLabel} ~{formatDurationHuman(pattern.avgDurationSecs)}
       </Text>
       {pattern.avgTss > 0 && (
         <Text style={[styles.workoutMeta, isDark && styles.textMuted]}>
-          ~{Math.round(pattern.avgTss)} TSS \u00B7 {pattern.activityCount} activities
+          ~{Math.round(pattern.avgTss)} TSS {'\u00B7'} {pattern.activityCount} activities
         </Text>
       )}
     </View>

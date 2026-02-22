@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { TodayBanner } from '@/components/routes/TodayBanner';
 import { InsightCard } from './InsightCard';
-import { InsightExplainerModal } from './InsightExplainerModal';
+import { InsightDetailSheet } from './InsightDetailSheet';
+import { PatternDetailSheet } from './PatternDetailSheet';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import type { Insight } from '@/types';
 
@@ -41,11 +42,19 @@ export const InsightsPanel = React.memo(function InsightsPanel({ insights }: Ins
           {t('insights.noInsights', 'No insights yet')}
         </Text>
       )}
-      <InsightExplainerModal
-        insight={selectedInsight}
-        visible={!!selectedInsight}
-        onClose={() => setSelectedInsight(null)}
-      />
+      {selectedInsight?.category === 'activity_pattern' ? (
+        <PatternDetailSheet
+          insight={selectedInsight}
+          visible={!!selectedInsight}
+          onClose={() => setSelectedInsight(null)}
+        />
+      ) : (
+        <InsightDetailSheet
+          insight={selectedInsight}
+          visible={!!selectedInsight}
+          onClose={() => setSelectedInsight(null)}
+        />
+      )}
     </View>
   );
 });

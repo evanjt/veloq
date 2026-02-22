@@ -10,8 +10,8 @@ import type { Insight } from '@/types';
 
 /**
  * Compute ranked insights from existing FFI data.
- * No new Rust FFI functions needed — uses:
- *   getPeriodStats (x2), getFtpTrend, getPaceTrend,
+ * No new Rust FFI functions needed -- uses:
+ *   getPeriodStats (x3), getFtpTrend, getPaceTrend,
  *   getSectionSummariesForSport, getSectionPerformances
  *
  * Performance budget: <100ms total computation.
@@ -60,6 +60,26 @@ export function useInsights(): {
       const currentPeriod = engine.getPeriodStats(toTs(startOfWeek), toTs(now));
       const previousPeriod = engine.getPeriodStats(toTs(startOfLastWeek), toTs(startOfWeek));
 
+      // 4-week chronic period for ACWR calculation
+      const fourWeeksAgo = new Date(startOfWeek);
+      fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+      const chronicPeriodRaw = engine.getPeriodStats(toTs(fourWeeksAgo), toTs(startOfWeek));
+      // Average per week: divide totals by 4
+      const chronicPeriod = chronicPeriodRaw
+        ? {
+            count: Math.round(chronicPeriodRaw.count / 4),
+            totalDuration: Number(chronicPeriodRaw.totalDuration) / 4,
+            totalDistance: chronicPeriodRaw.totalDistance / 4,
+            totalTss: chronicPeriodRaw.totalTss / 4,
+          }
+        : null;
+
+      // Rest day detection: check if today has any activities
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      const todayPeriod = engine.getPeriodStats(toTs(todayStart), toTs(now));
+      const isRestDay = !todayPeriod || todayPeriod.count === 0;
+
       // Get FTP and pace trends
       const ftpTrend = engine.getFtpTrend?.() ?? null;
       const paceTrend = engine.getPaceTrend?.('Run') ?? null;
@@ -105,7 +125,7 @@ export function useInsights(): {
           }
         }
       } catch {
-        // Section PR detection is optional - don't fail the whole hook
+        // Section PR detection is optional -- don't fail the whole hook
       }
 
       // Find peak CTL from wellness data
@@ -152,6 +172,26 @@ export function useInsights(): {
         (a, b) => b.traversalCount - a.traversalCount
       );
 
+      // 7-day wellness window for new generators
+      const wellnessWindow = (wellnessData ?? [])
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .slice(-7)
+        .map((w) => ({
+          date: w.id,
+          hrv: w.hrv ?? undefined,
+          restingHR: w.restingHR ?? undefined,
+          sleepSecs: w.sleepSecs ?? undefined,
+          ctl: w.ctl ?? w.ctlLoad ?? undefined,
+          atl: w.atl ?? w.atlLoad ?? undefined,
+        }));
+
+      // Tomorrow's pattern prediction
+      const tomorrowDayJs = (now.getDay() + 1) % 7; // 0=Sun JS convention
+      const tomorrowDayMon = tomorrowDayJs === 0 ? 6 : tomorrowDayJs - 1; // Convert to 0=Mon
+      const tomorrowPattern =
+        (allPatterns ?? []).find((p) => p.primaryDay === tomorrowDayMon && p.confidence >= 0.6) ??
+        null;
+
       // Convert FFI bigint fields to number for generateInsights
       const toPeriod = (p: typeof currentPeriod) =>
         p
@@ -177,6 +217,20 @@ export function useInsights(): {
           formAtl: atl > 0 ? atl : null,
           peakCtl,
           currentCtl: ctl > 0 ? ctl : null,
+          wellnessWindow,
+          chronicPeriod,
+          rampRate: latestWellness?.rampRate ?? null,
+          isRestDay,
+          allSectionTrends: sectionTrends,
+          tomorrowPattern: tomorrowPattern
+            ? {
+                sportType: tomorrowPattern.sportType,
+                primaryDay: tomorrowPattern.primaryDay,
+                avgDurationSecs: tomorrowPattern.avgDurationSecs,
+                confidence: tomorrowPattern.confidence,
+                activityCount: tomorrowPattern.activityCount,
+              }
+            : null,
         },
         t as (key: string, params?: Record<string, string | number>) => string
       );
@@ -186,7 +240,7 @@ export function useInsights(): {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trigger, todayPattern, allPatterns, wellnessData, tsb, ctl, atl, latestWellness, t]);
 
-  // Stabilise reference — only update when insight IDs actually change
+  // Stabilise reference -- only update when insight IDs actually change
   const prevInsightsRef = useRef<Insight[]>([]);
   const stableInsights = useMemo(() => {
     const prevIds = prevInsightsRef.current.map((i) => i.id).join(',');
