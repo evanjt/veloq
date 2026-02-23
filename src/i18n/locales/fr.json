@@ -578,12 +578,12 @@
       "sweetSpot": "Zone optimale d'entraînement",
       "highLoad": "Zone de charge élevée",
       "spikeRisk": "Risque de pic de blessure",
-      "undertrainedBody": "Votre ratio aigu:chronique est {{ratio}}. La charge d'entraînement est en dessous de votre référence établie (< 0.8). Envisagez d'augmenter le volume progressivement.",
-      "sweetSpotBody": "Votre ratio aigu:chronique est {{ratio}}. La charge d'entraînement est bien équilibrée par rapport à votre historique récent (0.8 - 1.3).",
-      "highLoadBody": "Votre ratio aigu:chronique est {{ratio}}. La charge d'entraînement est élevée au-dessus de votre référence (1.3 - 1.5). Surveillez les symptômes de surmenage.",
-      "spikeRiskBody": "Votre ratio aigu:chronique est {{ratio}}. La charge d'entraînement a fortement augmenté (> 1.5). Risque élevé de blessure — réduisez la charge.",
-      "selectedReasoning": "Votre ACWR de {{ratio}} se situe dans la zone {{zone}} ({{min}} - {{max}})",
-      "notSelectedReasoning": "Votre ACWR de {{ratio}} est en dehors de la zone {{zone}} ({{min}} - {{max}})"
+      "undertrainedBody": "Votre ratio aigu:chronique est {{acwr}}. La charge d'entraînement est en dessous de votre référence établie (< 0.8). Envisagez d'augmenter le volume progressivement.",
+      "sweetSpotBody": "Votre ratio aigu:chronique est {{acwr}}. La charge d'entraînement est bien équilibrée par rapport à votre historique récent (0.8 - 1.3).",
+      "highLoadBody": "Votre ratio aigu:chronique est {{acwr}}. La charge d'entraînement est élevée au-dessus de votre référence (1.3 - 1.5). Surveillez les symptômes de surmenage.",
+      "spikeRiskBody": "Votre ratio aigu:chronique est {{acwr}}. La charge d'entraînement a fortement augmenté (> 1.5). Risque élevé de blessure — réduisez la charge.",
+      "selectedReasoning": "Votre ACWR de {{acwr}} se situe dans la zone {{zone}} ({{min}} - {{max}})",
+      "notSelectedReasoning": "Votre ACWR de {{acwr}} est en dehors de la zone {{zone}} ({{min}} - {{max}})"
     },
     "monotony": {
       "highMonotony": "Entraînement trop répétitif",

@@ -592,12 +592,12 @@
       "sweetSpot": "Training sweet spot",
       "highLoad": "Hoge belastingszone",
       "spikeRisk": "Blessurerisico door piek",
-      "undertrainedBody": "Je acute:chronische ratio is {{ratio}}. Trainingsbelasting ligt onder je vastgestelde basislijn (< 0,8). Overweeg het volume geleidelijk te verhogen.",
-      "sweetSpotBody": "Je acute:chronische ratio is {{ratio}}. Trainingsbelasting is goed in balans met je recente historie (0,8 - 1,3).",
-      "highLoadBody": "Je acute:chronische ratio is {{ratio}}. Trainingsbelasting is verhoogd boven je basislijn (1,3 - 1,5). Let op overbelastingssymptomen.",
-      "spikeRiskBody": "Je acute:chronische ratio is {{ratio}}. Trainingsbelasting is sterk gestegen (> 1,5). Hoog blessurerisico - verlaag de belasting.",
-      "selectedReasoning": "Je ACWR van {{ratio}} valt in de {{zone}} zone ({{min}} - {{max}})",
-      "notSelectedReasoning": "Je ACWR van {{ratio}} valt buiten de {{zone}} zone ({{min}} - {{max}})"
+      "undertrainedBody": "Je acute:chronische ratio is {{acwr}}. Trainingsbelasting ligt onder je vastgestelde basislijn (< 0,8). Overweeg het volume geleidelijk te verhogen.",
+      "sweetSpotBody": "Je acute:chronische ratio is {{acwr}}. Trainingsbelasting is goed in balans met je recente historie (0,8 - 1,3).",
+      "highLoadBody": "Je acute:chronische ratio is {{acwr}}. Trainingsbelasting is verhoogd boven je basislijn (1,3 - 1,5). Let op overbelastingssymptomen.",
+      "spikeRiskBody": "Je acute:chronische ratio is {{acwr}}. Trainingsbelasting is sterk gestegen (> 1,5). Hoog blessurerisico - verlaag de belasting.",
+      "selectedReasoning": "Je ACWR van {{acwr}} valt in de {{zone}} zone ({{min}} - {{max}})",
+      "notSelectedReasoning": "Je ACWR van {{acwr}} valt buiten de {{zone}} zone ({{min}} - {{max}})"
     },
     "monotony": {
       "highMonotony": "Training te eentonig",

@@ -578,12 +578,12 @@
       "sweetSpot": "Zona ideal de treino",
       "highLoad": "Zona de carga elevada",
       "spikeRisk": "Risco de lesão por pico",
-      "selectedReasoning": "Seu ACWR de {{ratio}} está na zona {{zone}} ({{min}} - {{max}})",
-      "notSelectedReasoning": "Seu ACWR de {{ratio}} está fora da zona {{zone}} ({{min}} - {{max}})",
-      "undertrainedBody": "Sua razão agudo:crônico é {{ratio}}. A carga de treino está abaixo da sua linha de base estabelecida (< 0.8). Considere aumentar o volume gradualmente.",
-      "sweetSpotBody": "Sua razão agudo:crônico é {{ratio}}. A carga de treino está bem equilibrada com seu histórico recente (0.8 - 1.3).",
-      "highLoadBody": "Sua razão agudo:crônico é {{ratio}}. A carga de treino está elevada acima da sua linha de base (1.3 - 1.5). Monitore sinais de sobrecarga.",
-      "spikeRiskBody": "Sua razão agudo:crônico é {{ratio}}. A carga de treino teve um pico significativo (> 1.5). Alto risco de lesão - reduza a carga."
+      "selectedReasoning": "Seu ACWR de {{acwr}} está na zona {{zone}} ({{min}} - {{max}})",
+      "notSelectedReasoning": "Seu ACWR de {{acwr}} está fora da zona {{zone}} ({{min}} - {{max}})",
+      "undertrainedBody": "Sua razão agudo:crônico é {{acwr}}. A carga de treino está abaixo da sua linha de base estabelecida (< 0.8). Considere aumentar o volume gradualmente.",
+      "sweetSpotBody": "Sua razão agudo:crônico é {{acwr}}. A carga de treino está bem equilibrada com seu histórico recente (0.8 - 1.3).",
+      "highLoadBody": "Sua razão agudo:crônico é {{acwr}}. A carga de treino está elevada acima da sua linha de base (1.3 - 1.5). Monitore sinais de sobrecarga.",
+      "spikeRiskBody": "Sua razão agudo:crônico é {{acwr}}. A carga de treino teve um pico significativo (> 1.5). Alto risco de lesão - reduza a carga."
     },
     "monotony": {
       "moderate": "Variedade moderada de treino",

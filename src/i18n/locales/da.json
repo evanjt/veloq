@@ -592,12 +592,12 @@
       "sweetSpot": "Træningens sweet spot",
       "highLoad": "Høj belastningszone",
       "spikeRisk": "Risiko for skadespidser",
-      "undertrainedBody": "Dit akutte:kroniske forhold er {{ratio}}. Træningsbelastningen er under din etablerede baseline (< 0,8). Overvej at øge volumen gradvist.",
-      "sweetSpotBody": "Dit akutte:kroniske forhold er {{ratio}}. Træningsbelastningen er godt balanceret mod din nylige historik (0,8 - 1,3).",
-      "highLoadBody": "Dit akutte:kroniske forhold er {{ratio}}. Træningsbelastningen er forhøjet over din baseline (1,3 - 1,5). Hold øje med overbelastningssymptomer.",
-      "spikeRiskBody": "Dit akutte:kroniske forhold er {{ratio}}. Træningsbelastningen er steget markant (> 1,5). Høj skaderisiko — reducér belastningen.",
-      "selectedReasoning": "Din ACWR på {{ratio}} ligger i {{zone}}-zonen ({{min}} - {{max}})",
-      "notSelectedReasoning": "Din ACWR på {{ratio}} er uden for {{zone}}-zonen ({{min}} - {{max}})"
+      "undertrainedBody": "Dit akutte:kroniske forhold er {{acwr}}. Træningsbelastningen er under din etablerede baseline (< 0,8). Overvej at øge volumen gradvist.",
+      "sweetSpotBody": "Dit akutte:kroniske forhold er {{acwr}}. Træningsbelastningen er godt balanceret mod din nylige historik (0,8 - 1,3).",
+      "highLoadBody": "Dit akutte:kroniske forhold er {{acwr}}. Træningsbelastningen er forhøjet over din baseline (1,3 - 1,5). Hold øje med overbelastningssymptomer.",
+      "spikeRiskBody": "Dit akutte:kroniske forhold er {{acwr}}. Træningsbelastningen er steget markant (> 1,5). Høj skaderisiko — reducér belastningen.",
+      "selectedReasoning": "Din ACWR på {{acwr}} ligger i {{zone}}-zonen ({{min}} - {{max}})",
+      "notSelectedReasoning": "Din ACWR på {{acwr}} er uden for {{zone}}-zonen ({{min}} - {{max}})"
     },
     "monotony": {
       "highMonotony": "Træning for ensformig",

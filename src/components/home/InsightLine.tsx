@@ -10,7 +10,7 @@ import type { Insight } from '@/types';
 
 const ROTATION_INTERVAL = 8000;
 const FADE_DURATION = 300;
-const MAX_DISPLAY = 3;
+const MAX_DISPLAY = 5;
 
 interface InsightLineProps {
   insights: Insight[];
@@ -53,11 +53,9 @@ export const InsightLine = React.memo(function InsightLine({ insights }: Insight
   }));
 
   const handlePress = useCallback(() => {
-    const insight = displayInsights[currentIndex];
-    if (insight) {
-      router.push((insight.navigationTarget ?? '/routes') as Href);
-    }
-  }, [displayInsights, currentIndex]);
+    // Always navigate to insights tab — detail navigation happens from there
+    router.push('/(tabs)/routes' as Href);
+  }, []);
 
   if (displayInsights.length === 0) return null;
 

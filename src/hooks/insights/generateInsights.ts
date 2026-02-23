@@ -879,17 +879,30 @@ function addFormAdviceInsight(
   const zoneEntries = Object.entries(FORM_ZONES) as Array<
     [string, { min: number; color: string; key: string }]
   >;
+  // Compute max for each zone (the min of the previous zone in order)
+  const zoneMaxes: Record<string, number> = {
+    fresh: Infinity,
+    grey: 15,
+    optimal: 5,
+    tired: -10,
+    overreaching: -30,
+  };
   const alternatives: InsightAlternative[] = zoneEntries.map(([, z]) => {
     const isSelected = z.key === zone.key;
+    const zMin = z.min === -Infinity ? '<-30' : String(z.min);
+    const zMax = zoneMaxes[z.key] === Infinity ? '+' : String(zoneMaxes[z.key]);
     const reasoning = isSelected
       ? t('insights.formAlternatives.selectedReasoning', {
           tsb: Math.round(formTsb),
           zone: t(`insights.formAdvice.${z.key}`),
+          min: zMin,
+          max: zMax,
         })
       : t('insights.formAlternatives.notSelectedReasoning', {
           tsb: Math.round(formTsb),
           zone: t(`insights.formAdvice.${z.key}`),
-          threshold: z.min === -Infinity ? '<-30' : `>${z.min}`,
+          min: zMin,
+          max: zMax,
         });
 
     return {
@@ -900,7 +913,7 @@ function addFormAdviceInsight(
       thresholds: [
         {
           label: t('insights.data.tsbRange'),
-          value: z.min === -Infinity ? '<-30' : `>${z.min}`,
+          value: `${zMin} to ${zMax}`,
         },
       ],
     };
@@ -1039,6 +1052,8 @@ function addRecoveryReadinessInsight(
             tsb: Math.round(tsb),
           })
         : t('insights.recovery.notSelectedReasoning', {
+            deviation: deviationPercent,
+            tsb: Math.round(tsb),
             zone: t(`insights.recovery.${state.key}`),
           }),
   }));
@@ -1160,8 +1175,14 @@ function addAcwrInsight(insights: Insight[], data: InsightInputData, now: number
     isSelected: idx === selectedIdx,
     reasoning:
       idx === selectedIdx
-        ? t('insights.acwr.selectedReasoning', { acwr: acwr.toFixed(2) })
+        ? t('insights.acwr.selectedReasoning', {
+            acwr: acwr.toFixed(2),
+            zone: t(`insights.acwr.${zone.key}`),
+            min: zone.min.toFixed(1),
+            max: zone.max === Infinity ? '+' : zone.max.toFixed(1),
+          })
         : t('insights.acwr.notSelectedReasoning', {
+            acwr: acwr.toFixed(2),
             zone: t(`insights.acwr.${zone.key}`),
             min: zone.min.toFixed(1),
             max: zone.max === Infinity ? '+' : zone.max.toFixed(1),
@@ -1503,8 +1524,14 @@ function addRampRateInsight(
     isSelected: idx === selectedIdx,
     reasoning:
       idx === selectedIdx
-        ? t('insights.rampRate.selectedReasoning', { rate: rampRate.toFixed(1) })
+        ? t('insights.rampRate.selectedReasoning', {
+            rate: rampRate.toFixed(1),
+            zone: t(`insights.rampRate.${zone.key}`),
+            min: zone.min === -Infinity ? '-' : zone.min.toFixed(0),
+            max: zone.max === Infinity ? '+' : zone.max.toFixed(0),
+          })
         : t('insights.rampRate.notSelectedReasoning', {
+            rate: rampRate.toFixed(1),
             zone: t(`insights.rampRate.${zone.key}`),
             min: zone.min === -Infinity ? '-' : zone.min.toFixed(0),
             max: zone.max === Infinity ? '+' : zone.max.toFixed(0),

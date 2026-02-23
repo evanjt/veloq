@@ -578,12 +578,12 @@
       "sweetSpot": "训练甜区",
       "highLoad": "高负荷区",
       "spikeRisk": "受伤峰值风险",
-      "selectedReasoning": "你的 ACWR 为 {{ratio}}，处于 {{zone}} 区间 ({{min}} - {{max}})",
-      "notSelectedReasoning": "你的 ACWR 为 {{ratio}}，不在 {{zone}} 区间内 ({{min}} - {{max}})",
-      "undertrainedBody": "你的急性:慢性比率为 {{ratio}}。训练负荷低于已建立的基线 (< 0.8)。考虑逐步增加训练量。",
-      "sweetSpotBody": "你的急性:慢性比率为 {{ratio}}。训练负荷与近期历史很好地平衡 (0.8 - 1.3)。",
-      "highLoadBody": "你的急性:慢性比率为 {{ratio}}。训练负荷高于基线 (1.3 - 1.5)。注意过度使用的症状。",
-      "spikeRiskBody": "你的急性:慢性比率为 {{ratio}}。训练负荷大幅飙升 (> 1.5)。受伤风险高 - 请降低负荷。"
+      "selectedReasoning": "你的 ACWR 为 {{acwr}}，处于 {{zone}} 区间 ({{min}} - {{max}})",
+      "notSelectedReasoning": "你的 ACWR 为 {{acwr}}，不在 {{zone}} 区间内 ({{min}} - {{max}})",
+      "undertrainedBody": "你的急性:慢性比率为 {{acwr}}。训练负荷低于已建立的基线 (< 0.8)。考虑逐步增加训练量。",
+      "sweetSpotBody": "你的急性:慢性比率为 {{acwr}}。训练负荷与近期历史很好地平衡 (0.8 - 1.3)。",
+      "highLoadBody": "你的急性:慢性比率为 {{acwr}}。训练负荷高于基线 (1.3 - 1.5)。注意过度使用的症状。",
+      "spikeRiskBody": "你的急性:慢性比率为 {{acwr}}。训练负荷大幅飙升 (> 1.5)。受伤风险高 - 请降低负荷。"
     },
     "monotony": {
       "moderate": "训练变化适中",

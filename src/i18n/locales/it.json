@@ -578,12 +578,12 @@
       "sweetSpot": "Punto ottimale di allenamento",
       "highLoad": "Zona di carico elevato",
       "spikeRisk": "Rischio di picco infortunio",
-      "undertrainedBody": "Il tuo rapporto acuto:cronico è {{ratio}}. Il carico di allenamento è sotto la tua linea base stabilita (< 0.8). Considera di aumentare gradualmente il volume.",
-      "sweetSpotBody": "Il tuo rapporto acuto:cronico è {{ratio}}. Il carico di allenamento è ben bilanciato rispetto alla tua storia recente (0.8 - 1.3).",
-      "highLoadBody": "Il tuo rapporto acuto:cronico è {{ratio}}. Il carico di allenamento è elevato sopra la tua linea base (1.3 - 1.5). Monitora i sintomi di sovraccarico.",
-      "spikeRiskBody": "Il tuo rapporto acuto:cronico è {{ratio}}. Il carico di allenamento è aumentato significativamente (> 1.5). Alto rischio di infortunio — riduci il carico.",
-      "selectedReasoning": "Il tuo ACWR di {{ratio}} si trova nella zona {{zone}} ({{min}} - {{max}})",
-      "notSelectedReasoning": "Il tuo ACWR di {{ratio}} è fuori dalla zona {{zone}} ({{min}} - {{max}})"
+      "undertrainedBody": "Il tuo rapporto acuto:cronico è {{acwr}}. Il carico di allenamento è sotto la tua linea base stabilita (< 0.8). Considera di aumentare gradualmente il volume.",
+      "sweetSpotBody": "Il tuo rapporto acuto:cronico è {{acwr}}. Il carico di allenamento è ben bilanciato rispetto alla tua storia recente (0.8 - 1.3).",
+      "highLoadBody": "Il tuo rapporto acuto:cronico è {{acwr}}. Il carico di allenamento è elevato sopra la tua linea base (1.3 - 1.5). Monitora i sintomi di sovraccarico.",
+      "spikeRiskBody": "Il tuo rapporto acuto:cronico è {{acwr}}. Il carico di allenamento è aumentato significativamente (> 1.5). Alto rischio di infortunio — riduci il carico.",
+      "selectedReasoning": "Il tuo ACWR di {{acwr}} si trova nella zona {{zone}} ({{min}} - {{max}})",
+      "notSelectedReasoning": "Il tuo ACWR di {{acwr}} è fuori dalla zona {{zone}} ({{min}} - {{max}})"
     },
     "monotony": {
       "highMonotony": "Allenamento troppo ripetitivo",

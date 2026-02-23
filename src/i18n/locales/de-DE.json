@@ -592,12 +592,12 @@
       "sweetSpot": "Trainings-Sweet-Spot",
       "highLoad": "Hohe Belastungszone",
       "spikeRisk": "Verletzungsrisiko durch Belastungsspitze",
-      "undertrainedBody": "Dein Akut:Chronisch-Verhältnis beträgt {{ratio}}. Die Trainingsbelastung liegt unter deiner etablierten Baseline (< 0,8). Erwäge das Volumen schrittweise zu erhöhen.",
-      "sweetSpotBody": "Dein Akut:Chronisch-Verhältnis beträgt {{ratio}}. Die Trainingsbelastung ist gut ausbalanciert zu deiner jüngsten Historie (0,8 - 1,3).",
-      "highLoadBody": "Dein Akut:Chronisch-Verhältnis beträgt {{ratio}}. Die Trainingsbelastung ist erhöht über deiner Baseline (1,3 - 1,5). Achte auf Überlastungssymptome.",
-      "spikeRiskBody": "Dein Akut:Chronisch-Verhältnis beträgt {{ratio}}. Die Trainingsbelastung ist deutlich gestiegen (> 1,5). Hohes Verletzungsrisiko — Belastung reduzieren.",
-      "selectedReasoning": "Dein ACWR von {{ratio}} liegt in der {{zone}}-Zone ({{min}} - {{max}})",
-      "notSelectedReasoning": "Dein ACWR von {{ratio}} liegt außerhalb der {{zone}}-Zone ({{min}} - {{max}})"
+      "undertrainedBody": "Dein Akut:Chronisch-Verhältnis beträgt {{acwr}}. Die Trainingsbelastung liegt unter deiner etablierten Baseline (< 0,8). Erwäge das Volumen schrittweise zu erhöhen.",
+      "sweetSpotBody": "Dein Akut:Chronisch-Verhältnis beträgt {{acwr}}. Die Trainingsbelastung ist gut ausbalanciert zu deiner jüngsten Historie (0,8 - 1,3).",
+      "highLoadBody": "Dein Akut:Chronisch-Verhältnis beträgt {{acwr}}. Die Trainingsbelastung ist erhöht über deiner Baseline (1,3 - 1,5). Achte auf Überlastungssymptome.",
+      "spikeRiskBody": "Dein Akut:Chronisch-Verhältnis beträgt {{acwr}}. Die Trainingsbelastung ist deutlich gestiegen (> 1,5). Hohes Verletzungsrisiko — Belastung reduzieren.",
+      "selectedReasoning": "Dein ACWR von {{acwr}} liegt in der {{zone}}-Zone ({{min}} - {{max}})",
+      "notSelectedReasoning": "Dein ACWR von {{acwr}} liegt außerhalb der {{zone}}-Zone ({{min}} - {{max}})"
     },
     "monotony": {
       "highMonotony": "Training zu eintönig",

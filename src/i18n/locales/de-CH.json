@@ -578,12 +578,12 @@
       "sweetSpot": "Training-Sweet-Spot",
       "highLoad": "Hohi Belastig",
       "spikeRisk": "Verletzigsgfahr!",
-      "undertrainedBody": "Dis Akut:Chronisch-Verhältnis isch {{ratio}}. D Trainingsbelastig isch under dim Grundniveau (< 0.8). Überleg der langsam meh z mache.",
-      "sweetSpotBody": "Dis Akut:Chronisch-Verhältnis isch {{ratio}}. D Trainingsbelastig isch guet balanciert gäge dini letschti Gschicht (0.8 - 1.3).",
-      "highLoadBody": "Dis Akut:Chronisch-Verhältnis isch {{ratio}}. D Trainingsbelastig isch höcher als din Grundwert (1.3 - 1.5). Pass uf Überbelastigssymptom uf.",
-      "spikeRiskBody": "Dis Akut:Chronisch-Verhältnis isch {{ratio}}. D Trainingsbelastig isch cheibe ufegange (> 1.5). Hohes Verletzungsrisiko — Belastig reduziere!",
-      "selectedReasoning": "Din ACWR vo {{ratio}} isch i de {{zone}}-Zone ({{min}} - {{max}})",
-      "notSelectedReasoning": "Din ACWR vo {{ratio}} isch usserhalb vo de {{zone}}-Zone ({{min}} - {{max}})"
+      "undertrainedBody": "Dis Akut:Chronisch-Verhältnis isch {{acwr}}. D Trainingsbelastig isch under dim Grundniveau (< 0.8). Überleg der langsam meh z mache.",
+      "sweetSpotBody": "Dis Akut:Chronisch-Verhältnis isch {{acwr}}. D Trainingsbelastig isch guet balanciert gäge dini letschti Gschicht (0.8 - 1.3).",
+      "highLoadBody": "Dis Akut:Chronisch-Verhältnis isch {{acwr}}. D Trainingsbelastig isch höcher als din Grundwert (1.3 - 1.5). Pass uf Überbelastigssymptom uf.",
+      "spikeRiskBody": "Dis Akut:Chronisch-Verhältnis isch {{acwr}}. D Trainingsbelastig isch cheibe ufegange (> 1.5). Hohes Verletzungsrisiko — Belastig reduziere!",
+      "selectedReasoning": "Din ACWR vo {{acwr}} isch i de {{zone}}-Zone ({{min}} - {{max}})",
+      "notSelectedReasoning": "Din ACWR vo {{acwr}} isch usserhalb vo de {{zone}}-Zone ({{min}} - {{max}})"
     },
     "monotony": {
       "highMonotony": "Training z eintönig",

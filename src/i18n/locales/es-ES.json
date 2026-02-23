@@ -575,15 +575,15 @@
     "change": "Cambio",
     "acwr": {
       "undertrained": "Subentrenado",
-      "undertrainedBody": "Vuestro ratio agudo:crónico es {{ratio}}. La carga de entrenamiento está por debajo de vuestra línea base establecida (< 0.8). Considerad aumentar el volumen gradualmente.",
+      "undertrainedBody": "Vuestro ratio agudo:crónico es {{acwr}}. La carga de entrenamiento está por debajo de vuestra línea base establecida (< 0.8). Considerad aumentar el volumen gradualmente.",
       "sweetSpot": "Punto óptimo de entrenamiento",
-      "sweetSpotBody": "Vuestro ratio agudo:crónico es {{ratio}}. La carga de entrenamiento está bien equilibrada con vuestro historial reciente (0.8 - 1.3).",
+      "sweetSpotBody": "Vuestro ratio agudo:crónico es {{acwr}}. La carga de entrenamiento está bien equilibrada con vuestro historial reciente (0.8 - 1.3).",
       "highLoad": "Zona de carga alta",
-      "highLoadBody": "Vuestro ratio agudo:crónico es {{ratio}}. La carga de entrenamiento está elevada por encima de vuestra línea base (1.3 - 1.5). Vigilad síntomas de sobreuso.",
+      "highLoadBody": "Vuestro ratio agudo:crónico es {{acwr}}. La carga de entrenamiento está elevada por encima de vuestra línea base (1.3 - 1.5). Vigilad síntomas de sobreuso.",
       "spikeRisk": "Riesgo de lesión por pico",
-      "spikeRiskBody": "Vuestro ratio agudo:crónico es {{ratio}}. La carga de entrenamiento ha subido bruscamente (> 1.5). Alto riesgo de lesión - reducid la carga.",
-      "selectedReasoning": "Vuestro ACWR de {{ratio}} está en la zona {{zone}} ({{min}} - {{max}})",
-      "notSelectedReasoning": "Vuestro ACWR de {{ratio}} está fuera de la zona {{zone}} ({{min}} - {{max}})"
+      "spikeRiskBody": "Vuestro ratio agudo:crónico es {{acwr}}. La carga de entrenamiento ha subido bruscamente (> 1.5). Alto riesgo de lesión - reducid la carga.",
+      "selectedReasoning": "Vuestro ACWR de {{acwr}} está en la zona {{zone}} ({{min}} - {{max}})",
+      "notSelectedReasoning": "Vuestro ACWR de {{acwr}} está fuera de la zona {{zone}} ({{min}} - {{max}})"
     },
     "monotony": {
       "highMonotony": "Entrenamiento demasiado repetitivo",

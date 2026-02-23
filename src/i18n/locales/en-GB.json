@@ -592,12 +592,12 @@
       "sweetSpot": "Training sweet spot",
       "highLoad": "High load zone",
       "spikeRisk": "Injury spike risk",
-      "undertrainedBody": "Your acute:chronic ratio is {{ratio}}. Training load is below your established baseline (< 0.8). Consider increasing volume gradually.",
-      "sweetSpotBody": "Your acute:chronic ratio is {{ratio}}. Training load is well balanced against your recent history (0.8 - 1.3).",
-      "highLoadBody": "Your acute:chronic ratio is {{ratio}}. Training load is elevated above your baseline (1.3 - 1.5). Monitor for overuse symptoms.",
-      "spikeRiskBody": "Your acute:chronic ratio is {{ratio}}. Training load has spiked significantly (> 1.5). High injury risk - reduce load.",
-      "selectedReasoning": "Your ACWR of {{ratio}} falls in the {{zone}} zone ({{min}} - {{max}})",
-      "notSelectedReasoning": "Your ACWR of {{ratio}} is outside the {{zone}} zone ({{min}} - {{max}})"
+      "undertrainedBody": "Your acute:chronic ratio is {{acwr}}. Training load is below your established baseline (< 0.8). Consider increasing volume gradually.",
+      "sweetSpotBody": "Your acute:chronic ratio is {{acwr}}. Training load is well balanced against your recent history (0.8 - 1.3).",
+      "highLoadBody": "Your acute:chronic ratio is {{acwr}}. Training load is elevated above your baseline (1.3 - 1.5). Monitor for overuse symptoms.",
+      "spikeRiskBody": "Your acute:chronic ratio is {{acwr}}. Training load has spiked significantly (> 1.5). High injury risk - reduce load.",
+      "selectedReasoning": "Your ACWR of {{acwr}} falls in the {{zone}} zone ({{min}} - {{max}})",
+      "notSelectedReasoning": "Your ACWR of {{acwr}} is outside the {{zone}} zone ({{min}} - {{max}})"
     },
     "monotony": {
       "highMonotony": "Training too repetitive",
