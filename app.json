@@ -42,6 +42,9 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
         "ACCESS_NETWORK_STATE",
         "ACCESS_WIFI_STATE",
         "INTERNET",
@@ -67,6 +70,13 @@
         }
       ],
       "expo-localization",
+      [
+        "expo-location",
+        {
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
       "@maplibre/maplibre-react-native",
       "expo-web-browser",
       "expo-secure-store",

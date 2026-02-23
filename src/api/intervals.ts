@@ -18,6 +18,9 @@ import type {
   ActivityMapData,
   RawStreamItem,
   IntervalsDTO,
+  UploadResponse,
+  ManualActivityData,
+  CalendarEvent,
 } from '@/types';
 
 // Check if we're in demo mode
@@ -359,6 +362,83 @@ export const intervalsApi = {
       start: params.start,
       end: params.end,
       weeks: response.data.length,
+    });
+    return response.data;
+  },
+
+  /**
+   * Upload a FIT/GPX/TCX file to create a new activity
+   * Uses multipart/form-data for file upload
+   */
+  async uploadActivity(
+    file: ArrayBuffer,
+    filename: string,
+    opts?: { name?: string; pairedEventId?: number }
+  ): Promise<UploadResponse> {
+    if (isDemoMode()) {
+      return {
+        id: `demo-${Date.now()}`,
+        name: opts?.name || filename,
+        type: 'Ride',
+        start_date_local: new Date().toISOString(),
+      };
+    }
+    const athleteId = getAthleteId();
+    const formData = new FormData();
+    const blob = new Blob([file], { type: 'application/octet-stream' });
+    formData.append('file', blob, filename);
+    if (opts?.name) formData.append('name', opts.name);
+    if (opts?.pairedEventId) formData.append('paired_event_id', String(opts.pairedEventId));
+
+    const response = await apiClient.post(`/athlete/${athleteId}/activities`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
+    });
+    return response.data;
+  },
+
+  /**
+   * Create a manual activity (no file upload)
+   * For activities like WeightTraining, Yoga, etc.
+   */
+  async createManualActivity(data: ManualActivityData): Promise<UploadResponse> {
+    if (isDemoMode()) {
+      return {
+        id: `demo-${Date.now()}`,
+        name: data.name,
+        type: data.type,
+        start_date_local: data.start_date_local,
+      };
+    }
+    const athleteId = getAthleteId();
+    const response = await apiClient.post(`/athlete/${athleteId}/activities`, {
+      ...data,
+      trainer: data.trainer ?? false,
+      commute: data.commute ?? false,
+    });
+    return response.data;
+  },
+
+  /**
+   * Update an existing activity (name, description, etc.)
+   */
+  async updateActivity(
+    id: string,
+    updates: { name?: string; description?: string; type?: string }
+  ): Promise<Activity> {
+    if (isDemoMode()) return {} as Activity;
+    const response = await apiClient.put(`/activity/${id}`, updates);
+    return response.data;
+  },
+
+  /**
+   * Get calendar events (planned workouts) for a date range
+   */
+  async getEvents(oldest: string, newest: string): Promise<CalendarEvent[]> {
+    if (isDemoMode()) return [];
+    const athleteId = getAthleteId();
+    const response = await apiClient.get<CalendarEvent[]>(`/athlete/${athleteId}/events`, {
+      params: { oldest, newest },
     });
     return response.data;
   },

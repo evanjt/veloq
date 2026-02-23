@@ -1036,6 +1036,103 @@ export interface TranslationResource {
     highRisk: string;
   };
 
+  recording: {
+    activityName: string;
+    activityType: string;
+    allActivities: string;
+    avgHr: string;
+    avgHrLabel: string;
+    avgPower: string;
+    avgSpeed: string;
+    backgroundPermission: string;
+    banner: {
+      returnToRecording: string;
+    };
+    categories: {
+      cycling: string;
+      gym: string;
+      other: string;
+      racket: string;
+      running: string;
+      swimming: string;
+      water: string;
+      winter: string;
+    };
+    continue: string;
+    controls: {
+      lap: string;
+      lock: string;
+      pause: string;
+      resume: string;
+      save: string;
+      stop: string;
+    };
+    discard: string;
+    discardConfirm: string;
+    discardMessage: string;
+    discardTitle: string;
+    distance: string;
+    duration: string;
+    durationLabel: string;
+    durationRequired: string;
+    elevation: string;
+    error: string;
+    fields: {
+      avgPace: string;
+      avgSpeed: string;
+      cadence: string;
+      calories: string;
+      distance: string;
+      elevation: string;
+      elevationGain: string;
+      heartrate: string;
+      lapDistance: string;
+      lapTime: string;
+      movingTime: string;
+      pace: string;
+      power: string;
+      speed: string;
+      timer: string;
+    };
+    lap: string;
+    manualDistance: string;
+    manualDuration: string;
+    manualHR: string;
+    notes: string;
+    notesPlaceholder: string;
+    paused: string;
+    permissionRequired: string;
+    quickStart: string;
+    rec: string;
+    recording: string;
+    review: string;
+    reviewActivity: string;
+    rpe: string;
+    saveAndUpload: string;
+    saveError: string;
+    saveForLater: string;
+    saved: string;
+    savedForLater: string;
+    savedOffline: string;
+    saving: string;
+    startActivity: string;
+    status: {
+      paused: string;
+      recording: string;
+    };
+    stop: string;
+    stopMessage: string;
+    stopTitle: string;
+    stopped: string;
+    summary: string;
+    summaryStats: string;
+    todaysWorkouts: string;
+    types: string;
+    uploadError: string;
+    uploadErrorMessage: string;
+    uploadSuccess: string;
+  };
+
   maps: {
     closeMap: string;
     toggleStyle: string;

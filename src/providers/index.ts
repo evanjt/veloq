@@ -85,3 +85,8 @@ export {
   type MetricPreference,
 } from './DashboardPreferencesStore';
 export { useDebugStore, isDebugEnabled, initializeDebugStore } from './DebugStore';
+export { useRecordingStore, getRecordingStatus } from './RecordingStore';
+export {
+  useRecordingPreferences,
+  initializeRecordingPreferences,
+} from './RecordingPreferencesStore';

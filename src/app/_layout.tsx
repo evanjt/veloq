@@ -36,12 +36,14 @@ import {
   initializeUnitPreference,
   initializeDashboardPreferences,
   initializeDebugStore,
+  initializeRecordingPreferences,
   useSyncDateRange,
 } from '@/providers';
 import { formatLocalDate } from '@/lib';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import { DemoBanner, GlobalDataSync, OfflineBanner, BottomTabBar } from '@/components/ui';
+import { RecordingBanner } from '@/components/recording/RecordingBanner';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
@@ -214,6 +216,7 @@ export default function RootLayout() {
         initializeDisabledSections(),
         initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
         initializeDebugStore(),
+        initializeRecordingPreferences(),
       ]);
     }
     initialize().finally(() => setAppReady(true));
@@ -251,6 +254,7 @@ export default function RootLayout() {
                 />
                 <AuthGate>
                   <OfflineBanner />
+                  <RecordingBanner />
                   <GlobalDataSync />
                   <DemoBanner />
                   <Stack

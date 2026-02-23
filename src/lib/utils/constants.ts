@@ -115,7 +115,7 @@ export const OAUTH = {
   /** App's deep link scheme */
   APP_SCHEME: 'veloq',
   /** OAuth scopes */
-  SCOPES: ['ACTIVITY:READ', 'WELLNESS:READ', 'CALENDAR:READ', 'SETTINGS:READ'],
+  SCOPES: ['ACTIVITY:READ', 'ACTIVITY:WRITE', 'WELLNESS:READ', 'CALENDAR:READ', 'SETTINGS:READ'],
 } as const;
 
 /**

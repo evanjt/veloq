@@ -74,6 +74,7 @@
     "expo-secure-store": "~15.0.8",
     "expo-sharing": "~14.0.8",
     "expo-status-bar": "~3.0.9",
+    "expo-task-manager": "^14.0.9",
     "expo-web-browser": "~15.0.10",
     "i18next": "^25.7.3",
     "intl-pluralrules": "^2.0.1",
