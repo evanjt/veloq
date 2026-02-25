@@ -9,9 +9,6 @@ use tracematch::GpsPoint;
 pub mod crud;
 pub mod ffi;
 
-// Re-export FFI functions
-pub use ffi::*;
-
 /// Section type discriminator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

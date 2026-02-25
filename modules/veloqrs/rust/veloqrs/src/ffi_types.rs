@@ -17,6 +17,13 @@ pub struct FfiBatchTrace {
     pub coords: Vec<f64>,
 }
 
+/// Section reference info: combines reference activity ID and user-defined flag.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionReferenceInfo {
+    pub activity_id: String,
+    pub is_user_defined: bool,
+}
+
 /// Lightweight map signature for rendering activity traces on the map.
 /// Contains simplified GPS points (max ~100 via Douglas-Peucker) as flat coords.
 #[derive(Debug, Clone, uniffi::Record)]
