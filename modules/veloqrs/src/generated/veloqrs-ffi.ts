@@ -23,16 +23,263 @@ interface NativeModuleInterface {
     buffer: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): string;
-  ubrn_uniffi_veloqrs_fn_init_callback_vtable_fetchprogresscallback(
-    vtable: UniffiVTableCallbackInterfaceFetchProgressCallback,
+  ubrn_uniffi_veloqrs_fn_clone_activitymanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_activitymanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
   ): void;
-  ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap(
-    coordsA: Uint8Array,
-    coordsB: Uint8Array,
-    thresholdMeters: number,
+  ubrn_uniffi_veloqrs_fn_constructor_activitymanager_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_add(
+    ptr: bigint,
+    activityIds: Uint8Array,
+    allCoords: Uint8Array,
+    offsets: Uint8Array,
+    sportTypes: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_debug_clone(
+    ptr: bigint,
+    sourceId: Uint8Array,
+    count: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
-  ubrn_uniffi_veloqrs_fn_func_create_section(
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_get_count(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_get_gps_track(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_get_ids(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_get_metrics_for_ids(
+    ptr: bigint,
+    ids: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_get_missing_time_streams(
+    ptr: bigint,
+    activityIds: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_remove(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_set_metrics(
+    ptr: bigint,
+    metrics: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_set_time_streams(
+    ptr: bigint,
+    activityIds: Uint8Array,
+    allTimes: Uint8Array,
+    offsets: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_clone_detectionmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_detectionmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_detectionmanager_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_detectionmanager_detect_potentials(
+    ptr: bigint,
+    sportFilter: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_progress(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_detectionmanager_poll(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_detectionmanager_start(
+    ptr: bigint,
+    sportFilter: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_clone_fitnessmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_fitnessmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_fitnessmanager_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap(
+    ptr: bigint,
+    startTs: bigint,
+    endTs: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_available_sport_types(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_ftp_trend(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_monthly_aggregates(
+    ptr: bigint,
+    year: number,
+    metric: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_trend(
+    ptr: bigint,
+    sportType: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats(
+    ptr: bigint,
+    startTs: bigint,
+    endTs: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_weekly_comparison(
+    ptr: bigint,
+    weekStartTs: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_zone_distribution(
+    ptr: bigint,
+    sportType: Uint8Array,
+    zoneType: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot(
+    ptr: bigint,
+    sportType: Uint8Array,
+    criticalSpeed: number,
+    dPrime: Uint8Array,
+    r2: Uint8Array,
+    date: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_clone_mapmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_mapmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_mapmanager_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_mapmanager_get_all_signatures(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_mapmanager_get_filtered(
+    ptr: bigint,
+    startDate: bigint,
+    endDate: bigint,
+    sportTypesJson: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_mapmanager_query_viewport(
+    ptr: bigint,
+    minLat: number,
+    maxLat: number,
+    minLng: number,
+    maxLng: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_clone_routemanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_routemanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_routemanager_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_get_all(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_get_all_names(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_get_by_id(
+    ptr: bigint,
+    groupId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_get_consensus_route(
+    ptr: bigint,
+    groupId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_get_count(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_get_performances(
+    ptr: bigint,
+    groupId: Uint8Array,
+    currentActivityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_get_screen_data(
+    ptr: bigint,
+    groupLimit: number,
+    groupOffset: number,
+    sectionLimit: number,
+    sectionOffset: number,
+    minGroupActivityCount: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_get_summaries(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_set_name(
+    ptr: bigint,
+    routeId: Uint8Array,
+    name: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_clone_sectionmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_sectionmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_sectionmanager_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_create(
+    ptr: bigint,
     sportType: Uint8Array,
     polylineJson: Uint8Array,
     distanceMeters: number,
@@ -42,22 +289,200 @@ interface NativeModuleInterface {
     endIndex: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_default_scale_presets(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_delete_section(
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_delete(
+    ptr: bigint,
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
-  ubrn_uniffi_veloqrs_fn_func_fetch_activity_maps(
-    authHeader: Uint8Array,
-    activityIds: Uint8Array,
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
+    ptr: bigint,
+    activityId: Uint8Array,
+    sectionPolylineJson: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_fetch_activity_maps_with_progress(
-    authHeader: Uint8Array,
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_extract_traces_batch(
+    ptr: bigint,
     activityIds: Uint8Array,
-    callback: bigint,
+    sectionPolylineJson: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_by_id(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_by_type(
+    ptr: bigint,
+    sectionType: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_calendar_summary(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_count(
+    ptr: bigint,
+    sectionType: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_for_activity(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_performances(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_polyline(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_reference_info(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_summaries(
+    ptr: bigint,
+    sportType: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_reset_reference(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_name(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    name: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_reference(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_clone_settingsmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_settingsmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_settingsmanager_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_athlete_profile(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
+    ptr: bigint,
+    json: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_sport_settings(
+    ptr: bigint,
+    json: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_clone_veloqengine(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_veloqengine(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_veloqengine_create(
+    dbPath: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_activities(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_cleanup_old_activities(
+    ptr: bigint,
+    retentionDays: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_clear(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_detection(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_fitness(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_get_stats(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_is_initialized(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_maps(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_mark_for_recomputation(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_routes(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_sections(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_set_name_translations(
+    ptr: bigint,
+    routeWord: Uint8Array,
+    sectionWord: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_settings(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap(
+    coordsA: Uint8Array,
+    coordsB: Uint8Array,
+    thresholdMeters: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_func_default_scale_presets(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_ffi_detect_sections_multiscale(
@@ -72,386 +497,133 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_get_download_progress(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_get_section_count(
-    sectionType: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_get_section_reference(
-    sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_get_sections(
-    sectionType: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_get_sections_for_activity(
-    activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_is_section_reference_user_defined(
-    sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_add_activities(
-    activityIds: Uint8Array,
-    allCoords: Uint8Array,
-    offsets: Uint8Array,
-    sportTypes: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_cleanup_old_activities(
-    retentionDays: number,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_clear(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_debug_clone_activity(
-    sourceId: Uint8Array,
-    count: number,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_detect_potentials(
-    sportFilter: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_extract_section_trace(
-    activityId: Uint8Array,
-    sectionPolylineJson: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_extract_section_traces_batch(
-    activityIds: Uint8Array,
-    sectionPolylineJson: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activities_missing_time_streams(
-    activityIds: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_count(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_heatmap(
-    startTs: bigint,
-    endTs: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_ids(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_activity_metrics_for_ids(
-    ids: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_activities_complete(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_map_signatures(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_route_names(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_all_section_names(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_athlete_profile(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_available_sport_types(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_consensus_route(
-    groupId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_ftp_trend(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_gps_track(
-    activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_group_by_id(
-    groupId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_group_count(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_group_summaries(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_groups(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_map_activities_filtered(
-    startDate: bigint,
-    endDate: bigint,
-    sportTypesJson: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_monthly_aggregates(
-    year: number,
-    metric: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_pace_trend(
-    sportType: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_period_stats(
-    startTs: bigint,
-    endTs: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_route_name(
-    routeId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_route_performances(
-    routeGroupId: Uint8Array,
-    currentActivityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_routes_screen_data(
-    groupLimit: number,
-    groupOffset: number,
-    sectionLimit: number,
-    sectionOffset: number,
-    minGroupActivityCount: number,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_by_id(
-    sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_calendar_summary(
-    sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_count(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_detection_progress(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_performances(
-    sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_polyline(
-    sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_summaries(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_section_summaries_for_sport(
-    sportType: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_sections(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_sport_settings(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_stats(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_weekly_comparison(
-    weekStartTs: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_get_zone_distribution(
-    sportType: Uint8Array,
-    zoneType: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_init(
-    dbPath: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_is_initialized(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_mark_for_recomputation(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_poll_sections(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_query_viewport(
-    minLat: number,
-    maxLat: number,
-    minLng: number,
-    maxLng: number,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_remove_activity(
-    activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_save_pace_snapshot(
-    sportType: Uint8Array,
-    criticalSpeed: number,
-    dPrime: Uint8Array,
-    r2: Uint8Array,
-    date: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_activity_metrics(
-    metrics: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_athlete_profile(
-    json: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_name_translations(
-    routeWord: Uint8Array,
-    sectionWord: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_route_name(
-    routeId: Uint8Array,
-    name: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_section_name(
-    sectionId: Uint8Array,
-    name: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_sport_settings(
-    json: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_set_time_streams_flat(
-    activityIds: Uint8Array,
-    allTimes: Uint8Array,
-    offsets: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
-  ubrn_uniffi_veloqrs_fn_func_persistent_engine_start_section_detection(
-    sportFilter: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_rename_section(
-    sectionId: Uint8Array,
-    name: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_reset_section_reference(
-    sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_set_section_reference(
-    sectionId: Uint8Array,
-    activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_start_background_fetch(
-    authHeader: Uint8Array,
-    activityIds: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
   ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store(
     authHeader: Uint8Array,
     activityIds: Uint8Array,
     sportTypes: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
-  ubrn_uniffi_veloqrs_fn_func_take_background_fetch_results(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap(): number;
-  ubrn_uniffi_veloqrs_checksum_func_create_section(): number;
   ubrn_uniffi_veloqrs_checksum_func_default_scale_presets(): number;
-  ubrn_uniffi_veloqrs_checksum_func_delete_section(): number;
-  ubrn_uniffi_veloqrs_checksum_func_fetch_activity_maps(): number;
-  ubrn_uniffi_veloqrs_checksum_func_fetch_activity_maps_with_progress(): number;
   ubrn_uniffi_veloqrs_checksum_func_ffi_detect_sections_multiscale(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_download_progress(): number;
-  ubrn_uniffi_veloqrs_checksum_func_get_section_count(): number;
-  ubrn_uniffi_veloqrs_checksum_func_get_section_reference(): number;
-  ubrn_uniffi_veloqrs_checksum_func_get_sections(): number;
-  ubrn_uniffi_veloqrs_checksum_func_get_sections_for_activity(): number;
-  ubrn_uniffi_veloqrs_checksum_func_is_section_reference_user_defined(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_add_activities(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_cleanup_old_activities(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_clear(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_debug_clone_activity(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_detect_potentials(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_extract_section_trace(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_extract_section_traces_batch(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activities_missing_time_streams(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_count(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_heatmap(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_ids(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_activity_metrics_for_ids(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_activities_complete(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_map_signatures(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_route_names(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_all_section_names(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_athlete_profile(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_available_sport_types(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_consensus_route(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_ftp_trend(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_gps_track(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_group_by_id(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_group_count(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_group_summaries(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_groups(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_map_activities_filtered(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_monthly_aggregates(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_pace_trend(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_period_stats(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_route_name(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_route_performances(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_routes_screen_data(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_by_id(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_calendar_summary(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_count(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_detection_progress(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_performances(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_polyline(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_summaries(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_section_summaries_for_sport(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_sections(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_sport_settings(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_stats(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_weekly_comparison(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_get_zone_distribution(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_init(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_is_initialized(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_mark_for_recomputation(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_poll_sections(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_query_viewport(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_remove_activity(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_save_pace_snapshot(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_activity_metrics(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_athlete_profile(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_name_translations(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_route_name(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_section_name(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_sport_settings(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_set_time_streams_flat(): number;
-  ubrn_uniffi_veloqrs_checksum_func_persistent_engine_start_section_detection(): number;
-  ubrn_uniffi_veloqrs_checksum_func_rename_section(): number;
-  ubrn_uniffi_veloqrs_checksum_func_reset_section_reference(): number;
-  ubrn_uniffi_veloqrs_checksum_func_set_section_reference(): number;
-  ubrn_uniffi_veloqrs_checksum_func_start_background_fetch(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store(): number;
-  ubrn_uniffi_veloqrs_checksum_func_take_background_fetch_results(): number;
   ubrn_uniffi_veloqrs_checksum_func_take_fetch_and_store_result(): number;
-  ubrn_uniffi_veloqrs_checksum_method_fetchprogresscallback_on_progress(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_add(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_debug_clone(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_count(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_gps_track(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_ids(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_metrics_for_ids(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_missing_time_streams(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_remove(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_metrics(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_time_streams(): number;
+  ubrn_uniffi_veloqrs_checksum_method_detectionmanager_detect_potentials(): number;
+  ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_progress(): number;
+  ubrn_uniffi_veloqrs_checksum_method_detectionmanager_poll(): number;
+  ubrn_uniffi_veloqrs_checksum_method_detectionmanager_start(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_available_sport_types(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_ftp_trend(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_monthly_aggregates(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_trend(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_weekly_comparison(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot(): number;
+  ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures(): number;
+  ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_filtered(): number;
+  ubrn_uniffi_veloqrs_checksum_method_mapmanager_query_viewport(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all_names(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_get_by_id(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_get_consensus_route(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_get_count(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_get_performances(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_get_screen_data(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_set_name(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_create(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_delete(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_trace(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_traces_batch(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_id(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_type(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_calendar_summary(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_count(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_polyline(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_reference(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_name(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_reference(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_activities(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_activities(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_detection(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_fitness(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_stats(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_maps(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_routes(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_sections(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_set_name_translations(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_settings(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_activitymanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_detectionmanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_fitnessmanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_mapmanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_routemanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_sectionmanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_settingsmanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_veloqengine_create(): number;
   ubrn_ffi_veloqrs_uniffi_contract_version(): number;
+  ubrn_uniffi_internal_fn_method_activitymanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiRustArcPtr;
+  ubrn_uniffi_internal_fn_method_detectionmanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiRustArcPtr;
+  ubrn_uniffi_internal_fn_method_fitnessmanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiRustArcPtr;
+  ubrn_uniffi_internal_fn_method_mapmanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiRustArcPtr;
+  ubrn_uniffi_internal_fn_method_routemanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiRustArcPtr;
+  ubrn_uniffi_internal_fn_method_sectionmanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiRustArcPtr;
+  ubrn_uniffi_internal_fn_method_settingsmanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiRustArcPtr;
+  ubrn_uniffi_internal_fn_method_veloqengine_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiRustArcPtr;
 }
 
 // Casting globalThis to any allows us to look for `NativeVeloqrs`
@@ -577,15 +749,6 @@ export type UniffiForeignFutureCompleteVoid = (
   callbackData: bigint,
   result: UniffiForeignFutureStructVoid,
 ) => void;
-type UniffiCallbackInterfaceFetchProgressCallbackMethod0 = (
-  uniffiHandle: bigint,
-  completed: number,
-  total: number,
-) => UniffiResult<void>;
-export type UniffiVTableCallbackInterfaceFetchProgressCallback = {
-  onProgress: UniffiCallbackInterfaceFetchProgressCallbackMethod0;
-  uniffiFree: UniffiCallbackInterfaceFree;
-};
 
 // UniffiRustFutureContinuationCallback is generated as part of the component interface's
 // ffi_definitions. However, we need it in the runtime.
