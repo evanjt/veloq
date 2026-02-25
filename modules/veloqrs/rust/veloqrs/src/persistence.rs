@@ -153,10 +153,8 @@ pub struct GroupSummary {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Record)]
 pub struct MapActivityComplete {
     /// Activity ID
-    #[serde(rename = "activityId")]
     pub activity_id: String,
     /// Sport type ("Run", "Ride", etc.)
-    #[serde(rename = "sportType")]
     pub sport_type: String,
     /// Bounding box for map display
     pub bounds: crate::FfiBounds,
