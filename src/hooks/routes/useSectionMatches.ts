@@ -72,7 +72,7 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
   // Check if engine has any sections
   const sectionCount = useMemo(() => {
     const engine = getRouteEngine();
-    return engine?.getSectionSummaries()?.count ?? 0;
+    return engine?.getSectionSummaries()?.totalCount ?? 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTrigger]);
 

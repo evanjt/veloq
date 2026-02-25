@@ -249,20 +249,18 @@ class RouteEngineClient {
     );
   }
 
-  getSectionSummaries(sportType?: string): { count: number; summaries: SectionSummary[] } {
-    if (!this.ready) return { count: 0, summaries: [] };
-    const result = this.timed('getSectionSummaries', () =>
+  getSectionSummaries(sportType?: string): { totalCount: number; summaries: SectionSummary[] } {
+    if (!this.ready) return { totalCount: 0, summaries: [] };
+    return this.timed('getSectionSummaries', () =>
       this.engine.sections().getSummariesWithCount(sportType),
     );
-    return { count: result.totalCount, summaries: result.summaries };
   }
 
-  getGroupSummaries(): { count: number; summaries: GroupSummary[] } {
-    if (!this.ready) return { count: 0, summaries: [] };
-    const result = this.timed('getGroupSummaries', () =>
+  getGroupSummaries(): { totalCount: number; summaries: GroupSummary[] } {
+    if (!this.ready) return { totalCount: 0, summaries: [] };
+    return this.timed('getGroupSummaries', () =>
       this.engine.routes().getSummariesWithCount(),
     );
-    return { count: result.totalCount, summaries: result.summaries };
   }
 
   getSectionById(sectionId: string): FfiFrequentSection | null {

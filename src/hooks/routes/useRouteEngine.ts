@@ -300,7 +300,7 @@ interface UseSectionSummariesOptions {
 
 interface UseSectionSummariesResult {
   /** Total section count (fast SQL query) */
-  count: number;
+  totalCount: number;
   /** Filtered section summaries (queried on-demand, no polylines) */
   summaries: SectionSummary[];
 }
@@ -317,12 +317,12 @@ export function useSectionSummaries(
   const trigger = useEngineSubscription(['sections']);
 
   return useMemo(() => {
-    if (!enabled) return { count: 0, summaries: [] };
+    if (!enabled) return { totalCount: 0, summaries: [] };
     try {
       const engine = getRouteEngine();
-      if (!engine) return { count: 0, summaries: [] };
+      if (!engine) return { totalCount: 0, summaries: [] };
 
-      const { count, summaries: rawSummaries } = engine.getSectionSummaries(sportType);
+      const { totalCount, summaries: rawSummaries } = engine.getSectionSummaries(sportType);
 
       // Apply minimum visits filter and generate display names
       const summaries = rawSummaries
@@ -332,9 +332,9 @@ export function useSectionSummaries(
           name: s.name || generateSectionName(s),
         }));
 
-      return { count, summaries };
+      return { totalCount, summaries };
     } catch {
-      return { count: 0, summaries: [] };
+      return { totalCount: 0, summaries: [] };
     }
   }, [trigger, sportType, minVisits, enabled]);
 }
@@ -348,7 +348,7 @@ interface UseGroupSummariesOptions {
 
 interface UseGroupSummariesResult {
   /** Total group count (fast SQL query) */
-  count: number;
+  totalCount: number;
   /** Filtered group summaries (queried on-demand, no activity ID arrays) */
   summaries: GroupSummary[];
 }
@@ -365,9 +365,9 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
   return useMemo(() => {
     try {
       const engine = getRouteEngine();
-      if (!engine) return { count: 0, summaries: [] };
+      if (!engine) return { totalCount: 0, summaries: [] };
 
-      const { count, summaries: rawSummaries } = engine.getGroupSummaries();
+      const { totalCount, summaries: rawSummaries } = engine.getGroupSummaries();
 
       // Apply filters
       let filtered = rawSummaries.filter((g) => g.activityCount >= minActivities);
@@ -379,9 +379,9 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
         filtered.sort((a, b) => a.groupId.localeCompare(b.groupId));
       }
 
-      return { count, summaries: filtered };
+      return { totalCount, summaries: filtered };
     } catch {
-      return { count: 0, summaries: [] };
+      return { totalCount: 0, summaries: [] };
     }
   }, [trigger, minActivities, sortBy]);
 }

@@ -70,7 +70,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
   const { type, minActivities = 2, sortBy = 'count' } = options;
 
   // Use lightweight summaries instead of full groups (no activityIds arrays)
-  const { count: totalCount, summaries } = useGroupSummaries({
+  const { totalCount, summaries } = useGroupSummaries({
     minActivities: 1, // Get all, filter below
     sortBy: 'count',
   });
