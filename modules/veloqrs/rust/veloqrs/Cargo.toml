@@ -11,10 +11,7 @@ name = "veloqrs"
 crate-type = ["rlib", "staticlib", "cdylib"]
 
 [features]
-default = ["persistence", "http", "ffi"]
-persistence = []
-http = []
-ffi = []
+default = []
 synthetic = ["tracematch/synthetic"]
 
 [dependencies]
