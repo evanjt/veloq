@@ -53,6 +53,11 @@ class RouteEngineClient {
 
   private constructor() {}
 
+  /** Check if engine is ready. Methods called before initWithPath() return safe defaults. */
+  private get ready(): boolean {
+    return this.engine !== null;
+  }
+
   private timed<T>(name: string, fn: () => T): T {
     const shouldLog = typeof __DEV__ !== 'undefined' && __DEV__;
     const shouldRecord = RouteEngineClient.debugEnabled;
@@ -131,6 +136,7 @@ class RouteEngineClient {
     offsets: number[],
     sportTypes: string[],
   ): Promise<void> {
+    if (!this.ready) return;
     this.timed('addActivities', () =>
       this.engine.activities().add(activityIds, allCoords, offsets, sportTypes),
     );
@@ -138,14 +144,17 @@ class RouteEngineClient {
   }
 
   getActivityIds(): string[] {
+    if (!this.ready) return [];
     return this.timed('getActivityIds', () => this.engine.activities().getIds());
   }
 
   getActivityCount(): number {
+    if (!this.ready) return 0;
     return this.timed('getActivityCount', () => this.engine.activities().getCount());
   }
 
   cleanupOldActivities(retentionDays: number): number {
+    if (!this.ready) return 0;
     const deleted = this.timed('cleanupOldActivities', () =>
       this.engine.cleanupOldActivities(retentionDays),
     );
@@ -156,14 +165,17 @@ class RouteEngineClient {
   }
 
   markForRecomputation(): void {
+    if (!this.ready) return;
     this.timed('markForRecomputation', () => this.engine.markForRecomputation());
   }
 
   startSectionDetection(sportFilter?: string): boolean {
+    if (!this.ready) return false;
     return this.timed('startSectionDetection', () => this.engine.detection().start(sportFilter));
   }
 
   pollSectionDetection(): string {
+    if (!this.ready) return 'idle';
     const status = this.timed('pollSectionDetection', () => this.engine.detection().poll());
     if (status === 'complete') {
       this.notify('sections');
@@ -172,6 +184,7 @@ class RouteEngineClient {
   }
 
   getSectionDetectionProgress(): SectionDetectionProgress | null {
+    if (!this.ready) return null;
     try {
       const json = this.timed('getSectionDetectionProgress', () =>
         this.engine.detection().getProgress(),
@@ -194,54 +207,65 @@ class RouteEngineClient {
   }
 
   getGroups(): FfiRouteGroup[] {
+    if (!this.ready) return [];
     return this.timed('getGroups', () => this.engine.routes().getAll());
   }
 
   getSections(): FfiFrequentSection[] {
+    if (!this.ready) return [];
     return this.timed('getSections', () => this.engine.sections().getAll());
   }
 
   getSectionCount(): number {
+    if (!this.ready) return 0;
     return this.timed('getSectionCount', () => this.engine.sections().getCount(undefined));
   }
 
   getSectionsForActivity(activityId: string): FfiSection[] {
+    if (!this.ready) return [];
     return this.timed('getSectionsForActivity', () =>
       this.engine.sections().getForActivity(activityId),
     );
   }
 
   getGroupCount(): number {
+    if (!this.ready) return 0;
     return this.timed('getGroupCount', () => this.engine.routes().getCount());
   }
 
   getSectionSummaries(): SectionSummary[] {
+    if (!this.ready) return [];
     return this.timed('getSectionSummaries', () =>
       this.engine.sections().getSummaries(undefined),
     );
   }
 
   getSectionSummariesForSport(sportType: string): SectionSummary[] {
+    if (!this.ready) return [];
     return this.timed('getSectionSummariesForSport', () =>
       this.engine.sections().getSummaries(sportType),
     );
   }
 
   getGroupSummaries(): GroupSummary[] {
+    if (!this.ready) return [];
     return this.timed('getGroupSummaries', () => this.engine.routes().getSummaries());
   }
 
   getSectionById(sectionId: string): FfiFrequentSection | null {
+    if (!this.ready) return null;
     validateId(sectionId, 'section ID');
     return this.timed('getSectionById', () => this.engine.sections().getById(sectionId)) ?? null;
   }
 
   getGroupById(groupId: string): FfiRouteGroup | null {
+    if (!this.ready) return null;
     validateId(groupId, 'group ID');
     return this.timed('getGroupById', () => this.engine.routes().getById(groupId)) ?? null;
   }
 
   getSectionPolyline(sectionId: string): FfiGpsPoint[] {
+    if (!this.ready) return [];
     validateId(sectionId, 'section ID');
     const flatCoords = this.timed('getSectionPolyline', () =>
       this.engine.sections().getPolyline(sectionId),
@@ -254,6 +278,7 @@ class RouteEngineClient {
     endDate: Date,
     sportTypesArray?: string[],
   ): MapActivityComplete[] {
+    if (!this.ready) return [];
     const startTs = BigInt(Math.floor(startDate.getTime() / 1000));
     const endTs = BigInt(Math.floor(endDate.getTime() / 1000));
     const sportTypesJson = sportTypesArray?.length ? JSON.stringify(sportTypesArray) : '';
@@ -268,10 +293,12 @@ class RouteEngineClient {
     centerLat: number;
     centerLng: number;
   }> {
+    if (!this.ready) return [];
     return this.timed('getAllMapSignatures', () => this.engine.maps().getAllSignatures());
   }
 
   setRouteName(routeId: string, name: string): void {
+    if (!this.ready) return;
     validateId(routeId, 'route ID');
     validateName(name, 'route name');
     this.timed('setRouteName', () => this.engine.routes().setName(routeId, name));
@@ -279,6 +306,7 @@ class RouteEngineClient {
   }
 
   setSectionName(sectionId: string, name: string): void {
+    if (!this.ready) return;
     validateId(sectionId, 'section ID');
     validateName(name, 'section name');
     this.timed('setSectionName', () => this.engine.sections().setName(sectionId, name));
@@ -286,22 +314,26 @@ class RouteEngineClient {
   }
 
   setNameTranslations(routeWord: string, sectionWord: string): void {
+    if (!this.ready) return;
     this.timed('setNameTranslations', () =>
       this.engine.setNameTranslations(routeWord, sectionWord),
     );
   }
 
   getAllRouteNames(): Record<string, string> {
+    if (!this.ready) return {};
     const map = this.timed('getAllRouteNames', () => this.engine.routes().getAllNames());
     return Object.fromEntries(map);
   }
 
   getAllSectionNames(): Record<string, string> {
+    if (!this.ready) return {};
     const map = this.timed('getAllSectionNames', () => this.engine.sections().getAllNames());
     return Object.fromEntries(map);
   }
 
   getGpsTrack(activityId: string): FfiGpsPoint[] {
+    if (!this.ready) return [];
     validateId(activityId, 'activity ID');
     const flatCoords = this.timed('getGpsTrack', () =>
       this.engine.activities().getGpsTrack(activityId),
@@ -310,6 +342,7 @@ class RouteEngineClient {
   }
 
   getConsensusRoute(groupId: string): FfiGpsPoint[] {
+    if (!this.ready) return [];
     validateId(groupId, 'group ID');
     const flatCoords = this.timed('getConsensusRoute', () =>
       this.engine.routes().getConsensusRoute(groupId),
@@ -321,6 +354,18 @@ class RouteEngineClient {
     routeGroupId: string,
     currentActivityId: string,
   ): FfiRoutePerformanceResult {
+    if (!this.ready) {
+      return {
+        performances: [],
+        activityMetrics: [],
+        best: undefined,
+        bestForward: undefined,
+        bestReverse: undefined,
+        forwardStats: undefined,
+        reverseStats: undefined,
+        currentRank: undefined,
+      } as unknown as FfiRoutePerformanceResult;
+    }
     validateId(routeGroupId, 'route group ID');
     if (currentActivityId !== '') {
       validateId(currentActivityId, 'activity ID');
@@ -331,12 +376,23 @@ class RouteEngineClient {
   }
 
   getSectionPerformances(sectionId: string): FfiSectionPerformanceResult {
+    if (!this.ready) {
+      return {
+        records: [],
+        bestRecord: undefined,
+        bestForwardRecord: undefined,
+        bestReverseRecord: undefined,
+        forwardStats: undefined,
+        reverseStats: undefined,
+      } as unknown as FfiSectionPerformanceResult;
+    }
     return this.timed('getSectionPerformances', () =>
       this.engine.sections().getPerformances(sectionId),
     );
   }
 
   getSectionCalendarSummary(sectionId: string): FfiCalendarSummary | null {
+    if (!this.ready) return null;
     return (
       this.timed('getSectionCalendarSummary', () =>
         this.engine.sections().getCalendarSummary(sectionId),
@@ -354,7 +410,7 @@ class RouteEngineClient {
   }
 
   setTimeStreams(streams: Array<{ activityId: string; times: number[] }>): void {
-    if (streams.length === 0) return;
+    if (!this.ready || streams.length === 0) return;
 
     const activityIds: string[] = [];
     const allTimes: number[] = [];
@@ -372,19 +428,21 @@ class RouteEngineClient {
   }
 
   getActivitiesMissingTimeStreams(activityIds: string[]): string[] {
-    if (activityIds.length === 0) return [];
+    if (!this.ready || activityIds.length === 0) return [];
     return this.timed('getActivitiesMissingTimeStreams', () =>
       this.engine.activities().getMissingTimeStreams(activityIds),
     );
   }
 
   queryViewport(minLat: number, maxLat: number, minLng: number, maxLng: number): string[] {
+    if (!this.ready) return [];
     return this.timed('queryViewport', () =>
       this.engine.maps().queryViewport(minLat, maxLat, minLng, maxLng),
     );
   }
 
   getStats(): PersistentEngineStats | undefined {
+    if (!this.ready) return undefined;
     return this.timed('getStats', () => this.engine.getStats());
   }
 
@@ -395,6 +453,7 @@ class RouteEngineClient {
     sectionOffset = 0,
     minGroupActivityCount = 2,
   ): FfiRoutesScreenData | undefined {
+    if (!this.ready) return undefined;
     return this.timed('getRoutesScreenData', () =>
       this.engine
         .routes()
@@ -403,18 +462,21 @@ class RouteEngineClient {
   }
 
   getPeriodStats(startTs: number, endTs: number): FfiPeriodStats {
+    if (!this.ready) return { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 } as unknown as FfiPeriodStats;
     return this.timed('getPeriodStats', () =>
       this.engine.fitness().getPeriodStats(BigInt(startTs), BigInt(endTs)),
     );
   }
 
   getZoneDistribution(sportType: string, zoneType: string): number[] {
+    if (!this.ready) return [];
     return this.timed('getZoneDistribution', () =>
       this.engine.fitness().getZoneDistribution(sportType, zoneType),
     );
   }
 
   getFtpTrend(): FfiFtpTrend {
+    if (!this.ready) return { latestFtp: undefined, latestDate: undefined, previousFtp: undefined, previousDate: undefined } as unknown as FfiFtpTrend;
     return this.timed('getFtpTrend', () => this.engine.fitness().getFtpTrend());
   }
 
@@ -425,6 +487,7 @@ class RouteEngineClient {
     r2?: number,
     date?: number,
   ): void {
+    if (!this.ready) return;
     const ts = date ?? Math.floor(Date.now() / 1000);
     this.timed('savePaceSnapshot', () =>
       this.engine.fitness().savePaceSnapshot(sportType, criticalSpeed, dPrime, r2, BigInt(ts)),
@@ -432,28 +495,34 @@ class RouteEngineClient {
   }
 
   getPaceTrend(sportType: string): FfiPaceTrend {
+    if (!this.ready) return { latestPace: undefined, latestDate: undefined, previousPace: undefined, previousDate: undefined } as unknown as FfiPaceTrend;
     return this.timed('getPaceTrend', () => this.engine.fitness().getPaceTrend(sportType));
   }
 
   getAvailableSportTypes(): string[] {
+    if (!this.ready) return [];
     return this.timed('getAvailableSportTypes', () =>
       this.engine.fitness().getAvailableSportTypes(),
     );
   }
 
   setAthleteProfile(json: string): void {
+    if (!this.ready) return;
     this.timed('setAthleteProfile', () => this.engine.settings().setAthleteProfile(json));
   }
 
   getAthleteProfile(): string {
+    if (!this.ready) return '';
     return this.timed('getAthleteProfile', () => this.engine.settings().getAthleteProfile());
   }
 
   setSportSettings(json: string): void {
+    if (!this.ready) return;
     this.timed('setSportSettings', () => this.engine.settings().setSportSettings(json));
   }
 
   getSportSettings(): string {
+    if (!this.ready) return '';
     return this.timed('getSportSettings', () => this.engine.settings().getSportSettings());
   }
 
@@ -464,6 +533,7 @@ class RouteEngineClient {
   }
 
   getSectionsByType(sectionType?: 'auto' | 'custom'): FfiSection[] {
+    if (!this.ready) return [];
     return this.timed('getSectionsByType', () =>
       this.engine.sections().getByType(sectionType),
     );
@@ -476,6 +546,7 @@ class RouteEngineClient {
     sportType: string,
     name?: string,
   ): string {
+    if (!this.ready) return '';
     validateId(activityId, 'activity ID');
 
     const track = this.getGpsTrack(activityId);
@@ -508,6 +579,7 @@ class RouteEngineClient {
   }
 
   deleteSection(sectionId: string): boolean {
+    if (!this.ready) return false;
     validateId(sectionId, 'section ID');
     const result = this.timed('deleteSection', () =>
       this.engine.sections().delete(sectionId),
@@ -519,6 +591,7 @@ class RouteEngineClient {
   }
 
   detectPotentials(sportFilter?: string): RawPotentialSection[] {
+    if (!this.ready) return [];
     const json = this.timed('detectPotentials', () =>
       this.engine.detection().detectPotentials(sportFilter),
     );
@@ -531,6 +604,7 @@ class RouteEngineClient {
   }
 
   extractSectionTrace(activityId: string, sectionPolylineJson: string): FfiGpsPoint[] {
+    if (!this.ready) return [];
     validateId(activityId, 'activity ID');
     const flatCoords = this.timed('extractSectionTrace', () =>
       this.engine.sections().extractTrace(activityId, sectionPolylineJson),
@@ -542,7 +616,7 @@ class RouteEngineClient {
     activityIds: string[],
     sectionPolylineJson: string,
   ): Record<string, RoutePoint[]> {
-    if (activityIds.length === 0) return {};
+    if (!this.ready || activityIds.length === 0) return {};
     const results = this.timed('extractSectionTracesBatch', () =>
       this.engine.sections().extractTracesBatch(activityIds, sectionPolylineJson),
     );
@@ -560,13 +634,14 @@ class RouteEngineClient {
   }
 
   getActivityMetricsForIds(ids: string[]): FfiActivityMetrics[] {
-    if (ids.length === 0) return [];
+    if (!this.ready || ids.length === 0) return [];
     return this.timed('getActivityMetricsForIds', () =>
       this.engine.activities().getMetricsForIds(ids),
     );
   }
 
   setSectionReference(sectionId: string, activityId: string): boolean {
+    if (!this.ready) return false;
     validateId(sectionId, 'section ID');
     validateId(activityId, 'activity ID');
     const result = this.timed('setSectionReference', () =>
@@ -579,6 +654,7 @@ class RouteEngineClient {
   }
 
   resetSectionReference(sectionId: string): boolean {
+    if (!this.ready) return false;
     validateId(sectionId, 'section ID');
     const result = this.timed('resetSectionReference', () =>
       this.engine.sections().resetReference(sectionId),
@@ -590,6 +666,7 @@ class RouteEngineClient {
   }
 
   getSectionReference(sectionId: string): string | undefined {
+    if (!this.ready) return undefined;
     validateId(sectionId, 'section ID');
     const info = this.timed('getSectionReference', () =>
       this.engine.sections().getReferenceInfo(sectionId),
@@ -598,6 +675,7 @@ class RouteEngineClient {
   }
 
   isSectionReferenceUserDefined(sectionId: string): boolean {
+    if (!this.ready) return false;
     validateId(sectionId, 'section ID');
     const info = this.timed('isSectionReferenceUserDefined', () =>
       this.engine.sections().getReferenceInfo(sectionId),
@@ -610,6 +688,7 @@ class RouteEngineClient {
   }
 
   removeActivity(activityId: string): boolean {
+    if (!this.ready) return false;
     const removed = this.timed('removeActivity', () =>
       this.engine.activities().remove(activityId),
     );
@@ -620,6 +699,7 @@ class RouteEngineClient {
   }
 
   debugCloneActivity(sourceId: string, count: number): number {
+    if (!this.ready) return 0;
     const created = this.timed('debugCloneActivity', () =>
       this.engine.activities().debugClone(sourceId, count),
     );
