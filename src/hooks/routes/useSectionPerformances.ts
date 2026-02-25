@@ -28,7 +28,7 @@ export interface SectionLap {
  * Performance record for an activity on a section.
  * Groups multiple laps together with best/average stats.
  */
-export interface ActivitySectionRecord {
+export interface SectionPerformanceRecord {
   activityId: string;
   activityName: string;
   activityDate: Date;
@@ -52,7 +52,7 @@ export interface ActivitySectionRecord {
 
 interface UseSectionPerformancesResult {
   /** Performance records grouped by activity */
-  records: ActivitySectionRecord[];
+  records: SectionPerformanceRecord[];
   /** Whether data is still loading (not yet ready to display) */
   isLoading: boolean;
   /** Whether streams are being fetched from API */
@@ -60,11 +60,11 @@ interface UseSectionPerformancesResult {
   /** Error message if loading failed */
   error: string | null;
   /** Best overall record (fastest time) */
-  bestRecord: ActivitySectionRecord | null;
+  bestRecord: SectionPerformanceRecord | null;
   /** Best record in forward/same direction */
-  bestForwardRecord: ActivitySectionRecord | null;
+  bestForwardRecord: SectionPerformanceRecord | null;
   /** Best record in reverse direction */
-  bestReverseRecord: ActivitySectionRecord | null;
+  bestReverseRecord: SectionPerformanceRecord | null;
   /** Summary stats for forward direction */
   forwardStats: DirectionStats | null;
   /** Summary stats for reverse direction */
@@ -177,10 +177,10 @@ export function useSectionPerformances(
   const { records, bestRecord, bestForwardRecord, bestReverseRecord, forwardStats, reverseStats } =
     useMemo(() => {
       const emptyResult = {
-        records: [] as ActivitySectionRecord[],
-        bestRecord: null as ActivitySectionRecord | null,
-        bestForwardRecord: null as ActivitySectionRecord | null,
-        bestReverseRecord: null as ActivitySectionRecord | null,
+        records: [] as SectionPerformanceRecord[],
+        bestRecord: null as SectionPerformanceRecord | null,
+        bestForwardRecord: null as SectionPerformanceRecord | null,
+        bestReverseRecord: null as SectionPerformanceRecord | null,
         forwardStats: null as DirectionStats | null,
         reverseStats: null as DirectionStats | null,
       };
@@ -193,10 +193,10 @@ export function useSectionPerformances(
         // Get typed performance result directly from Rust engine (no JSON parsing)
         const result: SectionPerformanceResult = routeEngine.getSectionPerformances(section.id);
 
-        // Convert FFI record to ActivitySectionRecord (Date conversion)
+        // Convert FFI record to SectionPerformanceRecord (Date conversion)
         const toActivityRecord = (
           r: SectionPerformanceResult['records'][0]
-        ): ActivitySectionRecord => ({
+        ): SectionPerformanceRecord => ({
           activityId: r.activityId,
           activityName: r.activityName,
           activityDate: fromUnixSeconds(r.activityDate) ?? new Date(),

@@ -11,7 +11,7 @@ import {
 } from '@/components/routes/performance';
 import { RANGE_DAYS, BUCKET_THRESHOLD } from '@/constants';
 import type { Activity, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
-import type { ActivitySectionRecord } from './useSectionPerformances';
+import type { SectionPerformanceRecord } from './useSectionPerformances';
 import type { SectionTimeRange, BucketType } from '@/constants';
 
 interface SectionWithTraces {
@@ -20,7 +20,7 @@ interface SectionWithTraces {
 
 interface UseSectionChartDataParams {
   section: FrequentSection | null;
-  performanceRecords: ActivitySectionRecord[] | undefined;
+  performanceRecords: SectionPerformanceRecord[] | undefined;
   sectionActivitiesUnsorted: Activity[];
   sectionWithTraces: (FrequentSection & SectionWithTraces) | null;
   sectionTimeRange: SectionTimeRange;
@@ -57,7 +57,7 @@ interface DirectionBestRecord {
 export interface UseSectionChartDataResult {
   // Lookups
   portionMap: Map<string, { activityId: string; direction?: string; distanceMeters?: number }>;
-  performanceRecordMap: Map<string, ActivitySectionRecord>;
+  performanceRecordMap: Map<string, SectionPerformanceRecord>;
   sectionActivities: Activity[];
 
   // Individual chart data
@@ -411,7 +411,7 @@ export function useSectionChartData({
 
   // Map of performance records for fast lookup
   const performanceRecordMap = useMemo(() => {
-    if (!performanceRecords) return new Map<string, ActivitySectionRecord>();
+    if (!performanceRecords) return new Map<string, SectionPerformanceRecord>();
     return new Map(performanceRecords.map((r) => [r.activityId, r]));
   }, [performanceRecords]);
 

@@ -9,7 +9,7 @@ export { useSectionMatches } from './useSectionMatches';
 export {
   useSectionPerformances,
   type SectionLap,
-  type ActivitySectionRecord,
+  type SectionPerformanceRecord,
 } from './useSectionPerformances';
 export { useCustomSections, useCustomSection } from './useCustomSections';
 export { useUnifiedSections, useUnifiedSection } from './useUnifiedSections';

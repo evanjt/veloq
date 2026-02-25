@@ -84,7 +84,7 @@ export { useSectionMatches } from './routes/useSectionMatches';
 export {
   useSectionPerformances,
   type SectionLap,
-  type ActivitySectionRecord,
+  type SectionPerformanceRecord,
 } from './routes/useSectionPerformances';
 export { useCustomSections, useCustomSection } from './routes/useCustomSections';
 export { useUnifiedSections } from './routes/useUnifiedSections';
