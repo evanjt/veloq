@@ -29,6 +29,10 @@ pub mod ffi;
 // Unified sections module
 pub mod sections;
 
+// Domain objects (UniFFI Object API)
+pub mod objects;
+pub use objects::VeloqEngine;
+
 // App-layer types that were moved out of tracematch (persistence/UI data containers)
 pub mod types;
 pub use types::*;
