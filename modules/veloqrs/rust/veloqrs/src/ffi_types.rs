@@ -130,10 +130,10 @@ pub struct FfiActivityMetrics {
     pub training_load: Option<f64>,
     /// FTP used for this activity (optional)
     pub ftp: Option<u16>,
-    /// Power zone times as JSON array string: "[secs, secs, ...]" (optional)
-    pub power_zone_times: Option<String>,
-    /// HR zone times as JSON array string: "[secs, secs, ...]" (optional)
-    pub hr_zone_times: Option<String>,
+    /// Power zone times in seconds per zone (optional)
+    pub power_zone_times: Option<Vec<u32>>,
+    /// HR zone times in seconds per zone (optional)
+    pub hr_zone_times: Option<Vec<u32>>,
 }
 
 impl From<crate::ActivityMetrics> for FfiActivityMetrics {

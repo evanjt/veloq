@@ -4177,15 +4177,19 @@ impl PersistentRouteEngine {
             )?;
 
             for m in &metrics {
-                // Parse zone times from JSON to populate cache columns
+                // Use zone times directly for cache columns
                 let power_zones: Vec<f64> = m.power_zone_times
                     .as_ref()
-                    .and_then(|json| serde_json::from_str(json).ok())
+                    .map(|v| v.iter().map(|&s| s as f64).collect())
                     .unwrap_or_else(|| vec![0.0; 7]);
                 let hr_zones: Vec<f64> = m.hr_zone_times
                     .as_ref()
-                    .and_then(|json| serde_json::from_str(json).ok())
+                    .map(|v| v.iter().map(|&s| s as f64).collect())
                     .unwrap_or_else(|| vec![0.0; 5]);
+
+                // Serialize to JSON for SQLite TEXT column (backwards compatible)
+                let power_json = m.power_zone_times.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default());
+                let hr_json = m.hr_zone_times.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default());
 
                 stmt.execute(params![
                     &m.activity_id,
@@ -4200,8 +4204,8 @@ impl PersistentRouteEngine {
                     &m.sport_type,
                     m.training_load,
                     m.ftp.map(|v| v as i32),
-                    m.power_zone_times.as_deref(),
-                    m.hr_zone_times.as_deref(),
+                    power_json.as_deref(),
+                    hr_json.as_deref(),
                     // Zone cache columns
                     power_zones.get(0).unwrap_or(&0.0),
                     power_zones.get(1).unwrap_or(&0.0),

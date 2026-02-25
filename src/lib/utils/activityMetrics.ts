@@ -18,13 +18,10 @@ import { type ActivityMetrics } from 'veloqrs';
  * @returns ActivityMetrics object for Rust engine
  */
 export function toActivityMetrics(activity: Activity): ActivityMetrics {
-  // Serialize zone times as JSON arrays for SQL aggregation in Rust
   const powerZoneTimes = activity.icu_zone_times
-    ? JSON.stringify(activity.icu_zone_times.map((z) => z.secs))
+    ? activity.icu_zone_times.map((z) => z.secs)
     : undefined;
-  const hrZoneTimes = activity.icu_hr_zone_times
-    ? JSON.stringify(activity.icu_hr_zone_times)
-    : undefined;
+  const hrZoneTimes = activity.icu_hr_zone_times ?? undefined;
 
   return {
     activityId: activity.id,

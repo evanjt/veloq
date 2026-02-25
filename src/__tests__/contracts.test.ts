@@ -283,9 +283,9 @@ describe('Data Pipeline', () => {
     const expectedDate = BigInt(Math.floor(new Date('2026-01-15T08:30:00').getTime() / 1000));
     expect(metrics.date).toBe(expectedDate);
 
-    // Zone times should be JSON strings
-    expect(metrics.powerZoneTimes).toBe(JSON.stringify([600, 1800, 1500, 900, 600]));
-    expect(metrics.hrZoneTimes).toBe(JSON.stringify([300, 1200, 1800, 1500, 600]));
+    // Zone times should be number arrays
+    expect(metrics.powerZoneTimes).toEqual([600, 1800, 1500, 900, 600]);
+    expect(metrics.hrZoneTimes).toEqual([300, 1200, 1800, 1500, 600]);
 
     // Core fields
     expect(metrics.activityId).toBe('contract-ride');

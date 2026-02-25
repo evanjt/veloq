@@ -522,13 +522,13 @@ export type FfiActivityMetrics = {
    */
   ftp: /*u16*/ number | undefined;
   /**
-   * Power zone times as JSON array string: "[secs, secs, ...]" (optional)
+   * Power zone times in seconds per zone (optional)
    */
-  powerZoneTimes: string | undefined;
+  powerZoneTimes: /*u32*/ number[] | undefined;
   /**
-   * HR zone times as JSON array string: "[secs, secs, ...]" (optional)
+   * HR zone times in seconds per zone (optional)
    */
-  hrZoneTimes: string | undefined;
+  hrZoneTimes: /*u32*/ number[] | undefined;
 };
 
 /**
@@ -578,8 +578,8 @@ const FfiConverterTypeFfiActivityMetrics = (() => {
         sportType: FfiConverterString.read(from),
         trainingLoad: FfiConverterOptionalFloat64.read(from),
         ftp: FfiConverterOptionalUInt16.read(from),
-        powerZoneTimes: FfiConverterOptionalString.read(from),
-        hrZoneTimes: FfiConverterOptionalString.read(from),
+        powerZoneTimes: FfiConverterOptionalArrayUInt32.read(from),
+        hrZoneTimes: FfiConverterOptionalArrayUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -595,8 +595,8 @@ const FfiConverterTypeFfiActivityMetrics = (() => {
       FfiConverterString.write(value.sportType, into);
       FfiConverterOptionalFloat64.write(value.trainingLoad, into);
       FfiConverterOptionalUInt16.write(value.ftp, into);
-      FfiConverterOptionalString.write(value.powerZoneTimes, into);
-      FfiConverterOptionalString.write(value.hrZoneTimes, into);
+      FfiConverterOptionalArrayUInt32.write(value.powerZoneTimes, into);
+      FfiConverterOptionalArrayUInt32.write(value.hrZoneTimes, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -612,8 +612,8 @@ const FfiConverterTypeFfiActivityMetrics = (() => {
         FfiConverterString.allocationSize(value.sportType) +
         FfiConverterOptionalFloat64.allocationSize(value.trainingLoad) +
         FfiConverterOptionalUInt16.allocationSize(value.ftp) +
-        FfiConverterOptionalString.allocationSize(value.powerZoneTimes) +
-        FfiConverterOptionalString.allocationSize(value.hrZoneTimes)
+        FfiConverterOptionalArrayUInt32.allocationSize(value.powerZoneTimes) +
+        FfiConverterOptionalArrayUInt32.allocationSize(value.hrZoneTimes)
       );
     }
   }
