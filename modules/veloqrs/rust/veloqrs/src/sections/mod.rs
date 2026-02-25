@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use tracematch::GpsPoint;
 
 pub mod crud;
-pub mod ffi;
 
 /// Section type discriminator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
