@@ -65,17 +65,13 @@ jobs:
           filters: |
             ios:
               - 'src/**'
-              - 'app/**'
               - 'app.json'
               - 'package.json'
-              - 'plugins/**'
               - 'modules/veloqrs/**'
             android:
               - 'src/**'
-              - 'app/**'
               - 'app.json'
               - 'package.json'
-              - 'plugins/**'
               - 'modules/veloqrs/**'
 
       - name: Calculate source hash
