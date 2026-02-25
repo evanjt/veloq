@@ -106,19 +106,6 @@ pub fn create_section(
     }
 }
 
-/// Rename a section.
-///
-/// # Arguments
-/// * `section_id` - Section ID to rename
-/// * `name` - New name
-///
-/// # Returns
-/// true on success, false on error
-#[uniffi::export]
-pub fn rename_section(section_id: String, name: String) -> bool {
-    with_persistent_engine(|e| e.rename_section(&section_id, &name).is_ok()).unwrap_or(false)
-}
-
 /// Set a new reference activity for a section.
 ///
 /// Updates the representative_activity_id and reloads the polyline from the activity.

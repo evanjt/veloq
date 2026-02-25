@@ -19,7 +19,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 77 exports
+ * Total: 72 exports
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -35,34 +35,10 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 66,
   },
   {
-    name: 'fetch_activity_maps',
-    camelName: 'fetchActivityMaps',
-    file: 'ffi.rs',
-    line: 196,
-  },
-  {
-    name: 'fetch_activity_maps_with_progress',
-    camelName: 'fetchActivityMapsWithProgress',
-    file: 'ffi.rs',
-    line: 262,
-  },
-  {
     name: 'get_download_progress',
     camelName: 'getDownloadProgress',
     file: 'ffi.rs',
     line: 332,
-  },
-  {
-    name: 'start_background_fetch',
-    camelName: 'startBackgroundFetch',
-    file: 'ffi.rs',
-    line: 351,
-  },
-  {
-    name: 'take_background_fetch_results',
-    camelName: 'takeBackgroundFetchResults',
-    file: 'ffi.rs',
-    line: 372,
   },
   {
     name: 'start_fetch_and_store',
@@ -135,12 +111,6 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     camelName: 'persistentEngineSetRouteName',
     file: 'persistence.rs',
     line: 5701,
-  },
-  {
-    name: 'persistent_engine_get_route_name',
-    camelName: 'persistentEngineGetRouteName',
-    file: 'persistence.rs',
-    line: 5715,
   },
   {
     name: 'persistent_engine_set_section_name',
@@ -341,12 +311,6 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 6294,
   },
   {
-    name: 'persistent_engine_get_all_map_activities_complete',
-    camelName: 'persistentEngineGetAllMapActivitiesComplete',
-    file: 'persistence.rs',
-    line: 6323,
-  },
-  {
     name: 'persistent_engine_get_map_activities_filtered',
     camelName: 'persistentEngineGetMapActivitiesFiltered',
     file: 'persistence.rs',
@@ -455,12 +419,6 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 54,
   },
   {
-    name: 'rename_section',
-    camelName: 'renameSection',
-    file: 'sections/ffi.rs',
-    line: 118,
-  },
-  {
     name: 'set_section_reference',
     camelName: 'setSectionReference',
     file: 'sections/ffi.rs',
@@ -504,11 +462,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
 export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'defaultScalePresets',
   'ffiDetectSectionsMultiscale',
-  'fetchActivityMaps',
-  'fetchActivityMapsWithProgress',
   'getDownloadProgress',
-  'startBackgroundFetch',
-  'takeBackgroundFetchResults',
   'startFetchAndStore',
   'takeFetchAndStoreResult',
   'persistentEngineInit',
@@ -521,7 +475,6 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'persistentEngineGetActivityIds',
   'persistentEngineGetActivityCount',
   'persistentEngineSetRouteName',
-  'persistentEngineGetRouteName',
   'persistentEngineSetSectionName',
   'persistentEngineSetActivityMetrics',
   'persistentEngineSetTimeStreamsFlat',
@@ -555,7 +508,6 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'persistentEngineExtractSectionTrace',
   'persistentEngineExtractSectionTracesBatch',
   'persistentEngineGetActivityMetricsForIds',
-  'persistentEngineGetAllMapActivitiesComplete',
   'persistentEngineGetMapActivitiesFiltered',
   'persistentEngineGetPeriodStats',
   'persistentEngineGetMonthlyAggregates',
@@ -574,7 +526,6 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getSections',
   'getSectionCount',
   'createSection',
-  'renameSection',
   'setSectionReference',
   'deleteSection',
   'getSectionsForActivity',
@@ -589,11 +540,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
 export const RUST_TO_TS_NAME: Record<string, string> = {
   default_scale_presets: 'defaultScalePresets',
   ffi_detect_sections_multiscale: 'ffiDetectSectionsMultiscale',
-  fetch_activity_maps: 'fetchActivityMaps',
-  fetch_activity_maps_with_progress: 'fetchActivityMapsWithProgress',
   get_download_progress: 'getDownloadProgress',
-  start_background_fetch: 'startBackgroundFetch',
-  take_background_fetch_results: 'takeBackgroundFetchResults',
   start_fetch_and_store: 'startFetchAndStore',
   take_fetch_and_store_result: 'takeFetchAndStoreResult',
   persistent_engine_init: 'persistentEngineInit',
@@ -606,7 +553,6 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   persistent_engine_get_activity_ids: 'persistentEngineGetActivityIds',
   persistent_engine_get_activity_count: 'persistentEngineGetActivityCount',
   persistent_engine_set_route_name: 'persistentEngineSetRouteName',
-  persistent_engine_get_route_name: 'persistentEngineGetRouteName',
   persistent_engine_set_section_name: 'persistentEngineSetSectionName',
   persistent_engine_set_activity_metrics: 'persistentEngineSetActivityMetrics',
   persistent_engine_set_time_streams_flat: 'persistentEngineSetTimeStreamsFlat',
@@ -641,7 +587,6 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   persistent_engine_extract_section_trace: 'persistentEngineExtractSectionTrace',
   persistent_engine_extract_section_traces_batch: 'persistentEngineExtractSectionTracesBatch',
   persistent_engine_get_activity_metrics_for_ids: 'persistentEngineGetActivityMetricsForIds',
-  persistent_engine_get_all_map_activities_complete: 'persistentEngineGetAllMapActivitiesComplete',
   persistent_engine_get_map_activities_filtered: 'persistentEngineGetMapActivitiesFiltered',
   persistent_engine_get_period_stats: 'persistentEngineGetPeriodStats',
   persistent_engine_get_monthly_aggregates: 'persistentEngineGetMonthlyAggregates',
@@ -660,7 +605,6 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_sections: 'getSections',
   get_section_count: 'getSectionCount',
   create_section: 'createSection',
-  rename_section: 'renameSection',
   set_section_reference: 'setSectionReference',
   delete_section: 'deleteSection',
   get_sections_for_activity: 'getSectionsForActivity',

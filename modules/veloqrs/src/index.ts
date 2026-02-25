@@ -42,11 +42,7 @@ export { RouteEngineClient } from "./RouteEngineClient";
 import {
   ffiDetectSectionsMultiscale,
   defaultScalePresets,
-  fetchActivityMaps,
-  fetchActivityMapsWithProgress as generatedFetchWithProgress,
   getDownloadProgress as ffiGetDownloadProgress,
-  type FetchProgressCallback,
-  type FfiActivityMapResult,
   type DownloadProgressResult,
   type FfiActivityMetrics,
   type FfiGpsPoint,
@@ -72,7 +68,6 @@ import {
   type FfiSectionWithPolyline,
 } from "./generated/veloqrs";
 
-import type { FetchProgressEvent } from "./conversions";
 import { RouteEngineClient } from "./RouteEngineClient";
 
 // Re-export types with shorter names for convenience
@@ -110,52 +105,11 @@ export function isRouteMatcherInitialized(): boolean {
   return installed;
 }
 
-/**
- * Alias for backward compatibility.
- */
 export const detectSectionsMultiscale = ffiDetectSectionsMultiscale;
 export const getDefaultScalePresets = defaultScalePresets;
 
-/**
- * Fetch activity maps with optional progress reporting.
- *
- * @param authHeader - Pre-formatted Authorization header value:
- *   - For API key auth: "Basic {base64(API_KEY:key)}"
- *   - For OAuth: "Bearer {access_token}"
- * @param onProgress - Optional callback for progress updates. If not provided,
- *   uses the non-callback version which is safer for React Native.
- */
-export async function fetchActivityMapsWithProgress(
-  authHeader: string,
-  activityIds: string[],
-  onProgress?: (event: FetchProgressEvent) => void,
-): Promise<FfiActivityMapResult[]> {
-  if (!onProgress) {
-    // Use non-callback version - avoids cross-thread FFI callback issues
-    return fetchActivityMaps(authHeader, activityIds);
-  }
-
-  // Create callback adapter that conforms to FetchProgressCallback interface
-  const callback: FetchProgressCallback = {
-    onProgress: (completed: number, total: number) => {
-      onProgress({ completed, total });
-    },
-  };
-
-  return generatedFetchWithProgress(authHeader, activityIds, callback);
-}
-
-/**
- * Get current download progress for polling.
- *
- * Call this every 100ms during fetch operations to get smooth progress updates.
- * Avoids cross-thread FFI callback issues by using atomic counters in Rust.
- *
- * @returns Progress with completed/total/active fields
- */
 export function getDownloadProgress(): DownloadProgressResult {
   return ffiGetDownloadProgress();
 }
 
-// Export the singleton instance for backward compatibility
 export const routeEngine = RouteEngineClient.getInstance();

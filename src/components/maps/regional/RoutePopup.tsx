@@ -34,12 +34,10 @@ export const RoutePopup = memo(function RoutePopup({
   const { t } = useTranslation();
   const config = getActivityTypeConfig(route.type);
 
-  // Get custom name from Rust engine (single source of truth)
-  // Falls back to route.name which may already include custom name from useRouteGroups
   const displayName = useMemo(() => {
     const engine = getRouteEngine();
-    const customName = engine?.getRouteName(route.id);
-    return customName || route.name;
+    const names = engine?.getAllRouteNames() ?? {};
+    return names[route.id] || route.name;
   }, [route.id, route.name]);
 
   return (

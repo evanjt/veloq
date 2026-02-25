@@ -279,13 +279,12 @@ export default function RouteDetailScreen() {
   const [customName, setCustomName] = useState<string | null>(null);
   const nameInputRef = useRef<TextInput>(null);
 
-  // Load custom route name from Rust engine on mount
   useEffect(() => {
     if (id) {
       const engine = getRouteEngine();
-      const name = engine?.getRouteName(id);
-      if (name) {
-        setCustomName(name);
+      const names = engine?.getAllRouteNames() ?? {};
+      if (names[id]) {
+        setCustomName(names[id]);
       }
     }
   }, [id]);

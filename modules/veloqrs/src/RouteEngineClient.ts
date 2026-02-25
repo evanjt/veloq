@@ -28,7 +28,6 @@ import {
   persistentEngineSetRouteName,
   persistentEngineSetSectionName,
   persistentEngineSetNameTranslations,
-  persistentEngineGetRouteName,
   persistentEngineGetGpsTrack,
   persistentEngineGetConsensusRoute,
   persistentEngineSetActivityMetrics,
@@ -67,7 +66,6 @@ import {
   persistentEngineGetSectionPerformances,
   persistentEngineGetSectionCalendarSummary,
   persistentEngineGetRoutesScreenData,
-  type FetchProgressCallback,
   type PersistentEngineStats,
   type FfiActivityMetrics,
   type FfiGpsPoint,
@@ -92,15 +90,11 @@ import {
   validateName,
   type RoutePoint,
   type SectionDetectionProgress,
-  type FetchProgressEvent,
   type RawPotentialSection,
 } from './conversions';
 
 import {
-  fetchActivityMaps,
-  fetchActivityMapsWithProgress as generatedFetchWithProgress,
   getDownloadProgress as ffiGetDownloadProgress,
-  type FfiActivityMapResult,
   type DownloadProgressResult,
 } from './generated/veloqrs';
 
@@ -488,14 +482,6 @@ class RouteEngineClient {
     this.timed('setNameTranslations', () =>
       persistentEngineSetNameTranslations(routeWord, sectionWord)
     );
-  }
-
-  /**
-   * Get route name.
-   */
-  getRouteName(routeId: string): string {
-    validateId(routeId, 'route ID');
-    return this.timed('getRouteName', () => persistentEngineGetRouteName(routeId));
   }
 
   /**
@@ -983,27 +969,6 @@ class RouteEngineClient {
       'isSectionReferenceUserDefined',
       () => generated.isSectionReferenceUserDefined(sectionId) as boolean
     );
-  }
-
-  /**
-   * Fetch activity maps with optional progress reporting.
-   */
-  async fetchActivityMapsWithProgress(
-    authHeader: string,
-    activityIds: string[],
-    onProgress?: (event: FetchProgressEvent) => void
-  ): Promise<FfiActivityMapResult[]> {
-    if (!onProgress) {
-      return fetchActivityMaps(authHeader, activityIds);
-    }
-
-    const callback: FetchProgressCallback = {
-      onProgress: (completed: number, total: number) => {
-        onProgress({ completed, total });
-      },
-    };
-
-    return generatedFetchWithProgress(authHeader, activityIds, callback);
   }
 
   /**

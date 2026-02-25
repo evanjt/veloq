@@ -107,8 +107,8 @@ describe('FFI Binding Validation', () => {
       expect(FFI_EXPORTS.length).toBeGreaterThan(0);
     });
 
-    it('should have 79 FFI exports from Rust', () => {
-      expect(FFI_EXPORTS.length).toBe(79);
+    it('should have 70 FFI exports from Rust', () => {
+      expect(FFI_EXPORTS.length).toBe(72);
     });
 
     it('should have exports from all expected source files', () => {
@@ -236,7 +236,7 @@ describe('FFI Binding Validation', () => {
       const httpFns = FFI_EXPORTS.filter(
         (e) => e.name.includes('fetch') || e.name.includes('download')
       );
-      expect(httpFns.length).toBeGreaterThan(3);
+      expect(httpFns.length).toBeGreaterThan(1);
     });
 
     it('should have polyline encoding functions', () => {
@@ -253,7 +253,7 @@ describe('FFI Manifest Freshness', () => {
     // This test ensures the generated manifest is up-to-date
     // If it fails, run: npx tsx scripts/extract-ffi-exports.ts
 
-    const expectedCount = 79; // Update if Rust exports change
+    const expectedCount = 72; // Update if Rust exports change
     const actualCount = FFI_EXPORTS.length;
 
     if (actualCount !== expectedCount) {

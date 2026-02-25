@@ -6066,15 +6066,6 @@ pub mod persistent_engine_ffi {
         });
     }
 
-    /// Get the custom name for a route.
-    /// Returns empty string if no custom name is set.
-    #[uniffi::export]
-    pub fn persistent_engine_get_route_name(route_id: String) -> String {
-        with_persistent_engine(|e| e.get_route_name(&route_id))
-            .flatten()
-            .unwrap_or_default()
-    }
-
     /// Set the name for a section.
     /// Pass empty string to clear the name.
     #[uniffi::export]
@@ -6673,32 +6664,6 @@ pub mod persistent_engine_ffi {
         pub activity_id: String,
         pub sport_type: String,
         pub bounds: crate::FfiBounds,
-    }
-
-    /// Get all activities with complete data for map display.
-    /// Joins metadata (bounds) with metrics (name, date, distance) in a single call.
-    /// Much faster than fetching separately and merging in JS.
-    #[uniffi::export]
-    pub fn persistent_engine_get_all_map_activities_complete() -> Vec<MapActivityComplete> {
-        with_persistent_engine(|e| {
-            e.activity_metadata
-                .iter()
-                .filter_map(|(id, meta)| {
-                    // Join with metrics to get name, date, distance
-                    let metrics = e.activity_metrics.get(id)?;
-                    Some(MapActivityComplete {
-                        activity_id: id.clone(),
-                        name: metrics.name.clone(),
-                        sport_type: meta.sport_type.clone(),
-                        date: metrics.date,
-                        distance: metrics.distance,
-                        duration: metrics.moving_time,
-                        bounds: meta.bounds.into(),
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default()
     }
 
     /// Get activities filtered by date range and optionally by sport types.
