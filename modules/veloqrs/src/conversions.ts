@@ -2,7 +2,7 @@
  * Point conversions, validators, and shared types for the veloqrs module.
  */
 
-import type { FfiGpsPoint } from "./generated/veloqrs";
+import type { FfiDetectionProgress, FfiGpsPoint } from "./generated/veloqrs";
 
 /**
  * Simple point type with lat/lng (used by app code).
@@ -14,15 +14,9 @@ export interface RoutePoint {
 
 /**
  * Progress state for section detection.
+ * Alias for the generated FfiDetectionProgress type.
  */
-export interface SectionDetectionProgress {
-  /** Current phase: "loading", "building_rtrees", "finding_overlaps", "clustering", "building_sections", "postprocessing", "complete" */
-  phase: string;
-  /** Number of items completed in current phase */
-  completed: number;
-  /** Total items in current phase */
-  total: number;
-}
+export type SectionDetectionProgress = FfiDetectionProgress;
 
 /**
  * A user-created custom section.
