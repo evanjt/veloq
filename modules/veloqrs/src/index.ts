@@ -56,8 +56,6 @@ import {
   type GroupSummary,
   type MapActivityComplete,
   type FfiPeriodStats,
-  type FfiMonthlyAggregate,
-  type FfiHeatmapDay,
   type FfiFtpTrend,
   type FfiPaceTrend,
   type FfiRoutesScreenData,
@@ -89,8 +87,6 @@ export type {
 };
 // Aggregate query types
 export type PeriodStats = FfiPeriodStats;
-export type MonthlyAggregate = FfiMonthlyAggregate;
-export type HeatmapDay = FfiHeatmapDay;
 export type FtpTrend = FfiFtpTrend;
 export type PaceTrend = FfiPaceTrend;
 // Routes screen batch types

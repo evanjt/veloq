@@ -191,24 +191,6 @@ pub struct FfiPeriodStats {
     pub total_tss: f64,
 }
 
-/// Monthly aggregate value.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiMonthlyAggregate {
-    /// Month (0-11)
-    pub month: u8,
-    /// Aggregated value (hours, distance in meters, or TSS)
-    pub value: f64,
-}
-
-/// Activity heatmap day entry.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiHeatmapDay {
-    /// Date string "YYYY-MM-DD"
-    pub date: String,
-    /// Intensity level (0-4)
-    pub intensity: u8,
-}
-
 /// FTP trend data.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiFtpTrend {
@@ -233,15 +215,6 @@ pub struct FfiPaceTrend {
     pub previous_pace: Option<f64>,
     /// Date of previous snapshot (Unix timestamp seconds)
     pub previous_date: Option<i64>,
-}
-
-/// Weekly comparison: current week, previous week, and FTP trend bundled.
-/// Reduces FFI overhead from 3 calls to 1 call (30ms → 10ms).
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiWeeklyComparison {
-    pub current_week: FfiPeriodStats,
-    pub previous_week: FfiPeriodStats,
-    pub ftp_trend: FfiFtpTrend,
 }
 
 /// Summary card batch data: combines period stats, FTP trend, and pace trends.

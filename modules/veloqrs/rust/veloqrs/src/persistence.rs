@@ -1663,19 +1663,6 @@ impl PersistentRouteEngine {
     }
 
     /// Add an activity from flat coordinate buffer.
-    pub fn add_activity_flat(
-        &mut self,
-        id: String,
-        flat_coords: &[f64],
-        sport_type: String,
-    ) -> SqlResult<()> {
-        let coords: Vec<GpsPoint> = flat_coords
-            .chunks_exact(2)
-            .map(|chunk| GpsPoint::new(chunk[0], chunk[1]))
-            .collect();
-        self.add_activity(id, coords, sport_type)
-    }
-
     /// Remove an activity.
     pub fn remove_activity(&mut self, id: &str) -> SqlResult<()> {
         // Remove from database (cascade deletes signature and track)
@@ -1939,48 +1926,6 @@ impl PersistentRouteEngine {
 
     /// Get all activities with complete metadata for map display.
     /// Queries the database for metadata fields (date, name, distance, duration).
-    pub fn get_all_map_activities_complete(&self) -> Vec<MapActivityComplete> {
-        let mut stmt = match self.db.prepare(
-            "SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng,
-                    COALESCE(start_date, 0) as start_date,
-                    COALESCE(name, '') as name,
-                    COALESCE(distance_meters, 0.0) as distance_meters,
-                    COALESCE(duration_secs, 0) as duration_secs
-             FROM activities"
-        ) {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!("[PersistentEngine] Failed to prepare query: {}", e);
-                return Vec::new();
-            }
-        };
-
-        let results = stmt.query_map([], |row| {
-            Ok(MapActivityComplete {
-                activity_id: row.get(0)?,
-                sport_type: row.get(1)?,
-                bounds: crate::FfiBounds {
-                    min_lat: row.get(2)?,
-                    max_lat: row.get(3)?,
-                    min_lng: row.get(4)?,
-                    max_lng: row.get(5)?,
-                },
-                date: row.get(6)?,
-                name: row.get(7)?,
-                distance: row.get(8)?,
-                duration: row.get(9)?,
-            })
-        });
-
-        match results {
-            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
-            Err(e) => {
-                log::error!("[PersistentEngine] Failed to query activities: {}", e);
-                Vec::new()
-            }
-        }
-    }
-
     /// Get activities filtered by date range and sport types.
     /// - start_ts: Unix timestamp (seconds) for start of range
     /// - end_ts: Unix timestamp (seconds) for end of range
@@ -2768,11 +2713,6 @@ impl PersistentRouteEngine {
     }
 
     /// Get groups as JSON string.
-    pub fn get_groups_json(&mut self) -> String {
-        let groups = self.get_groups();
-        serde_json::to_string(groups).unwrap_or_else(|_| "[]".to_string())
-    }
-
     // ========================================================================
     // Sections (Background Detection)
     // ========================================================================
@@ -3923,81 +3863,6 @@ impl PersistentRouteEngine {
     }
 
     // ========================================================================
-    // Overlap Cache
-    // ========================================================================
-
-    /// Order activity IDs lexicographically for consistent cache keys.
-    fn order_activity_ids<'a>(id_a: &'a str, id_b: &'a str) -> (&'a str, &'a str) {
-        if id_a < id_b {
-            (id_a, id_b)
-        } else {
-            (id_b, id_a)
-        }
-    }
-
-    /// Get cached overlap result for two activities.
-    /// Returns:
-    ///   Some(Some(overlap_data)) - cached, has overlap with data
-    ///   Some(None) - cached, no overlap exists
-    ///   None - not cached, needs computation
-    pub fn get_cached_overlap(&self, id_a: &str, id_b: &str) -> Option<Option<Vec<u8>>> {
-        let (a, b) = Self::order_activity_ids(id_a, id_b);
-
-        let mut stmt = self
-            .db
-            .prepare_cached("SELECT has_overlap, overlap_data FROM overlap_cache WHERE activity_a = ? AND activity_b = ?")
-            .ok()?;
-
-        match stmt.query_row(params![a, b], |row| {
-            let has_overlap: i32 = row.get(0)?;
-            let data: Option<Vec<u8>> = row.get(1)?;
-            Ok((has_overlap, data))
-        }) {
-            Ok((1, data)) => Some(data), // Has overlap, return the data (or None if no data stored)
-            Ok((0, _)) => Some(None),    // Cached as no overlap
-            Ok(_) => Some(None),         // Invalid value, treat as no overlap
-            Err(_) => None,              // Not in cache
-        }
-    }
-
-    /// Store overlap result in cache.
-    /// overlap_data should be None if no overlap, Some(serialized_data) if overlap exists.
-    pub fn cache_overlap(&self, id_a: &str, id_b: &str, overlap_data: Option<&[u8]>) {
-        let (a, b) = Self::order_activity_ids(id_a, id_b);
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64;
-
-        let has_overlap = if overlap_data.is_some() { 1 } else { 0 };
-
-        let _ = self.db.execute(
-            "INSERT OR REPLACE INTO overlap_cache (activity_a, activity_b, has_overlap, overlap_data, computed_at) VALUES (?, ?, ?, ?, ?)",
-            params![a, b, has_overlap, overlap_data, now],
-        );
-    }
-
-    /// Invalidate cached overlaps for an activity (when GPS track changes).
-    pub fn invalidate_overlap_cache_for_activity(&self, activity_id: &str) {
-        let _ = self.db.execute(
-            "DELETE FROM overlap_cache WHERE activity_a = ? OR activity_b = ?",
-            params![activity_id, activity_id],
-        );
-    }
-
-    /// Get count of cached overlaps (for debugging/stats).
-    pub fn get_overlap_cache_count(&self) -> u32 {
-        self.db
-            .query_row("SELECT COUNT(*) FROM overlap_cache", [], |row| row.get(0))
-            .unwrap_or(0)
-    }
-
-    /// Clear all cached overlaps.
-    pub fn clear_overlap_cache(&self) {
-        let _ = self.db.execute("DELETE FROM overlap_cache", []);
-    }
-
-    // ========================================================================
     // Consensus Routes
     // ========================================================================
 
@@ -4432,96 +4297,6 @@ impl PersistentRouteEngine {
 
     /// Get weekly comparison: current week + previous week + FTP trend.
     /// Bundles 3 FFI calls into 1 for 3x reduction in FFI overhead (30ms → 10ms).
-    pub fn get_weekly_comparison(&self, week_start_ts: i64) -> crate::FfiWeeklyComparison {
-        let week_end_ts = week_start_ts + (7 * 24 * 60 * 60);
-        let prev_week_start = week_start_ts - (7 * 24 * 60 * 60);
-
-        crate::FfiWeeklyComparison {
-            current_week: self.get_period_stats(week_start_ts, week_end_ts),
-            previous_week: self.get_period_stats(prev_week_start, week_start_ts),
-            ftp_trend: self.get_ftp_trend(),
-        }
-    }
-
-    /// Get monthly aggregates for a given year and metric.
-    /// metric: "hours" | "distance" | "tss"
-    pub fn get_monthly_aggregates(&self, year: i32, metric: &str) -> Vec<crate::FfiMonthlyAggregate> {
-        let sql_expr = match metric {
-            "hours" => "COALESCE(SUM(moving_time), 0) / 3600.0",
-            "distance" => "COALESCE(SUM(distance), 0)",
-            "tss" => "COALESCE(SUM(training_load), 0)",
-            _ => return Vec::new(),
-        };
-
-        // Convert year to date range as Unix timestamps
-        let start = chrono::NaiveDate::from_ymd_opt(year, 1, 1)
-            .unwrap()
-            .and_hms_opt(0, 0, 0)
-            .unwrap()
-            .and_utc()
-            .timestamp();
-        let end = chrono::NaiveDate::from_ymd_opt(year, 12, 31)
-            .unwrap()
-            .and_hms_opt(23, 59, 59)
-            .unwrap()
-            .and_utc()
-            .timestamp();
-
-        let query = format!(
-            "SELECT CAST(strftime('%m', date, 'unixepoch') AS INTEGER) - 1 as month, {}
-             FROM activity_metrics
-             WHERE date BETWEEN ?1 AND ?2
-             GROUP BY month
-             ORDER BY month",
-            sql_expr
-        );
-
-        let mut stmt = match self.db.prepare(&query) {
-            Ok(s) => s,
-            Err(_) => return Vec::new(),
-        };
-
-        stmt.query_map(params![start, end], |row| {
-            Ok(crate::FfiMonthlyAggregate {
-                month: row.get::<_, i64>(0)? as u8,
-                value: row.get(1)?,
-            })
-        })
-        .ok()
-        .map(|iter| iter.flatten().collect())
-        .unwrap_or_default()
-    }
-
-    /// Get activity heatmap data: date string + intensity (0-4) based on moving_time.
-    pub fn get_activity_heatmap(&self, start_ts: i64, end_ts: i64) -> Vec<crate::FfiHeatmapDay> {
-        // Use precomputed heatmap cache for 10-50x speedup (was 10-50ms, now 1-2ms)
-        let start_date = chrono::DateTime::from_timestamp(start_ts, 0)
-            .map(|dt| dt.format("%Y-%m-%d").to_string())
-            .unwrap_or_default();
-        let end_date = chrono::DateTime::from_timestamp(end_ts, 0)
-            .map(|dt| dt.format("%Y-%m-%d").to_string())
-            .unwrap_or_default();
-
-        let mut stmt = match self.db.prepare(
-            "SELECT date, intensity FROM activity_heatmap
-             WHERE date BETWEEN ? AND ?
-             ORDER BY date"
-        ) {
-            Ok(s) => s,
-            Err(_) => return Vec::new(),
-        };
-
-        stmt.query_map(params![start_date, end_date], |row| {
-            Ok(crate::FfiHeatmapDay {
-                date: row.get(0)?,
-                intensity: row.get(1)?,
-            })
-        })
-        .ok()
-        .map(|iter| iter.flatten().collect())
-        .unwrap_or_default()
-    }
-
     /// Get aggregated zone distribution for a sport type and zone type.
     /// zone_type: "power" | "hr"
     pub fn get_zone_distribution(&self, sport_type: &str, zone_type: &str) -> Vec<f64> {
