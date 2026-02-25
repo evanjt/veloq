@@ -137,8 +137,9 @@ describe('FFI Binding Validation', () => {
       expect(hasWildcardReexport()).toBe(true);
     });
 
-    it('should import functions for the RouteEngineClient wrapper', () => {
+    it('should import standalone functions in index.ts', () => {
       const imports = extractGeneratedImports();
+      // index.ts still imports standalone flat functions (detectSectionsMultiscale, etc.)
       expect(imports.size).toBeGreaterThan(0);
     });
   });
@@ -150,25 +151,23 @@ describe('FFI Binding Validation', () => {
       tsImports = extractGeneratedImports();
     });
 
-    it('should import all Rust FFI exports that are used in wrappers', () => {
-      // Check that commonly used functions are imported
-      const criticalFunctions = [
-        'persistentEngineInit',
-        'persistentEngineIsInitialized',
-        'persistentEngineClear',
-        'persistentEngineAddActivities',
-        'persistentEngineGetSections',
-        'persistentEngineGetSectionSummaries',
+    it('should import standalone flat functions used in index.ts', () => {
+      // RouteEngineClient uses dynamic require for domain objects.
+      // index.ts still imports standalone functions that stay flat.
+      const standaloneFunctions = [
+        'ffiDetectSectionsMultiscale',
+        'defaultScalePresets',
+        'getDownloadProgress',
       ];
 
-      const missingCritical: string[] = [];
-      for (const fn of criticalFunctions) {
+      const missing: string[] = [];
+      for (const fn of standaloneFunctions) {
         if (!tsImports.has(fn)) {
-          missingCritical.push(fn);
+          missing.push(fn);
         }
       }
 
-      expect(missingCritical).toEqual([]);
+      expect(missing).toEqual([]);
     });
 
     it('should report FFI functions not explicitly imported (informational)', () => {
