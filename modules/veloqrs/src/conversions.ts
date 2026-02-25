@@ -50,21 +50,6 @@ export interface CustomSection {
 }
 
 /**
- * Raw potential section from Rust (uses GpsPoint polyline, not RoutePoint).
- * Internal type - not exported. Caller should convert polyline using gpsPointsToRoutePoints().
- */
-export interface RawPotentialSection {
-  id: string;
-  sport_type: string;
-  polyline: FfiGpsPoint[];
-  activity_ids: string[];
-  visit_count: number;
-  distance_meters: number;
-  confidence: number;
-  scale: string;
-}
-
-/**
  * Progress event from fetch operations.
  */
 export interface FetchProgressEvent {
