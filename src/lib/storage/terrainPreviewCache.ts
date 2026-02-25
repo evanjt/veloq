@@ -13,9 +13,18 @@
 
 // Use legacy API for SDK 54 compatibility
 import * as FileSystem from 'expo-file-system/legacy';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const TERRAIN_DIR = `${FileSystem.cacheDirectory}terrain_previews/`;
 const MAX_CACHED_PREVIEWS = 50;
+
+/**
+ * Cache version — increment whenever rendering logic changes
+ * (style, hillshade, tile loading, camera, pixel ratio).
+ * On mismatch, all cached snapshots are cleared so users get fresh renders.
+ */
+const TERRAIN_CACHE_VERSION = 3;
+const VERSION_KEY = 'terrain-preview-cache-version';
 
 /** Compound cache key */
 function cacheKey(activityId: string, style: string): string {
@@ -32,6 +41,13 @@ let initialized = false;
  */
 export async function initTerrainPreviewCache(): Promise<void> {
   try {
+    // Check cache version — clear stale snapshots from previous rendering logic
+    const storedVersion = await AsyncStorage.getItem(VERSION_KEY);
+    if (storedVersion !== String(TERRAIN_CACHE_VERSION)) {
+      await clearTerrainPreviews();
+      await AsyncStorage.setItem(VERSION_KEY, String(TERRAIN_CACHE_VERSION));
+    }
+
     const dirInfo = await FileSystem.getInfoAsync(TERRAIN_DIR);
     if (!dirInfo.exists) {
       await FileSystem.makeDirectoryAsync(TERRAIN_DIR, { intermediates: true });

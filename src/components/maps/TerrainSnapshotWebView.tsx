@@ -15,13 +15,12 @@ import React, { useRef, useCallback, useImperativeHandle, forwardRef } from 'rea
 import { View, StyleSheet, Dimensions, PixelRatio } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { MapStyleType } from './mapStyles';
-import { getCombinedSatelliteStyle } from './mapStyles';
-import { DARK_MATTER_STYLE } from './darkMatterStyle';
+import { getCombinedSatelliteStyle, getTerrainSnapshotStyle } from './mapStyles';
 import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import { saveTerrainPreview, hasTerrainPreview } from '@/lib/storage/terrainPreviewCache';
 import { emitSnapshotComplete } from '@/lib/events/terrainSnapshotEvents';
 
-const DEVICE_PIXEL_RATIO = PixelRatio.get();
+const DEVICE_PIXEL_RATIO = Math.min(PixelRatio.get(), 2); // Cap at 2x for snapshots
 const SNAPSHOT_TIMEOUT_MS = 20000;
 const MAX_QUEUE_SIZE = 30;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -72,11 +71,11 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       const isSatellite = request.mapStyle === 'satellite';
       const isDark = request.mapStyle === 'dark' || request.mapStyle === 'satellite';
 
+      // Use minimal terrain-focused styles for light/dark — full vector styles
+      // (Liberty, Dark Matter) have dozens of flat layers that clash with 3D terrain
       const styleConfig = isSatellite
         ? JSON.stringify(getCombinedSatelliteStyle())
-        : request.mapStyle === 'dark'
-          ? JSON.stringify(DARK_MATTER_STYLE)
-          : `"https://tiles.openfreemap.org/styles/liberty"`;
+        : JSON.stringify(getTerrainSnapshotStyle(request.mapStyle === 'dark' ? 'dark' : 'light'));
 
       const coordsJSON = JSON.stringify(request.coordinates);
       const cameraJSON = JSON.stringify(request.camera);
@@ -162,33 +161,54 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 });
                 window.map.setTerrain({ source: 'terrain', exaggeration: 1.5 });
 
-                // Hillshade (non-satellite only)
+                // Sky/fog to blend horizon instead of white tiles
+                if (isSatellite) {
+                  window.map.setSky({
+                    'sky-color': '#1a3a5c',
+                    'horizon-color': '#2a4a6c',
+                    'fog-color': '#1a3050',
+                    'fog-ground-blend': 0.5,
+                    'horizon-fog-blend': 0.8,
+                    'sky-horizon-blend': 0.5,
+                    'atmosphere-blend': 0.8,
+                  });
+                } else if (isDark) {
+                  window.map.setSky({
+                    'sky-color': '#0a0a14',
+                    'horizon-color': '#151520',
+                    'fog-color': '#0a0a14',
+                    'fog-ground-blend': 0.5,
+                    'horizon-fog-blend': 0.8,
+                    'sky-horizon-blend': 0.5,
+                    'atmosphere-blend': 0.8,
+                  });
+                } else {
+                  window.map.setSky({
+                    'sky-color': '#88C6FC',
+                    'horizon-color': '#B0C8DC',
+                    'fog-color': '#D8E4EE',
+                    'fog-ground-blend': 0.5,
+                    'horizon-fog-blend': 0.8,
+                    'sky-horizon-blend': 0.5,
+                    'atmosphere-blend': 0.8,
+                  });
+                }
+
+                // Hillshade (non-satellite only) — enhanced for terrain-focused snapshots
                 if (!isSatellite) {
-                  try {
-                    window.map.addLayer({
-                      id: 'hillshading',
-                      type: 'hillshade',
-                      source: 'terrain',
-                      layout: { visibility: 'visible' },
-                      paint: {
-                        'hillshade-shadow-color': isDark ? '#000000' : '#473B24',
-                        'hillshade-illumination-anchor': 'map',
-                        'hillshade-exaggeration': 0.3,
-                      },
-                    }, 'building');
-                  } catch(e) {
-                    window.map.addLayer({
-                      id: 'hillshading',
-                      type: 'hillshade',
-                      source: 'terrain',
-                      layout: { visibility: 'visible' },
-                      paint: {
-                        'hillshade-shadow-color': isDark ? '#000000' : '#473B24',
-                        'hillshade-illumination-anchor': 'map',
-                        'hillshade-exaggeration': 0.3,
-                      },
-                    });
-                  }
+                  window.map.addLayer({
+                    id: 'hillshading',
+                    type: 'hillshade',
+                    source: 'terrain',
+                    layout: { visibility: 'visible' },
+                    paint: {
+                      'hillshade-shadow-color': isDark ? '#000000' : '#473B24',
+                      'hillshade-highlight-color': isDark ? '#2A2A2A' : '#FFFBF5',
+                      'hillshade-accent-color': isDark ? '#111111' : '#D4C4A8',
+                      'hillshade-illumination-anchor': 'map',
+                      'hillshade-exaggeration': 0.6,
+                    },
+                  });
                 }
 
                 // Move camera BEFORE loading terrain tiles
@@ -201,23 +221,73 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
 
                 window._rn_log('Terrain + camera set, waiting for tiles...');
 
-                // Wait for terrain tiles to load FIRST
-                var tileRetries = 0;
-                var maxTileRetries = 40;
+                // Nudge tile loading by forcing viewport recalculation
+                window.map.resize();
 
-                function waitForTiles() {
-                  if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in waitForTiles, aborting'); return; }
-                  tileRetries++;
-                  if (window.map.loaded() && window.map.areTilesLoaded()) {
-                    window._rn_log('Tiles loaded after ' + tileRetries + ' polls, adding route...');
-                    addRouteAndCapture();
-                  } else if (tileRetries >= maxTileRetries) {
-                    window._rn_log('Tiles timeout, adding route anyway...');
-                    addRouteAndCapture();
-                  } else {
-                    setTimeout(waitForTiles, 250);
-                  }
+                // Event-driven tile loading via MapLibre 'idle' event
+                var tileLoadTimedOut = false;
+                var tileLoadDone = false;
+
+                function onTilesReady() {
+                  if (tileLoadDone || isStale()) return;
+                  tileLoadDone = true;
+                  addRouteAndCapture();
                 }
+
+                window.map.once('idle', function() {
+                  if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in idle, aborting'); return; }
+                  if (window.map.isSourceLoaded('terrain') && window.map.areTilesLoaded()) {
+                    window._rn_log('Tiles loaded on first idle');
+                    onTilesReady();
+                  } else {
+                    window._rn_log('First idle but tiles incomplete, waiting for second idle...');
+                    // One more idle cycle with 5s fallback
+                    var secondIdleDone = false;
+                    window.map.once('idle', function() {
+                      if (secondIdleDone || isStale()) return;
+                      secondIdleDone = true;
+                      if (window.map.areTilesLoaded()) {
+                        window._rn_log('Tiles loaded on second idle');
+                        onTilesReady();
+                      } else {
+                        // Tiles still incomplete — skip this snapshot
+                        window._rn_log('Tiles still incomplete after second idle, skipping snapshot');
+                        window.ReactNativeWebView.postMessage(JSON.stringify({
+                          type: 'snapshotError',
+                          activityId: activityId,
+                          gen: myGen,
+                          error: 'Tiles incomplete after idle',
+                        }));
+                      }
+                    });
+                    setTimeout(function() {
+                      if (!secondIdleDone && !isStale()) {
+                        secondIdleDone = true;
+                        window._rn_log('Second idle fallback (5s), skipping snapshot');
+                        window.ReactNativeWebView.postMessage(JSON.stringify({
+                          type: 'snapshotError',
+                          activityId: activityId,
+                          gen: myGen,
+                          error: 'Tile load timeout',
+                        }));
+                      }
+                    }, 5000);
+                  }
+                });
+
+                // Hard fallback timeout (12s safety net)
+                setTimeout(function() {
+                  if (!tileLoadDone && !isStale()) {
+                    tileLoadTimedOut = true;
+                    window._rn_log('Hard fallback timeout (12s), skipping snapshot');
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                      type: 'snapshotError',
+                      activityId: activityId,
+                      gen: myGen,
+                      error: 'Hard tile load timeout',
+                    }));
+                  }
+                }, 12000);
 
                 // Add route ON TOP of fully-loaded terrain, then capture on idle
                 function addRouteAndCapture() {
@@ -286,11 +356,20 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     window.map.once('idle', function() {
                       if (idleFired || isStale()) return;
                       idleFired = true;
-                      window._rn_log('Map idle, capturing...');
-                      // Extra frame to ensure GPU has painted the route
-                      requestAnimationFrame(function() {
-                        setTimeout(captureSnapshot, 50);
-                      });
+
+                      // Final tile check — route rendering may have evicted tiles
+                      if (!window.map.areTilesLoaded()) {
+                        window._rn_log('Tiles evicted after route add, waiting 500ms...');
+                        setTimeout(function() {
+                          if (!isStale()) captureSnapshot();
+                        }, 500);
+                      } else {
+                        window._rn_log('Map idle, capturing...');
+                        // Extra frame to ensure GPU has painted the route
+                        requestAnimationFrame(function() {
+                          setTimeout(captureSnapshot, 50);
+                        });
+                      }
                     });
 
                     // Fallback if idle never fires (shouldn't happen but safety net)
@@ -333,7 +412,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                   }
                 }
 
-                waitForTiles();
+                // Idle-based tile loading is already wired up above
               } catch(e) {
                 window._rn_log('onStyleReady error: ' + e.message);
                 window.ReactNativeWebView.postMessage(JSON.stringify({

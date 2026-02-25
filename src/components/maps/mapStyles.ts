@@ -60,7 +60,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: [
       'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg',
     ],
-    tileSize: 64,
+    tileSize: 256,
     maxzoom: 20,
     attribution: '© swisstopo',
     bounds: [5.956, 45.818, 10.492, 47.808], // Switzerland actual extent [west, south, east, north]
@@ -71,7 +71,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: [
       'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
     ],
-    tileSize: 64,
+    tileSize: 256,
     maxzoom: 20,
     attribution: '© IGN France',
     bounds: [-5.142, 41.333, 9.56, 51.089], // Metropolitan France [west, south, east, north]
@@ -81,7 +81,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: [
       'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/tile/{z}/{y}/{x}',
     ],
-    tileSize: 64,
+    tileSize: 256,
     maxzoom: 17,
     attribution: '© USDA NAIP',
     bounds: [-124.733, 24.544, -66.95, 49.384], // Continental USA [west, south, east, north]
@@ -90,7 +90,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   // Note: 2018+ versions are CC BY-NC-SA (not commercial)
   eox: {
     tiles: ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg'],
-    tileSize: 64,
+    tileSize: 256,
     maxzoom: 14,
     attribution: 'Sentinel-2 cloudless by EOX © Copernicus 2016-2017',
     // No bounds - global coverage
@@ -134,13 +134,20 @@ export interface CombinedSatelliteMapStyle {
       bounds?: [number, number, number, number];
     }
   >;
-  layers: Array<{
-    id: string;
-    type: 'raster';
-    source: string;
-    minzoom: number;
-    maxzoom: number;
-  }>;
+  layers: Array<
+    | {
+        id: string;
+        type: 'raster';
+        source: string;
+        minzoom: number;
+        maxzoom: number;
+      }
+    | {
+        id: string;
+        type: 'background';
+        paint: { 'background-color': string };
+      }
+  >;
 }
 
 // Legacy type alias for backwards compatibility
@@ -191,6 +198,12 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
       },
     },
     layers: [
+      // Dark background so empty tile areas show dark blue instead of white
+      {
+        id: 'background',
+        type: 'background',
+        paint: { 'background-color': '#0a1628' },
+      },
       // Base layer: EOX (global coverage, lowest resolution)
       {
         id: 'satellite-layer-eox',
@@ -332,3 +345,71 @@ export function getCombinedSatelliteAttribution(lat: number, lng: number, zoom: 
 
 // 3D terrain attribution
 export const TERRAIN_ATTRIBUTION = '© AWS Terrain Tiles';
+
+/**
+ * Minimal map style for 3D terrain snapshot previews.
+ *
+ * Full vector styles (Liberty, Dark Matter) have dozens of layers (roads, labels,
+ * railways, aeroways) that render flat at 60-degree pitch, clashing with 3D terrain.
+ * This style keeps only background, water, and country boundaries — the terrain
+ * hillshade provides all the visual detail needed for a 160px preview card.
+ *
+ * Bonus: fewer vector layers = fewer tiles to load = faster + more reliable rendering.
+ */
+export function getTerrainSnapshotStyle(mode: 'light' | 'dark') {
+  const isLight = mode === 'light';
+  return {
+    version: 8 as const,
+    sources: {
+      openmaptiles: {
+        type: 'vector' as const,
+        url: 'https://tiles.openfreemap.org/planet',
+      },
+    },
+    glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+    layers: [
+      {
+        id: 'background',
+        type: 'background' as const,
+        paint: {
+          'background-color': isLight ? '#E8E0D8' : '#1A1A1A',
+        },
+      },
+      {
+        id: 'water',
+        type: 'fill' as const,
+        source: 'openmaptiles',
+        'source-layer': 'water',
+        filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'brunnel', 'tunnel']],
+        paint: {
+          'fill-color': isLight ? '#A3C7DF' : '#1B1B1D',
+          'fill-antialias': false,
+        },
+      },
+      {
+        id: 'waterway',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'waterway',
+        filter: ['==', '$type', 'LineString'],
+        paint: {
+          'line-color': isLight ? '#A3C7DF' : '#1B1B1D',
+          'line-width': 1,
+          'line-opacity': 0.6,
+        },
+      },
+      {
+        id: 'boundary_country',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'boundary',
+        filter: ['all', ['==', 'admin_level', 2], ['!=', 'maritime', 1]],
+        paint: {
+          'line-color': isLight ? '#CCBBAA' : '#333333',
+          'line-width': 0.7,
+          'line-opacity': 0.4,
+        },
+      },
+    ],
+  };
+}

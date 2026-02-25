@@ -325,7 +325,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // Reset map ready state when HTML regenerates
       mapReadyRef.current = false;
 
-      const devicePixelRatio = PixelRatio.get();
+      const devicePixelRatio = Math.min(PixelRatio.get(), 2); // Cap at 2x for 3D terrain
       const coordsJSON = JSON.stringify(coordinates);
       const boundsJSON = bounds ? JSON.stringify(bounds) : 'null';
       // Use saved camera position if available (from previous style change),
@@ -437,11 +437,6 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     map.on('pitchend', saveCameraState);
 
     map.on('load', () => {
-      // Notify React Native that map is ready
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
-      }
-
       // Add AWS Terrain Tiles source (free, no API key)
       map.addSource('terrain', {
         type: 'raster-dem',
@@ -456,6 +451,39 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         source: 'terrain',
         exaggeration: ${terrainExaggeration},
       });
+
+      // Sky/fog to blend horizon instead of white tiles
+      if (isSatellite) {
+        map.setSky({
+          'sky-color': '#1a3a5c',
+          'horizon-color': '#2a4a6c',
+          'fog-color': '#1a3050',
+          'fog-ground-blend': 0.5,
+          'horizon-fog-blend': 0.8,
+          'sky-horizon-blend': 0.5,
+          'atmosphere-blend': 0.8,
+        });
+      } else if (${isDark}) {
+        map.setSky({
+          'sky-color': '#0a0a14',
+          'horizon-color': '#151520',
+          'fog-color': '#0a0a14',
+          'fog-ground-blend': 0.5,
+          'horizon-fog-blend': 0.8,
+          'sky-horizon-blend': 0.5,
+          'atmosphere-blend': 0.8,
+        });
+      } else {
+        map.setSky({
+          'sky-color': '#88C6FC',
+          'horizon-color': '#B0C8DC',
+          'fog-color': '#D8E4EE',
+          'fog-ground-blend': 0.5,
+          'horizon-fog-blend': 0.8,
+          'sky-horizon-blend': 0.5,
+          'atmosphere-blend': 0.8,
+        });
+      }
 
       // Add hillshade for better depth perception (skip for satellite - already has shadows)
       // Reuses the existing 'terrain' raster-dem source to avoid downloading tiles twice
@@ -554,8 +582,24 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         });
       }
 
-      // GeoJSON layers (routes, sections, traces) are added dynamically via injectJavaScript
-      // after mapReady message is received by React Native
+      // Wait for tiles before declaring map ready — at 60-degree pitch, horizon
+      // tiles are deprioritized and may not load until the viewport settles
+      map.resize(); // Ensure MapLibre knows full WebView dimensions
+      map.once('idle', function() {
+        if (map.areTilesLoaded()) {
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
+          }
+        } else {
+          // Nudge: resize forces viewport recalculation → more tile requests
+          map.resize();
+          map.once('idle', function() {
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
+            }
+          });
+        }
+      });
     });
   </script>
 </body>
