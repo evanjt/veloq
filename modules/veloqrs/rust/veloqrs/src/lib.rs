@@ -16,7 +16,7 @@ pub use ffi_types::*;
 pub mod persistence;
 pub use persistence::{
     GroupSummary, PERSISTENT_ENGINE, PersistentEngineStats, PersistentRouteEngine,
-    SectionDetectionHandle, SectionSummary, with_persistent_engine,
+    SectionDetectionHandle, with_persistent_engine,
 };
 
 // HTTP client for activity fetching
@@ -28,10 +28,11 @@ pub mod ffi;
 
 // Unified sections module
 pub mod sections;
+pub use sections::SectionSummary;
 
 // Domain objects (UniFFI Object API)
 pub mod objects;
-pub use objects::VeloqEngine;
+pub use objects::{VeloqEngine, VeloqError};
 
 // App-layer types that were moved out of tracematch (persistence/UI data containers)
 pub mod types;
