@@ -1,4 +1,4 @@
-use crate::persistence::with_persistent_engine;
+use super::error::{with_engine, VeloqError};
 use std::sync::Arc;
 
 #[derive(uniffi::Object)]
@@ -19,8 +19,8 @@ impl ActivityManager {
         all_coords: Vec<f64>,
         offsets: Vec<u32>,
         sport_types: Vec<String>,
-    ) {
-        with_persistent_engine(|engine| {
+    ) -> Result<(), VeloqError> {
+        with_engine(|engine| {
             for (i, id) in activity_ids.iter().enumerate() {
                 let start = offsets[i] as usize;
                 let end = offsets
@@ -38,60 +38,70 @@ impl ActivityManager {
                     })
                     .collect();
                 let sport = sport_types.get(i).cloned().unwrap_or_default();
-                engine.add_activity(id.clone(), coords, sport).ok();
+                engine
+                    .add_activity(id.clone(), coords, sport)
+                    .map_err(|e| VeloqError::Database {
+                        msg: format!("{}", e),
+                    })?;
             }
-        });
+            Ok(())
+        })?
     }
 
-    fn get_ids(&self) -> Vec<String> {
-        with_persistent_engine(|e| e.get_activity_ids()).unwrap_or_default()
+    fn get_ids(&self) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| e.get_activity_ids())
     }
 
-    fn get_count(&self) -> u32 {
-        with_persistent_engine(|e| e.activity_count() as u32).unwrap_or(0)
+    fn get_count(&self) -> Result<u32, VeloqError> {
+        with_engine(|e| e.activity_count() as u32)
     }
 
-    fn set_metrics(&self, metrics: Vec<crate::FfiActivityMetrics>) {
-        with_persistent_engine(|e| {
-            e.set_activity_metrics_extended(metrics).ok();
-        });
+    fn set_metrics(&self, metrics: Vec<crate::FfiActivityMetrics>) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_activity_metrics_extended(metrics)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
     }
 
-    fn get_metrics_for_ids(&self, ids: Vec<String>) -> Vec<crate::FfiActivityMetrics> {
-        with_persistent_engine(|engine| {
+    fn get_metrics_for_ids(&self, ids: Vec<String>) -> Result<Vec<crate::FfiActivityMetrics>, VeloqError> {
+        with_engine(|engine| {
             ids.iter()
                 .filter_map(|id| engine.activity_metrics.get(id).cloned())
                 .map(crate::FfiActivityMetrics::from)
                 .collect()
         })
-        .unwrap_or_default()
     }
 
-    fn set_time_streams(&self, activity_ids: Vec<String>, all_times: Vec<u32>, offsets: Vec<u32>) {
-        with_persistent_engine(|e| {
+    fn set_time_streams(&self, activity_ids: Vec<String>, all_times: Vec<u32>, offsets: Vec<u32>) -> Result<(), VeloqError> {
+        with_engine(|e| {
             e.set_time_streams_flat(&activity_ids, &all_times, &offsets);
-        });
+        })
     }
 
-    fn get_missing_time_streams(&self, activity_ids: Vec<String>) -> Vec<String> {
-        with_persistent_engine(|e| e.get_activities_missing_time_streams(&activity_ids))
-            .unwrap_or(activity_ids)
+    fn get_missing_time_streams(&self, activity_ids: Vec<String>) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| e.get_activities_missing_time_streams(&activity_ids))
     }
 
-    fn get_gps_track(&self, activity_id: String) -> Vec<crate::FfiGpsPoint> {
-        with_persistent_engine(|e| {
+    fn get_gps_track(&self, activity_id: String) -> Result<Vec<crate::FfiGpsPoint>, VeloqError> {
+        with_engine(|e| {
             e.get_gps_track(&activity_id)
                 .map(|points| points.into_iter().map(crate::FfiGpsPoint::from).collect())
                 .unwrap_or_default()
         })
-        .unwrap_or_default()
     }
 
-    fn remove(&self, activity_id: String) -> bool {
-        with_persistent_engine(|e| e.remove_activity(&activity_id).is_ok()).unwrap_or(false)
+    fn remove(&self, activity_id: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.remove_activity(&activity_id)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
     }
 
-    fn debug_clone(&self, source_id: String, count: u32) -> u32 {
-        with_persistent_engine(|e| e.debug_clone_activity(&source_id, count)).unwrap_or(0)
+    fn debug_clone(&self, source_id: String, count: u32) -> Result<u32, VeloqError> {
+        with_engine(|e| e.debug_clone_activity(&source_id, count))
     }
 }

@@ -1,5 +1,5 @@
+use super::error::{with_engine, VeloqError};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
-use crate::persistence::with_persistent_engine;
 use log::info;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -18,76 +18,68 @@ impl DetectionManager {
         Arc::new(Self { _private: () })
     }
 
-    fn start(&self, sport_filter: Option<String>) -> bool {
+    fn start(&self, sport_filter: Option<String>) -> Result<bool, VeloqError> {
         {
-            let handle_guard = SECTION_DETECTION_HANDLE.lock().unwrap();
+            let handle_guard = SECTION_DETECTION_HANDLE.lock().map_err(|_| VeloqError::LockFailed)?;
             if handle_guard.is_some() {
                 info!("tracematch: [DetectionManager] Section detection already running");
-                return false;
+                return Ok(false);
             }
         }
 
-        let handle = with_persistent_engine(|e| e.detect_sections_background(sport_filter));
+        let handle = with_engine(|e| e.detect_sections_background(sport_filter))?;
 
-        if let Some(h) = handle {
-            let mut handle_guard = SECTION_DETECTION_HANDLE.lock().unwrap();
-            *handle_guard = Some(h);
-            info!("tracematch: [DetectionManager] Section detection started");
-            true
-        } else {
-            info!("tracematch: [DetectionManager] Failed to start section detection");
-            false
-        }
+        let mut handle_guard = SECTION_DETECTION_HANDLE.lock().map_err(|_| VeloqError::LockFailed)?;
+        *handle_guard = Some(handle);
+        info!("tracematch: [DetectionManager] Section detection started");
+        Ok(true)
     }
 
-    fn poll(&self) -> String {
-        let mut handle_guard = SECTION_DETECTION_HANDLE.lock().unwrap();
+    fn poll(&self) -> Result<String, VeloqError> {
+        let mut handle_guard = SECTION_DETECTION_HANDLE.lock().map_err(|_| VeloqError::LockFailed)?;
 
         if handle_guard.is_none() {
-            return "idle".to_string();
+            return Ok("idle".to_string());
         }
 
         let result = handle_guard.as_ref().unwrap().try_recv();
 
         match result {
             Some((sections, detection_activity_ids)) => {
-                let applied = with_persistent_engine(|e| {
+                with_engine(|e| {
                     if let Err(err) = e.apply_sections(sections) {
                         log::error!("apply_sections failed: {}", err);
-                        return None;
+                        return Err(VeloqError::Database {
+                            msg: format!("apply_sections failed: {}", err),
+                        });
                     }
                     e.save_processed_activity_ids(&detection_activity_ids).ok();
-                    Some(())
-                });
+                    Ok(())
+                })??;
 
                 *handle_guard = None;
-
-                if applied.is_some() {
-                    info!("tracematch: [DetectionManager] Section detection complete");
-                    "complete".to_string()
-                } else {
-                    "error".to_string()
-                }
+                info!("tracematch: [DetectionManager] Section detection complete");
+                Ok("complete".to_string())
             }
-            None => "running".to_string(),
+            None => Ok("running".to_string()),
         }
     }
 
-    fn get_progress(&self) -> Option<crate::FfiDetectionProgress> {
-        let handle_guard = SECTION_DETECTION_HANDLE.lock().unwrap();
+    fn get_progress(&self) -> Result<Option<crate::FfiDetectionProgress>, VeloqError> {
+        let handle_guard = SECTION_DETECTION_HANDLE.lock().map_err(|_| VeloqError::LockFailed)?;
 
-        handle_guard.as_ref().map(|handle| {
+        Ok(handle_guard.as_ref().map(|handle| {
             let (phase, completed, total) = handle.get_progress();
             crate::FfiDetectionProgress {
                 phase,
                 completed,
                 total,
             }
-        })
+        }))
     }
 
-    fn detect_potentials(&self, sport_filter: Option<String>) -> Vec<crate::FfiPotentialSection> {
-        with_persistent_engine(|e| {
+    fn detect_potentials(&self, sport_filter: Option<String>) -> Result<Vec<crate::FfiPotentialSection>, VeloqError> {
+        with_engine(|e| {
             let activity_ids: Vec<String> = if let Some(ref sport) = sport_filter {
                 e.activity_metadata
                     .values()
@@ -152,6 +144,5 @@ impl DetectionManager {
                 .map(crate::FfiPotentialSection::from)
                 .collect()
         })
-        .unwrap_or_default()
     }
 }

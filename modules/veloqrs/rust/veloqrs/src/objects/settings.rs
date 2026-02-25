@@ -1,4 +1,4 @@
-use crate::persistence::with_persistent_engine;
+use super::error::{with_engine, VeloqError};
 use std::sync::Arc;
 
 #[derive(uniffi::Object)]
@@ -13,23 +13,23 @@ impl SettingsManager {
         Arc::new(Self { _private: () })
     }
 
-    fn get_athlete_profile(&self) -> String {
-        with_persistent_engine(|e| e.get_athlete_profile())
-            .flatten()
-            .unwrap_or_default()
+    fn get_athlete_profile(&self) -> Result<Option<String>, VeloqError> {
+        with_engine(|e| e.get_athlete_profile())
     }
 
-    fn set_athlete_profile(&self, json: String) {
-        with_persistent_engine(|e| e.set_athlete_profile(&json));
+    fn set_athlete_profile(&self, json: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_athlete_profile(&json);
+        })
     }
 
-    fn get_sport_settings(&self) -> String {
-        with_persistent_engine(|e| e.get_sport_settings())
-            .flatten()
-            .unwrap_or_default()
+    fn get_sport_settings(&self) -> Result<Option<String>, VeloqError> {
+        with_engine(|e| e.get_sport_settings())
     }
 
-    fn set_sport_settings(&self, json: String) {
-        with_persistent_engine(|e| e.set_sport_settings(&json));
+    fn set_sport_settings(&self, json: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_sport_settings(&json);
+        })
     }
 }

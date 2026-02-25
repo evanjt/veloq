@@ -1,4 +1,4 @@
-use crate::persistence::with_persistent_engine;
+use super::error::{with_engine, VeloqError};
 use std::sync::Arc;
 use tracematch::Bounds;
 
@@ -20,8 +20,8 @@ impl MapManager {
         max_lat: f64,
         min_lng: f64,
         max_lng: f64,
-    ) -> Vec<String> {
-        with_persistent_engine(|e| {
+    ) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| {
             e.query_viewport(&Bounds {
                 min_lat,
                 max_lat,
@@ -29,7 +29,6 @@ impl MapManager {
                 max_lng,
             })
         })
-        .unwrap_or_default()
     }
 
     fn get_filtered(
@@ -37,8 +36,8 @@ impl MapManager {
         start_date: i64,
         end_date: i64,
         sport_types: Vec<String>,
-    ) -> Vec<crate::persistence::MapActivityComplete> {
-        with_persistent_engine(|e| {
+    ) -> Result<Vec<crate::persistence::MapActivityComplete>, VeloqError> {
+        with_engine(|e| {
             let sport_filter: Option<std::collections::HashSet<String>> =
                 if sport_types.is_empty() {
                     None
@@ -69,10 +68,9 @@ impl MapManager {
                 })
                 .collect()
         })
-        .unwrap_or_default()
     }
 
-    fn get_all_signatures(&self) -> Vec<crate::ffi_types::FfiMapSignature> {
-        with_persistent_engine(|e| e.get_all_map_signatures()).unwrap_or_default()
+    fn get_all_signatures(&self) -> Result<Vec<crate::ffi_types::FfiMapSignature>, VeloqError> {
+        with_engine(|e| e.get_all_map_signatures())
     }
 }

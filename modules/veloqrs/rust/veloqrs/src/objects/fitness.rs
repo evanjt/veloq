@@ -1,4 +1,4 @@
-use crate::persistence::with_persistent_engine;
+use super::error::{with_engine, VeloqError};
 use std::sync::Arc;
 
 #[derive(uniffi::Object)]
@@ -13,29 +13,16 @@ impl FitnessManager {
         Arc::new(Self { _private: () })
     }
 
-    fn get_period_stats(&self, start_ts: i64, end_ts: i64) -> crate::FfiPeriodStats {
-        with_persistent_engine(|e| e.get_period_stats(start_ts, end_ts)).unwrap_or(
-            crate::FfiPeriodStats {
-                count: 0,
-                total_duration: 0,
-                total_distance: 0.0,
-                total_tss: 0.0,
-            },
-        )
+    fn get_period_stats(&self, start_ts: i64, end_ts: i64) -> Result<crate::FfiPeriodStats, VeloqError> {
+        with_engine(|e| e.get_period_stats(start_ts, end_ts))
     }
 
-    fn get_zone_distribution(&self, sport_type: String, zone_type: String) -> Vec<f64> {
-        with_persistent_engine(|e| e.get_zone_distribution(&sport_type, &zone_type))
-            .unwrap_or_default()
+    fn get_zone_distribution(&self, sport_type: String, zone_type: String) -> Result<Vec<f64>, VeloqError> {
+        with_engine(|e| e.get_zone_distribution(&sport_type, &zone_type))
     }
 
-    fn get_ftp_trend(&self) -> crate::FfiFtpTrend {
-        with_persistent_engine(|e| e.get_ftp_trend()).unwrap_or(crate::FfiFtpTrend {
-            latest_ftp: None,
-            latest_date: None,
-            previous_ftp: None,
-            previous_date: None,
-        })
+    fn get_ftp_trend(&self) -> Result<crate::FfiFtpTrend, VeloqError> {
+        with_engine(|e| e.get_ftp_trend())
     }
 
     fn save_pace_snapshot(
@@ -45,23 +32,18 @@ impl FitnessManager {
         d_prime: Option<f64>,
         r2: Option<f64>,
         date: i64,
-    ) {
-        with_persistent_engine(|e| {
-            e.save_pace_snapshot(&sport_type, critical_speed, d_prime, r2, date)
-        });
-    }
-
-    fn get_pace_trend(&self, sport_type: String) -> crate::FfiPaceTrend {
-        with_persistent_engine(|e| e.get_pace_trend(&sport_type)).unwrap_or(crate::FfiPaceTrend {
-            latest_pace: None,
-            latest_date: None,
-            previous_pace: None,
-            previous_date: None,
+    ) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.save_pace_snapshot(&sport_type, critical_speed, d_prime, r2, date);
         })
     }
 
-    fn get_available_sport_types(&self) -> Vec<String> {
-        with_persistent_engine(|e| e.get_available_sport_types()).unwrap_or_default()
+    fn get_pace_trend(&self, sport_type: String) -> Result<crate::FfiPaceTrend, VeloqError> {
+        with_engine(|e| e.get_pace_trend(&sport_type))
+    }
+
+    fn get_available_sport_types(&self) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| e.get_available_sport_types())
     }
 
     fn get_summary_card_data(
@@ -70,39 +52,13 @@ impl FitnessManager {
         current_end: i64,
         prev_start: i64,
         prev_end: i64,
-    ) -> crate::FfiSummaryCardData {
-        let default_stats = crate::FfiPeriodStats {
-            count: 0,
-            total_duration: 0,
-            total_distance: 0.0,
-            total_tss: 0.0,
-        };
-        let default_ftp = crate::FfiFtpTrend {
-            latest_ftp: None,
-            latest_date: None,
-            previous_ftp: None,
-            previous_date: None,
-        };
-        let default_pace = crate::FfiPaceTrend {
-            latest_pace: None,
-            latest_date: None,
-            previous_pace: None,
-            previous_date: None,
-        };
-
-        with_persistent_engine(|e| crate::FfiSummaryCardData {
+    ) -> Result<crate::FfiSummaryCardData, VeloqError> {
+        with_engine(|e| crate::FfiSummaryCardData {
             current_week: e.get_period_stats(current_start, current_end),
             prev_week: e.get_period_stats(prev_start, prev_end),
             ftp_trend: e.get_ftp_trend(),
             run_pace_trend: e.get_pace_trend("Run"),
             swim_pace_trend: e.get_pace_trend("Swim"),
-        })
-        .unwrap_or(crate::FfiSummaryCardData {
-            current_week: default_stats.clone(),
-            prev_week: default_stats,
-            ftp_trend: default_ftp,
-            run_pace_trend: default_pace.clone(),
-            swim_pace_trend: default_pace,
         })
     }
 }

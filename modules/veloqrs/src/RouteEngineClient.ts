@@ -164,7 +164,11 @@ class RouteEngineClient {
   }
 
   clear(): void {
-    this.timed('clear', () => this.engine?.clear());
+    try {
+      this.timed('clear', () => this.engine?.clear());
+    } catch {
+      // Best-effort clear — reset local state regardless
+    }
     this.initialized = false;
     this.dbPath = null;
     this.engine = null;
@@ -208,7 +212,11 @@ class RouteEngineClient {
 
   markForRecomputation(): void {
     if (!this.ready) return;
-    this.timed('markForRecomputation', () => this.engine.markForRecomputation());
+    try {
+      this.timed('markForRecomputation', () => this.engine.markForRecomputation());
+    } catch {
+      // Best-effort — engine may have been cleared
+    }
   }
 
   startSectionDetection(sportFilter?: string): boolean {
@@ -218,11 +226,15 @@ class RouteEngineClient {
 
   pollSectionDetection(): string {
     if (!this.ready) return 'idle';
-    const status = this.timed('pollSectionDetection', () => this.engine.detection().poll());
-    if (status === 'complete') {
-      this.notify('sections');
+    try {
+      const status = this.timed('pollSectionDetection', () => this.engine.detection().poll());
+      if (status === 'complete') {
+        this.notify('sections');
+      }
+      return status;
+    } catch {
+      return 'error';
     }
-    return status;
   }
 
   getSectionDetectionProgress(): SectionDetectionProgress | null {
@@ -319,6 +331,7 @@ class RouteEngineClient {
     this.timed('setSectionName', () => this.engine.sections().setName(sectionId, name));
     this.notify('sections');
   }
+
 
   setNameTranslations(routeWord: string, sectionWord: string): void {
     if (!this.ready) return;
@@ -430,7 +443,11 @@ class RouteEngineClient {
 
   getStats(): PersistentEngineStats | undefined {
     if (!this.ready) return undefined;
-    return this.timed('getStats', () => this.engine.getStats());
+    try {
+      return this.timed('getStats', () => this.engine.getStats());
+    } catch {
+      return undefined;
+    }
   }
 
   getRoutesScreenData(
@@ -441,11 +458,21 @@ class RouteEngineClient {
     minGroupActivityCount = 2,
   ): FfiRoutesScreenData | undefined {
     if (!this.ready) return undefined;
-    return this.timed('getRoutesScreenData', () =>
-      this.engine
-        .routes()
-        .getScreenData(groupLimit, groupOffset, sectionLimit, sectionOffset, minGroupActivityCount),
-    );
+    try {
+      return this.timed('getRoutesScreenData', () =>
+        this.engine
+          .routes()
+          .getScreenData(
+            groupLimit,
+            groupOffset,
+            sectionLimit,
+            sectionOffset,
+            minGroupActivityCount,
+          ),
+      );
+    } catch {
+      return undefined;
+    }
   }
 
   getSummaryCardData(
@@ -504,9 +531,13 @@ class RouteEngineClient {
   ): void {
     if (!this.ready) return;
     const ts = date ?? Math.floor(Date.now() / 1000);
-    this.timed('savePaceSnapshot', () =>
-      this.engine.fitness().savePaceSnapshot(sportType, criticalSpeed, dPrime, r2, BigInt(ts)),
-    );
+    try {
+      this.timed('savePaceSnapshot', () =>
+        this.engine.fitness().savePaceSnapshot(sportType, criticalSpeed, dPrime, r2, BigInt(ts)),
+      );
+    } catch {
+      // Pace snapshot save failed — non-critical
+    }
   }
 
   getPaceTrend(sportType: string): FfiPaceTrend {
@@ -523,22 +554,38 @@ class RouteEngineClient {
 
   setAthleteProfile(json: string): void {
     if (!this.ready) return;
-    this.timed('setAthleteProfile', () => this.engine.settings().setAthleteProfile(json));
+    try {
+      this.timed('setAthleteProfile', () => this.engine.settings().setAthleteProfile(json));
+    } catch {
+      // Settings write failed — non-critical
+    }
   }
 
   getAthleteProfile(): string {
     if (!this.ready) return '';
-    return this.timed('getAthleteProfile', () => this.engine.settings().getAthleteProfile());
+    try {
+      return this.timed('getAthleteProfile', () => this.engine.settings().getAthleteProfile()) ?? '';
+    } catch {
+      return '';
+    }
   }
 
   setSportSettings(json: string): void {
     if (!this.ready) return;
-    this.timed('setSportSettings', () => this.engine.settings().setSportSettings(json));
+    try {
+      this.timed('setSportSettings', () => this.engine.settings().setSportSettings(json));
+    } catch {
+      // Settings write failed — non-critical
+    }
   }
 
   getSportSettings(): string {
     if (!this.ready) return '';
-    return this.timed('getSportSettings', () => this.engine.settings().getSportSettings());
+    try {
+      return this.timed('getSportSettings', () => this.engine.settings().getSportSettings()) ?? '';
+    } catch {
+      return '';
+    }
   }
 
   computePolylineOverlap(coordsA: number[], coordsB: number[], thresholdMeters = 50): number {
@@ -596,13 +643,13 @@ class RouteEngineClient {
   deleteSection(sectionId: string): boolean {
     if (!this.ready) return false;
     validateId(sectionId, 'section ID');
-    const result = this.timed('deleteSection', () =>
-      this.engine.sections().delete(sectionId),
-    );
-    if (result) {
+    try {
+      this.timed('deleteSection', () => this.engine.sections().delete(sectionId));
       this.notify('sections');
+      return true;
+    } catch {
+      return false;
     }
-    return result;
   }
 
   detectPotentials(sportFilter?: string): FfiPotentialSection[] {
@@ -653,25 +700,29 @@ class RouteEngineClient {
     if (!this.ready) return false;
     validateId(sectionId, 'section ID');
     validateId(activityId, 'activity ID');
-    const result = this.timed('setSectionReference', () =>
-      this.engine.sections().setReference(sectionId, activityId),
-    );
-    if (result) {
+    try {
+      this.timed('setSectionReference', () =>
+        this.engine.sections().setReference(sectionId, activityId),
+      );
       this.notify('sections');
+      return true;
+    } catch {
+      return false;
     }
-    return result;
   }
 
   resetSectionReference(sectionId: string): boolean {
     if (!this.ready) return false;
     validateId(sectionId, 'section ID');
-    const result = this.timed('resetSectionReference', () =>
-      this.engine.sections().resetReference(sectionId),
-    );
-    if (result) {
+    try {
+      this.timed('resetSectionReference', () =>
+        this.engine.sections().resetReference(sectionId),
+      );
       this.notify('sections');
+      return true;
+    } catch {
+      return false;
     }
-    return result;
   }
 
   getSectionReferenceInfo(sectionId: string): { activityId?: string; isUserDefined: boolean } {
@@ -689,13 +740,13 @@ class RouteEngineClient {
 
   removeActivity(activityId: string): boolean {
     if (!this.ready) return false;
-    const removed = this.timed('removeActivity', () =>
-      this.engine.activities().remove(activityId),
-    );
-    if (removed) {
+    try {
+      this.timed('removeActivity', () => this.engine.activities().remove(activityId));
       this.notifyAll('activities', 'groups', 'sections');
+      return true;
+    } catch {
+      return false;
     }
-    return removed;
   }
 
   debugCloneActivity(sourceId: string, count: number): number {

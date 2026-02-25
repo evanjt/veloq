@@ -1,6 +1,5 @@
-use crate::persistence::{
-    with_persistent_engine, PersistentEngineStats, NAME_TRANSLATIONS, PERSISTENT_ENGINE,
-};
+use super::error::{with_engine, VeloqError};
+use crate::persistence::{PersistentEngineStats, NAME_TRANSLATIONS, PERSISTENT_ENGINE};
 use crate::init_logging;
 use log::info;
 use std::sync::Arc;
@@ -37,43 +36,44 @@ impl VeloqEngine {
             .unwrap_or(false)
     }
 
-    fn get_stats(&self) -> Option<PersistentEngineStats> {
-        with_persistent_engine(|e| e.stats())
+    fn get_stats(&self) -> Result<PersistentEngineStats, VeloqError> {
+        with_engine(|e| e.stats())
     }
 
-    fn get_activity_count(&self) -> u32 {
-        with_persistent_engine(|e| e.activity_count() as u32).unwrap_or(0)
+    fn get_activity_count(&self) -> Result<u32, VeloqError> {
+        with_engine(|e| e.activity_count() as u32)
     }
 
-    fn clear(&self) {
-        if let Some(()) = with_persistent_engine(|e| {
-            e.clear().ok();
-        }) {
-            info!("[VeloqEngine] Cleared");
-        }
+    fn clear(&self) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.clear().map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
+        })?
     }
 
-    fn cleanup_old_activities(&self, retention_days: u32) -> u32 {
-        with_persistent_engine(|e| match e.cleanup_old_activities(retention_days) {
-            Ok(count) => {
-                if retention_days > 0 && count > 0 {
-                    info!("[VeloqEngine] Cleanup: {} activities removed", count);
+    fn cleanup_old_activities(&self, retention_days: u32) -> Result<u32, VeloqError> {
+        with_engine(|e| {
+            match e.cleanup_old_activities(retention_days) {
+                Ok(count) => {
+                    if retention_days > 0 && count > 0 {
+                        info!("[VeloqEngine] Cleanup: {} activities removed", count);
+                    }
+                    count
                 }
-                count
-            }
-            Err(e) => {
-                log::error!("[VeloqEngine] Cleanup failed: {:?}", e);
-                0
+                Err(e) => {
+                    log::error!("[VeloqEngine] Cleanup failed: {:?}", e);
+                    0
+                }
             }
         })
-        .unwrap_or(0)
     }
 
-    fn mark_for_recomputation(&self) {
-        with_persistent_engine(|e| {
+    fn mark_for_recomputation(&self) -> Result<(), VeloqError> {
+        with_engine(|e| {
             e.mark_for_recomputation();
             info!("[VeloqEngine] Marked for re-computation");
-        });
+        })
     }
 
     fn set_name_translations(&self, route_word: String, section_word: String) {

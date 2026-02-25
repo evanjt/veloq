@@ -32,6 +32,9 @@ tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
 futures = "0.3"
 base64 = "0.22"
 
+# Error handling
+thiserror = "2"
+
 # Common
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
