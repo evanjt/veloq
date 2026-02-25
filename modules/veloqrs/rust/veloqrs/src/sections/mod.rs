@@ -94,15 +94,31 @@ pub struct CreateSectionParams {
 }
 
 /// Lightweight section summary without polyline data.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+/// Unified type used by both the persistence layer and sections CRUD.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 pub struct SectionSummary {
+    /// Unique section ID
     pub id: String,
-    pub section_type: SectionType,
+    /// Section type: "auto" or "custom"
+    pub section_type: String,
+    /// Custom name (user-defined, None if not set)
     pub name: Option<String>,
+    /// Sport type ("Run", "Ride", etc.)
     pub sport_type: String,
+    /// Section length in meters
     pub distance_meters: f64,
+    /// Number of times this section was visited
     pub visit_count: u32,
+    /// Number of activities that traverse this section
+    pub activity_count: u32,
+    /// Activity that provides the representative polyline
     pub representative_activity_id: Option<String>,
+    /// Confidence score (0.0-1.0)
+    pub confidence: f64,
+    /// Detection scale (e.g., "neighborhood", "city")
+    pub scale: Option<String>,
+    /// Bounding box for map display
+    pub bounds: Option<crate::FfiBounds>,
+    /// ISO timestamp when section was created
     pub created_at: String,
 }

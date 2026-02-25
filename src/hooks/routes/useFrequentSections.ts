@@ -42,20 +42,9 @@ export interface UseFrequentSectionsResult {
 function summaryToFrequentSection(
   summary: SectionSummary
 ): FrequentSection & { activityCount: number } {
-  // Handle both old and new SectionSummary types
-  const summaryAny = summary as unknown as Record<string, unknown>;
-  const sectionType =
-    typeof summaryAny.sectionType === 'string'
-      ? summaryAny.sectionType === 'custom'
-        ? 'custom'
-        : 'auto'
-      : 'auto';
-  const createdAt =
-    typeof summaryAny.createdAt === 'string' ? summaryAny.createdAt : new Date().toISOString();
-
   return {
     id: summary.id,
-    sectionType,
+    sectionType: summary.sectionType === 'custom' ? 'custom' : 'auto',
     name: summary.name,
     sportType: summary.sportType,
     polyline: [], // Lazy-loaded via useSectionPolyline
@@ -65,7 +54,7 @@ function summaryToFrequentSection(
     distanceMeters: summary.distanceMeters,
     confidence: summary.confidence,
     activityCount: summary.activityCount, // Preserve for display
-    createdAt,
+    createdAt: summary.createdAt,
   };
 }
 

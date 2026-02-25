@@ -4294,14 +4294,18 @@ const FfiConverterTypePersistentEngineStats = (() => {
 })();
 
 /**
- * Lightweight section metadata for list views (no polyline data).
- * Used to avoid loading full section data with polylines when only summary info is needed.
+ * Lightweight section summary without polyline data.
+ * Unified type used by both the persistence layer and sections CRUD.
  */
 export type SectionSummary = {
   /**
    * Unique section ID
    */
   id: string;
+  /**
+   * Section type: "auto" or "custom"
+   */
+  sectionType: string;
   /**
    * Custom name (user-defined, None if not set)
    */
@@ -4311,17 +4315,21 @@ export type SectionSummary = {
    */
   sportType: string;
   /**
-   * Number of times this section was visited
-   */
-  visitCount: /*u32*/ number;
-  /**
    * Section length in meters
    */
   distanceMeters: /*f64*/ number;
   /**
+   * Number of times this section was visited
+   */
+  visitCount: /*u32*/ number;
+  /**
    * Number of activities that traverse this section
    */
   activityCount: /*u32*/ number;
+  /**
+   * Activity that provides the representative polyline
+   */
+  representativeActivityId: string | undefined;
   /**
    * Confidence score (0.0-1.0)
    */
@@ -4334,6 +4342,10 @@ export type SectionSummary = {
    * Bounding box for map display
    */
   bounds: FfiBounds | undefined;
+  /**
+   * ISO timestamp when section was created
+   */
+  createdAt: string;
 };
 
 /**
@@ -4372,38 +4384,47 @@ const FfiConverterTypeSectionSummary = (() => {
     read(from: RustBuffer): TypeName {
       return {
         id: FfiConverterString.read(from),
+        sectionType: FfiConverterString.read(from),
         name: FfiConverterOptionalString.read(from),
         sportType: FfiConverterString.read(from),
-        visitCount: FfiConverterUInt32.read(from),
         distanceMeters: FfiConverterFloat64.read(from),
+        visitCount: FfiConverterUInt32.read(from),
         activityCount: FfiConverterUInt32.read(from),
+        representativeActivityId: FfiConverterOptionalString.read(from),
         confidence: FfiConverterFloat64.read(from),
         scale: FfiConverterOptionalString.read(from),
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
+        createdAt: FfiConverterString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.id, into);
+      FfiConverterString.write(value.sectionType, into);
       FfiConverterOptionalString.write(value.name, into);
       FfiConverterString.write(value.sportType, into);
-      FfiConverterUInt32.write(value.visitCount, into);
       FfiConverterFloat64.write(value.distanceMeters, into);
+      FfiConverterUInt32.write(value.visitCount, into);
       FfiConverterUInt32.write(value.activityCount, into);
+      FfiConverterOptionalString.write(value.representativeActivityId, into);
       FfiConverterFloat64.write(value.confidence, into);
       FfiConverterOptionalString.write(value.scale, into);
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
+      FfiConverterString.write(value.createdAt, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.sectionType) +
         FfiConverterOptionalString.allocationSize(value.name) +
         FfiConverterString.allocationSize(value.sportType) +
-        FfiConverterUInt32.allocationSize(value.visitCount) +
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterUInt32.allocationSize(value.visitCount) +
         FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterOptionalString.allocationSize(value.representativeActivityId) +
         FfiConverterFloat64.allocationSize(value.confidence) +
         FfiConverterOptionalString.allocationSize(value.scale) +
-        FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds)
+        FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
+        FfiConverterString.allocationSize(value.createdAt)
       );
     }
   }

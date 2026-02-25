@@ -1211,6 +1211,7 @@ mod tests {
     fn test_ffi_route_performance_result_empty() {
         let result = crate::RoutePerformanceResult {
             performances: vec![],
+            activity_metrics: vec![],
             best: None,
             best_forward: None,
             best_reverse: None,
