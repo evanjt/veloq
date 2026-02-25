@@ -5640,7 +5640,6 @@ where
 // Internal helpers used by UniFFI Object implementations
 // ============================================================================
 
-#[cfg(all(feature = "ffi", feature = "persistence"))]
 pub mod persistent_engine_ffi {
     use super::*;
     use log::info;
@@ -5761,7 +5760,7 @@ pub fn compute_polyline_overlap(
 // Tests
 // ============================================================================
 
-#[cfg(all(test, feature = "persistence"))]
+#[cfg(test)]
 mod tests {
     use super::*;
 
