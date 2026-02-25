@@ -41,4 +41,32 @@ impl VeloqEngine {
     fn get_activity_count(&self) -> u32 {
         with_persistent_engine(|e| e.activity_count() as u32).unwrap_or(0)
     }
+
+    fn sections(&self) -> Arc<super::sections::SectionManager> {
+        Arc::new(super::sections::SectionManager { _private: () })
+    }
+
+    fn activities(&self) -> Arc<super::activities::ActivityManager> {
+        Arc::new(super::activities::ActivityManager { _private: () })
+    }
+
+    fn routes(&self) -> Arc<super::routes::RouteManager> {
+        Arc::new(super::routes::RouteManager { _private: () })
+    }
+
+    fn maps(&self) -> Arc<super::maps::MapManager> {
+        Arc::new(super::maps::MapManager { _private: () })
+    }
+
+    fn fitness(&self) -> Arc<super::fitness::FitnessManager> {
+        Arc::new(super::fitness::FitnessManager { _private: () })
+    }
+
+    fn settings(&self) -> Arc<super::settings::SettingsManager> {
+        Arc::new(super::settings::SettingsManager { _private: () })
+    }
+
+    fn detection(&self) -> Arc<super::detection::DetectionManager> {
+        Arc::new(super::detection::DetectionManager { _private: () })
+    }
 }

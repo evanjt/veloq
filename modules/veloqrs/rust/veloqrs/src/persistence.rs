@@ -342,7 +342,7 @@ pub struct PersistentRouteEngine {
     db_path: String,
 
     /// Tier 1: Always in memory (lightweight ~80 bytes per activity)
-    activity_metadata: HashMap<String, ActivityMetadata>,
+    pub(crate) activity_metadata: HashMap<String, ActivityMetadata>,
 
     /// In-memory R-tree for fast viewport queries
     spatial_index: RTree<ActivityBoundsEntry>,
@@ -366,7 +366,7 @@ pub struct PersistentRouteEngine {
     activity_matches: HashMap<String, Vec<ActivityMatchInfo>>,
 
     /// Activity metrics for performance calculations
-    activity_metrics: HashMap<String, ActivityMetrics>,
+    pub(crate) activity_metrics: HashMap<String, ActivityMetrics>,
 
     /// Time streams for section performance calculations (activity_id -> cumulative times at each GPS point)
     time_streams: HashMap<String, Vec<u32>>,
@@ -383,7 +383,7 @@ pub struct PersistentRouteEngine {
 
     /// Configuration
     match_config: MatchConfig,
-    section_config: SectionConfig,
+    pub(crate) section_config: SectionConfig,
 
     /// Single-entry cache for get_section_performances (avoids redundant computation
     /// when buckets + calendar both call it for the same section on detail load)
@@ -1526,7 +1526,7 @@ impl PersistentRouteEngine {
     }
 
     /// Save processed activity IDs to database after section detection.
-    fn save_processed_activity_ids(&mut self, activity_ids: &[String]) -> SqlResult<()> {
+    pub(crate) fn save_processed_activity_ids(&mut self, activity_ids: &[String]) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
         let mut stmt = tx.prepare(
             "INSERT OR IGNORE INTO processed_activities (activity_id) VALUES (?)"
@@ -6365,7 +6365,7 @@ pub mod persistent_engine_ffi {
 
     /// Handle for tracking background section detection progress.
     /// Store this and poll with persistent_engine_poll_sections().
-    static SECTION_DETECTION_HANDLE: Lazy<Mutex<Option<SectionDetectionHandle>>> =
+    pub static SECTION_DETECTION_HANDLE: Lazy<Mutex<Option<SectionDetectionHandle>>> =
         Lazy::new(|| Mutex::new(None));
 
     /// Start section detection in the background.
