@@ -10,7 +10,7 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useDisabledSections } from '@/providers';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
-import { convertNativeSectionToApp } from './sectionConversions';
+import { convertNativeSectionToApp } from '@/lib/utils/sectionConversions';
 import type { FrequentSection } from '@/types';
 
 /**

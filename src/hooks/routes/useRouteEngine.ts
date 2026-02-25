@@ -13,7 +13,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
-import { convertNativeSectionToApp } from './sectionConversions';
+import { convertNativeSectionToApp } from '@/lib/utils/sectionConversions';
 import { type RouteGroup, type SectionSummary, type GroupSummary } from 'veloqrs';
 import type { FrequentSection } from '@/types';
 
