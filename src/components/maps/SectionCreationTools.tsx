@@ -11,6 +11,7 @@ import type { LatLng } from '@/lib';
 import { SectionCreationOverlay, type CreationState } from './SectionCreationOverlay';
 import type { SectionCreationResult } from './ActivityMapView';
 import { typography, spacing } from '@/theme';
+import { haversineDistance } from '@/lib/utils/geometry';
 
 interface SectionCreationToolsProps {
   /** Whether section creation mode is active */
@@ -55,24 +56,6 @@ export function SectionCreationTools({
   const [startIndex, setStartIndex] = useState<number | null>(null);
   const [endIndex, setEndIndex] = useState<number | null>(null);
 
-  // Calculate distance between two coordinates using Haversine formula
-  const haversineDistance = useCallback(
-    (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-      const R = 6371000; // Earth's radius in meters
-      const dLat = ((lat2 - lat1) * Math.PI) / 180;
-      const dLon = ((lon2 - lon1) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((lat1 * Math.PI) / 180) *
-          Math.cos((lat2 * Math.PI) / 180) *
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    },
-    []
-  );
-
   // Calculate section distance
   const sectionDistance = useMemo(() => {
     if (!creationMode || startIndex === null || endIndex === null) return null;
@@ -84,7 +67,7 @@ export function SectionCreationTools({
       distance += haversineDistance(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
     }
     return distance;
-  }, [creationMode, startIndex, endIndex, coordinates, haversineDistance]);
+  }, [creationMode, startIndex, endIndex, coordinates]);
 
   // Calculate section point count for UI feedback
   const sectionPointCount = useMemo(() => {
