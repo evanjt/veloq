@@ -617,7 +617,11 @@
     "uploadErrorMessage": "Could not upload activity: {{error}}",
     "distance": "Distance (km)",
     "duration": "Duration (minutes)",
-    "avgHr": "Average Heart Rate (bpm)"
+    "avgHr": "Average Heart Rate (bpm)",
+    "slideToUnlock": "Scorri per sbloccare",
+    "trimActivity": "Ritaglia attività",
+    "rpeDescription": "1 = senza sforzo, 10 = sforzo massimo",
+    "savedQueued": "Attività salvata. Verrà caricata automaticamente quando tornerai online."
   },
   "routeDetail": {
     "avgTime": "Tempo medio",

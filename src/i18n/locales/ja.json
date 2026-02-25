@@ -617,7 +617,11 @@
     "uploadErrorMessage": "Could not upload activity: {{error}}",
     "distance": "Distance (km)",
     "duration": "Duration (minutes)",
-    "avgHr": "Average Heart Rate (bpm)"
+    "avgHr": "Average Heart Rate (bpm)",
+    "slideToUnlock": "スライドしてロック解除",
+    "trimActivity": "アクティビティをトリミング",
+    "rpeDescription": "1 = 楽、10 = 最大限の努力",
+    "savedQueued": "アクティビティを保存しました。オンラインに戻ると自動的にアップロードされます。"
   },
   "routeDetail": {
     "avgTime": "平均時間",

@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { useRecordingStore } from '@/providers/RecordingStore';
@@ -13,6 +14,8 @@ const BRAND_COLOR = '#FC4C02';
 function RecordingBannerInner() {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
+  const pathname = usePathname();
+  const insets = useSafeAreaInsets();
   const status = useRecordingStore((s) => s.status);
   const activityType = useRecordingStore((s) => s.activityType);
   const startTime = useRecordingStore((s) => s.startTime);
@@ -65,6 +68,7 @@ function RecordingBannerInner() {
   }, [status, pulseAnim]);
 
   if (status !== 'recording' && status !== 'paused') return null;
+  if (pathname.startsWith('/recording')) return null;
 
   const distance = streams.distance[streams.distance.length - 1] ?? 0;
   const typeLabel = activityType ?? '';
@@ -79,7 +83,7 @@ function RecordingBannerInner() {
     <TouchableOpacity
       style={[
         styles.banner,
-        { backgroundColor: isDark ? darkColors.surface : colors.surface },
+        { backgroundColor: isDark ? darkColors.surface : colors.surface, paddingTop: insets.top },
         isDark && styles.bannerDark,
       ]}
       onPress={handlePress}

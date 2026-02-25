@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, TextInput, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -7,14 +7,17 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { getRecordingMode } from '@/lib/utils/recordingModes';
 import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
-import { formatDuration } from '@/lib';
+import { formatDuration, formatDistance } from '@/lib';
 import { useRecordingStore } from '@/providers/RecordingStore';
 import { useRecordingPreferences } from '@/providers/RecordingPreferencesStore';
 import { RecordingMap } from '@/components/recording/RecordingMap';
 import { DataFieldGrid } from '@/components/recording/DataFieldGrid';
 import { ControlBar } from '@/components/recording/ControlBar';
+import { LockOverlay } from '@/components/recording/LockOverlay';
+import { GpsSignalIndicator } from '@/components/recording/GpsSignalIndicator';
 import { useTimer } from '@/hooks/recording/useTimer';
 import { useLocationTracking } from '@/hooks/recording/useLocationTracking';
 import { useRecordingMetrics } from '@/hooks/recording/useRecordingMetrics';
@@ -35,10 +38,25 @@ export default function RecordingScreen() {
   const startTime = useRecordingStore((s) => s.startTime);
   const streams = useRecordingStore((s) => s.streams);
 
+  const [isLocked, setIsLocked] = useState(true);
+  const handleLock = useCallback(() => setIsLocked(true), []);
+  const handleUnlock = useCallback(() => setIsLocked(false), []);
+
+  // Re-lock when recording resumes
+  useEffect(() => {
+    if (status === 'recording') setIsLocked(true);
+  }, [status]);
+
   const { formattedElapsed, formattedMoving } = useTimer();
   const metrics = useRecordingMetrics();
-  const { startTracking, stopTracking, currentLocation, hasPermission, requestPermission } =
-    useLocationTracking();
+  const {
+    startTracking,
+    stopTracking,
+    currentLocation,
+    hasPermission,
+    requestPermission,
+    accuracy,
+  } = useLocationTracking();
 
   // Start location tracking for GPS mode
   useEffect(() => {
@@ -77,28 +95,12 @@ export default function RecordingScreen() {
     useRecordingStore.getState().addLap();
   }, []);
 
-  const handleStop = useCallback(() => {
-    Alert.alert(
-      t('recording.stopTitle', 'Finish Activity?'),
-      t('recording.stopMessage', 'Do you want to stop recording and review your activity?'),
-      [
-        { text: t('common.cancel', 'Cancel'), style: 'cancel' },
-        {
-          text: t('recording.stop', 'Finish'),
-          style: 'destructive',
-          onPress: async () => {
-            useRecordingStore.getState().stopRecording();
-            await stopTracking();
-            router.push('/recording/review');
-          },
-        },
-      ]
-    );
-  }, [t]);
-
-  const handleLock = useCallback(() => {
-    // TODO: Implement screen lock
-  }, []);
+  const handleStop = useCallback(async () => {
+    // No popup — the ControlBar stop button already requires a long press
+    useRecordingStore.getState().stopRecording();
+    await stopTracking();
+    router.push('/recording/review');
+  }, [stopTracking]);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -131,6 +133,7 @@ export default function RecordingScreen() {
           <Text style={[styles.statusText, { color: textSecondary }]}>
             {status === 'recording' ? t('recording.rec', 'REC') : t('recording.paused', 'PAUSED')}
           </Text>
+          {mode === 'gps' && <GpsSignalIndicator accuracy={accuracy} />}
         </View>
       </View>
 
@@ -143,7 +146,7 @@ export default function RecordingScreen() {
             style={styles.map}
           />
         ) : (
-          <View style={[styles.indoorDisplay, { backgroundColor: surface }]}>
+          <View style={[styles.indoorDisplay, { backgroundColor: surface, borderColor: border }]}>
             <MaterialCommunityIcons
               name={getActivityIcon(activityType)}
               size={48}
@@ -173,8 +176,27 @@ export default function RecordingScreen() {
         onResume={handleResume}
         onStop={handleStop}
         onLap={handleLap}
-        onLock={handleLock}
-        style={{ paddingBottom: insets.bottom + spacing.sm }}
+        style={{ paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }}
+      />
+
+      {/* Re-lock button (top-right, only when unlocked) */}
+      {!isLocked && (
+        <TouchableOpacity
+          style={[styles.relockButton, { top: insets.top + spacing.sm }]}
+          onPress={handleLock}
+          activeOpacity={0.7}
+          accessibilityLabel={t('recording.controls.lock')}
+        >
+          <MaterialCommunityIcons name="lock-outline" size={20} color="rgba(255,255,255,0.9)" />
+        </TouchableOpacity>
+      )}
+
+      {/* Lock overlay */}
+      <LockOverlay
+        visible={isLocked}
+        elapsed={formattedElapsed}
+        distance={formatDistance(metrics.distance ?? 0, isMetric)}
+        onUnlock={handleUnlock}
       />
     </View>
   );
@@ -197,6 +219,7 @@ function ManualEntry({
   const [distance, setDistance] = useState('');
   const [avgHr, setAvgHr] = useState('');
   const [notes, setNotes] = useState('');
+  const [durationError, setDurationError] = useState(false);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -207,12 +230,10 @@ function ManualEntry({
   const handleSave = useCallback(() => {
     const mins = parseFloat(durationMinutes);
     if (!Number.isFinite(mins) || mins <= 0) {
-      Alert.alert(
-        t('recording.error', 'Error'),
-        t('recording.durationRequired', 'Please enter a valid duration.')
-      );
+      setDurationError(true);
       return;
     }
+    setDurationError(false);
 
     // Initialize recording store with manual data then navigate to review
     useRecordingStore.getState().startRecording(activityType, 'manual', pairedEventId);
@@ -247,7 +268,10 @@ function ManualEntry({
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.manualForm, { paddingBottom: insets.bottom + spacing.xxl }]}
+        contentContainerStyle={[
+          styles.manualForm,
+          { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING },
+        ]}
       >
         <Text style={[styles.fieldLabel, { color: textSecondary }]}>
           {t('recording.activityName', 'Activity Name')}
@@ -269,14 +293,26 @@ function ManualEntry({
         <TextInput
           style={[
             styles.input,
-            { color: textPrimary, backgroundColor: surface, borderColor: border },
+            {
+              color: textPrimary,
+              backgroundColor: surface,
+              borderColor: durationError ? '#EF4444' : border,
+            },
           ]}
           value={durationMinutes}
-          onChangeText={setDurationMinutes}
+          onChangeText={(v) => {
+            setDurationMinutes(v);
+            if (durationError) setDurationError(false);
+          }}
           placeholder="60"
           placeholderTextColor={textSecondary}
           keyboardType="numeric"
         />
+        {durationError && (
+          <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 2 }}>
+            {t('recording.durationRequired', 'Please enter a valid duration.')}
+          </Text>
+        )}
 
         <Text style={[styles.fieldLabel, { color: textSecondary }]}>
           {t('recording.distance', 'Distance (km)')}
@@ -370,7 +406,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   timerText: {
-    ...typography.largeNumber,
+    ...typography.heroNumber,
     fontVariant: ['tabular-nums'],
   },
   statusBadge: {
@@ -399,6 +435,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     margin: spacing.md,
     borderRadius: layout.borderRadius,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   indoorTimer: {
     ...typography.heroNumber,
@@ -453,5 +490,16 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     ...typography.bodyBold,
     color: '#FFFFFF',
+  },
+  relockButton: {
+    position: 'absolute',
+    right: spacing.md,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
   },
 });

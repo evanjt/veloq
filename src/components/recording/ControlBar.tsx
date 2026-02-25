@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
-import { View, StyleSheet, Animated, Easing } from 'react-native';
+import { View, StyleSheet, Animated, Easing, TouchableOpacity } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,7 +12,7 @@ import type { RecordingStatus, RecordingMode } from '@/types';
 const BRAND_COLOR = '#FC4C02';
 const RESUME_COLOR = '#22C55E';
 const STOP_COLOR = '#EF4444';
-const LONG_PRESS_MS = 3000;
+const LONG_PRESS_MS = 1000;
 
 interface ControlBarProps {
   status: RecordingStatus;
@@ -21,7 +21,6 @@ interface ControlBarProps {
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
-  onLock: () => void;
   style?: ViewStyle;
 }
 
@@ -32,52 +31,40 @@ function ControlBarInner({
   onPause,
   onResume,
   onStop,
-  onLock,
   style,
 }: ControlBarProps) {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
 
-  // Long-press stop state
-  const [stopProgress, setStopProgress] = useState(0);
-  const stopTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const stopStartRef = useRef<number | null>(null);
+  // Long-press stop state — fully Animated, no React state re-renders
   const stopAnim = useRef(new Animated.Value(0)).current;
+  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearStopTimer = useCallback(() => {
     if (stopTimerRef.current) {
-      clearInterval(stopTimerRef.current);
+      clearTimeout(stopTimerRef.current);
       stopTimerRef.current = null;
     }
-    stopStartRef.current = null;
-    setStopProgress(0);
+    stopAnim.stopAnimation();
     stopAnim.setValue(0);
   }, [stopAnim]);
 
-  // Clean up on unmount
   useEffect(() => clearStopTimer, [clearStopTimer]);
 
   const handleStopPressIn = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    stopStartRef.current = Date.now();
-    stopTimerRef.current = setInterval(() => {
-      if (!stopStartRef.current) return;
-      const elapsed = Date.now() - stopStartRef.current;
-      const progress = Math.min(elapsed / LONG_PRESS_MS, 1);
-      setStopProgress(progress);
-      if (progress >= 1) {
-        clearStopTimer();
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        onStop();
-      }
-    }, 50);
-
     Animated.timing(stopAnim, {
       toValue: 1,
       duration: LONG_PRESS_MS,
       easing: Easing.linear,
       useNativeDriver: false,
     }).start();
+    // Fire completion after duration
+    stopTimerRef.current = setTimeout(() => {
+      clearStopTimer();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      onStop();
+    }, LONG_PRESS_MS);
   }, [onStop, clearStopTimer, stopAnim]);
 
   const handleStopPressOut = useCallback(() => {
@@ -89,8 +76,8 @@ function ControlBarInner({
     action();
   }, []);
 
-  const secondaryBg = isDark ? darkColors.surfaceElevated : colors.backgroundAlt;
-  const secondaryText = isDark ? darkColors.textPrimary : colors.textSecondary;
+  const secondaryBg = isDark ? darkColors.surfaceElevated : colors.surface;
+  const secondaryText = isDark ? darkColors.textPrimary : colors.textPrimary;
 
   // Manual mode: just a save button
   if (mode === 'manual') {
@@ -132,13 +119,16 @@ function ControlBarInner({
             onTouchCancel={handleStopPressOut}
           >
             <View style={[styles.stopButton, { backgroundColor: secondaryBg }]}>
-              {/* Progress overlay */}
-              <View
+              {/* Progress overlay — driven by Animated for smooth 120hz */}
+              <Animated.View
                 style={[
                   styles.stopProgress,
                   {
                     backgroundColor: STOP_COLOR,
-                    width: `${stopProgress * 100}%` as `${number}%`,
+                    width: stopAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0%', '100%'],
+                    }),
                   },
                 ]}
               />
@@ -155,7 +145,7 @@ function ControlBarInner({
     );
   }
 
-  // Recording: [LAP] [PAUSE] [LOCK]
+  // Recording: [LAP] [PAUSE]
   return (
     <View style={[styles.bar, style]}>
       <View style={styles.buttonGroup}>
@@ -172,14 +162,6 @@ function ControlBarInner({
           icon="pause"
           color={BRAND_COLOR}
           onPress={() => handleHapticPress(onPause)}
-        />
-
-        <SecondaryButton
-          label={t('recording.controls.lock')}
-          icon="lock"
-          backgroundColor={secondaryBg}
-          textColor={secondaryText}
-          onPress={() => handleHapticPress(onLock)}
         />
       </View>
     </View>
@@ -200,14 +182,15 @@ function PrimaryButton({
 }) {
   return (
     <View style={styles.buttonContainer}>
-      <View
+      <TouchableOpacity
         style={[styles.primaryButton, { backgroundColor: color }]}
-        onTouchEnd={onPress}
+        onPress={onPress}
+        activeOpacity={0.7}
         accessibilityLabel={label}
         accessibilityRole="button"
       >
         <MaterialCommunityIcons name={icon} size={28} color="#FFFFFF" />
-      </View>
+      </TouchableOpacity>
       <Text style={styles.buttonLabel}>{label}</Text>
     </View>
   );
@@ -229,14 +212,15 @@ function SecondaryButton({
 }) {
   return (
     <View style={styles.buttonContainer}>
-      <View
+      <TouchableOpacity
         style={[styles.secondaryButton, { backgroundColor }]}
-        onTouchEnd={onPress}
+        onPress={onPress}
+        activeOpacity={0.7}
         accessibilityLabel={label}
         accessibilityRole="button"
       >
         <MaterialCommunityIcons name={icon} size={22} color={textColor} />
-      </View>
+      </TouchableOpacity>
       <Text style={[styles.buttonLabel, { color: textColor }]}>{label}</Text>
     </View>
   );

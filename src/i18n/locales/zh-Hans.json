@@ -617,7 +617,11 @@
     "uploadErrorMessage": "Could not upload activity: {{error}}",
     "distance": "Distance (km)",
     "duration": "Duration (minutes)",
-    "avgHr": "Average Heart Rate (bpm)"
+    "avgHr": "Average Heart Rate (bpm)",
+    "slideToUnlock": "滑动解锁",
+    "trimActivity": "裁剪活动",
+    "rpeDescription": "1 = 毫不费力，10 = 最大努力",
+    "savedQueued": "活动已保存。当您恢复在线时将自动上传。"
   },
   "routeDetail": {
     "avgTime": "平均时间",

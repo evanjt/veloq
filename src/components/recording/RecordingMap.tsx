@@ -13,43 +13,95 @@ import { getMapStyle } from '@/components/maps/mapStyles';
 import { darkColors } from '@/theme';
 
 const BRAND_COLOR = '#FC4C02';
+const EXCLUDED_COLOR = 'rgba(150, 150, 150, 0.5)';
 const POSITION_DOT_COLOR = '#2563EB';
 const POSITION_DOT_HALO = '#FFFFFF';
 
 interface RecordingMapProps {
   coordinates: [number, number][]; // [lat, lng] from recording streams
   currentLocation: { latitude: number; longitude: number } | null;
+  fitBounds?: boolean; // When true, fit camera to route bounds instead of following position
+  trimStart?: number; // Index for trim start (used with fitBounds)
+  trimEnd?: number; // Index for trim end (used with fitBounds)
   style?: ViewStyle;
 }
 
-function RecordingMapInner({ coordinates, currentLocation, style }: RecordingMapProps) {
+function RecordingMapInner({
+  coordinates,
+  currentLocation,
+  fitBounds,
+  trimStart,
+  trimEnd,
+  style,
+}: RecordingMapProps) {
   const { preferences } = useMapPreferences();
   const mapStyleValue = getMapStyle(preferences.defaultStyle);
 
-  // Build route GeoJSON from recorded coordinates
-  // Coordinates come as [lat, lng] but GeoJSON needs [lng, lat]
-  const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    const emptyCollection: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
-      features: [],
-    };
-    if (!coordinates || coordinates.length < 2) return emptyCollection;
-
-    const validCoords = coordinates
+  // Convert [lat, lng] → [lng, lat] for GeoJSON
+  const validCoords = useMemo(() => {
+    if (!coordinates || coordinates.length < 2) return [];
+    return coordinates
       .map(([lat, lng]) => [lng, lat] as [number, number])
       .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
+  }, [coordinates]);
 
-    if (validCoords.length < 2) return emptyCollection;
+  // Build route GeoJSON — when trimming, split into active and excluded portions
+  const hasTrim =
+    fitBounds &&
+    trimStart != null &&
+    trimEnd != null &&
+    (trimStart > 0 || trimEnd < coordinates.length - 1);
+
+  const activeRouteGeoJSON = useMemo((): GeoJSON.Feature | GeoJSON.FeatureCollection => {
+    const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+    if (validCoords.length < 2) return empty;
+
+    if (hasTrim) {
+      const activeCoords = validCoords.slice(trimStart!, trimEnd! + 1);
+      if (activeCoords.length < 2) return empty;
+      return {
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: activeCoords },
+      };
+    }
 
     return {
-      type: 'Feature' as const,
+      type: 'Feature',
       properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: validCoords,
-      },
+      geometry: { type: 'LineString', coordinates: validCoords },
     };
-  }, [coordinates]);
+  }, [validCoords, hasTrim, trimStart, trimEnd]);
+
+  const excludedRouteGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+    if (!hasTrim || validCoords.length < 2) return empty;
+
+    const features: GeoJSON.Feature[] = [];
+    // Before trim start
+    if (trimStart! > 0) {
+      const beforeCoords = validCoords.slice(0, trimStart! + 1);
+      if (beforeCoords.length >= 2) {
+        features.push({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: beforeCoords },
+        });
+      }
+    }
+    // After trim end
+    if (trimEnd! < validCoords.length - 1) {
+      const afterCoords = validCoords.slice(trimEnd!);
+      if (afterCoords.length >= 2) {
+        features.push({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: afterCoords },
+        });
+      }
+    }
+    return { type: 'FeatureCollection', features };
+  }, [validCoords, hasTrim, trimStart, trimEnd]);
 
   // Current position as GeoJSON point
   const positionGeoJSON = useMemo((): GeoJSON.Feature | null => {
@@ -57,18 +109,38 @@ function RecordingMapInner({ coordinates, currentLocation, style }: RecordingMap
     const { latitude, longitude } = currentLocation;
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
     return {
-      type: 'Feature' as const,
+      type: 'Feature',
       properties: {},
-      geometry: {
-        type: 'Point' as const,
-        coordinates: [longitude, latitude],
-      },
+      geometry: { type: 'Point', coordinates: [longitude, latitude] },
     };
   }, [currentLocation]);
 
+  // Camera configuration
   const cameraCenter = currentLocation
     ? ([currentLocation.longitude, currentLocation.latitude] as [number, number])
     : undefined;
+
+  const bounds = useMemo(() => {
+    if (!fitBounds || validCoords.length < 2) return undefined;
+    let minLng = Infinity,
+      maxLng = -Infinity,
+      minLat = Infinity,
+      maxLat = -Infinity;
+    for (const [lng, lat] of validCoords) {
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }
+    return {
+      ne: [maxLng, maxLat] as [number, number],
+      sw: [minLng, minLat] as [number, number],
+      paddingLeft: 40,
+      paddingRight: 40,
+      paddingTop: 40,
+      paddingBottom: 60,
+    };
+  }, [fitBounds, validCoords]);
 
   return (
     <View style={[styles.container, style]}>
@@ -79,17 +151,36 @@ function RecordingMapInner({ coordinates, currentLocation, style }: RecordingMap
         attributionEnabled={false}
         compassEnabled={false}
       >
-        <Camera
-          defaultSettings={
-            cameraCenter ? { centerCoordinate: cameraCenter, zoomLevel: 15 } : undefined
-          }
-          centerCoordinate={cameraCenter}
-          zoomLevel={15}
-          animationDuration={500}
-        />
+        {fitBounds && bounds ? (
+          <Camera defaultSettings={{ bounds }} bounds={bounds} animationDuration={0} />
+        ) : (
+          <Camera
+            defaultSettings={
+              cameraCenter ? { centerCoordinate: cameraCenter, zoomLevel: 15 } : undefined
+            }
+            centerCoordinate={cameraCenter}
+            zoomLevel={15}
+            animationDuration={500}
+          />
+        )}
 
-        {/* Route trace */}
-        <ShapeSource id="recordingRoute" shape={routeGeoJSON}>
+        {/* Excluded route portions (grey, behind active) */}
+        {hasTrim && (
+          <ShapeSource id="excludedRoute" shape={excludedRouteGeoJSON}>
+            <LineLayer
+              id="excludedRouteLine"
+              style={{
+                lineColor: EXCLUDED_COLOR,
+                lineWidth: 4,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
+        )}
+
+        {/* Active route trace */}
+        <ShapeSource id="recordingRoute" shape={activeRouteGeoJSON}>
           <LineLayer
             id="recordingRouteCasing"
             style={{

@@ -617,7 +617,11 @@
     "uploadErrorMessage": "Could not upload activity: {{error}}",
     "distance": "Distance (km)",
     "duration": "Duration (minutes)",
-    "avgHr": "Average Heart Rate (bpm)"
+    "avgHr": "Average Heart Rate (bpm)",
+    "slideToUnlock": "Schuif om te ontgrendelen",
+    "trimActivity": "Activiteit bijsnijden",
+    "rpeDescription": "1 = moeiteloos, 10 = maximale inspanning",
+    "savedQueued": "Activiteit opgeslagen. Deze wordt automatisch geüpload wanneer je weer online bent."
   },
   "routeDetail": {
     "avgTime": "Gem. tijd",

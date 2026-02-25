@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { Text } from 'react-native-paper';
-import { ScreenSafeAreaView } from '@/components/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { CollapsibleSection } from '@/components/ui';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
@@ -43,6 +44,7 @@ const CATEGORY_ICONS: Record<string, MaterialIconName> = {
 export default function RecordScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const recentTypes = useRecordingPreferences((s) => s.recentActivityTypes);
   const isLoaded = useRecordingPreferences((s) => s.isLoaded);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
@@ -96,7 +98,12 @@ export default function RecordScreen() {
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING },
+        ]}
+      >
         {/* Quick Start */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: textSecondary }]}>
@@ -225,9 +232,7 @@ const styles = StyleSheet.create({
     ...typography.sectionTitle,
     marginLeft: spacing.xs,
   },
-  scrollContent: {
-    paddingBottom: spacing.xxl,
-  },
+  scrollContent: {},
   section: {
     paddingHorizontal: spacing.md,
     marginTop: spacing.lg,

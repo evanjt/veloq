@@ -16,12 +16,14 @@ export function useLocationTracking(): {
   startTracking: () => Promise<void>;
   stopTracking: () => Promise<void>;
   currentLocation: { latitude: number; longitude: number } | null;
+  accuracy: number | null;
 } {
   const [hasPermission, setHasPermission] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
   const watchRef = useRef<Location.LocationSubscription | null>(null);
   const isTrackingRef = useRef(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
@@ -62,8 +64,9 @@ export function useLocationTracking(): {
         distanceInterval: 5,
       },
       (location) => {
-        const { latitude, longitude, altitude, accuracy, speed, heading } = location.coords;
+        const { latitude, longitude, altitude, accuracy: acc, speed, heading } = location.coords;
         setCurrentLocation({ latitude, longitude });
+        setAccuracy(acc);
 
         const { addGpsPoint, status } = useRecordingStore.getState();
         if (status === 'recording') {
@@ -71,7 +74,7 @@ export function useLocationTracking(): {
             latitude,
             longitude,
             altitude,
-            accuracy,
+            accuracy: acc,
             speed,
             heading,
             timestamp: location.timestamp,
@@ -140,6 +143,7 @@ export function useLocationTracking(): {
       log.error('Failed to stop background location:', e);
     }
     setCurrentLocation(null);
+    setAccuracy(null);
   }, [stopForegroundWatch]);
 
   // Cleanup on unmount
@@ -162,5 +166,6 @@ export function useLocationTracking(): {
     startTracking,
     stopTracking,
     currentLocation,
+    accuracy,
   };
 }

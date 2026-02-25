@@ -384,17 +384,37 @@ export const intervalsApi = {
       };
     }
     const athleteId = getAthleteId();
+
+    // Write binary to temp file (RN Blob doesn't support ArrayBuffer)
+    const FileSystem = require('expo-file-system/legacy');
+    const tempPath = `${FileSystem.cacheDirectory}${Date.now()}_${filename}`;
+    const bytes = new Uint8Array(file);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    await FileSystem.writeAsStringAsync(tempPath, btoa(binary), {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
     const formData = new FormData();
-    const blob = new Blob([file], { type: 'application/octet-stream' });
-    formData.append('file', blob, filename);
+    formData.append('file', {
+      uri: tempPath,
+      type: 'application/octet-stream',
+      name: filename,
+    } as any);
     if (opts?.name) formData.append('name', opts.name);
     if (opts?.pairedEventId) formData.append('paired_event_id', String(opts.pairedEventId));
 
-    const response = await apiClient.post(`/athlete/${athleteId}/activities`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 60000,
-    });
-    return response.data;
+    try {
+      const response = await apiClient.post(`/athlete/${athleteId}/activities`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000,
+      });
+      return response.data;
+    } finally {
+      FileSystem.deleteAsync(tempPath, { idempotent: true }).catch(() => {});
+    }
   },
 
   /**
