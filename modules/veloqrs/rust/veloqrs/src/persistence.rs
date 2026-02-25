@@ -44,9 +44,9 @@ use once_cell::sync::Lazy;
 
 /// Translations for auto-generated route/section names.
 /// Set by TypeScript with i18n values.
-struct NameTranslations {
-    route_word: String,
-    section_word: String,
+pub(crate) struct NameTranslations {
+    pub(crate) route_word: String,
+    pub(crate) section_word: String,
 }
 
 impl Default for NameTranslations {
@@ -59,7 +59,7 @@ impl Default for NameTranslations {
 }
 
 /// Global storage for name translations, set from TypeScript.
-static NAME_TRANSLATIONS: Lazy<RwLock<NameTranslations>> =
+pub(crate) static NAME_TRANSLATIONS: Lazy<RwLock<NameTranslations>> =
     Lazy::new(|| RwLock::new(NameTranslations::default()));
 
 /// Get the current route word for name generation.

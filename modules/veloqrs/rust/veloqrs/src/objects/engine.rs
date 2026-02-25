@@ -1,12 +1,10 @@
-use crate::persistence::{with_persistent_engine, PersistentEngineStats, PERSISTENT_ENGINE};
+use crate::persistence::{
+    with_persistent_engine, PersistentEngineStats, NAME_TRANSLATIONS, PERSISTENT_ENGINE,
+};
 use crate::init_logging;
 use log::info;
 use std::sync::Arc;
 
-/// Root UniFFI Object wrapping the persistent engine singleton.
-///
-/// During the migration, this delegates to the same global `PERSISTENT_ENGINE`
-/// used by the flat FFI functions, so both APIs share state.
 #[derive(uniffi::Object)]
 pub struct VeloqEngine {
     #[allow(dead_code)]
@@ -15,12 +13,10 @@ pub struct VeloqEngine {
 
 #[uniffi::export]
 impl VeloqEngine {
-    /// Create or reconnect to the engine at the given database path.
     #[uniffi::constructor]
     fn create(db_path: String) -> Arc<Self> {
         init_logging();
 
-        // Initialize the global engine if not already done
         let already = PERSISTENT_ENGINE
             .lock()
             .map(|g| g.is_some())
@@ -34,12 +30,57 @@ impl VeloqEngine {
         Arc::new(Self { db_path })
     }
 
+    fn is_initialized(&self) -> bool {
+        PERSISTENT_ENGINE
+            .lock()
+            .map(|guard| guard.is_some())
+            .unwrap_or(false)
+    }
+
     fn get_stats(&self) -> Option<PersistentEngineStats> {
         with_persistent_engine(|e| e.stats())
     }
 
     fn get_activity_count(&self) -> u32 {
         with_persistent_engine(|e| e.activity_count() as u32).unwrap_or(0)
+    }
+
+    fn clear(&self) {
+        if let Some(()) = with_persistent_engine(|e| {
+            e.clear().ok();
+        }) {
+            info!("[VeloqEngine] Cleared");
+        }
+    }
+
+    fn cleanup_old_activities(&self, retention_days: u32) -> u32 {
+        with_persistent_engine(|e| match e.cleanup_old_activities(retention_days) {
+            Ok(count) => {
+                if retention_days > 0 && count > 0 {
+                    info!("[VeloqEngine] Cleanup: {} activities removed", count);
+                }
+                count
+            }
+            Err(e) => {
+                log::error!("[VeloqEngine] Cleanup failed: {:?}", e);
+                0
+            }
+        })
+        .unwrap_or(0)
+    }
+
+    fn mark_for_recomputation(&self) {
+        with_persistent_engine(|e| {
+            e.mark_for_recomputation();
+            info!("[VeloqEngine] Marked for re-computation");
+        });
+    }
+
+    fn set_name_translations(&self, route_word: String, section_word: String) {
+        if let Ok(mut translations) = NAME_TRANSLATIONS.write() {
+            translations.route_word = route_word;
+            translations.section_word = section_word;
+        }
     }
 
     fn sections(&self) -> Arc<super::sections::SectionManager> {

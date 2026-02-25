@@ -91,4 +91,12 @@ impl ActivityManager {
         })
         .unwrap_or_default()
     }
+
+    fn remove(&self, activity_id: String) -> bool {
+        with_persistent_engine(|e| e.remove_activity(&activity_id).is_ok()).unwrap_or(false)
+    }
+
+    fn debug_clone(&self, source_id: String, count: u32) -> u32 {
+        with_persistent_engine(|e| e.debug_clone_activity(&source_id, count)).unwrap_or(0)
+    }
 }

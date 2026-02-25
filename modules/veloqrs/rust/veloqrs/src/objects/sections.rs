@@ -172,6 +172,46 @@ impl SectionManager {
         with_persistent_engine(|e| e.delete_section(&section_id).is_ok()).unwrap_or(false)
     }
 
+    fn extract_trace(
+        &self,
+        activity_id: String,
+        section_polyline_json: String,
+    ) -> Vec<f64> {
+        with_persistent_engine(|engine| {
+            let polyline: Vec<tracematch::GpsPoint> =
+                match serde_json::from_str(&section_polyline_json) {
+                    Ok(p) => p,
+                    Err(_) => return vec![],
+                };
+            if polyline.len() < 2 {
+                return vec![];
+            }
+            let track = match engine.get_gps_track(&activity_id) {
+                Some(t) => t,
+                None => return vec![],
+            };
+            if track.len() < 3 {
+                return vec![];
+            }
+            let mut track_map: std::collections::HashMap<&str, &[tracematch::GpsPoint]> =
+                std::collections::HashMap::new();
+            track_map.insert(activity_id.as_str(), track.as_slice());
+            let traces = tracematch::sections::extract_all_activity_traces(
+                std::slice::from_ref(&activity_id),
+                &polyline,
+                &track_map,
+            );
+            match traces.get(&activity_id) {
+                Some(trace) => trace
+                    .iter()
+                    .flat_map(|p| vec![p.latitude, p.longitude])
+                    .collect(),
+                None => vec![],
+            }
+        })
+        .unwrap_or_default()
+    }
+
     fn extract_traces_batch(
         &self,
         activity_ids: Vec<String>,
