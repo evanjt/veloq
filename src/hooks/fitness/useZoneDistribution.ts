@@ -1,17 +1,16 @@
 import { useMemo } from 'react';
-import type { Activity, ZoneDistribution } from '@/types';
+import type { ZoneDistribution } from '@/types';
 import {
   DEFAULT_POWER_ZONES,
   DEFAULT_HR_ZONES,
   POWER_ZONE_COLORS,
   HR_ZONE_COLORS,
 } from '../useSportSettings';
-import { type PrimarySport, SPORT_API_TYPES } from '@/providers';
+import { type PrimarySport } from '@/providers';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 
 interface UseZoneDistributionOptions {
   type: 'power' | 'hr';
-  activities?: Activity[];
   /** Optional sport filter - if provided, only activities matching this sport are included */
   sport?: PrimarySport;
 }
@@ -24,92 +23,36 @@ const SPORT_TO_ENGINE_TYPE: Record<PrimarySport, string> = {
 };
 
 /**
- * Aggregates zone time distribution from activities.
- * Uses engine SQL aggregate when available, falls back to JS iteration.
+ * Aggregates zone time distribution from activities via Rust engine SQL aggregate.
  */
 export function useZoneDistribution({
   type,
-  activities,
   sport,
 }: UseZoneDistributionOptions): ZoneDistribution[] | undefined {
   return useMemo(() => {
     const defaultZones = type === 'power' ? DEFAULT_POWER_ZONES : DEFAULT_HR_ZONES;
     const zoneColors = type === 'power' ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
 
-    // Try engine aggregate first
     const engine = getRouteEngine();
-    if (engine && sport) {
-      const sportType = SPORT_TO_ENGINE_TYPE[sport];
-      if (sportType) {
-        const totals = engine.getZoneDistribution(sportType, type);
-        if (totals.length > 0) {
-          const totalSeconds = totals.reduce((sum, t) => sum + t, 0);
-          if (totalSeconds > 0) {
-            return defaultZones.map((zone, idx) => ({
-              zone: zone.id,
-              name: zone.name,
-              seconds: totals[idx] || 0,
-              percentage: Math.round(((totals[idx] || 0) / totalSeconds) * 100),
-              color: zoneColors[idx] || zoneColors[zoneColors.length - 1],
-            }));
-          }
-        }
-      }
-    }
+    if (!engine || !sport) return undefined;
 
-    // JS fallback
-    if (!activities || activities.length === 0) return undefined;
+    const sportType = SPORT_TO_ENGINE_TYPE[sport];
+    if (!sportType) return undefined;
 
-    const filteredActivities = sport
-      ? activities.filter((a) => SPORT_API_TYPES[sport].includes(a.type))
-      : activities;
+    const totals = engine.getZoneDistribution(sportType, type);
+    if (totals.length === 0) return undefined;
 
-    if (filteredActivities.length === 0) return undefined;
-
-    const aggregatedTimes: number[] = new Array(defaultZones.length).fill(0);
-    let hasZoneData = false;
-
-    for (const activity of filteredActivities) {
-      if (type === 'power') {
-        const zoneTimes = activity.icu_zone_times;
-        if (zoneTimes && zoneTimes.length > 0) {
-          hasZoneData = true;
-          zoneTimes.forEach((zt) => {
-            const match = zt.id.match(/Z(\d+)/);
-            if (match) {
-              const zoneIdx = parseInt(match[1], 10) - 1;
-              if (zoneIdx >= 0 && zoneIdx < aggregatedTimes.length) {
-                aggregatedTimes[zoneIdx] += zt.secs || 0;
-              }
-            }
-          });
-        }
-      } else {
-        const hrTimes = activity.icu_hr_zone_times;
-        if (hrTimes && hrTimes.length > 0) {
-          hasZoneData = true;
-          hrTimes.forEach((secs, idx) => {
-            if (idx < aggregatedTimes.length) {
-              aggregatedTimes[idx] += secs || 0;
-            }
-          });
-        }
-      }
-    }
-
-    if (!hasZoneData) return undefined;
-
-    const totalSeconds = aggregatedTimes.reduce((sum, t) => sum + (t || 0), 0);
+    const totalSeconds = totals.reduce((sum, t) => sum + t, 0);
     if (totalSeconds === 0) return undefined;
 
     return defaultZones.map((zone, idx) => ({
       zone: zone.id,
       name: zone.name,
-      seconds: aggregatedTimes[idx] || 0,
-      percentage: Math.round(((aggregatedTimes[idx] || 0) / totalSeconds) * 100),
+      seconds: totals[idx] || 0,
+      percentage: Math.round(((totals[idx] || 0) / totalSeconds) * 100),
       color: zoneColors[idx] || zoneColors[zoneColors.length - 1],
     }));
-  }, [type, activities, sport]);
+  }, [type, sport]);
 }
 
 /**

@@ -76,7 +76,7 @@ describe('FFI Binding Validation', () => {
   describe('Standalone flat exports', () => {
     it('should have the expected standalone flat exports', () => {
       expect(FFI_EXPORTS).toBeDefined();
-      expect(FFI_EXPORTS.length).toBe(6);
+      expect(FFI_EXPORTS.length).toBe(4);
     });
 
     it('should have exports from ffi.rs and persistence.rs', () => {
@@ -87,7 +87,6 @@ describe('FFI Binding Validation', () => {
 
     it('should have correct snake_case to camelCase conversion', () => {
       expect(RUST_TO_TS_NAME['get_download_progress']).toBe('getDownloadProgress');
-      expect(RUST_TO_TS_NAME['ffi_detect_sections_multiscale']).toBe('ffiDetectSectionsMultiscale');
       expect(RUST_TO_TS_NAME['compute_polyline_overlap']).toBe('computePolylineOverlap');
     });
 
@@ -187,11 +186,7 @@ describe('FFI Binding Validation', () => {
     });
 
     it('should import standalone flat functions used in index.ts', () => {
-      const standaloneFunctions = [
-        'ffiDetectSectionsMultiscale',
-        'defaultScalePresets',
-        'getDownloadProgress',
-      ];
+      const standaloneFunctions = ['getDownloadProgress'];
 
       const missing: string[] = [];
       for (const fn of standaloneFunctions) {
@@ -230,7 +225,7 @@ describe('FFI Binding Validation', () => {
 
 describe('FFI Manifest Freshness', () => {
   it('should have manifest that matches current Rust source', () => {
-    const expectedCount = 6;
+    const expectedCount = 4;
     const actualCount = FFI_EXPORTS.length;
 
     if (actualCount !== expectedCount) {

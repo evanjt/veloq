@@ -592,7 +592,7 @@ export default function SectionDetailScreen() {
 
       // Check if this activity is already the reference
       const currentRef = effectiveReferenceId;
-      const isUserDefinedRef = engine.isSectionReferenceUserDefined(id);
+      const isUserDefinedRef = engine.getSectionReferenceInfo(id).isUserDefined;
 
       if (currentRef === activityId && isUserDefinedRef) {
         // Already the user-defined reference - offer to reset

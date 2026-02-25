@@ -4,10 +4,7 @@
 //! to Kotlin and Swift. All FFI functions are prefixed with `ffi_` to avoid
 //! naming conflicts with the internal API.
 
-use crate::ffi_types::{
-    FfiMultiScaleSectionResult, FfiRouteGroup, FfiScalePreset, FfiSectionConfig,
-};
-use crate::{elapsed_ms, init_logging};
+use crate::init_logging;
 use log::info;
 use std::time::Instant;
 use tracematch::GpsPoint;
@@ -33,126 +30,6 @@ pub struct DownloadProgressResult {
 pub struct ActivitySportType {
     pub activity_id: String,
     pub sport_type: String,
-}
-
-/// Get default scale presets for multi-scale detection
-#[uniffi::export]
-pub fn default_scale_presets() -> Vec<FfiScalePreset> {
-    crate::ffi_types::default_scale_presets()
-}
-
-/// Detect sections at multiple scales with potential section suggestions.
-/// This is the flagship entry point for section detection.
-///
-/// Returns a MultiScaleSectionResult with:
-/// - sections: Confirmed sections (meeting min_activities threshold)
-/// - potentials: Suggested sections from 1-2 activity overlaps
-/// - stats: Detection statistics
-#[uniffi::export]
-pub fn ffi_detect_sections_multiscale(
-    activity_ids: Vec<String>,
-    all_coords: Vec<f64>,
-    offsets: Vec<u32>,
-    sport_types: Vec<ActivitySportType>,
-    groups: Vec<FfiRouteGroup>,
-    config: FfiSectionConfig,
-) -> FfiMultiScaleSectionResult {
-    init_logging();
-    let ffi_start = Instant::now();
-    info!(
-        "[RUST: detect_sections_multiscale] FFI called with {} activities, {} coords, {} scales",
-        activity_ids.len(),
-        all_coords.len() / 2,
-        config.scale_presets.len()
-    );
-
-    // Phase 1: Convert flat coordinates to tracks
-    let convert_start = Instant::now();
-    let mut tracks: Vec<(String, Vec<GpsPoint>)> = Vec::with_capacity(activity_ids.len());
-
-    for (i, activity_id) in activity_ids.iter().enumerate() {
-        let start_offset = offsets[i] as usize;
-        let end_offset = offsets
-            .get(i + 1)
-            .map(|&o| o as usize)
-            .unwrap_or(all_coords.len() / 2);
-
-        let mut points = Vec::with_capacity(end_offset - start_offset);
-        for j in start_offset..end_offset {
-            let coord_idx = j * 2;
-            if coord_idx + 1 < all_coords.len() {
-                points.push(GpsPoint::new(
-                    all_coords[coord_idx],
-                    all_coords[coord_idx + 1],
-                ));
-            }
-        }
-
-        if !points.is_empty() {
-            tracks.push((activity_id.clone(), points));
-        }
-    }
-    info!(
-        "[RUST: detect_sections_multiscale] Converted {} tracks ({} ms)",
-        tracks.len(),
-        elapsed_ms(convert_start)
-    );
-
-    // Phase 2: Build sport type map
-    let sport_map_start = Instant::now();
-    let sport_map: std::collections::HashMap<String, String> = sport_types
-        .into_iter()
-        .map(|st| (st.activity_id, st.sport_type))
-        .collect();
-    info!(
-        "[RUST: detect_sections_multiscale] Built sport map ({} ms)",
-        elapsed_ms(sport_map_start)
-    );
-
-    // Phase 3: Convert FFI types to tracematch types and run detection
-    let detect_start = Instant::now();
-    let tm_groups: Vec<tracematch::RouteGroup> = groups.into_iter().map(Into::into).collect();
-    let tm_config: tracematch::SectionConfig = config.into();
-    let result = tracematch::sections::detect_sections_multiscale(
-        &tracks, &sport_map, &tm_groups, &tm_config,
-    );
-    info!(
-        "[RUST: detect_sections_multiscale] Detection complete: {} raw sections, {} raw potentials ({} ms)",
-        result.sections.len(),
-        result.potentials.len(),
-        elapsed_ms(detect_start)
-    );
-
-    // Phase 4: Filter sparse sections
-    let filter_start = Instant::now();
-    let filtered_sections: Vec<_> = result
-        .sections
-        .into_iter()
-        .filter(|s| s.polyline.len() >= 2)
-        .collect();
-    let filtered_potentials: Vec<_> = result
-        .potentials
-        .into_iter()
-        .filter(|p| p.polyline.len() >= 2)
-        .collect();
-    info!(
-        "[RUST: detect_sections_multiscale] Filtered to {} sections, {} potentials ({} ms)",
-        filtered_sections.len(),
-        filtered_potentials.len(),
-        elapsed_ms(filter_start)
-    );
-
-    info!(
-        "[RUST: detect_sections_multiscale] Complete ({} ms)",
-        elapsed_ms(ffi_start)
-    );
-
-    // Convert back to FFI types
-    FfiMultiScaleSectionResult::from(tracematch::MultiScaleSectionResult {
-        sections: filtered_sections,
-        potentials: filtered_potentials,
-        stats: result.stats,
-    })
 }
 
 /// Get current download progress for FFI polling.

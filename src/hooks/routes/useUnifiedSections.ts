@@ -281,7 +281,7 @@ export function getAllSectionDisplayNames(): Record<string, string> {
   if (!engine) return {};
 
   // Use summaries instead of full sections - faster since no polyline data
-  const summaries = engine.getSectionSummaries();
+  const { summaries } = engine.getSectionSummaries();
   const customNames = engine.getAllSectionNames();
   const result: Record<string, string> = {};
 

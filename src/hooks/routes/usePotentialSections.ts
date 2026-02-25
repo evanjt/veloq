@@ -119,14 +119,14 @@ export function usePotentialSections(
       // Single FFI call - Rust loads all tracks from SQLite internally
       const rawPotentials = engine.detectPotentials(sportType);
 
-      // Convert to app format (snake_case to camelCase, GpsPoint to RoutePoint)
+      // Convert to app format (FfiGpsPoint to RoutePoint)
       const potentials: PotentialSection[] = rawPotentials.map((p) => ({
         id: p.id,
-        sportType: p.sport_type,
+        sportType: p.sportType,
         polyline: gpsPointsToRoutePoints(p.polyline),
-        activityIds: p.activity_ids,
-        visitCount: p.activity_ids.length,
-        distanceMeters: p.distance_meters,
+        activityIds: p.activityIds,
+        visitCount: p.activityIds.length,
+        distanceMeters: p.distanceMeters,
         confidence: p.confidence,
         scale: p.scale,
       }));

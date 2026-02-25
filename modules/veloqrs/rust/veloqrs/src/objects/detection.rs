@@ -73,21 +73,20 @@ impl DetectionManager {
         }
     }
 
-    fn get_progress(&self) -> String {
+    fn get_progress(&self) -> Option<crate::FfiDetectionProgress> {
         let handle_guard = SECTION_DETECTION_HANDLE.lock().unwrap();
 
-        if let Some(handle) = handle_guard.as_ref() {
+        handle_guard.as_ref().map(|handle| {
             let (phase, completed, total) = handle.get_progress();
-            format!(
-                r#"{{"phase":"{}","completed":{},"total":{}}}"#,
-                phase, completed, total
-            )
-        } else {
-            "{}".to_string()
-        }
+            crate::FfiDetectionProgress {
+                phase,
+                completed,
+                total,
+            }
+        })
     }
 
-    fn detect_potentials(&self, sport_filter: Option<String>) -> String {
+    fn detect_potentials(&self, sport_filter: Option<String>) -> Vec<crate::FfiPotentialSection> {
         with_persistent_engine(|e| {
             let activity_ids: Vec<String> = if let Some(ref sport) = sport_filter {
                 e.activity_metadata
@@ -100,7 +99,7 @@ impl DetectionManager {
             };
 
             if activity_ids.is_empty() {
-                return "[]".to_string();
+                return vec![];
             }
 
             let mut tracks: Vec<(String, Vec<GpsPoint>)> = Vec::new();
@@ -113,7 +112,7 @@ impl DetectionManager {
             }
 
             if tracks.is_empty() {
-                return "[]".to_string();
+                return vec![];
             }
 
             let sport_map: HashMap<String, String> = e
@@ -147,8 +146,12 @@ impl DetectionManager {
                 result.potentials.len()
             );
 
-            serde_json::to_string(&result.potentials).unwrap_or_else(|_| "[]".to_string())
+            result
+                .potentials
+                .into_iter()
+                .map(crate::FfiPotentialSection::from)
+                .collect()
         })
-        .unwrap_or_else(|| "[]".to_string())
+        .unwrap_or_default()
     }
 }

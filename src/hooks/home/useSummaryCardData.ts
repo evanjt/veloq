@@ -232,35 +232,31 @@ export function useSummaryCardData(): SummaryCardData {
     prevSunday.setDate(currentMonday.getDate() - 1);
     prevSunday.setHours(23, 59, 59, 999);
 
-    const currentWeekStats = engine.getPeriodStats(
+    const cardData = engine.getSummaryCardData(
       Math.floor(currentMonday.getTime() / 1000),
-      Math.floor(currentSunday.getTime() / 1000)
-    );
-    const prevWeekStats = engine.getPeriodStats(
+      Math.floor(currentSunday.getTime() / 1000),
       Math.floor(prevMonday.getTime() / 1000),
       Math.floor(prevSunday.getTime() / 1000)
     );
 
-    const weekCount = currentWeekStats.count;
-    const weekSeconds = Number(currentWeekStats.totalDuration);
-    const prevWeekSeconds = Number(prevWeekStats.totalDuration);
+    const weekCount = cardData.currentWeek.count;
+    const weekSeconds = Number(cardData.currentWeek.totalDuration);
+    const prevWeekSeconds = Number(cardData.prevWeek.totalDuration);
 
     const weekHours = Math.round((weekSeconds / 3600) * 10) / 10;
     const prevWeekHours = Math.round((prevWeekSeconds / 3600) * 10) / 10;
 
-    const ftpResult = engine.getFtpTrend();
-    const latestFtp = ftpResult.latestFtp ?? null;
-    const prevFtp = ftpResult.previousFtp ?? null;
+    const latestFtp = cardData.ftpTrend.latestFtp ?? null;
+    const prevFtp = cardData.ftpTrend.previousFtp ?? null;
 
-    // Pace trends (running threshold pace, swim CSS)
-    const runPaceTrend = engine.getPaceTrend('Run');
-    const swimPaceTrend = engine.getPaceTrend('Swim');
+    const runPaceTrend = cardData.runPaceTrend;
+    const swimPaceTrend = cardData.swimPaceTrend;
 
     return {
       weekHours,
       weekHoursTrend: getTrend(weekHours, prevWeekHours, 0.5),
       weekCount,
-      weekCountTrend: getTrend(weekCount, prevWeekStats.count, 1),
+      weekCountTrend: getTrend(weekCount, cardData.prevWeek.count, 1),
       ftp: latestFtp,
       ftpTrend: getTrend(latestFtp, prevFtp, 2),
       thresholdPaceTrend: getTrend(

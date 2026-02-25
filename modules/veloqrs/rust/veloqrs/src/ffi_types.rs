@@ -17,6 +17,17 @@ pub struct FfiBatchTrace {
     pub coords: Vec<f64>,
 }
 
+/// Section detection progress info.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiDetectionProgress {
+    /// Current phase: "loading", "building_rtrees", "finding_overlaps", etc.
+    pub phase: String,
+    /// Number of items completed in current phase
+    pub completed: u32,
+    /// Total items in current phase
+    pub total: u32,
+}
+
 /// Section reference info: combines reference activity ID and user-defined flag.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiSectionReferenceInfo {
@@ -231,6 +242,35 @@ pub struct FfiWeeklyComparison {
     pub current_week: FfiPeriodStats,
     pub previous_week: FfiPeriodStats,
     pub ftp_trend: FfiFtpTrend,
+}
+
+/// Summary card batch data: combines period stats, FTP trend, and pace trends.
+/// Reduces Home screen FFI calls from 5 to 1.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSummaryCardData {
+    pub current_week: FfiPeriodStats,
+    pub prev_week: FfiPeriodStats,
+    pub ftp_trend: FfiFtpTrend,
+    pub run_pace_trend: FfiPaceTrend,
+    pub swim_pace_trend: FfiPaceTrend,
+}
+
+/// Section summaries with total count: combines count + summaries in one call.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionSummariesResult {
+    /// Total section count (unfiltered)
+    pub total_count: u32,
+    /// Summaries (optionally filtered by sport type)
+    pub summaries: Vec<crate::SectionSummary>,
+}
+
+/// Group summaries with total count: combines count + summaries in one call.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiGroupSummariesResult {
+    /// Total group count
+    pub total_count: u32,
+    /// All group summaries
+    pub summaries: Vec<crate::GroupSummary>,
 }
 
 // ============================================================================
@@ -518,6 +558,7 @@ pub struct FfiPotentialSection {
     pub sport_type: String,
     pub polyline: Vec<FfiGpsPoint>,
     pub activity_ids: Vec<String>,
+    pub visit_count: u32,
     pub distance_meters: f64,
     pub confidence: f64,
     pub scale: String,
@@ -530,6 +571,7 @@ impl From<tracematch::PotentialSection> for FfiPotentialSection {
             sport_type: s.sport_type,
             polyline: s.polyline.into_iter().map(FfiGpsPoint::from).collect(),
             activity_ids: s.activity_ids,
+            visit_count: s.visit_count,
             distance_meters: s.distance_meters,
             confidence: s.confidence,
             scale: s.scale.to_string(),

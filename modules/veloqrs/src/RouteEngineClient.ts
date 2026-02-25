@@ -25,6 +25,7 @@ import type {
   FfiFtpTrend,
   FfiPaceTrend,
   FfiRoutesScreenData,
+  FfiPotentialSection,
   DownloadProgressResult,
 } from './generated/veloqrs';
 
@@ -34,11 +35,52 @@ import {
   validateName,
   type RoutePoint,
   type SectionDetectionProgress,
-  type RawPotentialSection,
 } from './conversions';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const gen = (): any => require('./generated/veloqrs');
+
+// Pre-initialization defaults (typed to match UniFFI-generated types)
+const EMPTY_PERIOD_STATS: FfiPeriodStats = {
+  count: 0,
+  totalDuration: BigInt(0),
+  totalDistance: 0,
+  totalTss: 0,
+};
+
+const EMPTY_FTP_TREND: FfiFtpTrend = {
+  latestFtp: undefined,
+  latestDate: undefined,
+  previousFtp: undefined,
+  previousDate: undefined,
+};
+
+const EMPTY_PACE_TREND: FfiPaceTrend = {
+  latestPace: undefined,
+  latestDate: undefined,
+  previousPace: undefined,
+  previousDate: undefined,
+};
+
+const EMPTY_ROUTE_PERFORMANCE_RESULT: FfiRoutePerformanceResult = {
+  performances: [],
+  activityMetrics: [],
+  best: undefined,
+  bestForward: undefined,
+  bestReverse: undefined,
+  forwardStats: undefined,
+  reverseStats: undefined,
+  currentRank: undefined,
+};
+
+const EMPTY_SECTION_PERFORMANCE_RESULT: FfiSectionPerformanceResult = {
+  records: [],
+  bestRecord: undefined,
+  bestForwardRecord: undefined,
+  bestReverseRecord: undefined,
+  forwardStats: undefined,
+  reverseStats: undefined,
+};
 
 class RouteEngineClient {
   private static instance: RouteEngineClient;
@@ -185,25 +227,9 @@ class RouteEngineClient {
 
   getSectionDetectionProgress(): SectionDetectionProgress | null {
     if (!this.ready) return null;
-    try {
-      const json = this.timed('getSectionDetectionProgress', () =>
-        this.engine.detection().getProgress(),
-      );
-      if (!json || json === '{}') return null;
-      const data = JSON.parse(json) as {
-        phase?: string;
-        completed?: number;
-        total?: number;
-      };
-      if (!data.phase) return null;
-      return {
-        phase: data.phase,
-        completed: data.completed ?? 0,
-        total: data.total ?? 0,
-      };
-    } catch {
-      return null;
-    }
+    return (
+      this.timed('getSectionDetectionProgress', () => this.engine.detection().getProgress()) ?? null
+    );
   }
 
   getGroups(): FfiRouteGroup[] {
@@ -216,11 +242,6 @@ class RouteEngineClient {
     return this.timed('getSections', () => this.engine.sections().getAll());
   }
 
-  getSectionCount(): number {
-    if (!this.ready) return 0;
-    return this.timed('getSectionCount', () => this.engine.sections().getCount(undefined));
-  }
-
   getSectionsForActivity(activityId: string): FfiSection[] {
     if (!this.ready) return [];
     return this.timed('getSectionsForActivity', () =>
@@ -228,28 +249,20 @@ class RouteEngineClient {
     );
   }
 
-  getGroupCount(): number {
-    if (!this.ready) return 0;
-    return this.timed('getGroupCount', () => this.engine.routes().getCount());
-  }
-
-  getSectionSummaries(): SectionSummary[] {
-    if (!this.ready) return [];
-    return this.timed('getSectionSummaries', () =>
-      this.engine.sections().getSummaries(undefined),
+  getSectionSummaries(sportType?: string): { count: number; summaries: SectionSummary[] } {
+    if (!this.ready) return { count: 0, summaries: [] };
+    const result = this.timed('getSectionSummaries', () =>
+      this.engine.sections().getSummariesWithCount(sportType),
     );
+    return { count: result.totalCount, summaries: result.summaries };
   }
 
-  getSectionSummariesForSport(sportType: string): SectionSummary[] {
-    if (!this.ready) return [];
-    return this.timed('getSectionSummariesForSport', () =>
-      this.engine.sections().getSummaries(sportType),
+  getGroupSummaries(): { count: number; summaries: GroupSummary[] } {
+    if (!this.ready) return { count: 0, summaries: [] };
+    const result = this.timed('getGroupSummaries', () =>
+      this.engine.routes().getSummariesWithCount(),
     );
-  }
-
-  getGroupSummaries(): GroupSummary[] {
-    if (!this.ready) return [];
-    return this.timed('getGroupSummaries', () => this.engine.routes().getSummaries());
+    return { count: result.totalCount, summaries: result.summaries };
   }
 
   getSectionById(sectionId: string): FfiFrequentSection | null {
@@ -267,10 +280,7 @@ class RouteEngineClient {
   getSectionPolyline(sectionId: string): FfiGpsPoint[] {
     if (!this.ready) return [];
     validateId(sectionId, 'section ID');
-    const flatCoords = this.timed('getSectionPolyline', () =>
-      this.engine.sections().getPolyline(sectionId),
-    );
-    return flatCoordsToPoints(flatCoords);
+    return this.timed('getSectionPolyline', () => this.engine.sections().getPolyline(sectionId));
   }
 
   getMapActivitiesFiltered(
@@ -281,9 +291,8 @@ class RouteEngineClient {
     if (!this.ready) return [];
     const startTs = BigInt(Math.floor(startDate.getTime() / 1000));
     const endTs = BigInt(Math.floor(endDate.getTime() / 1000));
-    const sportTypesJson = sportTypesArray?.length ? JSON.stringify(sportTypesArray) : '';
     return this.timed('getMapActivitiesFiltered', () =>
-      this.engine.maps().getFiltered(startTs, endTs, sportTypesJson),
+      this.engine.maps().getFiltered(startTs, endTs, sportTypesArray ?? []),
     );
   }
 
@@ -335,19 +344,15 @@ class RouteEngineClient {
   getGpsTrack(activityId: string): FfiGpsPoint[] {
     if (!this.ready) return [];
     validateId(activityId, 'activity ID');
-    const flatCoords = this.timed('getGpsTrack', () =>
-      this.engine.activities().getGpsTrack(activityId),
-    );
-    return flatCoordsToPoints(flatCoords);
+    return this.timed('getGpsTrack', () => this.engine.activities().getGpsTrack(activityId));
   }
 
   getConsensusRoute(groupId: string): FfiGpsPoint[] {
     if (!this.ready) return [];
     validateId(groupId, 'group ID');
-    const flatCoords = this.timed('getConsensusRoute', () =>
+    return this.timed('getConsensusRoute', () =>
       this.engine.routes().getConsensusRoute(groupId),
     );
-    return flatCoordsToPoints(flatCoords);
   }
 
   getRoutePerformances(
@@ -355,16 +360,7 @@ class RouteEngineClient {
     currentActivityId: string,
   ): FfiRoutePerformanceResult {
     if (!this.ready) {
-      return {
-        performances: [],
-        activityMetrics: [],
-        best: undefined,
-        bestForward: undefined,
-        bestReverse: undefined,
-        forwardStats: undefined,
-        reverseStats: undefined,
-        currentRank: undefined,
-      } as unknown as FfiRoutePerformanceResult;
+      return EMPTY_ROUTE_PERFORMANCE_RESULT;
     }
     validateId(routeGroupId, 'route group ID');
     if (currentActivityId !== '') {
@@ -377,14 +373,7 @@ class RouteEngineClient {
 
   getSectionPerformances(sectionId: string): FfiSectionPerformanceResult {
     if (!this.ready) {
-      return {
-        records: [],
-        bestRecord: undefined,
-        bestForwardRecord: undefined,
-        bestReverseRecord: undefined,
-        forwardStats: undefined,
-        reverseStats: undefined,
-      } as unknown as FfiSectionPerformanceResult;
+      return EMPTY_SECTION_PERFORMANCE_RESULT;
     }
     return this.timed('getSectionPerformances', () =>
       this.engine.sections().getPerformances(sectionId),
@@ -461,8 +450,36 @@ class RouteEngineClient {
     );
   }
 
+  getSummaryCardData(
+    currentStart: number,
+    currentEnd: number,
+    prevStart: number,
+    prevEnd: number,
+  ): {
+    currentWeek: FfiPeriodStats;
+    prevWeek: FfiPeriodStats;
+    ftpTrend: FfiFtpTrend;
+    runPaceTrend: FfiPaceTrend;
+    swimPaceTrend: FfiPaceTrend;
+  } {
+    if (!this.ready) {
+      return {
+        currentWeek: EMPTY_PERIOD_STATS,
+        prevWeek: EMPTY_PERIOD_STATS,
+        ftpTrend: EMPTY_FTP_TREND,
+        runPaceTrend: EMPTY_PACE_TREND,
+        swimPaceTrend: EMPTY_PACE_TREND,
+      };
+    }
+    return this.timed('getSummaryCardData', () =>
+      this.engine
+        .fitness()
+        .getSummaryCardData(BigInt(currentStart), BigInt(currentEnd), BigInt(prevStart), BigInt(prevEnd)),
+    );
+  }
+
   getPeriodStats(startTs: number, endTs: number): FfiPeriodStats {
-    if (!this.ready) return { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 } as unknown as FfiPeriodStats;
+    if (!this.ready) return EMPTY_PERIOD_STATS;
     return this.timed('getPeriodStats', () =>
       this.engine.fitness().getPeriodStats(BigInt(startTs), BigInt(endTs)),
     );
@@ -476,7 +493,7 @@ class RouteEngineClient {
   }
 
   getFtpTrend(): FfiFtpTrend {
-    if (!this.ready) return { latestFtp: undefined, latestDate: undefined, previousFtp: undefined, previousDate: undefined } as unknown as FfiFtpTrend;
+    if (!this.ready) return EMPTY_FTP_TREND;
     return this.timed('getFtpTrend', () => this.engine.fitness().getFtpTrend());
   }
 
@@ -495,7 +512,7 @@ class RouteEngineClient {
   }
 
   getPaceTrend(sportType: string): FfiPaceTrend {
-    if (!this.ready) return { latestPace: undefined, latestDate: undefined, previousPace: undefined, previousDate: undefined } as unknown as FfiPaceTrend;
+    if (!this.ready) return EMPTY_PACE_TREND;
     return this.timed('getPaceTrend', () => this.engine.fitness().getPaceTrend(sportType));
   }
 
@@ -562,7 +579,7 @@ class RouteEngineClient {
     const sectionId = this.timed('createSection', () =>
       this.engine.sections().create(
         sportType,
-        JSON.stringify(sectionTrack),
+        sectionTrack,
         0.0,
         name || undefined,
         activityId,
@@ -590,17 +607,11 @@ class RouteEngineClient {
     return result;
   }
 
-  detectPotentials(sportFilter?: string): RawPotentialSection[] {
+  detectPotentials(sportFilter?: string): FfiPotentialSection[] {
     if (!this.ready) return [];
-    const json = this.timed('detectPotentials', () =>
+    return this.timed('detectPotentials', () =>
       this.engine.detection().detectPotentials(sportFilter),
     );
-    if (!json) return [];
-    try {
-      return JSON.parse(json) as RawPotentialSection[];
-    } catch {
-      return [];
-    }
   }
 
   extractSectionTrace(activityId: string, sectionPolylineJson: string): FfiGpsPoint[] {
@@ -665,22 +676,13 @@ class RouteEngineClient {
     return result;
   }
 
-  getSectionReference(sectionId: string): string | undefined {
-    if (!this.ready) return undefined;
+  getSectionReferenceInfo(sectionId: string): { activityId?: string; isUserDefined: boolean } {
+    if (!this.ready) return { activityId: undefined, isUserDefined: false };
     validateId(sectionId, 'section ID');
-    const info = this.timed('getSectionReference', () =>
+    const info = this.timed('getSectionReferenceInfo', () =>
       this.engine.sections().getReferenceInfo(sectionId),
     );
-    return info?.activityId;
-  }
-
-  isSectionReferenceUserDefined(sectionId: string): boolean {
-    if (!this.ready) return false;
-    validateId(sectionId, 'section ID');
-    const info = this.timed('isSectionReferenceUserDefined', () =>
-      this.engine.sections().getReferenceInfo(sectionId),
-    );
-    return info?.isUserDefined ?? false;
+    return { activityId: info?.activityId, isUserDefined: info?.isUserDefined ?? false };
   }
 
   getDownloadProgress(): DownloadProgressResult {

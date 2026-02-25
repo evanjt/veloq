@@ -29,23 +29,25 @@ impl RouteManager {
             .flatten()
     }
 
-    fn get_count(&self) -> u32 {
-        with_persistent_engine(|e| e.get_group_count()).unwrap_or(0)
-    }
-
     fn get_summaries(&self) -> Vec<crate::GroupSummary> {
         with_persistent_engine(|e| e.get_group_summaries()).unwrap_or_default()
     }
 
-    fn get_consensus_route(&self, group_id: String) -> Vec<f64> {
+    fn get_summaries_with_count(&self) -> crate::FfiGroupSummariesResult {
+        with_persistent_engine(|e| crate::FfiGroupSummariesResult {
+            total_count: e.get_group_count(),
+            summaries: e.get_group_summaries(),
+        })
+        .unwrap_or(crate::FfiGroupSummariesResult {
+            total_count: 0,
+            summaries: vec![],
+        })
+    }
+
+    fn get_consensus_route(&self, group_id: String) -> Vec<crate::FfiGpsPoint> {
         with_persistent_engine(|e| {
             e.get_consensus_route(&group_id)
-                .map(|points| {
-                    points
-                        .iter()
-                        .flat_map(|p| vec![p.latitude, p.longitude])
-                        .collect()
-                })
+                .map(|points| points.into_iter().map(crate::FfiGpsPoint::from).collect())
                 .unwrap_or_default()
         })
         .unwrap_or_default()

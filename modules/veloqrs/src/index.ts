@@ -31,7 +31,6 @@ export type {
   RoutePoint,
   SectionDetectionProgress,
   CustomSection,
-  RawPotentialSection,
   FetchProgressEvent,
 } from "./conversions";
 
@@ -40,8 +39,6 @@ export { RouteEngineClient } from "./RouteEngineClient";
 
 // Import generated functions for top-level aliases
 import {
-  ffiDetectSectionsMultiscale,
-  defaultScalePresets,
   getDownloadProgress as ffiGetDownloadProgress,
   type DownloadProgressResult,
   type FfiActivityMetrics,
@@ -49,7 +46,7 @@ import {
   type FfiRouteGroup,
   type FfiFrequentSection,
   type FfiSection,
-  FfiSectionConfig,
+  type FfiSectionConfig,
   type FfiSectionPerformanceResult,
   type FfiSectionPerformanceRecord,
   type FfiRoutePerformanceResult,
@@ -66,6 +63,7 @@ import {
   type FfiRoutesScreenData,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
+  type FfiPotentialSection,
 } from "./generated/veloqrs";
 
 import { RouteEngineClient } from "./RouteEngineClient";
@@ -99,14 +97,12 @@ export type PaceTrend = FfiPaceTrend;
 export type RoutesScreenData = FfiRoutesScreenData;
 export type GroupWithPolyline = FfiGroupWithPolyline;
 export type SectionWithPolyline = FfiSectionWithPolyline;
+export type PotentialSection = FfiPotentialSection;
 
 // For backward compatibility, also export the module initialization status
 export function isRouteMatcherInitialized(): boolean {
   return installed;
 }
-
-export const detectSectionsMultiscale = ffiDetectSectionsMultiscale;
-export const getDefaultScalePresets = defaultScalePresets;
 
 export function getDownloadProgress(): DownloadProgressResult {
   return ffiGetDownloadProgress();

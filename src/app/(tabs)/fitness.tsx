@@ -147,12 +147,10 @@ export default function FitnessScreen() {
   // Compute zone distributions - filtered by current sport mode
   const powerZones = useZoneDistribution({
     type: 'power',
-    activities,
     sport: sportMode,
   });
   const hrZones = useZoneDistribution({
     type: 'hr',
-    activities,
     sport: sportMode,
   });
 

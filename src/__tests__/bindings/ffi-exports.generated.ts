@@ -23,38 +23,26 @@ export interface FfiExportInfo {
 
 /**
  * Standalone flat FFI exports from Rust source (not on UniFFI Objects).
- * Total: 6 exports
+ * Total: 4 exports
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
-  {
-    name: 'default_scale_presets',
-    camelName: 'defaultScalePresets',
-    file: 'ffi.rs',
-    line: 39,
-  },
-  {
-    name: 'ffi_detect_sections_multiscale',
-    camelName: 'ffiDetectSectionsMultiscale',
-    file: 'ffi.rs',
-    line: 51,
-  },
   {
     name: 'get_download_progress',
     camelName: 'getDownloadProgress',
     file: 'ffi.rs',
-    line: 166,
+    line: 43,
   },
   {
     name: 'start_fetch_and_store',
     camelName: 'startFetchAndStore',
     file: 'ffi.rs',
-    line: 222,
+    line: 99,
   },
   {
     name: 'take_fetch_and_store_result',
     camelName: 'takeFetchAndStoreResult',
     file: 'ffi.rs',
-    line: 526,
+    line: 403,
   },
   {
     name: 'compute_polyline_overlap',
@@ -68,8 +56,6 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
  * Expected TypeScript function names (camelCase) for standalone flat exports.
  */
 export const EXPECTED_TS_FUNCTIONS = new Set<string>([
-  'defaultScalePresets',
-  'ffiDetectSectionsMultiscale',
   'getDownloadProgress',
   'startFetchAndStore',
   'takeFetchAndStoreResult',
@@ -80,8 +66,6 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
  * Rust to TypeScript name mapping for standalone flat exports.
  */
 export const RUST_TO_TS_NAME: Record<string, string> = {
-  default_scale_presets: 'defaultScalePresets',
-  ffi_detect_sections_multiscale: 'ffiDetectSectionsMultiscale',
   get_download_progress: 'getDownloadProgress',
   start_fetch_and_store: 'startFetchAndStore',
   take_fetch_and_store_result: 'takeFetchAndStoreResult',

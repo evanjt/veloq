@@ -322,11 +322,7 @@ export function useSectionSummaries(
       const engine = getRouteEngine();
       if (!engine) return { count: 0, summaries: [] };
 
-      const count = engine.getSectionCount();
-
-      const rawSummaries = sportType
-        ? engine.getSectionSummariesForSport(sportType)
-        : engine.getSectionSummaries();
+      const { count, summaries: rawSummaries } = engine.getSectionSummaries(sportType);
 
       // Apply minimum visits filter and generate display names
       const summaries = rawSummaries
@@ -371,20 +367,19 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
       const engine = getRouteEngine();
       if (!engine) return { count: 0, summaries: [] };
 
-      const count = engine.getGroupCount();
-      let rawSummaries = engine.getGroupSummaries();
+      const { count, summaries: rawSummaries } = engine.getGroupSummaries();
 
       // Apply filters
-      rawSummaries = rawSummaries.filter((g) => g.activityCount >= minActivities);
+      let filtered = rawSummaries.filter((g) => g.activityCount >= minActivities);
 
       // Sort
       if (sortBy === 'count') {
-        rawSummaries.sort((a, b) => b.activityCount - a.activityCount);
+        filtered.sort((a, b) => b.activityCount - a.activityCount);
       } else {
-        rawSummaries.sort((a, b) => a.groupId.localeCompare(b.groupId));
+        filtered.sort((a, b) => a.groupId.localeCompare(b.groupId));
       }
 
-      return { count, summaries: rawSummaries };
+      return { count, summaries: filtered };
     } catch {
       return { count: 0, summaries: [] };
     }

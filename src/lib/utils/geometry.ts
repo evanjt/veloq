@@ -37,7 +37,7 @@ function flattenPolyline(polyline: Array<{ lat: number; lng: number }>): number[
 /**
  * Compute overlap between two polylines.
  * Returns 0-1 representing the fraction of polylineA points that are close to polylineB.
- * Uses Rust R-tree when engine is available (O(n log m)), falls back to JS brute-force.
+ * Uses Rust R-tree implementation (O(n log m)).
  *
  * @param polylineA - First polyline
  * @param polylineB - Second polyline
@@ -51,30 +51,14 @@ export function computePolylineOverlap(
 ): number {
   if (polylineA.length === 0 || polylineB.length === 0) return 0;
 
-  // Try Rust R-tree implementation
   const engine = getRouteEngine();
-  if (engine) {
-    return engine.computePolylineOverlap(
-      flattenPolyline(polylineA),
-      flattenPolyline(polylineB),
-      thresholdMeters
-    );
-  }
+  if (!engine) return 0;
 
-  // JS fallback (O(n*m) brute-force)
-  let matchedCount = 0;
-
-  for (const pointA of polylineA) {
-    for (const pointB of polylineB) {
-      const distance = haversineDistance(pointA, pointB);
-      if (distance <= thresholdMeters) {
-        matchedCount++;
-        break;
-      }
-    }
-  }
-
-  return matchedCount / polylineA.length;
+  return engine.computePolylineOverlap(
+    flattenPolyline(polylineA),
+    flattenPolyline(polylineB),
+    thresholdMeters
+  );
 }
 
 /**

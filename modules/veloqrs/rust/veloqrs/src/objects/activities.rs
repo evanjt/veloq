@@ -78,15 +78,10 @@ impl ActivityManager {
             .unwrap_or(activity_ids)
     }
 
-    fn get_gps_track(&self, activity_id: String) -> Vec<f64> {
+    fn get_gps_track(&self, activity_id: String) -> Vec<crate::FfiGpsPoint> {
         with_persistent_engine(|e| {
             e.get_gps_track(&activity_id)
-                .map(|points| {
-                    points
-                        .iter()
-                        .flat_map(|p| vec![p.latitude, p.longitude])
-                        .collect()
-                })
+                .map(|points| points.into_iter().map(crate::FfiGpsPoint::from).collect())
                 .unwrap_or_default()
         })
         .unwrap_or_default()

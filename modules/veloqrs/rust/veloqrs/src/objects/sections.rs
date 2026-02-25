@@ -1,6 +1,5 @@
 use crate::persistence::with_persistent_engine;
 use crate::sections::SectionType;
-use log::info;
 use std::sync::Arc;
 
 #[derive(uniffi::Object)]
@@ -52,18 +51,6 @@ impl SectionManager {
             .flatten()
     }
 
-    fn get_count(&self, section_type: Option<String>) -> u32 {
-        let st = section_type.as_deref().and_then(SectionType::from_str);
-        with_persistent_engine(|e| {
-            if st.is_some() {
-                e.get_section_count_by_type(st)
-            } else {
-                e.get_section_count()
-            }
-        })
-        .unwrap_or(0)
-    }
-
     fn get_summaries(&self, sport_type: Option<String>) -> Vec<crate::SectionSummary> {
         with_persistent_engine(|e| match sport_type {
             Some(ref sport) => e.get_section_summaries_for_sport(sport),
@@ -72,8 +59,39 @@ impl SectionManager {
         .unwrap_or_default()
     }
 
-    fn get_polyline(&self, section_id: String) -> Vec<f64> {
-        with_persistent_engine(|e| e.get_section_polyline(&section_id)).unwrap_or_default()
+    fn get_summaries_with_count(
+        &self,
+        sport_type: Option<String>,
+    ) -> crate::FfiSectionSummariesResult {
+        with_persistent_engine(|e| {
+            let total_count = e.get_section_count();
+            let summaries = match sport_type {
+                Some(ref sport) => e.get_section_summaries_for_sport(sport),
+                None => e.get_section_summaries(),
+            };
+            crate::FfiSectionSummariesResult {
+                total_count,
+                summaries,
+            }
+        })
+        .unwrap_or(crate::FfiSectionSummariesResult {
+            total_count: 0,
+            summaries: vec![],
+        })
+    }
+
+    fn get_polyline(&self, section_id: String) -> Vec<crate::FfiGpsPoint> {
+        with_persistent_engine(|e| {
+            let flat = e.get_section_polyline(&section_id);
+            flat.chunks(2)
+                .map(|c| crate::FfiGpsPoint {
+                    latitude: c[0],
+                    longitude: c[1],
+                    elevation: None,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
     }
 
     fn get_performances(&self, section_id: String) -> crate::FfiSectionPerformanceResult {
@@ -135,20 +153,15 @@ impl SectionManager {
     fn create(
         &self,
         sport_type: String,
-        polyline_json: String,
+        polyline: Vec<crate::FfiGpsPoint>,
         _distance_meters: f64,
         name: Option<String>,
         source_activity_id: Option<String>,
         start_index: Option<u32>,
         end_index: Option<u32>,
     ) -> String {
-        let polyline: Vec<tracematch::GpsPoint> = match serde_json::from_str(&polyline_json) {
-            Ok(p) => p,
-            Err(e) => {
-                info!("tracematch: [sections] Failed to parse polyline JSON: {}", e);
-                return String::new();
-            }
-        };
+        let polyline: Vec<tracematch::GpsPoint> =
+            polyline.into_iter().map(tracematch::GpsPoint::from).collect();
 
         let computed_distance = tracematch::matching::calculate_route_distance(&polyline);
 

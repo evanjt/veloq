@@ -164,7 +164,7 @@ export function getAllRouteDisplayNames(): Record<string, string> {
   if (!engine) return {};
 
   // Use lightweight summaries - names are stored in customName field
-  const summaries = engine.getGroupSummaries();
+  const { summaries } = engine.getGroupSummaries();
 
   const result: Record<string, string> = {};
   for (const summary of summaries) {

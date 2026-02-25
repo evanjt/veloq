@@ -36,16 +36,14 @@ impl MapManager {
         &self,
         start_date: i64,
         end_date: i64,
-        sport_types_json: String,
+        sport_types: Vec<String>,
     ) -> Vec<crate::persistence::MapActivityComplete> {
         with_persistent_engine(|e| {
             let sport_filter: Option<std::collections::HashSet<String>> =
-                if sport_types_json.is_empty() {
+                if sport_types.is_empty() {
                     None
                 } else {
-                    serde_json::from_str::<Vec<String>>(&sport_types_json)
-                        .ok()
-                        .map(|v| v.into_iter().collect())
+                    Some(sport_types.into_iter().collect())
                 };
             e.activity_metadata
                 .iter()

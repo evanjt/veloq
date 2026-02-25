@@ -69,10 +69,10 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
     return unsubscribe;
   }, [refresh]);
 
-  // Check if engine has any sections (lightweight O(1) check)
+  // Check if engine has any sections
   const sectionCount = useMemo(() => {
     const engine = getRouteEngine();
-    return engine?.getSectionCount() ?? 0;
+    return engine?.getSectionSummaries()?.count ?? 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTrigger]);
 
