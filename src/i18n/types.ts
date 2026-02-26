@@ -1131,6 +1131,26 @@ export interface TranslationResource {
     uploadError: string;
     uploadErrorMessage: string;
     uploadSuccess: string;
+    slideToUnlock: string;
+    trimActivity: string;
+    rpeDescription: string;
+    savedQueued: string;
+    gpsPermissionDenied: string;
+    gpsWaiting: string;
+    gpsTrackingError: string;
+    autoPaused: string;
+    autoPausedHint: string;
+    resumePrevious: string;
+    resumePreviousMessage: string;
+    gpsAcquiring: string;
+    gpsReady: string;
+    gpsWeakWarning: string;
+    splitBanner: string;
+    settings: string;
+    settingsAutoPause: string;
+    settingsAutoPauseThreshold: string;
+    settingsDataFields: string;
+    settingsUnits: string;
   };
 
   maps: {

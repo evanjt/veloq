@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { CollapsibleSection } from '@/components/ui';
@@ -7,17 +7,22 @@ import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
 import { useTheme } from '@/hooks';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
 import type { MaterialIconName } from '@/lib/utils/activityUtils';
-import { ACTIVITY_CATEGORIES } from '@/lib/utils/recordingModes';
+import { ACTIVITY_CATEGORIES, getRecordingMode } from '@/lib/utils/recordingModes';
 import { useRecordingPreferences } from '@/providers/RecordingPreferencesStore';
+import { useRecordingStore } from '@/providers/RecordingStore';
+import { hasRecordingBackup, loadRecordingBackup, clearRecordingBackup } from '@/lib/storage/recordingBackup';
 import { intervalsApi } from '@/api';
 import { formatLocalDate, formatDuration } from '@/lib';
 import type { ActivityType, CalendarEvent } from '@/types';
 
 const DEFAULT_QUICK_TYPES: ActivityType[] = ['Ride', 'Run', 'Walk'];
+
+const GPS_READINESS_TIMEOUT_MS = 15_000;
 
 const CATEGORY_LABELS: Record<string, string> = {
   cycling: 'Cycling',
@@ -50,6 +55,9 @@ export default function RecordScreen() {
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>([]);
 
+  // GPS readiness state
+  const [gpsState, setGpsState] = useState<'checking' | 'ready' | 'weak' | 'none'>('checking');
+
   const quickTypes = useMemo(
     () => (recentTypes.length > 0 ? recentTypes : DEFAULT_QUICK_TYPES),
     [recentTypes]
@@ -60,6 +68,88 @@ export default function RecordScreen() {
       useRecordingPreferences.getState().initialize();
     }
   }, [isLoaded]);
+
+  // GPS readiness gate
+  useEffect(() => {
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    (async () => {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          // Request permission
+          const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+          if (newStatus !== 'granted') {
+            if (!cancelled) setGpsState('none');
+            return;
+          }
+        }
+
+        // Set timeout for weak GPS
+        timeoutId = setTimeout(() => {
+          if (!cancelled) setGpsState('weak');
+        }, GPS_READINESS_TIMEOUT_MS);
+
+        // Try to get a single location fix
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+        if (!cancelled) {
+          if (timeoutId) clearTimeout(timeoutId);
+          setGpsState(location.coords.accuracy != null && location.coords.accuracy <= 20 ? 'ready' : 'weak');
+        }
+      } catch {
+        if (!cancelled) setGpsState('weak');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, []);
+
+  // Crash recovery check
+  useEffect(() => {
+    (async () => {
+      const hasBackup = await hasRecordingBackup();
+      if (!hasBackup) return;
+
+      Alert.alert(
+        t('recording.resumePrevious'),
+        t('recording.resumePreviousMessage'),
+        [
+          {
+            text: t('recording.discard'),
+            style: 'destructive',
+            onPress: () => clearRecordingBackup(),
+          },
+          {
+            text: t('recording.controls.resume'),
+            onPress: async () => {
+              const backup = await loadRecordingBackup();
+              if (!backup) return;
+
+              // Load backup into store
+              const store = useRecordingStore.getState();
+              store.startRecording(backup.activityType, backup.mode, backup.pairedEventId ?? undefined);
+              // Override streams and timing from backup
+              useRecordingStore.setState({
+                startTime: backup.startTime,
+                pausedDuration: backup.pausedDuration,
+                streams: backup.streams,
+                laps: backup.laps,
+                status: 'paused', // Start paused so user can review before resuming
+              });
+
+              router.push(`/recording/${backup.activityType}` as never);
+            },
+          },
+        ]
+      );
+    })();
+  }, [t]);
 
   // Fetch today's planned workouts
   useEffect(() => {
@@ -96,7 +186,18 @@ export default function RecordScreen() {
         <Text style={[styles.headerTitle, { color: textPrimary }]}>
           {t('recording.startActivity', 'Start Activity')}
         </Text>
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity
+          onPress={() => router.push('/recording-settings' as never)}
+          style={styles.settingsButton}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="cog-outline" size={22} color={textSecondary} />
+        </TouchableOpacity>
       </View>
+
+      {/* GPS Readiness Indicator */}
+      <GpsReadinessBar state={gpsState} isDark={isDark} />
 
       <ScrollView
         contentContainerStyle={[
@@ -212,6 +313,28 @@ export default function RecordScreen() {
   );
 }
 
+/** GPS readiness indicator bar */
+function GpsReadinessBar({ state, isDark }: { state: 'checking' | 'ready' | 'weak' | 'none'; isDark: boolean }) {
+  const { t } = useTranslation();
+
+  if (state === 'none') return null;
+
+  const config = {
+    checking: { icon: 'crosshairs-question' as const, color: '#9CA3AF', text: t('recording.gpsAcquiring') },
+    ready: { icon: 'crosshairs-gps' as const, color: '#22C55E', text: t('recording.gpsReady') },
+    weak: { icon: 'crosshairs' as const, color: '#F59E0B', text: t('recording.gpsWeakWarning') },
+  }[state];
+
+  if (!config) return null;
+
+  return (
+    <View style={[styles.gpsReadinessBar, { backgroundColor: isDark ? darkColors.surface : colors.surface }]}>
+      <MaterialCommunityIcons name={config.icon} size={16} color={config.color} />
+      <Text style={[styles.gpsReadinessText, { color: config.color }]}>{config.text}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -231,6 +354,26 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...typography.sectionTitle,
     marginLeft: spacing.xs,
+  },
+  settingsButton: {
+    width: layout.minTapTarget,
+    height: layout.minTapTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gpsReadinessBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: layout.borderRadiusSm,
+  },
+  gpsReadinessText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   scrollContent: {},
   section: {

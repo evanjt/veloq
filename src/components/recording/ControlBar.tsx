@@ -21,6 +21,7 @@ interface ControlBarProps {
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
+  onDiscard?: () => void;
   style?: ViewStyle;
 }
 
@@ -31,6 +32,7 @@ function ControlBarInner({
   onPause,
   onResume,
   onStop,
+  onDiscard,
   style,
 }: ControlBarProps) {
   const { t } = useTranslation();
@@ -145,7 +147,7 @@ function ControlBarInner({
     );
   }
 
-  // Recording: [LAP] [PAUSE]
+  // Recording: [LAP] [PAUSE] [STOP]
   return (
     <View style={[styles.bar, style]}>
       <View style={styles.buttonGroup}>
@@ -162,6 +164,14 @@ function ControlBarInner({
           icon="pause"
           color={BRAND_COLOR}
           onPress={() => handleHapticPress(onPause)}
+        />
+
+        <SecondaryButton
+          label={t('recording.controls.stop')}
+          icon="stop"
+          backgroundColor={secondaryBg}
+          textColor={STOP_COLOR}
+          onPress={() => handleHapticPress(onDiscard ?? onStop)}
         />
       </View>
     </View>
