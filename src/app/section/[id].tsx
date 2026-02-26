@@ -36,6 +36,7 @@ import {
   useSectionChartData,
 } from '@/hooks';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
+import { useSectionTrim } from '@/hooks/routes/useSectionTrim';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
 import { createSharedStyles } from '@/styles';
 import { useDisabledSections } from '@/providers';
@@ -45,6 +46,7 @@ import {
   DataRangeFooter,
   DebugInfoPanel,
   DebugWarningBanner,
+  SectionTrimOverlay,
 } from '@/components/routes';
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
@@ -439,6 +441,25 @@ export default function SectionDetailScreen() {
   // Disabled sections state
   const { isDisabled, disable, enable } = useDisabledSections();
   const isSectionDisabled = id ? isDisabled(id) : false;
+
+  // Section bounds trimming
+  const handleTrimRefresh = useCallback(() => {
+    setSectionRefreshKey((k) => k + 1);
+  }, []);
+  const {
+    isTrimming,
+    trimStart,
+    trimEnd,
+    isSaving: isTrimSaving,
+    trimmedDistance,
+    canReset: canResetBounds,
+    startTrim,
+    cancelTrim,
+    confirmTrim,
+    resetBounds,
+    setTrimStart,
+    setTrimEnd,
+  } = useSectionTrim(section, handleTrimRefresh);
 
   // Merge computed activity traces into the section
   // Always use computedActivityTraces when available, as they use extractSectionTrace
@@ -1034,17 +1055,34 @@ export default function SectionDetailScreen() {
                     section={section}
                     height={MAP_HEIGHT}
                     interactive={true}
-                    enableFullscreen={true}
+                    enableFullscreen={!isTrimming}
                     shadowTrack={shadowTrack}
                     highlightedActivityId={mapHighlightedActivityId}
                     highlightedLapPoints={mapHighlightedLapPoints}
                     allActivityTraces={sectionWithTraces?.activityTraces}
                     isScrubbing={isScrubbing}
+                    trimRange={isTrimming ? { start: trimStart, end: trimEnd } : null}
                   />
                 ) : (
                   <View style={[styles.mapPlaceholder, { height: MAP_HEIGHT }]}>
                     <ActivityIndicator size="large" color={colors.primary} />
                   </View>
+                )}
+                {isTrimming && (
+                  <SectionTrimOverlay
+                    pointCount={section.polyline?.length ?? 0}
+                    startIndex={trimStart}
+                    endIndex={trimEnd}
+                    trimmedDistance={trimmedDistance}
+                    originalDistance={section.distanceMeters}
+                    isSaving={isTrimSaving}
+                    canReset={canResetBounds}
+                    onStartChange={setTrimStart}
+                    onEndChange={setTrimEnd}
+                    onConfirm={confirmTrim}
+                    onCancel={cancelTrim}
+                    onReset={resetBounds}
+                  />
                 )}
               </View>
 
@@ -1063,6 +1101,19 @@ export default function SectionDetailScreen() {
                   <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
                 </TouchableOpacity>
                 <View style={styles.headerSpacer} />
+                {!isTrimming && (
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={startTrim}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name="arrow-expand-horizontal"
+                      size={24}
+                      color={canResetBounds ? colors.primary : colors.textOnDark}
+                    />
+                  </TouchableOpacity>
+                )}
                 {isCustomId ? (
                   <TouchableOpacity
                     style={styles.deleteButton}

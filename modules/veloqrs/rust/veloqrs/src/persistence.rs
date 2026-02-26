@@ -440,7 +440,7 @@ impl PersistentRouteEngine {
 
     /// Current schema version for app-level tracking.
     /// This is separate from rusqlite_migration and tracks the overall schema state.
-    const SCHEMA_VERSION: i32 = 7; // v0.1.4 schema (pace_history table)
+    const SCHEMA_VERSION: i32 = 8; // v0.2.0 schema (section original_polyline_json for trim)
 
     /// Get the database migrations.
     /// Each migration is applied in order, tracked in `__rusqlite_migrations` table.
@@ -468,6 +468,8 @@ impl PersistentRouteEngine {
             M::up(include_str!("migrations/010_route_groups_activity_count.sql")),
             // M11: Pace history cache for running/swimming trend tracking
             M::up(include_str!("migrations/011_pace_history.sql")),
+            // M12: Original polyline backup for section bounds trimming
+            M::up(include_str!("migrations/012_section_original_polyline.sql")),
         ])
     }
 
@@ -3760,9 +3762,9 @@ impl PersistentRouteEngine {
     fn save_sections(&self) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
 
-        // Clear existing auto sections (keep custom sections)
-        tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto')", [])?;
-        tx.execute("DELETE FROM sections WHERE section_type = 'auto'", [])?;
+        // Clear existing auto sections (keep custom sections and trimmed auto sections)
+        tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL)", [])?;
+        tx.execute("DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL", [])?;
 
         // Load existing section names to preserve user-set names (from custom sections)
         let existing_names: HashMap<String, String> = {

@@ -81,6 +81,8 @@ interface SectionMapViewProps {
   allActivityTraces?: Record<string, RoutePoint[]>;
   /** Whether user is actively scrubbing - skips expensive renders during scrub */
   isScrubbing?: boolean;
+  /** Trim range for bounds editing - when set, shows full polyline faded + trimmed portion highlighted */
+  trimRange?: { start: number; end: number } | null;
 }
 
 export const SectionMapView = memo(function SectionMapView({
@@ -93,6 +95,7 @@ export const SectionMapView = memo(function SectionMapView({
   highlightedLapPoints,
   allActivityTraces,
   isScrubbing = false,
+  trimRange = null,
 }: SectionMapViewProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { getStyleForActivity } = useMapPreferences();
@@ -134,6 +137,24 @@ export const SectionMapView = memo(function SectionMapView({
       },
     };
   }, [displayPoints]);
+
+  // GeoJSON for the trimmed portion (when trim range is active)
+  const trimmedGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
+    if (!trimRange || displayPoints.length < 2) return emptyCollection;
+    const sliced = displayPoints.slice(trimRange.start, trimRange.end + 1);
+    const validPoints = sliced.filter(
+      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
+    );
+    if (validPoints.length < 2) return emptyCollection;
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: validPoints.map((p) => [p.lng, p.lat]),
+      },
+    };
+  }, [displayPoints, trimRange]);
 
   // Create GeoJSON for the shadow track (full activity route)
   const shadowGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
@@ -252,13 +273,14 @@ export const SectionMapView = memo(function SectionMapView({
     };
   }, [highlightedLapPoints]);
 
-  // Adjust opacity when something is highlighted
-  const sectionOpacity = highlightedActivityId || highlightedLapPoints ? 0.4 : 1;
+  // Adjust opacity when something is highlighted or trimming
+  const sectionOpacity = highlightedActivityId || highlightedLapPoints || trimRange ? 0.4 : 1;
 
   const styleUrl = getMapStyle(mapStyle);
 
-  const startPoint = displayPoints[0];
-  const endPoint = displayPoints[displayPoints.length - 1];
+  // Use trimmed positions for markers when trimming
+  const startPoint = trimRange ? displayPoints[trimRange.start] : displayPoints[0];
+  const endPoint = trimRange ? displayPoints[trimRange.end] : displayPoints[displayPoints.length - 1];
 
   if (!bounds || displayPoints.length === 0) {
     return (
@@ -321,6 +343,30 @@ export const SectionMapView = memo(function SectionMapView({
           style={{
             lineColor: activityColor,
             lineOpacity: sectionOpacity,
+            lineWidth: 4,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+      </ShapeSource>
+
+      {/* Trimmed section portion (highlighted during bounds editing) */}
+      <ShapeSource id="trimmedSource" shape={trimmedGeoJSON}>
+        <LineLayer
+          id="trimmedLineCasing"
+          style={{
+            lineColor: '#FFFFFF',
+            lineOpacity: trimRange ? 1 : 0,
+            lineWidth: 5,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+        <LineLayer
+          id="trimmedLine"
+          style={{
+            lineColor: activityColor,
+            lineOpacity: trimRange ? 1 : 0,
             lineWidth: 4,
             lineCap: 'round',
             lineJoin: 'round',
@@ -496,6 +542,30 @@ export const SectionMapView = memo(function SectionMapView({
                 lineColor: colors.gray500,
                 lineOpacity: 0.5,
                 lineWidth: 3,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
+
+          {/* Trimmed section portion (for bounds editing) */}
+          <ShapeSource id="fullscreenTrimmedSource" shape={trimmedGeoJSON}>
+            <LineLayer
+              id="fullscreenTrimmedLineCasing"
+              style={{
+                lineColor: '#FFFFFF',
+                lineOpacity: trimRange ? 1 : 0,
+                lineWidth: 6,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+            <LineLayer
+              id="fullscreenTrimmedLine"
+              style={{
+                lineColor: activityColor,
+                lineOpacity: trimRange ? 1 : 0,
+                lineWidth: 5,
                 lineCap: 'round',
                 lineJoin: 'round',
               }}

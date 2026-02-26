@@ -985,6 +985,61 @@ class RouteEngineClient {
     );
   }
 
+  // ==========================================================================
+  // Section Bounds Trimming
+  // ==========================================================================
+
+  /**
+   * Trim a section's bounds by slicing its polyline to the given index range.
+   * Backs up original polyline on first trim, re-matches all activities.
+   * @returns true if successful, false otherwise
+   */
+  trimSection(sectionId: string, startIndex: number, endIndex: number): boolean {
+    validateId(sectionId, 'section ID');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const generated = require('./generated/veloqrs');
+    const result = this.timed(
+      'trimSection',
+      () => generated.trimSection(sectionId, startIndex, endIndex) as boolean
+    );
+    if (result) {
+      this.notify('sections');
+    }
+    return result;
+  }
+
+  /**
+   * Reset a section's bounds to the original (pre-trim) polyline.
+   * @returns true if successful, false otherwise
+   */
+  resetSectionBounds(sectionId: string): boolean {
+    validateId(sectionId, 'section ID');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const generated = require('./generated/veloqrs');
+    const result = this.timed(
+      'resetSectionBounds',
+      () => generated.resetSectionBounds(sectionId) as boolean
+    );
+    if (result) {
+      this.notify('sections');
+    }
+    return result;
+  }
+
+  /**
+   * Check if a section has original (pre-trim) bounds that can be restored.
+   * @returns true if original bounds exist
+   */
+  hasOriginalBounds(sectionId: string): boolean {
+    validateId(sectionId, 'section ID');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const generated = require('./generated/veloqrs');
+    return this.timed(
+      'hasOriginalBounds',
+      () => generated.hasOriginalBounds(sectionId) as boolean
+    );
+  }
+
   /**
    * Fetch activity maps with optional progress reporting.
    */

@@ -218,3 +218,65 @@ pub fn is_section_reference_user_defined(section_id: String) -> bool {
 pub fn reset_section_reference(section_id: String) -> bool {
     with_persistent_engine(|e| e.reset_section_reference(&section_id).is_ok()).unwrap_or(false)
 }
+
+/// Trim a section's bounds by slicing its polyline to the given index range.
+/// Backs up original polyline on first trim, re-matches all activities.
+///
+/// # Arguments
+/// * `section_id` - Section ID to trim
+/// * `start_index` - Start index in the polyline
+/// * `end_index` - End index in the polyline (inclusive)
+///
+/// # Returns
+/// true on success, false on error
+#[uniffi::export]
+pub fn trim_section(section_id: String, start_index: u32, end_index: u32) -> bool {
+    info!(
+        "tracematch: [sections] Trimming section {} to [{}, {}]",
+        section_id, start_index, end_index
+    );
+
+    let result =
+        with_persistent_engine(|e| e.trim_section(&section_id, start_index, end_index).is_ok());
+
+    match result {
+        Some(true) => {
+            info!("tracematch: [sections] Trimmed section {}", section_id);
+            true
+        }
+        _ => {
+            info!("tracematch: [sections] Failed to trim section {}", section_id);
+            false
+        }
+    }
+}
+
+/// Reset a section's bounds to the original (pre-trim) polyline.
+/// Restores backed-up original_polyline_json and re-matches activities.
+///
+/// # Arguments
+/// * `section_id` - Section ID to reset
+///
+/// # Returns
+/// true on success, false on error
+#[uniffi::export]
+pub fn reset_section_bounds(section_id: String) -> bool {
+    info!(
+        "tracematch: [sections] Resetting bounds for section {}",
+        section_id
+    );
+
+    with_persistent_engine(|e| e.reset_section_bounds(&section_id).is_ok()).unwrap_or(false)
+}
+
+/// Check if a section has original (pre-trim) bounds that can be restored.
+///
+/// # Arguments
+/// * `section_id` - Section ID to check
+///
+/// # Returns
+/// true if original bounds exist, false otherwise
+#[uniffi::export]
+pub fn has_original_bounds(section_id: String) -> bool {
+    with_persistent_engine(|e| e.has_original_bounds(&section_id)).unwrap_or(false)
+}
