@@ -1,12 +1,5 @@
-v0.2.0 (Feb 2026)
+v0.2.1 (Feb 2026)
 
-• Activiteitskaarten tonen nu +/−-wijzigingsindicatoren voor elke meting
-• Kaarten zonder kaartgegevens worden automatisch geminimaliseerd om ruimte te besparen
-• Fitnessdiagram combineert CTL/ATL met de vorm weergegeven als een horizontale lijn, met zonegrensindicatoren
-• Activiteitsfeed: filterknopen vereenvoudigd, zoekbalk verschuift bij het laden onder het zichtbare gebied (veeg naar beneden om te tonen), langere sparklines en onderste rij chips zijn nu aantikbaar
-• Kaarten: kleinere start-/eindmarkeringen, tracélijn heeft een contrasterende rand voor betere zichtbaarheid in satellietweergave, kaart breidt uit in de kaart met overlappende tekst
-• Grafieken: wissel tussen tijd en afstand op de X-as, gemiddelde waarde weergegeven op de lijn, verbeterd scrubben in het fitnessplot
-• Vermogenszones en intervalletabel toegevoegd aan activiteitsdetail
-• Seizoensbestwaarden worden nu naast persoonlijke records getoond
-
-Alle details: https://github.com/evanjt/veloq/releases/tag/v0.2.0
+• 3D map mode: improved styling and background colours across all map themes
+• Map tiles: restored full tile resolution for better previews
+• Fixed dark halo around activity card text on iOS with light theme

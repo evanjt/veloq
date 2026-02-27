@@ -1,12 +1,5 @@
-v0.2.0 (Feb 2026)
+v0.2.1 (Feb 2026)
 
-• 活动卡片现在为每个指标显示 +/− 变化指示器
-• 没有地图数据的卡片会自动折叠以节省空间
-• 健身图表将 CTL/ATL 与以水平线显示的状态相结合，并带有区域边界标记
-• 活动动态：筛选按钮已简化，搜索栏在加载时移至折叠区域下方（向下滑动以显示），迷你走势图更长，底部行标签现在可点击
-• 地图：起点/终点标记更小，轨迹线添加对比边框以在卫星视图中更清晰可见，地图扩展至卡片内并叠加文字
-• 图表：可在 X 轴上切换时间和距离，折线上显示平均值，健身图表的拖动体验改善
-• 活动详情中新增功率区间和间歇训练表格
-• 赛季最佳值现在与个人记录一同显示
-
-完整详情：https://github.com/evanjt/veloq/releases/tag/v0.2.0
+• 3D map mode: improved styling and background colours across all map themes
+• Map tiles: restored full tile resolution for better previews
+• Fixed dark halo around activity card text on iOS with light theme

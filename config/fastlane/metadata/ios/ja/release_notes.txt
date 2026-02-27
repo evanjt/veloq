@@ -1,12 +1,5 @@
-v0.2.0 (Feb 2026)
+v0.2.1 (Feb 2026)
 
-• アクティビティカードに各指標の+/−変化インジケーターを表示するようになりました
-• マップデータのないカードはスペース節約のため自動的に最小化されます
-• フィットネスグラフがCTL/ATLをフォームの水平線と組み合わせて表示され、ゾーン境界マーカーが追加されました
-• アクティビティフィード：フィルターボタンを整理、検索バーは読み込み時に折り返し部分の下へ移動（下にスワイプして表示）、スパークラインが長くなり、下段のチップがタップ可能になりました
-• マップ：スタート/エンドマーカーを小さく、衛星ビューでの視認性向上のためトレースラインにコントラストボーダーを追加、マップがカード内に展開してテキストを重ねて表示
-• チャート：X軸を時間と距離で切り替え可能、ライン上に平均値を表示、フィットネスプロットのスクラビングを改善
-• アクティビティ詳細にパワーゾーンとインターバルテーブルを追加
-• シーズンベスト値が自己ベストとともに表示されるようになりました
-
-詳細: https://github.com/evanjt/veloq/releases/tag/v0.2.0
+• 3D map mode: improved styling and background colours across all map themes
+• Map tiles: restored full tile resolution for better previews
+• Fixed dark halo around activity card text on iOS with light theme

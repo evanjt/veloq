@@ -1,12 +1,5 @@
-v0.2.0 (Feb 2026)
+v0.2.1 (Feb 2026)
 
-• Le schede attività ora mostrano indicatori di variazione +/− per ogni metrica
-• Le schede senza dati mappa vengono minimizzate automaticamente per risparmiare spazio
-• Il grafico fitness combina CTL/ATL con la forma mostrata come una linea orizzontale, con marcatori dei limiti di zona
-• Feed attività: pulsanti di filtro semplificati, la barra di ricerca si sposta sotto il bordo al caricamento (scorri verso il basso per mostrarla), sparkline più lunghe e i chip della riga inferiore sono ora toccabili
-• Mappe: indicatori di inizio/fine più piccoli, la linea del tracciato ha un bordo contrastante per una migliore visibilità nella vista satellite, la mappa si espande nella scheda con testo sovrapposto
-• Grafici: passaggio tra tempo e distanza sull'asse X, valore medio mostrato sulla linea, scorrimento migliorato nel grafico fitness
-• Zone di potenza e tabella degli intervalli aggiunte ai dettagli attività
-• I migliori valori stagionali sono ora mostrati accanto ai record personali
-
-Tutti i dettagli: https://github.com/evanjt/veloq/releases/tag/v0.2.0
+• 3D map mode: improved styling and background colours across all map themes
+• Map tiles: restored full tile resolution for better previews
+• Fixed dark halo around activity card text on iOS with light theme
