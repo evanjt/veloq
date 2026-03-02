@@ -199,6 +199,29 @@ describe('AuthStore', () => {
       expect(useAuthStore.getState().isDemoMode).toBe(false);
       expect(useAuthStore.getState().authMethod).toBe('apiKey');
     });
+
+    it('setCredentials with whitespace-only apiKey does not set isAuthenticated', async () => {
+      await useAuthStore.getState().setCredentials('   ', 'i12345');
+      expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    });
+
+    it('setCredentials with whitespace-only athleteId does not set isAuthenticated', async () => {
+      await useAuthStore.getState().setCredentials('valid-key', '   ');
+      expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    });
+
+    it('setCredentials with empty string apiKey does not set isAuthenticated', async () => {
+      await useAuthStore.getState().setCredentials('', 'i12345');
+      expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    });
+
+    it('setCredentials trims surrounding whitespace from valid credentials', async () => {
+      await useAuthStore.getState().setCredentials('  my-key  ', '  i99999  ');
+      const state = useAuthStore.getState();
+      expect(state.isAuthenticated).toBe(true);
+      expect(state.apiKey).toBe('my-key');
+      expect(state.athleteId).toBe('i99999');
+    });
   });
 
   describe('setOAuthCredentials()', () => {
