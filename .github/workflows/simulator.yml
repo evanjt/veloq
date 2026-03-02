@@ -220,11 +220,11 @@ jobs:
         with:
           path: ios
           # v1: Clean slate - no restore-keys fallback to prevent stale cache issues
-          key: ios-prebuild-v1-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'modules/veloqrs/ios/**', 'modules/veloqrs/package.json') }}
+          key: ios-prebuild-v1-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'modules/veloqrs/ios/**', 'modules/veloqrs/package.json') }}
 
       - name: Expo Prebuild
         if: steps.app-cache.outputs.cache-hit != 'true' && steps.ios-prebuild-cache.outputs.cache-hit != 'true'
-        run: npx expo prebuild --platform ios --clean
+        run: APP_VARIANT=production npx expo prebuild --platform ios --clean
 
       - name: Cache CocoaPods
         if: steps.app-cache.outputs.cache-hit != 'true'
@@ -412,11 +412,11 @@ jobs:
             !android/app/build
             !android/app/.cxx
           # v2: exclude build directories to prevent stale CMake outputs
-          key: android-prebuild-v2-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'modules/veloqrs/android/**', 'modules/veloqrs/package.json') }}
+          key: android-prebuild-v2-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'modules/veloqrs/android/**', 'modules/veloqrs/package.json') }}
 
       - name: Expo Prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.android-prebuild-cache.outputs.cache-hit != 'true'
-        run: npx expo prebuild --platform android --clean
+        run: APP_VARIANT=production npx expo prebuild --platform android --clean
 
       - name: Install Gradle init script
         if: steps.apk-cache.outputs.cache-hit != 'true'

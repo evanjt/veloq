@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import { colors, darkColors, opacity, typography, spacing, layout, shadows } from '@/theme';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { CompassArrow } from '@/components/ui';
+import { CompassArrow, ComponentErrorBoundary } from '@/components/ui';
 import {
   type MapStyleType,
   getMapStyle,
@@ -142,6 +142,14 @@ export function BaseMapView({
   const isDark = isDarkStyle(mapStyle);
   const mapStyleValue = getMapStyle(mapStyle);
   const has3DRoute = routeCoordinates && routeCoordinates.length > 0;
+
+  // Stop in-flight animations on unmount to prevent updates on unmounted component
+  useEffect(() => {
+    return () => {
+      map3DOpacity.stopAnimation();
+      bearingAnim.stopAnimation();
+    };
+  }, [map3DOpacity, bearingAnim]);
 
   // Reset 3D ready state when toggling off
   useEffect(() => {
@@ -461,17 +469,24 @@ export function BaseMapView({
       </View>
 
       {/* 3D Map - rendered when 3D mode is on, fades in when ready */}
+      {/* Error boundary prevents a 3D crash from taking out the entire map */}
       {is3DMode && has3DRoute && (
-        <Animated.View style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}>
-          <Map3DWebView
-            ref={map3DRef}
-            coordinates={routeCoordinates}
-            mapStyle={mapStyle}
-            routeColor={routeColor}
-            onMapReady={handleMap3DReady}
-            onBearingChange={handleBearingChange}
-          />
-        </Animated.View>
+        <ComponentErrorBoundary
+          componentName="3D Map"
+          showRetry={false}
+          onError={() => setIs3DMode(false)}
+        >
+          <Animated.View style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}>
+            <Map3DWebView
+              ref={map3DRef}
+              coordinates={routeCoordinates}
+              mapStyle={mapStyle}
+              routeColor={routeColor}
+              onMapReady={handleMap3DReady}
+              onBearingChange={handleBearingChange}
+            />
+          </Animated.View>
+        </ComponentErrorBoundary>
       )}
 
       {/* Controls overlay */}

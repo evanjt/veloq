@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, shadows } from '@/theme';
 import { getActivityTypeConfig } from './ActivityTypeFilter';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
+import { ComponentErrorBoundary } from '@/components/ui';
 import {
   type MapStyleType,
   getMapStyle,
@@ -374,18 +375,24 @@ export function RegionalMapView({
   return (
     <View style={styles.container} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       {show3D ? (
-        <Map3DWebView
-          ref={map3DRef}
-          coordinates={route3DCoords.length > 0 ? route3DCoords : undefined}
-          mapStyle={mapStyle}
-          routeColor={selected ? getActivityTypeConfig(selected.activity.type).color : undefined}
-          initialCenter={currentCenter ?? mapCenter ?? undefined}
-          initialZoom={currentZoom}
-          routesGeoJSON={showRoutes ? (routesGeoJSON ?? undefined) : undefined}
-          sectionsGeoJSON={showSections ? (sectionsGeoJSON ?? undefined) : undefined}
-          // In 3D mode, use showActivities directly (no zoom check - 3D doesn't track zoom)
-          tracesGeoJSON={showActivities ? (tracesGeoJSON ?? undefined) : undefined}
-        />
+        <ComponentErrorBoundary
+          componentName="3D Map"
+          showRetry={false}
+          onError={() => setIs3DMode(false)}
+        >
+          <Map3DWebView
+            ref={map3DRef}
+            coordinates={route3DCoords.length > 0 ? route3DCoords : undefined}
+            mapStyle={mapStyle}
+            routeColor={selected ? getActivityTypeConfig(selected.activity.type).color : undefined}
+            initialCenter={currentCenter ?? mapCenter ?? undefined}
+            initialZoom={currentZoom}
+            routesGeoJSON={showRoutes ? (routesGeoJSON ?? undefined) : undefined}
+            sectionsGeoJSON={showSections ? (sectionsGeoJSON ?? undefined) : undefined}
+            // In 3D mode, use showActivities directly (no zoom check - 3D doesn't track zoom)
+            tracesGeoJSON={showActivities ? (tracesGeoJSON ?? undefined) : undefined}
+          />
+        </ComponentErrorBoundary>
       ) : (
         <MapView
           key={`regional-map-${mapKey}`}

@@ -60,7 +60,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: [
       'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg',
     ],
-    tileSize: 256,
+    tileSize: 64,
     maxzoom: 20,
     attribution: '© swisstopo',
     bounds: [5.956, 45.818, 10.492, 47.808], // Switzerland actual extent [west, south, east, north]
@@ -71,7 +71,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: [
       'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
     ],
-    tileSize: 256,
+    tileSize: 64,
     maxzoom: 20,
     attribution: '© IGN France',
     bounds: [-5.142, 41.333, 9.56, 51.089], // Metropolitan France [west, south, east, north]
@@ -81,7 +81,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: [
       'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/tile/{z}/{y}/{x}',
     ],
-    tileSize: 256,
+    tileSize: 64,
     maxzoom: 17,
     attribution: '© USDA NAIP',
     bounds: [-124.733, 24.544, -66.95, 49.384], // Continental USA [west, south, east, north]
@@ -90,7 +90,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   // Note: 2018+ versions are CC BY-NC-SA (not commercial)
   eox: {
     tiles: ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg'],
-    tileSize: 256,
+    tileSize: 64,
     maxzoom: 14,
     attribution: 'Sentinel-2 cloudless by EOX © Copernicus 2016-2017',
     // No bounds - global coverage
@@ -239,6 +239,23 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
       },
     ],
   };
+}
+
+/**
+ * Build a combined satellite style for 3D contexts (Map3DWebView, TerrainSnapshotWebView).
+ * Uses tileSize: 256 so MapLibre requests 1:1 tiles — at 60° pitch the viewport covers
+ * a huge area, and tileSize: 64 would request 16x more tiles, many of which are on the
+ * horizon and never finish loading. Complete tile coverage matters more than sharpness
+ * in 3D terrain views.
+ */
+export function getCombinedSatelliteStyle3D(): CombinedSatelliteMapStyle {
+  const style = getCombinedSatelliteStyle();
+  // Override all sources to tileSize 256 for 3D
+  const sources = { ...style.sources };
+  for (const key of Object.keys(sources)) {
+    sources[key] = { ...sources[key], tileSize: 256 };
+  }
+  return { ...style, sources };
 }
 
 /**

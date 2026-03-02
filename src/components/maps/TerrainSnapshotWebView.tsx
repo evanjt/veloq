@@ -15,7 +15,7 @@ import React, { useRef, useCallback, useImperativeHandle, forwardRef } from 'rea
 import { View, StyleSheet, Dimensions, PixelRatio } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { MapStyleType } from './mapStyles';
-import { getCombinedSatelliteStyle, getTerrainSnapshotStyle } from './mapStyles';
+import { getCombinedSatelliteStyle3D, getTerrainSnapshotStyle } from './mapStyles';
 import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import { saveTerrainPreview, hasTerrainPreview } from '@/lib/storage/terrainPreviewCache';
 import { emitSnapshotComplete } from '@/lib/events/terrainSnapshotEvents';
@@ -74,7 +74,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       // Use minimal terrain-focused styles for light/dark — full vector styles
       // (Liberty, Dark Matter) have dozens of flat layers that clash with 3D terrain
       const styleConfig = isSatellite
-        ? JSON.stringify(getCombinedSatelliteStyle())
+        ? JSON.stringify(getCombinedSatelliteStyle3D())
         : JSON.stringify(getTerrainSnapshotStyle(request.mapStyle === 'dark' ? 'dark' : 'light'));
 
       const coordsJSON = JSON.stringify(request.coordinates);
@@ -162,36 +162,41 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 window.map.setTerrain({ source: 'terrain', exaggeration: 1.5 });
 
                 // Sky/fog to blend horizon instead of white tiles
-                if (isSatellite) {
-                  window.map.setSky({
-                    'sky-color': '#1a3a5c',
-                    'horizon-color': '#2a4a6c',
-                    'fog-color': '#1a3050',
-                    'fog-ground-blend': 0.5,
-                    'horizon-fog-blend': 0.8,
-                    'sky-horizon-blend': 0.5,
-                    'atmosphere-blend': 0.8,
-                  });
-                } else if (isDark) {
-                  window.map.setSky({
-                    'sky-color': '#0a0a14',
-                    'horizon-color': '#151520',
-                    'fog-color': '#0a0a14',
-                    'fog-ground-blend': 0.5,
-                    'horizon-fog-blend': 0.8,
-                    'sky-horizon-blend': 0.5,
-                    'atmosphere-blend': 0.8,
-                  });
-                } else {
-                  window.map.setSky({
-                    'sky-color': '#88C6FC',
-                    'horizon-color': '#B0C8DC',
-                    'fog-color': '#D8E4EE',
-                    'fog-ground-blend': 0.5,
-                    'horizon-fog-blend': 0.8,
-                    'sky-horizon-blend': 0.5,
-                    'atmosphere-blend': 0.8,
-                  });
+                // setSky may not survive setStyle() in MapLibre 3.6.2 — cosmetic only, safe to skip
+                try {
+                  if (isSatellite) {
+                    window.map.setSky({
+                      'sky-color': '#1a3a5c',
+                      'horizon-color': '#2a4a6c',
+                      'fog-color': '#1a3050',
+                      'fog-ground-blend': 0.5,
+                      'horizon-fog-blend': 0.8,
+                      'sky-horizon-blend': 0.5,
+                      'atmosphere-blend': 0.8,
+                    });
+                  } else if (isDark) {
+                    window.map.setSky({
+                      'sky-color': '#0a0a14',
+                      'horizon-color': '#151520',
+                      'fog-color': '#0a0a14',
+                      'fog-ground-blend': 0.5,
+                      'horizon-fog-blend': 0.8,
+                      'sky-horizon-blend': 0.5,
+                      'atmosphere-blend': 0.8,
+                    });
+                  } else {
+                    window.map.setSky({
+                      'sky-color': '#88C6FC',
+                      'horizon-color': '#B0C8DC',
+                      'fog-color': '#D8E4EE',
+                      'fog-ground-blend': 0.5,
+                      'horizon-fog-blend': 0.8,
+                      'sky-horizon-blend': 0.5,
+                      'atmosphere-blend': 0.8,
+                    });
+                  }
+                } catch(skyErr) {
+                  window._rn_log('setSky unavailable after setStyle (ok): ' + skyErr.message);
                 }
 
                 // Hillshade (non-satellite only) — enhanced for terrain-focused snapshots

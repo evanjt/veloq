@@ -467,11 +467,11 @@ jobs:
             !android/app/build
             !android/app/.cxx
           # v5: exclude build directories to prevent stale CMake outputs
-          key: android-prebuild-v5-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'modules/**/package.json', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
+          key: android-prebuild-v5-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'modules/**/package.json', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
 
       - name: Generate Android native project
         if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
-        run: npx expo prebuild --platform android
+        run: APP_VARIANT=production npx expo prebuild --platform android
 
       # Install Gradle init script to fix Maven Central 403 errors
       - name: Install Gradle init script
@@ -774,7 +774,7 @@ jobs:
         with:
           path: ios
           # v5: include modules/**/package.json for codegenConfig changes
-          key: ios-prebuild-v5-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
+          key: ios-prebuild-v5-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
           restore-keys: |
             ios-prebuild-v5-${{ runner.os }}-
 
@@ -786,7 +786,7 @@ jobs:
 
       - name: Generate native project
         if: steps.ios-prebuild-cache.outputs.cache-hit != 'true'
-        run: npx expo prebuild --platform ios
+        run: APP_VARIANT=production npx expo prebuild --platform ios
 
       - name: Cache CocoaPods
         uses: actions/cache@v4
