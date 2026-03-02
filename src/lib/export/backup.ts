@@ -140,7 +140,11 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
     throw new Error('Invalid backup file format');
   }
 
-  if (!backup.version || backup.version > BACKUP_VERSION) {
+  if (backup.version === undefined || backup.version === null) {
+    throw new Error('Corrupt backup: missing version field');
+  }
+
+  if (backup.version > BACKUP_VERSION) {
     throw new Error(
       `Unsupported backup version: ${backup.version}. This app supports version ${BACKUP_VERSION}.`
     );
@@ -174,6 +178,15 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
           result.sectionsFailed.push({
             name: cs.name || 'Unnamed',
             reason: 'Source activity not synced',
+          });
+          continue;
+        }
+
+        // Validate startIndex < endIndex
+        if (cs.startIndex >= cs.endIndex) {
+          result.sectionsFailed.push({
+            name: cs.name || 'Unnamed',
+            reason: `Invalid index range: startIndex (${cs.startIndex}) must be less than endIndex (${cs.endIndex})`,
           });
           continue;
         }

@@ -140,8 +140,12 @@ export function paceToMinPerKm(metersPerSecond: number): {
 } {
   if (metersPerSecond <= 0) return { minutes: 0, seconds: 0 };
   const secondsPerKm = 1000 / metersPerSecond;
-  const minutes = Math.floor(secondsPerKm / 60);
-  const seconds = Math.round(secondsPerKm % 60);
+  let minutes = Math.floor(secondsPerKm / 60);
+  let seconds = Math.round(secondsPerKm % 60);
+  if (seconds === 60) {
+    minutes += 1;
+    seconds = 0;
+  }
   return { minutes, seconds };
 }
 
@@ -154,7 +158,11 @@ export function paceToMinPer100m(metersPerSecond: number): {
 } {
   if (metersPerSecond <= 0) return { minutes: 0, seconds: 0 };
   const secondsPer100m = 100 / metersPerSecond;
-  const minutes = Math.floor(secondsPer100m / 60);
-  const seconds = Math.round(secondsPer100m % 60);
+  let minutes = Math.floor(secondsPer100m / 60);
+  let seconds = Math.round(secondsPer100m % 60);
+  if (seconds === 60) {
+    minutes += 1;
+    seconds = 0;
+  }
   return { minutes, seconds };
 }

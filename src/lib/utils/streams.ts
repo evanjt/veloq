@@ -11,8 +11,10 @@ export function parseStreams(rawStreams: RawStreamItem[]): ActivityStreams {
     switch (stream.type) {
       case 'latlng':
         // latlng uses data for lat, data2 for lng - combine into [lat, lng] tuples
+        // Use min length to avoid undefined values from mismatched arrays
         if (stream.data && stream.data2) {
-          streams.latlng = stream.data.map((lat, i) => [lat, stream.data2![i]]);
+          const len = Math.min(stream.data.length, stream.data2.length);
+          streams.latlng = stream.data.slice(0, len).map((lat, i) => [lat, stream.data2![i]]);
         }
         break;
       case 'time':

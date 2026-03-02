@@ -68,7 +68,7 @@ const DARK_TEXT = {
   dot: 'rgba(0,0,0,0.25)',
   divider: 'rgba(0,0,0,0.1)',
   secondaryText: colors.textSecondary,
-  shadow: 'rgba(255,255,255,0.9)',
+  shadow: 'transparent',
 };
 
 // Gradient + text combos driven by app theme x map style

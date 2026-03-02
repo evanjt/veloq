@@ -15,8 +15,12 @@ describe('fromUnixSeconds', () => {
     expect(date!.getUTCDate()).toBe(15);
   });
 
-  it('returns null for 0', () => {
-    expect(fromUnixSeconds(0)).toBeNull();
+  it('returns epoch date for seconds=0', () => {
+    expect(fromUnixSeconds(0)).toEqual(new Date(0));
+  });
+
+  it('returns epoch date for 0n BigInt', () => {
+    expect(fromUnixSeconds(0n)).toEqual(new Date(0));
   });
 
   it('returns null for null', () => {
@@ -40,6 +44,19 @@ describe('fromUnixSeconds', () => {
     expect(date!.getUTCFullYear()).toBe(1969);
     expect(date!.getUTCMonth()).toBe(11);
     expect(date!.getUTCDate()).toBe(31);
+  });
+
+  it('handles negative bigint timestamp', () => {
+    const date = fromUnixSeconds(-86400n);
+    expect(date).not.toBeNull();
+    expect(date!.getUTCFullYear()).toBe(1969);
+  });
+
+  it('handles large future timestamp', () => {
+    // 2100-01-01T00:00:00Z
+    const date = fromUnixSeconds(4102444800);
+    expect(date).not.toBeNull();
+    expect(date!.getUTCFullYear()).toBe(2100);
   });
 });
 
@@ -93,10 +110,10 @@ describe('toDirectionStats', () => {
     expect(result!.avgTime).toBeNull();
   });
 
-  it('handles lastActivity 0 as null', () => {
+  it('handles lastActivity 0 as epoch date', () => {
     const result = toDirectionStats({ avgTime: 100, lastActivity: 0, count: 1 });
     expect(result).not.toBeNull();
-    expect(result!.lastActivity).toBeNull();
+    expect(result!.lastActivity).toEqual(new Date(0));
   });
 
   it('handles avgTime undefined as null', () => {

@@ -11,7 +11,7 @@ import { WebView } from 'react-native-webview';
 import { colors, darkColors } from '@/theme';
 import { getBoundsFromPoints } from '@/lib';
 import type { MapStyleType } from './mapStyles';
-import { getCombinedSatelliteStyle, SATELLITE_SOURCES } from './mapStyles';
+import { getCombinedSatelliteStyle3D, SATELLITE_SOURCES } from './mapStyles';
 import { DARK_MATTER_STYLE } from './darkMatterStyle';
 import { SWITZERLAND_SIMPLE } from './countryBoundaries';
 
@@ -116,6 +116,14 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const initialCenterRef = useRef(initialCenter);
     const initialZoomRef = useRef(initialZoom);
     const initialCameraRef = useRef(initialCamera);
+
+    // Cleanup on unmount — stop WebView loading and mark map as not ready
+    useEffect(() => {
+      return () => {
+        mapReadyRef.current = false;
+        webViewRef.current?.stopLoading();
+      };
+    }, []);
 
     // Keep refs in sync with props
     useEffect(() => {
@@ -345,7 +353,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // For satellite, we use combined style with all regional sources layered
       // For dark, we use the bundled Dark Matter style with OpenFreeMap tiles
       const styleConfig = isSatellite
-        ? JSON.stringify(getCombinedSatelliteStyle())
+        ? JSON.stringify(getCombinedSatelliteStyle3D())
         : mapStyle === 'dark'
           ? JSON.stringify(DARK_MATTER_STYLE)
           : `'https://tiles.openfreemap.org/styles/liberty'`;
@@ -453,36 +461,41 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       });
 
       // Sky/fog to blend horizon instead of white tiles
-      if (isSatellite) {
-        map.setSky({
-          'sky-color': '#1a3a5c',
-          'horizon-color': '#2a4a6c',
-          'fog-color': '#1a3050',
-          'fog-ground-blend': 0.5,
-          'horizon-fog-blend': 0.8,
-          'sky-horizon-blend': 0.5,
-          'atmosphere-blend': 0.8,
-        });
-      } else if (${isDark}) {
-        map.setSky({
-          'sky-color': '#0a0a14',
-          'horizon-color': '#151520',
-          'fog-color': '#0a0a14',
-          'fog-ground-blend': 0.5,
-          'horizon-fog-blend': 0.8,
-          'sky-horizon-blend': 0.5,
-          'atmosphere-blend': 0.8,
-        });
-      } else {
-        map.setSky({
-          'sky-color': '#88C6FC',
-          'horizon-color': '#B0C8DC',
-          'fog-color': '#D8E4EE',
-          'fog-ground-blend': 0.5,
-          'horizon-fog-blend': 0.8,
-          'sky-horizon-blend': 0.5,
-          'atmosphere-blend': 0.8,
-        });
+      // setSky may not be available in all MapLibre versions — cosmetic only, safe to skip
+      try {
+        if (isSatellite) {
+          map.setSky({
+            'sky-color': '#1a3a5c',
+            'horizon-color': '#2a4a6c',
+            'fog-color': '#1a3050',
+            'fog-ground-blend': 0.5,
+            'horizon-fog-blend': 0.8,
+            'sky-horizon-blend': 0.5,
+            'atmosphere-blend': 0.8,
+          });
+        } else if (${isDark}) {
+          map.setSky({
+            'sky-color': '#0a0a14',
+            'horizon-color': '#151520',
+            'fog-color': '#0a0a14',
+            'fog-ground-blend': 0.5,
+            'horizon-fog-blend': 0.8,
+            'sky-horizon-blend': 0.5,
+            'atmosphere-blend': 0.8,
+          });
+        } else {
+          map.setSky({
+            'sky-color': '#88C6FC',
+            'horizon-color': '#B0C8DC',
+            'fog-color': '#D8E4EE',
+            'fog-ground-blend': 0.5,
+            'horizon-fog-blend': 0.8,
+            'sky-horizon-blend': 0.5,
+            'atmosphere-blend': 0.8,
+          });
+        }
+      } catch(e) {
+        console.log('[3D] setSky unavailable (ok): ' + e.message);
       }
 
       // Add hillshade for better depth perception (skip for satellite - already has shadows)
@@ -583,23 +596,38 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       }
 
       // Wait for tiles before declaring map ready — at 60-degree pitch, horizon
-      // tiles are deprioritized and may not load until the viewport settles
+      // tiles are deprioritized and may not load until the viewport settles.
+      // Guard against duplicate mapReady messages and add hard timeout fallback.
+      var mapReadySent = false;
+      function sendMapReady() {
+        if (mapReadySent) return;
+        mapReadySent = true;
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
+        }
+      }
+
       map.resize(); // Ensure MapLibre knows full WebView dimensions
       map.once('idle', function() {
         if (map.areTilesLoaded()) {
-          if (window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
-          }
+          sendMapReady();
         } else {
           // Nudge: resize forces viewport recalculation → more tile requests
           map.resize();
           map.once('idle', function() {
-            if (window.ReactNativeWebView) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
-            }
+            sendMapReady();
           });
         }
       });
+
+      // Hard fallback — at 60° pitch, horizon tiles may never load.
+      // 8s is long enough for terrain + route to render on most connections.
+      setTimeout(function() {
+        if (!mapReadySent) {
+          console.log('[3D] Hard timeout — sending mapReady after 8s');
+          sendMapReady();
+        }
+      }, 8000);
     });
   </script>
 </body>

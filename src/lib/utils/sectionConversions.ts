@@ -52,6 +52,6 @@ export function convertNativeSectionToApp(
     stability: ('stability' in native ? native.stability : undefined) ?? undefined,
     version: ('version' in native ? native.version : undefined) ?? undefined,
     updatedAt: ('updatedAt' in native ? native.updatedAt : undefined) ?? undefined,
-    createdAt: ('createdAt' in native ? native.createdAt : undefined) || new Date().toISOString(),
+    createdAt: ('createdAt' in native ? native.createdAt : undefined) ?? '',
   };
 }

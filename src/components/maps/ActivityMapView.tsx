@@ -149,7 +149,7 @@ import { useMapPreferences } from '@/providers';
 import { useSectionCreation } from '@/hooks/maps/useSectionCreation';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { CompassArrow } from '@/components/ui';
+import { CompassArrow, ComponentErrorBoundary } from '@/components/ui';
 import {
   SectionCreationOverlay,
   type CreationState,
@@ -661,6 +661,14 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // Compass bearing state
   const bearingAnim = useRef(new Animated.Value(0)).current;
+
+  // Stop in-flight animations on unmount to prevent updates on unmounted component
+  useEffect(() => {
+    return () => {
+      map3DOpacity.stopAnimation();
+      bearingAnim.stopAnimation();
+    };
+  }, [map3DOpacity, bearingAnim]);
 
   // Handle 3D map bearing changes (for compass sync)
   const handleBearingChange = useCallback(
@@ -1448,19 +1456,26 @@ export const ActivityMapView = memo(function ActivityMapView({
         </View>
 
         {/* 3D Map layer */}
+        {/* Error boundary prevents a 3D crash from taking out the entire map */}
         {is3DMode && hasRoute && !isFullscreen && (
-          <Animated.View style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}>
-            <Map3DWebView
-              ref={map3DRef}
-              coordinates={routeCoords}
-              mapStyle={mapStyle}
-              routeColor={activityColor}
-              onMapReady={handleMap3DReady}
-              onBearingChange={handleBearingChange}
-              onCameraStateChange={handleCameraStateChange}
-              initialCamera={initial3DCamera}
-            />
-          </Animated.View>
+          <ComponentErrorBoundary
+            componentName="3D Map"
+            showRetry={false}
+            onError={() => setIs3DMode(false)}
+          >
+            <Animated.View style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}>
+              <Map3DWebView
+                ref={map3DRef}
+                coordinates={routeCoords}
+                mapStyle={mapStyle}
+                routeColor={activityColor}
+                onMapReady={handleMap3DReady}
+                onBearingChange={handleBearingChange}
+                onCameraStateChange={handleCameraStateChange}
+                initialCamera={initial3DCamera}
+              />
+            </Animated.View>
+          </ComponentErrorBoundary>
         )}
 
         {/* Attribution - uses ref-based updates to avoid map re-renders */}

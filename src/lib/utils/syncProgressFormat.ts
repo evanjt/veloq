@@ -73,7 +73,7 @@ export function formatBoundsSyncProgress(
 
   const percent =
     boundsProgress.total > 0
-      ? Math.round((boundsProgress.completed / boundsProgress.total) * 100)
+      ? Math.min(100, Math.round((boundsProgress.completed / boundsProgress.total) * 100))
       : 0;
 
   return {

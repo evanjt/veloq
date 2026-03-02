@@ -62,6 +62,37 @@ describe('errorHandler', () => {
       });
       expect(result).toBe('fallback');
     });
+
+    it('log=false suppresses console.warn for warning level', async () => {
+      // console.warn is already jest.fn() from jest.setup.js — clear accumulated calls
+      (console.warn as jest.Mock).mockClear();
+      await handleAsyncError(Promise.reject(new Error('test')), 'ctx', {
+        level: 'warning',
+        log: false,
+        fallback: null,
+      });
+      expect(console.warn).not.toHaveBeenCalled();
+    });
+
+    it('log=false suppresses console.error for critical level but still throws', async () => {
+      (console.error as jest.Mock).mockClear();
+      await expect(
+        handleAsyncError(Promise.reject(new Error('critical')), 'ctx', {
+          level: 'critical',
+          log: false,
+        })
+      ).rejects.toThrow('critical');
+      expect(console.error).not.toHaveBeenCalled();
+    });
+
+    it('log=true (default) does log console.warn for warning level', async () => {
+      (console.warn as jest.Mock).mockClear();
+      await handleAsyncError(Promise.reject(new Error('warn-test')), 'WarnCtx', {
+        level: 'warning',
+        fallback: null,
+      });
+      expect(console.warn).toHaveBeenCalledWith('[WarnCtx] Warning (using fallback):', 'warn-test');
+    });
   });
 
   describe('handleErrorSync', () => {

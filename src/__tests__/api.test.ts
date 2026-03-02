@@ -109,6 +109,28 @@ describe('parseStreams', () => {
     expect(result).toEqual({});
   });
 
+  it('latlng stream with shorter data2 does not produce undefined', () => {
+    const result = parseStreams([
+      { type: 'latlng', name: null, data: [40.7, 34.0], data2: [-74.0] },
+    ]);
+    const latlng = result.latlng;
+    expect(latlng?.every((pt) => pt.every((v) => typeof v === 'number'))).toBe(true);
+    expect(latlng).toHaveLength(1);
+  });
+
+  it('latlng stream with shorter data truncates to min length', () => {
+    const result = parseStreams([
+      { type: 'latlng', name: null, data: [10.0], data2: [20.0, 30.0, 40.0] },
+    ]);
+    expect(result.latlng).toHaveLength(1);
+    expect(result.latlng).toEqual([[10.0, 20.0]]);
+  });
+
+  it('latlng stream with empty data2 produces no tuples', () => {
+    const result = parseStreams([{ type: 'latlng', name: null, data: [10.0, 20.0], data2: [] }]);
+    expect(result.latlng).toHaveLength(0);
+  });
+
   it('should handle real-world stream data structure', () => {
     // Simulates actual API response structure
     const rawStreams: RawStreamItem[] = [

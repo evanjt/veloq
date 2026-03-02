@@ -27,8 +27,12 @@ function escapeXml(str: string): string {
 
 export function generateGpx({ name, points, time, sport }: GpxParams): string {
   const trkpts = points
+    .filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude))
     .map((p) => {
-      const ele = p.elevation != null ? `\n        <ele>${p.elevation}</ele>` : '';
+      const ele =
+        p.elevation != null && Number.isFinite(p.elevation)
+          ? `\n        <ele>${p.elevation}</ele>`
+          : '';
       return `      <trkpt lat="${p.latitude}" lon="${p.longitude}">${ele}\n      </trkpt>`;
     })
     .join('\n');

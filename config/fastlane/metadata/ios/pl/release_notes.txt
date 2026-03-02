@@ -1,12 +1,5 @@
-v0.2.0 (Feb 2026)
+v0.2.1 (Feb 2026)
 
-• Karty aktywności pokazują teraz wskaźniki zmian +/− dla każdej metryki
-• Karty bez danych mapy są automatycznie minimalizowane, aby zaoszczędzić miejsce
-• Wykres fitness łączy CTL/ATL z formą wyświetlaną jako pozioma linia, ze znacznikami granic stref
-• Kanał aktywności: przyciski filtrów uproszczone, pasek wyszukiwania przesuwa się poniżej widocznego obszaru przy ładowaniu (przesuń w dół, aby odsłonić), dłuższe sparkline'y i przyciski dolnego wiersza są teraz klikalne
-• Mapy: mniejsze znaczniki początku/końca, linia trasy ma kontrastową obwódkę dla lepszej widoczności w widoku satelitarnym, mapa rozszerza się w kartę z nałożonym tekstem
-• Wykresy: przełączanie między czasem a dystansem na osi X, średnia wartość wyświetlana na linii, ulepszone przewijanie na wykresie fitness
-• Strefy mocy i tabela interwałów dodane do szczegółów aktywności
-• Najlepsze wartości sezonu są teraz wyświetlane obok rekordów osobistych
-
-Wszystkie szczegóły: https://github.com/evanjt/veloq/releases/tag/v0.2.0
+• 3D map mode: improved styling and background colours across all map themes
+• Map tiles: restored full tile resolution for better previews
+• Fixed dark halo around activity card text on iOS with light theme

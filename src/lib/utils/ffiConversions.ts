@@ -10,10 +10,10 @@ import type { DirectionStats } from '@/types';
 /**
  * Convert Unix timestamp (seconds since epoch) to JavaScript Date.
  * Handles both number and bigint (FFI returns i64 as bigint).
- * Returns null if timestamp is null/undefined/0.
+ * Returns null if timestamp is null/undefined.
  */
 export function fromUnixSeconds(seconds: number | bigint | null | undefined): Date | null {
-  if (!seconds) return null;
+  if (seconds == null) return null;
   // Convert bigint to number if needed (safe for timestamps until year 275760)
   const numSeconds = typeof seconds === 'bigint' ? Number(seconds) : seconds;
   return new Date(numSeconds * 1000);

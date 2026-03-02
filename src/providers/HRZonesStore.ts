@@ -54,8 +54,8 @@ function isHRZonesSettings(value: unknown): value is HRZonesSettings {
   const obj = value as Record<string, unknown>;
   if (typeof obj.maxHR !== 'number') return false;
   if (!Array.isArray(obj.zones)) return false;
-  // Validate at least the first zone
-  if (obj.zones.length > 0 && !isHRZone(obj.zones[0])) return false;
+  // Validate ALL zones, not just the first
+  if (!obj.zones.every(isHRZone)) return false;
   return true;
 }
 

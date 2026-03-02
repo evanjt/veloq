@@ -86,9 +86,13 @@ export async function handleAsyncError<T>(
     return await promise;
   } catch (error) {
     if (!log) {
-      // Silent mode - don't log
-      if (level === 'silent') {
-        return fallback as T;
+      // Suppress all console output when log is false
+      switch (level) {
+        case 'critical':
+          throw error;
+        case 'warning':
+        case 'silent':
+          return fallback as T;
       }
     }
 
@@ -147,8 +151,13 @@ export function handleErrorSync<T>(
     return fn();
   } catch (error) {
     if (!log) {
-      if (level === 'silent') {
-        return fallback as T;
+      // Suppress all console output when log is false
+      switch (level) {
+        case 'critical':
+          throw error;
+        case 'warning':
+        case 'silent':
+          return fallback as T;
       }
     }
 
