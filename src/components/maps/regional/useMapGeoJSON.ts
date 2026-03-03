@@ -167,7 +167,10 @@ export function useMapGeoJSON({
 
         // Filter out NaN/Infinity coordinates and convert to GeoJSON [lng, lat]
         // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash
+        // Stride-sample to halve coordinate payload across JS→native bridge; first/last
+        // points are always kept so 2-point tracks remain valid LineStrings.
         const coordinates = signature.points
+          .filter((_, i) => i % 2 === 0 || i === signature.points.length - 1)
           .filter((pt) => Number.isFinite(pt.lng) && Number.isFinite(pt.lat))
           .map((pt) => [pt.lng, pt.lat]);
 
@@ -285,7 +288,9 @@ export function useMapGeoJSON({
         const originalCount = signature.points.length;
         // Filter out NaN/Infinity coordinates
         // GeoJSON LineString requires minimum 2 coordinates
+        // Stride-sample to halve coordinate payload (same as tracesGeoJSON).
         const coordinates = signature.points
+          .filter((_, i) => i % 2 === 0 || i === signature.points.length - 1)
           .filter((pt) => Number.isFinite(pt.lng) && Number.isFinite(pt.lat))
           .map((pt) => [pt.lng, pt.lat]);
 

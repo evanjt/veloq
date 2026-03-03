@@ -208,9 +208,11 @@ export default function FeedScreen() {
     []
   );
 
-  const navigateToSettings = () => router.push('/settings' as Href);
+  const navigateToSettings = useCallback(() => {
+    router.push('/settings' as Href);
+  }, []);
 
-  const navigateToHeroMetric = () => {
+  const navigateToHeroMetric = useCallback(() => {
     switch (summaryCard.heroMetric) {
       case 'fitness':
         router.push('/fitness' as Href);
@@ -221,11 +223,11 @@ export default function FeedScreen() {
       default:
         router.push('/fitness' as Href);
     }
-  };
+  }, [summaryCard.heroMetric]);
 
-  const selectTypeGroup = (group: string | null) => {
-    setSelectedTypeGroup(selectedTypeGroup === group ? null : group);
-  };
+  const selectTypeGroup = useCallback((group: string | null) => {
+    setSelectedTypeGroup((prev) => (prev === group ? null : group));
+  }, []);
 
   // Initial content offset to hide search section (iOS-style hidden search)
   const initialContentOffset = useMemo(() => ({ x: 0, y: SEARCH_SECTION_HEIGHT }), []);

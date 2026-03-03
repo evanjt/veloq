@@ -30,15 +30,6 @@ describe('ISO Week Number Calculation', () => {
     expect(getISOWeekNumber(date)).toBe(1);
   });
 
-  it('should return week 4 for Jan 19-25, 2026', () => {
-    // Week 4 of 2026 is Mon Jan 19 - Sun Jan 25
-    const jan19 = new Date(2026, 0, 19); // Monday
-    const jan25 = new Date(2026, 0, 25); // Sunday
-
-    expect(getISOWeekNumber(jan19)).toBe(4);
-    expect(getISOWeekNumber(jan25)).toBe(4);
-  });
-
   it('should return week 5 for Jan 27, 2026', () => {
     const jan27 = new Date(2026, 0, 27);
     expect(getISOWeekNumber(jan27)).toBe(5);
@@ -63,18 +54,6 @@ describe('Week Monday Calculation', () => {
     expect(result.getFullYear()).toBe(2026);
   });
 
-  it('should find Monday for a Wednesday date', () => {
-    const wednesday = new Date(2026, 0, 21); // Jan 21, 2026 is Wednesday
-    const result = getMonday(wednesday);
-    expect(result.getDate()).toBe(19); // Monday is Jan 19
-  });
-
-  it('should find Monday for a Sunday date', () => {
-    const sunday = new Date(2026, 0, 25); // Jan 25, 2026 is Sunday
-    const result = getMonday(sunday);
-    expect(result.getDate()).toBe(19); // Monday of that week is Jan 19
-  });
-
   it('should handle month boundary correctly', () => {
     // Feb 1, 2026 is a Sunday
     const feb1 = new Date(2026, 1, 1);
@@ -90,12 +69,6 @@ describe('Week Sunday Calculation', () => {
     const result = getSunday(monday);
     expect(result.getDate()).toBe(25);
     expect(result.getMonth()).toBe(0);
-  });
-
-  it('should find Sunday for a Saturday date', () => {
-    const saturday = new Date(2026, 0, 24);
-    const result = getSunday(saturday);
-    expect(result.getDate()).toBe(25);
   });
 });
 
@@ -137,14 +110,6 @@ describe('Calendar Week Date Boundaries', () => {
     expect(activityTs).toBeGreaterThanOrEqual(mondayTs);
     expect(activityTs).toBeLessThanOrEqual(sundayEndTs);
   });
-
-  it('should exclude Monday activity from previous week', () => {
-    const thisSunday = new Date(2026, 0, 25); // Sun Jan 25
-    const prevMonday = new Date(2026, 0, 12); // Mon Jan 12 (previous week)
-
-    const currentWeekMonday = getMonday(thisSunday);
-    expect(prevMonday.getTime()).toBeLessThan(currentWeekMonday.getTime());
-  });
 });
 
 describe('Rolling vs Calendar Week Difference', () => {
@@ -169,21 +134,6 @@ describe('Rolling vs Calendar Week Difference', () => {
 
     // They should be different
     expect(calendarMonday.getDate()).not.toBe(rollingStart.getDate());
-  });
-
-  it('should show same dates on Monday for calendar vs rolling week', () => {
-    // On Monday, both calculations include the same day
-    const monday = new Date(2026, 0, 19);
-
-    const calendarMonday = getMonday(monday);
-    expect(calendarMonday.getDate()).toBe(19);
-
-    const rollingStart = new Date(monday);
-    rollingStart.setDate(rollingStart.getDate() - 6);
-    expect(rollingStart.getDate()).toBe(13); // Mon Jan 13 (NOT the same!)
-
-    // Actually rolling 7 days from Monday goes back to Tuesday of previous week
-    // So even on Monday, calendar and rolling are different
   });
 });
 

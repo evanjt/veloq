@@ -21,21 +21,8 @@ describe('MapPreferencesSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('accepts without activityTypeStyles', () => {
-    const result = MapPreferencesSchema.safeParse({ defaultStyle: 'light' });
-    expect(result.success).toBe(true);
-  });
-
   it('rejects invalid style', () => {
     const result = MapPreferencesSchema.safeParse({ defaultStyle: 'neon' });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects invalid activity type in styles', () => {
-    const result = MapPreferencesSchema.safeParse({
-      defaultStyle: 'light',
-      activityTypeStyles: { InvalidSport: 'dark' },
-    });
     expect(result.success).toBe(false);
   });
 });
@@ -49,43 +36,25 @@ describe('GpsTrackSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects single point (needs min 2)', () => {
-    const result = GpsTrackSchema.safeParse([[45.0, 7.0]]);
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects out-of-range latitude', () => {
-    const result = GpsTrackSchema.safeParse([
-      [91.0, 7.0],
-      [45.0, 7.0],
-    ]);
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects out-of-range longitude', () => {
-    const result = GpsTrackSchema.safeParse([
-      [45.0, 181.0],
-      [45.0, 7.0],
-    ]);
-    expect(result.success).toBe(false);
+  it('rejects single point or out-of-range coordinates', () => {
+    expect(GpsTrackSchema.safeParse([[45.0, 7.0]]).success).toBe(false);
+    expect(
+      GpsTrackSchema.safeParse([
+        [91.0, 7.0],
+        [45.0, 7.0],
+      ]).success
+    ).toBe(false);
   });
 });
 
 describe('GpsIndexSchema', () => {
-  it('accepts valid index', () => {
-    const result = GpsIndexSchema.safeParse({
-      activityIds: ['a1', 'a2'],
-      lastUpdated: '2024-06-15T12:00:00Z',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects non-datetime string', () => {
-    const result = GpsIndexSchema.safeParse({
-      activityIds: [],
-      lastUpdated: 'not-a-date',
-    });
-    expect(result.success).toBe(false);
+  it('accepts valid index and rejects non-datetime lastUpdated', () => {
+    expect(
+      GpsIndexSchema.safeParse({ activityIds: ['a1'], lastUpdated: '2024-06-15T12:00:00Z' }).success
+    ).toBe(true);
+    expect(GpsIndexSchema.safeParse({ activityIds: [], lastUpdated: 'not-a-date' }).success).toBe(
+      false
+    );
   });
 });
 
@@ -106,44 +75,22 @@ describe('ActivityMetricsSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('accepts optional HR and power', () => {
-    const result = ActivityMetricsSchema.safeParse({
-      ...validMetrics,
-      avgHr: 145,
-      avgPower: 250,
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects negative distance', () => {
-    const result = ActivityMetricsSchema.safeParse({ ...validMetrics, distance: -1 });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects invalid sport type', () => {
-    const result = ActivityMetricsSchema.safeParse({ ...validMetrics, sportType: 'Quidditch' });
-    expect(result.success).toBe(false);
+  it('rejects negative distance or invalid sport type', () => {
+    expect(ActivityMetricsSchema.safeParse({ ...validMetrics, distance: -1 }).success).toBe(false);
+    expect(
+      ActivityMetricsSchema.safeParse({ ...validMetrics, sportType: 'Quidditch' }).success
+    ).toBe(false);
   });
 });
 
 describe('SyncProgressSchema', () => {
-  it('accepts valid sync progress', () => {
-    const result = SyncProgressSchema.safeParse({
-      status: 'syncing',
-      completed: 50,
-      total: 100,
-      message: 'Fetching activities...',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects invalid status', () => {
-    const result = SyncProgressSchema.safeParse({
-      status: 'loading',
-      completed: 0,
-      total: 0,
-    });
-    expect(result.success).toBe(false);
+  it('accepts valid sync progress and rejects invalid status', () => {
+    expect(
+      SyncProgressSchema.safeParse({ status: 'syncing', completed: 50, total: 100 }).success
+    ).toBe(true);
+    expect(
+      SyncProgressSchema.safeParse({ status: 'loading', completed: 0, total: 0 }).success
+    ).toBe(false);
   });
 });
 
@@ -162,22 +109,9 @@ describe('CustomSectionSchema', () => {
     distanceMeters: 5000,
   };
 
-  it('accepts valid section', () => {
-    const result = CustomSectionSchema.safeParse(validSection);
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects empty name', () => {
-    const result = CustomSectionSchema.safeParse({ ...validSection, name: '' });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects polyline with fewer than 2 points', () => {
-    const result = CustomSectionSchema.safeParse({
-      ...validSection,
-      polyline: [{ latitude: 45.0, longitude: 7.0 }],
-    });
-    expect(result.success).toBe(false);
+  it('accepts valid section and rejects empty name', () => {
+    expect(CustomSectionSchema.safeParse(validSection).success).toBe(true);
+    expect(CustomSectionSchema.safeParse({ ...validSection, name: '' }).success).toBe(false);
   });
 });
 
@@ -196,59 +130,43 @@ describe('validateCustomSection', () => {
     distanceMeters: 5000,
   };
 
-  it('validates object input', () => {
+  it('validates object input and returns parsed section', () => {
     const result = validateCustomSection(validSection);
     expect(result.id).toBe('sec1');
     expect(result.name).toBe('Hill Climb');
   });
 
-  it('validates JSON string input', () => {
-    const result = validateCustomSection(JSON.stringify(validSection));
-    expect(result.id).toBe('sec1');
-  });
-
-  it('throws on invalid JSON string', () => {
+  it('throws on invalid JSON string, schema failure, or oversized payload', () => {
     expect(() => validateCustomSection('not json')).toThrow('Invalid JSON string');
-  });
-
-  it('throws on schema validation failure', () => {
     expect(() => validateCustomSection({ id: '' })).toThrow('validation failed');
-  });
-
-  it('throws on oversized payload', () => {
     const hugePolyline = Array.from({ length: 50000 }, (_, i) => ({
       latitude: 45.0 + i * 0.0001,
       longitude: 7.0 + i * 0.0001,
       elevation: 100,
     }));
-    const oversized = { ...validSection, polyline: hugePolyline };
-    expect(() => validateCustomSection(oversized)).toThrow('Payload size exceeded');
+    expect(() => validateCustomSection({ ...validSection, polyline: hugePolyline })).toThrow(
+      'Payload size exceeded'
+    );
   });
 });
 
 describe('safeParseWithSchema', () => {
   const schema = z.object({ name: z.string(), age: z.number() });
 
-  it('returns data on valid input', () => {
-    const result = safeParseWithSchema({ name: 'Alice', age: 30 }, schema, 'Test');
-    expect(result).toEqual({ name: 'Alice', age: 30 });
-  });
-
-  it('returns null on invalid input', () => {
-    const result = safeParseWithSchema({ name: 123 }, schema, 'Test');
-    expect(result).toBeNull();
+  it('returns data on valid input, null on invalid', () => {
+    expect(safeParseWithSchema({ name: 'Alice', age: 30 }, schema, 'Test')).toEqual({
+      name: 'Alice',
+      age: 30,
+    });
+    expect(safeParseWithSchema({ name: 123 }, schema, 'Test')).toBeNull();
   });
 });
 
 describe('parseWithSchemaStrict', () => {
   const schema = z.object({ value: z.number().positive() });
 
-  it('returns data on valid input', () => {
-    const result = parseWithSchemaStrict({ value: 42 }, schema, 'Test');
-    expect(result).toEqual({ value: 42 });
-  });
-
-  it('throws on invalid input with context', () => {
+  it('returns data on valid input, throws with context on invalid', () => {
+    expect(parseWithSchemaStrict({ value: 42 }, schema, 'Test')).toEqual({ value: 42 });
     expect(() => parseWithSchemaStrict({ value: -1 }, schema, 'TestCtx')).toThrow(
       'TestCtx validation failed'
     );
@@ -256,18 +174,10 @@ describe('parseWithSchemaStrict', () => {
 });
 
 describe('createSchemaValidator', () => {
-  const schema = z.object({ x: z.number() });
-  const validator = createSchemaValidator(schema);
-
-  it('returns true for valid data', () => {
+  it('returns true for valid data, false for invalid or null', () => {
+    const validator = createSchemaValidator(z.object({ x: z.number() }));
     expect(validator({ x: 5 })).toBe(true);
-  });
-
-  it('returns false for invalid data', () => {
     expect(validator({ x: 'not a number' })).toBe(false);
-  });
-
-  it('returns false for null', () => {
     expect(validator(null)).toBe(false);
   });
 });

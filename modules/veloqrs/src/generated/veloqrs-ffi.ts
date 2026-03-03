@@ -75,7 +75,7 @@ interface NativeModuleInterface {
     ptr: bigint,
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_set_metrics(
     ptr: bigint,
     metrics: Uint8Array,
@@ -284,7 +284,7 @@ interface NativeModuleInterface {
     ptr: bigint,
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
     ptr: bigint,
     activityId: Uint8Array,
@@ -354,7 +354,7 @@ interface NativeModuleInterface {
     ptr: bigint,
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_name(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -366,7 +366,7 @@ interface NativeModuleInterface {
     sectionId: Uint8Array,
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): void;
   ubrn_uniffi_veloqrs_fn_clone_settingsmanager(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,

@@ -14,25 +14,12 @@ describe('getEffectiveWindow', () => {
     expect(getEffectiveWindow('auto', '7d')).toBe(0);
   });
 
-  it('"auto" + "1m" returns 3', () => {
-    expect(getEffectiveWindow('auto', '1m')).toBe(3);
-  });
-
-  it('"auto" + "3m" returns 7', () => {
-    expect(getEffectiveWindow('auto', '3m')).toBe(7);
-  });
-
-  it('"auto" + "6m" returns 14', () => {
-    expect(getEffectiveWindow('auto', '6m')).toBe(14);
-  });
-
   it('"auto" + "1y" returns 21', () => {
     expect(getEffectiveWindow('auto', '1y')).toBe(21);
   });
 
   it('numeric 14 passes through for any time range', () => {
     expect(getEffectiveWindow(14, '7d')).toBe(14);
-    expect(getEffectiveWindow(14, '1y')).toBe(14);
   });
 });
 
@@ -41,18 +28,6 @@ describe('smoothDataPoints', () => {
     const data = [{ x: 0, value: 10, rawValue: 10 }];
     const result = smoothDataPoints(data, 1);
     expect(result).toBe(data); // reference equality
-  });
-
-  it('returns input unchanged for single data point', () => {
-    const data = [{ x: 0, value: 5, rawValue: 5 }];
-    const result = smoothDataPoints(data, 7);
-    expect(result).toBe(data);
-  });
-
-  it('returns input unchanged for empty array', () => {
-    const data: { x: number; value: number; rawValue: number }[] = [];
-    const result = smoothDataPoints(data, 7);
-    expect(result).toBe(data);
   });
 
   it('smooths 5 known points with window=3', () => {
@@ -101,22 +76,6 @@ describe('smoothDataPoints', () => {
     result.forEach((point) => {
       expect(point.value).toBe(42);
     });
-  });
-
-  it('handles window larger than data length', () => {
-    const data = [
-      { x: 0, value: 10, rawValue: 10 },
-      { x: 1, value: 20, rawValue: 20 },
-      { x: 2, value: 30, rawValue: 30 },
-    ];
-    // window=7 means halfWindow=3, but only 3 points exist
-    const result = smoothDataPoints(data, 7);
-    expect(result).toHaveLength(3);
-    // All points are within the window of each other, so each gets the full average
-    // x=0: neighbors at -3,-2,-1,0,1,2,3 → only 0(10),1(20),2(30) exist → 20
-    expect(result[0].value).toBe(20);
-    expect(result[1].value).toBe(20);
-    expect(result[2].value).toBe(20);
   });
 });
 

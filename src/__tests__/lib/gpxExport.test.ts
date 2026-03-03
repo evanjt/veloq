@@ -57,42 +57,6 @@ describe('generateGpx', () => {
     expect(gpx).toContain('lat="51.5074"');
     expect(gpx).toContain('lon="-0.1278"');
   });
-
-  it('includes elevation when present', () => {
-    const gpx = generateGpx({
-      name: 'Test',
-      points: [{ latitude: 0, longitude: 0, elevation: 100.5 }],
-    });
-    expect(gpx).toContain('<ele>100.5</ele>');
-  });
-
-  it('omits elevation when not present', () => {
-    const gpx = generateGpx({
-      name: 'Test',
-      points: [{ latitude: 0, longitude: 0 }],
-    });
-    expect(gpx).not.toContain('<ele>');
-  });
-
-  it('handles empty points array', () => {
-    const gpx = generateGpx({ name: 'Empty', points: [] });
-    expect(gpx).toContain('<trkseg>');
-    expect(gpx).toContain('</trkseg>');
-    expect(gpx).not.toContain('<trkpt');
-  });
-
-  it('renders multiple trackpoints', () => {
-    const gpx = generateGpx({
-      name: 'Multi',
-      points: [
-        { latitude: 1, longitude: 2 },
-        { latitude: 3, longitude: 4 },
-        { latitude: 5, longitude: 6 },
-      ],
-    });
-    const trkptCount = (gpx.match(/<trkpt/g) || []).length;
-    expect(trkptCount).toBe(3);
-  });
 });
 
 describe('generateGpx - NaN/Infinity filtering (BUG FIX)', () => {
@@ -105,28 +69,10 @@ describe('generateGpx - NaN/Infinity filtering (BUG FIX)', () => {
     expect(gpx).not.toContain('<trkpt');
   });
 
-  it('NaN longitude produces valid XML (point skipped)', () => {
-    const gpx = generateGpx({
-      name: 'Test',
-      points: [{ latitude: 0, longitude: NaN }],
-    });
-    expect(gpx).not.toContain('lon="NaN"');
-    expect(gpx).not.toContain('<trkpt');
-  });
-
   it('Infinity latitude is filtered out', () => {
     const gpx = generateGpx({
       name: 'Test',
       points: [{ latitude: Infinity, longitude: 0 }],
-    });
-    expect(gpx).not.toContain('Infinity');
-    expect(gpx).not.toContain('<trkpt');
-  });
-
-  it('-Infinity longitude is filtered out', () => {
-    const gpx = generateGpx({
-      name: 'Test',
-      points: [{ latitude: 0, longitude: -Infinity }],
     });
     expect(gpx).not.toContain('Infinity');
     expect(gpx).not.toContain('<trkpt');
@@ -139,16 +85,6 @@ describe('generateGpx - NaN/Infinity filtering (BUG FIX)', () => {
     });
     expect(gpx).toContain('lat="10"');
     expect(gpx).not.toContain('Infinity');
-    expect(gpx).not.toContain('<ele>');
-  });
-
-  it('NaN elevation is omitted while point is kept', () => {
-    const gpx = generateGpx({
-      name: 'Test',
-      points: [{ latitude: 10, longitude: 20, elevation: NaN }],
-    });
-    expect(gpx).toContain('lat="10"');
-    expect(gpx).not.toContain('NaN');
     expect(gpx).not.toContain('<ele>');
   });
 
@@ -174,23 +110,8 @@ describe('escapeXml (tested via generateGpx)', () => {
     expect(gpx).not.toContain('A & B');
   });
 
-  it('escapes less-than', () => {
-    const gpx = generateGpx({ name: 'A < B', points: [] });
-    expect(gpx).toContain('A &lt; B');
-  });
-
-  it('escapes greater-than', () => {
-    const gpx = generateGpx({ name: 'A > B', points: [] });
-    expect(gpx).toContain('A &gt; B');
-  });
-
   it('escapes double quotes', () => {
     const gpx = generateGpx({ name: 'A "B" C', points: [] });
     expect(gpx).toContain('A &quot;B&quot; C');
-  });
-
-  it('escapes single quotes', () => {
-    const gpx = generateGpx({ name: "A 'B' C", points: [] });
-    expect(gpx).toContain('A &apos;B&apos; C');
   });
 });

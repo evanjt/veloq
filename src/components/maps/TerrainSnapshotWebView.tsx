@@ -201,7 +201,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 return window._snapshotGen !== myGen;
               }
 
-              window._rn_log('Snapshot ' + activityId + ' gen=' + myGen + ': ' + coords.length + ' coords, style=' + mapStyle);
+              window._rn_log('Snapshot ' + activityId + ' gen=' + myGen + ': ' + coords.length + ' coords, style=' + mapStyle + ', zoom=' + camera.zoom.toFixed(1) + ', pitch=' + camera.pitch);
 
               // Remove existing layers/sources
               try {
@@ -261,104 +261,108 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               function onStyleReady() {
                 if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in onStyleReady, aborting'); return; }
                 try {
-                  // Add terrain
-                  window.map.addSource('terrain', {
-                    type: 'raster-dem',
-                    tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-                    encoding: 'terrarium',
-                    tileSize: 256,
-                    maxzoom: 15,
-                  });
-                  window.map.setTerrain({ source: 'terrain', exaggeration: 1.5 });
+                  // TWO-PASS RENDERING: Load satellite tiles WITHOUT terrain first.
+                  // MapLibre issue #3983: when terrain is enabled, tile zoom is calculated
+                  // from the camera's aerial position, not the ground center — producing
+                  // much lower-resolution tiles. By loading satellite tiles FIRST (pass 1)
+                  // at full zoom, then enabling terrain AFTER (pass 2), the high-res tiles
+                  // stay in MapLibre's cache and get draped over the terrain surface.
 
-                  // Hillshade (non-satellite only) — enhanced for terrain-focused snapshots
-                  if (!isSatellite) {
-                    window.map.addLayer({
-                      id: 'hillshading',
-                      type: 'hillshade',
-                      source: 'terrain',
-                      layout: { visibility: 'visible' },
-                      paint: {
-                        'hillshade-shadow-color': isDark ? '#000000' : '#473B24',
-                        'hillshade-highlight-color': isDark ? '#2A2A2A' : '#FFFBF5',
-                        'hillshade-accent-color': isDark ? '#111111' : '#D4C4A8',
-                        'hillshade-illumination-anchor': 'map',
-                        'hillshade-exaggeration': 0.6,
-                      },
-                    });
-                  }
+                  // Hillshade (non-satellite only) — add before terrain so it's ready
+                  var needsHillshade = !isSatellite;
 
-                  // Move camera BEFORE loading terrain tiles
+                  // PASS 1: Position camera and load satellite tiles at full resolution
                   window.map.jumpTo({
                     center: camera.center,
                     zoom: camera.zoom,
                     bearing: camera.bearing,
                     pitch: camera.pitch,
                   });
-
-                  window._rn_log('Terrain + camera set, waiting for tiles...');
-
-                  // Nudge tile loading by forcing viewport recalculation
                   window.map.resize();
 
-                  // Event-driven tile loading via MapLibre 'idle' event
-                  var tileLoadTimedOut = false;
+                  window._rn_log('Pass 1: Loading satellite tiles WITHOUT terrain (zoom=' + camera.zoom.toFixed(1) + ', pitch=' + camera.pitch + ')...');
+
                   var tileLoadDone = false;
 
-                  function onTilesReady() {
+                  function onSatelliteTilesReady() {
                     if (tileLoadDone || isStale()) return;
-                    tileLoadDone = true;
-                    addRouteAndCapture();
+                    window._rn_log('Pass 1 done: satellite tiles cached. Enabling terrain (pass 2)...');
+
+                    // PASS 2: Now enable terrain — cached satellite tiles stay at high res
+                    window.map.addSource('terrain', {
+                      type: 'raster-dem',
+                      tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+                      encoding: 'terrarium',
+                      tileSize: 256,
+                      maxzoom: 15,
+                    });
+                    window.map.setTerrain({ source: 'terrain', exaggeration: 1.5 });
+
+                    if (needsHillshade) {
+                      window.map.addLayer({
+                        id: 'hillshading',
+                        type: 'hillshade',
+                        source: 'terrain',
+                        layout: { visibility: 'visible' },
+                        paint: {
+                          'hillshade-shadow-color': isDark ? '#000000' : '#473B24',
+                          'hillshade-highlight-color': isDark ? '#2A2A2A' : '#FFFBF5',
+                          'hillshade-accent-color': isDark ? '#111111' : '#D4C4A8',
+                          'hillshade-illumination-anchor': 'map',
+                          'hillshade-exaggeration': 0.6,
+                        },
+                      });
+                    }
+
+                    // Wait for terrain DEM tiles to load
+                    var terrainDone = false;
+                    window.map.once('idle', function() {
+                      if (terrainDone || isStale()) return;
+                      terrainDone = true;
+                      tileLoadDone = true;
+                      window._rn_log('Pass 2 done: terrain loaded, proceeding to capture');
+                      addRouteAndCapture();
+                    });
+                    // Terrain fallback (5s)
+                    setTimeout(function() {
+                      if (!terrainDone && !isStale()) {
+                        terrainDone = true;
+                        tileLoadDone = true;
+                        window._rn_log('Terrain load fallback (5s), capturing anyway');
+                        addRouteAndCapture();
+                      }
+                    }, 5000);
                   }
 
+                  // Wait for satellite tiles (pass 1)
                   window.map.once('idle', function() {
                     if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in idle, aborting'); return; }
-                    if (window.map.isSourceLoaded('terrain') && window.map.areTilesLoaded()) {
-                      window._rn_log('Tiles loaded on first idle');
-                      onTilesReady();
+                    if (window.map.areTilesLoaded()) {
+                      window._rn_log('Satellite tiles loaded on first idle');
+                      onSatelliteTilesReady();
                     } else {
-                      window._rn_log('First idle but tiles incomplete, waiting for second idle...');
-                      // One more idle cycle with 5s fallback
+                      window._rn_log('First idle but satellite tiles incomplete, waiting...');
                       var secondIdleDone = false;
                       window.map.once('idle', function() {
                         if (secondIdleDone || isStale()) return;
                         secondIdleDone = true;
-                        if (window.map.areTilesLoaded()) {
-                          window._rn_log('Tiles loaded on second idle');
-                          onTilesReady();
-                        } else {
-                          // Tiles still incomplete — skip this snapshot
-                          window._rn_log('Tiles still incomplete after second idle, skipping snapshot');
-                          window.ReactNativeWebView.postMessage(JSON.stringify({
-                            type: 'snapshotError',
-                            workerId: workerId,
-                            activityId: activityId,
-                            gen: myGen,
-                            error: 'Tiles incomplete after idle',
-                          }));
-                        }
+                        window._rn_log('Satellite tiles loaded on second idle');
+                        onSatelliteTilesReady();
                       });
                       setTimeout(function() {
                         if (!secondIdleDone && !isStale()) {
                           secondIdleDone = true;
-                          window._rn_log('Second idle fallback (5s), skipping snapshot');
-                          window.ReactNativeWebView.postMessage(JSON.stringify({
-                            type: 'snapshotError',
-                            workerId: workerId,
-                            activityId: activityId,
-                            gen: myGen,
-                            error: 'Tile load timeout',
-                          }));
+                          window._rn_log('Satellite tile fallback (5s), proceeding anyway');
+                          onSatelliteTilesReady();
                         }
                       }, 5000);
                     }
                   });
 
-                  // Hard fallback timeout (12s safety net)
+                  // Hard fallback timeout (15s safety net — slightly longer for two-pass)
                   setTimeout(function() {
                     if (!tileLoadDone && !isStale()) {
-                      tileLoadTimedOut = true;
-                      window._rn_log('Hard fallback timeout (12s), skipping snapshot');
+                      window._rn_log('Hard fallback timeout (15s), skipping snapshot');
                       window.ReactNativeWebView.postMessage(JSON.stringify({
                         type: 'snapshotError',
                         workerId: workerId,
@@ -471,7 +475,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in captureSnapshot, aborting'); return; }
                     try {
                       var canvas = window.map.getCanvas();
-                      var dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+                      var dataUrl = canvas.toDataURL('image/jpeg', 0.95);
                       var base64 = dataUrl.split(',')[1];
                       window._rn_log('Captured ' + activityId + ' gen=' + myGen + ' (' + Math.round(base64.length / 1024) + 'KB)');
                       window.ReactNativeWebView.postMessage(JSON.stringify({

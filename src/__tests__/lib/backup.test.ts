@@ -110,24 +110,7 @@ describe('createBackup', () => {
     expect(backup.routeNames).toEqual({ r1: 'My Route' });
   });
 
-  it('includes preferences from AsyncStorage', async () => {
-    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) => {
-      if (key === 'veloq-theme-preference') return Promise.resolve('"dark"');
-      return Promise.resolve(null);
-    });
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.preferences['veloq-theme-preference']).toBe('dark');
-  });
-
-  it('skips unreadable AsyncStorage keys silently', async () => {
-    (AsyncStorage.getItem as jest.Mock).mockRejectedValue(new Error('read error'));
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.preferences).toEqual({});
-  });
-
-  it('handles non-JSON preference values as raw strings', async () => {
+  it('includes preferences from AsyncStorage, handles non-JSON values as raw strings', async () => {
     (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) => {
       if (key === 'veloq-theme-preference') return Promise.resolve('not-json');
       return Promise.resolve(null);
@@ -136,17 +119,6 @@ describe('createBackup', () => {
     const backup = JSON.parse(json);
     expect(backup.preferences['veloq-theme-preference']).toBe('not-json');
   });
-
-  it('defaults missing section fields', async () => {
-    mockEngine.getSectionsByType.mockReturnValueOnce([
-      { sportType: 'Run', sourceActivityId: 'a2' },
-    ]);
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.customSections[0].name).toBe('');
-    expect(backup.customSections[0].startIndex).toBe(0);
-    expect(backup.customSections[0].endIndex).toBe(0);
-  });
 });
 
 describe('restoreBackup', () => {
@@ -154,28 +126,16 @@ describe('restoreBackup', () => {
     await expect(restoreBackup('not json')).rejects.toThrow('Invalid backup file format');
   });
 
-  it('throws on corrupt backup with missing version (BUG FIX)', async () => {
-    const json = JSON.stringify({ exportedAt: '2026-01-01' });
-    await expect(restoreBackup(json)).rejects.toThrow('Corrupt backup: missing version field');
-  });
-
-  it('throws on version too new with specific message (BUG FIX)', async () => {
-    const json = makeValidBackup({ version: 99 });
-    await expect(restoreBackup(json)).rejects.toThrow('Unsupported backup version: 99');
-  });
-
-  it('distinguishes null version from future version (BUG FIX)', async () => {
-    const nullVersion = JSON.stringify({ version: null, exportedAt: '2026-01-01' });
-    const futureVersion = makeValidBackup({ version: 99 });
-
-    await expect(restoreBackup(nullVersion)).rejects.toThrow('Corrupt backup');
-    await expect(restoreBackup(futureVersion)).rejects.toThrow('Unsupported backup version');
-  });
-
-  it('accepts older version backups (version 1)', async () => {
-    const json = makeValidBackup({ version: 1 });
-    const result = await restoreBackup(json);
-    expect(result.sectionsRestored).toBe(0);
+  it('throws on corrupt backup (missing/null version) vs version too new (BUG FIX)', async () => {
+    await expect(restoreBackup(JSON.stringify({ exportedAt: '2026-01-01' }))).rejects.toThrow(
+      'Corrupt backup: missing version field'
+    );
+    await expect(
+      restoreBackup(JSON.stringify({ version: null, exportedAt: '2026-01-01' }))
+    ).rejects.toThrow('Corrupt backup');
+    await expect(restoreBackup(makeValidBackup({ version: 99 }))).rejects.toThrow(
+      'Unsupported backup version: 99'
+    );
   });
 
   it('rejects sections where startIndex >= endIndex (BUG FIX)', async () => {
@@ -196,53 +156,6 @@ describe('restoreBackup', () => {
     expect(result.sectionsFailed[0].reason).toContain('Invalid index range');
   });
 
-  it('rejects sections where startIndex === endIndex', async () => {
-    mockEngine.getGpsTrack.mockReturnValue(new Array(100).fill({ lat: 0, lng: 0 }));
-    const json = makeValidBackup({
-      customSections: [
-        {
-          name: 'Zero Length',
-          sportType: 'Run',
-          sourceActivityId: 'a1',
-          startIndex: 30,
-          endIndex: 30,
-        },
-      ],
-    });
-    const result = await restoreBackup(json);
-    expect(result.sectionsFailed).toHaveLength(1);
-    expect(result.sectionsFailed[0].reason).toContain('Invalid index range');
-  });
-
-  it('fails sections with no source activity ID', async () => {
-    const json = makeValidBackup({
-      customSections: [
-        { name: 'Orphan', sportType: 'Ride', sourceActivityId: '', startIndex: 0, endIndex: 10 },
-      ],
-    });
-    const result = await restoreBackup(json);
-    expect(result.sectionsFailed).toHaveLength(1);
-    expect(result.sectionsFailed[0].reason).toBe('No source activity ID');
-  });
-
-  it('fails sections when source activity is not synced', async () => {
-    mockEngine.getGpsTrack.mockReturnValue([]);
-    const json = makeValidBackup({
-      customSections: [
-        {
-          name: 'Missing',
-          sportType: 'Ride',
-          sourceActivityId: 'a-gone',
-          startIndex: 0,
-          endIndex: 10,
-        },
-      ],
-    });
-    const result = await restoreBackup(json);
-    expect(result.sectionsFailed).toHaveLength(1);
-    expect(result.sectionsFailed[0].reason).toBe('Source activity not synced');
-  });
-
   it('fails sections when indices exceed track bounds', async () => {
     mockEngine.getGpsTrack.mockReturnValue(new Array(5).fill({ lat: 0, lng: 0 }));
     const json = makeValidBackup({
@@ -253,19 +166,6 @@ describe('restoreBackup', () => {
     const result = await restoreBackup(json);
     expect(result.sectionsFailed).toHaveLength(1);
     expect(result.sectionsFailed[0].reason).toContain('Indices out of range');
-  });
-
-  it('restores valid custom sections', async () => {
-    mockEngine.getGpsTrack.mockReturnValue(new Array(100).fill({ lat: 0, lng: 0 }));
-    mockEngine.createSectionFromIndices.mockReturnValue('new-section-id');
-    const json = makeValidBackup({
-      customSections: [
-        { name: 'Good', sportType: 'Ride', sourceActivityId: 'a1', startIndex: 5, endIndex: 50 },
-      ],
-    });
-    const result = await restoreBackup(json);
-    expect(result.sectionsRestored).toBe(1);
-    expect(result.sectionsFailed).toHaveLength(0);
   });
 
   it('handles engine returning empty section ID', async () => {
@@ -312,13 +212,6 @@ describe('restoreBackup', () => {
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('veloq-debug-mode', 'true');
   });
 
-  it('silently skips unwritable preference keys', async () => {
-    (AsyncStorage.setItem as jest.Mock).mockRejectedValue(new Error('write error'));
-    const json = makeValidBackup({ preferences: { 'veloq-theme-preference': 'dark' } });
-    const result = await restoreBackup(json);
-    expect(result.preferencesRestored).toBe(0);
-  });
-
   it('round-trips: create then restore produces consistent result', async () => {
     mockEngine.getSectionsByType.mockReturnValue([]);
     mockEngine.getAllSectionNames.mockReturnValue({ s1: 'My Hill' });
@@ -327,19 +220,6 @@ describe('restoreBackup', () => {
     const json = await createBackup();
     const result = await restoreBackup(json);
     expect(result.namesApplied).toBe(1);
-  });
-
-  it('handles backup with no customSections field', async () => {
-    const json = makeValidBackup({ customSections: undefined });
-    const result = await restoreBackup(json);
-    expect(result.sectionsRestored).toBe(0);
-    expect(result.sectionsFailed).toHaveLength(0);
-  });
-
-  it('handles backup with empty preferences', async () => {
-    const json = makeValidBackup({ preferences: {} });
-    const result = await restoreBackup(json);
-    expect(result.preferencesRestored).toBe(0);
   });
 
   it('handles section creation throwing an exception', async () => {

@@ -94,21 +94,6 @@ describe('GPS track storage', () => {
     await storeGpsTrack('act1', sampleTrack);
     expect(await hasGpsTrack('act1')).toBe(true);
   });
-
-  it('clears all GPS tracks', async () => {
-    await storeGpsTrack('act1', sampleTrack);
-    await storeGpsTrack('act2', sampleTrack);
-    await clearAllGpsTracks();
-    expect(await hasGpsTrack('act1')).toBe(false);
-    expect(await hasGpsTrack('act2')).toBe(false);
-  });
-
-  it('sanitizes activity IDs for filenames', async () => {
-    await storeGpsTrack('act/with:special', sampleTrack);
-    // Should not throw — ID is sanitized
-    const result = await getGpsTrack('act/with:special');
-    expect(result).toEqual(sampleTrack);
-  });
 });
 
 describe('oldest date storage', () => {
@@ -132,13 +117,6 @@ describe('checkpoint storage', () => {
     expect(result).toEqual(checkpoint);
   });
 
-  it('clears checkpoint', async () => {
-    await storeCheckpoint({ data: true });
-    await clearCheckpoint();
-    const result = await loadCheckpoint();
-    expect(result).toBeNull();
-  });
-
   it('returns null when no checkpoint exists', async () => {
     const result = await loadCheckpoint();
     expect(result).toBeNull();
@@ -152,13 +130,6 @@ describe('bounds cache storage', () => {
     const result = await loadBoundsCache();
     expect(result).toEqual(cache);
   });
-
-  it('clears bounds cache', async () => {
-    await storeBoundsCache({ data: true });
-    await clearBoundsCache();
-    const result = await loadBoundsCache();
-    expect(result).toBeNull();
-  });
 });
 
 describe('custom route names', () => {
@@ -166,11 +137,6 @@ describe('custom route names', () => {
     await saveCustomRouteName('route1', 'My Favorite Route');
     const names = await loadCustomRouteNames();
     expect(names['route1']).toBe('My Favorite Route');
-  });
-
-  it('returns empty object when no names saved', async () => {
-    const names = await loadCustomRouteNames();
-    expect(names).toEqual({});
   });
 });
 

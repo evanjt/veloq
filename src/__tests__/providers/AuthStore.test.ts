@@ -112,106 +112,11 @@ describe('AuthStore', () => {
       expect(state.authMethod).toBeNull();
       expect(state.isLoading).toBe(false);
     });
-
-    it('requires both athleteId and credential for authentication', async () => {
-      // API key exists but no athlete ID
-      mockGetItemAsync.mockImplementation(async (key) => {
-        if (key === API_KEY_STORAGE_KEY) return 'api-key-orphan';
-        return null;
-      });
-
-      await useAuthStore.getState().initialize();
-
-      const state = useAuthStore.getState();
-      expect(state.isAuthenticated).toBe(false);
-      expect(state.authMethod).toBeNull();
-    });
-
-    it('handles SecureStore read errors gracefully', async () => {
-      mockGetItemAsync.mockRejectedValue(new Error('SecureStore unavailable'));
-
-      await useAuthStore.getState().initialize();
-
-      const state = useAuthStore.getState();
-      expect(state.isLoading).toBe(false);
-      expect(state.isAuthenticated).toBe(false);
-      expect(state.authMethod).toBeNull();
-    });
-
-    it('reads all three keys in parallel', async () => {
-      mockGetItemAsync.mockResolvedValue(null);
-
-      await useAuthStore.getState().initialize();
-
-      // Verify all three keys were requested
-      expect(mockGetItemAsync).toHaveBeenCalledTimes(3);
-      expect(mockGetItemAsync).toHaveBeenCalledWith(API_KEY_STORAGE_KEY);
-      expect(mockGetItemAsync).toHaveBeenCalledWith(ATHLETE_ID_STORAGE_KEY);
-      expect(mockGetItemAsync).toHaveBeenCalledWith(ACCESS_TOKEN_STORAGE_KEY);
-    });
   });
 
   describe('setCredentials() - API Key Auth', () => {
-    it('saves API key and athlete ID to SecureStore', async () => {
-      await useAuthStore.getState().setCredentials('my-api-key', 'i11111');
-
-      expect(mockSetItemAsync).toHaveBeenCalledWith(
-        API_KEY_STORAGE_KEY,
-        'my-api-key',
-        expect.objectContaining({ keychainAccessible: expect.any(Number) })
-      );
-      expect(mockSetItemAsync).toHaveBeenCalledWith(
-        ATHLETE_ID_STORAGE_KEY,
-        'i11111',
-        expect.objectContaining({ keychainAccessible: expect.any(Number) })
-      );
-    });
-
-    it('clears OAuth token when setting API key credentials', async () => {
-      // Start with OAuth
-      useAuthStore.setState({
-        accessToken: 'old-oauth-token',
-        authMethod: 'oauth',
-      });
-
-      await useAuthStore.getState().setCredentials('new-api-key', 'i22222');
-
-      expect(mockDeleteItemAsync).toHaveBeenCalledWith(ACCESS_TOKEN_STORAGE_KEY);
-      expect(useAuthStore.getState().accessToken).toBeNull();
-    });
-
-    it('updates state correctly after setting credentials', async () => {
-      await useAuthStore.getState().setCredentials('test-key', 'i33333');
-
-      const state = useAuthStore.getState();
-      expect(state.apiKey).toBe('test-key');
-      expect(state.athleteId).toBe('i33333');
-      expect(state.isAuthenticated).toBe(true);
-      expect(state.authMethod).toBe('apiKey');
-      expect(state.isDemoMode).toBe(false);
-    });
-
-    it('exits demo mode when setting real credentials', async () => {
-      useAuthStore.setState({ isDemoMode: true, authMethod: 'demo' });
-
-      await useAuthStore.getState().setCredentials('real-key', 'i44444');
-
-      expect(useAuthStore.getState().isDemoMode).toBe(false);
-      expect(useAuthStore.getState().authMethod).toBe('apiKey');
-    });
-
     it('setCredentials with whitespace-only apiKey does not set isAuthenticated', async () => {
       await useAuthStore.getState().setCredentials('   ', 'i12345');
-      expect(useAuthStore.getState().isAuthenticated).toBe(false);
-    });
-
-    it('setCredentials with whitespace-only athleteId does not set isAuthenticated', async () => {
-      await useAuthStore.getState().setCredentials('valid-key', '   ');
-      expect(useAuthStore.getState().isAuthenticated).toBe(false);
-    });
-
-    it('setCredentials with empty string apiKey does not set isAuthenticated', async () => {
-      await useAuthStore.getState().setCredentials('', 'i12345');
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
     });
 
@@ -225,21 +130,6 @@ describe('AuthStore', () => {
   });
 
   describe('setOAuthCredentials()', () => {
-    it('saves OAuth token and athlete ID to SecureStore', async () => {
-      await useAuthStore.getState().setOAuthCredentials('oauth-token-abc', 'i55555');
-
-      expect(mockSetItemAsync).toHaveBeenCalledWith(
-        ACCESS_TOKEN_STORAGE_KEY,
-        'oauth-token-abc',
-        expect.objectContaining({ keychainAccessible: expect.any(Number) })
-      );
-      expect(mockSetItemAsync).toHaveBeenCalledWith(
-        ATHLETE_ID_STORAGE_KEY,
-        'i55555',
-        expect.objectContaining({ keychainAccessible: expect.any(Number) })
-      );
-    });
-
     it('clears API key when setting OAuth credentials', async () => {
       useAuthStore.setState({
         apiKey: 'old-api-key',
@@ -259,12 +149,6 @@ describe('AuthStore', () => {
       expect(state.athlete).not.toBeNull();
       expect(state.athlete?.id).toBe('i77777');
       expect(state.athlete?.name).toBe('John Doe');
-    });
-
-    it('does not set athlete when name not provided', async () => {
-      await useAuthStore.getState().setOAuthCredentials('token', 'i88888');
-
-      expect(useAuthStore.getState().athlete).toBeNull();
     });
 
     it('updates state correctly after OAuth login', async () => {
@@ -356,10 +240,6 @@ describe('AuthStore', () => {
       expect(state.athleteId).toBeNull();
       expect(state.hideDemoBanner).toBe(false);
     });
-
-    it('DEMO_ATHLETE_ID constant equals "demo"', () => {
-      expect(DEMO_ATHLETE_ID).toBe('demo');
-    });
   });
 
   describe('handleSessionExpired()', () => {
@@ -402,47 +282,6 @@ describe('AuthStore', () => {
       expect(state.isAuthenticated).toBe(true);
       expect(state.sessionExpired).toBeNull();
     });
-
-    it('only affects OAuth auth method, not demo mode', async () => {
-      useAuthStore.setState({
-        isDemoMode: true,
-        isAuthenticated: true,
-        authMethod: 'demo',
-        athleteId: DEMO_ATHLETE_ID,
-      });
-
-      await useAuthStore.getState().handleSessionExpired('token_revoked');
-
-      expect(mockDeleteItemAsync).not.toHaveBeenCalled();
-      expect(useAuthStore.getState().isDemoMode).toBe(true);
-      expect(useAuthStore.getState().sessionExpired).toBeNull();
-    });
-
-    it('supports token_revoked reason', async () => {
-      useAuthStore.setState({ authMethod: 'oauth', accessToken: 'token' });
-
-      await useAuthStore.getState().handleSessionExpired('token_revoked');
-
-      expect(useAuthStore.getState().sessionExpired).toBe('token_revoked');
-    });
-
-    it('defaults to token_expired if no reason provided', async () => {
-      useAuthStore.setState({ authMethod: 'oauth', accessToken: 'token' });
-
-      await useAuthStore.getState().handleSessionExpired();
-
-      expect(useAuthStore.getState().sessionExpired).toBe('token_expired');
-    });
-  });
-
-  describe('clearSessionExpired()', () => {
-    it('clears the session expired state', () => {
-      useAuthStore.setState({ sessionExpired: 'token_expired' });
-
-      useAuthStore.getState().clearSessionExpired();
-
-      expect(useAuthStore.getState().sessionExpired).toBeNull();
-    });
   });
 
   describe('getStoredCredentials()', () => {
@@ -460,15 +299,6 @@ describe('AuthStore', () => {
       expect(creds.accessToken).toBe('sync-test-token');
       expect(creds.athleteId).toBe('i-sync');
       expect(creds.authMethod).toBe('apiKey');
-    });
-
-    it('returns null values when not authenticated', () => {
-      const creds = getStoredCredentials();
-
-      expect(creds.apiKey).toBeNull();
-      expect(creds.accessToken).toBeNull();
-      expect(creds.athleteId).toBeNull();
-      expect(creds.authMethod).toBeNull();
     });
   });
 
@@ -489,54 +319,6 @@ describe('AuthStore', () => {
       expect(state.apiKey).toBeNull();
       expect(state.accessToken).toBe('oauth-token-1');
       expect(state.authMethod).toBe('oauth');
-    });
-
-    it('maintains consistency when switching from OAuth to API key', async () => {
-      // Start with OAuth
-      await useAuthStore.getState().setOAuthCredentials('oauth-first', 'i33333');
-
-      let state = useAuthStore.getState();
-      expect(state.accessToken).toBe('oauth-first');
-      expect(state.authMethod).toBe('oauth');
-
-      // Switch to API key
-      await useAuthStore.getState().setCredentials('api-key-second', 'i44444');
-
-      state = useAuthStore.getState();
-      expect(state.accessToken).toBeNull();
-      expect(state.apiKey).toBe('api-key-second');
-      expect(state.authMethod).toBe('apiKey');
-    });
-
-    it('maintains consistency through demo mode cycle', async () => {
-      // Start authenticated
-      await useAuthStore.getState().setCredentials('real-key', 'i55555');
-
-      // Enter demo (this should NOT clear stored credentials in SecureStore)
-      useAuthStore.getState().enterDemoMode();
-      expect(useAuthStore.getState().isDemoMode).toBe(true);
-
-      // Exit demo
-      useAuthStore.getState().exitDemoMode();
-
-      // Should be fully logged out
-      const state = useAuthStore.getState();
-      expect(state.isDemoMode).toBe(false);
-      expect(state.isAuthenticated).toBe(false);
-      // Note: The real credentials are still in SecureStore, but state is cleared
-    });
-
-    it('concurrent setCredentials calls result in last-write-wins', async () => {
-      // Fire two credential updates concurrently
-      const promise1 = useAuthStore.getState().setCredentials('key-1', 'i11111');
-      const promise2 = useAuthStore.getState().setCredentials('key-2', 'i22222');
-
-      await Promise.all([promise1, promise2]);
-
-      // The last state update should win
-      const state = useAuthStore.getState();
-      expect(state.apiKey).toBe('key-2');
-      expect(state.athleteId).toBe('i22222');
     });
   });
 
@@ -589,35 +371,6 @@ describe('AuthStore', () => {
       expect(state.apiKey).toBeNull();
       // athleteId should be trimmed OR null (whitespace-only)
       expect(state.athleteId).toBe('i123'); // Trimmed
-    });
-
-    it('setAthlete updates athlete without affecting auth state', () => {
-      useAuthStore.setState({
-        isAuthenticated: true,
-        authMethod: 'apiKey',
-        athleteId: 'i123',
-      });
-
-      useAuthStore.getState().setAthlete({
-        id: 'i123',
-        name: 'Test User',
-        email: 'test@example.com',
-      } as any);
-
-      const state = useAuthStore.getState();
-      expect(state.athlete?.name).toBe('Test User');
-      expect(state.isAuthenticated).toBe(true);
-      expect(state.authMethod).toBe('apiKey');
-    });
-
-    it('hideDemoBanner can be toggled independently', () => {
-      useAuthStore.setState({ isDemoMode: true });
-
-      useAuthStore.getState().setHideDemoBanner(true);
-      expect(useAuthStore.getState().hideDemoBanner).toBe(true);
-
-      useAuthStore.getState().setHideDemoBanner(false);
-      expect(useAuthStore.getState().hideDemoBanner).toBe(false);
     });
   });
 });

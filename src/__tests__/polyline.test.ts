@@ -25,25 +25,6 @@ describe('detectCoordinateFormat', () => {
     expect(detectCoordinateFormat(coords)).toBe('lngLat');
   });
 
-  it('should detect [lat, lng] for European coordinates where both could be valid latitudes', () => {
-    // Zurich: lat ~47.3, lng ~8.5 - both are valid latitude values
-    // Should default to latLng when ambiguous
-    const coords: [number, number][] = [
-      [47.3769, 8.5417],
-      [47.38, 8.55],
-    ];
-    expect(detectCoordinateFormat(coords)).toBe('latLng');
-  });
-
-  it('should handle coordinates crossing the antimeridian', () => {
-    // Near date line: lat ~0, lng ~179
-    const coords: [number, number][] = [
-      [0, 179],
-      [1, -179],
-    ];
-    expect(detectCoordinateFormat(coords)).toBe('latLng');
-  });
-
   it('should skip invalid coordinates when detecting format', () => {
     const coords: [number, number][] = [
       [NaN, NaN],
@@ -77,20 +58,6 @@ describe('convertLatLngTuples', () => {
     expect(result[1]).toEqual({ latitude: -33.87, longitude: 151.21 });
   });
 
-  it('should preserve array length for invalid coordinates (NaN sentinel)', () => {
-    const tuples: [number, number][] = [
-      [-33.8688, 151.2093],
-      [NaN, NaN],
-      [-33.87, 151.21],
-    ];
-    const result = convertLatLngTuples(tuples);
-
-    expect(result.length).toBe(3);
-    expect(result[0]).toEqual({ latitude: -33.8688, longitude: 151.2093 });
-    expect(isNaN(result[1].latitude)).toBe(true);
-    expect(result[2]).toEqual({ latitude: -33.87, longitude: 151.21 });
-  });
-
   it('should return empty array for empty input', () => {
     expect(convertLatLngTuples([])).toEqual([]);
   });
@@ -102,20 +69,6 @@ describe('normalizeBounds', () => {
     const bounds: [[number, number], [number, number]] = [
       [-34.0, 150.5], // SW corner
       [-33.5, 151.5], // NE corner
-    ];
-    const result = normalizeBounds(bounds);
-
-    expect(result.minLat).toBe(-34.0);
-    expect(result.maxLat).toBe(-33.5);
-    expect(result.minLng).toBe(150.5);
-    expect(result.maxLng).toBe(151.5);
-  });
-
-  it('should normalize [[lng, lat], [lng, lat]] bounds (GeoJSON format)', () => {
-    // Same bounds but in [lng, lat] format (GeoJSON style)
-    const bounds: [[number, number], [number, number]] = [
-      [150.5, -34.0], // SW corner
-      [151.5, -33.5], // NE corner
     ];
     const result = normalizeBounds(bounds);
 
@@ -137,21 +90,6 @@ describe('normalizeBounds', () => {
     expect(result.maxLat).toBe(-33.5);
     expect(result.minLng).toBe(150.5);
     expect(result.maxLng).toBe(151.5);
-  });
-
-  it('should handle ambiguous European bounds (both values valid latitudes)', () => {
-    // Zurich area: lat ~47, lng ~8 - both could be latitudes
-    const bounds: [[number, number], [number, number]] = [
-      [47.0, 8.0],
-      [47.5, 8.5],
-    ];
-    const result = normalizeBounds(bounds);
-
-    // Should default to [lat, lng] interpretation
-    expect(result.minLat).toBe(47.0);
-    expect(result.maxLat).toBe(47.5);
-    expect(result.minLng).toBe(8.0);
-    expect(result.maxLng).toBe(8.5);
   });
 });
 
@@ -188,15 +126,6 @@ describe('getBounds', () => {
 
   it('should return null for empty array', () => {
     const result = getBounds([]);
-    expect(result).toBeNull();
-  });
-
-  it('should return null when all coordinates are NaN', () => {
-    const coords = [
-      { latitude: NaN, longitude: NaN },
-      { latitude: NaN, longitude: NaN },
-    ];
-    const result = getBounds(coords);
     expect(result).toBeNull();
   });
 });

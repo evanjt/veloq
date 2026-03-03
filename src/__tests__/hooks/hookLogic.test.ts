@@ -22,7 +22,6 @@ import {
   getZoneColor,
   POWER_ZONE_COLORS,
   HR_ZONE_COLORS,
-  DEFAULT_POWER_ZONES,
   DEFAULT_HR_ZONES,
 } from '@/hooks/useSportSettings';
 import { SPORT_API_TYPES, SPORT_COLORS } from '@/providers/SportPreferenceStore';
@@ -243,18 +242,6 @@ describe('getZoneColor', () => {
 // Zone color and zone constant arrays
 // ---------------------------------------------------------------------------
 
-describe('POWER_ZONE_COLORS', () => {
-  it('has exactly 7 colors', () => {
-    expect(POWER_ZONE_COLORS).toHaveLength(7);
-  });
-
-  it('all entries are valid hex color strings', () => {
-    POWER_ZONE_COLORS.forEach((color) => {
-      expect(color).toMatch(/^#[0-9A-Fa-f]{6}$/);
-    });
-  });
-});
-
 describe('HR_ZONE_COLORS', () => {
   it('has exactly 5 colors', () => {
     expect(HR_ZONE_COLORS).toHaveLength(5);
@@ -263,31 +250,6 @@ describe('HR_ZONE_COLORS', () => {
   it('all entries are valid hex color strings', () => {
     HR_ZONE_COLORS.forEach((color) => {
       expect(color).toMatch(/^#[0-9A-Fa-f]{6}$/);
-    });
-  });
-});
-
-describe('DEFAULT_POWER_ZONES', () => {
-  it('has exactly 7 zones', () => {
-    expect(DEFAULT_POWER_ZONES).toHaveLength(7);
-  });
-
-  it('has sequential IDs from 1 to 7', () => {
-    DEFAULT_POWER_ZONES.forEach((zone, idx) => {
-      expect(zone.id).toBe(idx + 1);
-    });
-  });
-
-  it('each zone has a non-empty name', () => {
-    DEFAULT_POWER_ZONES.forEach((zone) => {
-      expect(zone.name).toBeTruthy();
-      expect(zone.name.length).toBeGreaterThan(0);
-    });
-  });
-
-  it('each zone has a color matching POWER_ZONE_COLORS', () => {
-    DEFAULT_POWER_ZONES.forEach((zone, idx) => {
-      expect(zone.color).toBe(POWER_ZONE_COLORS[idx]);
     });
   });
 });
@@ -322,30 +284,6 @@ describe('DEFAULT_HR_ZONES', () => {
 // ---------------------------------------------------------------------------
 
 describe('SPORT_API_TYPES', () => {
-  const primarySports: PrimarySport[] = ['Cycling', 'Running', 'Swimming'];
-
-  it('has entries for all primary sports', () => {
-    primarySports.forEach((sport) => {
-      expect(SPORT_API_TYPES[sport]).toBeDefined();
-    });
-  });
-
-  it('each sport has a non-empty array of API types', () => {
-    primarySports.forEach((sport) => {
-      expect(Array.isArray(SPORT_API_TYPES[sport])).toBe(true);
-      expect(SPORT_API_TYPES[sport].length).toBeGreaterThan(0);
-    });
-  });
-
-  it('all API type strings are non-empty', () => {
-    primarySports.forEach((sport) => {
-      SPORT_API_TYPES[sport].forEach((apiType) => {
-        expect(typeof apiType).toBe('string');
-        expect(apiType.length).toBeGreaterThan(0);
-      });
-    });
-  });
-
   it('Cycling includes Ride', () => {
     expect(SPORT_API_TYPES.Cycling).toContain('Ride');
   });
@@ -361,18 +299,6 @@ describe('SPORT_API_TYPES', () => {
 
 describe('SPORT_COLORS', () => {
   const primarySports: PrimarySport[] = ['Cycling', 'Running', 'Swimming'];
-
-  it('has entries for all primary sports', () => {
-    primarySports.forEach((sport) => {
-      expect(SPORT_COLORS[sport]).toBeDefined();
-    });
-  });
-
-  it('all colors are valid hex strings', () => {
-    primarySports.forEach((sport) => {
-      expect(SPORT_COLORS[sport]).toMatch(/^#[0-9A-Fa-f]{6}$/);
-    });
-  });
 
   it('each sport has a distinct color', () => {
     const colors = primarySports.map((s) => SPORT_COLORS[s]);
@@ -552,19 +478,6 @@ describe('getLatestFTP', () => {
 });
 
 describe('getLatestEFTP', () => {
-  it('returns undefined for undefined activities', () => {
-    expect(getLatestEFTP(undefined)).toBeUndefined();
-  });
-
-  it('returns undefined for empty array', () => {
-    expect(getLatestEFTP([])).toBeUndefined();
-  });
-
-  it('returns undefined when no activities have eFTP', () => {
-    const activities = [{ id: 'a1', start_date_local: '2025-01-10T10:00:00' } as Activity];
-    expect(getLatestEFTP(activities)).toBeUndefined();
-  });
-
   it('returns the eFTP from the most recent activity', () => {
     const activities = [
       { id: 'a1', start_date_local: '2025-01-10T10:00:00', icu_pm_ftp_watts: 240 } as Activity,

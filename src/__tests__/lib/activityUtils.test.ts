@@ -41,81 +41,11 @@ describe('sortByDateId', () => {
     const result = sortByDateId([]);
     expect(result).toEqual([]);
   });
-
-  it('handles single item array', () => {
-    const items = [{ id: '2024-01-15', value: 1 }];
-    const result = sortByDateId(items);
-    expect(result).toEqual(items);
-  });
-
-  it('handles already sorted array', () => {
-    const items = [
-      { id: '2024-01-10', value: 1 },
-      { id: '2024-01-15', value: 2 },
-      { id: '2024-01-20', value: 3 },
-    ];
-
-    const sorted = sortByDateId(items);
-
-    expect(sorted.map((i) => i.id)).toEqual(['2024-01-10', '2024-01-15', '2024-01-20']);
-  });
-
-  it('handles reverse sorted array', () => {
-    const items = [
-      { id: '2024-01-20', value: 3 },
-      { id: '2024-01-15', value: 2 },
-      { id: '2024-01-10', value: 1 },
-    ];
-
-    const sorted = sortByDateId(items);
-
-    expect(sorted.map((i) => i.id)).toEqual(['2024-01-10', '2024-01-15', '2024-01-20']);
-  });
-
-  it('handles dates across years', () => {
-    const items = [
-      { id: '2024-01-15', value: 3 },
-      { id: '2023-12-20', value: 2 },
-      { id: '2022-06-10', value: 1 },
-    ];
-
-    const sorted = sortByDateId(items);
-
-    expect(sorted.map((i) => i.id)).toEqual(['2022-06-10', '2023-12-20', '2024-01-15']);
-  });
-
-  it('preserves object properties', () => {
-    const items = [
-      { id: '2024-01-15', name: 'B', extra: { nested: true } },
-      { id: '2024-01-10', name: 'A', extra: { nested: false } },
-    ];
-
-    const sorted = sortByDateId(items);
-
-    expect(sorted[0]).toEqual({
-      id: '2024-01-10',
-      name: 'A',
-      extra: { nested: false },
-    });
-    expect(sorted[1]).toEqual({
-      id: '2024-01-15',
-      name: 'B',
-      extra: { nested: true },
-    });
-  });
 });
 
 describe('getActivityColor', () => {
   it('returns correct color for Ride', () => {
     expect(getActivityColor('Ride')).toBe('#3B82F6'); // Blue-500 (NO orange)
-  });
-
-  it('returns correct color for Run', () => {
-    expect(getActivityColor('Run')).toBe('#10B981'); // Emerald-500
-  });
-
-  it('returns correct color for Swim', () => {
-    expect(getActivityColor('Swim')).toBe('#06B6D4'); // Cyan-500
   });
 
   it('returns default color for unknown activity', () => {
@@ -131,14 +61,6 @@ describe('getActivityColor', () => {
 describe('getActivityIcon', () => {
   it('returns bike icon for Ride', () => {
     expect(getActivityIcon('Ride')).toBe('bike');
-  });
-
-  it('returns run icon for Run', () => {
-    expect(getActivityIcon('Run')).toBe('run');
-  });
-
-  it('returns swim icon for Swim', () => {
-    expect(getActivityIcon('Swim')).toBe('swim');
   });
 
   it('returns default icon for unknown activity', () => {

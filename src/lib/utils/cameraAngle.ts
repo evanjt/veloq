@@ -34,7 +34,7 @@ const ZOOM_REDUCTION_THRESHOLD = 300;
  *    - Shift center 8% toward camera (low side) to avoid clipping
  *    - Adaptive pitch: flatter for mountainous terrain (avoids exaggerated peaks)
  *    - Reduce zoom for very tall terrain
- * 3. Fallback: perpendicular to start→end bearing, 60° pitch
+ * 3. Fallback: perpendicular to start→end bearing, 48° pitch
  *
  * @param coordinates - Route coordinates as [lng, lat] pairs
  * @param altitude - Optional altitude array (meters) matching coordinate indices
@@ -45,11 +45,11 @@ export function calculateTerrainCamera(
   altitude?: number[]
 ): TerrainCamera {
   if (coordinates.length === 0) {
-    return { center: [0, 0], zoom: 10, bearing: 0, pitch: 60 };
+    return { center: [0, 0], zoom: 10, bearing: 0, pitch: 48 };
   }
 
   if (coordinates.length === 1) {
-    return { center: coordinates[0], zoom: 13, bearing: 0, pitch: 60 };
+    return { center: coordinates[0], zoom: 13, bearing: 0, pitch: 48 };
   }
 
   // Calculate bounding box
@@ -67,7 +67,7 @@ export function calculateTerrainCamera(
   }
 
   if (!isFinite(minLng) || !isFinite(minLat)) {
-    return { center: [0, 0], zoom: 10, bearing: 0, pitch: 60 };
+    return { center: [0, 0], zoom: 10, bearing: 0, pitch: 48 };
   }
 
   const centerLng = (minLng + maxLng) / 2;
@@ -123,7 +123,7 @@ export function calculateTerrainCamera(
     center: [centerLng, centerLat],
     zoom,
     bearing,
-    pitch: 60,
+    pitch: 48,
   };
 }
 
@@ -193,15 +193,17 @@ function computeElevationCamera(
   const bearing = (Math.atan2(gradLng, gradLat) * 180) / Math.PI;
   const normalizedBearing = (bearing + 360) % 360;
 
-  // Adaptive pitch based on elevation range
-  // With 1.5x terrain exaggeration, lower pitch for mountainous terrain
+  // Adaptive pitch based on elevation range.
+  // Lower pitches show more of the route from above (less "zoomed in") and request
+  // fewer horizon tiles — important now that regional sources use tileSize: 64.
+  // With 1.5x terrain exaggeration, mountainous routes still look dramatic at 40°.
   let pitch: number;
   if (elevationRange < MEDIUM_ELEVATION) {
-    pitch = 62; // Flat-ish: more top-down, shows route layout
+    pitch = 50; // Flat-ish: more top-down, shows route layout clearly
   } else if (elevationRange < MOUNTAINOUS_ELEVATION) {
-    pitch = 58; // Medium: balanced
+    pitch = 45; // Medium: balanced 3D effect without excessive foreshortening
   } else {
-    pitch = 52; // Mountainous: more horizontal, dramatic views
+    pitch = 40; // Mountainous: terrain exaggeration provides drama, less pitch needed
   }
 
   return { bearing: normalizedBearing, pitch, elevationRange };

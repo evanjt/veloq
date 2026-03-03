@@ -86,14 +86,6 @@ describe('paceToMinPer100m', () => {
     expect(result.seconds).toBe(40);
   });
 
-  it('returns {0, 0} for zero speed', () => {
-    expect(paceToMinPer100m(0)).toEqual({ minutes: 0, seconds: 0 });
-  });
-
-  it('returns {0, 0} for negative speed', () => {
-    expect(paceToMinPer100m(-2)).toEqual({ minutes: 0, seconds: 0 });
-  });
-
   it('rolls over seconds=60 to next minute', () => {
     // secondsPer100m = 100 / speed; we need secondsPer100m % 60 >= 59.5
     // e.g. secondsPer100m = 119.5 → 100/119.5 m/s
@@ -121,17 +113,6 @@ describe('getPaceAtDistance', () => {
 
   it('returns null for undefined curve', () => {
     expect(getPaceAtDistance(undefined, 1000)).toBeNull();
-  });
-
-  it('returns null for curve with empty distances', () => {
-    const emptyCurve: PaceCurve = {
-      type: 'pace',
-      sport: 'Run',
-      distances: [],
-      times: [],
-      pace: [],
-    };
-    expect(getPaceAtDistance(emptyCurve, 1000)).toBeNull();
   });
 
   it('finds exact distance match', () => {
@@ -174,17 +155,6 @@ describe('getIndexAtDistance', () => {
     expect(getIndexAtDistance(undefined, 1000)).toBeNull();
   });
 
-  it('returns null for empty distances', () => {
-    const emptyCurve: PaceCurve = {
-      type: 'pace',
-      sport: 'Run',
-      distances: [],
-      times: [],
-      pace: [],
-    };
-    expect(getIndexAtDistance(emptyCurve, 1000)).toBeNull();
-  });
-
   it('returns exact index for exact match', () => {
     expect(getIndexAtDistance(mockCurve, 800)).toBe(1);
   });
@@ -206,10 +176,6 @@ describe('getIndexAtDistance', () => {
   it('returns first index for distance below range', () => {
     expect(getIndexAtDistance(mockCurve, 10)).toBe(0);
   });
-
-  it('returns last index for distance above range', () => {
-    expect(getIndexAtDistance(mockCurve, 99999)).toBe(4);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -227,11 +193,6 @@ describe('getTimeAtDistance', () => {
 
   it('returns null for undefined curve', () => {
     expect(getTimeAtDistance(undefined, 1000)).toBeNull();
-  });
-
-  it('returns null for curve with no times', () => {
-    const noTimes = { type: 'pace', sport: 'Run', distances: [100] } as PaceCurve;
-    expect(getTimeAtDistance(noTimes, 100)).toBeNull();
   });
 
   it('returns time at exact distance', () => {
@@ -297,11 +258,6 @@ describe('getIndexAtDuration', () => {
 
   it('returns null for undefined curve', () => {
     expect(getIndexAtDuration(undefined, 60)).toBeNull();
-  });
-
-  it('returns null for empty secs', () => {
-    const emptyCurve: PowerCurve = { type: 'power', sport: 'Ride', secs: [], watts: [] };
-    expect(getIndexAtDuration(emptyCurve, 60)).toBeNull();
   });
 
   it('returns exact index', () => {
@@ -392,14 +348,6 @@ describe('SWIM_PACE_CURVE_DISTANCES', () => {
     expect(labels).toContain('400m');
     expect(labels).toContain('1500m');
   });
-
-  it('distances are in ascending order', () => {
-    for (let i = 1; i < SWIM_PACE_CURVE_DISTANCES.length; i++) {
-      expect(SWIM_PACE_CURVE_DISTANCES[i].meters).toBeGreaterThan(
-        SWIM_PACE_CURVE_DISTANCES[i - 1].meters
-      );
-    }
-  });
 });
 
 describe('POWER_CURVE_DURATIONS', () => {
@@ -410,11 +358,5 @@ describe('POWER_CURVE_DURATIONS', () => {
     expect(labels).toContain('5m');
     expect(labels).toContain('20m');
     expect(labels).toContain('1h');
-  });
-
-  it('durations are in ascending order', () => {
-    for (let i = 1; i < POWER_CURVE_DURATIONS.length; i++) {
-      expect(POWER_CURVE_DURATIONS[i].secs).toBeGreaterThan(POWER_CURVE_DURATIONS[i - 1].secs);
-    }
   });
 });

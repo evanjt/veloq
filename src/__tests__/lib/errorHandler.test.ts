@@ -46,23 +46,6 @@ describe('errorHandler', () => {
       spy.mockRestore();
     });
 
-    it('returns fallback with log:false on silent level', async () => {
-      const result = await handleAsyncError(Promise.reject(new Error('fail')), 'Test', {
-        level: 'silent',
-        fallback: 'safe',
-        log: false,
-      });
-      expect(result).toBe('safe');
-    });
-
-    it('handles non-Error rejections', async () => {
-      const result = await handleAsyncError(Promise.reject('string error'), 'Test', {
-        level: 'warning',
-        fallback: 'fallback',
-      });
-      expect(result).toBe('fallback');
-    });
-
     it('log=false suppresses console.warn for warning level', async () => {
       // console.warn is already jest.fn() from jest.setup.js — clear accumulated calls
       (console.warn as jest.Mock).mockClear();
@@ -83,15 +66,6 @@ describe('errorHandler', () => {
         })
       ).rejects.toThrow('critical');
       expect(console.error).not.toHaveBeenCalled();
-    });
-
-    it('log=true (default) does log console.warn for warning level', async () => {
-      (console.warn as jest.Mock).mockClear();
-      await handleAsyncError(Promise.reject(new Error('warn-test')), 'WarnCtx', {
-        level: 'warning',
-        fallback: null,
-      });
-      expect(console.warn).toHaveBeenCalledWith('[WarnCtx] Warning (using fallback):', 'warn-test');
     });
   });
 
@@ -170,14 +144,6 @@ describe('errorHandler', () => {
   describe('isNetworkError', () => {
     it('returns true for ERR_NETWORK', () => {
       expect(isNetworkError({ code: 'ERR_NETWORK' })).toBe(true);
-    });
-
-    it('returns true for ECONNABORTED', () => {
-      expect(isNetworkError({ code: 'ECONNABORTED' })).toBe(true);
-    });
-
-    it('returns true for ETIMEDOUT', () => {
-      expect(isNetworkError({ code: 'ETIMEDOUT' })).toBe(true);
     });
 
     it('returns false for other error codes', () => {

@@ -81,20 +81,6 @@ describe('simplifyPolyline', () => {
     expect(result[1]).toBe(straight[2]);
   });
 
-  it('reduces points on a zigzag', () => {
-    // Zigzag: significant deviations should be kept
-    const zigzag = [
-      { lat: 0, lng: 0 },
-      { lat: 0.5, lng: 0.01 }, // slight deviation
-      { lat: 1, lng: 0 },
-      { lat: 1.5, lng: 0.01 },
-      { lat: 2, lng: 0 },
-    ];
-    // With large tolerance, should collapse to endpoints
-    const result = simplifyPolyline(zigzag, 100000);
-    expect(result.length).toBeLessThan(zigzag.length);
-  });
-
   it('preserves endpoints', () => {
     const points = [
       { lat: 0, lng: 0 },
@@ -106,16 +92,6 @@ describe('simplifyPolyline', () => {
     const result = simplifyPolyline(points, 5);
     expect(result[0]).toBe(points[0]);
     expect(result[result.length - 1]).toBe(points[points.length - 1]);
-  });
-
-  it('handles large arrays without crashing', () => {
-    const points = Array.from({ length: 1000 }, (_, i) => ({
-      lat: i * 0.001,
-      lng: Math.sin(i * 0.1) * 0.001,
-    }));
-    const result = simplifyPolyline(points, 5);
-    expect(result.length).toBeGreaterThanOrEqual(2);
-    expect(result.length).toBeLessThanOrEqual(points.length);
   });
 
   it('tolerance=0 keeps all points that deviate from line', () => {

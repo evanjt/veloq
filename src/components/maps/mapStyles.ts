@@ -243,19 +243,13 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
 
 /**
  * Build a combined satellite style for 3D contexts (Map3DWebView, TerrainSnapshotWebView).
- * Uses tileSize: 256 so MapLibre requests 1:1 tiles — at 60° pitch the viewport covers
- * a huge area, and tileSize: 64 would request 16x more tiles, many of which are on the
- * horizon and never finish loading. Complete tile coverage matters more than sharpness
- * in 3D terrain views.
+ *
+ * Uses the same tile sources and tileSize as the 2D style — no degradation. At 40-50° pitch
+ * (with +2 zoom boost in calculateTerrainCamera) tile loading is reliable. The tileSize: 64
+ * on all sources gives +2 effective zoom levels of tile detail.
  */
 export function getCombinedSatelliteStyle3D(): CombinedSatelliteMapStyle {
-  const style = getCombinedSatelliteStyle();
-  // Override all sources to tileSize 256 for 3D
-  const sources = { ...style.sources };
-  for (const key of Object.keys(sources)) {
-    sources[key] = { ...sources[key], tileSize: 256 };
-  }
-  return { ...style, sources };
+  return getCombinedSatelliteStyle();
 }
 
 /**

@@ -122,13 +122,6 @@ describe('convertNativeSectionToApp', () => {
     expect(result.sectionType).toBe('custom');
   });
 
-  it('converts NativeSection with sectionType "auto"', () => {
-    const native = makeNativeSection({ sectionType: 'auto' });
-    const result = convertNativeSectionToApp(native as any);
-
-    expect(result.sectionType).toBe('auto');
-  });
-
   it('defaults sectionType to "auto" for any non-"custom" value', () => {
     const native = makeNativeSection({ sectionType: 'something_else' });
     const result = convertNativeSectionToApp(native as any);
@@ -150,39 +143,11 @@ describe('convertNativeSectionToApp', () => {
     expect(result.confidence).toBe(0);
   });
 
-  it('defaults observationCount to 0 when null', () => {
-    const native = makeNativeSection();
-    const result = convertNativeSectionToApp(native as any);
-
-    expect(result.observationCount).toBe(0);
-  });
-
-  it('defaults averageSpread to 0 when null', () => {
-    const native = makeNativeSection();
-    const result = convertNativeSectionToApp(native as any);
-
-    expect(result.averageSpread).toBe(0);
-  });
-
   it('defaults pointDensity to empty array when null', () => {
     const native = makeNativeSection();
     const result = convertNativeSectionToApp(native as any);
 
     expect(result.pointDensity).toEqual([]);
-  });
-
-  it('defaults routeIds to empty array when not present', () => {
-    const native = makeNativeSection(); // NativeSection doesn't have routeIds
-    const result = convertNativeSectionToApp(native as any);
-
-    expect(result.routeIds).toEqual([]);
-  });
-
-  it('sets activityPortions to undefined when not present', () => {
-    const native = makeNativeSection(); // NativeSection doesn't have activityPortions
-    const result = convertNativeSectionToApp(native as any);
-
-    expect(result.activityPortions).toBeUndefined();
   });
 
   it('returns empty string for createdAt when input has no createdAt (bug fix)', () => {

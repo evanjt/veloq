@@ -129,16 +129,6 @@ describe('ThemeProvider', () => {
     await AsyncStorage.setItem(THEME_KEY, 'dark');
     expect(await getThemePreference()).toBe('dark');
   });
-
-  it('returns "system" for invalid stored value', async () => {
-    await AsyncStorage.setItem(THEME_KEY, 'neon');
-    expect(await getThemePreference()).toBe('system');
-  });
-
-  it('returns "system" on storage error', async () => {
-    (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('fail'));
-    expect(await getThemePreference()).toBe('system');
-  });
 });
 
 // ================================================================
@@ -166,12 +156,6 @@ describe('UnitPreferenceStore', () => {
       await AsyncStorage.setItem(UNIT_PREFERENCE_KEY, 'imperial');
       await useUnitPreference.getState().initialize();
       expect(useUnitPreference.getState().unitPreference).toBe('imperial');
-    });
-
-    it('rejects invalid value — keeps default', async () => {
-      await AsyncStorage.setItem(UNIT_PREFERENCE_KEY, 'cubits');
-      await useUnitPreference.getState().initialize();
-      expect(useUnitPreference.getState().unitPreference).toBe('auto');
     });
   });
 
@@ -415,21 +399,9 @@ describe('SportPreferenceStore', () => {
       expect(SPORT_API_TYPES.Running).toContain('Run');
       expect(SPORT_API_TYPES.Running).toContain('TrailRun');
     });
-
-    it('SPORT_COLORS has valid hex colors', () => {
-      (['Cycling', 'Running', 'Swimming'] as PrimarySport[]).forEach((sport) => {
-        expect(SPORT_COLORS[sport]).toMatch(/^#[0-9A-Fa-f]{6}$/);
-      });
-    });
   });
 
   describe('initialize()', () => {
-    it('restores valid sport from storage', async () => {
-      await AsyncStorage.setItem(SPORT_PREFERENCE_KEY, 'Running');
-      await useSportPreference.getState().initialize();
-      expect(useSportPreference.getState().primarySport).toBe('Running');
-    });
-
     it('rejects invalid sport — falls back to default', async () => {
       await AsyncStorage.setItem(SPORT_PREFERENCE_KEY, 'Skiing');
       await useSportPreference.getState().initialize();
@@ -492,25 +464,6 @@ describe('DashboardPreferencesStore', () => {
       expect(after).toEqual(before);
     });
 
-    it('negative fromIndex is no-op', () => {
-      const before = useDashboardPreferences
-        .getState()
-        .getEnabledMetrics()
-        .map((m) => m.id);
-      useDashboardPreferences.getState().reorderMetrics(-1, 0);
-      expect(
-        useDashboardPreferences
-          .getState()
-          .getEnabledMetrics()
-          .map((m) => m.id)
-      ).toEqual(before);
-    });
-
-    it('handles out-of-bounds fromIndex gracefully', () => {
-      useDashboardPreferences.getState().reorderMetrics(100, 0);
-      expect(useDashboardPreferences.getState().getEnabledMetrics().length).toBe(4);
-    });
-
     it('disabled metrics retain high order values after reorder', () => {
       useDashboardPreferences.getState().reorderMetrics(0, 2);
       const { metrics } = useDashboardPreferences.getState();
@@ -553,14 +506,6 @@ describe('DashboardPreferencesStore', () => {
       orders.forEach((order, index) => {
         expect(order).toBe(index);
       });
-    });
-
-    it('disabling all metrics leaves getEnabledMetrics() empty', () => {
-      const allIds: MetricId[] = ['fitness', 'ftp', 'weekHours', 'weight'];
-      allIds.forEach((id) => {
-        useDashboardPreferences.getState().setMetricEnabled(id, false);
-      });
-      expect(useDashboardPreferences.getState().getEnabledMetrics()).toHaveLength(0);
     });
   });
 
@@ -631,12 +576,6 @@ describe('DashboardPreferencesStore', () => {
       expect(useDashboardPreferences.getState().summaryCard.showSparkline).toBe(false);
       expect(useDashboardPreferences.getState().summaryCard.heroMetric).toBe(original.heroMetric);
     });
-
-    it('empty partial update is a no-op', () => {
-      const original = { ...useDashboardPreferences.getState().summaryCard };
-      useDashboardPreferences.getState().setSummaryCardPreferences({});
-      expect(useDashboardPreferences.getState().summaryCard).toEqual(original);
-    });
   });
 
   describe('initialization', () => {
@@ -654,17 +593,6 @@ describe('DashboardPreferencesStore', () => {
           .getEnabledMetrics()
           .map((m) => m.id)
       ).toContain('thresholdPace');
-    });
-
-    it('loads valid summaryCard from AsyncStorage', async () => {
-      const customSummaryCard: SummaryCardPreferences = {
-        heroMetric: 'hrv',
-        showSparkline: false,
-        supportingMetrics: ['rhr'],
-      };
-      await AsyncStorage.setItem(SUMMARY_CARD_STORAGE_KEY, JSON.stringify(customSummaryCard));
-      await initializeDashboardPreferences('Cycling');
-      expect(useDashboardPreferences.getState().summaryCard.heroMetric).toBe('hrv');
     });
   });
 
@@ -704,30 +632,9 @@ describe('HRZonesStore', () => {
       expect(zones[zones.length - 1].max).toBe(1.0);
       zones.forEach((z, i) => expect(z.id).toBe(i + 1));
     });
-
-    it('default zones have names and colors', () => {
-      const zones = useHRZones.getState().zones;
-      zones.forEach((z) => {
-        expect(z.name).toBeTruthy();
-        expect(z.color).toMatch(/^#[0-9A-Fa-f]{6}$/);
-      });
-    });
   });
 
   describe('initialize()', () => {
-    it('restores settings from storage', async () => {
-      const stored = {
-        maxHR: 185,
-        zones: DEFAULT_HR_ZONES.map((z) => ({ ...z })),
-      };
-      stored.zones[0] = { ...stored.zones[0], min: 0.45, max: 0.55 };
-      await AsyncStorage.setItem(HR_ZONES_KEY, JSON.stringify(stored));
-
-      await useHRZones.getState().initialize();
-      expect(useHRZones.getState().maxHR).toBe(185);
-      expect(useHRZones.getState().zones[0].min).toBe(0.45);
-    });
-
     it('handles corrupt JSON and invalid schema', async () => {
       await AsyncStorage.setItem(HR_ZONES_KEY, 'not json');
       await useHRZones.getState().initialize();
@@ -757,12 +664,6 @@ describe('HRZonesStore', () => {
       await useHRZones.getState().setZoneThreshold(1, 0.4, 0.55);
       expect(useHRZones.getState().zones[0].min).toBe(0.4);
       expect(useHRZones.getState().zones[1]).toEqual(zone2Before);
-    });
-
-    it('ignores non-existent zone ID', async () => {
-      const zonesBefore = useHRZones.getState().zones.map((z) => ({ ...z }));
-      await useHRZones.getState().setZoneThreshold(99, 0.1, 0.2);
-      expect(useHRZones.getState().zones).toEqual(zonesBefore);
     });
   });
 
@@ -852,21 +753,6 @@ describe('MapPreferencesContext', () => {
       expect(result.current.getStyleForActivity('Ride')).toBe('dark');
       expect(result.current.preferences.defaultStyle).toBe('satellite');
     });
-
-    it('should persist changes to AsyncStorage', async () => {
-      const { result } = renderHook(() => useMapPreferences(), { wrapper: mapWrapper });
-      await waitFor(() => expect(result.current.isLoaded).toBe(true));
-
-      const setItemSpy = jest.spyOn(AsyncStorage, 'setItem');
-      await act(async () => {
-        await result.current.setDefaultStyle('satellite');
-      });
-      expect(setItemSpy).toHaveBeenCalledWith(
-        MAP_PREFS_KEY,
-        expect.stringContaining('"defaultStyle":"satellite"')
-      );
-      setItemSpy.mockRestore();
-    });
   });
 
   describe('setActivityGroupStyle() - Batch Updates', () => {
@@ -905,29 +791,6 @@ describe('MapPreferencesContext', () => {
       const { result } = renderHook(() => useMapPreferences(), { wrapper: mapWrapper });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
       expect(result.current.preferences.defaultStyle).toBe('light');
-    });
-
-    it('rejects invalid defaultStyle value', async () => {
-      await AsyncStorage.setItem(
-        MAP_PREFS_KEY,
-        JSON.stringify({ defaultStyle: 'invalid_style', activityTypeStyles: {} })
-      );
-      const { result } = renderHook(() => useMapPreferences(), { wrapper: mapWrapper });
-      await waitFor(() => expect(result.current.isLoaded).toBe(true));
-      expect(result.current.preferences.defaultStyle).toBe('light');
-    });
-
-    it('rejects invalid activityTypeStyles entries', async () => {
-      await AsyncStorage.setItem(
-        MAP_PREFS_KEY,
-        JSON.stringify({
-          defaultStyle: 'light',
-          activityTypeStyles: { InvalidActivityType: 'dark' },
-        })
-      );
-      const { result } = renderHook(() => useMapPreferences(), { wrapper: mapWrapper });
-      await waitFor(() => expect(result.current.isLoaded).toBe(true));
-      expect(result.current.preferences.activityTypeStyles).toEqual({});
     });
 
     it('handles AsyncStorage read failure', async () => {

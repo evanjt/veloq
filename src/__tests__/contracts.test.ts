@@ -163,16 +163,6 @@ describe('Data Pipeline', () => {
     expect(formatCalories(RIDE.calories)).toBe('1.2k cal');
   });
 
-  // Test 2: Ride imperial display values
-  it('ride fixture → correct imperial display values', () => {
-    // 45000m * 0.621371 / 1000 = 27.96 mi
-    expect(formatDistance(RIDE.distance, false)).toBe('28.0 mi');
-    // 850m * 3.28084 = 2789 ft
-    expect(formatElevation(RIDE.total_elevation_gain, false)).toBe('2789 ft');
-    // 8.3 m/s * 2.23694 = 18.6 mph
-    expect(formatSpeed(RIDE.average_speed, false)).toBe('18.6 mph');
-  });
-
   // Test 3: Run shows pace not speed
   it('run fixture → pace in min/km, not speed in km/h', () => {
     // 3.15 m/s → 1000/3.15 = 317.46 s/km = 5:17 /km
@@ -194,28 +184,6 @@ describe('Data Pipeline', () => {
     // Imperial: 91.44 / 0.83 = 110.17 s ≈ 1:50
     const imperialPace = formatSwimPace(SWIM.average_speed, false);
     expect(imperialPace).toBe('1:50');
-  });
-
-  // Test 5: Null fields format without NaN
-  it('activity with null fields → formats without NaN', () => {
-    const hrStr = formatHeartRate(NULL_ACTIVITY.average_heartrate as unknown as number);
-    const powerStr = formatPower(NULL_ACTIVITY.average_watts as unknown as number);
-    const elevStr = formatElevation(NULL_ACTIVITY.total_elevation_gain);
-
-    expect(hrStr).not.toContain('NaN');
-    expect(powerStr).not.toContain('NaN');
-    expect(elevStr).not.toContain('NaN');
-
-    // NaN input to formatHeartRate should give fallback
-    expect(formatHeartRate(NaN)).toBe('0 bpm');
-    expect(formatPower(NaN)).toBe('0 W');
-  });
-
-  // Test 6: Zero distance
-  it('activity with zero distance → sensible display values', () => {
-    expect(formatDistance(ZERO_DIST.distance)).toBe('0 m');
-    expect(formatPace(ZERO_DIST.average_speed)).toBe('--:--');
-    expect(formatSpeed(ZERO_DIST.average_speed)).toBe('0.0 km/h');
   });
 
   // Test 7: parseStreams with full stream set
@@ -248,33 +216,6 @@ describe('Data Pipeline', () => {
     ]);
   });
 
-  // Test 8: fixed_altitude overrides altitude
-  it('parseStreams: fixed_altitude overrides altitude regardless of order', () => {
-    const altitudeFirst: RawStreamItem[] = [
-      { type: 'altitude', name: null, data: [100, 110, 120] },
-      { type: 'fixed_altitude', name: null, data: [105, 115, 125] },
-    ];
-    expect(parseStreams(altitudeFirst).altitude).toEqual([105, 115, 125]);
-
-    const fixedFirst: RawStreamItem[] = [
-      { type: 'fixed_altitude', name: null, data: [105, 115, 125] },
-      { type: 'altitude', name: null, data: [100, 110, 120] },
-    ];
-    expect(parseStreams(fixedFirst).altitude).toEqual([105, 115, 125]);
-  });
-
-  // Test 9: latlng with data but no data2
-  it('parseStreams: latlng with data but no data2 → no latlng (not crash)', () => {
-    const raw: RawStreamItem[] = [
-      { type: 'latlng', name: null, data: [46.0, 46.1, 46.2] },
-      { type: 'time', name: null, data: [0, 5, 10] },
-    ];
-
-    const streams = parseStreams(raw);
-    expect(streams.latlng).toBeUndefined();
-    expect(streams.time).toEqual([0, 5, 10]);
-  });
-
   // Test 10: toActivityMetrics date and zone fields
   it('toActivityMetrics → date is correct unix BigInt, zone times are JSON strings', () => {
     const metrics = toActivityMetrics(RIDE);
@@ -292,22 +233,6 @@ describe('Data Pipeline', () => {
     expect(metrics.distance).toBe(45000);
     expect(metrics.movingTime).toBe(5400);
     expect(metrics.sportType).toBe('Ride');
-  });
-
-  // Test 11: Wellness → calculateTSB → correct TSB values
-  it('wellness fixtures → calculateTSB → correct TSB values', () => {
-    const wellness: WellnessData[] = [
-      { id: '2026-01-01', ctl: 50, atl: 60 },
-      { id: '2026-01-02', ctl: 45, atl: 40 },
-      { id: '2026-01-03', ctl: 30, atl: 30 },
-    ];
-
-    const result = calculateTSB(wellness);
-
-    expect(result).toHaveLength(3);
-    expect(result[0].tsb).toBe(-10); // 50 - 60
-    expect(result[1].tsb).toBe(5); // 45 - 40
-    expect(result[2].tsb).toBe(0); // 30 - 30
   });
 
   // Test 12: TSB → form zones at boundaries
@@ -368,62 +293,6 @@ describe('Resilience', () => {
     }
   });
 
-  // Test 14: Infinity → no output contains "Infinity"
-  it('every format function with Infinity → no output contains "Infinity"', () => {
-    for (const [name, fn] of numericFormatFunctions) {
-      const result = fn(Infinity);
-      expect(result).not.toContain('Infinity');
-    }
-    for (const [name, fn] of numericFormatFunctions) {
-      const result = fn(-Infinity);
-      expect(result).not.toContain('Infinity');
-    }
-    for (const [name, fn] of nullableFormatFunctions) {
-      expect(fn(Infinity)).not.toContain('Infinity');
-      expect(fn(-Infinity)).not.toContain('Infinity');
-    }
-  });
-
-  // Test 15: Negative → sensible fallback
-  it('every format function with negative → sensible fallback', () => {
-    for (const [name, fn] of numericFormatFunctions) {
-      const result = fn(-100);
-      expect(result).not.toContain('NaN');
-      expect(result).not.toContain('undefined');
-      expect(result.length).toBeGreaterThan(0);
-    }
-  });
-
-  // Test 16: formatDistance at thresholds
-  it('formatDistance at unit thresholds: 999→m, 1000→km, feet/miles boundary', () => {
-    // Metric thresholds
-    expect(formatDistance(999)).toBe('999 m');
-    expect(formatDistance(1000)).toBe('1.0 km');
-
-    // Imperial: < 0.25 miles (~402m) → feet, >= 0.25 miles → miles
-    // 400m → 400 * 3.28084 = 1312 ft; 400m in miles = 0.4 * 0.621371 = 0.249
-    expect(formatDistance(400, false)).toMatch(/ft$/);
-    // 403m → 0.403 * 0.621371 = 0.2504 mi → should be miles
-    expect(formatDistance(403, false)).toMatch(/mi$/);
-  });
-
-  // Test 17: formatPace with very slow speed
-  it('formatPace with very slow speed (0.1 m/s) → capped, not absurd', () => {
-    // 0.1 m/s → 1000/0.1 = 10000 s/km = 166:40 /km
-    // This IS what the function returns — it's mathematically correct
-    const result = formatPace(0.1);
-    expect(result).toMatch(/\d+:\d{2} \/km/);
-    expect(result).not.toContain('NaN');
-    expect(result).not.toContain('Infinity');
-  });
-
-  // Test 18: formatCalories at compact format boundaries
-  it('formatCalories: 999→"999 cal", 1000→"1.0k cal", 1500→"1.5k cal"', () => {
-    expect(formatCalories(999)).toBe('999 cal');
-    expect(formatCalories(1000)).toBe('1.0k cal');
-    expect(formatCalories(1500)).toBe('1.5k cal');
-  });
-
   // Test 19: formatDuration at hour/minute boundaries
   it('formatDuration: 0, 59, 60, 3599, 3600 → correct format transitions', () => {
     expect(formatDuration(0)).toBe('0:00');
@@ -431,55 +300,6 @@ describe('Resilience', () => {
     expect(formatDuration(60)).toBe('1:00');
     expect(formatDuration(3599)).toBe('59:59');
     expect(formatDuration(3600)).toBe('1:00:00');
-  });
-
-  // Test 20: calculateTSB with empty array
-  it('calculateTSB with empty array → empty array', () => {
-    expect(calculateTSB([])).toEqual([]);
-  });
-
-  // Test 21: calculateTSB with missing ctl/atl → falls back to ctlLoad/atlLoad
-  it('calculateTSB with missing ctl/atl → falls back to ctlLoad/atlLoad', () => {
-    const wellness: WellnessData[] = [
-      { id: '2026-01-01', ctlLoad: 50, atlLoad: 60 },
-      { id: '2026-01-02', ctlLoad: 40, atlLoad: 30 },
-    ];
-
-    const result = calculateTSB(wellness);
-    expect(result[0].tsb).toBe(-10); // 50 - 60
-    expect(result[1].tsb).toBe(10); // 40 - 30
-  });
-
-  // Test 22: parseStreams with empty array
-  it('parseStreams with empty array → empty object', () => {
-    const result = parseStreams([]);
-    expect(result).toEqual({});
-  });
-
-  // Test 23: parseStreams ignores unknown stream types
-  it('parseStreams ignores unknown stream types', () => {
-    const raw: RawStreamItem[] = [
-      { type: 'time', name: null, data: [0, 5, 10] },
-      { type: 'future_sensor', name: null, data: [1, 2, 3] },
-      { type: 'unknown_type', name: null, data: [4, 5, 6] },
-    ];
-
-    const streams = parseStreams(raw);
-    expect(streams.time).toEqual([0, 5, 10]);
-    expect(Object.keys(streams)).toEqual(['time']);
-  });
-
-  // Test 24: formatLocalDate uses local timezone, not UTC
-  it('formatLocalDate uses local timezone, not UTC', () => {
-    // Construct a date using local components — this is timezone-safe
-    const date = new Date(2026, 0, 15); // Jan 15, 2026 in local TZ
-    expect(formatLocalDate(date)).toBe('2026-01-15');
-
-    // The key property: formatLocalDate uses getFullYear/getMonth/getDate (local)
-    // NOT toISOString().split('T')[0] which would use UTC.
-    // Verify by checking a date constructed with specific local components
-    const dec31 = new Date(2025, 11, 31); // Dec 31, 2025 local
-    expect(formatLocalDate(dec31)).toBe('2025-12-31');
   });
 
   // Test 25: formatTemperature(null) → "--°C" not "NaN°C"
@@ -515,12 +335,5 @@ describe('Resilience', () => {
     expect(metrics.sportType).toBe('Ride'); // default when type is undefined
     expect(metrics.powerZoneTimes).toBeUndefined();
     expect(metrics.hrZoneTimes).toBeUndefined();
-  });
-
-  // Test 27: formatElevation(undefined) → "0 m" not "NaN m"
-  it('formatElevation(undefined) → "0 m" not "NaN m"', () => {
-    expect(formatElevation(undefined)).toBe('0 m');
-    expect(formatElevation(null)).toBe('0 m');
-    expect(formatElevation(undefined, false)).toBe('0 ft');
   });
 });

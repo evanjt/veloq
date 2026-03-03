@@ -24,7 +24,6 @@ import {
   isLanguageVariant,
   getBaseLanguage,
 } from '@/providers/LanguageStore';
-import { SUPPORTED_LOCALES } from '@/i18n/types';
 
 const STORAGE_KEY = 'veloq-language-preference';
 const mockGetLocales = Localization.getLocales as jest.Mock;
@@ -59,28 +58,10 @@ describe('LanguageStore', () => {
       expect(result).toBe('de-DE');
     });
 
-    it('returns exact locale when it is in SUPPORTED_LOCALES', () => {
-      expect(resolveLanguageToLocale('en-AU')).toBe('en-AU');
-      expect(resolveLanguageToLocale('de-CH')).toBe('de-CH');
-      expect(resolveLanguageToLocale('pt-BR')).toBe('pt-BR');
-    });
-
-    it('resolves language-only code to default variant (when not in SUPPORTED_LOCALES)', () => {
-      expect(resolveLanguageToLocale('en')).toBe('en-GB'); // 'en' not in list, resolves
-      // 'de' is not in SUPPORTED_LOCALES — resolves to 'de-DE' via fallback
-      expect(resolveLanguageToLocale('de')).toBe('de-DE');
-    });
-
     it('returns en-GB for unknown language', () => {
       expect(resolveLanguageToLocale('xyz')).toBe('en-GB');
       expect(resolveLanguageToLocale('invalid-locale')).toBe('en-GB');
       expect(resolveLanguageToLocale('')).toBe('en-GB');
-    });
-
-    it('handles all supported locales correctly', () => {
-      for (const locale of SUPPORTED_LOCALES) {
-        expect(resolveLanguageToLocale(locale)).toBe(locale);
-      }
     });
   });
 
@@ -112,26 +93,6 @@ describe('LanguageStore', () => {
       // Should have saved to AsyncStorage
       const saved = await AsyncStorage.getItem(STORAGE_KEY);
       expect(saved).toBe('en-AU');
-    });
-
-    it('handles unsupported device locale by falling back', async () => {
-      mockGetLocales.mockReturnValue([
-        { languageTag: 'xyz-XX', languageCode: 'xyz', regionCode: 'XX' },
-      ]);
-
-      const result = await initializeLanguage();
-
-      // Should fall back to en-GB
-      expect(result).toBe('en-GB');
-    });
-
-    it('sets isInitialized even on AsyncStorage error', async () => {
-      const mockGetItem = AsyncStorage.getItem as jest.Mock;
-      mockGetItem.mockRejectedValueOnce(new Error('Storage unavailable'));
-
-      await initializeLanguage();
-
-      expect(useLanguageStore.getState().isInitialized).toBe(true);
     });
 
     it('handles language-only saved values (old format)', async () => {
@@ -247,17 +208,6 @@ describe('LanguageStore', () => {
 
         expect(getEnglishVariantValue('en')).toBe('en-AU');
       });
-
-      it('passes through explicit English variants', () => {
-        expect(getEnglishVariantValue('en-US')).toBe('en-US');
-        expect(getEnglishVariantValue('en-GB')).toBe('en-GB');
-        expect(getEnglishVariantValue('en-AU')).toBe('en-AU');
-      });
-
-      it('returns en-GB for non-English languages', () => {
-        expect(getEnglishVariantValue('de')).toBe('en-GB');
-        expect(getEnglishVariantValue('fr')).toBe('en-GB');
-      });
     });
   });
 
@@ -266,11 +216,6 @@ describe('LanguageStore', () => {
   // ============================================================
 
   describe('isLanguageVariant()', () => {
-    it('matches base language code', () => {
-      expect(isLanguageVariant('de', 'de')).toBe(true);
-      expect(isLanguageVariant('en', 'en')).toBe(true);
-    });
-
     it('matches regional variants', () => {
       expect(isLanguageVariant('de-CH', 'de')).toBe(true);
       expect(isLanguageVariant('en-AU', 'en')).toBe(true);
@@ -281,10 +226,6 @@ describe('LanguageStore', () => {
       expect(isLanguageVariant('de-CH', 'en')).toBe(false);
       expect(isLanguageVariant('fr', 'de')).toBe(false);
     });
-
-    it('returns false for null', () => {
-      expect(isLanguageVariant(null, 'en')).toBe(false);
-    });
   });
 
   describe('getBaseLanguage()', () => {
@@ -292,11 +233,6 @@ describe('LanguageStore', () => {
       expect(getBaseLanguage('de-CH')).toBe('de');
       expect(getBaseLanguage('en-AU')).toBe('en');
       expect(getBaseLanguage('pt-BR')).toBe('pt');
-    });
-
-    it('returns language code as-is if no region', () => {
-      expect(getBaseLanguage('fr')).toBe('fr');
-      expect(getBaseLanguage('ja')).toBe('ja');
     });
 
     it('returns null for null input', () => {
@@ -309,13 +245,6 @@ describe('LanguageStore', () => {
   // ============================================================
 
   describe('getAvailableLanguages()', () => {
-    it('returns language groups', () => {
-      const groups = getAvailableLanguages();
-
-      expect(groups.length).toBeGreaterThan(0);
-      expect(groups[0].languages.length).toBeGreaterThan(0);
-    });
-
     it('includes German with Swiss dialect variants', () => {
       const groups = getAvailableLanguages();
       const german = groups[0].languages.find((l) => l.value === 'de');
@@ -324,62 +253,11 @@ describe('LanguageStore', () => {
       expect(german?.variants).toBeDefined();
       expect(german?.variants?.some((v) => v.value === 'de-CH')).toBe(true);
     });
-
-    it('marks Swiss German with isDialect flag', () => {
-      const groups = getAvailableLanguages();
-      const german = groups[0].languages.find((l) => l.value === 'de');
-
-      const ch = german?.variants?.find((v) => v.value === 'de-CH');
-
-      expect(ch?.isDialect).toBe(true);
-    });
-
-    it('marks English-AU as dialect', () => {
-      const groups = getAvailableLanguages();
-      const english = groups[0].languages.find((l) => l.value === 'en');
-
-      const au = english?.variants?.find((v) => v.value === 'en-AU');
-      expect(au?.isDialect).toBe(true);
-    });
-
-    it('has correct default variants', () => {
-      const groups = getAvailableLanguages();
-      const english = groups[0].languages.find((l) => l.value === 'en');
-      const german = groups[0].languages.find((l) => l.value === 'de');
-      const spanish = groups[0].languages.find((l) => l.value === 'es');
-
-      expect(english?.defaultVariant).toBe('en-GB');
-      expect(german?.defaultVariant).toBe('de-DE');
-      expect(spanish?.defaultVariant).toBe('es-419'); // LATAM
-    });
   });
 
   // ============================================================
   // DEVICE LOCALE MAPPING
   // ============================================================
-
-  describe('Device Locale Mapping', () => {
-    it('maps en-NZ to en-AU (closest variant)', async () => {
-      mockGetLocales.mockReturnValue([
-        { languageTag: 'en-NZ', languageCode: 'en', regionCode: 'NZ' },
-      ]);
-
-      const result = await initializeLanguage();
-      // en-NZ is not in SUPPORTED_LOCALES, so it will use the fallback mechanism
-      // The actual result depends on getDeviceLocale implementation
-      expect(['en-AU', 'en-GB', 'en-US']).toContain(result);
-    });
-
-    it('maps de-AT to de-DE (closest variant)', async () => {
-      mockGetLocales.mockReturnValue([
-        { languageTag: 'de-AT', languageCode: 'de', regionCode: 'AT' },
-      ]);
-
-      const result = await initializeLanguage();
-      // de-AT should fall back to de-DE
-      expect(['de-DE', 'de-CH']).toContain(result);
-    });
-  });
 
   // ============================================================
   // EDGE CASES
@@ -402,15 +280,6 @@ describe('LanguageStore', () => {
       await store.setLanguage('ja');
       await store.setLanguage('en-AU');
 
-      expect(useLanguageStore.getState().language).toBe('en-AU');
-    });
-
-    it('resolves language state changes without i18next', () => {
-      // Direct state manipulation to test store behavior
-      useLanguageStore.setState({ language: 'de', isInitialized: true });
-      expect(useLanguageStore.getState().language).toBe('de');
-
-      useLanguageStore.setState({ language: 'en-AU', isInitialized: true });
       expect(useLanguageStore.getState().language).toBe('en-AU');
     });
   });

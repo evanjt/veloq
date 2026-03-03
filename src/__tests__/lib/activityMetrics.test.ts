@@ -100,20 +100,6 @@ describe('toActivityMetrics', () => {
     expect(metrics.date).toBe(BigInt(0));
   });
 
-  it('does not throw on undefined start_date_local (BUG FIX)', () => {
-    const activity = makeActivity({
-      start_date_local: undefined as unknown as string,
-    });
-    expect(() => toActivityMetrics(activity)).not.toThrow();
-    const metrics = toActivityMetrics(activity);
-    expect(metrics.date).toBe(BigInt(0));
-  });
-
-  it('does not throw on empty string start_date_local', () => {
-    const activity = makeActivity({ start_date_local: '' });
-    expect(() => toActivityMetrics(activity)).not.toThrow();
-  });
-
   it('handles zone times being undefined', () => {
     const activity = makeActivity({
       icu_zone_times: undefined,

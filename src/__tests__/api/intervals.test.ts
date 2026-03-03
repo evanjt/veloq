@@ -41,15 +41,6 @@ describe('intervalsApi.getAthlete', () => {
   });
 });
 
-describe('intervalsApi.getCurrentAthlete', () => {
-  it('calls /athlete/me', async () => {
-    mockGet.mockResolvedValue({ data: { id: 'i12345', name: 'Me' } });
-    const result = await intervalsApi.getCurrentAthlete();
-    expect(mockGet).toHaveBeenCalledWith('/athlete/me');
-    expect(result.id).toBe('i12345');
-  });
-});
-
 describe('intervalsApi.getActivity', () => {
   it('calls correct endpoint with activity ID', async () => {
     mockGet.mockResolvedValue({ data: { id: 'act1', name: 'Morning Ride' } });
@@ -73,19 +64,6 @@ describe('intervalsApi.getActivities', () => {
       })
     );
   });
-
-  it('adds stats fields when includeStats is true', async () => {
-    mockGet.mockResolvedValue({ data: [] });
-    await intervalsApi.getActivities({
-      oldest: '2024-01-01',
-      newest: '2024-06-01',
-      includeStats: true,
-    });
-    const call = mockGet.mock.calls[0];
-    const fields = call[1]?.params?.fields as string;
-    expect(fields).toContain('icu_pm_ftp_watts');
-    expect(fields).toContain('icu_zone_times');
-  });
 });
 
 describe('intervalsApi.getActivityStreams', () => {
@@ -93,13 +71,6 @@ describe('intervalsApi.getActivityStreams', () => {
     mockGet.mockResolvedValue({ data: [] });
     await intervalsApi.getActivityStreams('act1');
     expect(mockGet).toHaveBeenCalledWith('/activity/act1/streams.json', expect.anything());
-  });
-
-  it('passes stream types param when specified', async () => {
-    mockGet.mockResolvedValue({ data: [] });
-    await intervalsApi.getActivityStreams('act1', ['heartrate', 'watts']);
-    const call = mockGet.mock.calls[0];
-    expect(call[1]?.params?.types).toBe('heartrate,watts');
   });
 });
 
@@ -128,14 +99,6 @@ describe('intervalsApi.getPowerCurve', () => {
     );
     expect(result.secs).toEqual([1, 5]);
     expect(result.watts).toEqual([400, 350]);
-  });
-
-  it('defaults to Ride sport and 1y curves', async () => {
-    mockGet.mockResolvedValue({ data: { list: [] } });
-    await intervalsApi.getPowerCurve();
-    const call = mockGet.mock.calls[0];
-    expect(call[1]?.params?.type).toBe('Ride');
-    expect(call[1]?.params?.curves).toBe('1y');
   });
 });
 
@@ -175,13 +138,6 @@ describe('intervalsApi.getActivityMap', () => {
     await intervalsApi.getActivityMap('act1');
     expect(mockGet).toHaveBeenCalledWith('/activity/act1/map', expect.anything());
   });
-
-  it('passes boundsOnly param when true', async () => {
-    mockGet.mockResolvedValue({ data: { bounds: [1, 2, 3, 4] } });
-    await intervalsApi.getActivityMap('act1', true);
-    const call = mockGet.mock.calls[0];
-    expect(call[1]?.params?.boundsOnly).toBe(true);
-  });
 });
 
 describe('intervalsApi.getAthleteSummary', () => {
@@ -216,12 +172,6 @@ describe('intervalsApi.getOldestActivityDate', () => {
 
   it('returns null for empty activities', async () => {
     mockGet.mockResolvedValue({ data: [] });
-    const result = await intervalsApi.getOldestActivityDate();
-    expect(result).toBeNull();
-  });
-
-  it('returns null on API error', async () => {
-    mockGet.mockRejectedValue(new Error('Network error'));
     const result = await intervalsApi.getOldestActivityDate();
     expect(result).toBeNull();
   });

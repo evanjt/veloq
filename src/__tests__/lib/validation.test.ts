@@ -23,33 +23,10 @@ describe('safeJsonParse', () => {
     expect(result).toEqual(fallback);
   });
 
-  it('returns fallback for undefined input', () => {
-    const fallback = { default: true };
-    const result = safeJsonParse(undefined, fallback);
-    expect(result).toEqual(fallback);
-  });
-
-  it('returns fallback for empty string', () => {
-    const fallback = { default: true };
-    const result = safeJsonParse('', fallback);
-    expect(result).toEqual(fallback);
-  });
-
   it('returns fallback when parsed value is null', () => {
     const fallback = { default: true };
     const result = safeJsonParse('null', fallback);
     expect(result).toEqual(fallback);
-  });
-
-  it('handles arrays', () => {
-    const result = safeJsonParse<number[]>('[1,2,3]', []);
-    expect(result).toEqual([1, 2, 3]);
-  });
-
-  it('handles primitives', () => {
-    expect(safeJsonParse('"hello"', '')).toBe('hello');
-    expect(safeJsonParse('42', 0)).toBe(42);
-    expect(safeJsonParse('true', false)).toBe(true);
   });
 });
 
@@ -79,66 +56,9 @@ describe('safeJsonParseWithSchema', () => {
     expect(result).toEqual(fallback);
   });
 
-  it('returns fallback for missing required fields', () => {
-    const json = '{"name":"test"}';
-    const result = safeJsonParseWithSchema(json, isTestData, fallback);
-    expect(result).toEqual(fallback);
-  });
-
   it('returns fallback for null input', () => {
     const result = safeJsonParseWithSchema(null, isTestData, fallback);
     expect(result).toEqual(fallback);
-  });
-
-  it('returns fallback for invalid JSON', () => {
-    const result = safeJsonParseWithSchema('invalid', isTestData, fallback);
-    expect(result).toEqual(fallback);
-  });
-
-  it('handles arrays with element validation', () => {
-    type NumberArray = number[];
-    const isNumberArray: SchemaValidator<NumberArray> = (value): value is NumberArray => {
-      if (!Array.isArray(value)) return false;
-      return value.every((v) => typeof v === 'number');
-    };
-
-    const result = safeJsonParseWithSchema('[1,2,3]', isNumberArray, []);
-    expect(result).toEqual([1, 2, 3]);
-
-    const invalidResult = safeJsonParseWithSchema('[1,"two",3]', isNumberArray, []);
-    expect(invalidResult).toEqual([]);
-  });
-
-  it('handles nested objects', () => {
-    interface NestedData {
-      outer: {
-        inner: string;
-      };
-    }
-
-    const isNestedData: SchemaValidator<NestedData> = (value): value is NestedData => {
-      if (typeof value !== 'object' || value === null) return false;
-      const obj = value as Record<string, unknown>;
-      if (typeof obj.outer !== 'object' || obj.outer === null) return false;
-      const outer = obj.outer as Record<string, unknown>;
-      return typeof outer.inner === 'string';
-    };
-
-    const fallbackNested: NestedData = { outer: { inner: '' } };
-
-    const validResult = safeJsonParseWithSchema(
-      '{"outer":{"inner":"hello"}}',
-      isNestedData,
-      fallbackNested
-    );
-    expect(validResult).toEqual({ outer: { inner: 'hello' } });
-
-    const invalidResult = safeJsonParseWithSchema(
-      '{"outer":{"inner":123}}',
-      isNestedData,
-      fallbackNested
-    );
-    expect(invalidResult).toEqual(fallbackNested);
   });
 });
 

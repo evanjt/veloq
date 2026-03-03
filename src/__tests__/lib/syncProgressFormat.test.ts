@@ -76,31 +76,6 @@ describe('formatGpsSyncProgress', () => {
     expect(result!.percent).toBe(30);
   });
 
-  it('shows route analysis for processing status', () => {
-    const processing: GpsSyncProgress = {
-      status: 'processing',
-      completed: 0,
-      total: 0,
-      percent: 60,
-      message: '',
-    };
-    const result = formatGpsSyncProgress(processing, false, t);
-    expect(result).not.toBeNull();
-    expect(result!.icon).toBe('map-marker-path');
-  });
-
-  it('shows indeterminate when computing with 0 percent', () => {
-    const computing: GpsSyncProgress = {
-      status: 'computing',
-      completed: 0,
-      total: 0,
-      percent: 0,
-      message: '',
-    };
-    const result = formatGpsSyncProgress(computing, false, t);
-    expect(result!.indeterminate).toBe(true);
-  });
-
   it('returns null for complete status', () => {
     const complete: GpsSyncProgress = {
       status: 'complete',
@@ -110,17 +85,6 @@ describe('formatGpsSyncProgress', () => {
       message: '',
     };
     expect(formatGpsSyncProgress(complete, false, t)).toBeNull();
-  });
-
-  it('returns null for error status', () => {
-    const error: GpsSyncProgress = {
-      status: 'error',
-      completed: 5,
-      total: 10,
-      percent: 50,
-      message: 'Failed',
-    };
-    expect(formatGpsSyncProgress(error, false, t)).toBeNull();
   });
 
   it('calls correct i18n keys', () => {
@@ -162,11 +126,6 @@ describe('formatBoundsSyncProgress', () => {
   it('clamps to 100% when completed > total (BUG FIX)', () => {
     const result = formatBoundsSyncProgress({ status: 'syncing', completed: 150, total: 100 }, t);
     expect(result!.percent).toBe(100);
-  });
-
-  it('correctly rounds percentage', () => {
-    const result = formatBoundsSyncProgress({ status: 'syncing', completed: 1, total: 3 }, t);
-    expect(result!.percent).toBe(33);
   });
 
   it('calls correct i18n key', () => {

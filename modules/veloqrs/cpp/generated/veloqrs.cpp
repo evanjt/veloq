@@ -122,7 +122,7 @@ RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_metrics_for_ids(
     void *ptr, RustBuffer ids, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_missing_time_streams(
     void *ptr, RustBuffer activity_ids, RustCallStatus *uniffi_out_err);
-int8_t uniffi_veloqrs_fn_method_activitymanager_remove(
+void uniffi_veloqrs_fn_method_activitymanager_remove(
     void *ptr, RustBuffer activity_id, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_activitymanager_set_metrics(
     void *ptr, RustBuffer metrics, RustCallStatus *uniffi_out_err);
@@ -223,9 +223,8 @@ RustBuffer uniffi_veloqrs_fn_method_sectionmanager_create(
     double _distance_meters, RustBuffer name, RustBuffer source_activity_id,
     RustBuffer start_index, RustBuffer end_index,
     RustCallStatus *uniffi_out_err);
-int8_t
-uniffi_veloqrs_fn_method_sectionmanager_delete(void *ptr, RustBuffer section_id,
-                                               RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_sectionmanager_delete(
+    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
     void *ptr, RustBuffer activity_id, RustBuffer section_polyline_json,
     RustCallStatus *uniffi_out_err);
@@ -255,12 +254,12 @@ RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_summaries(
     void *ptr, RustBuffer sport_type, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_summaries_with_count(
     void *ptr, RustBuffer sport_type, RustCallStatus *uniffi_out_err);
-int8_t uniffi_veloqrs_fn_method_sectionmanager_reset_reference(
+void uniffi_veloqrs_fn_method_sectionmanager_reset_reference(
     void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_set_name(
     void *ptr, RustBuffer section_id, RustBuffer name,
     RustCallStatus *uniffi_out_err);
-int8_t uniffi_veloqrs_fn_method_sectionmanager_set_reference(
+void uniffi_veloqrs_fn_method_sectionmanager_set_reference(
     void *ptr, RustBuffer section_id, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
 void *uniffi_veloqrs_fn_clone_settingsmanager(void *ptr,
@@ -4501,14 +4500,14 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_remove(
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_activitymanager_remove(
+  uniffi_veloqrs_fn_method_activitymanager_remove(
       uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+  return jsi::Value::undefined();
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_set_metrics(
@@ -5082,14 +5081,14 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_delete(
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_sectionmanager_delete(
+  uniffi_veloqrs_fn_method_sectionmanager_delete(
       uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+  return jsi::Value::undefined();
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
@@ -5288,14 +5287,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_reset_reference(
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_sectionmanager_reset_reference(
+  uniffi_veloqrs_fn_method_sectionmanager_reset_reference(
       uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+  return jsi::Value::undefined();
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_set_name(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -5318,7 +5317,7 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_set_reference(
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_sectionmanager_set_reference(
+  uniffi_veloqrs_fn_method_sectionmanager_set_reference(
       uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
@@ -5326,7 +5325,7 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_set_reference(
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+  return jsi::Value::undefined();
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_settingsmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,

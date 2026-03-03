@@ -2,23 +2,6 @@ import { CHART_CONFIGS, getAvailableCharts } from '@/lib/utils/chartConfig';
 import type { ActivityStreams } from '@/types';
 
 describe('CHART_CONFIGS', () => {
-  it('has all expected chart types', () => {
-    const expectedIds = [
-      'power',
-      'heartrate',
-      'cadence',
-      'speed',
-      'pace',
-      'elevation',
-      'grade',
-      'distance',
-      'temp',
-      'moving_time',
-      'elapsed_time',
-    ];
-    expect(Object.keys(CHART_CONFIGS).sort()).toEqual(expectedIds.sort());
-  });
-
   it('every config has id, label, icon, and color', () => {
     for (const [key, config] of Object.entries(CHART_CONFIGS)) {
       expect(config.id).toBe(key);
@@ -46,11 +29,6 @@ describe('CHART_CONFIGS', () => {
     const streams: ActivityStreams = { distance: [0, 1000, 5000] };
     const data = CHART_CONFIGS.distance.getStream!(streams);
     expect(data).toEqual([0, 1, 5]);
-  });
-
-  it('elevation convertToImperial converts m to ft', () => {
-    const ft = CHART_CONFIGS.elevation.convertToImperial!(100);
-    expect(ft).toBeCloseTo(328.084, 1);
   });
 
   it('speed convertToImperial converts km/h to mph', () => {

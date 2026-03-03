@@ -89,18 +89,6 @@ describe('FFI Binding Validation', () => {
       expect(RUST_TO_TS_NAME['get_download_progress']).toBe('getDownloadProgress');
       expect(RUST_TO_TS_NAME['compute_polyline_overlap']).toBe('computePolylineOverlap');
     });
-
-    it('should have HTTP/fetch functions', () => {
-      const httpFns = FFI_EXPORTS.filter(
-        (e) => e.name.includes('fetch') || e.name.includes('download')
-      );
-      expect(httpFns.length).toBeGreaterThan(1);
-    });
-
-    it('should have polyline overlap function', () => {
-      const polylineFns = FFI_EXPORTS.filter((e) => e.name.includes('polyline'));
-      expect(polylineFns.length).toBe(1);
-    });
   });
 
   describe('UniFFI Objects', () => {

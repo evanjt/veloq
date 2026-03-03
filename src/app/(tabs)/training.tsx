@@ -25,7 +25,7 @@ export default function HealthScreen() {
   const perfEnd = logScreenRender('HealthScreen');
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
-  const shared = createSharedStyles(isDark);
+  const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
 
   // Log render time (JS phase only)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -33,10 +33,17 @@ export default function HealthScreen() {
     perfEnd();
   });
 
-  // Defer below-fold cards by one frame to reduce first-frame native view count
+  // Defer below-fold cards across two frames to spread Skia canvas initialisation.
+  // Frame 1: WeeklySummary (pure RN, cheap).
+  // Frame 2: ActivityHeatmap + SeasonComparison (both Skia canvases — expensive together).
   const [belowFoldReady, setBelowFoldReady] = useState(false);
+  const [chartsReady, setChartsReady] = useState(false);
   useEffect(() => {
-    requestAnimationFrame(() => setBelowFoldReady(true));
+    const id = requestAnimationFrame(() => {
+      setBelowFoldReady(true);
+      requestAnimationFrame(() => setChartsReady(true));
+    });
+    return () => cancelAnimationFrame(id);
   }, []);
 
   // Refresh state for pull-to-refresh
@@ -210,24 +217,26 @@ export default function HealthScreen() {
           )}
         </View>
 
-        {/* Below-fold cards — deferred by one frame to reduce first-frame view count */}
+        {/* Below-fold cards — frame 1: WeeklySummary (pure RN) */}
         {belowFoldReady && (
-          <>
-            {/* Summary with time range selector */}
-            <View style={[styles.card, isDark && styles.cardDark]}>
-              {activitiesLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                </View>
-              ) : (
-                <WeeklySummary
-                  activities={activities}
-                  summaryData={summaryData}
-                  summaryLoading={summaryLoading}
-                />
-              )}
-            </View>
+          <View style={[styles.card, isDark && styles.cardDark]}>
+            {activitiesLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : (
+              <WeeklySummary
+                activities={activities}
+                summaryData={summaryData}
+                summaryLoading={summaryLoading}
+              />
+            )}
+          </View>
+        )}
 
+        {/* Below-fold Skia cards — frame 2: ActivityHeatmap + SeasonComparison */}
+        {chartsReady && (
+          <>
             {/* Activity Heatmap */}
             <View style={[styles.card, isDark && styles.cardDark]}>
               {activitiesLoading ? (

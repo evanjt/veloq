@@ -44,11 +44,23 @@ export function useRoutesScreenData(opts?: {
 
   // Re-query on screen focus — handles missed notifications during enableFreeze.
   // When the Routes tab is frozen, React state updates from engine notifications
-  // are dropped. Bumping focusTrigger on focus ensures fresh data.
+  // are dropped. dirtyRef tracks whether the engine trigger advanced while frozen;
+  // useFocusEffect only bumps focusTrigger when there is actually new data.
   const [focusTrigger, setFocusTrigger] = useState(0);
+  const dirtyRef = useRef(false);
+  const lastSeenTriggerRef = useRef(trigger);
+  useEffect(() => {
+    if (trigger !== lastSeenTriggerRef.current) {
+      dirtyRef.current = true;
+      lastSeenTriggerRef.current = trigger;
+    }
+  }, [trigger]);
   useFocusEffect(
     useCallback(() => {
-      setFocusTrigger((t) => t + 1);
+      if (dirtyRef.current) {
+        dirtyRef.current = false;
+        setFocusTrigger((t) => t + 1);
+      }
     }, [])
   );
 

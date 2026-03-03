@@ -33,9 +33,9 @@ export function toActivityMetrics(activity: Activity): ActivityMetrics {
           : 0
       )
     ),
-    distance: activity.distance,
-    movingTime: activity.moving_time,
-    elapsedTime: activity.elapsed_time,
+    distance: activity.distance ?? 0,
+    movingTime: activity.moving_time ?? 0,
+    elapsedTime: activity.elapsed_time ?? 0,
     elevationGain: activity.total_elevation_gain || 0,
     avgHr: activity.average_heartrate,
     avgPower: activity.average_watts,

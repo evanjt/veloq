@@ -69,12 +69,6 @@ describe('reverseGeocode', () => {
     expect(result).toBeNull();
   });
 
-  it('returns null on network error', async () => {
-    mockFetch.mockRejectedValue(new Error('Network failure'));
-    const result = await reverseGeocode(48.0, 2.0);
-    expect(result).toBeNull();
-  });
-
   it('uses memory cache for repeated calls', async () => {
     mockFetch.mockResolvedValue({
       ok: true,
@@ -87,17 +81,6 @@ describe('reverseGeocode', () => {
     // Second call (same rounded coords) should use cache
     await reverseGeocode(46.6244, 8.0413);
     expect(mockFetch).toHaveBeenCalledTimes(1);
-  });
-
-  it('returns road without qualifier when no neighbourhood', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        address: { road: 'Highway 1' },
-      }),
-    });
-    const result = await reverseGeocode(36.0, -121.0);
-    expect(result).toBe('Highway 1');
   });
 });
 

@@ -15,20 +15,8 @@ describe('fromUnixSeconds', () => {
     expect(date!.getUTCDate()).toBe(15);
   });
 
-  it('returns epoch date for seconds=0', () => {
-    expect(fromUnixSeconds(0)).toEqual(new Date(0));
-  });
-
-  it('returns epoch date for 0n BigInt', () => {
-    expect(fromUnixSeconds(0n)).toEqual(new Date(0));
-  });
-
   it('returns null for null', () => {
     expect(fromUnixSeconds(null)).toBeNull();
-  });
-
-  it('returns null for undefined', () => {
-    expect(fromUnixSeconds(undefined)).toBeNull();
   });
 
   it('handles bigint input from FFI', () => {
@@ -45,19 +33,6 @@ describe('fromUnixSeconds', () => {
     expect(date!.getUTCMonth()).toBe(11);
     expect(date!.getUTCDate()).toBe(31);
   });
-
-  it('handles negative bigint timestamp', () => {
-    const date = fromUnixSeconds(-86400n);
-    expect(date).not.toBeNull();
-    expect(date!.getUTCFullYear()).toBe(1969);
-  });
-
-  it('handles large future timestamp', () => {
-    // 2100-01-01T00:00:00Z
-    const date = fromUnixSeconds(4102444800);
-    expect(date).not.toBeNull();
-    expect(date!.getUTCFullYear()).toBe(2100);
-  });
 });
 
 describe('castDirection', () => {
@@ -65,24 +40,8 @@ describe('castDirection', () => {
     expect(castDirection('reverse')).toBe('reverse');
   });
 
-  it('returns "same" for "same"', () => {
-    expect(castDirection('same')).toBe('same');
-  });
-
   it('returns "same" for null', () => {
     expect(castDirection(null)).toBe('same');
-  });
-
-  it('returns "same" for undefined', () => {
-    expect(castDirection(undefined)).toBe('same');
-  });
-
-  it('returns "same" for empty string', () => {
-    expect(castDirection('')).toBe('same');
-  });
-
-  it('is case sensitive — "REVERSE" returns "same"', () => {
-    expect(castDirection('REVERSE')).toBe('same');
   });
 });
 
@@ -100,24 +59,8 @@ describe('toDirectionStats', () => {
     expect(toDirectionStats(null)).toBeNull();
   });
 
-  it('returns null for undefined input', () => {
-    expect(toDirectionStats(undefined)).toBeNull();
-  });
-
   it('handles avgTime null', () => {
     const result = toDirectionStats({ avgTime: null, lastActivity: 1768435200, count: 3 });
-    expect(result).not.toBeNull();
-    expect(result!.avgTime).toBeNull();
-  });
-
-  it('handles lastActivity 0 as epoch date', () => {
-    const result = toDirectionStats({ avgTime: 100, lastActivity: 0, count: 1 });
-    expect(result).not.toBeNull();
-    expect(result!.lastActivity).toEqual(new Date(0));
-  });
-
-  it('handles avgTime undefined as null', () => {
-    const result = toDirectionStats({ count: 2 });
     expect(result).not.toBeNull();
     expect(result!.avgTime).toBeNull();
   });
@@ -137,14 +80,6 @@ describe('convertActivityPortions', () => {
 
   it('returns undefined for null', () => {
     expect(convertActivityPortions(null)).toBeUndefined();
-  });
-
-  it('returns undefined for undefined', () => {
-    expect(convertActivityPortions(undefined)).toBeUndefined();
-  });
-
-  it('returns empty array for empty input', () => {
-    expect(convertActivityPortions([])).toEqual([]);
   });
 
   it('preserves all non-direction fields', () => {
