@@ -244,9 +244,10 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
 /**
  * Build a combined satellite style for 3D contexts (Map3DWebView, TerrainSnapshotWebView).
  *
- * Uses the same tile sources and tileSize as the 2D style — no degradation. At 40-50° pitch
- * (with +2 zoom boost in calculateTerrainCamera) tile loading is reliable. The tileSize: 64
- * on all sources gives +2 effective zoom levels of tile detail.
+ * Uses the same tileSize: 64 as 2D — MapLibre GL JS v5.x (#3983) fixed the terrain LOD
+ * bug that caused blurry tiles with terrain enabled. The v5.x distance-based LOD also
+ * handles horizon tiles at 60° pitch (lower zoom for distant tiles), so the previous
+ * concern about 16x more tile requests no longer applies.
  */
 export function getCombinedSatelliteStyle3D(): CombinedSatelliteMapStyle {
   return getCombinedSatelliteStyle();

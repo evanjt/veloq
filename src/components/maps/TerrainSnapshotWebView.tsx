@@ -8,11 +8,11 @@
  * - Routes messages back via workerId
  *
  * Sky spec is embedded in the style JSON root (not via setSky() API) to ensure
- * it survives setStyle() calls in MapLibre GL JS 3.6.2.
+ * it survives setStyle() calls reliably across MapLibre GL JS versions.
  */
 
 import React, { useRef, useCallback, useImperativeHandle, forwardRef, useMemo } from 'react';
-import { View, StyleSheet, Dimensions, PixelRatio } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { MapStyleType } from './mapStyles';
 import { getCombinedSatelliteStyle3D, getTerrainSnapshotStyle } from './mapStyles';
@@ -20,14 +20,10 @@ import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import { saveTerrainPreview, hasTerrainPreview } from '@/lib/storage/terrainPreviewCache';
 import { emitSnapshotComplete } from '@/lib/events/terrainSnapshotEvents';
 
-// Use actual device DPR — the canvas must match physical pixels or the JPEG gets
-// upscaled when displayed (SCREEN_WIDTH dp × deviceDPR = physical width). Regional
-// satellite sources (swisstopo maxzoom:20, IGN maxzoom:20) are unaffected; only the
-// EOX global fallback (maxzoom:14) can hit its tile limit at very high camera zoom.
-const DEVICE_PIXEL_RATIO = PixelRatio.get();
 const SNAPSHOT_TIMEOUT_MS = 20000;
 const MAX_QUEUE_SIZE = 30;
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const SNAPSHOT_HEIGHT = 240;
 const POOL_SIZE = 2;
 
 interface SnapshotRequest {
@@ -60,11 +56,11 @@ function generateWorkerHtml(id: number): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@5.19.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.19.0/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
     body { margin: 0; padding: 0; overflow: hidden; }
-    #map { width: 100vw; height: 100vh; }
+    #map { width: 100vw; height: ${SNAPSHOT_HEIGHT}px; }
   </style>
 </head>
 <body>
@@ -98,9 +94,12 @@ function generateWorkerHtml(id: number): string {
       zoom: 10,
       pitch: 60,
       attributionControl: false,
-      preserveDrawingBuffer: true,
-      antialias: true,
-      pixelRatio: ${DEVICE_PIXEL_RATIO},
+      canvasContextAttributes: {
+        preserveDrawingBuffer: true,
+        antialias: true,
+      },
+      anisotropicFilterPitch: 0,
+      pixelRatio: window.devicePixelRatio || 2,
     });
 
     window.map.on('load', function() {
@@ -177,8 +176,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         const coordsJSON = JSON.stringify(request.coordinates);
         const cameraJSON = JSON.stringify(request.camera);
 
-        // Inject render command — embeds sky in style root, adds terrain, waits for tiles,
-        // adds route ON TOP of loaded terrain, captures on 'idle'.
+        // Inject render command — builds complete style with terrain, route, and markers
+        // embedded, then applies atomically via single setStyle() call.
         worker.webViewRef.current?.injectJavaScript(`
           (function() {
             try {
@@ -193,35 +192,26 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               var mapStyle = '${request.mapStyle}';
               var myGen = ${gen};
 
-              // Set generation on window — newer requests will overwrite this
               window._snapshotGen = myGen;
 
-              // Check if this request is still current (not superseded by a newer one)
               function isStale() {
                 return window._snapshotGen !== myGen;
               }
 
-              window._rn_log('Snapshot ' + activityId + ' gen=' + myGen + ': ' + coords.length + ' coords, style=' + mapStyle + ', zoom=' + camera.zoom.toFixed(1) + ', pitch=' + camera.pitch);
+              window._rn_log('Snapshot ' + activityId + ' gen=' + myGen + ': ' + coords.length + ' coords, style=' + mapStyle);
 
-              // Remove existing layers/sources
-              try {
-                if (window.map.getLayer('start-end-fill')) window.map.removeLayer('start-end-fill');
-                if (window.map.getLayer('start-end-border')) window.map.removeLayer('start-end-border');
-                if (window.map.getSource('start-end-markers')) window.map.removeSource('start-end-markers');
-                if (window.map.getLayer('route-line')) window.map.removeLayer('route-line');
-                if (window.map.getLayer('route-outline')) window.map.removeLayer('route-outline');
-                if (window.map.getSource('route')) window.map.removeSource('route');
-                if (window.map.getLayer('hillshading')) window.map.removeLayer('hillshading');
-                if (window.map.getSource('terrain')) {
-                  window.map.setTerrain(null);
-                  window.map.removeSource('terrain');
-                }
-              } catch(e) {
-                window._rn_log('Cleanup error (ok): ' + e.message);
-              }
+              // --- Build complete style with all sources and layers ---
 
-              // Embed sky spec in style root — applied atomically with setStyle().
-              // Avoids setSky() API issues in MapLibre GL JS 3.6.2.
+              styleObj.sources['terrain'] = {
+                type: 'raster-dem',
+                tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+                encoding: 'terrarium',
+                tileSize: 256,
+                maxzoom: 15,
+              };
+
+              styleObj.terrain = { source: 'terrain', exaggeration: 1.5 };
+
               styleObj.sky = isSatellite
                 ? { 'sky-color': '#1a3a5c', 'horizon-color': '#2a4a6c', 'fog-color': '#1a3050',
                     'fog-ground-blend': 0.5, 'horizon-fog-blend': 0.8, 'sky-horizon-blend': 0.5, 'atmosphere-blend': 0.8 }
@@ -231,276 +221,164 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 : { 'sky-color': '#88C6FC', 'horizon-color': '#B0C8DC', 'fog-color': '#D8E4EE',
                     'fog-ground-blend': 0.5, 'horizon-fog-blend': 0.8, 'sky-horizon-blend': 0.5, 'atmosphere-blend': 0.8 };
 
-              // Set new style (sky included atomically)
+              if (!isSatellite) {
+                styleObj.layers.push({
+                  id: 'hillshading',
+                  type: 'hillshade',
+                  source: 'terrain',
+                  layout: { visibility: 'visible' },
+                  paint: {
+                    'hillshade-shadow-color': isDark ? '#000000' : '#473B24',
+                    'hillshade-highlight-color': isDark ? '#2A2A2A' : '#FFFBF5',
+                    'hillshade-accent-color': isDark ? '#111111' : '#D4C4A8',
+                    'hillshade-illumination-anchor': 'map',
+                    'hillshade-exaggeration': 0.6,
+                  },
+                });
+              }
+
+              if (coords.length > 0) {
+                var startPt = coords[0];
+                var endPt = coords[coords.length - 1];
+
+                styleObj.sources['route'] = {
+                  type: 'geojson',
+                  data: {
+                    type: 'Feature',
+                    properties: {},
+                    geometry: { type: 'LineString', coordinates: coords },
+                  },
+                  tolerance: 0,
+                };
+
+                styleObj.sources['start-end-markers'] = {
+                  type: 'geojson',
+                  data: {
+                    type: 'FeatureCollection',
+                    features: [
+                      { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: startPt } },
+                      { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: endPt } },
+                    ],
+                  },
+                };
+
+                styleObj.layers.push(
+                  {
+                    id: 'route-outline',
+                    type: 'line',
+                    source: 'route',
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: { 'line-color': '#FFFFFF', 'line-width': 5, 'line-opacity': 0.7 },
+                  },
+                  {
+                    id: 'route-line',
+                    type: 'line',
+                    source: 'route',
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: { 'line-color': routeColor, 'line-width': 3 },
+                  },
+                  {
+                    id: 'start-end-border',
+                    type: 'circle',
+                    source: 'start-end-markers',
+                    paint: { 'circle-radius': 5, 'circle-color': '#FFFFFF' },
+                  },
+                  {
+                    id: 'start-end-fill',
+                    type: 'circle',
+                    source: 'start-end-markers',
+                    paint: {
+                      'circle-radius': 3.5,
+                      'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.85)', 'rgba(239,68,68,0.85)'],
+                    },
+                  }
+                );
+              }
+
+              // --- Single atomic setStyle — MapLibre loads everything in parallel ---
               window.map.setStyle(styleObj);
+              window.map.jumpTo({
+                center: camera.center,
+                zoom: camera.zoom,
+                bearing: camera.bearing,
+                pitch: camera.pitch,
+              });
 
-              // Poll for style to be loaded
-              var styleRetries = 0;
-              var maxStyleRetries = 50;
+              var done = false;
 
-              function waitForStyle() {
-                if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in waitForStyle, aborting'); return; }
-                styleRetries++;
-                if (window.map.isStyleLoaded()) {
-                  window._rn_log('Style loaded after ' + styleRetries + ' polls');
-                  onStyleReady();
-                } else if (styleRetries >= maxStyleRetries) {
-                  window._rn_log('Style load timeout after ' + maxStyleRetries + ' polls');
+              window.map.once('idle', function() {
+                if (done || isStale()) return;
+                if (window.map.areTilesLoaded()) {
+                  done = true;
+                  window._rn_log('Tiles loaded, capturing...');
+                  requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                } else {
+                  window._rn_log('First idle but tiles incomplete, waiting...');
+                  window.map.once('idle', function() {
+                    if (done || isStale()) return;
+                    done = true;
+                    if (window.map.areTilesLoaded()) {
+                      window._rn_log('Tiles loaded on second idle, capturing...');
+                      requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                    } else {
+                      window._rn_log('Tiles still incomplete after second idle, skipping');
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'snapshotError',
+                        workerId: workerId,
+                        activityId: activityId,
+                        gen: myGen,
+                        error: 'Tiles incomplete after idle',
+                      }));
+                    }
+                  });
+                  setTimeout(function() {
+                    if (!done && !isStale()) {
+                      done = true;
+                      window._rn_log('Second idle timeout (5s), skipping');
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'snapshotError',
+                        workerId: workerId,
+                        activityId: activityId,
+                        gen: myGen,
+                        error: 'Tile load timeout',
+                      }));
+                    }
+                  }, 5000);
+                }
+              });
+
+              // Hard timeout (10s safety net)
+              setTimeout(function() {
+                if (!done && !isStale()) {
+                  done = true;
+                  window._rn_log('Hard timeout (10s), skipping');
                   window.ReactNativeWebView.postMessage(JSON.stringify({
                     type: 'snapshotError',
                     workerId: workerId,
                     activityId: activityId,
                     gen: myGen,
-                    error: 'Style load timeout',
+                    error: 'Render timeout',
                   }));
-                } else {
-                  setTimeout(waitForStyle, 200);
                 }
-              }
+              }, 10000);
 
-              function onStyleReady() {
-                if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in onStyleReady, aborting'); return; }
+              function captureSnapshot() {
+                if (isStale()) { window._rn_log('gen=' + myGen + ' superseded, aborting'); return; }
                 try {
-                  // TWO-PASS RENDERING: Load satellite tiles WITHOUT terrain first.
-                  // MapLibre issue #3983: when terrain is enabled, tile zoom is calculated
-                  // from the camera's aerial position, not the ground center — producing
-                  // much lower-resolution tiles. By loading satellite tiles FIRST (pass 1)
-                  // at full zoom, then enabling terrain AFTER (pass 2), the high-res tiles
-                  // stay in MapLibre's cache and get draped over the terrain surface.
-
-                  // Hillshade (non-satellite only) — add before terrain so it's ready
-                  var needsHillshade = !isSatellite;
-
-                  // PASS 1: Position camera and load satellite tiles at full resolution
-                  window.map.jumpTo({
-                    center: camera.center,
-                    zoom: camera.zoom,
-                    bearing: camera.bearing,
-                    pitch: camera.pitch,
-                  });
-                  window.map.resize();
-
-                  window._rn_log('Pass 1: Loading satellite tiles WITHOUT terrain (zoom=' + camera.zoom.toFixed(1) + ', pitch=' + camera.pitch + ')...');
-
-                  var tileLoadDone = false;
-
-                  function onSatelliteTilesReady() {
-                    if (tileLoadDone || isStale()) return;
-                    window._rn_log('Pass 1 done: satellite tiles cached. Enabling terrain (pass 2)...');
-
-                    // PASS 2: Now enable terrain — cached satellite tiles stay at high res
-                    window.map.addSource('terrain', {
-                      type: 'raster-dem',
-                      tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-                      encoding: 'terrarium',
-                      tileSize: 256,
-                      maxzoom: 15,
-                    });
-                    window.map.setTerrain({ source: 'terrain', exaggeration: 1.5 });
-
-                    if (needsHillshade) {
-                      window.map.addLayer({
-                        id: 'hillshading',
-                        type: 'hillshade',
-                        source: 'terrain',
-                        layout: { visibility: 'visible' },
-                        paint: {
-                          'hillshade-shadow-color': isDark ? '#000000' : '#473B24',
-                          'hillshade-highlight-color': isDark ? '#2A2A2A' : '#FFFBF5',
-                          'hillshade-accent-color': isDark ? '#111111' : '#D4C4A8',
-                          'hillshade-illumination-anchor': 'map',
-                          'hillshade-exaggeration': 0.6,
-                        },
-                      });
-                    }
-
-                    // Wait for terrain DEM tiles to load
-                    var terrainDone = false;
-                    window.map.once('idle', function() {
-                      if (terrainDone || isStale()) return;
-                      terrainDone = true;
-                      tileLoadDone = true;
-                      window._rn_log('Pass 2 done: terrain loaded, proceeding to capture');
-                      addRouteAndCapture();
-                    });
-                    // Terrain fallback (5s)
-                    setTimeout(function() {
-                      if (!terrainDone && !isStale()) {
-                        terrainDone = true;
-                        tileLoadDone = true;
-                        window._rn_log('Terrain load fallback (5s), capturing anyway');
-                        addRouteAndCapture();
-                      }
-                    }, 5000);
-                  }
-
-                  // Wait for satellite tiles (pass 1)
-                  window.map.once('idle', function() {
-                    if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in idle, aborting'); return; }
-                    if (window.map.areTilesLoaded()) {
-                      window._rn_log('Satellite tiles loaded on first idle');
-                      onSatelliteTilesReady();
-                    } else {
-                      window._rn_log('First idle but satellite tiles incomplete, waiting...');
-                      var secondIdleDone = false;
-                      window.map.once('idle', function() {
-                        if (secondIdleDone || isStale()) return;
-                        secondIdleDone = true;
-                        window._rn_log('Satellite tiles loaded on second idle');
-                        onSatelliteTilesReady();
-                      });
-                      setTimeout(function() {
-                        if (!secondIdleDone && !isStale()) {
-                          secondIdleDone = true;
-                          window._rn_log('Satellite tile fallback (5s), proceeding anyway');
-                          onSatelliteTilesReady();
-                        }
-                      }, 5000);
-                    }
-                  });
-
-                  // Hard fallback timeout (15s safety net — slightly longer for two-pass)
-                  setTimeout(function() {
-                    if (!tileLoadDone && !isStale()) {
-                      window._rn_log('Hard fallback timeout (15s), skipping snapshot');
-                      window.ReactNativeWebView.postMessage(JSON.stringify({
-                        type: 'snapshotError',
-                        workerId: workerId,
-                        activityId: activityId,
-                        gen: myGen,
-                        error: 'Hard tile load timeout',
-                      }));
-                    }
-                  }, 12000);
-
-                  // Add route ON TOP of fully-loaded terrain, then capture on idle
-                  function addRouteAndCapture() {
-                    if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in addRouteAndCapture, aborting'); return; }
-                    try {
-                      if (coords.length > 0) {
-                        window.map.addSource('route', {
-                          type: 'geojson',
-                          data: {
-                            type: 'Feature',
-                            properties: {},
-                            geometry: { type: 'LineString', coordinates: coords },
-                          },
-                          tolerance: 0,
-                        });
-                        window.map.addLayer({
-                          id: 'route-outline',
-                          type: 'line',
-                          source: 'route',
-                          layout: { 'line-join': 'round', 'line-cap': 'round' },
-                          paint: { 'line-color': '#FFFFFF', 'line-width': 5, 'line-opacity': 0.7 },
-                        });
-                        window.map.addLayer({
-                          id: 'route-line',
-                          type: 'line',
-                          source: 'route',
-                          layout: { 'line-join': 'round', 'line-cap': 'round' },
-                          paint: { 'line-color': routeColor, 'line-width': 3 },
-                        });
-
-                        // Start/end circle markers
-                        var startPt = coords[0];
-                        var endPt = coords[coords.length - 1];
-                        window.map.addSource('start-end-markers', {
-                          type: 'geojson',
-                          data: {
-                            type: 'FeatureCollection',
-                            features: [
-                              { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: startPt } },
-                              { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: endPt } },
-                            ],
-                          },
-                        });
-                        window.map.addLayer({
-                          id: 'start-end-border',
-                          type: 'circle',
-                          source: 'start-end-markers',
-                          paint: { 'circle-radius': 5, 'circle-color': '#FFFFFF' },
-                        });
-                        window.map.addLayer({
-                          id: 'start-end-fill',
-                          type: 'circle',
-                          source: 'start-end-markers',
-                          paint: {
-                            'circle-radius': 3.5,
-                            'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.85)', 'rgba(239,68,68,0.85)'],
-                          },
-                        });
-                        window._rn_log('Route layers + markers added (' + coords.length + ' pts)');
-                      } else {
-                        window._rn_log('WARNING: No coordinates for route!');
-                      }
-
-                      // Use idle event for reliable capture — fires after all rendering is done
-                      var idleFired = false;
-                      window.map.once('idle', function() {
-                        if (idleFired || isStale()) return;
-                        idleFired = true;
-
-                        // Final tile check — route rendering may have evicted tiles
-                        if (!window.map.areTilesLoaded()) {
-                          window._rn_log('Tiles evicted after route add, waiting 500ms...');
-                          setTimeout(function() {
-                            if (!isStale()) captureSnapshot();
-                          }, 500);
-                        } else {
-                          window._rn_log('Map idle, capturing...');
-                          // Extra frame to ensure GPU has painted the route
-                          requestAnimationFrame(function() {
-                            setTimeout(captureSnapshot, 50);
-                          });
-                        }
-                      });
-
-                      // Fallback if idle never fires (shouldn't happen but safety net)
-                      setTimeout(function() {
-                        if (!idleFired && !isStale()) {
-                          idleFired = true;
-                          window._rn_log('Idle timeout fallback, capturing...');
-                          captureSnapshot();
-                        }
-                      }, 3000);
-
-                    } catch(e) {
-                      window._rn_log('addRouteAndCapture error: ' + e.message);
-                      if (!isStale()) captureSnapshot();
-                    }
-                  }
-
-                  function captureSnapshot() {
-                    if (isStale()) { window._rn_log('gen=' + myGen + ' superseded in captureSnapshot, aborting'); return; }
-                    try {
-                      var canvas = window.map.getCanvas();
-                      var dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-                      var base64 = dataUrl.split(',')[1];
-                      window._rn_log('Captured ' + activityId + ' gen=' + myGen + ' (' + Math.round(base64.length / 1024) + 'KB)');
-                      window.ReactNativeWebView.postMessage(JSON.stringify({
-                        type: 'snapshot',
-                        workerId: workerId,
-                        activityId: activityId,
-                        mapStyle: mapStyle,
-                        gen: myGen,
-                        base64: base64,
-                      }));
-                    } catch(e) {
-                      window._rn_log('Capture error: ' + e.message);
-                      window.ReactNativeWebView.postMessage(JSON.stringify({
-                        type: 'snapshotError',
-                        workerId: workerId,
-                        activityId: activityId,
-                        gen: myGen,
-                        error: e.message,
-                      }));
-                    }
-                  }
-
-                  // Idle-based tile loading is already wired up above
+                  var canvas = window.map.getCanvas();
+                  var dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                  var base64 = dataUrl.split(',')[1];
+                  window._rn_log('Captured ' + activityId + ' (' + Math.round(base64.length / 1024) + 'KB)');
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'snapshot',
+                    workerId: workerId,
+                    activityId: activityId,
+                    mapStyle: mapStyle,
+                    gen: myGen,
+                    base64: base64,
+                  }));
                 } catch(e) {
-                  window._rn_log('onStyleReady error: ' + e.message);
+                  window._rn_log('Capture error: ' + e.message);
                   window.ReactNativeWebView.postMessage(JSON.stringify({
                     type: 'snapshotError',
                     workerId: workerId,
@@ -511,11 +389,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 }
               }
 
-              // Start polling for style (first poll after 100ms)
-              setTimeout(waitForStyle, 100);
-
             } catch(e) {
-              window._rn_log('Top-level error: ' + e.message);
+              window._rn_log('Error: ' + e.message);
               if (window.ReactNativeWebView) {
                 window.ReactNativeWebView.postMessage(JSON.stringify({
                   type: 'snapshotError',
@@ -662,7 +537,7 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     width: SCREEN_WIDTH,
-    height: 240,
+    height: SNAPSHOT_HEIGHT,
     zIndex: -1,
     opacity: 0,
   },
