@@ -185,6 +185,13 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_mapmanager_get_bounds_for_range(
+    ptr: bigint,
+    startDate: bigint,
+    endDate: bigint,
+    sportTypes: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_mapmanager_get_filtered(
     ptr: bigint,
     startDate: bigint,
@@ -511,6 +518,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures(): number;
+  ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_bounds_for_range(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_filtered(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_query_viewport(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all(): number;

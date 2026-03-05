@@ -4,7 +4,7 @@
  */
 
 import type { TFunction } from 'i18next';
-import type { GpsSyncProgress } from '@/providers/SyncDateRangeStore';
+import type { GpsSyncProgress, TerrainSnapshotProgress } from '@/providers/SyncDateRangeStore';
 
 export interface SyncDisplayInfo {
   icon: string;
@@ -57,6 +57,25 @@ export function formatGpsSyncProgress(
   }
 
   return null;
+}
+
+/**
+ * Format terrain snapshot rendering progress for display.
+ * Returns null when idle or nothing to render.
+ */
+export function formatTerrainSnapshotProgress(
+  progress: TerrainSnapshotProgress,
+  t: TFunction
+): SyncDisplayInfo | null {
+  if (progress.status !== 'rendering' || progress.total === 0) return null;
+  const percent = Math.min(100, Math.round((progress.completed / progress.total) * 100));
+  return {
+    icon: 'image-filter-hdr',
+    text: t('cache.renderingTerrainPreviews') as string,
+    percent,
+    countText: `${progress.completed}/${progress.total}`,
+    indeterminate: false,
+  };
 }
 
 /**

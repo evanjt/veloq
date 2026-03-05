@@ -207,7 +207,8 @@
     "processingGpsTracks": "Crunching GPS tracks...",
     "analyzingRouteGroups": "Analyzing routes...",
     "detectingSectionsProgress": "Hunting for sections... {{percent}}%",
-    "syncComplete": "Sync complete"
+    "syncComplete": "Sync complete",
+    "renderingTerrainPreviews": "Rendering 3D previews"
   },
   "chartTypes": {
     "cad": "Cad",

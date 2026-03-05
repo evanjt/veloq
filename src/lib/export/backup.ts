@@ -21,6 +21,7 @@ import {
   initializeDebugStore,
 } from '@/providers';
 import { reloadCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
+import { reloadMapCameraState } from '@/lib/storage/mapCameraState';
 
 const APP_VERSION = '0.1.2';
 const BACKUP_VERSION = 2;
@@ -42,6 +43,7 @@ const PREFERENCE_KEYS = [
   'dashboard_preferences',
   'dashboard_summary_card',
   '@terrain_camera_overrides',
+  '@map_camera_state',
 ] as const;
 
 interface BackupCustomSection {
@@ -275,6 +277,7 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
       initializeDashboardPreferences(),
       initializeDebugStore(),
       reloadCameraOverrides(),
+      reloadMapCameraState(),
     ]);
   }
 

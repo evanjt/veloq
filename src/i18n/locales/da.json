@@ -207,7 +207,8 @@
     "processingGpsTracks": "Behandler GPS-spor...",
     "analyzingRouteGroups": "Analyserer ruter...",
     "detectingSectionsProgress": "Registrerer sektioner... {{percent}}%",
-    "syncComplete": "Synkronisering fuldført"
+    "syncComplete": "Synkronisering fuldført",
+    "renderingTerrainPreviews": "Genererer 3D-forhåndsvisninger"
   },
   "chartTypes": {
     "alt": "Alt",
@@ -506,7 +507,7 @@
     "pace": "Tempo",
     "rhr": "RHR",
     "week": "Uge",
-    "weight": "V\u00e6gt"
+    "weight": "Vægt"
   },
   "navigation": {
     "activities": "Aktiviteter",

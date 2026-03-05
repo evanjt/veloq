@@ -207,7 +207,8 @@
     "processingGpsTracks": "GPS-Spuren werden verarbeitet...",
     "analyzingRouteGroups": "Routen werden analysiert...",
     "detectingSectionsProgress": "Abschnitte werden erkannt... {{percent}}%",
-    "syncComplete": "Synchronisierung abgeschlossen"
+    "syncComplete": "Synchronisierung abgeschlossen",
+    "renderingTerrainPreviews": "3D-Vorschauen werden gerendert"
   },
   "chartTypes": {
     "alt": "Alt",

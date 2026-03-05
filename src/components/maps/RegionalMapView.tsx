@@ -139,13 +139,12 @@ export function RegionalMapView({
   const {
     activityCenters,
     mapCenter,
-    mapZoom,
     currentCenter,
     currentZoom,
     setCurrentCenter,
     setCurrentZoom,
-    initialCameraSettings,
-  } = useMapCamera({ activities, routeSignatures, mapKey });
+    markUserInteracted,
+  } = useMapCamera({ activities, routeSignatures, mapKey, cameraRef });
 
   // Show GPS traces when zoomed in past this level
   const TRACE_ZOOM_THRESHOLD = 11;
@@ -272,6 +271,7 @@ export function RegionalMapView({
     bearingAnim,
     currentZoomLevel,
     is3DMode,
+    markUserInteracted,
   });
 
   // Clear selections when their corresponding group visibility is turned off
@@ -408,14 +408,10 @@ export function RegionalMapView({
           onDidFailLoadingMap={handleMapLoadError}
         >
           {/* Camera with ref for programmatic control */}
-          {/* ANDROID FIX: Only pass defaultSettings once to prevent re-centering on re-renders */}
+          {/* No defaultSettings: Android MapLibre re-applies it on every render, causing snapback. */}
+          {/* Initial positioning is done imperatively via fitBounds in useMapCamera.markUserInteracted. */}
           {/* CRITICAL: followUserLocation must be explicitly false to prevent auto-centering */}
-          <Camera
-            ref={cameraRef}
-            defaultSettings={initialCameraSettings}
-            animationDuration={0}
-            followUserLocation={false}
-          />
+          <Camera ref={cameraRef} followUserLocation={false} />
 
           {/* Activity markers - visual only, taps handled by ShapeSource rendered later */}
           {/* CRITICAL: Always render MarkerViews to avoid iOS crash during reconciliation */}

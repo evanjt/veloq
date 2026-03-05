@@ -42,6 +42,7 @@ import {
   getDownloadProgress as ffiGetDownloadProgress,
   type DownloadProgressResult,
   type FfiActivityMetrics,
+  type FfiBounds,
   type FfiGpsPoint,
   type FfiRouteGroup,
   type FfiFrequentSection,
@@ -67,6 +68,7 @@ import {
 import { RouteEngineClient } from "./RouteEngineClient";
 
 // Re-export types with shorter names for convenience
+export type { FfiBounds };
 export type ActivityMetrics = FfiActivityMetrics;
 export type GpsPoint = FfiGpsPoint;
 export type RouteGroup = FfiRouteGroup;

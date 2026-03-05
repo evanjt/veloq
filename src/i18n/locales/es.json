@@ -207,7 +207,8 @@
     "processingGpsTracks": "Processing GPS tracks...",
     "analyzingRouteGroups": "Analyzing routes...",
     "detectingSectionsProgress": "Detecting sections... {{percent}}%",
-    "syncComplete": "Sync complete"
+    "syncComplete": "Sync complete",
+    "renderingTerrainPreviews": "Generando vistas previas 3D"
   },
   "chartTypes": {
     "alt": "Alt",

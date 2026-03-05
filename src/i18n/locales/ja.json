@@ -207,7 +207,8 @@
     "processingGpsTracks": "GPSトラックを処理中...",
     "analyzingRouteGroups": "ルートを分析中...",
     "detectingSectionsProgress": "区間を検出中... {{percent}}%",
-    "syncComplete": "同期完了"
+    "syncComplete": "同期完了",
+    "renderingTerrainPreviews": "3Dプレビューを生成中"
   },
   "chartTypes": {
     "alt": "高度",

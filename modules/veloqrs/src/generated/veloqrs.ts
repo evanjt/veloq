@@ -5307,6 +5307,11 @@ const FfiConverterTypeFitnessManager = new FfiConverterObject(
 
 export interface MapManagerInterface {
   getAllSignatures() /*throws*/ : Array<FfiMapSignature>;
+  getBoundsForRange(
+    startDate: /*i64*/ bigint,
+    endDate: /*i64*/ bigint,
+    sportTypes: Array<string>,
+  ) /*throws*/ : FfiBounds | undefined;
   getFiltered(
     startDate: /*i64*/ bigint,
     endDate: /*i64*/ bigint,
@@ -5351,6 +5356,30 @@ export class MapManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_mapmanager_get_all_signatures(
             uniffiTypeMapManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  public getBoundsForRange(
+    startDate: /*i64*/ bigint,
+    endDate: /*i64*/ bigint,
+    sportTypes: Array<string>,
+  ): FfiBounds | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiBounds.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_mapmanager_get_bounds_for_range(
+            uniffiTypeMapManagerObjectFactory.clonePointer(this),
+            FfiConverterInt64.lower(startDate),
+            FfiConverterInt64.lower(endDate),
+            FfiConverterArrayString.lower(sportTypes),
             callStatus,
           );
         },
@@ -7241,6 +7270,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_bounds_for_range() !==
+    13197
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_mapmanager_get_bounds_for_range",
     );
   }
   if (

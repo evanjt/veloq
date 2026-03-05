@@ -19,6 +19,7 @@ import { getCombinedSatelliteStyle3D, getTerrainSnapshotStyle } from './mapStyle
 import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import { saveTerrainPreview, hasTerrainPreview } from '@/lib/storage/terrainPreviewCache';
 import { emitSnapshotComplete } from '@/lib/events/terrainSnapshotEvents';
+import { useSyncDateRange } from '@/providers';
 
 const SNAPSHOT_TIMEOUT_MS = 20000;
 const MAX_QUEUE_SIZE = 30;
@@ -139,6 +140,23 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
     const workerHtmls = useMemo(() => workers.map((w) => generateWorkerHtml(w.id)), [workers]);
 
     const queueRef = useRef<SnapshotRequest[]>([]);
+    const queueTotalRef = useRef(0);
+    const queueCompletedRef = useRef(0);
+
+    const updateProgress = useCallback(() => {
+      const { setTerrainSnapshotProgress } = useSyncDateRange.getState();
+      if (queueTotalRef.current === 0 || queueCompletedRef.current >= queueTotalRef.current) {
+        setTerrainSnapshotProgress({ status: 'idle', completed: 0, total: 0 });
+        queueTotalRef.current = 0;
+        queueCompletedRef.current = 0;
+      } else {
+        setTerrainSnapshotProgress({
+          status: 'rendering',
+          completed: queueCompletedRef.current,
+          total: queueTotalRef.current,
+        });
+      }
+    }, []);
 
     const processNext = useCallback(() => {
       for (const worker of workers) {
@@ -268,27 +286,27 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     type: 'line',
                     source: 'route',
                     layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: { 'line-color': '#FFFFFF', 'line-width': 5, 'line-opacity': 0.7 },
+                    paint: { 'line-color': '#FFFFFF', 'line-width': 7, 'line-opacity': 0.8 },
                   },
                   {
                     id: 'route-line',
                     type: 'line',
                     source: 'route',
                     layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: { 'line-color': routeColor, 'line-width': 3 },
+                    paint: { 'line-color': routeColor, 'line-width': 4.5 },
                   },
                   {
                     id: 'start-end-border',
                     type: 'circle',
                     source: 'start-end-markers',
-                    paint: { 'circle-radius': 5, 'circle-color': '#FFFFFF' },
+                    paint: { 'circle-radius': 6, 'circle-color': '#FFFFFF' },
                   },
                   {
                     id: 'start-end-fill',
                     type: 'circle',
                     source: 'start-end-markers',
                     paint: {
-                      'circle-radius': 3.5,
+                      'circle-radius': 4.5,
                       'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.85)', 'rgba(239,68,68,0.85)'],
                     },
                   }
@@ -366,6 +384,42 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 if (isStale()) { window._rn_log('gen=' + myGen + ' superseded, aborting'); return; }
                 try {
                   var canvas = window.map.getCanvas();
+                  var w = canvas.width;
+                  var h = canvas.height;
+
+                  // Sample edge pixels for white-tile detection — regional sources
+                  // (e.g. Swisstopo) return opaque white JPEGs outside coverage area
+                  var ctx = canvas.getContext('webgl2') || canvas.getContext('webgl');
+                  if (ctx) {
+                    var pixel = new Uint8Array(4);
+                    var whiteCount = 0;
+                    var samplePoints = [
+                      [w - 2, Math.floor(h * 0.2)], [w - 2, Math.floor(h * 0.4)],
+                      [w - 2, Math.floor(h * 0.6)], [w - 2, Math.floor(h * 0.8)],
+                      [Math.floor(w * 0.7), h - 2], [Math.floor(w * 0.8), h - 2],
+                      [Math.floor(w * 0.6), Math.floor(h * 0.3)], [Math.floor(w * 0.9), Math.floor(h * 0.5)],
+                    ];
+                    for (var si = 0; si < samplePoints.length; si++) {
+                      var sx = samplePoints[si][0];
+                      var sy = h - samplePoints[si][1] - 1; // WebGL y is flipped
+                      ctx.readPixels(sx, sy, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, pixel);
+                      if (pixel[0] >= 252 && pixel[1] >= 252 && pixel[2] >= 252) {
+                        whiteCount++;
+                      }
+                    }
+                    if (whiteCount >= 2) {
+                      window._rn_log('White tile detected (' + whiteCount + '/8 samples), rejecting');
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'snapshotError',
+                        workerId: workerId,
+                        activityId: activityId,
+                        gen: myGen,
+                        error: 'White tile detected',
+                      }));
+                      return;
+                    }
+                  }
+
                   var dataUrl = canvas.toDataURL('image/jpeg', 0.95);
                   var base64 = dataUrl.split(',')[1];
                   window._rn_log('Captured ' + activityId + ' (' + Math.round(base64.length / 1024) + 'KB)');
@@ -413,11 +467,13 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             );
             worker.processingRef.current = false;
             worker.currentRequestRef.current = null;
+            queueCompletedRef.current++;
+            updateProgress();
             processNext();
           }
         }, SNAPSHOT_TIMEOUT_MS);
       }
-    }, [workers]);
+    }, [workers, updateProgress]);
 
     const handleMessage = useCallback(
       async (event: { nativeEvent: { data: string } }) => {
@@ -458,6 +514,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             const uri = await saveTerrainPreview(data.activityId, style, data.base64);
             console.log(`[TerrainSnapshot:${data.workerId}] Saved ${data.activityId} → ${uri}`);
             emitSnapshotComplete(data.activityId, uri);
+            queueCompletedRef.current++;
+            updateProgress();
             processNext();
           } else if (data.type === 'snapshotError') {
             // Discard stale errors from superseded requests
@@ -474,13 +532,15 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             if (worker.timeoutRef.current) clearTimeout(worker.timeoutRef.current);
             worker.processingRef.current = false;
             worker.currentRequestRef.current = null;
+            queueCompletedRef.current++;
+            updateProgress();
             processNext();
           }
         } catch {
           // Ignore parse errors
         }
       },
-      [workers, processNext]
+      [workers, processNext, updateProgress]
     );
 
     useImperativeHandle(
@@ -501,10 +561,12 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             queueRef.current.shift();
           }
           queueRef.current.push(request);
+          queueTotalRef.current++;
+          updateProgress();
           processNext();
         },
       }),
-      [processNext]
+      [processNext, updateProgress]
     );
 
     return (

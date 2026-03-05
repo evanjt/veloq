@@ -11,6 +11,7 @@
 import type {
   PersistentEngineStats,
   FfiActivityMetrics,
+  FfiBounds,
   FfiGpsPoint,
   FfiRouteGroup,
   FfiFrequentSection,
@@ -304,6 +305,20 @@ class RouteEngineClient {
     return this.timed('getMapActivitiesFiltered', () =>
       this.engine.maps().getFiltered(startTs, endTs, sportTypesArray ?? []),
     );
+  }
+
+  getActivityBoundsForRange(
+    startDate: Date,
+    endDate: Date,
+    sportTypesArray?: string[],
+  ): FfiBounds | null {
+    if (!this.ready) return null;
+    const startTs = BigInt(Math.floor(startDate.getTime() / 1000));
+    const endTs = BigInt(Math.floor(endDate.getTime() / 1000));
+    const result = this.timed('getActivityBoundsForRange', () =>
+      this.engine.maps().getBoundsForRange(startTs, endTs, sportTypesArray ?? []),
+    );
+    return result ?? null;
   }
 
   getAllMapSignatures(): Array<{

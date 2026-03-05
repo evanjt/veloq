@@ -207,7 +207,8 @@
     "processingGpsTracks": "正在处理GPS轨迹...",
     "analyzingRouteGroups": "正在分析路线...",
     "detectingSectionsProgress": "正在检测路段... {{percent}}%",
-    "syncComplete": "同步完成"
+    "syncComplete": "同步完成",
+    "renderingTerrainPreviews": "正在渲染3D预览"
   },
   "chartTypes": {
     "alt": "Alt",

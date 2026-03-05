@@ -13,6 +13,7 @@ import { LocationManager } from '@maplibre/maplibre-react-native';
 // Cache for last known location (avoid slow GPS re-acquisition)
 const LOCATION_CACHE_MAX_AGE_MS = 30000; // 30 seconds
 import { normalizeBounds, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
+import { saveMapCameraState } from '@/lib/storage/mapCameraState';
 import { intervalsApi } from '@/api';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { ActivityBoundsItem } from '@/types';
@@ -44,6 +45,7 @@ interface UseMapHandlersOptions {
   bearingAnim: Animated.Value;
   currentZoomLevel: React.MutableRefObject<number>;
   is3DMode: boolean;
+  markUserInteracted: () => void;
 }
 
 interface UseMapHandlersResult {
@@ -88,6 +90,7 @@ export function useMapHandlers({
   bearingAnim,
   currentZoomLevel,
   is3DMode,
+  markUserInteracted,
 }: UseMapHandlersOptions): UseMapHandlersResult {
   const router = useRouter();
 
@@ -99,6 +102,13 @@ export function useMapHandlers({
   // Debounce timers for region change handlers
   const visibleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const zoomCenterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track previous visible IDs to avoid creating new Set references when content hasn't changed
+  const prevVisibleKeyRef = useRef<string>('');
+  // Track previous viewport bounds to skip queryViewport FFI calls when camera hasn't moved
+  const prevBoundsKeyRef = useRef<string>('');
+  // Track previous center/zoom to skip React re-renders when values haven't changed
+  const prevCenterRef = useRef<[number, number] | null>(null);
+  const prevZoomRef = useRef<number>(-1);
 
   // Cleanup debounce timers on unmount
   useEffect(() => {
@@ -272,11 +282,33 @@ export function useMapHandlers({
         currentZoomLevel.current = zoomLevel;
       }
 
-      // Debounce zoom/center state updates (triggers attribution recalculation)
+      // Debounce zoom/center state updates (triggers attribution recalculation).
+      // Only call setters when values actually change — same-coordinate calls with new array
+      // references trigger React re-renders, which on Android can cause spurious regionDidChange.
       if (zoomCenterDebounceRef.current) clearTimeout(zoomCenterDebounceRef.current);
       zoomCenterDebounceRef.current = setTimeout(() => {
-        if (zoomLevel !== undefined) setCurrentZoom(zoomLevel);
-        if (center) setCurrentCenter(center);
+        if (zoomLevel !== undefined && Math.abs(zoomLevel - prevZoomRef.current) > 0.01) {
+          prevZoomRef.current = zoomLevel;
+          setCurrentZoom(zoomLevel);
+        }
+        if (center) {
+          const prev = prevCenterRef.current;
+          if (
+            !prev ||
+            Math.abs(prev[0] - center[0]) > 1e-6 ||
+            Math.abs(prev[1] - center[1]) > 1e-6
+          ) {
+            prevCenterRef.current = center;
+            setCurrentCenter(center);
+          }
+        }
+
+        // Persist camera position for restore on next visit (fire-and-forget)
+        const finalZoom = zoomLevel ?? prevZoomRef.current;
+        const finalCenter = center ?? prevCenterRef.current;
+        if (finalCenter && finalZoom > 0) {
+          saveMapCameraState(finalCenter, finalZoom);
+        }
       }, 300);
 
       // v10: visibleBounds is [northEast, southWest] where each is [lng, lat]
@@ -287,18 +319,39 @@ export function useMapHandlers({
           const [east, north] = northEast;
           const [west, south] = southWest;
 
+          // Skip FFI queryViewport entirely when the viewport hasn't changed.
+          // On Android, MapLibre can fire spurious regionDidChange after React re-renders;
+          // this guard prevents unnecessary FFI calls in that case.
+          const boundsKey = `${east.toFixed(4)},${north.toFixed(4)},${west.toFixed(4)},${south.toFixed(4)}`;
+          if (boundsKey === prevBoundsKeyRef.current) return;
+          prevBoundsKeyRef.current = boundsKey;
+
           if (activitySpatialIndex.ready) {
             const viewport = mapBoundsToViewport([west, south], [east, north]);
             const visibleIds = activitySpatialIndex.queryViewport(viewport);
 
-            if (visibleIds.length > 0 || activitySpatialIndex.size === 0) {
-              setVisibleActivityIds(new Set(visibleIds));
+            // Only update state when content actually changes — creating a new Set
+            // with identical content triggers useMemo recomputation → marker re-render
+            // → another regionDidChange, causing an infinite loop at wide zoom levels
+            const key =
+              visibleIds.length +
+              ':' +
+              (visibleIds.length <= 500
+                ? visibleIds.sort().join(',')
+                : visibleIds.slice(0, 20).sort().join(','));
+            if (key !== prevVisibleKeyRef.current) {
+              prevVisibleKeyRef.current = key;
+              if (visibleIds.length > 0 || activitySpatialIndex.size === 0) {
+                setVisibleActivityIds(new Set(visibleIds));
+              }
             }
           }
         }, 200);
       }
+
+      markUserInteracted();
     },
-    [currentZoomLevel, setCurrentZoom, setCurrentCenter, setVisibleActivityIds]
+    [currentZoomLevel, setCurrentZoom, setCurrentCenter, setVisibleActivityIds, markUserInteracted]
   );
 
   // Cache last location to avoid slow GPS re-acquisition

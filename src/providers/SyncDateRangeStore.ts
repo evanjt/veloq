@@ -19,6 +19,12 @@ export interface GpsSyncProgress {
   message: string;
 }
 
+export interface TerrainSnapshotProgress {
+  status: 'idle' | 'rendering';
+  completed: number;
+  total: number;
+}
+
 interface SyncDateRangeState {
   /** Oldest date to sync (YYYY-MM-DD) */
   oldest: string;
@@ -30,6 +36,8 @@ interface SyncDateRangeState {
   hasExpanded: boolean;
   /** GPS sync progress (shared across all screens) */
   gpsSyncProgress: GpsSyncProgress;
+  /** Terrain snapshot rendering progress */
+  terrainSnapshotProgress: TerrainSnapshotProgress;
   /** Whether GPS sync is currently in progress */
   isGpsSyncing: boolean;
   /** Timestamp of last successful GPS sync */
@@ -59,6 +67,8 @@ interface SyncDateRangeState {
   markExpansionProcessed: () => void;
   /** Update GPS sync progress (called from GlobalDataSync) */
   setGpsSyncProgress: (progress: GpsSyncProgress) => void;
+  /** Update terrain snapshot progress (called from TerrainSnapshotWebView) */
+  setTerrainSnapshotProgress: (progress: TerrainSnapshotProgress) => void;
   /** Unlock expansion (called after initial sync completes) */
   unlockExpansion: () => void;
   /** Unlock expansion after a delay (prevents race conditions with UI updates) */
@@ -85,6 +95,12 @@ const defaultGpsSyncProgress: GpsSyncProgress = {
   message: '',
 };
 
+const defaultTerrainSnapshotProgress: TerrainSnapshotProgress = {
+  status: 'idle',
+  completed: 0,
+  total: 0,
+};
+
 /**
  * Get current sync generation (for use outside React components).
  * Sync operations should capture this at start and check before adding results.
@@ -98,6 +114,7 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   isFetchingExtended: false,
   hasExpanded: false,
   gpsSyncProgress: defaultGpsSyncProgress,
+  terrainSnapshotProgress: defaultTerrainSnapshotProgress,
   isGpsSyncing: false,
   lastSyncTimestamp: null,
   isExpansionLocked: false,
@@ -181,6 +198,10 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
       updates.lastSyncTimestamp = new Date().toISOString();
     }
     set(updates);
+  },
+
+  setTerrainSnapshotProgress: (progress: TerrainSnapshotProgress) => {
+    set({ terrainSnapshotProgress: progress });
   },
 
   unlockExpansion: () => {

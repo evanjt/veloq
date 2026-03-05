@@ -848,6 +848,7 @@ export interface TranslationResource {
     analyzingRoutes: string;
     analyzingRoutesProgress: string;
     routeAnalysisComplete: string;
+    renderingTerrainPreviews: string;
   };
 
   chartTypes: {

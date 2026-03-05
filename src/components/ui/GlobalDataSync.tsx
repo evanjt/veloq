@@ -23,7 +23,11 @@ import Animated, {
 import { useQueryClient } from '@tanstack/react-query';
 import { useActivities, useRouteDataSync, useActivityBoundsCache } from '@/hooks';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
-import { formatGpsSyncProgress, formatBoundsSyncProgress } from '@/lib/utils/syncProgressFormat';
+import {
+  formatGpsSyncProgress,
+  formatBoundsSyncProgress,
+  formatTerrainSnapshotProgress,
+} from '@/lib/utils/syncProgressFormat';
 import { colors } from '@/theme';
 
 export function GlobalDataSync() {
@@ -82,6 +86,9 @@ export function GlobalDataSync() {
   const { progress: boundsProgress } = useActivityBoundsCache();
   const isSyncingBounds = boundsProgress.status === 'syncing';
 
+  // Terrain snapshot rendering progress
+  const terrainSnapshotProgress = useSyncDateRange((s) => s.terrainSnapshotProgress);
+
   // Don't show banner on screens that have their own sync indicator
   const isOnMapScreen = routeParts.includes('map' as never);
   const isOnRoutesScreen = routeParts.includes('routes' as never);
@@ -98,8 +105,14 @@ export function GlobalDataSync() {
     [boundsProgress, t]
   );
 
-  // Pick which info to show — GPS sync takes priority (it's more informative)
-  const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo;
+  // Terrain snapshot display info
+  const terrainDisplayInfo = useMemo(
+    () => formatTerrainSnapshotProgress(terrainSnapshotProgress, t),
+    [terrainSnapshotProgress, t]
+  );
+
+  // Pick which info to show — GPS sync > bounds sync > terrain snapshots
+  const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo;
 
   // Show banner when there's something to display and not on screens with own indicator
   const shouldShowBanner = displayInfo !== null && !isOnMapScreen && !isOnRoutesScreen;

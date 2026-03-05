@@ -207,7 +207,8 @@
     "processingGpsTracks": "GPS-sporen verwerken...",
     "analyzingRouteGroups": "Routes analyseren...",
     "detectingSectionsProgress": "Secties detecteren... {{percent}}%",
-    "syncComplete": "Synchronisatie voltooid"
+    "syncComplete": "Synchronisatie voltooid",
+    "renderingTerrainPreviews": "3D-voorbeelden renderen"
   },
   "chartTypes": {
     "alt": "Alt",
