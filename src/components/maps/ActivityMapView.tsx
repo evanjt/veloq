@@ -607,6 +607,8 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // Handle map press - using MapView's native onPress instead of gesture detector
   // This properly distinguishes taps from zoom/pan gestures
+  // Handle native map press - only used for section creation on Android
+  // Fullscreen is handled by the cross-platform touch handler above
   const handleMapPress = useCallback(
     (feature: GeoJSON.Feature) => {
       if (__DEV__) {
@@ -620,14 +622,9 @@ export const ActivityMapView = memo(function ActivityMapView({
       if (creationMode && feature?.geometry?.type === 'Point') {
         const [lng, lat] = feature.geometry.coordinates as [number, number];
         handleCreationTap(lng, lat);
-        return;
-      }
-
-      if (enableFullscreen) {
-        openFullscreen();
       }
     },
-    [enableFullscreen, openFullscreen, creationMode, creationState, handleCreationTap]
+    [creationMode, creationState, handleCreationTap]
   );
 
   // iOS tap handler - converts screen coordinates to map coordinates
@@ -1179,39 +1176,36 @@ export const ActivityMapView = memo(function ActivityMapView({
     <View style={[styles.outerContainer, { height }]}>
       <View
         style={styles.container}
-        onTouchStart={
-          Platform.OS === 'ios'
-            ? (e) => {
-                touchStartRef.current = {
-                  x: e.nativeEvent.locationX,
-                  y: e.nativeEvent.locationY,
-                  time: Date.now(),
-                };
-              }
-            : undefined
-        }
-        onTouchEnd={
-          Platform.OS === 'ios'
-            ? (e) => {
-                const start = touchStartRef.current;
-                if (!start) return;
+        onTouchStart={(e) => {
+          touchStartRef.current = {
+            x: e.nativeEvent.locationX,
+            y: e.nativeEvent.locationY,
+            time: Date.now(),
+          };
+        }}
+        onTouchEnd={(e) => {
+          const start = touchStartRef.current;
+          if (!start) return;
 
-                const dx = Math.abs(e.nativeEvent.locationX - start.x);
-                const dy = Math.abs(e.nativeEvent.locationY - start.y);
-                const duration = Date.now() - start.time;
+          const dx = Math.abs(e.nativeEvent.locationX - start.x);
+          const dy = Math.abs(e.nativeEvent.locationY - start.y);
+          const duration = Date.now() - start.time;
 
-                // Only treat as tap if: short duration, minimal movement
-                const isTap = duration < 300 && dx < 10 && dy < 10;
-                // Don't handle taps in fullscreen or 3D mode
-                const shouldHandle = !isFullscreen && !(is3DMode && is3DReady);
+          // Only treat as tap if: short duration, minimal movement
+          const isTap = duration < 300 && dx < 10 && dy < 10;
+          // Don't handle taps in fullscreen or 3D mode
+          const shouldHandle = !isFullscreen && !(is3DMode && is3DReady);
 
-                if (isTap && shouldHandle) {
-                  handleiOSTap(e.nativeEvent.locationX, e.nativeEvent.locationY);
-                }
-                touchStartRef.current = null;
-              }
-            : undefined
-        }
+          if (isTap && shouldHandle) {
+            if (creationMode) {
+              // Section creation needs map coordinates
+              handleiOSTap(e.nativeEvent.locationX, e.nativeEvent.locationY);
+            } else if (enableFullscreen) {
+              openFullscreen();
+            }
+          }
+          touchStartRef.current = null;
+        }}
       >
         {/* 2D Map layer - hidden when 3D is ready */}
         <View
