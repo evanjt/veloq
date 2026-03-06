@@ -166,6 +166,8 @@ export default function FeedScreen() {
       queryClient.invalidateQueries({ queryKey: ['paceCurve'] }),
       refetchSummary(),
     ]);
+    // Retry any failed 3D terrain snapshots
+    snapshotRef.current?.retryFailed();
     // Re-hide search section after refresh (if no active filter)
     if (!searchQuery && !selectedTypeGroup) {
       setTimeout(() => {

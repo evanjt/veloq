@@ -26,6 +26,7 @@ const MAX_QUEUE_SIZE = 30;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SNAPSHOT_HEIGHT = 240;
 const POOL_SIZE = 2;
+const MAX_SNAPSHOT_RETRIES = 1;
 
 interface SnapshotRequest {
   activityId: string;
@@ -33,10 +34,12 @@ interface SnapshotRequest {
   camera: TerrainCamera;
   mapStyle: MapStyleType;
   routeColor: string;
+  _retryAttempt?: number;
 }
 
 export interface TerrainSnapshotWebViewRef {
   requestSnapshot: (request: SnapshotRequest) => void;
+  retryFailed: () => void;
 }
 
 interface WorkerState {
@@ -113,8 +116,15 @@ function generateWorkerHtml(id: number): string {
       }
     });
 
+    window._tileErrorCount = 0;
+
     window.map.on('error', function(e) {
-      window._rn_log('Map error: ' + (e.error ? e.error.message : JSON.stringify(e)));
+      var msg = e.error ? e.error.message : JSON.stringify(e);
+      window._rn_log('Map error: ' + msg);
+      // Count tile-related errors (HTTP failures, 404s, network errors, source errors)
+      if (e.sourceId || (e.error && (e.error.status >= 400 || /tile|source|fetch|network|load/i.test(msg)))) {
+        window._tileErrorCount++;
+      }
     });
   </script>
 </body>
@@ -142,6 +152,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
     const queueRef = useRef<SnapshotRequest[]>([]);
     const queueTotalRef = useRef(0);
     const queueCompletedRef = useRef(0);
+    const failedRequestsRef = useRef<SnapshotRequest[]>([]);
 
     const updateProgress = useCallback(() => {
       const { setTerrainSnapshotProgress } = useSyncDateRange.getState();
@@ -211,6 +222,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               var myGen = ${gen};
 
               window._snapshotGen = myGen;
+              window._tileErrorCount = 0;
 
               function isStale() {
                 return window._snapshotGen !== myGen;
@@ -346,6 +358,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                         activityId: activityId,
                         gen: myGen,
                         error: 'Tiles incomplete after idle',
+                        tileErrors: window._tileErrorCount,
                       }));
                     }
                   });
@@ -359,6 +372,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                         activityId: activityId,
                         gen: myGen,
                         error: 'Tile load timeout',
+                        tileErrors: window._tileErrorCount,
                       }));
                     }
                   }, 5000);
@@ -376,6 +390,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     activityId: activityId,
                     gen: myGen,
                     error: 'Render timeout',
+                    tileErrors: window._tileErrorCount,
                   }));
                 }
               }, 10000);
@@ -415,6 +430,60 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                         activityId: activityId,
                         gen: myGen,
                         error: 'White tile detected',
+                        tileErrors: window._tileErrorCount,
+                      }));
+                      return;
+                    }
+
+                    // Gap pixel detection — sample 6 interior points in the terrain area
+                    var gapCount = 0;
+                    var interiorPoints = [
+                      [Math.floor(w * 0.3), Math.floor(h * 0.5)],
+                      [Math.floor(w * 0.5), Math.floor(h * 0.5)],
+                      [Math.floor(w * 0.7), Math.floor(h * 0.5)],
+                      [Math.floor(w * 0.3), Math.floor(h * 0.7)],
+                      [Math.floor(w * 0.5), Math.floor(h * 0.7)],
+                      [Math.floor(w * 0.7), Math.floor(h * 0.7)],
+                    ];
+                    for (var gi = 0; gi < interiorPoints.length; gi++) {
+                      var gx = interiorPoints[gi][0];
+                      var gy = h - interiorPoints[gi][1] - 1;
+                      ctx.readPixels(gx, gy, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, pixel);
+                      var r = pixel[0], g = pixel[1], b = pixel[2];
+                      var isGap = false;
+                      // Pure black = failed DEM tile
+                      if (r === 0 && g === 0 && b === 0) isGap = true;
+                      // Satellite: sky color range (#1a3a5c area)
+                      else if (isSatellite && r < 40 && g < 70 && b > 70 && b < 120) isGap = true;
+                      // Dark style: background #1A1A1A range
+                      else if (!isSatellite && isDark && r < 35 && g < 35 && b < 35) isGap = true;
+                      // Light style: background #E8E0D8 range
+                      else if (!isSatellite && !isDark && r > 220 && g > 210 && b > 200 && r < 245 && g < 235 && b < 225) isGap = true;
+                      if (isGap) gapCount++;
+                    }
+                    if (gapCount >= 3) {
+                      window._rn_log('Gap detected (' + gapCount + '/6 interior samples), rejecting');
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'snapshotError',
+                        workerId: workerId,
+                        activityId: activityId,
+                        gen: myGen,
+                        error: 'Gap detected (' + gapCount + '/6)',
+                        tileErrors: window._tileErrorCount,
+                      }));
+                      return;
+                    }
+
+                    // Tile error count gate — catches gaps outside sampled pixel locations
+                    if (window._tileErrorCount >= 2) {
+                      window._rn_log('Tile errors detected (' + window._tileErrorCount + '), rejecting');
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'snapshotError',
+                        workerId: workerId,
+                        activityId: activityId,
+                        gen: myGen,
+                        error: 'Tile errors: ' + window._tileErrorCount,
+                        tileErrors: window._tileErrorCount,
                       }));
                       return;
                     }
@@ -430,6 +499,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     mapStyle: mapStyle,
                     gen: myGen,
                     base64: base64,
+                    tileErrors: window._tileErrorCount,
                   }));
                 } catch(e) {
                   window._rn_log('Capture error: ' + e.message);
@@ -439,6 +509,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     activityId: activityId,
                     gen: myGen,
                     error: e.message,
+                    tileErrors: window._tileErrorCount,
                   }));
                 }
               }
@@ -509,7 +580,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             worker.currentRequestRef.current = null;
 
             console.log(
-              `[TerrainSnapshot:${data.workerId}] Captured ${data.activityId} (${Math.round(data.base64.length / 1024)}KB base64)`
+              `[TerrainSnapshot:${data.workerId}] Captured ${data.activityId} (${Math.round(data.base64.length / 1024)}KB base64${data.tileErrors ? `, ${data.tileErrors} tile errors` : ''})`
             );
             const uri = await saveTerrainPreview(data.activityId, style, data.base64);
             console.log(`[TerrainSnapshot:${data.workerId}] Saved ${data.activityId} → ${uri}`);
@@ -526,15 +597,39 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               return;
             }
 
-            console.warn(
-              `[TerrainSnapshot:${data.workerId}] Error for ${data.activityId}: ${data.error}`
-            );
             if (worker.timeoutRef.current) clearTimeout(worker.timeoutRef.current);
             worker.processingRef.current = false;
+
+            const currentRequest = worker.currentRequestRef.current;
             worker.currentRequestRef.current = null;
-            queueCompletedRef.current++;
-            updateProgress();
-            processNext();
+            const attempt = currentRequest?._retryAttempt ?? 0;
+
+            if (currentRequest && attempt < MAX_SNAPSHOT_RETRIES) {
+              // Retry: push back to front of queue with incremented attempt
+              console.warn(
+                `[TerrainSnapshot:${data.workerId}] Scheduling retry for ${data.activityId} (attempt ${attempt + 1}, error: ${data.error}, tile errors: ${data.tileErrors ?? 0})`
+              );
+              queueRef.current.unshift({
+                ...currentRequest,
+                _retryAttempt: attempt + 1,
+              });
+              // 1s delay before retry to let tile servers recover
+              setTimeout(() => processNext(), 1000);
+            } else {
+              // Exhausted retries — save for later re-attempt
+              console.warn(
+                `[TerrainSnapshot:${data.workerId}] Giving up on ${data.activityId} (error: ${data.error}, tile errors: ${data.tileErrors ?? 0})`
+              );
+              if (currentRequest) {
+                failedRequestsRef.current.push({
+                  ...currentRequest,
+                  _retryAttempt: 0,
+                });
+              }
+              queueCompletedRef.current++;
+              updateProgress();
+              processNext();
+            }
           }
         } catch {
           // Ignore parse errors
@@ -562,6 +657,19 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           }
           queueRef.current.push(request);
           queueTotalRef.current++;
+          updateProgress();
+          processNext();
+        },
+        retryFailed: () => {
+          const failed = failedRequestsRef.current;
+          if (failed.length === 0) return;
+          console.log(`[TerrainSnapshot] Retrying ${failed.length} failed snapshots`);
+          failedRequestsRef.current = [];
+          for (const req of failed) {
+            if (hasTerrainPreview(req.activityId, req.mapStyle)) continue;
+            queueRef.current.push(req);
+            queueTotalRef.current++;
+          }
           updateProgress();
           processNext();
         },
