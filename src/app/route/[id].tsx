@@ -321,6 +321,7 @@ export default function RouteDetailScreen() {
     forwardStats,
     reverseStats,
     currentRank,
+    activityMetrics,
   } = useRoutePerformances(id, engineGroup?.groupId);
 
   // Get consensus route points from Rust engine
@@ -437,16 +438,12 @@ export default function RouteDetailScreen() {
     }
   }, [engineGroup?.activityIds]);
 
-  // Build activity list from engine metrics (no API call needed), sorted by fastest pace
+  // Build activity list from inlined metrics (from useRoutePerformances), sorted by fastest pace
   const routeActivities = React.useMemo(() => {
-    if (!routeGroupBase) return [];
-    const engine = getRouteEngine();
-    if (!engine) return [];
-
-    const metrics = engine.getActivityMetricsForIds(routeGroupBase.activityIds);
+    if (!routeGroupBase || activityMetrics.size === 0) return [];
 
     // Convert engine metrics to Activity-compatible objects
-    const activities: Activity[] = metrics.map(
+    const activities: Activity[] = Array.from(activityMetrics.values()).map(
       (m): Activity => ({
         id: m.activityId,
         name: m.name,
@@ -479,7 +476,7 @@ export default function RouteDetailScreen() {
       if (speedB === undefined) return -1;
       return speedB - speedA;
     });
-  }, [routeGroupBase, performances]);
+  }, [routeGroupBase, activityMetrics, performances]);
 
   // Prepare chart data for UnifiedPerformanceChart using Rust engine performance data
   // This provides precise segment times instead of approximate activity averages

@@ -261,17 +261,10 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
       const engine = getRouteEngine();
       if (!engine) return { sections: [], totalCount: 0 };
 
-      const allNativeSections = engine.getSections();
-      let filtered = allNativeSections;
-
-      if (sportType) {
-        filtered = filtered.filter((s) => s.sportType === sportType);
-      }
-
-      filtered = filtered.filter((s) => s.visitCount >= minVisits);
+      const nativeSections = engine.getSectionsFiltered(sportType, minVisits);
 
       // Convert from native GpsPoint to app RoutePoint format and apply display names
-      const convertedSections: FrequentSection[] = filtered.map((native) => {
+      const convertedSections: FrequentSection[] = nativeSections.map((native) => {
         const converted = convertNativeSectionToApp(native);
         return {
           ...converted,
@@ -281,7 +274,7 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
 
       return {
         sections: convertedSections,
-        totalCount: allNativeSections.length,
+        totalCount: convertedSections.length,
       };
     } catch {
       return { sections: [], totalCount: 0 };

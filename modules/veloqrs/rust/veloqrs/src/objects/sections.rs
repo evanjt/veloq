@@ -24,6 +24,19 @@ impl SectionManager {
         })
     }
 
+    fn get_filtered(
+        &self,
+        sport_type: Option<String>,
+        min_visits: Option<u32>,
+    ) -> Result<Vec<crate::FfiFrequentSection>, VeloqError> {
+        with_engine(|e| {
+            e.get_sections_filtered(sport_type.as_deref(), min_visits)
+                .into_iter()
+                .map(crate::FfiFrequentSection::from)
+                .collect()
+        })
+    }
+
     fn get_by_type(&self, section_type: Option<String>) -> Result<Vec<crate::FfiSection>, VeloqError> {
         let st = section_type.as_deref().and_then(SectionType::from_str);
         with_engine(|e| {

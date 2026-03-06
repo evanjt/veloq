@@ -263,6 +263,13 @@ class RouteEngineClient {
     return this.timed('getSections', () => this.engine.sections().getAll());
   }
 
+  getSectionsFiltered(sportType?: string, minVisits?: number): FfiFrequentSection[] {
+    if (!this.ready) return [];
+    return this.timed('getSectionsFiltered', () =>
+      this.engine.sections().getFiltered(sportType ?? null, minVisits ?? null),
+    );
+  }
+
   getSectionsForActivity(activityId: string): FfiSection[] {
     if (!this.ready) return [];
     return this.timed('getSectionsForActivity', () =>

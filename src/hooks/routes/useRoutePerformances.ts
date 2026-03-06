@@ -9,7 +9,7 @@ import { useEngineGroups } from './useRouteEngine';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { RouteGroup, MatchDirection, DirectionStats } from '@/types';
 import { toActivityType } from '@/types';
-import type { RoutePerformanceResult } from 'veloqrs';
+import type { RoutePerformanceResult, FfiActivityMetrics } from 'veloqrs';
 import { toDirectionStats, fromUnixSeconds } from '@/lib/utils/ffiConversions';
 
 /** Match info returned from the Rust engine (uses camelCase from serde) */
@@ -71,6 +71,8 @@ interface UseRoutePerformancesResult {
   reverseStats: DirectionStats | null;
   /** Current activity's rank (1 = fastest) */
   currentRank: number | null;
+  /** Activity metrics inlined from route performances (avoids duplicate FFI call) */
+  activityMetrics: Map<string, FfiActivityMetrics>;
 }
 
 export function useRoutePerformances(
@@ -309,5 +311,6 @@ export function useRoutePerformances(
     forwardStats: augmentedForwardStats,
     reverseStats: augmentedReverseStats,
     currentRank: rustData.currentRank,
+    activityMetrics: rustData.activityMetrics,
   };
 }

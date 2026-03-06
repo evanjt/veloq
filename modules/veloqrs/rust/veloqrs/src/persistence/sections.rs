@@ -255,6 +255,24 @@ impl PersistentRouteEngine {
         &self.sections
     }
 
+    /// Get sections filtered by sport type and/or minimum visit count.
+    /// Filters in-memory sections to avoid FFI overhead for non-matching entries.
+    pub fn get_sections_filtered(
+        &self,
+        sport_type: Option<&str>,
+        min_visits: Option<u32>,
+    ) -> Vec<FrequentSection> {
+        let min = min_visits.unwrap_or(0);
+        self.sections
+            .iter()
+            .filter(|s| {
+                sport_type.map_or(true, |st| s.sport_type == st)
+                    && s.visit_count >= min
+            })
+            .cloned()
+            .collect()
+    }
+
     /// Update a section's name in memory (for immediate visibility after rename).
     pub fn update_section_name_in_memory(&mut self, section_id: &str, name: &str) {
         if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
