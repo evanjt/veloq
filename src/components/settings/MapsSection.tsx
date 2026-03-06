@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Switch } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, SegmentedButtons } from 'react-native-paper';
 import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
@@ -12,7 +12,7 @@ import {
   getTerrainPreviewCacheSize,
 } from '@/lib/storage/terrainPreviewCache';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import type { ActivityType } from '@/types';
+import type { ActivityType, Terrain3DMode } from '@/types';
 
 type FilterLabelKey =
   | 'filters.cycling'
@@ -81,9 +81,9 @@ export function MapsSection() {
     preferences: mapPreferences,
     setDefaultStyle,
     setActivityGroupStyle,
-    setTerrain3D,
-    setTerrain3DGroup,
-    isTerrain3DEnabled,
+    setTerrain3DMode,
+    setTerrain3DModeGroup,
+    getTerrain3DMode,
   } = useMapPreferences();
 
   // Terrain cache stats
@@ -91,18 +91,18 @@ export function MapsSection() {
 
   useEffect(() => {
     getTerrainPreviewCacheSize().then(setTerrainCacheSize);
-  }, [mapPreferences.terrain3DDefault, mapPreferences.terrain3DByType]);
+  }, [mapPreferences.terrain3DMode, mapPreferences.terrain3DModeByType]);
 
   // Migrate stale per-type 3D overrides: old code only set types[0] per group.
   // Normalize so all types in a group share the same override.
   useEffect(() => {
-    const byType = mapPreferences.terrain3DByType;
+    const byType = mapPreferences.terrain3DModeByType;
     for (const group of MAP_ACTIVITY_GROUPS) {
       const lead = byType[group.types[0]];
       if (lead === undefined) continue;
       const needsFix = group.types.some((t) => byType[t] !== lead);
       if (needsFix) {
-        setTerrain3DGroup(group.types, lead);
+        setTerrain3DModeGroup(group.types, lead);
       }
     }
     // Only run on mount
@@ -126,14 +126,14 @@ export function MapsSection() {
     setTerrainCacheSize(0);
   };
 
-  const handleTerrain3DDefaultToggle = async (enabled: boolean) => {
-    await setTerrain3D(null, enabled);
+  const handleTerrain3DModeChange = async (mode: string) => {
+    await setTerrain3DMode(null, mode as Terrain3DMode);
     await clearTerrainPreviews();
     setTerrainCacheSize(0);
   };
 
-  const handleTerrain3DGroupToggle = async (types: ActivityType[], enabled: boolean) => {
-    await setTerrain3DGroup(types, enabled);
+  const handleTerrain3DGroupModeChange = async (types: ActivityType[], mode: string) => {
+    await setTerrain3DModeGroup(types, mode as Terrain3DMode);
     await clearTerrainPreviews();
     setTerrainCacheSize(0);
   };
@@ -175,7 +175,7 @@ export function MapsSection() {
           onValueChange={handleDefaultMapStyleChange}
         />
 
-        {/* 3D Terrain toggle */}
+        {/* 3D Terrain mode picker */}
         <View style={[styles.actionRow, styles.actionRowBorder]}>
           <MaterialCommunityIcons name="image-filter-hdr" size={22} color={colors.primary} />
           <View style={styles.terrain3DTextContainer}>
@@ -184,15 +184,24 @@ export function MapsSection() {
             </Text>
             <Text style={[styles.terrain3DHint, isDark && styles.textMuted]}>
               {t('settings.terrain3DHint', {
-                defaultValue: 'Pre-rendered 3D terrain in feed cards',
+                defaultValue: 'Smart mode shows 3D for hilly and mountainous terrain',
               })}
             </Text>
           </View>
-          <Switch
-            value={mapPreferences.terrain3DDefault}
-            onValueChange={handleTerrain3DDefaultToggle}
-            trackColor={{ false: isDark ? darkColors.border : colors.border, true: colors.primary }}
-            thumbColor={colors.surface}
+        </View>
+        <View style={styles.terrain3DPickerContainer}>
+          <SegmentedButtons
+            value={mapPreferences.terrain3DMode}
+            onValueChange={handleTerrain3DModeChange}
+            buttons={[
+              { value: 'off', label: t('settings.terrain3DOff', { defaultValue: 'Off' }) },
+              { value: 'smart', label: t('settings.terrain3DSmart', { defaultValue: 'Smart' }) },
+              {
+                value: 'always',
+                label: t('settings.terrain3DAlways', { defaultValue: 'Always' }),
+              },
+            ]}
+            density="small"
           />
         </View>
 
@@ -218,28 +227,13 @@ export function MapsSection() {
             {MAP_ACTIVITY_GROUPS.map(({ key, labelKey, types }) => {
               // Use the first type in the group to determine current style
               const currentStyle = mapPreferences.activityTypeStyles[types[0]] ?? 'default';
-              const terrain3DForGroup = isTerrain3DEnabled(types[0]);
+              const terrain3DModeForGroup = getTerrain3DMode(types[0]);
               return (
                 <View key={key} style={styles.activityStyleRow}>
                   <View style={styles.activityStyleHeader}>
                     <Text style={[styles.activityStyleLabel, isDark && styles.textLight]}>
                       {t(labelKey)}
                     </Text>
-                    <View style={styles.terrain3DGroupToggle}>
-                      <Text style={[styles.terrain3DGroupLabel, isDark && styles.textMuted]}>
-                        3D
-                      </Text>
-                      <Switch
-                        value={terrain3DForGroup}
-                        onValueChange={(enabled) => handleTerrain3DGroupToggle(types, enabled)}
-                        trackColor={{
-                          false: isDark ? darkColors.border : colors.border,
-                          true: colors.primary,
-                        }}
-                        thumbColor={colors.surface}
-                        style={styles.terrain3DGroupSwitch}
-                      />
-                    </View>
                   </View>
                   <SegmentedButtons
                     value={currentStyle}
@@ -253,6 +247,29 @@ export function MapsSection() {
                     density="small"
                     style={styles.activityStylePicker}
                   />
+                  <View style={styles.terrain3DGroupRow}>
+                    <Text style={[styles.terrain3DGroupLabel, isDark && styles.textMuted]}>3D</Text>
+                    <SegmentedButtons
+                      value={terrain3DModeForGroup}
+                      onValueChange={(value) => handleTerrain3DGroupModeChange(types, value)}
+                      buttons={[
+                        {
+                          value: 'off',
+                          label: t('settings.terrain3DOff', { defaultValue: 'Off' }),
+                        },
+                        {
+                          value: 'smart',
+                          label: t('settings.terrain3DSmart', { defaultValue: 'Smart' }),
+                        },
+                        {
+                          value: 'always',
+                          label: t('settings.terrain3DAlways', { defaultValue: 'Always' }),
+                        },
+                      ]}
+                      density="small"
+                      style={styles.terrain3DGroupPicker}
+                    />
+                  </View>
                 </View>
               );
             })}
@@ -337,6 +354,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
+  terrain3DPickerContainer: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+  },
   activityStylesContainer: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
@@ -364,18 +385,19 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     fontStyle: 'italic',
   },
-  terrain3DGroupToggle: {
+  terrain3DGroupRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.sm,
+    marginTop: spacing.xs,
   },
   terrain3DGroupLabel: {
     fontSize: 12,
     color: colors.textSecondary,
     fontWeight: '500',
   },
-  terrain3DGroupSwitch: {
-    transform: [{ scaleX: 0.7 }, { scaleY: 0.7 }],
+  terrain3DGroupPicker: {
+    flex: 1,
   },
   textLight: {
     color: colors.textOnDark,

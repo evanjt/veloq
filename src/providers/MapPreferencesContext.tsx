@@ -10,16 +10,18 @@ import React, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeJsonParseWithSchema } from '@/lib/utils/validation';
 import type { MapStyleType } from '@/components/maps/mapStyles';
-import type { ActivityType } from '@/types';
+import type { ActivityType, Terrain3DMode } from '@/types';
 import { isActivityType } from '@/types';
 
 const STORAGE_KEY = 'veloq-map-preferences';
 
+const VALID_TERRAIN_MODES = new Set<Terrain3DMode>(['off', 'smart', 'always']);
+
 export interface MapPreferences {
   defaultStyle: MapStyleType;
   activityTypeStyles: Partial<Record<ActivityType, MapStyleType>>;
-  terrain3DDefault: boolean;
-  terrain3DByType: Partial<Record<ActivityType, boolean>>;
+  terrain3DMode: Terrain3DMode;
+  terrain3DModeByType: Partial<Record<ActivityType, Terrain3DMode>>;
 }
 
 interface MapPreferencesContextValue {
@@ -32,28 +34,62 @@ interface MapPreferencesContextValue {
     style: MapStyleType | null
   ) => Promise<void>;
   getStyleForActivity: (activityType: ActivityType) => MapStyleType;
-  setTerrain3D: (activityType: ActivityType | null, enabled: boolean) => Promise<void>;
-  setTerrain3DGroup: (activityTypes: ActivityType[], enabled: boolean) => Promise<void>;
-  isTerrain3DEnabled: (activityType: ActivityType) => boolean;
+  setTerrain3DMode: (activityType: ActivityType | null, mode: Terrain3DMode) => Promise<void>;
+  setTerrain3DModeGroup: (activityTypes: ActivityType[], mode: Terrain3DMode) => Promise<void>;
+  getTerrain3DMode: (activityType: ActivityType) => Terrain3DMode;
   isAnyTerrain3DEnabled: boolean;
 }
 
 const DEFAULT_PREFERENCES: MapPreferences = {
   defaultStyle: 'light',
   activityTypeStyles: {},
-  terrain3DDefault: false,
-  terrain3DByType: {},
+  terrain3DMode: 'smart',
+  terrain3DModeByType: {},
 };
 
 /** Valid map style values */
 const VALID_MAP_STYLES = new Set<MapStyleType>(['light', 'dark', 'satellite']);
 
-/**
- * Validate that a value is a valid MapPreferences object.
- */
-function isValidMapPreferences(value: unknown): value is MapPreferences {
-  if (typeof value !== 'object' || value === null) return false;
+/** Migrate legacy boolean terrain preferences to Terrain3DMode */
+function migrateBooleanTerrain(obj: Record<string, unknown>): {
+  terrain3DMode: Terrain3DMode;
+  terrain3DModeByType: Partial<Record<ActivityType, Terrain3DMode>>;
+} {
+  // Migrate terrain3DDefault: true → 'always', false → 'off'
+  let terrain3DMode: Terrain3DMode = DEFAULT_PREFERENCES.terrain3DMode;
+  if (typeof obj.terrain3DDefault === 'boolean') {
+    terrain3DMode = obj.terrain3DDefault ? 'always' : 'off';
+  } else if (
+    typeof obj.terrain3DMode === 'string' &&
+    VALID_TERRAIN_MODES.has(obj.terrain3DMode as Terrain3DMode)
+  ) {
+    terrain3DMode = obj.terrain3DMode as Terrain3DMode;
+  }
 
+  // Migrate terrain3DByType: boolean → Terrain3DMode
+  const terrain3DModeByType: Partial<Record<ActivityType, Terrain3DMode>> = {};
+  if (typeof obj.terrain3DByType === 'object' && obj.terrain3DByType !== null) {
+    for (const [key, val] of Object.entries(obj.terrain3DByType as Record<string, unknown>)) {
+      if (!isActivityType(key)) continue;
+      if (typeof val === 'boolean') {
+        terrain3DModeByType[key] = val ? 'always' : 'off';
+      }
+    }
+  } else if (typeof obj.terrain3DModeByType === 'object' && obj.terrain3DModeByType !== null) {
+    for (const [key, val] of Object.entries(obj.terrain3DModeByType as Record<string, unknown>)) {
+      if (!isActivityType(key) || !VALID_TERRAIN_MODES.has(val as Terrain3DMode)) continue;
+      terrain3DModeByType[key] = val as Terrain3DMode;
+    }
+  }
+
+  return { terrain3DMode, terrain3DModeByType };
+}
+
+/**
+ * Validate and normalize stored preferences, handling migration from legacy booleans.
+ */
+function parseStoredPreferences(value: unknown): MapPreferences | null {
+  if (typeof value !== 'object' || value === null) return null;
   const obj = value as Record<string, unknown>;
 
   // Validate defaultStyle
@@ -61,39 +97,27 @@ function isValidMapPreferences(value: unknown): value is MapPreferences {
     typeof obj.defaultStyle !== 'string' ||
     !VALID_MAP_STYLES.has(obj.defaultStyle as MapStyleType)
   ) {
-    return false;
+    return null;
   }
 
   // Validate activityTypeStyles if present
-  if (obj.activityTypeStyles !== undefined) {
-    if (typeof obj.activityTypeStyles !== 'object' || obj.activityTypeStyles === null) {
-      return false;
-    }
-    for (const [key, val] of Object.entries(obj.activityTypeStyles)) {
-      if (!isActivityType(key) || !VALID_MAP_STYLES.has(val as MapStyleType)) {
-        return false;
-      }
+  const activityTypeStyles: Partial<Record<ActivityType, MapStyleType>> = {};
+  if (typeof obj.activityTypeStyles === 'object' && obj.activityTypeStyles !== null) {
+    for (const [key, val] of Object.entries(obj.activityTypeStyles as Record<string, unknown>)) {
+      if (!isActivityType(key) || !VALID_MAP_STYLES.has(val as MapStyleType)) continue;
+      activityTypeStyles[key] = val as MapStyleType;
     }
   }
 
-  // Validate terrain3DDefault if present (optional, defaults to false)
-  if (obj.terrain3DDefault !== undefined && typeof obj.terrain3DDefault !== 'boolean') {
-    return false;
-  }
+  // Migrate or parse terrain3D settings
+  const { terrain3DMode, terrain3DModeByType } = migrateBooleanTerrain(obj);
 
-  // Validate terrain3DByType if present (optional)
-  if (obj.terrain3DByType !== undefined) {
-    if (typeof obj.terrain3DByType !== 'object' || obj.terrain3DByType === null) {
-      return false;
-    }
-    for (const [key, val] of Object.entries(obj.terrain3DByType)) {
-      if (!isActivityType(key) || typeof val !== 'boolean') {
-        return false;
-      }
-    }
-  }
-
-  return true;
+  return {
+    defaultStyle: obj.defaultStyle as MapStyleType,
+    activityTypeStyles,
+    terrain3DMode,
+    terrain3DModeByType,
+  };
 }
 
 const MapPreferencesContext = createContext<MapPreferencesContextValue | null>(null);
@@ -102,12 +126,21 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
   const [preferences, setPreferences] = useState<MapPreferences>(DEFAULT_PREFERENCES);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load preferences on mount with schema validation
+  // Load preferences on mount with migration support
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((saved) => {
-        const parsed = safeJsonParseWithSchema(saved, isValidMapPreferences, DEFAULT_PREFERENCES);
-        setPreferences({ ...DEFAULT_PREFERENCES, ...parsed });
+        if (!saved) {
+          setIsLoaded(true);
+          return;
+        }
+        try {
+          const raw = JSON.parse(saved);
+          const parsed = parseStoredPreferences(raw);
+          setPreferences(parsed ?? DEFAULT_PREFERENCES);
+        } catch {
+          // Invalid JSON
+        }
         setIsLoaded(true);
       })
       .catch(() => {
@@ -125,8 +158,6 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     async (style: MapStyleType) => {
       setPreferences((prev) => {
         const newPrefs = { ...prev, defaultStyle: style };
-        // Persist inside callback where newPrefs is captured correctly
-        // (React 18 batching defers setState, so external access to newPrefs would be null)
         savePreferences(newPrefs).catch((error) => {
           if (__DEV__) {
             console.warn('[MapPreferences] Failed to persist:', error);
@@ -149,7 +180,6 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
           newStyles[activityType] = style;
         }
         const newPrefs = { ...prev, activityTypeStyles: newStyles };
-        // Persist inside callback where newPrefs is captured correctly
         savePreferences(newPrefs).catch((error) => {
           if (__DEV__) {
             console.warn('[MapPreferences] Failed to persist:', error);
@@ -174,7 +204,6 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
           }
         }
         const newPrefs = { ...prev, activityTypeStyles: newStyles };
-        // Persist inside callback where newPrefs is captured correctly
         savePreferences(newPrefs).catch((error) => {
           if (__DEV__) {
             console.warn('[MapPreferences] Failed to persist:', error);
@@ -194,22 +223,22 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     [preferences]
   );
 
-  // Set 3D terrain preference - null activityType sets the default
-  const setTerrain3D = useCallback(
-    async (activityType: ActivityType | null, enabled: boolean) => {
+  // Set 3D terrain mode - null activityType sets the default
+  const setTerrain3DMode = useCallback(
+    async (activityType: ActivityType | null, mode: Terrain3DMode) => {
       setPreferences((prev) => {
         let newPrefs: MapPreferences;
         if (activityType === null) {
-          newPrefs = { ...prev, terrain3DDefault: enabled };
+          newPrefs = { ...prev, terrain3DMode: mode };
         } else {
-          const newByType = { ...prev.terrain3DByType };
-          if (enabled === prev.terrain3DDefault) {
+          const newByType = { ...prev.terrain3DModeByType };
+          if (mode === prev.terrain3DMode) {
             // Remove override if it matches default
             delete newByType[activityType];
           } else {
-            newByType[activityType] = enabled;
+            newByType[activityType] = mode;
           }
-          newPrefs = { ...prev, terrain3DByType: newByType };
+          newPrefs = { ...prev, terrain3DModeByType: newByType };
         }
         savePreferences(newPrefs).catch((error) => {
           if (__DEV__) {
@@ -222,19 +251,19 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     [savePreferences]
   );
 
-  // Set 3D terrain for a group of activity types (batch update)
-  const setTerrain3DGroup = useCallback(
-    async (activityTypes: ActivityType[], enabled: boolean) => {
+  // Set 3D terrain mode for a group of activity types (batch update)
+  const setTerrain3DModeGroup = useCallback(
+    async (activityTypes: ActivityType[], mode: Terrain3DMode) => {
       setPreferences((prev) => {
-        const newByType = { ...prev.terrain3DByType };
+        const newByType = { ...prev.terrain3DModeByType };
         for (const activityType of activityTypes) {
-          if (enabled === prev.terrain3DDefault) {
+          if (mode === prev.terrain3DMode) {
             delete newByType[activityType];
           } else {
-            newByType[activityType] = enabled;
+            newByType[activityType] = mode;
           }
         }
-        const newPrefs: MapPreferences = { ...prev, terrain3DByType: newByType };
+        const newPrefs: MapPreferences = { ...prev, terrain3DModeByType: newByType };
         savePreferences(newPrefs).catch((error) => {
           if (__DEV__) {
             console.warn('[MapPreferences] Failed to persist:', error);
@@ -246,19 +275,19 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     [savePreferences]
   );
 
-  // Check if 3D terrain is enabled for a specific activity type
-  const isTerrain3DEnabled = useCallback(
-    (activityType: ActivityType): boolean => {
-      return preferences.terrain3DByType[activityType] ?? preferences.terrain3DDefault;
+  // Get 3D terrain mode for a specific activity type
+  const getTerrain3DMode = useCallback(
+    (activityType: ActivityType): Terrain3DMode => {
+      return preferences.terrain3DModeByType[activityType] ?? preferences.terrain3DMode;
     },
     [preferences]
   );
 
-  // Check if any activity type has 3D terrain enabled
+  // Check if any activity type has 3D terrain enabled (not 'off')
   const isAnyTerrain3DEnabled = useMemo(() => {
-    if (preferences.terrain3DDefault) return true;
-    return Object.values(preferences.terrain3DByType).some((v) => v === true);
-  }, [preferences.terrain3DDefault, preferences.terrain3DByType]);
+    if (preferences.terrain3DMode !== 'off') return true;
+    return Object.values(preferences.terrain3DModeByType).some((v) => v !== 'off');
+  }, [preferences.terrain3DMode, preferences.terrain3DModeByType]);
 
   return (
     <MapPreferencesContext.Provider
@@ -269,9 +298,9 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
         setActivityTypeStyle,
         setActivityGroupStyle,
         getStyleForActivity,
-        setTerrain3D,
-        setTerrain3DGroup,
-        isTerrain3DEnabled,
+        setTerrain3DMode,
+        setTerrain3DModeGroup,
+        getTerrain3DMode,
         isAnyTerrain3DEnabled,
       }}
     >

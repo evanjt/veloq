@@ -13,6 +13,14 @@ export interface TerrainCamera {
   pitch: number; // degrees
 }
 
+export interface TerrainCameraResult {
+  camera: TerrainCamera;
+  /** True when computeElevationCamera found meaningful terrain variation */
+  hasInterestingTerrain: boolean;
+  /** Elevation range in meters (max - min), undefined if no altitude data */
+  elevationRange?: number;
+}
+
 /** Minimum elevation range (meters) to use elevation-aware camera */
 const FLAT_THRESHOLD = 30;
 
@@ -43,13 +51,19 @@ const ZOOM_REDUCTION_THRESHOLD = 300;
 export function calculateTerrainCamera(
   coordinates: [number, number][],
   altitude?: number[]
-): TerrainCamera {
+): TerrainCameraResult {
   if (coordinates.length === 0) {
-    return { center: [0, 0], zoom: 10, bearing: 0, pitch: 60 };
+    return {
+      camera: { center: [0, 0], zoom: 10, bearing: 0, pitch: 60 },
+      hasInterestingTerrain: false,
+    };
   }
 
   if (coordinates.length === 1) {
-    return { center: coordinates[0], zoom: 13, bearing: 0, pitch: 60 };
+    return {
+      camera: { center: coordinates[0], zoom: 13, bearing: 0, pitch: 60 },
+      hasInterestingTerrain: false,
+    };
   }
 
   // Calculate bounding box
@@ -67,7 +81,10 @@ export function calculateTerrainCamera(
   }
 
   if (!isFinite(minLng) || !isFinite(minLat)) {
-    return { center: [0, 0], zoom: 10, bearing: 0, pitch: 60 };
+    return {
+      camera: { center: [0, 0], zoom: 10, bearing: 0, pitch: 60 },
+      hasInterestingTerrain: false,
+    };
   }
 
   const centerLng = (minLng + maxLng) / 2;
@@ -104,10 +121,14 @@ export function calculateTerrainCamera(
     }
 
     return {
-      center: [centerLng + offsetLng, centerLat + offsetLat],
-      zoom,
-      bearing: elevationResult.bearing,
-      pitch: elevationResult.pitch,
+      camera: {
+        center: [centerLng + offsetLng, centerLat + offsetLat],
+        zoom,
+        bearing: elevationResult.bearing,
+        pitch: elevationResult.pitch,
+      },
+      hasInterestingTerrain: true,
+      elevationRange: elevationResult.elevationRange,
     };
   }
 
@@ -120,10 +141,13 @@ export function calculateTerrainCamera(
   const bearing = (routeBearing + 90 + 360) % 360;
 
   return {
-    center: [centerLng, centerLat],
-    zoom,
-    bearing,
-    pitch: 60,
+    camera: {
+      center: [centerLng, centerLat],
+      zoom,
+      bearing,
+      pitch: 60,
+    },
+    hasInterestingTerrain: false,
   };
 }
 
@@ -205,4 +229,21 @@ function computeElevationCamera(
   }
 
   return { bearing: normalizedBearing, pitch, elevationRange };
+}
+
+/**
+ * Quick check using Activity-level data (no altitude stream needed).
+ * Uses conservative thresholds so it over-includes rather than excludes —
+ * the full camera analysis (calculateTerrainCamera) is the final arbiter.
+ */
+export function isLikelyInterestingTerrain(
+  totalElevationGain: number,
+  distanceMeters: number
+): boolean {
+  if (!Number.isFinite(totalElevationGain) || totalElevationGain < 30) return false;
+  if (Number.isFinite(distanceMeters) && distanceMeters > 1000) {
+    const gainPerKm = totalElevationGain / (distanceMeters / 1000);
+    if (gainPerKm < 3) return false;
+  }
+  return true;
 }

@@ -22,7 +22,7 @@ import { useActivityStreams } from '@/hooks';
 import { hasTerrainPreview, getTerrainPreviewUri } from '@/lib/storage/terrainPreviewCache';
 import { getCameraOverride } from '@/lib/storage/terrainCameraOverrides';
 import { subscribeSnapshot } from '@/lib/events/terrainSnapshotEvents';
-import { calculateTerrainCamera } from '@/lib/utils/cameraAngle';
+import { calculateTerrainCamera, isLikelyInterestingTerrain } from '@/lib/utils/cameraAngle';
 import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
 import type { Activity } from '@/types';
 
@@ -40,14 +40,20 @@ export function ActivityMapPreview({
   index = 0,
   snapshotRef,
 }: ActivityMapPreviewProps) {
-  const { getStyleForActivity, isTerrain3DEnabled } = useMapPreferences();
+  const { getStyleForActivity, getTerrain3DMode } = useMapPreferences();
   const mapStyle = getStyleForActivity(activity.type);
   const activityColor = getActivityColor(activity.type);
-  const terrain3D = isTerrain3DEnabled(activity.type);
+  const terrain3DMode = getTerrain3DMode(activity.type);
+
+  // Fast pre-filter: skip 3D entirely for obviously flat activities
+  const maybeShow3D =
+    terrain3DMode === 'always' ||
+    (terrain3DMode === 'smart' &&
+      isLikelyInterestingTerrain(activity.total_elevation_gain, activity.distance));
 
   // Track whether we have a cached 3D terrain image
   const [terrainImageUri, setTerrainImageUri] = useState<string | null>(() => {
-    if (terrain3D && hasTerrainPreview(activity.id, mapStyle)) {
+    if (maybeShow3D && hasTerrainPreview(activity.id, mapStyle)) {
       return getTerrainPreviewUri(activity.id, mapStyle);
     }
     return null;
@@ -55,20 +61,20 @@ export function ActivityMapPreview({
 
   // Reset terrain image when map style or 3D preference changes
   useEffect(() => {
-    if (terrain3D && hasTerrainPreview(activity.id, mapStyle)) {
+    if (maybeShow3D && hasTerrainPreview(activity.id, mapStyle)) {
       setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle));
     } else {
       setTerrainImageUri(null);
     }
-  }, [terrain3D, mapStyle, activity.id]);
+  }, [maybeShow3D, mapStyle, activity.id]);
 
   // Subscribe to snapshot completion events for this activity
   useEffect(() => {
-    if (!terrain3D) return;
+    if (!maybeShow3D) return;
     return subscribeSnapshot(activity.id, (uri) => {
       setTerrainImageUri(uri);
     });
-  }, [terrain3D, activity.id]);
+  }, [maybeShow3D, activity.id]);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
 
@@ -225,18 +231,23 @@ export function ActivityMapPreview({
   const endPoint = validCoordinates[validCoordinates.length - 1];
 
   // Memoize terrain camera: use user override if saved, else auto-calculate
-  const terrainCamera = useMemo(() => {
-    if (!terrain3D || validCoordinates.length < 2) return null;
+  const terrainCameraResult = useMemo(() => {
+    if (!maybeShow3D || validCoordinates.length < 2) return null;
     const override = getCameraOverride(activity.id);
-    if (override) return override;
+    if (override) return { camera: override, hasInterestingTerrain: true } as const;
     const lngLatCoords: [number, number][] = validCoordinates.map((c) => [c.longitude, c.latitude]);
     return calculateTerrainCamera(lngLatCoords, streams?.altitude);
-  }, [terrain3D, validCoordinates, streams?.altitude, activity.id]);
+  }, [maybeShow3D, validCoordinates, streams?.altitude, activity.id]);
+
+  // Final decision: should we render 3D?
+  const show3D =
+    terrain3DMode === 'always' ||
+    (terrain3DMode === 'smart' && terrainCameraResult?.hasInterestingTerrain === true);
 
   // Request 3D terrain snapshot when enabled and coordinates are available
   // Only cards within the first N positions request snapshots to limit queue pressure
   useEffect(() => {
-    if (!terrain3D || !snapshotRef?.current || !terrainCamera) return;
+    if (!show3D || !snapshotRef?.current || !terrainCameraResult) return;
     if (hasTerrainPreview(activity.id, mapStyle)) {
       setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle));
       return;
@@ -248,13 +259,13 @@ export function ActivityMapPreview({
     snapshotRef.current.requestSnapshot({
       activityId: activity.id,
       coordinates: lngLatCoords,
-      camera: terrainCamera,
+      camera: terrainCameraResult.camera,
       mapStyle,
       routeColor: activityColor,
     });
   }, [
-    terrain3D,
-    terrainCamera,
+    show3D,
+    terrainCameraResult,
     validCoordinates,
     activity.id,
     mapStyle,
@@ -290,8 +301,8 @@ export function ActivityMapPreview({
   }
 
   // Show cached 3D terrain image when available
-  if (terrain3D && terrainImageUri) {
-    const bearing = terrainCamera?.bearing ?? 0;
+  if (show3D && terrainImageUri) {
+    const bearing = terrainCameraResult?.camera.bearing ?? 0;
     return (
       <View style={[styles.container, { height }]}>
         <Image source={{ uri: terrainImageUri }} style={styles.terrainImage} resizeMode="cover" />

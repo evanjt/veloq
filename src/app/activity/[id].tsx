@@ -685,22 +685,25 @@ export default function ActivityDetailScreen() {
     setSnackbarVisible(false);
   }, [activity?.id]);
 
-  // Restore saved 3D camera angle, or auto-calculate if terrain 3D is enabled
-  const { isTerrain3DEnabled } = useMapPreferences();
-  const terrain3DEnabled = activity?.type ? isTerrain3DEnabled(activity.type) : false;
+  // Restore saved 3D camera angle, or auto-calculate based on terrain mode
+  const { getTerrain3DMode } = useMapPreferences();
+  const terrain3DMode = activity?.type ? getTerrain3DMode(activity.type) : 'off';
 
   const saved3DCamera = useMemo(() => {
-    if (!activity?.id) return null;
+    if (!activity?.id || terrain3DMode === 'off') return null;
     // Saved override takes priority (user manually adjusted the angle)
     const override = getCameraOverride(activity.id);
     if (override) return override;
-    // Auto-calculate if terrain 3D is enabled for this activity type
-    if (terrain3DEnabled && coordinates.length >= 2) {
+    // Auto-calculate camera for terrain preview
+    if (coordinates.length >= 2) {
       const lngLatCoords: [number, number][] = coordinates.map((c) => [c.longitude, c.latitude]);
-      return calculateTerrainCamera(lngLatCoords, streams?.altitude);
+      const result = calculateTerrainCamera(lngLatCoords, streams?.altitude);
+      // In smart mode, only show 3D if terrain is interesting
+      if (terrain3DMode === 'smart' && !result.hasInterestingTerrain) return null;
+      return result.camera;
     }
     return null;
-  }, [activity?.id, terrain3DEnabled, coordinates, streams?.altitude]);
+  }, [activity?.id, terrain3DMode, coordinates, streams?.altitude]);
 
   // Handle chart metrics updates (avg values or scrub position values)
   const handleMetricsChange = useCallback((metrics: ChartMetricValue[]) => {
