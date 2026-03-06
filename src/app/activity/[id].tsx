@@ -939,7 +939,7 @@ export default function ActivityDetailScreen() {
         />
 
         {/* Floating header - back button and export */}
-        <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
+        <View style={[styles.floatingHeader, { paddingTop: insets.top }]} pointerEvents="box-none">
           <TouchableOpacity
             testID="activity-detail-back"
             style={styles.backButton}
@@ -948,11 +948,11 @@ export default function ActivityDetailScreen() {
           >
             <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
           </TouchableOpacity>
-          <View style={{ flex: 1 }} />
+          <View style={{ flex: 1 }} pointerEvents="none" />
         </View>
 
         {/* Activity info overlay at bottom */}
-        <View style={styles.infoOverlay}>
+        <View style={styles.infoOverlay} pointerEvents="box-none">
           <Pressable
             onLongPress={
               debugEnabled
