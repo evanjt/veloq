@@ -113,6 +113,7 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
     staleTime: 1000 * 60 * 5, // 5 minutes - data appears instantly from cache
     gcTime: 1000 * 60 * 60, // 1 hour - keep in memory for navigation
     refetchOnWindowFocus: true, // Pick up new activities on foreground
+    maxPages: 10, // Evict old pages to prevent memory growth
   });
 
   // All activities flattened from loaded pages
@@ -157,8 +158,8 @@ export function useActivityStreams(id: string) {
       ]),
     // Streams NEVER change - infinite staleTime prevents refetching
     staleTime: Infinity,
-    // GC after 2 hours - streams are large (100-500KB) and rarely needed after viewing
-    gcTime: 1000 * 60 * 60 * 2,
+    // GC after 30 minutes - streams are large (100-500KB), free memory sooner
+    gcTime: 1000 * 60 * 30,
     enabled: !!id,
   });
 }

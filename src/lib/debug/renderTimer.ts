@@ -14,6 +14,7 @@ const renderCounts: Map<string, number> = new Map();
 export function logMount(componentName: string) {
   if (!__DEV__) return;
   const now = performance.now();
+  if (componentTimers.size > 200) componentTimers.clear();
   componentTimers.set(componentName, now);
   console.log(`[MOUNT] ${componentName} @ ${now.toFixed(0)}ms`);
 }
@@ -36,6 +37,7 @@ export function logRender(componentName: string, reason?: string) {
 export function logQueryStart(queryName: string) {
   if (!__DEV__) return;
   const now = performance.now();
+  if (componentTimers.size > 200) componentTimers.clear();
   componentTimers.set(`query:${queryName}`, now);
   console.log(`[QUERY START] ${queryName} @ ${now.toFixed(0)}ms`);
 }
@@ -94,6 +96,7 @@ export function logScreenRender(screenName: string): () => void {
   if (!PERF_DEBUG) return () => {};
   const start = performance.now();
   const count = (renderCounts.get(screenName) ?? 0) + 1;
+  if (renderCounts.size > 200) renderCounts.clear();
   renderCounts.set(screenName, count);
   return () => {
     const duration = performance.now() - start;

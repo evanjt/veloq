@@ -12,6 +12,9 @@ module.exports = function (api) {
           },
         },
       ],
+      ...(process.env.NODE_ENV === 'production'
+        ? [['transform-remove-console', { exclude: ['error'] }]]
+        : []),
       "react-native-reanimated/plugin",
     ],
   };

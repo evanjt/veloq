@@ -53,6 +53,8 @@ export function GlobalDataSync() {
   useEffect(() => {
     if (isAuthenticated && routeSettings.enabled) {
       queryClient.invalidateQueries({ queryKey: ['activities'] });
+      queryClient.invalidateQueries({ queryKey: ['wellness'] });
+      queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -74,6 +76,14 @@ export function GlobalDataSync() {
 
   // Use the route data sync hook to automatically sync GPS data
   const { progress, isSyncing } = useRouteDataSync(activities, routeSettings.enabled);
+
+  // Invalidate wellness/athlete-summary when sync completes so fitness data refreshes
+  useEffect(() => {
+    if (progress.status === 'complete') {
+      queryClient.invalidateQueries({ queryKey: ['wellness'] });
+      queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
+    }
+  }, [progress.status, queryClient]);
 
   // Unlock expansion after sync completes (with delay to let UI stabilize)
   useEffect(() => {
