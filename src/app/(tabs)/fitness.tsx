@@ -40,7 +40,7 @@ import {
   FORM_ZONE_LABELS,
   type TimeRange,
 } from '@/hooks';
-import { useNetwork, useSportPreference, SPORT_COLORS, type PrimarySport } from '@/providers';
+import { useSportPreference, SPORT_COLORS, type PrimarySport } from '@/providers';
 import {
   formatLocalDate,
   formatShortDateWithWeekday,
@@ -127,7 +127,6 @@ export default function FitnessScreen() {
   useEffect(() => {
     if (chartsReady) logMemory('FitnessScreen:chartsReady');
   }, [chartsReady]);
-  const { isOnline } = useNetwork();
   const { primarySport } = useSportPreference();
 
   // Sport mode state - defaults to primary sport, can be toggled
@@ -337,8 +336,7 @@ export default function FitnessScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={isOnline ? onRefresh : undefined}
-            enabled={isOnline}
+            onRefresh={onRefresh}
             tintColor={colors.primary}
             colors={[colors.primary]}
           />

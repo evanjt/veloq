@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import * as Network from 'expo-network';
 
 interface NetworkContextValue {
@@ -19,23 +19,49 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     connectionType: null,
   });
 
+  // Debounce timer for going-offline transitions (3s delay prevents OfflineBanner flashing)
+  const offlineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     // Cancellation flag to prevent state updates after unmount
     // and to coordinate between listener and fallback fetch
     let cancelled = false;
     let hasReceivedListenerUpdate = false;
 
+    const applyNetworkState = (state: Network.NetworkState) => {
+      const isOnline = state.isConnected === true && state.isInternetReachable !== false;
+
+      // Clear any pending offline timer
+      if (offlineTimerRef.current) {
+        clearTimeout(offlineTimerRef.current);
+        offlineTimerRef.current = null;
+      }
+
+      if (isOnline) {
+        // Going online: update immediately
+        setNetworkState({
+          isOnline: true,
+          isInternetReachable: state.isInternetReachable ?? null,
+          connectionType: state.type ?? null,
+        });
+      } else {
+        // Going offline: debounce by 3s to avoid flashing during brief hiccups
+        offlineTimerRef.current = setTimeout(() => {
+          if (cancelled) return;
+          setNetworkState({
+            isOnline: false,
+            isInternetReachable: state.isInternetReachable ?? null,
+            connectionType: state.type ?? null,
+          });
+        }, 3000);
+      }
+    };
+
     // Subscribe to network state updates
     const subscription = Network.addNetworkStateListener((state) => {
       if (cancelled) return;
       hasReceivedListenerUpdate = true;
-      const isOnline = state.isConnected === true && state.isInternetReachable !== false;
-
-      setNetworkState({
-        isOnline,
-        isInternetReachable: state.isInternetReachable ?? null,
-        connectionType: state.type ?? null,
-      });
+      applyNetworkState(state);
     });
 
     // Fallback fetch only if listener doesn't fire within 100ms
@@ -46,19 +72,16 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       Network.getNetworkStateAsync().then((state) => {
         // Check both flags after async operation completes
         if (cancelled || hasReceivedListenerUpdate) return;
-
-        const isOnline = state.isConnected === true && state.isInternetReachable !== false;
-        setNetworkState({
-          isOnline,
-          isInternetReachable: state.isInternetReachable ?? null,
-          connectionType: state.type ?? null,
-        });
+        applyNetworkState(state);
       });
     }, 100);
 
     return () => {
       cancelled = true;
       clearTimeout(timeoutId);
+      if (offlineTimerRef.current) {
+        clearTimeout(offlineTimerRef.current);
+      }
       subscription.remove();
     };
   }, []);

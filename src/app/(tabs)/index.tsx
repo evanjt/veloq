@@ -35,7 +35,6 @@ import {
 } from '@/components/maps/TerrainSnapshotWebView';
 import { initTerrainPreviewCache } from '@/lib/storage/terrainPreviewCache';
 import { initCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
-import { useNetwork } from '@/providers';
 import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
@@ -76,8 +75,6 @@ export default function FeedScreen() {
   const shared = createSharedStyles(isDark);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
-
-  const { isOnline } = useNetwork();
 
   // 3D terrain snapshot WebView
   const { isAnyTerrain3DEnabled } = useMapPreferences();
@@ -420,8 +417,7 @@ export default function FeedScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
-            onRefresh={isOnline ? handleRefresh : undefined}
-            enabled={isOnline}
+            onRefresh={handleRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
             progressBackgroundColor={isDark ? darkColors.surface : colors.surface}

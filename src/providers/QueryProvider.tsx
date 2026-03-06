@@ -1,11 +1,10 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Alert, AppState, Platform, type AppStateStatus } from 'react-native';
 import { i18n } from '@/i18n';
-import { QueryClient, focusManager, onlineManager } from '@tanstack/react-query';
+import { QueryClient, focusManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Network from 'expo-network';
 
 // Sync TanStack Query's focus state with React Native AppState
 // Module-level so it's active before any query runs
@@ -60,17 +59,6 @@ interface QueryProviderProps {
 }
 
 export function QueryProvider({ children }: QueryProviderProps) {
-  // Sync TanStack Query's online state with expo-network
-  useEffect(() => {
-    const subscription = Network.addNetworkStateListener((state) => {
-      // Consider online if connected AND internet is reachable (or unknown)
-      const isOnline = state.isConnected === true && state.isInternetReachable !== false;
-      onlineManager.setOnline(isOnline);
-    });
-
-    return () => subscription.remove();
-  }, []);
-
   return (
     <PersistQueryClientProvider
       client={queryClient}
