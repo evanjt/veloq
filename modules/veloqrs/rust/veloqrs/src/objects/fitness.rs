@@ -46,6 +46,10 @@ impl FitnessManager {
         with_engine(|e| e.get_available_sport_types())
     }
 
+    fn get_activity_heatmap(&self, start_date: String, end_date: String) -> Result<Vec<crate::FfiHeatmapDay>, VeloqError> {
+        with_engine(|e| e.get_activity_heatmap(&start_date, &end_date))
+    }
+
     fn get_summary_card_data(
         &self,
         current_start: i64,

@@ -356,6 +356,36 @@ impl PersistentRouteEngine {
     }
 
     // =========================================================================
+    // Heatmap Cache
+    // =========================================================================
+
+    /// Get pre-computed daily activity intensity from the heatmap cache.
+    /// Returns days within the given date range (YYYY-MM-DD strings).
+    pub fn get_activity_heatmap(&self, start_date: &str, end_date: &str) -> Vec<crate::FfiHeatmapDay> {
+        let mut stmt = match self.db.prepare(
+            "SELECT date, intensity, max_duration, activity_count
+             FROM activity_heatmap
+             WHERE date BETWEEN ?1 AND ?2
+             ORDER BY date",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        stmt.query_map(rusqlite::params![start_date, end_date], |row| {
+            Ok(crate::FfiHeatmapDay {
+                date: row.get(0)?,
+                intensity: row.get::<_, u8>(1)?,
+                max_duration: row.get(2)?,
+                activity_count: row.get::<_, u32>(3)?,
+            })
+        })
+        .ok()
+        .map(|iter| iter.flatten().collect())
+        .unwrap_or_default()
+    }
+
+    // =========================================================================
     // Athlete Profile & Sport Settings Cache
     // =========================================================================
 

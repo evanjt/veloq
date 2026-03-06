@@ -5,6 +5,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { Activity } from '@/types';
 
 interface ActivityHeatmapProps {
@@ -48,19 +49,37 @@ export function ActivityHeatmap({ activities }: ActivityHeatmapProps) {
   const cellGap = CELL_GAP;
 
   // Build activity intensity map (1 year of data).
-  // Uses JS iteration over the full activity array from the API, not engine SQL,
-  // because activity_metrics only covers the GPS sync window (~90 days)
-  // while the heatmap needs 52 weeks.
+  // Tries the Rust engine's pre-computed heatmap cache first (single SQL query),
+  // falls back to JS iteration over the full activity array when engine has no data.
   const activityMap = useMemo(() => {
     const map = new Map<string, number>();
-    if (!activities || activities.length === 0) return map;
-
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - WEEKS_TO_SHOW * 7);
+    const startDate = cutoff.toISOString().split('T')[0];
+    const endDate = new Date().toISOString().split('T')[0];
+
+    // Try Rust engine cache first
+    const engine = getRouteEngine();
+    if (engine) {
+      try {
+        const days = engine.getActivityHeatmap(startDate, endDate);
+        if (days.length > 0) {
+          for (const day of days) {
+            map.set(day.date, day.intensity);
+          }
+          return map;
+        }
+      } catch {
+        // Fall through to JS fallback
+      }
+    }
+
+    // JS fallback: iterate over activity list from API
+    if (!activities || activities.length === 0) return map;
 
     for (const activity of activities) {
       const date = activity.start_date_local.split('T')[0];
-      if (date < cutoff.toISOString().split('T')[0]) continue;
+      if (date < startDate) continue;
 
       const current = map.get(date) || 0;
       const duration = activity.moving_time || 0;

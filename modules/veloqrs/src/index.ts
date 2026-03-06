@@ -34,8 +34,8 @@ export type {
   FetchProgressEvent,
 } from "./conversions";
 
-// Re-export RouteEngineClient
-export { RouteEngineClient } from "./RouteEngineClient";
+// Re-export RouteEngineClient and its locally-defined types
+export { RouteEngineClient, type HeatmapDay } from "./RouteEngineClient";
 
 // Import generated functions for top-level aliases
 import {

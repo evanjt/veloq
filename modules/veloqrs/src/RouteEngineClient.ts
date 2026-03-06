@@ -41,6 +41,14 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const gen = (): any => require('./generated/veloqrs');
 
+/** Pre-computed daily activity intensity from Rust heatmap cache. */
+export interface HeatmapDay {
+  date: string;
+  intensity: number;
+  maxDuration: bigint;
+  activityCount: number;
+}
+
 // Pre-initialization defaults (typed to match UniFFI-generated types)
 const EMPTY_PERIOD_STATS: FfiPeriodStats = {
   count: 0,
@@ -564,6 +572,13 @@ class RouteEngineClient {
     if (!this.ready) return [];
     return this.timed('getAvailableSportTypes', () =>
       this.engine.fitness().getAvailableSportTypes(),
+    );
+  }
+
+  getActivityHeatmap(startDate: string, endDate: string): HeatmapDay[] {
+    if (!this.ready) return [];
+    return this.timed('getActivityHeatmap', () =>
+      this.engine.fitness().getActivityHeatmap(startDate, endDate),
     );
   }
 

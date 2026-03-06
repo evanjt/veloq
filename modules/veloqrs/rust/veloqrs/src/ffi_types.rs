@@ -912,6 +912,23 @@ impl From<crate::RoutePerformanceResult> for FfiRoutePerformanceResult {
 }
 
 // ============================================================================
+// Heatmap Types
+// ============================================================================
+
+/// Pre-computed daily activity intensity for the activity heatmap.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiHeatmapDay {
+    /// Date string in YYYY-MM-DD format
+    pub date: String,
+    /// Intensity bracket: 0 (none), 1 (light), 2 (medium-light), 3 (medium), 4 (high)
+    pub intensity: u8,
+    /// Longest activity duration in seconds for this day
+    pub max_duration: i64,
+    /// Number of activities on this day
+    pub activity_count: u32,
+}
+
+// ============================================================================
 // Batch Screen Data Types
 // ============================================================================
 
