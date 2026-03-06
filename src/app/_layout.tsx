@@ -41,7 +41,13 @@ import {
 import { formatLocalDate } from '@/lib';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
-import { DemoBanner, GlobalDataSync, OfflineBanner, BottomTabBar } from '@/components/ui';
+import {
+  DemoBanner,
+  GlobalDataSync,
+  OfflineBanner,
+  BottomTabBar,
+  GlobalErrorBoundary,
+} from '@/components/ui';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
@@ -237,51 +243,53 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <QueryProvider>
-        <NetworkProvider>
-          <TopSafeAreaProvider>
-            <MapPreferencesProvider>
-              <PaperProvider theme={theme}>
-                <StatusBar
-                  style={colorScheme === 'dark' ? 'light' : 'dark'}
-                  translucent={Platform.OS === 'ios'}
-                  hidden={SCREENSHOT_MODE}
-                  animated
-                />
-                <AuthGate>
-                  <OfflineBanner />
-                  <GlobalDataSync />
-                  <DemoBanner />
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                      // iOS: Use default animation for native feel with gesture support
-                      // Android: Slide from right for Material Design
-                      animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
-                      // Enable swipe-back gesture on both platforms
-                      gestureEnabled: true,
-                      gestureDirection: 'horizontal',
-                      // iOS: Blur effect for any translucent headers
-                      headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,
-                      headerTransparent: Platform.OS === 'ios',
-                    }}
-                  >
-                    {/* Tabs group - no animation, instant switching */}
-                    <Stack.Screen
-                      name="(tabs)"
-                      options={{
-                        animation: 'none',
+    <GlobalErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <QueryProvider>
+          <NetworkProvider>
+            <TopSafeAreaProvider>
+              <MapPreferencesProvider>
+                <PaperProvider theme={theme}>
+                  <StatusBar
+                    style={colorScheme === 'dark' ? 'light' : 'dark'}
+                    translucent={Platform.OS === 'ios'}
+                    hidden={SCREENSHOT_MODE}
+                    animated
+                  />
+                  <AuthGate>
+                    <OfflineBanner />
+                    <GlobalDataSync />
+                    <DemoBanner />
+                    <Stack
+                      screenOptions={{
+                        headerShown: false,
+                        // iOS: Use default animation for native feel with gesture support
+                        // Android: Slide from right for Material Design
+                        animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
+                        // Enable swipe-back gesture on both platforms
+                        gestureEnabled: true,
+                        gestureDirection: 'horizontal',
+                        // iOS: Blur effect for any translucent headers
+                        headerBlurEffect: Platform.OS === 'ios' ? 'prominent' : undefined,
+                        headerTransparent: Platform.OS === 'ios',
                       }}
-                    />
-                  </Stack>
-                  <BottomTabBar />
-                </AuthGate>
-              </PaperProvider>
-            </MapPreferencesProvider>
-          </TopSafeAreaProvider>
-        </NetworkProvider>
-      </QueryProvider>
-    </GestureHandlerRootView>
+                    >
+                      {/* Tabs group - no animation, instant switching */}
+                      <Stack.Screen
+                        name="(tabs)"
+                        options={{
+                          animation: 'none',
+                        }}
+                      />
+                    </Stack>
+                    <BottomTabBar />
+                  </AuthGate>
+                </PaperProvider>
+              </MapPreferencesProvider>
+            </TopSafeAreaProvider>
+          </NetworkProvider>
+        </QueryProvider>
+      </GestureHandlerRootView>
+    </GlobalErrorBoundary>
   );
 }

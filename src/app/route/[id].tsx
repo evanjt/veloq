@@ -30,7 +30,7 @@ import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { useGroupDetail } from '@/hooks/routes/useRouteEngine';
 import { getAllRouteDisplayNames, getRouteDisplayName } from '@/hooks/routes/useRouteGroups';
 import { createSharedStyles } from '@/styles';
-import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/components/ui';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 
 import {
@@ -636,323 +636,325 @@ export default function RouteDetailScreen() {
   const hasMapData = routeActivities.length > 0;
 
   return (
-    <View testID="route-detail-screen" style={[styles.container, isDark && styles.containerDark]}>
-      <StatusBar barStyle="light-content" />
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Hero Map Section */}
-        <View style={styles.heroSection}>
-          {/* Map - full bleed */}
-          <View style={styles.mapContainer}>
-            {hasMapData ? (
-              <RouteMapView
-                routeGroup={routeGroup}
-                height={MAP_HEIGHT}
-                interactive={false}
-                highlightedActivityId={highlightedActivityId}
-                highlightedLapPoints={highlightedActivityPoints}
-                enableFullscreen={true}
-                activitySignatures={signatures}
-              />
-            ) : (
-              <View
-                style={[
-                  styles.mapPlaceholder,
-                  { height: MAP_HEIGHT, backgroundColor: activityColor + '20' },
-                ]}
-              >
-                <MaterialCommunityIcons name="map-marker-path" size={48} color={activityColor} />
-              </View>
-            )}
-          </View>
-
-          {/* Gradient overlay at bottom */}
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.7)']}
-            style={styles.mapGradient}
-            pointerEvents="none"
-          />
-
-          {/* Floating header - back button and export */}
-          <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
-            </TouchableOpacity>
-            <View style={{ flex: 1 }} />
-          </View>
-
-          {/* Route info overlay at bottom */}
-          <View style={styles.infoOverlay}>
-            <View style={styles.routeNameRow}>
-              <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
-                <MaterialCommunityIcons name={iconName} size={16} color={colors.textOnDark} />
-              </View>
-              {isEditing ? (
-                <View style={styles.editNameContainer}>
-                  <TextInput
-                    ref={nameInputRef}
-                    style={styles.editNameInput}
-                    value={editName}
-                    onChangeText={setEditName}
-                    onSubmitEditing={handleSaveName}
-                    placeholder={t('routes.routeNamePlaceholder')}
-                    placeholderTextColor="rgba(255,255,255,0.5)"
-                    returnKeyType="done"
-                    autoFocus
-                    selectTextOnFocus
-                  />
-                  <TouchableOpacity onPress={handleSaveName} style={styles.editNameButton}>
-                    <MaterialCommunityIcons name="check" size={20} color={colors.success} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
-                    <MaterialCommunityIcons name="close" size={20} color={colors.error} />
-                  </TouchableOpacity>
-                </View>
+    <ScreenErrorBoundary screenName="Route Detail">
+      <View testID="route-detail-screen" style={[styles.container, isDark && styles.containerDark]}>
+        <StatusBar barStyle="light-content" />
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Hero Map Section */}
+          <View style={styles.heroSection}>
+            {/* Map - full bleed */}
+            <View style={styles.mapContainer}>
+              {hasMapData ? (
+                <RouteMapView
+                  routeGroup={routeGroup}
+                  height={MAP_HEIGHT}
+                  interactive={false}
+                  highlightedActivityId={highlightedActivityId}
+                  highlightedLapPoints={highlightedActivityPoints}
+                  enableFullscreen={true}
+                  activitySignatures={signatures}
+                />
               ) : (
-                <TouchableOpacity
-                  onPress={handleStartEditing}
-                  style={styles.nameEditTouchable}
-                  activeOpacity={0.7}
+                <View
+                  style={[
+                    styles.mapPlaceholder,
+                    { height: MAP_HEIGHT, backgroundColor: activityColor + '20' },
+                  ]}
                 >
-                  <Text style={styles.heroRouteName} numberOfLines={1}>
-                    {customName || routeGroup.name}
-                  </Text>
-                  <MaterialCommunityIcons
-                    name="pencil"
-                    size={14}
-                    color="rgba(255,255,255,0.6)"
-                    style={styles.editIcon}
-                  />
-                </TouchableOpacity>
+                  <MaterialCommunityIcons name="map-marker-path" size={48} color={activityColor} />
+                </View>
               )}
             </View>
 
-            {/* Stats row */}
-            <View style={styles.heroStatsRow}>
-              <Text style={styles.heroStat}>{formatDistance(routeStats.distance, isMetric)}</Text>
-              <Text style={styles.heroStatDivider}>·</Text>
-              <Text style={styles.heroStat}>{routeGroup.activityCount} activities</Text>
-              <Text style={styles.heroStatDivider}>·</Text>
-              <Text style={styles.heroStat}>
-                {routeStats.lastDate ? formatRelativeDate(routeStats.lastDate) : '-'}
-              </Text>
-            </View>
-          </View>
-        </View>
+            {/* Gradient overlay at bottom */}
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.7)']}
+              style={styles.mapGradient}
+              pointerEvents="none"
+            />
 
-        {/* Content below hero */}
-        <View style={styles.contentSection}>
-          {/* Performance progression chart - scrubbing highlights map */}
-          {chartData.length >= 2 && (
-            <View style={styles.chartSection}>
-              <UnifiedPerformanceChart
-                chartData={chartData}
-                activityType={routeGroup.type}
-                isDark={isDark}
-                minSpeed={minSpeed}
-                maxSpeed={maxSpeed}
-                bestIndex={bestIndex}
-                hasReverseRuns={hasReverseRuns}
-                tooltipBadgeType="match"
-                onActivitySelect={handleActivitySelect}
-                summaryStats={summaryStats}
-                selectedActivityId={highlightedActivityId}
-                bestForwardRecord={bestForwardRecord}
-                bestReverseRecord={bestReverseRecord}
-                forwardStats={forwardStats}
-                reverseStats={reverseStats}
-              />
+            {/* Floating header - back button and export */}
+            <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => router.back()}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
+              </TouchableOpacity>
+              <View style={{ flex: 1 }} />
             </View>
-          )}
 
-          {/* Activities list */}
-          <View style={styles.activitiesSection}>
-            <View style={styles.activitiesHeader}>
-              <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-                {t('settings.activities')}
-              </Text>
-              {/* Legend */}
-              <View style={styles.legend}>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendIndicator, { backgroundColor: colors.chartGold }]} />
-                  <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
-                  <Text style={[styles.legendText, isDark && styles.textMuted]}>
-                    {t('routes.pr')}
-                  </Text>
+            {/* Route info overlay at bottom */}
+            <View style={styles.infoOverlay}>
+              <View style={styles.routeNameRow}>
+                <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
+                  <MaterialCommunityIcons name={iconName} size={16} color={colors.textOnDark} />
                 </View>
+                {isEditing ? (
+                  <View style={styles.editNameContainer}>
+                    <TextInput
+                      ref={nameInputRef}
+                      style={styles.editNameInput}
+                      value={editName}
+                      onChangeText={setEditName}
+                      onSubmitEditing={handleSaveName}
+                      placeholder={t('routes.routeNamePlaceholder')}
+                      placeholderTextColor="rgba(255,255,255,0.5)"
+                      returnKeyType="done"
+                      autoFocus
+                      selectTextOnFocus
+                    />
+                    <TouchableOpacity onPress={handleSaveName} style={styles.editNameButton}>
+                      <MaterialCommunityIcons name="check" size={20} color={colors.success} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
+                      <MaterialCommunityIcons name="close" size={20} color={colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handleStartEditing}
+                    style={styles.nameEditTouchable}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.heroRouteName} numberOfLines={1}>
+                      {customName || routeGroup.name}
+                    </Text>
+                    <MaterialCommunityIcons
+                      name="pencil"
+                      size={14}
+                      color="rgba(255,255,255,0.6)"
+                      style={styles.editIcon}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Stats row */}
+              <View style={styles.heroStatsRow}>
+                <Text style={styles.heroStat}>{formatDistance(routeStats.distance, isMetric)}</Text>
+                <Text style={styles.heroStatDivider}>·</Text>
+                <Text style={styles.heroStat}>{routeGroup.activityCount} activities</Text>
+                <Text style={styles.heroStatDivider}>·</Text>
+                <Text style={styles.heroStat}>
+                  {routeStats.lastDate ? formatRelativeDate(routeStats.lastDate) : '-'}
+                </Text>
               </View>
             </View>
+          </View>
 
-            {routeActivities.length === 0 ? (
-              <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
-                {t('feed.noActivities')}
-              </Text>
-            ) : (
-              <View style={[styles.activitiesCard, isDark && styles.activitiesCardDark]}>
-                {routeActivities.map((activity, index) => {
-                  const perfData = performancesMap[activity.id];
-                  // Get match data from performances array
-                  const matchPercentage = perfData?.matchPercentage;
-                  const direction = perfData?.direction;
-                  const routeDistance = routeGroup?.signature?.distance;
-                  // Get route points from signature for this activity
-                  const activityPoints = signatures[activity.id]?.points;
-                  // Get representative route points (full route, not truncated consensus)
-                  const routePoints = routeGroup?.signature?.points;
-                  const isHighlighted = highlightedActivityId === activity.id;
-                  // Determine if this is the best performance (PR)
-                  const isBest = bestPerformance?.activityId === activity.id;
-                  // Get rank from performances array (returns undefined if not found)
-                  const rankIdx = performances.findIndex((p) => p.activityId === activity.id);
-                  const rank = rankIdx >= 0 ? rankIdx + 1 : undefined;
-                  // Calculate delta from PR (time difference in seconds)
-                  const activityDuration = perfData?.duration;
-                  const bestDuration = bestPerformance?.duration;
-                  const deltaFromPR =
-                    activityDuration !== undefined &&
-                    bestDuration !== undefined &&
-                    Number.isFinite(activityDuration) &&
-                    Number.isFinite(bestDuration)
-                      ? activityDuration - bestDuration
-                      : undefined;
-                  return (
-                    <React.Fragment key={activity.id}>
-                      <Pressable
-                        onPressIn={() => setHighlightedActivityId(activity.id)}
-                        onPressOut={() => setHighlightedActivityId(null)}
-                      >
-                        <ActivityRow
-                          activity={activity}
-                          isDark={isDark}
-                          isMetric={isMetric}
-                          matchPercentage={matchPercentage}
-                          direction={direction}
-                          activityPoints={activityPoints}
-                          routePoints={routePoints}
-                          isHighlighted={isHighlighted}
-                          routeDistance={routeDistance}
-                          isBest={isBest}
-                          rank={rank}
-                          deltaFromPR={deltaFromPR}
-                          speed={perfData?.speed}
-                          duration={perfData?.duration}
-                          bestSpeed={bestPerformance?.speed}
-                        />
-                      </Pressable>
-                    </React.Fragment>
-                  );
-                })}
+          {/* Content below hero */}
+          <View style={styles.contentSection}>
+            {/* Performance progression chart - scrubbing highlights map */}
+            {chartData.length >= 2 && (
+              <View style={styles.chartSection}>
+                <UnifiedPerformanceChart
+                  chartData={chartData}
+                  activityType={routeGroup.type}
+                  isDark={isDark}
+                  minSpeed={minSpeed}
+                  maxSpeed={maxSpeed}
+                  bestIndex={bestIndex}
+                  hasReverseRuns={hasReverseRuns}
+                  tooltipBadgeType="match"
+                  onActivitySelect={handleActivitySelect}
+                  summaryStats={summaryStats}
+                  selectedActivityId={highlightedActivityId}
+                  bestForwardRecord={bestForwardRecord}
+                  bestReverseRecord={bestReverseRecord}
+                  forwardStats={forwardStats}
+                  reverseStats={reverseStats}
+                />
               </View>
             )}
+
+            {/* Activities list */}
+            <View style={styles.activitiesSection}>
+              <View style={styles.activitiesHeader}>
+                <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+                  {t('settings.activities')}
+                </Text>
+                {/* Legend */}
+                <View style={styles.legend}>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendIndicator, { backgroundColor: colors.chartGold }]} />
+                    <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
+                    <Text style={[styles.legendText, isDark && styles.textMuted]}>
+                      {t('routes.pr')}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {routeActivities.length === 0 ? (
+                <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
+                  {t('feed.noActivities')}
+                </Text>
+              ) : (
+                <View style={[styles.activitiesCard, isDark && styles.activitiesCardDark]}>
+                  {routeActivities.map((activity, index) => {
+                    const perfData = performancesMap[activity.id];
+                    // Get match data from performances array
+                    const matchPercentage = perfData?.matchPercentage;
+                    const direction = perfData?.direction;
+                    const routeDistance = routeGroup?.signature?.distance;
+                    // Get route points from signature for this activity
+                    const activityPoints = signatures[activity.id]?.points;
+                    // Get representative route points (full route, not truncated consensus)
+                    const routePoints = routeGroup?.signature?.points;
+                    const isHighlighted = highlightedActivityId === activity.id;
+                    // Determine if this is the best performance (PR)
+                    const isBest = bestPerformance?.activityId === activity.id;
+                    // Get rank from performances array (returns undefined if not found)
+                    const rankIdx = performances.findIndex((p) => p.activityId === activity.id);
+                    const rank = rankIdx >= 0 ? rankIdx + 1 : undefined;
+                    // Calculate delta from PR (time difference in seconds)
+                    const activityDuration = perfData?.duration;
+                    const bestDuration = bestPerformance?.duration;
+                    const deltaFromPR =
+                      activityDuration !== undefined &&
+                      bestDuration !== undefined &&
+                      Number.isFinite(activityDuration) &&
+                      Number.isFinite(bestDuration)
+                        ? activityDuration - bestDuration
+                        : undefined;
+                    return (
+                      <React.Fragment key={activity.id}>
+                        <Pressable
+                          onPressIn={() => setHighlightedActivityId(activity.id)}
+                          onPressOut={() => setHighlightedActivityId(null)}
+                        >
+                          <ActivityRow
+                            activity={activity}
+                            isDark={isDark}
+                            isMetric={isMetric}
+                            matchPercentage={matchPercentage}
+                            direction={direction}
+                            activityPoints={activityPoints}
+                            routePoints={routePoints}
+                            isHighlighted={isHighlighted}
+                            routeDistance={routeDistance}
+                            isBest={isBest}
+                            rank={rank}
+                            deltaFromPR={deltaFromPR}
+                            speed={perfData?.speed}
+                            duration={perfData?.duration}
+                            bestSpeed={bestPerformance?.speed}
+                          />
+                        </Pressable>
+                      </React.Fragment>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+
+            {/* Export GPX button */}
+            {consensusPoints && consensusPoints.length > 0 && (
+              <TouchableOpacity
+                testID="route-export-gpx"
+                style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
+                onPress={() =>
+                  exportGpx({
+                    name: customName || routeGroup?.name || 'Route',
+                    points: consensusPoints.map((p) => ({
+                      latitude: p.lat,
+                      longitude: p.lng,
+                    })),
+                    sport: engineGroup?.sportType,
+                  })
+                }
+                disabled={gpxExporting}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name={gpxExporting ? 'progress-download' : 'download'}
+                  size={20}
+                  color={colors.textOnPrimary}
+                />
+                <Text style={styles.exportGpxButtonText}>
+                  {gpxExporting ? t('export.exporting') : t('export.gpx')}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Data range footer */}
+            <DataRangeFooter days={cacheDays} isDark={isDark} />
+
+            {debugEnabled &&
+              engineGroup &&
+              (() => {
+                const pageMetrics = getPageMetrics();
+                const ffiEntries = pageMetrics.reduce<
+                  Record<string, { calls: number; totalMs: number; maxMs: number }>
+                >((acc, m) => {
+                  if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
+                  acc[m.name].calls++;
+                  acc[m.name].totalMs += m.durationMs;
+                  acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
+                  return acc;
+                }, {});
+                const warnings: Array<{ level: 'warn' | 'error'; message: string }> = [];
+                const actCount = engineGroup.activityIds.length;
+                if (actCount > 500)
+                  warnings.push({ level: 'error', message: `${actCount} activities (>500)` });
+                else if (actCount > 100)
+                  warnings.push({ level: 'warn', message: `${actCount} activities (>100)` });
+                for (const [name, m] of Object.entries(ffiEntries)) {
+                  if (m.maxMs > 200)
+                    warnings.push({
+                      level: 'error',
+                      message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
+                    });
+                }
+                return (
+                  <>
+                    {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
+                    <DebugInfoPanel
+                      isDark={isDark}
+                      entries={[
+                        {
+                          label: 'ID',
+                          value:
+                            engineGroup.groupId.length > 20
+                              ? engineGroup.groupId.slice(0, 20) + '...'
+                              : engineGroup.groupId,
+                        },
+                        { label: 'Type', value: engineGroup.sportType || '-' },
+                        { label: 'Activities', value: String(actCount) },
+                        {
+                          label: 'Avg Distance',
+                          value:
+                            routeStats.distance > 0
+                              ? formatDistance(routeStats.distance, isMetric)
+                              : '-',
+                        },
+                        {
+                          label: 'Best Time',
+                          value:
+                            bestPerformance?.duration != null
+                              ? formatDuration(bestPerformance.duration)
+                              : '-',
+                        },
+                        ...Object.entries(ffiEntries).map(([name, m]) => ({
+                          label: name,
+                          value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
+                        })),
+                      ]}
+                    />
+                  </>
+                );
+              })()}
           </View>
-
-          {/* Export GPX button */}
-          {consensusPoints && consensusPoints.length > 0 && (
-            <TouchableOpacity
-              testID="route-export-gpx"
-              style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
-              onPress={() =>
-                exportGpx({
-                  name: customName || routeGroup?.name || 'Route',
-                  points: consensusPoints.map((p) => ({
-                    latitude: p.lat,
-                    longitude: p.lng,
-                  })),
-                  sport: engineGroup?.sportType,
-                })
-              }
-              disabled={gpxExporting}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name={gpxExporting ? 'progress-download' : 'download'}
-                size={20}
-                color={colors.textOnPrimary}
-              />
-              <Text style={styles.exportGpxButtonText}>
-                {gpxExporting ? t('export.exporting') : t('export.gpx')}
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Data range footer */}
-          <DataRangeFooter days={cacheDays} isDark={isDark} />
-
-          {debugEnabled &&
-            engineGroup &&
-            (() => {
-              const pageMetrics = getPageMetrics();
-              const ffiEntries = pageMetrics.reduce<
-                Record<string, { calls: number; totalMs: number; maxMs: number }>
-              >((acc, m) => {
-                if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
-                acc[m.name].calls++;
-                acc[m.name].totalMs += m.durationMs;
-                acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
-                return acc;
-              }, {});
-              const warnings: Array<{ level: 'warn' | 'error'; message: string }> = [];
-              const actCount = engineGroup.activityIds.length;
-              if (actCount > 500)
-                warnings.push({ level: 'error', message: `${actCount} activities (>500)` });
-              else if (actCount > 100)
-                warnings.push({ level: 'warn', message: `${actCount} activities (>100)` });
-              for (const [name, m] of Object.entries(ffiEntries)) {
-                if (m.maxMs > 200)
-                  warnings.push({
-                    level: 'error',
-                    message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
-                  });
-              }
-              return (
-                <>
-                  {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
-                  <DebugInfoPanel
-                    isDark={isDark}
-                    entries={[
-                      {
-                        label: 'ID',
-                        value:
-                          engineGroup.groupId.length > 20
-                            ? engineGroup.groupId.slice(0, 20) + '...'
-                            : engineGroup.groupId,
-                      },
-                      { label: 'Type', value: engineGroup.sportType || '-' },
-                      { label: 'Activities', value: String(actCount) },
-                      {
-                        label: 'Avg Distance',
-                        value:
-                          routeStats.distance > 0
-                            ? formatDistance(routeStats.distance, isMetric)
-                            : '-',
-                      },
-                      {
-                        label: 'Best Time',
-                        value:
-                          bestPerformance?.duration != null
-                            ? formatDuration(bestPerformance.duration)
-                            : '-',
-                      },
-                      ...Object.entries(ffiEntries).map(([name, m]) => ({
-                        label: name,
-                        value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
-                      })),
-                    ]}
-                  />
-                </>
-              );
-            })()}
-        </View>
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </View>
+    </ScreenErrorBoundary>
   );
 }
 

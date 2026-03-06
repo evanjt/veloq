@@ -48,7 +48,7 @@ import {
 } from '@/components/routes';
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
-import { TAB_BAR_SAFE_PADDING, CollapsibleSection } from '@/components/ui';
+import { TAB_BAR_SAFE_PADDING, CollapsibleSection, ScreenErrorBoundary } from '@/components/ui';
 import {
   UnifiedPerformanceChart,
   type DirectionSummaryStats,
@@ -1011,671 +1011,685 @@ export default function SectionDetailScreen() {
   const iconName = getActivityIcon(section.sportType as ActivityType);
 
   return (
-    <View testID="section-detail-screen" style={[styles.container, isDark && styles.containerDark]}>
-      <StatusBar barStyle="light-content" />
-      <FlatList
-        data={isLoading ? [] : sectionActivities}
-        keyExtractor={keyExtractor}
-        renderItem={renderActivityRow}
-        style={styles.scrollView}
-        contentContainerStyle={styles.flatListContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={5}
-        ListHeaderComponent={
-          <>
-            {/* Hero Map Section */}
-            <View style={styles.heroSection}>
-              <View style={styles.mapContainer}>
-                {mapReady ? (
-                  <SectionMapView
-                    section={section}
-                    height={MAP_HEIGHT}
-                    interactive={true}
-                    enableFullscreen={true}
-                    shadowTrack={shadowTrack}
-                    highlightedActivityId={mapHighlightedActivityId}
-                    highlightedLapPoints={mapHighlightedLapPoints}
-                    allActivityTraces={sectionWithTraces?.activityTraces}
-                    isScrubbing={isScrubbing}
-                  />
-                ) : (
-                  <View style={[styles.mapPlaceholder, { height: MAP_HEIGHT }]}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                  </View>
-                )}
-              </View>
-
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.7)']}
-                style={styles.mapGradient}
-                pointerEvents="none"
-              />
-
-              <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
-                <TouchableOpacity
-                  style={styles.backButton}
-                  onPress={() => router.back()}
-                  activeOpacity={0.7}
-                >
-                  <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
-                </TouchableOpacity>
-                <View style={styles.headerSpacer} />
-                {isCustomId ? (
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={handleDeleteSection}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialCommunityIcons
-                      name="delete-outline"
-                      size={24}
-                      color={colors.textOnDark}
+    <ScreenErrorBoundary screenName="Section Detail">
+      <View
+        testID="section-detail-screen"
+        style={[styles.container, isDark && styles.containerDark]}
+      >
+        <StatusBar barStyle="light-content" />
+        <FlatList
+          data={isLoading ? [] : sectionActivities}
+          keyExtractor={keyExtractor}
+          renderItem={renderActivityRow}
+          style={styles.scrollView}
+          contentContainerStyle={styles.flatListContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          ListHeaderComponent={
+            <>
+              {/* Hero Map Section */}
+              <View style={styles.heroSection}>
+                <View style={styles.mapContainer}>
+                  {mapReady ? (
+                    <SectionMapView
+                      section={section}
+                      height={MAP_HEIGHT}
+                      interactive={true}
+                      enableFullscreen={true}
+                      shadowTrack={shadowTrack}
+                      highlightedActivityId={mapHighlightedActivityId}
+                      highlightedLapPoints={mapHighlightedLapPoints}
+                      allActivityTraces={sectionWithTraces?.activityTraces}
+                      isScrubbing={isScrubbing}
                     />
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={[styles.deleteButton, isSectionDisabled && styles.disabledButtonActive]}
-                    onPress={handleToggleDisable}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialCommunityIcons
-                      name={isSectionDisabled ? 'eye-off' : 'eye-off-outline'}
-                      size={24}
-                      color={isSectionDisabled ? colors.error : colors.textOnDark}
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <View style={styles.infoOverlay}>
-                <View style={styles.sectionNameRow}>
-                  <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
-                    <MaterialCommunityIcons name={iconName} size={16} color={colors.textOnDark} />
-                  </View>
-                  {isEditing ? (
-                    <View style={styles.editNameContainer}>
-                      <TextInput
-                        testID="section-rename-input"
-                        ref={nameInputRef}
-                        style={styles.editNameInput}
-                        value={editName}
-                        onChangeText={setEditName}
-                        onSubmitEditing={handleSaveName}
-                        placeholder={t('sections.sectionNamePlaceholder')}
-                        placeholderTextColor="rgba(255,255,255,0.5)"
-                        returnKeyType="done"
-                        autoFocus
-                        selectTextOnFocus
-                      />
-                      <TouchableOpacity
-                        testID="section-rename-save"
-                        onPress={handleSaveName}
-                        style={styles.editNameButton}
-                      >
-                        <MaterialCommunityIcons name="check" size={20} color={colors.success} />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
-                        <MaterialCommunityIcons name="close" size={20} color={colors.error} />
-                      </TouchableOpacity>
-                    </View>
                   ) : (
+                    <View style={[styles.mapPlaceholder, { height: MAP_HEIGHT }]}>
+                      <ActivityIndicator size="large" color={colors.primary} />
+                    </View>
+                  )}
+                </View>
+
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.7)']}
+                  style={styles.mapGradient}
+                  pointerEvents="none"
+                />
+
+                <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
+                  <TouchableOpacity
+                    style={styles.backButton}
+                    onPress={() => router.back()}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
+                  </TouchableOpacity>
+                  <View style={styles.headerSpacer} />
+                  {isCustomId ? (
                     <TouchableOpacity
-                      testID="section-rename-button"
-                      onPress={handleStartEditing}
-                      style={styles.nameEditTouchable}
+                      style={styles.deleteButton}
+                      onPress={handleDeleteSection}
                       activeOpacity={0.7}
                     >
-                      {/* Names are stored in Rust (user-set or auto-generated on creation/migration) */}
-                      <Text style={styles.heroSectionName} numberOfLines={1}>
-                        {customName ?? section.name ?? section.id}
-                      </Text>
                       <MaterialCommunityIcons
-                        name="pencil"
-                        size={14}
-                        color="rgba(255,255,255,0.6)"
-                        style={styles.editIcon}
+                        name="delete-outline"
+                        size={24}
+                        color={colors.textOnDark}
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[
+                        styles.deleteButton,
+                        isSectionDisabled && styles.disabledButtonActive,
+                      ]}
+                      onPress={handleToggleDisable}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialCommunityIcons
+                        name={isSectionDisabled ? 'eye-off' : 'eye-off-outline'}
+                        size={24}
+                        color={isSectionDisabled ? colors.error : colors.textOnDark}
                       />
                     </TouchableOpacity>
                   )}
                 </View>
 
-                <View style={styles.heroStatsRow}>
-                  <Text style={styles.heroStat}>
-                    {formatDistance(section.distanceMeters, isMetric)}
-                  </Text>
-                  <Text style={styles.heroStatDivider}>·</Text>
-                  <Text style={styles.heroStat}>
-                    {activityCount} {t('sections.traversals')}
-                  </Text>
+                <View style={styles.infoOverlay}>
+                  <View style={styles.sectionNameRow}>
+                    <View style={[styles.typeIcon, { backgroundColor: activityColor }]}>
+                      <MaterialCommunityIcons name={iconName} size={16} color={colors.textOnDark} />
+                    </View>
+                    {isEditing ? (
+                      <View style={styles.editNameContainer}>
+                        <TextInput
+                          testID="section-rename-input"
+                          ref={nameInputRef}
+                          style={styles.editNameInput}
+                          value={editName}
+                          onChangeText={setEditName}
+                          onSubmitEditing={handleSaveName}
+                          placeholder={t('sections.sectionNamePlaceholder')}
+                          placeholderTextColor="rgba(255,255,255,0.5)"
+                          returnKeyType="done"
+                          autoFocus
+                          selectTextOnFocus
+                        />
+                        <TouchableOpacity
+                          testID="section-rename-save"
+                          onPress={handleSaveName}
+                          style={styles.editNameButton}
+                        >
+                          <MaterialCommunityIcons name="check" size={20} color={colors.success} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
+                          <MaterialCommunityIcons name="close" size={20} color={colors.error} />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        testID="section-rename-button"
+                        onPress={handleStartEditing}
+                        style={styles.nameEditTouchable}
+                        activeOpacity={0.7}
+                      >
+                        {/* Names are stored in Rust (user-set or auto-generated on creation/migration) */}
+                        <Text style={styles.heroSectionName} numberOfLines={1}>
+                          {customName ?? section.name ?? section.id}
+                        </Text>
+                        <MaterialCommunityIcons
+                          name="pencil"
+                          size={14}
+                          color="rgba(255,255,255,0.6)"
+                          style={styles.editIcon}
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <View style={styles.heroStatsRow}>
+                    <Text style={styles.heroStat}>
+                      {formatDistance(section.distanceMeters, isMetric)}
+                    </Text>
+                    <Text style={styles.heroStatDivider}>·</Text>
+                    <Text style={styles.heroStat}>
+                      {activityCount} {t('sections.traversals')}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
 
-            {/* Content below hero */}
-            <View style={styles.contentSection}>
-              {/* Disabled banner */}
-              {isSectionDisabled && (
+              {/* Content below hero */}
+              <View style={styles.contentSection}>
+                {/* Disabled banner */}
+                {isSectionDisabled && (
+                  <TouchableOpacity
+                    style={[styles.disabledBanner, isDark && styles.disabledBannerDark]}
+                    onPress={handleToggleDisable}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialCommunityIcons name="eye-off" size={18} color={colors.warning} />
+                    <Text style={styles.disabledBannerText}>
+                      {t('sections.disabled')} — {t('common.enable')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Performance chart - bucketed for large sections, full for small */}
+                {useBucketedChart && bucketChartData.length >= 1 && (
+                  <View style={styles.chartSection}>
+                    {/* Time range selector with grouping config */}
+                    <View style={styles.timeRangeRow}>
+                      <View style={styles.timeRangeWithButton}>
+                        <View style={styles.timeRangeContainer}>
+                          {SECTION_TIME_RANGES.map((range) => (
+                            <TouchableOpacity
+                              key={range.id}
+                              style={[
+                                styles.timeRangeButton,
+                                isDark && styles.timeRangeButtonDark,
+                                sectionTimeRange === range.id && styles.timeRangeButtonActive,
+                              ]}
+                              onPress={() => setSectionTimeRange(range.id)}
+                              activeOpacity={0.7}
+                            >
+                              <Text
+                                style={[
+                                  styles.timeRangeText,
+                                  isDark && styles.timeRangeTextDark,
+                                  sectionTimeRange === range.id && styles.timeRangeTextActive,
+                                ]}
+                              >
+                                {range.label}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.groupingButton, isDark && styles.groupingButtonDark]}
+                          onPress={() => setShowBucketModal(true)}
+                          activeOpacity={0.7}
+                        >
+                          <IconButton
+                            icon="chart-timeline-variant"
+                            iconColor={
+                              bucketType !== DEFAULT_BUCKET_TYPE[sectionTimeRange]
+                                ? colors.primary
+                                : isDark
+                                  ? darkColors.textSecondary
+                                  : colors.textSecondary
+                            }
+                            size={18}
+                            style={{ margin: 0 }}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={[styles.bucketSubtitle, isDark && styles.textMuted]}>
+                        {t(BUCKET_TYPES.find((bt) => bt.id === bucketType)!.labelKey)}
+                        {' · '}
+                        {t('sections.traversalsCount', {
+                          count: bucketResult?.totalTraversals ?? 0,
+                        })}
+                      </Text>
+                    </View>
+                    <UnifiedPerformanceChart
+                      chartData={bucketChartData}
+                      activityType={section.sportType as ActivityType}
+                      isDark={isDark}
+                      minSpeed={bucketMinSpeed}
+                      maxSpeed={bucketMaxSpeed}
+                      bestIndex={bucketBestIndex}
+                      hasReverseRuns={bucketHasReverseRuns}
+                      tooltipBadgeType="time"
+                      onActivitySelect={handleActivitySelect}
+                      onScrubChange={handleScrubChange}
+                      selectedActivityId={highlightedActivityId}
+                      summaryStats={bucketSummaryStats ?? summaryStats}
+                      bestForwardRecord={bucketBestForward ?? computedBestForward}
+                      bestReverseRecord={bucketBestReverse ?? computedBestReverse}
+                      forwardStats={bucketForwardStats ?? computedForwardStats}
+                      reverseStats={bucketReverseStats ?? computedReverseStats}
+                      linearTimeAxis
+                    />
+                  </View>
+                )}
+                {!useBucketedChart && chartData.length >= 1 && (
+                  <View style={styles.chartSection}>
+                    <UnifiedPerformanceChart
+                      chartData={chartData}
+                      activityType={section.sportType as ActivityType}
+                      isDark={isDark}
+                      minSpeed={minSpeed}
+                      maxSpeed={maxSpeed}
+                      bestIndex={bestIndex}
+                      hasReverseRuns={hasReverseRuns}
+                      tooltipBadgeType="time"
+                      onActivitySelect={handleActivitySelect}
+                      onScrubChange={handleScrubChange}
+                      selectedActivityId={highlightedActivityId}
+                      summaryStats={summaryStats}
+                      bestForwardRecord={computedBestForward}
+                      bestReverseRecord={computedBestReverse}
+                      forwardStats={computedForwardStats}
+                      reverseStats={computedReverseStats}
+                    />
+                  </View>
+                )}
+
+                {/* Calendar performance history */}
+                {calendarSummary && calendarSummary.years.length >= 1 && (
+                  <CollapsibleSection
+                    title={t('sections.performanceHistory')}
+                    icon="calendar-clock"
+                    expanded={showHistory}
+                    onToggle={setShowHistory}
+                    estimatedHeight={calendarSummary.years.length * 200}
+                    style={styles.calendarSection}
+                  >
+                    {calendarSummary.years.map((yearData) => {
+                      const isYearExpanded = expandedYears.has(yearData.year);
+                      // Show best from either direction for the year subtitle
+                      const yearFwd = yearData.forward;
+                      const yearRev = yearData.reverse;
+                      const yearBest =
+                        yearFwd && yearRev
+                          ? yearFwd.bestTime <= yearRev.bestTime
+                            ? yearFwd
+                            : yearRev
+                          : (yearFwd ?? yearRev);
+                      const yearBestDisplay = yearBest
+                        ? isRunning
+                          ? formatPace(yearBest.bestPace)
+                          : formatDuration(yearBest.bestTime)
+                        : '';
+                      const isYearFwdPr =
+                        yearFwd &&
+                        calendarSummary.forwardPr &&
+                        yearFwd.bestActivityId === calendarSummary.forwardPr.bestActivityId;
+                      const isYearRevPr =
+                        yearRev &&
+                        calendarSummary.reversePr &&
+                        yearRev.bestActivityId === calendarSummary.reversePr.bestActivityId;
+
+                      return (
+                        <View key={yearData.year}>
+                          <Pressable
+                            style={[styles.calendarYearRow, isDark && styles.calendarYearRowDark]}
+                            onPress={() => toggleYear(yearData.year)}
+                          >
+                            <MaterialCommunityIcons
+                              name={isYearExpanded ? 'chevron-down' : 'chevron-right'}
+                              size={20}
+                              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                            />
+                            <Text style={[styles.calendarYearText, isDark && styles.textLight]}>
+                              {yearData.year}
+                            </Text>
+                            <Text style={[styles.calendarYearSubtitle, isDark && styles.textMuted]}>
+                              {t('sections.traversalsSummary', {
+                                count: yearData.traversalCount,
+                                time: yearBestDisplay,
+                              })}
+                            </Text>
+                            {isYearFwdPr && (
+                              <MaterialCommunityIcons
+                                name="trophy"
+                                size={14}
+                                color={activityColor}
+                                style={styles.calendarTrophy}
+                              />
+                            )}
+                            {isYearRevPr && (
+                              <MaterialCommunityIcons
+                                name="trophy"
+                                size={14}
+                                color={REVERSE_COLOR}
+                                style={styles.calendarTrophy}
+                              />
+                            )}
+                          </Pressable>
+                          {isYearExpanded &&
+                            yearData.months.map((monthData) => {
+                              const fwd = monthData.forward;
+                              const rev = monthData.reverse;
+                              // Is this month's forward best the year's forward best?
+                              const isMonthFwdYearBest =
+                                fwd && yearFwd && fwd.bestActivityId === yearFwd.bestActivityId;
+                              // Is this month's reverse best the year's reverse best?
+                              const isMonthRevYearBest =
+                                rev && yearRev && rev.bestActivityId === yearRev.bestActivityId;
+                              // Is this the overall PR in either direction?
+                              const isMonthFwdOverallPr =
+                                fwd &&
+                                calendarSummary.forwardPr &&
+                                fwd.bestActivityId === calendarSummary.forwardPr.bestActivityId;
+                              const isMonthRevOverallPr =
+                                rev &&
+                                calendarSummary.reversePr &&
+                                rev.bestActivityId === calendarSummary.reversePr.bestActivityId;
+
+                              return (
+                                <View
+                                  key={monthData.month}
+                                  style={[
+                                    styles.calendarMonthRow,
+                                    isDark && styles.calendarMonthRowDark,
+                                  ]}
+                                >
+                                  <Text
+                                    style={[styles.calendarMonthName, isDark && styles.textMuted]}
+                                  >
+                                    {monthNames[monthData.month - 1]}
+                                  </Text>
+                                  <Text
+                                    style={[styles.calendarMonthCount, isDark && styles.textMuted]}
+                                  >
+                                    {monthData.traversalCount}
+                                  </Text>
+                                  <View style={styles.calendarMonthEntries}>
+                                    {fwd && (
+                                      <Pressable
+                                        style={styles.calendarMonthEntry}
+                                        onPress={() =>
+                                          router.push(`/activity/${fwd.bestActivityId}`)
+                                        }
+                                      >
+                                        <View
+                                          style={[
+                                            styles.calendarDirDot,
+                                            { backgroundColor: activityColor },
+                                          ]}
+                                        />
+                                        <Text
+                                          style={[
+                                            styles.calendarMonthTime,
+                                            isDark && styles.textLight,
+                                            isMonthFwdYearBest && { fontWeight: '700' },
+                                          ]}
+                                        >
+                                          {isRunning
+                                            ? formatPace(fwd.bestPace)
+                                            : formatDuration(fwd.bestTime)}
+                                        </Text>
+                                        {(isMonthFwdYearBest || isMonthFwdOverallPr) && (
+                                          <MaterialCommunityIcons
+                                            name="trophy"
+                                            size={12}
+                                            color={
+                                              isMonthFwdOverallPr ? colors.chartGold : activityColor
+                                            }
+                                          />
+                                        )}
+                                      </Pressable>
+                                    )}
+                                    {rev && (
+                                      <Pressable
+                                        style={styles.calendarMonthEntry}
+                                        onPress={() =>
+                                          router.push(`/activity/${rev.bestActivityId}`)
+                                        }
+                                      >
+                                        <View
+                                          style={[
+                                            styles.calendarDirDot,
+                                            { backgroundColor: REVERSE_COLOR },
+                                          ]}
+                                        />
+                                        <Text
+                                          style={[
+                                            styles.calendarMonthTime,
+                                            isDark && styles.textLight,
+                                            isMonthRevYearBest && { fontWeight: '700' },
+                                          ]}
+                                        >
+                                          {isRunning
+                                            ? formatPace(rev.bestPace)
+                                            : formatDuration(rev.bestTime)}
+                                        </Text>
+                                        {(isMonthRevYearBest || isMonthRevOverallPr) && (
+                                          <MaterialCommunityIcons
+                                            name="trophy"
+                                            size={12}
+                                            color={
+                                              isMonthRevOverallPr ? colors.chartGold : REVERSE_COLOR
+                                            }
+                                          />
+                                        )}
+                                      </Pressable>
+                                    )}
+                                  </View>
+                                </View>
+                              );
+                            })}
+                        </View>
+                      );
+                    })}
+                  </CollapsibleSection>
+                )}
+
+                {/* Activities header */}
+                <View style={styles.activitiesSection}>
+                  <View style={styles.activitiesHeader}>
+                    <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+                      {t('sections.activities')}
+                    </Text>
+                    {/* Legend */}
+                    <View style={styles.legend}>
+                      <View style={styles.legendItem}>
+                        <View
+                          style={[styles.legendIndicator, { backgroundColor: colors.chartGold }]}
+                        />
+                        <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
+                        <Text style={[styles.legendText, isDark && styles.textMuted]}>
+                          {t('routes.pr')}
+                        </Text>
+                      </View>
+                      <View style={styles.legendItem}>
+                        <View
+                          style={[styles.legendIndicator, { backgroundColor: colors.chartCyan }]}
+                        />
+                        <MaterialCommunityIcons name="star" size={12} color={colors.chartCyan} />
+                        <Text style={[styles.legendText, isDark && styles.textMuted]}>
+                          {t('sections.reference')}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </>
+          }
+          ListEmptyComponent={
+            isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : (
+              <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
+                {t('sections.noActivitiesFound')}
+              </Text>
+            )
+          }
+          ListFooterComponent={
+            <View style={styles.listFooterContainer}>
+              {section?.polyline?.length > 0 && (
                 <TouchableOpacity
-                  style={[styles.disabledBanner, isDark && styles.disabledBannerDark]}
-                  onPress={handleToggleDisable}
-                  activeOpacity={0.8}
+                  testID="section-export-gpx"
+                  style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
+                  onPress={() =>
+                    exportGpx({
+                      name: section.name || 'Section',
+                      points: section.polyline.map((p: RoutePoint) => ({
+                        latitude: p.lat,
+                        longitude: p.lng,
+                      })),
+                      sport: section.sportType,
+                    })
+                  }
+                  disabled={gpxExporting}
+                  activeOpacity={0.7}
                 >
-                  <MaterialCommunityIcons name="eye-off" size={18} color={colors.warning} />
-                  <Text style={styles.disabledBannerText}>
-                    {t('sections.disabled')} — {t('common.enable')}
+                  <MaterialCommunityIcons
+                    name={gpxExporting ? 'progress-download' : 'download'}
+                    size={20}
+                    color={colors.textOnPrimary}
+                  />
+                  <Text style={styles.exportGpxButtonText}>
+                    {gpxExporting ? t('export.exporting') : t('export.gpx')}
                   </Text>
                 </TouchableOpacity>
               )}
-
-              {/* Performance chart - bucketed for large sections, full for small */}
-              {useBucketedChart && bucketChartData.length >= 1 && (
-                <View style={styles.chartSection}>
-                  {/* Time range selector with grouping config */}
-                  <View style={styles.timeRangeRow}>
-                    <View style={styles.timeRangeWithButton}>
-                      <View style={styles.timeRangeContainer}>
-                        {SECTION_TIME_RANGES.map((range) => (
-                          <TouchableOpacity
-                            key={range.id}
-                            style={[
-                              styles.timeRangeButton,
-                              isDark && styles.timeRangeButtonDark,
-                              sectionTimeRange === range.id && styles.timeRangeButtonActive,
-                            ]}
-                            onPress={() => setSectionTimeRange(range.id)}
-                            activeOpacity={0.7}
-                          >
-                            <Text
-                              style={[
-                                styles.timeRangeText,
-                                isDark && styles.timeRangeTextDark,
-                                sectionTimeRange === range.id && styles.timeRangeTextActive,
-                              ]}
-                            >
-                              {range.label}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                      <TouchableOpacity
-                        style={[styles.groupingButton, isDark && styles.groupingButtonDark]}
-                        onPress={() => setShowBucketModal(true)}
-                        activeOpacity={0.7}
-                      >
-                        <IconButton
-                          icon="chart-timeline-variant"
-                          iconColor={
-                            bucketType !== DEFAULT_BUCKET_TYPE[sectionTimeRange]
-                              ? colors.primary
-                              : isDark
-                                ? darkColors.textSecondary
-                                : colors.textSecondary
-                          }
-                          size={18}
-                          style={{ margin: 0 }}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={[styles.bucketSubtitle, isDark && styles.textMuted]}>
-                      {t(BUCKET_TYPES.find((bt) => bt.id === bucketType)!.labelKey)}
-                      {' · '}
-                      {t('sections.traversalsCount', { count: bucketResult?.totalTraversals ?? 0 })}
-                    </Text>
-                  </View>
-                  <UnifiedPerformanceChart
-                    chartData={bucketChartData}
-                    activityType={section.sportType as ActivityType}
-                    isDark={isDark}
-                    minSpeed={bucketMinSpeed}
-                    maxSpeed={bucketMaxSpeed}
-                    bestIndex={bucketBestIndex}
-                    hasReverseRuns={bucketHasReverseRuns}
-                    tooltipBadgeType="time"
-                    onActivitySelect={handleActivitySelect}
-                    onScrubChange={handleScrubChange}
-                    selectedActivityId={highlightedActivityId}
-                    summaryStats={bucketSummaryStats ?? summaryStats}
-                    bestForwardRecord={bucketBestForward ?? computedBestForward}
-                    bestReverseRecord={bucketBestReverse ?? computedBestReverse}
-                    forwardStats={bucketForwardStats ?? computedForwardStats}
-                    reverseStats={bucketReverseStats ?? computedReverseStats}
-                    linearTimeAxis
-                  />
-                </View>
-              )}
-              {!useBucketedChart && chartData.length >= 1 && (
-                <View style={styles.chartSection}>
-                  <UnifiedPerformanceChart
-                    chartData={chartData}
-                    activityType={section.sportType as ActivityType}
-                    isDark={isDark}
-                    minSpeed={minSpeed}
-                    maxSpeed={maxSpeed}
-                    bestIndex={bestIndex}
-                    hasReverseRuns={hasReverseRuns}
-                    tooltipBadgeType="time"
-                    onActivitySelect={handleActivitySelect}
-                    onScrubChange={handleScrubChange}
-                    selectedActivityId={highlightedActivityId}
-                    summaryStats={summaryStats}
-                    bestForwardRecord={computedBestForward}
-                    bestReverseRecord={computedBestReverse}
-                    forwardStats={computedForwardStats}
-                    reverseStats={computedReverseStats}
-                  />
-                </View>
-              )}
-
-              {/* Calendar performance history */}
-              {calendarSummary && calendarSummary.years.length >= 1 && (
-                <CollapsibleSection
-                  title={t('sections.performanceHistory')}
-                  icon="calendar-clock"
-                  expanded={showHistory}
-                  onToggle={setShowHistory}
-                  estimatedHeight={calendarSummary.years.length * 200}
-                  style={styles.calendarSection}
-                >
-                  {calendarSummary.years.map((yearData) => {
-                    const isYearExpanded = expandedYears.has(yearData.year);
-                    // Show best from either direction for the year subtitle
-                    const yearFwd = yearData.forward;
-                    const yearRev = yearData.reverse;
-                    const yearBest =
-                      yearFwd && yearRev
-                        ? yearFwd.bestTime <= yearRev.bestTime
-                          ? yearFwd
-                          : yearRev
-                        : (yearFwd ?? yearRev);
-                    const yearBestDisplay = yearBest
-                      ? isRunning
-                        ? formatPace(yearBest.bestPace)
-                        : formatDuration(yearBest.bestTime)
-                      : '';
-                    const isYearFwdPr =
-                      yearFwd &&
-                      calendarSummary.forwardPr &&
-                      yearFwd.bestActivityId === calendarSummary.forwardPr.bestActivityId;
-                    const isYearRevPr =
-                      yearRev &&
-                      calendarSummary.reversePr &&
-                      yearRev.bestActivityId === calendarSummary.reversePr.bestActivityId;
-
-                    return (
-                      <View key={yearData.year}>
-                        <Pressable
-                          style={[styles.calendarYearRow, isDark && styles.calendarYearRowDark]}
-                          onPress={() => toggleYear(yearData.year)}
-                        >
-                          <MaterialCommunityIcons
-                            name={isYearExpanded ? 'chevron-down' : 'chevron-right'}
-                            size={20}
-                            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                          />
-                          <Text style={[styles.calendarYearText, isDark && styles.textLight]}>
-                            {yearData.year}
-                          </Text>
-                          <Text style={[styles.calendarYearSubtitle, isDark && styles.textMuted]}>
-                            {t('sections.traversalsSummary', {
-                              count: yearData.traversalCount,
-                              time: yearBestDisplay,
-                            })}
-                          </Text>
-                          {isYearFwdPr && (
-                            <MaterialCommunityIcons
-                              name="trophy"
-                              size={14}
-                              color={activityColor}
-                              style={styles.calendarTrophy}
-                            />
-                          )}
-                          {isYearRevPr && (
-                            <MaterialCommunityIcons
-                              name="trophy"
-                              size={14}
-                              color={REVERSE_COLOR}
-                              style={styles.calendarTrophy}
-                            />
-                          )}
-                        </Pressable>
-                        {isYearExpanded &&
-                          yearData.months.map((monthData) => {
-                            const fwd = monthData.forward;
-                            const rev = monthData.reverse;
-                            // Is this month's forward best the year's forward best?
-                            const isMonthFwdYearBest =
-                              fwd && yearFwd && fwd.bestActivityId === yearFwd.bestActivityId;
-                            // Is this month's reverse best the year's reverse best?
-                            const isMonthRevYearBest =
-                              rev && yearRev && rev.bestActivityId === yearRev.bestActivityId;
-                            // Is this the overall PR in either direction?
-                            const isMonthFwdOverallPr =
-                              fwd &&
-                              calendarSummary.forwardPr &&
-                              fwd.bestActivityId === calendarSummary.forwardPr.bestActivityId;
-                            const isMonthRevOverallPr =
-                              rev &&
-                              calendarSummary.reversePr &&
-                              rev.bestActivityId === calendarSummary.reversePr.bestActivityId;
-
-                            return (
-                              <View
-                                key={monthData.month}
-                                style={[
-                                  styles.calendarMonthRow,
-                                  isDark && styles.calendarMonthRowDark,
-                                ]}
-                              >
-                                <Text
-                                  style={[styles.calendarMonthName, isDark && styles.textMuted]}
-                                >
-                                  {monthNames[monthData.month - 1]}
-                                </Text>
-                                <Text
-                                  style={[styles.calendarMonthCount, isDark && styles.textMuted]}
-                                >
-                                  {monthData.traversalCount}
-                                </Text>
-                                <View style={styles.calendarMonthEntries}>
-                                  {fwd && (
-                                    <Pressable
-                                      style={styles.calendarMonthEntry}
-                                      onPress={() => router.push(`/activity/${fwd.bestActivityId}`)}
-                                    >
-                                      <View
-                                        style={[
-                                          styles.calendarDirDot,
-                                          { backgroundColor: activityColor },
-                                        ]}
-                                      />
-                                      <Text
-                                        style={[
-                                          styles.calendarMonthTime,
-                                          isDark && styles.textLight,
-                                          isMonthFwdYearBest && { fontWeight: '700' },
-                                        ]}
-                                      >
-                                        {isRunning
-                                          ? formatPace(fwd.bestPace)
-                                          : formatDuration(fwd.bestTime)}
-                                      </Text>
-                                      {(isMonthFwdYearBest || isMonthFwdOverallPr) && (
-                                        <MaterialCommunityIcons
-                                          name="trophy"
-                                          size={12}
-                                          color={
-                                            isMonthFwdOverallPr ? colors.chartGold : activityColor
-                                          }
-                                        />
-                                      )}
-                                    </Pressable>
-                                  )}
-                                  {rev && (
-                                    <Pressable
-                                      style={styles.calendarMonthEntry}
-                                      onPress={() => router.push(`/activity/${rev.bestActivityId}`)}
-                                    >
-                                      <View
-                                        style={[
-                                          styles.calendarDirDot,
-                                          { backgroundColor: REVERSE_COLOR },
-                                        ]}
-                                      />
-                                      <Text
-                                        style={[
-                                          styles.calendarMonthTime,
-                                          isDark && styles.textLight,
-                                          isMonthRevYearBest && { fontWeight: '700' },
-                                        ]}
-                                      >
-                                        {isRunning
-                                          ? formatPace(rev.bestPace)
-                                          : formatDuration(rev.bestTime)}
-                                      </Text>
-                                      {(isMonthRevYearBest || isMonthRevOverallPr) && (
-                                        <MaterialCommunityIcons
-                                          name="trophy"
-                                          size={12}
-                                          color={
-                                            isMonthRevOverallPr ? colors.chartGold : REVERSE_COLOR
-                                          }
-                                        />
-                                      )}
-                                    </Pressable>
-                                  )}
-                                </View>
-                              </View>
-                            );
-                          })}
-                      </View>
-                    );
-                  })}
-                </CollapsibleSection>
-              )}
-
-              {/* Activities header */}
-              <View style={styles.activitiesSection}>
-                <View style={styles.activitiesHeader}>
-                  <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-                    {t('sections.activities')}
-                  </Text>
-                  {/* Legend */}
-                  <View style={styles.legend}>
-                    <View style={styles.legendItem}>
-                      <View
-                        style={[styles.legendIndicator, { backgroundColor: colors.chartGold }]}
-                      />
-                      <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
-                      <Text style={[styles.legendText, isDark && styles.textMuted]}>
-                        {t('routes.pr')}
-                      </Text>
-                    </View>
-                    <View style={styles.legendItem}>
-                      <View
-                        style={[styles.legendIndicator, { backgroundColor: colors.chartCyan }]}
-                      />
-                      <MaterialCommunityIcons name="star" size={12} color={colors.chartCyan} />
-                      <Text style={[styles.legendText, isDark && styles.textMuted]}>
-                        {t('sections.reference')}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </>
-        }
-        ListEmptyComponent={
-          isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.primary} />
-            </View>
-          ) : (
-            <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
-              {t('sections.noActivitiesFound')}
-            </Text>
-          )
-        }
-        ListFooterComponent={
-          <View style={styles.listFooterContainer}>
-            {section?.polyline?.length > 0 && (
-              <TouchableOpacity
-                testID="section-export-gpx"
-                style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
-                onPress={() =>
-                  exportGpx({
-                    name: section.name || 'Section',
-                    points: section.polyline.map((p: RoutePoint) => ({
-                      latitude: p.lat,
-                      longitude: p.lng,
-                    })),
-                    sport: section.sportType,
-                  })
-                }
-                disabled={gpxExporting}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name={gpxExporting ? 'progress-download' : 'download'}
-                  size={20}
-                  color={colors.textOnPrimary}
-                />
-                <Text style={styles.exportGpxButtonText}>
-                  {gpxExporting ? t('export.exporting') : t('export.gpx')}
-                </Text>
-              </TouchableOpacity>
-            )}
-            <DataRangeFooter days={cacheDays} isDark={isDark} />
-            {debugEnabled &&
-              section &&
-              (() => {
-                const pageMetrics = getPageMetrics();
-                const ffiEntries = pageMetrics.reduce<
-                  Record<string, { calls: number; totalMs: number; maxMs: number }>
-                >((acc, m) => {
-                  if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
-                  acc[m.name].calls++;
-                  acc[m.name].totalMs += m.durationMs;
-                  acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
-                  return acc;
-                }, {});
-                const warnings: Array<{ level: 'warn' | 'error'; message: string }> = [];
-                const actCount = section.activityIds.length;
-                if (actCount > 500)
-                  warnings.push({ level: 'error', message: `${actCount} activities (>500)` });
-                else if (actCount > 100)
-                  warnings.push({ level: 'warn', message: `${actCount} activities (>100)` });
-                if (section.polyline.length > 2000)
-                  warnings.push({
-                    level: 'warn',
-                    message: `${section.polyline.length} polyline points (>2000)`,
-                  });
-                for (const [name, m] of Object.entries(ffiEntries)) {
-                  if (m.maxMs > 200)
+              <DataRangeFooter days={cacheDays} isDark={isDark} />
+              {debugEnabled &&
+                section &&
+                (() => {
+                  const pageMetrics = getPageMetrics();
+                  const ffiEntries = pageMetrics.reduce<
+                    Record<string, { calls: number; totalMs: number; maxMs: number }>
+                  >((acc, m) => {
+                    if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
+                    acc[m.name].calls++;
+                    acc[m.name].totalMs += m.durationMs;
+                    acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
+                    return acc;
+                  }, {});
+                  const warnings: Array<{ level: 'warn' | 'error'; message: string }> = [];
+                  const actCount = section.activityIds.length;
+                  if (actCount > 500)
+                    warnings.push({ level: 'error', message: `${actCount} activities (>500)` });
+                  else if (actCount > 100)
+                    warnings.push({ level: 'warn', message: `${actCount} activities (>100)` });
+                  if (section.polyline.length > 2000)
                     warnings.push({
-                      level: 'error',
-                      message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
+                      level: 'warn',
+                      message: `${section.polyline.length} polyline points (>2000)`,
                     });
-                }
-                return (
-                  <>
-                    {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
-                    <DebugInfoPanel
-                      isDark={isDark}
-                      entries={[
-                        {
-                          label: 'ID',
-                          value:
-                            section.id.length > 20 ? section.id.slice(0, 20) + '...' : section.id,
-                        },
-                        { label: 'Type', value: section.sectionType },
-                        {
-                          label: 'Stability',
-                          value: section.stability != null ? section.stability.toFixed(3) : '-',
-                        },
-                        {
-                          label: 'Version',
-                          value: section.version != null ? String(section.version) : '-',
-                        },
-                        {
-                          label: 'Updated',
-                          value: section.updatedAt ? formatRelativeDate(section.updatedAt) : '-',
-                        },
-                        {
-                          label: 'Created',
-                          value: section.createdAt ? formatRelativeDate(section.createdAt) : '-',
-                        },
-                        {
-                          label: 'Confidence',
-                          value: section.confidence != null ? section.confidence.toFixed(2) : '-',
-                        },
-                        {
-                          label: 'Observations',
-                          value:
-                            section.observationCount != null
-                              ? String(section.observationCount)
+                  for (const [name, m] of Object.entries(ffiEntries)) {
+                    if (m.maxMs > 200)
+                      warnings.push({
+                        level: 'error',
+                        message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
+                      });
+                  }
+                  return (
+                    <>
+                      {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
+                      <DebugInfoPanel
+                        isDark={isDark}
+                        entries={[
+                          {
+                            label: 'ID',
+                            value:
+                              section.id.length > 20 ? section.id.slice(0, 20) + '...' : section.id,
+                          },
+                          { label: 'Type', value: section.sectionType },
+                          {
+                            label: 'Stability',
+                            value: section.stability != null ? section.stability.toFixed(3) : '-',
+                          },
+                          {
+                            label: 'Version',
+                            value: section.version != null ? String(section.version) : '-',
+                          },
+                          {
+                            label: 'Updated',
+                            value: section.updatedAt ? formatRelativeDate(section.updatedAt) : '-',
+                          },
+                          {
+                            label: 'Created',
+                            value: section.createdAt ? formatRelativeDate(section.createdAt) : '-',
+                          },
+                          {
+                            label: 'Confidence',
+                            value: section.confidence != null ? section.confidence.toFixed(2) : '-',
+                          },
+                          {
+                            label: 'Observations',
+                            value:
+                              section.observationCount != null
+                                ? String(section.observationCount)
+                                : '-',
+                          },
+                          {
+                            label: 'Avg Spread',
+                            value:
+                              section.averageSpread != null
+                                ? section.averageSpread.toFixed(1) + 'm'
+                                : '-',
+                          },
+                          {
+                            label: 'Reference',
+                            value: section.representativeActivityId
+                              ? section.representativeActivityId.slice(0, 20) + '...'
                               : '-',
-                        },
-                        {
-                          label: 'Avg Spread',
-                          value:
-                            section.averageSpread != null
-                              ? section.averageSpread.toFixed(1) + 'm'
-                              : '-',
-                        },
-                        {
-                          label: 'Reference',
-                          value: section.representativeActivityId
-                            ? section.representativeActivityId.slice(0, 20) + '...'
-                            : '-',
-                        },
-                        { label: 'User Defined', value: section.isUserDefined ? 'Yes' : 'No' },
-                        { label: 'Activities', value: String(actCount) },
-                        { label: 'Points', value: String(section.polyline.length) },
-                        ...Object.entries(ffiEntries).map(([name, m]) => ({
-                          label: name,
-                          value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
-                        })),
-                      ]}
-                    />
-                  </>
-                );
-              })()}
-          </View>
-        }
-      />
-
-      {/* Bucket grouping modal */}
-      {showBucketModal && (
-        <Modal
-          visible
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowBucketModal(false)}
-        >
-          <Pressable style={styles.modalOverlay} onPress={() => setShowBucketModal(false)}>
-            <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
-              <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
-                {t('sections.groupingTitle')}
-              </Text>
-              <Text style={[styles.modalDescription, isDark && styles.modalDescriptionDark]}>
-                {t('sections.groupingDescription')}
-              </Text>
-              <View style={styles.groupingOptions}>
-                {BUCKET_TYPES.map((bt) => (
-                  <TouchableOpacity
-                    key={bt.id}
-                    style={[
-                      styles.groupingOption,
-                      isDark && styles.groupingOptionDark,
-                      bucketType === bt.id && styles.groupingOptionActive,
-                    ]}
-                    onPress={() => {
-                      setBucketType(bt.id);
-                      setShowBucketModal(false);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.groupingOptionText,
-                        isDark && styles.groupingOptionTextDark,
-                        bucketType === bt.id && styles.groupingOptionTextActive,
-                      ]}
-                    >
-                      {t(bt.labelKey)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                          },
+                          { label: 'User Defined', value: section.isUserDefined ? 'Yes' : 'No' },
+                          { label: 'Activities', value: String(actCount) },
+                          { label: 'Points', value: String(section.polyline.length) },
+                          ...Object.entries(ffiEntries).map(([name, m]) => ({
+                            label: name,
+                            value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
+                          })),
+                        ]}
+                      />
+                    </>
+                  );
+                })()}
             </View>
-          </Pressable>
-        </Modal>
-      )}
-    </View>
+          }
+        />
+
+        {/* Bucket grouping modal */}
+        {showBucketModal && (
+          <Modal
+            visible
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowBucketModal(false)}
+          >
+            <Pressable style={styles.modalOverlay} onPress={() => setShowBucketModal(false)}>
+              <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
+                <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
+                  {t('sections.groupingTitle')}
+                </Text>
+                <Text style={[styles.modalDescription, isDark && styles.modalDescriptionDark]}>
+                  {t('sections.groupingDescription')}
+                </Text>
+                <View style={styles.groupingOptions}>
+                  {BUCKET_TYPES.map((bt) => (
+                    <TouchableOpacity
+                      key={bt.id}
+                      style={[
+                        styles.groupingOption,
+                        isDark && styles.groupingOptionDark,
+                        bucketType === bt.id && styles.groupingOptionActive,
+                      ]}
+                      onPress={() => {
+                        setBucketType(bt.id);
+                        setShowBucketModal(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.groupingOptionText,
+                          isDark && styles.groupingOptionTextDark,
+                          bucketType === bt.id && styles.groupingOptionTextActive,
+                        ]}
+                      >
+                        {t(bt.labelKey)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </Pressable>
+          </Modal>
+        )}
+      </View>
+    </ScreenErrorBoundary>
   );
 }
 

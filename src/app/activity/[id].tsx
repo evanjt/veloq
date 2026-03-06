@@ -92,7 +92,7 @@ import {
 } from '@/lib';
 import { colors, darkColors, spacing, typography, layout, opacity } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { DeviceAttribution, ComponentErrorBoundary } from '@/components/ui';
+import { DeviceAttribution, ComponentErrorBoundary, ErrorStatePreset } from '@/components/ui';
 import {
   setCameraOverride,
   getCameraOverride,
@@ -148,7 +148,7 @@ export default function ActivityDetailScreen() {
   // Use dynamic dimensions for fullscreen chart (updates after rotation)
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
-  const { data: activity, isLoading, error } = useActivity(id || '');
+  const { data: activity, isLoading, error, refetch } = useActivity(id || '');
   const { data: streams } = useActivityStreams(id || '');
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
@@ -884,7 +884,7 @@ export default function ActivityDetailScreen() {
           />
         </View>
         <View style={styles.loadingContainer}>
-          <Text style={styles.errorText}>{t('activityDetail.failedToLoad')}</Text>
+          <ErrorStatePreset message={t('activityDetail.failedToLoad')} onRetry={() => refetch()} />
         </View>
       </ScreenSafeAreaView>
     );

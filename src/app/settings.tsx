@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   LayoutChangeEvent,
 } from 'react-native';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { router, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -111,69 +111,71 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScreenSafeAreaView
-      testID="settings-screen"
-      style={[styles.container, isDark && styles.containerDark]}
-    >
-      <ScrollView
-        testID="settings-scrollview"
-        ref={scrollViewRef}
-        contentContainerStyle={styles.content}
+    <ScreenErrorBoundary screenName="Settings">
+      <ScreenSafeAreaView
+        testID="settings-screen"
+        style={[styles.container, isDark && styles.containerDark]}
       >
-        {/* Header with back button */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            testID="nav-back-button"
-            onPress={() => router.back()}
-            style={styles.backButton}
-            accessibilityLabel={t('common.back')}
-            accessibilityRole="button"
-          >
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={24}
-              color={isDark ? colors.textOnDark : colors.textPrimary}
-            />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-            {t('settings.title')}
-          </Text>
-          <View style={styles.headerSpacer} />
-        </View>
+        <ScrollView
+          testID="settings-scrollview"
+          ref={scrollViewRef}
+          contentContainerStyle={styles.content}
+        >
+          {/* Header with back button */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              testID="nav-back-button"
+              onPress={() => router.back()}
+              style={styles.backButton}
+              accessibilityLabel={t('common.back')}
+              accessibilityRole="button"
+            >
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={24}
+                color={isDark ? colors.textOnDark : colors.textPrimary}
+              />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+              {t('settings.title')}
+            </Text>
+            <View style={styles.headerSpacer} />
+          </View>
 
-        {/* Profile Section - tap to open intervals.icu profile */}
-        <View style={{ marginHorizontal: layout.screenPadding }}>
-          <ProfileSection athlete={athlete} />
-        </View>
+          {/* Profile Section - tap to open intervals.icu profile */}
+          <View style={{ marginHorizontal: layout.screenPadding }}>
+            <ProfileSection athlete={athlete} />
+          </View>
 
-        <SummaryCardSection />
+          <SummaryCardSection />
 
-        {/* Display Settings: Appearance, Units, Language, Primary Sport */}
-        <DisplaySettings
-          themePreference={themePreference}
-          onThemeChange={handleThemeChange}
-          unitPreference={unitPreference}
-          onUnitChange={handleUnitChange}
-          intervalsUnitPreference={intervalsPreferences}
-          primarySport={primarySport}
-          onSportChange={handleSportChange}
-          language={language ?? 'en-GB'}
-          onLanguageChange={handleLanguageChange}
-          showLanguages={showLanguages}
-          setShowLanguages={setShowLanguages}
-        />
+          {/* Display Settings: Appearance, Units, Language, Primary Sport */}
+          <DisplaySettings
+            themePreference={themePreference}
+            onThemeChange={handleThemeChange}
+            unitPreference={unitPreference}
+            onUnitChange={handleUnitChange}
+            intervalsUnitPreference={intervalsPreferences}
+            primarySport={primarySport}
+            onSportChange={handleSportChange}
+            language={language ?? 'en-GB'}
+            onLanguageChange={handleLanguageChange}
+            showLanguages={showLanguages}
+            setShowLanguages={setShowLanguages}
+          />
 
-        <MapsSection />
+          <MapsSection />
 
-        <DataCacheSection onLayout={handleDataCacheSectionLayout} />
+          <DataCacheSection onLayout={handleDataCacheSectionLayout} />
 
-        <AccountSection />
+          <AccountSection />
 
-        <DataSourcesSection />
+          <DataSourcesSection />
 
-        <SupportSection />
-      </ScrollView>
-    </ScreenSafeAreaView>
+          <SupportSection />
+        </ScrollView>
+      </ScreenSafeAreaView>
+    </ScreenErrorBoundary>
   );
 }
 

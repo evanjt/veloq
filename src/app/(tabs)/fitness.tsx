@@ -22,7 +22,7 @@ import {
   DecouplingChart,
 } from '@/components/stats';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { NetworkErrorState, ErrorStatePreset } from '@/components/ui';
+import { NetworkErrorState, ErrorStatePreset, ScreenErrorBoundary } from '@/components/ui';
 import {
   useWellness,
   useActivities,
@@ -318,338 +318,286 @@ export default function FitnessScreen() {
   }
 
   return (
-    <ScreenSafeAreaView style={shared.container} testID="fitness-screen">
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
-        {/* Subtle loading indicator in header when fetching in background (not during pull-to-refresh) */}
-        {isFetching && !isRefreshing && (
-          <ActivityIndicator size="small" color={colors.primary} style={styles.headerSpinner} />
-        )}
-      </View>
+    <ScreenErrorBoundary screenName="Fitness">
+      <ScreenSafeAreaView style={shared.container} testID="fitness-screen">
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
+          {/* Subtle loading indicator in header when fetching in background (not during pull-to-refresh) */}
+          {isFetching && !isRefreshing && (
+            <ActivityIndicator size="small" color={colors.primary} style={styles.headerSpinner} />
+          )}
+        </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={!chartInteracting}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
-      >
-        {/* Current stats card */}
-        <View style={[styles.statsCard, isDark && styles.statsCardDark]}>
-          <Text style={[styles.statsDate, isDark && styles.statsDateDark]}>
-            {displayDate ? formatDisplayDate(displayDate) : t('fitnessScreen.current')}
-          </Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-                {t('metrics.fitness')}
-              </Text>
-              <Text style={[styles.statValue, { color: colors.fitnessBlue }]}>
-                {displayValues ? Math.round(displayValues.fitness) : '-'}
-              </Text>
-              <Text style={[styles.statSubtext, isDark && styles.statSubtextDark]}>
-                {t('fitnessScreen.ctl')}
-              </Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-                {t('metrics.fatigue')}
-              </Text>
-              <Text style={[styles.statValue, { color: colors.fatiguePurple }]}>
-                {displayValues ? Math.round(displayValues.fatigue) : '-'}
-              </Text>
-              <Text style={[styles.statSubtext, isDark && styles.statSubtextDark]}>
-                {t('fitnessScreen.atl')}
-              </Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-                {t('metrics.form')}
-              </Text>
-              <Text
-                style={[
-                  styles.statValue,
-                  {
-                    color: formZone ? FORM_ZONE_COLORS[formZone] : themeColors.text,
-                  },
-                ]}
-              >
-                {displayValues
-                  ? `${displayValues.form > 0 ? '+' : ''}${Math.round(displayValues.form)}`
-                  : '-'}
-              </Text>
-              <Text
-                style={[
-                  styles.statSubtext,
-                  {
-                    color: formZone ? FORM_ZONE_COLORS[formZone] : themeColors.textSecondary,
-                  },
-                ]}
-              >
-                {formZone ? FORM_ZONE_LABELS[formZone] : t('fitnessScreen.tsb')}
-              </Text>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={!chartInteracting}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+        >
+          {/* Current stats card */}
+          <View style={[styles.statsCard, isDark && styles.statsCardDark]}>
+            <Text style={[styles.statsDate, isDark && styles.statsDateDark]}>
+              {displayDate ? formatDisplayDate(displayDate) : t('fitnessScreen.current')}
+            </Text>
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
+                  {t('metrics.fitness')}
+                </Text>
+                <Text style={[styles.statValue, { color: colors.fitnessBlue }]}>
+                  {displayValues ? Math.round(displayValues.fitness) : '-'}
+                </Text>
+                <Text style={[styles.statSubtext, isDark && styles.statSubtextDark]}>
+                  {t('fitnessScreen.ctl')}
+                </Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
+                  {t('metrics.fatigue')}
+                </Text>
+                <Text style={[styles.statValue, { color: colors.fatiguePurple }]}>
+                  {displayValues ? Math.round(displayValues.fatigue) : '-'}
+                </Text>
+                <Text style={[styles.statSubtext, isDark && styles.statSubtextDark]}>
+                  {t('fitnessScreen.atl')}
+                </Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
+                  {t('metrics.form')}
+                </Text>
+                <Text
+                  style={[
+                    styles.statValue,
+                    {
+                      color: formZone ? FORM_ZONE_COLORS[formZone] : themeColors.text,
+                    },
+                  ]}
+                >
+                  {displayValues
+                    ? `${displayValues.form > 0 ? '+' : ''}${Math.round(displayValues.form)}`
+                    : '-'}
+                </Text>
+                <Text
+                  style={[
+                    styles.statSubtext,
+                    {
+                      color: formZone ? FORM_ZONE_COLORS[formZone] : themeColors.textSecondary,
+                    },
+                  ]}
+                >
+                  {formZone ? FORM_ZONE_LABELS[formZone] : t('fitnessScreen.tsb')}
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Time range selector */}
-        <View testID="fitness-time-range-selector" style={styles.timeRangeContainer}>
-          {TIME_RANGES.map((range) => (
-            <TouchableOpacity
-              key={range.id}
-              testID={`fitness-range-${range.id}`}
-              style={[
-                styles.timeRangeButton,
-                isDark && styles.timeRangeButtonDark,
-                timeRange === range.id && styles.timeRangeButtonActive,
-              ]}
-              onPress={() => setTimeRange(range.id)}
-              activeOpacity={0.7}
-            >
-              <Text
+          {/* Time range selector */}
+          <View testID="fitness-time-range-selector" style={styles.timeRangeContainer}>
+            {TIME_RANGES.map((range) => (
+              <TouchableOpacity
+                key={range.id}
+                testID={`fitness-range-${range.id}`}
                 style={[
-                  styles.timeRangeText,
-                  isDark && styles.timeRangeTextDark,
-                  timeRange === range.id && styles.timeRangeTextActive,
+                  styles.timeRangeButton,
+                  isDark && styles.timeRangeButtonDark,
+                  timeRange === range.id && styles.timeRangeButtonActive,
                 ]}
+                onPress={() => setTimeRange(range.id)}
+                activeOpacity={0.7}
               >
-                {range.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                <Text
+                  style={[
+                    styles.timeRangeText,
+                    isDark && styles.timeRangeTextDark,
+                    timeRange === range.id && styles.timeRangeTextActive,
+                  ]}
+                >
+                  {range.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-        {/* Combined fitness charts card */}
-        <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-          {/* Fitness/Fatigue chart */}
-          <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
-            {t('fitnessScreen.fitnessAndFatigue')}
-          </Text>
-          <FitnessChart
-            data={wellness}
-            height={220}
-            selectedDate={selectedDate}
-            sharedSelectedIdx={sharedSelectedIdx}
-            onDateSelect={handleDateSelect}
-            onInteractionChange={handleInteractionChange}
-          />
+          {/* Combined fitness charts card */}
+          <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
+            {/* Fitness/Fatigue chart */}
+            <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
+              {t('fitnessScreen.fitnessAndFatigue')}
+            </Text>
+            <FitnessChart
+              data={wellness}
+              height={220}
+              selectedDate={selectedDate}
+              sharedSelectedIdx={sharedSelectedIdx}
+              onDateSelect={handleDateSelect}
+              onInteractionChange={handleInteractionChange}
+            />
 
-          {/* Activity dots chart - deferred to reduce simultaneous shader compilation */}
-          {chartsReady && (
-            <View style={[styles.dotsSection, isDark && styles.dotsSectionDark]}>
-              <ActivityDotsChart
-                data={wellness}
-                activities={activities || []}
-                height={32}
-                selectedDate={selectedDate}
-                sharedSelectedIdx={sharedSelectedIdx}
-                onDateSelect={handleDateSelect}
-                onInteractionChange={handleInteractionChange}
-              />
-            </View>
-          )}
+            {/* Activity dots chart - deferred to reduce simultaneous shader compilation */}
+            {chartsReady && (
+              <View style={[styles.dotsSection, isDark && styles.dotsSectionDark]}>
+                <ActivityDotsChart
+                  data={wellness}
+                  activities={activities || []}
+                  height={32}
+                  selectedDate={selectedDate}
+                  sharedSelectedIdx={sharedSelectedIdx}
+                  onDateSelect={handleDateSelect}
+                  onInteractionChange={handleInteractionChange}
+                />
+              </View>
+            )}
 
-          {/* Form zone chart - deferred to reduce simultaneous shader compilation */}
-          {chartsReady && (
-            <View style={[styles.formSection, isDark && styles.formSectionDark]}>
-              <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
-                {t('metrics.form')}
-              </Text>
-              <FormZoneChart
-                data={wellness}
-                height={140}
-                selectedDate={selectedDate}
-                sharedSelectedIdx={sharedSelectedIdx}
-                onDateSelect={handleDateSelect}
-                onInteractionChange={handleInteractionChange}
-              />
-            </View>
-          )}
-        </View>
+            {/* Form zone chart - deferred to reduce simultaneous shader compilation */}
+            {chartsReady && (
+              <View style={[styles.formSection, isDark && styles.formSectionDark]}>
+                <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
+                  {t('metrics.form')}
+                </Text>
+                <FormZoneChart
+                  data={wellness}
+                  height={140}
+                  selectedDate={selectedDate}
+                  sharedSelectedIdx={sharedSelectedIdx}
+                  onDateSelect={handleDateSelect}
+                  onInteractionChange={handleInteractionChange}
+                />
+              </View>
+            )}
+          </View>
 
-        {/* Sport Toggle - compact pill selector */}
-        <View style={styles.sportToggleContainer}>
-          {(['Cycling', 'Running', 'Swimming'] as const).map((sport) => (
-            <TouchableOpacity
-              key={sport}
-              style={[
-                styles.sportToggleButton,
-                isDark && styles.sportToggleButtonDark,
-                sportMode === sport && { backgroundColor: SPORT_COLORS[sport] },
-              ]}
-              onPress={() => setSportMode(sport)}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name={sport === 'Cycling' ? 'bike' : sport === 'Running' ? 'run' : 'swim'}
-                size={16}
-                color={sportMode === sport ? colors.textOnDark : themeColors.textSecondary}
-              />
-              <Text
+          {/* Sport Toggle - compact pill selector */}
+          <View style={styles.sportToggleContainer}>
+            {(['Cycling', 'Running', 'Swimming'] as const).map((sport) => (
+              <TouchableOpacity
+                key={sport}
                 style={[
-                  styles.sportToggleText,
-                  isDark && styles.sportToggleTextDark,
-                  sportMode === sport && styles.sportToggleTextActive,
+                  styles.sportToggleButton,
+                  isDark && styles.sportToggleButtonDark,
+                  sportMode === sport && { backgroundColor: SPORT_COLORS[sport] },
                 ]}
+                onPress={() => setSportMode(sport)}
+                activeOpacity={0.7}
               >
-                {t(`filters.${sport.toLowerCase()}` as never)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                <MaterialCommunityIcons
+                  name={sport === 'Cycling' ? 'bike' : sport === 'Running' ? 'run' : 'swim'}
+                  size={16}
+                  color={sportMode === sport ? colors.textOnDark : themeColors.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.sportToggleText,
+                    isDark && styles.sportToggleTextDark,
+                    sportMode === sport && styles.sportToggleTextActive,
+                  ]}
+                >
+                  {t(`filters.${sport.toLowerCase()}` as never)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-        {/* Performance Section - Power/Pace Curve (expanded by default) */}
-        <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
-          <CollapsibleSection
-            testID="fitness-section-performance"
-            title={
-              sportMode === 'Cycling'
-                ? t('statsScreen.powerCurve')
-                : sportMode === 'Swimming'
-                  ? t('statsScreen.swimPaceCurve')
-                  : t('statsScreen.paceCurve')
-            }
-            icon={sportMode === 'Cycling' ? 'lightning-bolt' : 'speedometer'}
-            expanded={performanceExpanded}
-            onToggle={setPerformanceExpanded}
-            estimatedHeight={240}
-            headerRight={
-              sportMode === 'Cycling' && currentFTP ? (
-                <Text style={[styles.headerValue, { color: SPORT_COLORS.Cycling }]}>
-                  {currentFTP}w
-                </Text>
-              ) : sportMode === 'Running' && thresholdPace ? (
-                <Text style={[styles.headerValue, { color: SPORT_COLORS.Running }]}>
-                  {formatPaceCompact(thresholdPace)}/km
-                </Text>
-              ) : sportMode === 'Swimming' && swimThresholdPace ? (
-                <Text style={[styles.headerValue, { color: SPORT_COLORS.Swimming }]}>
-                  {formatSwimPace(swimThresholdPace)}/100m
-                </Text>
-              ) : null
-            }
-          >
-            <View style={styles.collapsibleContent}>
-              {sportMode === 'Cycling' && (
-                <PowerCurveChart height={200} days={timeRangeToDays(timeRange)} ftp={currentFTP} />
-              )}
-              {sportMode === 'Running' && (
-                <PaceCurveChart height={200} days={timeRangeToDays(timeRange)} />
-              )}
-              {sportMode === 'Swimming' && (
-                <SwimPaceCurveChart height={200} days={timeRangeToDays(timeRange)} />
-              )}
-            </View>
-          </CollapsibleSection>
-        </View>
-
-        {/* Season Bests Section */}
-        <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
-          <CollapsibleSection
-            testID="fitness-section-bests"
-            title={t('statsScreen.seasonBests')}
-            icon="trophy-outline"
-            expanded={bestsExpanded}
-            onToggle={setBestsExpanded}
-            estimatedHeight={200}
-            headerRight={
-              bestsHeader ? (
-                <Text style={[styles.headerValue, { color: SPORT_COLORS[sportMode] }]}>
-                  {bestsHeader}
-                </Text>
-              ) : null
-            }
-          >
-            <View style={styles.collapsibleContent}>
-              <SeasonBestsSection
-                efforts={bestsEfforts}
-                sport={sportMode}
-                days={timeRangeToDays(timeRange)}
-                isLoading={loadingBests}
-              />
-            </View>
-          </CollapsibleSection>
-        </View>
-
-        {/* Training Zones Section */}
-        <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
-          <CollapsibleSection
-            testID="fitness-section-zones"
-            title={t('statsScreen.trainingZones')}
-            icon="chart-bar"
-            expanded={zonesExpanded}
-            onToggle={setZonesExpanded}
-            estimatedHeight={sportMode === 'Cycling' ? 400 : 200}
-            headerRight={
-              dominantZone ? (
-                <Text style={[styles.headerValue, { color: SPORT_COLORS[sportMode] }]}>
-                  {dominantZone.name}: {dominantZone.percentage}%
-                </Text>
-              ) : null
-            }
-          >
-            <View style={styles.collapsibleContent}>
-              {loadingActivities && !activities ? (
-                <View style={styles.zoneLoadingContainer}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                </View>
-              ) : (
-                <>
-                  {sportMode === 'Cycling' && (
-                    <View style={styles.zoneSection}>
-                      <ZoneDistributionChart
-                        data={powerZones}
-                        type="power"
-                        periodLabel={TIME_RANGES.find((r) => r.id === timeRange)?.label || '3M'}
-                      />
-                    </View>
-                  )}
-                  <View style={sportMode === 'Cycling' ? styles.zoneSectionDivided : undefined}>
-                    <ZoneDistributionChart
-                      data={hrZones}
-                      type="hr"
-                      periodLabel={TIME_RANGES.find((r) => r.id === timeRange)?.label || '3M'}
-                    />
-                  </View>
-                </>
-              )}
-            </View>
-          </CollapsibleSection>
-        </View>
-
-        {/* Trends Section - eFTP/Threshold */}
-        {sportMode === 'Cycling' && (
+          {/* Performance Section - Power/Pace Curve (expanded by default) */}
           <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
             <CollapsibleSection
-              testID="fitness-section-trends"
-              title={t('statsScreen.eFTPTrend')}
-              icon="trending-up"
-              expanded={trendsExpanded}
-              onToggle={setTrendsExpanded}
-              estimatedHeight={220}
+              testID="fitness-section-performance"
+              title={
+                sportMode === 'Cycling'
+                  ? t('statsScreen.powerCurve')
+                  : sportMode === 'Swimming'
+                    ? t('statsScreen.swimPaceCurve')
+                    : t('statsScreen.paceCurve')
+              }
+              icon={sportMode === 'Cycling' ? 'lightning-bolt' : 'speedometer'}
+              expanded={performanceExpanded}
+              onToggle={setPerformanceExpanded}
+              estimatedHeight={240}
               headerRight={
-                currentFTP ? (
-                  <View style={styles.headerValueRow}>
-                    <Text style={[styles.headerValue, { color: SPORT_COLORS.Cycling }]}>
-                      {currentFTP}w
-                    </Text>
-                    {ftpTrend && ftpTrend !== 'stable' && (
-                      <MaterialCommunityIcons
-                        name={ftpTrend === 'up' ? 'trending-up' : 'trending-down'}
-                        size={16}
-                        color={ftpTrend === 'up' ? colors.success : colors.error}
-                        style={styles.trendIcon}
-                      />
-                    )}
-                  </View>
+                sportMode === 'Cycling' && currentFTP ? (
+                  <Text style={[styles.headerValue, { color: SPORT_COLORS.Cycling }]}>
+                    {currentFTP}w
+                  </Text>
+                ) : sportMode === 'Running' && thresholdPace ? (
+                  <Text style={[styles.headerValue, { color: SPORT_COLORS.Running }]}>
+                    {formatPaceCompact(thresholdPace)}/km
+                  </Text>
+                ) : sportMode === 'Swimming' && swimThresholdPace ? (
+                  <Text style={[styles.headerValue, { color: SPORT_COLORS.Swimming }]}>
+                    {formatSwimPace(swimThresholdPace)}/100m
+                  </Text>
+                ) : null
+              }
+            >
+              <View style={styles.collapsibleContent}>
+                {sportMode === 'Cycling' && (
+                  <PowerCurveChart
+                    height={200}
+                    days={timeRangeToDays(timeRange)}
+                    ftp={currentFTP}
+                  />
+                )}
+                {sportMode === 'Running' && (
+                  <PaceCurveChart height={200} days={timeRangeToDays(timeRange)} />
+                )}
+                {sportMode === 'Swimming' && (
+                  <SwimPaceCurveChart height={200} days={timeRangeToDays(timeRange)} />
+                )}
+              </View>
+            </CollapsibleSection>
+          </View>
+
+          {/* Season Bests Section */}
+          <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
+            <CollapsibleSection
+              testID="fitness-section-bests"
+              title={t('statsScreen.seasonBests')}
+              icon="trophy-outline"
+              expanded={bestsExpanded}
+              onToggle={setBestsExpanded}
+              estimatedHeight={200}
+              headerRight={
+                bestsHeader ? (
+                  <Text style={[styles.headerValue, { color: SPORT_COLORS[sportMode] }]}>
+                    {bestsHeader}
+                  </Text>
+                ) : null
+              }
+            >
+              <View style={styles.collapsibleContent}>
+                <SeasonBestsSection
+                  efforts={bestsEfforts}
+                  sport={sportMode}
+                  days={timeRangeToDays(timeRange)}
+                  isLoading={loadingBests}
+                />
+              </View>
+            </CollapsibleSection>
+          </View>
+
+          {/* Training Zones Section */}
+          <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
+            <CollapsibleSection
+              testID="fitness-section-zones"
+              title={t('statsScreen.trainingZones')}
+              icon="chart-bar"
+              expanded={zonesExpanded}
+              onToggle={setZonesExpanded}
+              estimatedHeight={sportMode === 'Cycling' ? 400 : 200}
+              headerRight={
+                dominantZone ? (
+                  <Text style={[styles.headerValue, { color: SPORT_COLORS[sportMode] }]}>
+                    {dominantZone.name}: {dominantZone.percentage}%
+                  </Text>
                 ) : null
               }
             >
@@ -659,184 +607,244 @@ export default function FitnessScreen() {
                     <ActivityIndicator size="small" color={colors.primary} />
                   </View>
                 ) : (
-                  <FTPTrendChart data={eftpHistory} currentFTP={currentFTP} height={180} />
+                  <>
+                    {sportMode === 'Cycling' && (
+                      <View style={styles.zoneSection}>
+                        <ZoneDistributionChart
+                          data={powerZones}
+                          type="power"
+                          periodLabel={TIME_RANGES.find((r) => r.id === timeRange)?.label || '3M'}
+                        />
+                      </View>
+                    )}
+                    <View style={sportMode === 'Cycling' ? styles.zoneSectionDivided : undefined}>
+                      <ZoneDistributionChart
+                        data={hrZones}
+                        type="hr"
+                        periodLabel={TIME_RANGES.find((r) => r.id === timeRange)?.label || '3M'}
+                      />
+                    </View>
+                  </>
                 )}
               </View>
             </CollapsibleSection>
           </View>
-        )}
 
-        {/* Running Threshold Stats */}
-        {sportMode === 'Running' && (thresholdPace || runLthr) && (
-          <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
-            <CollapsibleSection
-              testID="fitness-section-threshold"
-              title={t('statsScreen.lactateThreshold')}
-              icon="heart-pulse"
-              expanded={trendsExpanded}
-              onToggle={setTrendsExpanded}
-              estimatedHeight={100}
-              headerRight={
-                thresholdPace ? (
-                  <Text style={[styles.headerValue, { color: SPORT_COLORS.Running }]}>
-                    {formatPaceCompact(thresholdPace)}/km
-                  </Text>
-                ) : runLthr ? (
-                  <Text style={[styles.headerValue, { color: SPORT_COLORS.Running }]}>
-                    {runLthr} bpm
-                  </Text>
-                ) : null
-              }
-            >
-              <View style={styles.collapsibleContent}>
-                <View style={styles.thresholdRow}>
-                  <View style={styles.thresholdItem}>
-                    <Text style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}>
-                      {t('statsScreen.pace')}
-                    </Text>
-                    <Text style={[styles.thresholdValue, { color: SPORT_COLORS.Running }]}>
-                      {thresholdPace ? `${formatPaceCompact(thresholdPace)}/km` : '-'}
-                    </Text>
-                  </View>
-                  {runLthr && (
-                    <>
-                      <View style={styles.thresholdDivider} />
-                      <View style={styles.thresholdItem}>
-                        <Text style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}>
-                          {t('statsScreen.heartRate')}
-                        </Text>
-                        <Text style={[styles.thresholdValue, { color: SPORT_COLORS.Running }]}>
-                          {runLthr} bpm
-                        </Text>
-                      </View>
-                    </>
+          {/* Trends Section - eFTP/Threshold */}
+          {sportMode === 'Cycling' && (
+            <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
+              <CollapsibleSection
+                testID="fitness-section-trends"
+                title={t('statsScreen.eFTPTrend')}
+                icon="trending-up"
+                expanded={trendsExpanded}
+                onToggle={setTrendsExpanded}
+                estimatedHeight={220}
+                headerRight={
+                  currentFTP ? (
+                    <View style={styles.headerValueRow}>
+                      <Text style={[styles.headerValue, { color: SPORT_COLORS.Cycling }]}>
+                        {currentFTP}w
+                      </Text>
+                      {ftpTrend && ftpTrend !== 'stable' && (
+                        <MaterialCommunityIcons
+                          name={ftpTrend === 'up' ? 'trending-up' : 'trending-down'}
+                          size={16}
+                          color={ftpTrend === 'up' ? colors.success : colors.error}
+                          style={styles.trendIcon}
+                        />
+                      )}
+                    </View>
+                  ) : null
+                }
+              >
+                <View style={styles.collapsibleContent}>
+                  {loadingActivities && !activities ? (
+                    <View style={styles.zoneLoadingContainer}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    </View>
+                  ) : (
+                    <FTPTrendChart data={eftpHistory} currentFTP={currentFTP} height={180} />
                   )}
                 </View>
-              </View>
-            </CollapsibleSection>
-          </View>
-        )}
+              </CollapsibleSection>
+            </View>
+          )}
 
-        {/* Efficiency Section - Decoupling (Cycling only) */}
-        {sportMode === 'Cycling' && (
-          <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
-            <CollapsibleSection
-              testID="fitness-section-efficiency"
-              title={t('statsScreen.decoupling')}
-              icon="heart-flash"
-              expanded={efficiencyExpanded}
-              onToggle={setEfficiencyExpanded}
-              estimatedHeight={160}
-              headerRight={
-                decouplingValue ? (
-                  <Text
-                    style={[
-                      styles.headerValue,
-                      { color: decouplingValue.isGood ? colors.success : colors.warning },
-                    ]}
-                  >
-                    {decouplingValue.value.toFixed(1)}%
-                  </Text>
-                ) : null
-              }
-            >
-              <View style={styles.collapsibleContent}>
-                {loadingStreams && !decouplingStreams ? (
-                  <View style={styles.zoneLoadingContainer}>
-                    <ActivityIndicator size="small" color={colors.primary} />
+          {/* Running Threshold Stats */}
+          {sportMode === 'Running' && (thresholdPace || runLthr) && (
+            <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
+              <CollapsibleSection
+                testID="fitness-section-threshold"
+                title={t('statsScreen.lactateThreshold')}
+                icon="heart-pulse"
+                expanded={trendsExpanded}
+                onToggle={setTrendsExpanded}
+                estimatedHeight={100}
+                headerRight={
+                  thresholdPace ? (
+                    <Text style={[styles.headerValue, { color: SPORT_COLORS.Running }]}>
+                      {formatPaceCompact(thresholdPace)}/km
+                    </Text>
+                  ) : runLthr ? (
+                    <Text style={[styles.headerValue, { color: SPORT_COLORS.Running }]}>
+                      {runLthr} bpm
+                    </Text>
+                  ) : null
+                }
+              >
+                <View style={styles.collapsibleContent}>
+                  <View style={styles.thresholdRow}>
+                    <View style={styles.thresholdItem}>
+                      <Text style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}>
+                        {t('statsScreen.pace')}
+                      </Text>
+                      <Text style={[styles.thresholdValue, { color: SPORT_COLORS.Running }]}>
+                        {thresholdPace ? `${formatPaceCompact(thresholdPace)}/km` : '-'}
+                      </Text>
+                    </View>
+                    {runLthr && (
+                      <>
+                        <View style={styles.thresholdDivider} />
+                        <View style={styles.thresholdItem}>
+                          <Text
+                            style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}
+                          >
+                            {t('statsScreen.heartRate')}
+                          </Text>
+                          <Text style={[styles.thresholdValue, { color: SPORT_COLORS.Running }]}>
+                            {runLthr} bpm
+                          </Text>
+                        </View>
+                      </>
+                    )}
                   </View>
-                ) : (
-                  <DecouplingChart
-                    power={decouplingStreams?.watts}
-                    heartrate={decouplingStreams?.heartrate}
-                    height={120}
-                  />
-                )}
-              </View>
-            </CollapsibleSection>
-          </View>
-        )}
+                </View>
+              </CollapsibleSection>
+            </View>
+          )}
 
-        {/* Info section */}
-        <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
-          <Text style={[styles.infoTitle, isDark && styles.infoTitleDark]}>
-            {t('fitnessScreen.understandingMetrics')}
-          </Text>
+          {/* Efficiency Section - Decoupling (Cycling only) */}
+          {sportMode === 'Cycling' && (
+            <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
+              <CollapsibleSection
+                testID="fitness-section-efficiency"
+                title={t('statsScreen.decoupling')}
+                icon="heart-flash"
+                expanded={efficiencyExpanded}
+                onToggle={setEfficiencyExpanded}
+                estimatedHeight={160}
+                headerRight={
+                  decouplingValue ? (
+                    <Text
+                      style={[
+                        styles.headerValue,
+                        { color: decouplingValue.isGood ? colors.success : colors.warning },
+                      ]}
+                    >
+                      {decouplingValue.value.toFixed(1)}%
+                    </Text>
+                  ) : null
+                }
+              >
+                <View style={styles.collapsibleContent}>
+                  {loadingStreams && !decouplingStreams ? (
+                    <View style={styles.zoneLoadingContainer}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    </View>
+                  ) : (
+                    <DecouplingChart
+                      power={decouplingStreams?.watts}
+                      heartrate={decouplingStreams?.heartrate}
+                      height={120}
+                    />
+                  )}
+                </View>
+              </CollapsibleSection>
+            </View>
+          )}
 
-          <View style={styles.infoRow}>
-            <View style={[styles.infoDot, { backgroundColor: colors.fitnessBlue }]} />
-            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
-                {t('metrics.fitness')}
-              </Text>{' '}
-              {t('fitnessScreen.fitnessDescription')}
+          {/* Info section */}
+          <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
+            <Text style={[styles.infoTitle, isDark && styles.infoTitleDark]}>
+              {t('fitnessScreen.understandingMetrics')}
             </Text>
-          </View>
 
-          <View style={styles.infoRow}>
-            <View style={[styles.infoDot, { backgroundColor: colors.fatiguePurple }]} />
-            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
-                {t('metrics.fatigue')}
-              </Text>{' '}
-              {t('fitnessScreen.fatigueDescription')}
-            </Text>
-          </View>
+            <View style={styles.infoRow}>
+              <View style={[styles.infoDot, { backgroundColor: colors.fitnessBlue }]} />
+              <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+                <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
+                  {t('metrics.fitness')}
+                </Text>{' '}
+                {t('fitnessScreen.fitnessDescription')}
+              </Text>
+            </View>
 
-          <View style={styles.infoRow}>
-            <View style={[styles.infoDot, { backgroundColor: FORM_ZONE_COLORS.optimal }]} />
-            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
-                {t('metrics.form')}
-              </Text>{' '}
-              {t('fitnessScreen.formDescription')}{' '}
-              <Text style={{ color: FORM_ZONE_COLORS.optimal }}>
-                {t('fitnessScreen.optimalZone')}
-              </Text>{' '}
-              {t('fitnessScreen.toBuildFitness')}{' '}
-              <Text style={{ color: FORM_ZONE_COLORS.fresh }}>{t('fitnessScreen.fresh')}</Text>{' '}
-              {t('fitnessScreen.forRaces')}{' '}
-              <Text style={{ color: FORM_ZONE_COLORS.highRisk }}>
-                {t('fitnessScreen.highRiskZone')}
-              </Text>{' '}
-              {t('fitnessScreen.toPreventOvertraining')}
-            </Text>
-          </View>
+            <View style={styles.infoRow}>
+              <View style={[styles.infoDot, { backgroundColor: colors.fatiguePurple }]} />
+              <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+                <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
+                  {t('metrics.fatigue')}
+                </Text>{' '}
+                {t('fitnessScreen.fatigueDescription')}
+              </Text>
+            </View>
 
-          <View style={[styles.referencesSection, isDark && styles.referencesSectionDark]}>
-            <Text style={[styles.referencesLabel, isDark && styles.referencesLabelDark]}>
-              {t('fitnessScreen.learnMore')}
-            </Text>
-            <TouchableOpacity
-              onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/fitness')}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.infoLink}>{t('fitnessScreen.linkFitnessPage')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() =>
-                WebBrowser.openBrowserAsync(
-                  'https://www.sciencetosport.com/monitoring-training-load/'
-                )
-              }
-              activeOpacity={0.7}
-            >
-              <Text style={styles.infoLink}>{t('fitnessScreen.linkTrainingLoad')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() =>
-                WebBrowser.openBrowserAsync(
-                  'https://www.joefrielsblog.com/2015/12/managing-training-using-tsb.html'
-                )
-              }
-              activeOpacity={0.7}
-            >
-              <Text style={styles.infoLink}>{t('fitnessScreen.linkTSBManagement')}</Text>
-            </TouchableOpacity>
+            <View style={styles.infoRow}>
+              <View style={[styles.infoDot, { backgroundColor: FORM_ZONE_COLORS.optimal }]} />
+              <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+                <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
+                  {t('metrics.form')}
+                </Text>{' '}
+                {t('fitnessScreen.formDescription')}{' '}
+                <Text style={{ color: FORM_ZONE_COLORS.optimal }}>
+                  {t('fitnessScreen.optimalZone')}
+                </Text>{' '}
+                {t('fitnessScreen.toBuildFitness')}{' '}
+                <Text style={{ color: FORM_ZONE_COLORS.fresh }}>{t('fitnessScreen.fresh')}</Text>{' '}
+                {t('fitnessScreen.forRaces')}{' '}
+                <Text style={{ color: FORM_ZONE_COLORS.highRisk }}>
+                  {t('fitnessScreen.highRiskZone')}
+                </Text>{' '}
+                {t('fitnessScreen.toPreventOvertraining')}
+              </Text>
+            </View>
+
+            <View style={[styles.referencesSection, isDark && styles.referencesSectionDark]}>
+              <Text style={[styles.referencesLabel, isDark && styles.referencesLabelDark]}>
+                {t('fitnessScreen.learnMore')}
+              </Text>
+              <TouchableOpacity
+                onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/fitness')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.infoLink}>{t('fitnessScreen.linkFitnessPage')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() =>
+                  WebBrowser.openBrowserAsync(
+                    'https://www.sciencetosport.com/monitoring-training-load/'
+                  )
+                }
+                activeOpacity={0.7}
+              >
+                <Text style={styles.infoLink}>{t('fitnessScreen.linkTrainingLoad')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() =>
+                  WebBrowser.openBrowserAsync(
+                    'https://www.joefrielsblog.com/2015/12/managing-training-using-tsb.html'
+                  )
+                }
+                activeOpacity={0.7}
+              >
+                <Text style={styles.infoLink}>{t('fitnessScreen.linkTSBManagement')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </ScrollView>
-    </ScreenSafeAreaView>
+        </ScrollView>
+      </ScreenSafeAreaView>
+    </ScreenErrorBoundary>
   );
 }
 

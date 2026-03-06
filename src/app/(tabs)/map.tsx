@@ -3,7 +3,12 @@ import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RegionalMapView, TimelineSlider, SyncProgressBanner } from '@/components/maps';
-import { ComponentErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import {
+  ComponentErrorBoundary,
+  ScreenErrorBoundary,
+  ErrorStatePreset,
+  TAB_BAR_SAFE_PADDING,
+} from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { initMapCameraState } from '@/lib/storage/mapCameraState';
 import {
@@ -55,7 +60,11 @@ export default function MapScreen() {
 
   // Fetch activities for the current sync range (triggers GlobalDataSync)
   // Use isLoading (not isFetching) to avoid showing banner during background refetches
-  const { isLoading: isLoadingActivities } = useActivities({
+  const {
+    isLoading: isLoadingActivities,
+    isError: isActivitiesError,
+    refetch: refetchActivities,
+  } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
     includeStats: false,
@@ -149,6 +158,18 @@ export default function MapScreen() {
     return { minDateForSlider: minDate, maxDateForSlider: now };
   }, [apiOldestDate, startDate]);
 
+  // Show error state if activities failed to load
+  if (isActivitiesError) {
+    return (
+      <View
+        testID="map-screen"
+        style={[styles.loadingContainer, isDark && styles.loadingContainerDark]}
+      >
+        <ErrorStatePreset onRetry={() => refetchActivities()} />
+      </View>
+    );
+  }
+
   // Show loading state if not ready
   if (!isReady) {
     return (
@@ -168,48 +189,50 @@ export default function MapScreen() {
   }
 
   return (
-    <View style={styles.container} testID="map-screen">
-      {/* Main map view */}
-      <ComponentErrorBoundary componentName="Map">
-        <RegionalMapView
-          activities={filteredActivities}
-          showAttribution={false}
-          onAttributionChange={setAttribution}
-        />
-      </ComponentErrorBoundary>
+    <ScreenErrorBoundary screenName="Map">
+      <View style={styles.container} testID="map-screen">
+        {/* Main map view */}
+        <ComponentErrorBoundary componentName="Map">
+          <RegionalMapView
+            activities={filteredActivities}
+            showAttribution={false}
+            onAttributionChange={setAttribution}
+          />
+        </ComponentErrorBoundary>
 
-      {/* Timeline slider with integrated filters (bottom overlay) */}
-      <View
-        style={[
-          styles.sliderContainer,
-          { paddingBottom: TAB_BAR_SAFE_PADDING },
-          isDark && styles.sliderContainerDark,
-        ]}
-        pointerEvents="box-none"
-      >
-        {/* Attribution pill - positioned at top right of panel */}
-        <View style={[styles.attributionPill, isDark && styles.attributionPillDark]}>
-          <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
-            {attribution}
-          </Text>
+        {/* Timeline slider with integrated filters (bottom overlay) */}
+        <View
+          style={[
+            styles.sliderContainer,
+            { paddingBottom: TAB_BAR_SAFE_PADDING },
+            isDark && styles.sliderContainerDark,
+          ]}
+          pointerEvents="box-none"
+        >
+          {/* Attribution pill - positioned at top right of panel */}
+          <View style={[styles.attributionPill, isDark && styles.attributionPillDark]}>
+            <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
+              {attribution}
+            </Text>
+          </View>
+          <TimelineSlider
+            minDate={minDateForSlider}
+            maxDate={maxDateForSlider}
+            startDate={startDate}
+            endDate={endDate}
+            onRangeChange={handleRangeChange}
+            isLoading={isSyncing}
+            activityCount={filteredActivities.length}
+            cachedOldest={oldestSyncedDate ? new Date(oldestSyncedDate) : null}
+            cachedNewest={newestSyncedDate ? new Date(newestSyncedDate) : null}
+            selectedTypes={selectedTypes}
+            availableTypes={availableTypes}
+            onTypeSelectionChange={setSelectedTypes}
+            isDark={isDark}
+          />
         </View>
-        <TimelineSlider
-          minDate={minDateForSlider}
-          maxDate={maxDateForSlider}
-          startDate={startDate}
-          endDate={endDate}
-          onRangeChange={handleRangeChange}
-          isLoading={isSyncing}
-          activityCount={filteredActivities.length}
-          cachedOldest={oldestSyncedDate ? new Date(oldestSyncedDate) : null}
-          cachedNewest={newestSyncedDate ? new Date(newestSyncedDate) : null}
-          selectedTypes={selectedTypes}
-          availableTypes={availableTypes}
-          onTypeSelectionChange={setSelectedTypes}
-          isDark={isDark}
-        />
       </View>
-    </View>
+    </ScreenErrorBoundary>
   );
 }
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
-import { ScreenSafeAreaView } from '@/components/ui';
+import { ScreenSafeAreaView, ScreenErrorBoundary } from '@/components/ui';
 import { router, useLocalSearchParams } from 'expo-router';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -292,52 +292,55 @@ export default function RoutesScreen() {
   }
 
   return (
-    <ScreenSafeAreaView
-      style={[styles.container, isDark && styles.containerDark]}
-      testID="routes-screen"
-    >
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-          {t('routesScreen.title')}
-        </Text>
-      </View>
-
-      {/* Date range summary - shows cached range with link to expand */}
-      <DateRangeSummary
-        activityCount={activityCount}
-        oldestDate={oldestSyncedDate}
-        newestDate={newestSyncedDate}
-        isDark={isDark}
-        isLoading={!routesData}
-        syncMessage={
-          timelineSyncProgress?.message || (groupsDirty ? t('routesScreen.computingRoutes') : null)
-        }
-      />
-
-      {/* Swipeable Routes/Sections tabs */}
-      <SwipeableTabs
-        tabs={tabs}
-        activeTab={activeTab}
-        onTabChange={(key) => setActiveTab(key as TabType)}
-        isDark={isDark}
-        lazy
+    <ScreenErrorBoundary screenName="Insights">
+      <ScreenSafeAreaView
+        style={[styles.container, isDark && styles.containerDark]}
+        testID="routes-screen"
       >
-        <RoutesList
-          onRefresh={handleRefresh}
-          isRefreshing={isRefreshing}
-          batchGroups={routesData?.groups ?? []}
-          onLoadMore={loadMoreGroups}
-          hasMore={hasMoreGroups}
+        <View style={styles.header}>
+          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+            {t('routesScreen.title')}
+          </Text>
+        </View>
+
+        {/* Date range summary - shows cached range with link to expand */}
+        <DateRangeSummary
+          activityCount={activityCount}
+          oldestDate={oldestSyncedDate}
+          newestDate={newestSyncedDate}
+          isDark={isDark}
+          isLoading={!routesData}
+          syncMessage={
+            timelineSyncProgress?.message ||
+            (groupsDirty ? t('routesScreen.computingRoutes') : null)
+          }
         />
-        <SectionsList
-          batchSections={routesData?.sections}
-          onLoadMore={loadMoreSections}
-          hasMore={hasMoreSections}
-          totalSectionCount={totalSections}
-        />
-        {debugEnabled ? <SyncDebugTab /> : null}
-      </SwipeableTabs>
-    </ScreenSafeAreaView>
+
+        {/* Swipeable Routes/Sections tabs */}
+        <SwipeableTabs
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={(key) => setActiveTab(key as TabType)}
+          isDark={isDark}
+          lazy
+        >
+          <RoutesList
+            onRefresh={handleRefresh}
+            isRefreshing={isRefreshing}
+            batchGroups={routesData?.groups ?? []}
+            onLoadMore={loadMoreGroups}
+            hasMore={hasMoreGroups}
+          />
+          <SectionsList
+            batchSections={routesData?.sections}
+            onLoadMore={loadMoreSections}
+            hasMore={hasMoreSections}
+            totalSectionCount={totalSections}
+          />
+          {debugEnabled ? <SyncDebugTab /> : null}
+        </SwipeableTabs>
+      </ScreenSafeAreaView>
+    </ScreenErrorBoundary>
   );
 }
 

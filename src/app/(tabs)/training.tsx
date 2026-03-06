@@ -9,7 +9,12 @@ import {
   Pressable,
 } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import {
+  ScreenSafeAreaView,
+  ScreenErrorBoundary,
+  ErrorStatePreset,
+  TAB_BAR_SAFE_PADDING,
+} from '@/components/ui';
 import { useTranslation } from 'react-i18next';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/components/stats';
 import { WellnessDashboard, WellnessTrendsChart } from '@/components/wellness';
@@ -67,6 +72,7 @@ export default function HealthScreen() {
     data: activities,
     isLoading: activitiesLoading,
     isFetching: activitiesFetching,
+    isError: isActivitiesError,
     refetch: refetchActivities,
   } = useActivities({
     oldest,
@@ -79,6 +85,7 @@ export default function HealthScreen() {
     data: wellness,
     isLoading: wellnessLoading,
     isFetching: wellnessFetching,
+    isError: isWellnessError,
     refetch: refetchWellness,
   } = useWellness(timeRange);
 
@@ -118,205 +125,222 @@ export default function HealthScreen() {
     return { currentYearActivities: current, previousYearActivities: previous };
   }, [activities]);
 
+  if (isActivitiesError && isWellnessError) {
+    return (
+      <ScreenSafeAreaView style={shared.container} testID="training-screen">
+        <ErrorStatePreset
+          onRetry={() => {
+            refetchActivities();
+            refetchWellness();
+          }}
+        />
+      </ScreenSafeAreaView>
+    );
+  }
+
   return (
-    <ScreenSafeAreaView style={shared.container} testID="training-screen">
-      <View style={styles.header}>
-        <View style={{ width: 48 }} />
-        <Text style={shared.headerTitle}>{t('healthScreen.title')}</Text>
-        {/* Subtle loading indicator in header when fetching in background */}
-        <View style={{ width: 48, alignItems: 'center' }}>
-          {isFetching && !isRefreshing && <ActivityIndicator size="small" color={colors.primary} />}
-        </View>
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
-      >
-        {/* Wellness Dashboard - Today's trends */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          {wellnessLoading && !wellness ? (
-            <View style={styles.loadingContainer}>
+    <ScreenErrorBoundary screenName="Training">
+      <ScreenSafeAreaView style={shared.container} testID="training-screen">
+        <View style={styles.header}>
+          <View style={{ width: 48 }} />
+          <Text style={shared.headerTitle}>{t('healthScreen.title')}</Text>
+          {/* Subtle loading indicator in header when fetching in background */}
+          <View style={{ width: 48, alignItems: 'center' }}>
+            {isFetching && !isRefreshing && (
               <ActivityIndicator size="small" color={colors.primary} />
-            </View>
-          ) : (
-            <WellnessDashboard data={wellness} />
-          )}
-        </View>
-
-        {/* Time range selector with smoothing config */}
-        <View style={styles.timeRangeRow}>
-          <View style={styles.timeRangeContainer}>
-            {TIME_RANGES.map((range) => (
-              <TouchableOpacity
-                key={range.id}
-                style={[
-                  styles.timeRangeButton,
-                  isDark && styles.timeRangeButtonDark,
-                  timeRange === range.id && styles.timeRangeButtonActive,
-                ]}
-                onPress={() => setTimeRange(range.id)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.timeRangeText,
-                    isDark && styles.timeRangeTextDark,
-                    timeRange === range.id && styles.timeRangeTextActive,
-                  ]}
-                >
-                  {range.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            )}
           </View>
-          <TouchableOpacity
-            style={[styles.smoothingButton, isDark && styles.smoothingButtonDark]}
-            onPress={() => setShowSmoothingModal(true)}
-            activeOpacity={0.7}
-          >
-            <IconButton
-              icon="chart-bell-curve-cumulative"
-              iconColor={smoothingWindow !== 'auto' ? colors.primary : themeColors.textSecondary}
-              size={18}
-              style={{ margin: 0 }}
-            />
-          </TouchableOpacity>
         </View>
 
-        {/* Wellness Trends Chart */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          <View style={styles.chartHeader}>
-            <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>
-              {t('wellnessScreen.trends')}
-            </Text>
-            <Text style={[styles.smoothingLabel, isDark && styles.smoothingLabelDark]}>
-              {getSmoothingDescription(smoothingWindow, timeRange)}
-            </Text>
-          </View>
-          {wellnessLoading && !wellness ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.primary} />
-            </View>
-          ) : (
-            <WellnessTrendsChart
-              data={wellness}
-              height={200}
-              timeRange={timeRange}
-              smoothingWindow={smoothingWindow}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
             />
-          )}
-        </View>
-
-        {/* Below-fold cards — frame 1: WeeklySummary (pure RN) */}
-        {belowFoldReady && (
+          }
+        >
+          {/* Wellness Dashboard - Today's trends */}
           <View style={[styles.card, isDark && styles.cardDark]}>
-            {activitiesLoading ? (
+            {wellnessLoading && !wellness ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color={colors.primary} />
               </View>
             ) : (
-              <WeeklySummary
-                activities={activities}
-                summaryData={summaryData}
-                summaryLoading={summaryLoading}
+              <WellnessDashboard data={wellness} />
+            )}
+          </View>
+
+          {/* Time range selector with smoothing config */}
+          <View style={styles.timeRangeRow}>
+            <View style={styles.timeRangeContainer}>
+              {TIME_RANGES.map((range) => (
+                <TouchableOpacity
+                  key={range.id}
+                  style={[
+                    styles.timeRangeButton,
+                    isDark && styles.timeRangeButtonDark,
+                    timeRange === range.id && styles.timeRangeButtonActive,
+                  ]}
+                  onPress={() => setTimeRange(range.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.timeRangeText,
+                      isDark && styles.timeRangeTextDark,
+                      timeRange === range.id && styles.timeRangeTextActive,
+                    ]}
+                  >
+                    {range.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={[styles.smoothingButton, isDark && styles.smoothingButtonDark]}
+              onPress={() => setShowSmoothingModal(true)}
+              activeOpacity={0.7}
+            >
+              <IconButton
+                icon="chart-bell-curve-cumulative"
+                iconColor={smoothingWindow !== 'auto' ? colors.primary : themeColors.textSecondary}
+                size={18}
+                style={{ margin: 0 }}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Wellness Trends Chart */}
+          <View style={[styles.card, isDark && styles.cardDark]}>
+            <View style={styles.chartHeader}>
+              <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>
+                {t('wellnessScreen.trends')}
+              </Text>
+              <Text style={[styles.smoothingLabel, isDark && styles.smoothingLabelDark]}>
+                {getSmoothingDescription(smoothingWindow, timeRange)}
+              </Text>
+            </View>
+            {wellnessLoading && !wellness ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : (
+              <WellnessTrendsChart
+                data={wellness}
+                height={200}
+                timeRange={timeRange}
+                smoothingWindow={smoothingWindow}
               />
             )}
           </View>
-        )}
 
-        {/* Below-fold Skia cards — frame 2: ActivityHeatmap + SeasonComparison */}
-        {chartsReady && (
-          <>
-            {/* Activity Heatmap */}
+          {/* Below-fold cards — frame 1: WeeklySummary (pure RN) */}
+          {belowFoldReady && (
             <View style={[styles.card, isDark && styles.cardDark]}>
               {activitiesLoading ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
               ) : (
-                <ActivityHeatmap activities={activities} />
-              )}
-            </View>
-
-            {/* Season Comparison */}
-            <View style={[styles.card, isDark && styles.cardDark]}>
-              {activitiesLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                </View>
-              ) : (
-                <SeasonComparison
-                  height={180}
-                  currentYearActivities={currentYearActivities}
-                  previousYearActivities={previousYearActivities}
+                <WeeklySummary
+                  activities={activities}
+                  summaryData={summaryData}
+                  summaryLoading={summaryLoading}
                 />
               )}
             </View>
-          </>
-        )}
-      </ScrollView>
+          )}
 
-      {/* Smoothing Config Modal — only mount children when visible */}
-      {showSmoothingModal && (
-        <Modal
-          visible
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowSmoothingModal(false)}
-        >
-          <Pressable style={styles.modalOverlay} onPress={() => setShowSmoothingModal(false)}>
-            <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
-              <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
-                {t('wellness.smoothingTitle' as never)}
-              </Text>
-              <Text style={[styles.modalDescription, isDark && styles.modalDescriptionDark]}>
-                {t('wellness.smoothingDescription' as never)}
-              </Text>
-              <View style={styles.smoothingOptions}>
-                {SMOOTHING_PRESETS.map((preset) => (
-                  <TouchableOpacity
-                    key={String(preset.value)}
-                    style={[
-                      styles.smoothingOption,
-                      isDark && styles.smoothingOptionDark,
-                      smoothingWindow === preset.value && styles.smoothingOptionActive,
-                    ]}
-                    onPress={() => {
-                      setSmoothingWindow(preset.value);
-                      setShowSmoothingModal(false);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.smoothingOptionText,
-                        isDark && styles.smoothingOptionTextDark,
-                        smoothingWindow === preset.value && styles.smoothingOptionTextActive,
-                      ]}
-                    >
-                      {preset.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+          {/* Below-fold Skia cards — frame 2: ActivityHeatmap + SeasonComparison */}
+          {chartsReady && (
+            <>
+              {/* Activity Heatmap */}
+              <View style={[styles.card, isDark && styles.cardDark]}>
+                {activitiesLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                ) : (
+                  <ActivityHeatmap activities={activities} />
+                )}
               </View>
-              <Text style={[styles.modalHint, isDark && styles.modalHintDark]}>
-                {t('wellness.smoothingHint' as never)}
-              </Text>
-            </View>
-          </Pressable>
-        </Modal>
-      )}
-    </ScreenSafeAreaView>
+
+              {/* Season Comparison */}
+              <View style={[styles.card, isDark && styles.cardDark]}>
+                {activitiesLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                ) : (
+                  <SeasonComparison
+                    height={180}
+                    currentYearActivities={currentYearActivities}
+                    previousYearActivities={previousYearActivities}
+                  />
+                )}
+              </View>
+            </>
+          )}
+        </ScrollView>
+
+        {/* Smoothing Config Modal — only mount children when visible */}
+        {showSmoothingModal && (
+          <Modal
+            visible
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowSmoothingModal(false)}
+          >
+            <Pressable style={styles.modalOverlay} onPress={() => setShowSmoothingModal(false)}>
+              <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
+                <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
+                  {t('wellness.smoothingTitle' as never)}
+                </Text>
+                <Text style={[styles.modalDescription, isDark && styles.modalDescriptionDark]}>
+                  {t('wellness.smoothingDescription' as never)}
+                </Text>
+                <View style={styles.smoothingOptions}>
+                  {SMOOTHING_PRESETS.map((preset) => (
+                    <TouchableOpacity
+                      key={String(preset.value)}
+                      style={[
+                        styles.smoothingOption,
+                        isDark && styles.smoothingOptionDark,
+                        smoothingWindow === preset.value && styles.smoothingOptionActive,
+                      ]}
+                      onPress={() => {
+                        setSmoothingWindow(preset.value);
+                        setShowSmoothingModal(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.smoothingOptionText,
+                          isDark && styles.smoothingOptionTextDark,
+                          smoothingWindow === preset.value && styles.smoothingOptionTextActive,
+                        ]}
+                      >
+                        {preset.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={[styles.modalHint, isDark && styles.modalHintDark]}>
+                  {t('wellness.smoothingHint' as never)}
+                </Text>
+              </View>
+            </Pressable>
+          </Modal>
+        )}
+      </ScreenSafeAreaView>
+    </ScreenErrorBoundary>
   );
 }
 

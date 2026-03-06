@@ -26,6 +26,7 @@ import {
   ActivityCardSkeleton,
   NetworkErrorState,
   ErrorStatePreset,
+  ScreenErrorBoundary,
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
 import { SummaryCard } from '@/components/home';
@@ -383,63 +384,65 @@ export default function FeedScreen() {
   }
 
   return (
-    <ScreenSafeAreaView style={shared.container} testID="home-screen">
-      {/* Summary card with hero metric and supporting stats */}
-      <SummaryCard
-        profileUrl={profileUrl}
-        onProfilePress={navigateToSettings}
-        heroValue={heroValue}
-        heroLabel={heroLabel}
-        heroColor={heroColor}
-        heroZoneLabel={heroZoneLabel}
-        heroZoneColor={heroZoneColor}
-        heroTrend={heroTrend}
-        onHeroPress={navigateToHeroMetric}
-        fitnessData={fitnessData}
-        formData={formData}
-        showSparkline={showSparkline}
-        supportingMetrics={supportingMetrics}
-      />
+    <ScreenErrorBoundary screenName="Feed">
+      <ScreenSafeAreaView style={shared.container} testID="home-screen">
+        {/* Summary card with hero metric and supporting stats */}
+        <SummaryCard
+          profileUrl={profileUrl}
+          onProfilePress={navigateToSettings}
+          heroValue={heroValue}
+          heroLabel={heroLabel}
+          heroColor={heroColor}
+          heroZoneLabel={heroZoneLabel}
+          heroZoneColor={heroZoneColor}
+          heroTrend={heroTrend}
+          onHeroPress={navigateToHeroMetric}
+          fitnessData={fitnessData}
+          formData={formData}
+          showSparkline={showSparkline}
+          supportingMetrics={supportingMetrics}
+        />
 
-      <FlatList
-        ref={listRef}
-        testID="home-activity-list"
-        data={filteredActivities}
-        renderItem={renderActivity}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderListHeader}
-        ListEmptyComponent={isError ? renderError : renderEmpty}
-        ListFooterComponent={renderFooter}
-        contentContainerStyle={styles.listContent}
-        contentOffset={initialContentOffset}
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-            progressBackgroundColor={isDark ? darkColors.surface : colors.surface}
-            title={Platform.OS === 'ios' ? t('common.pullToRefresh') : undefined}
-            titleColor={Platform.OS === 'ios' ? themeColors.textSecondary : undefined}
-          />
-        }
-        onEndReached={handleEndReached}
-        onEndReachedThreshold={0.5}
-        showsVerticalScrollIndicator={false}
-        // iOS scroll performance optimizations
-        removeClippedSubviews={Platform.OS === 'ios'}
-        maxToRenderPerBatch={Platform.OS === 'ios' ? 15 : 10}
-        windowSize={Platform.OS === 'ios' ? 21 : 11}
-        initialNumToRender={10}
-        onViewableItemsChanged={handleViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-      />
+        <FlatList
+          ref={listRef}
+          testID="home-activity-list"
+          data={filteredActivities}
+          renderItem={renderActivity}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={renderListHeader}
+          ListEmptyComponent={isError ? renderError : renderEmpty}
+          ListFooterComponent={renderFooter}
+          contentContainerStyle={styles.listContent}
+          contentOffset={initialContentOffset}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+              progressBackgroundColor={isDark ? darkColors.surface : colors.surface}
+              title={Platform.OS === 'ios' ? t('common.pullToRefresh') : undefined}
+              titleColor={Platform.OS === 'ios' ? themeColors.textSecondary : undefined}
+            />
+          }
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.5}
+          showsVerticalScrollIndicator={false}
+          // iOS scroll performance optimizations
+          removeClippedSubviews={Platform.OS === 'ios'}
+          maxToRenderPerBatch={Platform.OS === 'ios' ? 15 : 10}
+          windowSize={Platform.OS === 'ios' ? 21 : 11}
+          initialNumToRender={10}
+          onViewableItemsChanged={handleViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+        />
 
-      {/* Hidden WebView for generating 3D terrain snapshots */}
-      {isAnyTerrain3DEnabled && <TerrainSnapshotWebView ref={snapshotRef} />}
-    </ScreenSafeAreaView>
+        {/* Hidden WebView for generating 3D terrain snapshots */}
+        {isAnyTerrain3DEnabled && <TerrainSnapshotWebView ref={snapshotRef} />}
+      </ScreenSafeAreaView>
+    </ScreenErrorBoundary>
   );
 }
 

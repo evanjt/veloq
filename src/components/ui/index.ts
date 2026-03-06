@@ -38,5 +38,7 @@ export {
 } from './ScreenTransition';
 export { ChartErrorBoundary } from './ChartErrorBoundary';
 export { ComponentErrorBoundary } from './ComponentErrorBoundary';
+export { GlobalErrorBoundary } from './GlobalErrorBoundary';
+export { ScreenErrorBoundary } from './ScreenErrorBoundary';
 export { CollapsibleSection } from './CollapsibleSection';
 export { ScreenSafeAreaView } from './ScreenSafeAreaView';
