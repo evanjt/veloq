@@ -48,6 +48,7 @@ import {
   FfiConverterUInt16,
   FfiConverterUInt32,
   FfiConverterUInt64,
+  FfiConverterUInt8,
   RustBuffer,
   UniffiAbstractObject,
   UniffiError,
@@ -1803,6 +1804,87 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
         FfiConverterArrayFloat64.allocationSize(value.consensusPolyline)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Pre-computed daily activity intensity for the activity heatmap.
+ */
+export type FfiHeatmapDay = {
+  /**
+   * Date string in YYYY-MM-DD format
+   */
+  date: string;
+  /**
+   * Intensity bracket: 0 (none), 1 (light), 2 (medium-light), 3 (medium), 4 (high)
+   */
+  intensity: /*u8*/ number;
+  /**
+   * Longest activity duration in seconds for this day
+   */
+  maxDuration: /*i64*/ bigint;
+  /**
+   * Number of activities on this day
+   */
+  activityCount: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiHeatmapDay} record objects.
+ */
+export const FfiHeatmapDay = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiHeatmapDay, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiHeatmapDay}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiHeatmapDay}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiHeatmapDay>,
+  });
+})();
+
+const FfiConverterTypeFfiHeatmapDay = (() => {
+  type TypeName = FfiHeatmapDay;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        date: FfiConverterString.read(from),
+        intensity: FfiConverterUInt8.read(from),
+        maxDuration: FfiConverterInt64.read(from),
+        activityCount: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.date, into);
+      FfiConverterUInt8.write(value.intensity, into);
+      FfiConverterInt64.write(value.maxDuration, into);
+      FfiConverterUInt32.write(value.activityCount, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.date) +
+        FfiConverterUInt8.allocationSize(value.intensity) +
+        FfiConverterInt64.allocationSize(value.maxDuration) +
+        FfiConverterUInt32.allocationSize(value.activityCount)
       );
     }
   }
@@ -5022,6 +5104,10 @@ const FfiConverterTypeDetectionManager = new FfiConverterObject(
 );
 
 export interface FitnessManagerInterface {
+  getActivityHeatmap(
+    startDate: string,
+    endDate: string,
+  ) /*throws*/ : Array<FfiHeatmapDay>;
   getAvailableSportTypes() /*throws*/ : Array<string>;
   getFtpTrend() /*throws*/ : FfiFtpTrend;
   getPaceTrend(sportType: string) /*throws*/ : FfiPaceTrend;
@@ -5068,6 +5154,28 @@ export class FitnessManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeFitnessManagerObjectFactory.bless(pointer);
+  }
+
+  public getActivityHeatmap(
+    startDate: string,
+    endDate: string,
+  ): Array<FfiHeatmapDay> /*throws*/ {
+    return FfiConverterArrayTypeFfiHeatmapDay.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(startDate),
+            FfiConverterString.lower(endDate),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
   }
 
   public getAvailableSportTypes(): Array<string> /*throws*/ {
@@ -6961,6 +7069,11 @@ const FfiConverterArrayTypeFfiGroupWithPolyline = new FfiConverterArray(
   FfiConverterTypeFfiGroupWithPolyline,
 );
 
+// FfiConverter for Array<FfiHeatmapDay>
+const FfiConverterArrayTypeFfiHeatmapDay = new FfiConverterArray(
+  FfiConverterTypeFfiHeatmapDay,
+);
+
 // FfiConverter for Array<FfiMapSignature>
 const FfiConverterArrayTypeFfiMapSignature = new FfiConverterArray(
   FfiConverterTypeFfiMapSignature,
@@ -7206,6 +7319,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_detectionmanager_start",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap() !==
+    62263
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap",
     );
   }
   if (
@@ -7746,6 +7867,7 @@ export default Object.freeze({
     FfiConverterTypeFfiGpsPoint,
     FfiConverterTypeFfiGroupSummariesResult,
     FfiConverterTypeFfiGroupWithPolyline,
+    FfiConverterTypeFfiHeatmapDay,
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMultiScaleSectionResult,
     FfiConverterTypeFfiPaceTrend,

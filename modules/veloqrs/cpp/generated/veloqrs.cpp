@@ -150,6 +150,9 @@ void uniffi_veloqrs_fn_free_fitnessmanager(void *ptr,
                                            RustCallStatus *uniffi_out_err);
 void *uniffi_veloqrs_fn_constructor_fitnessmanager_new(
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap(
+    void *ptr, RustBuffer start_date, RustBuffer end_date,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_available_sport_types(
     void *ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_ftp_trend(
@@ -475,6 +478,7 @@ uint16_t uniffi_veloqrs_checksum_method_detectionmanager_detect_potentials();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_get_progress();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_poll();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_start();
+uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap();
 uint16_t
 uniffi_veloqrs_checksum_method_fitnessmanager_get_available_sport_types();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_ftp_trend();
@@ -2214,6 +2218,18 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_constructor_fitnessmanager_new(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "fitnessmanager_get_activity_heatmap"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_available_sport_"
         "types"] = jsi::Function::createFromHostFunction(
       rt,
@@ -3303,6 +3319,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_detectionmanager_start(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_"
+        "heatmap"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "fitnessmanager_get_activity_heatmap"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_available_"
         "sport_types"] = jsi::Function::createFromHostFunction(
       rt,
@@ -4695,6 +4723,22 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_fitnessmanager_new(
 
   return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
 }
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap(
+      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_available_sport_types(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -5876,6 +5920,15 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_detectionmanager_start(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_detectionmanager_start();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
