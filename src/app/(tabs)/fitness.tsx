@@ -7,6 +7,7 @@ import { logScreenRender, logMemory } from '@/lib/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   FitnessChart,
   FormZoneChart,
@@ -80,6 +81,7 @@ export default function FitnessScreen() {
   });
 
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
   const [timeRange, setTimeRange] = useState<TimeRange>('3m');
@@ -258,12 +260,18 @@ export default function FitnessScreen() {
     []
   );
 
-  // Handle pull-to-refresh
+  // Handle pull-to-refresh — invalidate all fitness-related queries
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await refetch();
+    await Promise.all([
+      refetch(),
+      queryClient.invalidateQueries({ queryKey: ['activities'] }),
+      queryClient.invalidateQueries({ queryKey: ['powerCurve'] }),
+      queryClient.invalidateQueries({ queryKey: ['paceCurve'] }),
+      queryClient.invalidateQueries({ queryKey: ['athlete-summary'] }),
+    ]);
     setIsRefreshing(false);
-  }, [refetch]);
+  }, [refetch, queryClient]);
 
   // Memoize current (latest) values - only recompute when wellness data changes
   const currentValues = useMemo(() => {

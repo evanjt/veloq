@@ -16,6 +16,7 @@ import {
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/components/stats';
 import { WellnessDashboard, WellnessTrendsChart } from '@/components/wellness';
 import { useActivities, useWellness, useAthleteSummary, useTheme, type TimeRange } from '@/hooks';
@@ -29,6 +30,7 @@ import { TIME_RANGES } from '@/lib/utils/constants';
 export default function HealthScreen() {
   const perfEnd = logScreenRender('HealthScreen');
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const { isDark, colors: themeColors } = useTheme();
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
 
@@ -96,12 +98,16 @@ export default function HealthScreen() {
   const isLoading = activitiesLoading || wellnessLoading;
   const isFetching = activitiesFetching || wellnessFetching;
 
-  // Handle pull-to-refresh
+  // Handle pull-to-refresh — invalidate all training-related queries
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await Promise.all([refetchActivities(), refetchWellness()]);
+    await Promise.all([
+      refetchActivities(),
+      refetchWellness(),
+      queryClient.invalidateQueries({ queryKey: ['athlete-summary'] }),
+    ]);
     setIsRefreshing(false);
-  }, [refetchActivities, refetchWellness]);
+  }, [refetchActivities, refetchWellness, queryClient]);
 
   // Split activities by calendar year for season comparison
   const { currentYearActivities, previousYearActivities } = useMemo(() => {

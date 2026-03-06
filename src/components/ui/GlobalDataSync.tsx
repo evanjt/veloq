@@ -77,11 +77,13 @@ export function GlobalDataSync() {
   // Use the route data sync hook to automatically sync GPS data
   const { progress, isSyncing } = useRouteDataSync(activities, routeSettings.enabled);
 
-  // Invalidate wellness/athlete-summary when sync completes so fitness data refreshes
+  // Invalidate fitness-related caches when sync completes so data refreshes
   useEffect(() => {
     if (progress.status === 'complete') {
       queryClient.invalidateQueries({ queryKey: ['wellness'] });
       queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['powerCurve'] });
+      queryClient.invalidateQueries({ queryKey: ['paceCurve'] });
     }
   }, [progress.status, queryClient]);
 
