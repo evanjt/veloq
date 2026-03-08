@@ -9,7 +9,7 @@
  * and provides a hook for screens to get the appropriate SafeAreaView edges.
  */
 
-import React, { createContext, useContext, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useMemo, useState, useCallback, ReactNode } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Edge } from 'react-native-safe-area-context';
 import { useAuthStore } from './AuthStore';
@@ -24,6 +24,8 @@ interface TopSafeAreaContextValue {
   activeBanner: 'demo' | 'offline' | null;
   /** The appropriate SafeAreaView edges based on banner state */
   screenEdges: Edge[];
+  /** Register/unregister a sync banner occupying the top safe area */
+  setSyncBannerVisible: (visible: boolean) => void;
 }
 
 const TopSafeAreaContext = createContext<TopSafeAreaContextValue | null>(null);
@@ -34,10 +36,14 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
   const hideDemoBanner = useAuthStore((s) => s.hideDemoBanner);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { isOnline } = useNetwork();
+  const [syncBannerVisible, setSyncBannerVisibleState] = useState(false);
+
+  const setSyncBannerVisible = useCallback((visible: boolean) => {
+    setSyncBannerVisibleState(visible);
+  }, []);
 
   const value = useMemo(() => {
-    // Determine which banner is showing (priority order: offline > demo)
-    // Note: CacheLoadingBanner is not tracked here as it has screen-specific logic
+    // Determine which banner is showing (priority order: offline > demo > sync)
     const showOfflineBanner = isAuthenticated && !isOnline;
     const showDemoBanner = isDemoMode && !hideDemoBanner;
 
@@ -48,7 +54,7 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
       activeBanner = 'demo';
     }
 
-    const hasTopBanner = activeBanner !== null;
+    const hasTopBanner = activeBanner !== null || syncBannerVisible;
 
     // When a banner is showing, screens should exclude top edge
     const screenEdges: Edge[] = hasTopBanner
@@ -60,8 +66,17 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
       topInset: insets.top,
       activeBanner,
       screenEdges,
+      setSyncBannerVisible,
     };
-  }, [isDemoMode, hideDemoBanner, isAuthenticated, isOnline, insets.top]);
+  }, [
+    isDemoMode,
+    hideDemoBanner,
+    isAuthenticated,
+    isOnline,
+    insets.top,
+    syncBannerVisible,
+    setSyncBannerVisible,
+  ]);
 
   return <TopSafeAreaContext.Provider value={value}>{children}</TopSafeAreaContext.Provider>;
 }

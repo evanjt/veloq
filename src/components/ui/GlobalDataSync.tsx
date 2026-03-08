@@ -22,7 +22,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useQueryClient } from '@tanstack/react-query';
 import { useActivities, useRouteDataSync, useActivityBoundsCache } from '@/hooks';
-import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
+import { useAuthStore, useRouteSettings, useSyncDateRange, useTopSafeArea } from '@/providers';
 import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,
@@ -128,6 +128,13 @@ export function GlobalDataSync() {
 
   // Show banner when there's something to display and not on screens with own indicator
   const shouldShowBanner = displayInfo !== null && !isOnMapScreen && !isOnRoutesScreen;
+
+  // Register sync banner with TopSafeAreaContext so screens exclude top safe area
+  const { setSyncBannerVisible } = useTopSafeArea();
+  useEffect(() => {
+    setSyncBannerVisible(shouldShowBanner);
+    return () => setSyncBannerVisible(false);
+  }, [shouldShowBanner, setSyncBannerVisible]);
 
   // Shared values for Reanimated animations
   const indeterminateOffset = useSharedValue(0);
