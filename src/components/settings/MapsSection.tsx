@@ -11,7 +11,12 @@ import {
   clearTerrainPreviews,
   getTerrainPreviewCacheSize,
 } from '@/lib/storage/terrainPreviewCache';
-import { emitClearTileCache } from '@/lib/events/terrainSnapshotEvents';
+import {
+  emitClearTileCache,
+  requestTileCacheStats,
+  onTileCacheStats,
+  type TileCacheStats,
+} from '@/lib/events/terrainSnapshotEvents';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import type { ActivityType, Terrain3DMode } from '@/types';
 
@@ -89,10 +94,25 @@ export function MapsSection() {
 
   // Terrain cache stats
   const [terrainCacheSize, setTerrainCacheSize] = useState(0);
+  const [tileCacheStats, setTileCacheStats] = useState<TileCacheStats | null>(null);
 
   useEffect(() => {
     getTerrainPreviewCacheSize().then(setTerrainCacheSize);
   }, [mapPreferences.terrain3DMode, mapPreferences.terrain3DModeByType]);
+
+  // Request DEM tile cache stats from WebView on mount
+  useEffect(() => {
+    const unsub = onTileCacheStats(setTileCacheStats);
+    requestTileCacheStats();
+    // Timeout: if no WebView is mounted (3D disabled), stats stay null
+    const timeout = setTimeout(() => {
+      setTileCacheStats((prev) => prev ?? null);
+    }, 500);
+    return () => {
+      unsub();
+      clearTimeout(timeout);
+    };
+  }, []);
 
   // Migrate stale per-type 3D overrides: old code only set types[0] per group.
   // Normalize so all types in a group share the same override.
@@ -143,6 +163,7 @@ export function MapsSection() {
     await clearTerrainPreviews();
     emitClearTileCache();
     setTerrainCacheSize(0);
+    setTileCacheStats(null);
   };
 
   return (
@@ -151,19 +172,30 @@ export function MapsSection() {
         <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
           {t('settings.maps').toUpperCase()}
         </Text>
-        {terrainCacheSize > 0 && (
-          <TouchableOpacity onPress={handleClearTerrainCache} style={styles.cacheClearButton}>
-            <Text style={[styles.cacheClearText, isDark && styles.textMuted]}>
-              {t('settings.mapCacheSize', {
-                defaultValue: 'Map cache: {{size}}',
-                size: formatBytes(terrainCacheSize),
-              })}
-              {'  '}
-            </Text>
-            <Text style={styles.cacheClearAction}>
-              {t('settings.clearCache', { defaultValue: 'Clear' })}
-            </Text>
-          </TouchableOpacity>
+        {(terrainCacheSize > 0 || (tileCacheStats?.totalBytes ?? 0) > 0) && (
+          <View style={styles.cacheClearContainer}>
+            <TouchableOpacity onPress={handleClearTerrainCache} style={styles.cacheClearButton}>
+              <Text style={[styles.cacheClearText, isDark && styles.textMuted]}>
+                {t('settings.mapCacheSize', {
+                  defaultValue: 'Map cache: {{size}}',
+                  size: formatBytes(terrainCacheSize + (tileCacheStats?.totalBytes ?? 0)),
+                })}
+                {'  '}
+              </Text>
+              <Text style={styles.cacheClearAction}>
+                {t('settings.clearCache', { defaultValue: 'Clear' })}
+              </Text>
+            </TouchableOpacity>
+            {(tileCacheStats?.tileCount ?? 0) > 0 && (
+              <Text style={[styles.tileCacheDetail, isDark && styles.textMuted]}>
+                {t('settings.tileCacheDetail', {
+                  defaultValue: '{{count}} terrain tiles',
+                  defaultValue_one: '1 terrain tile',
+                  count: tileCacheStats!.tileCount,
+                })}
+              </Text>
+            )}
+          </View>
         )}
       </View>
       <View style={[styles.section, isDark && styles.sectionDark]}>
@@ -300,6 +332,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     letterSpacing: 0.5,
   },
+  cacheClearContainer: {
+    alignItems: 'flex-end',
+  },
   cacheClearButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -312,6 +347,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.primary,
     fontWeight: '500',
+  },
+  tileCacheDetail: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginTop: 1,
   },
   section: {
     backgroundColor: colors.surface,

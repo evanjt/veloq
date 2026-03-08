@@ -25,7 +25,12 @@ import type { MapStyleType } from './mapStyles';
 import { getCombinedSatelliteStyle3D, getTerrainSnapshotStyle } from './mapStyles';
 import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import { saveTerrainPreview, hasTerrainPreview } from '@/lib/storage/terrainPreviewCache';
-import { emitSnapshotComplete, onClearTileCache } from '@/lib/events/terrainSnapshotEvents';
+import {
+  emitSnapshotComplete,
+  onClearTileCache,
+  onTileCacheStatsRequest,
+  emitTileCacheStats,
+} from '@/lib/events/terrainSnapshotEvents';
 import { useSyncDateRange } from '@/providers';
 
 const SNAPSHOT_TIMEOUT_MS = 20000;
@@ -611,6 +616,11 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             queueCompletedRef.current++;
             updateProgress();
             processNext();
+          } else if (data.type === 'tileCacheStats') {
+            emitTileCacheStats({
+              tileCount: data.tileCount ?? 0,
+              totalBytes: data.totalBytes ?? 0,
+            });
           } else if (data.type === 'snapshotError') {
             // Discard stale errors from superseded requests
             if (typeof data.gen === 'number' && data.gen !== worker.generationRef.current) {
@@ -672,6 +682,37 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           true;
         `);
         }
+      });
+    }, [workers]);
+
+    // Listen for tile cache stats requests from settings
+    useEffect(() => {
+      return onTileCacheStatsRequest(() => {
+        // Query worker 0 if its map is ready
+        const worker = workers[0];
+        if (!worker?.mapReadyRef.current || !worker.webViewRef.current) return;
+        worker.webViewRef.current.injectJavaScript(`
+          (function() {
+            caches.open('veloq-terrain-dem-v1').then(function(cache) {
+              cache.keys().then(function(requests) {
+                var promises = requests.map(function(req) {
+                  return cache.match(req).then(function(r) {
+                    return r ? parseInt(r.headers.get('content-length') || '0') : 0;
+                  });
+                });
+                Promise.all(promises).then(function(sizes) {
+                  var total = 0;
+                  for (var i = 0; i < sizes.length; i++) total += sizes[i];
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'tileCacheStats', workerId: window._workerId,
+                    tileCount: requests.length, totalBytes: total,
+                  }));
+                });
+              });
+            }).catch(function() {});
+          })();
+          true;
+        `);
       });
     }, [workers]);
 
