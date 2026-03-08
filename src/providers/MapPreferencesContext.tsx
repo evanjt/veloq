@@ -14,8 +14,14 @@ import type { ActivityType, Terrain3DMode } from '@/types';
 import { isActivityType } from '@/types';
 
 const STORAGE_KEY = 'veloq-map-preferences';
+const ACTIVITY_OVERRIDES_KEY = 'veloq-map-activity-overrides';
 
 const VALID_TERRAIN_MODES = new Set<Terrain3DMode>(['off', 'smart', 'always']);
+
+export interface ActivityMapOverride {
+  style?: MapStyleType;
+  terrain3D?: boolean;
+}
 
 export interface MapPreferences {
   defaultStyle: MapStyleType;
@@ -33,11 +39,15 @@ interface MapPreferencesContextValue {
     activityTypes: ActivityType[],
     style: MapStyleType | null
   ) => Promise<void>;
-  getStyleForActivity: (activityType: ActivityType) => MapStyleType;
+  getStyleForActivity: (activityType: ActivityType, activityId?: string) => MapStyleType;
   setTerrain3DMode: (activityType: ActivityType | null, mode: Terrain3DMode) => Promise<void>;
   setTerrain3DModeGroup: (activityTypes: ActivityType[], mode: Terrain3DMode) => Promise<void>;
-  getTerrain3DMode: (activityType: ActivityType) => Terrain3DMode;
+  getTerrain3DMode: (activityType: ActivityType, activityId?: string) => Terrain3DMode;
   isAnyTerrain3DEnabled: boolean;
+  setActivityOverride: (activityId: string, override: ActivityMapOverride) => Promise<void>;
+  clearActivityOverride: (activityId: string) => Promise<void>;
+  hasActivityOverride: (activityId: string) => boolean;
+  getActivityOverride: (activityId: string) => ActivityMapOverride | undefined;
 }
 
 const DEFAULT_PREFERENCES: MapPreferences = {
@@ -124,22 +134,52 @@ const MapPreferencesContext = createContext<MapPreferencesContextValue | null>(n
 
 export function MapPreferencesProvider({ children }: { children: ReactNode }) {
   const [preferences, setPreferences] = useState<MapPreferences>(DEFAULT_PREFERENCES);
+  const [activityOverrides, setActivityOverrides] = useState<Record<string, ActivityMapOverride>>(
+    {}
+  );
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load preferences on mount with migration support
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((saved) => {
-        if (!saved) {
-          setIsLoaded(true);
-          return;
+    Promise.all([AsyncStorage.getItem(STORAGE_KEY), AsyncStorage.getItem(ACTIVITY_OVERRIDES_KEY)])
+      .then(([saved, savedOverrides]) => {
+        if (saved) {
+          try {
+            const raw = JSON.parse(saved);
+            const parsed = parseStoredPreferences(raw);
+            setPreferences(parsed ?? DEFAULT_PREFERENCES);
+          } catch {
+            // Invalid JSON
+          }
         }
-        try {
-          const raw = JSON.parse(saved);
-          const parsed = parseStoredPreferences(raw);
-          setPreferences(parsed ?? DEFAULT_PREFERENCES);
-        } catch {
-          // Invalid JSON
+        if (savedOverrides) {
+          try {
+            const parsed = JSON.parse(savedOverrides);
+            if (typeof parsed === 'object' && parsed !== null) {
+              // Validate entries
+              const valid: Record<string, ActivityMapOverride> = {};
+              for (const [key, val] of Object.entries(parsed)) {
+                if (typeof val !== 'object' || val === null) continue;
+                const entry = val as Record<string, unknown>;
+                const override: ActivityMapOverride = {};
+                if (
+                  typeof entry.style === 'string' &&
+                  VALID_MAP_STYLES.has(entry.style as MapStyleType)
+                ) {
+                  override.style = entry.style as MapStyleType;
+                }
+                if (typeof entry.terrain3D === 'boolean') {
+                  override.terrain3D = entry.terrain3D;
+                }
+                if (override.style !== undefined || override.terrain3D !== undefined) {
+                  valid[key] = override;
+                }
+              }
+              setActivityOverrides(valid);
+            }
+          } catch {
+            // Invalid JSON
+          }
         }
         setIsLoaded(true);
       })
@@ -215,12 +255,16 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     [savePreferences]
   );
 
-  // Get style for a specific activity type
+  // Get style for a specific activity type, with optional per-activity override
   const getStyleForActivity = useCallback(
-    (activityType: ActivityType): MapStyleType => {
+    (activityType: ActivityType, activityId?: string): MapStyleType => {
+      if (activityId) {
+        const override = activityOverrides[activityId];
+        if (override?.style) return override.style;
+      }
       return preferences.activityTypeStyles[activityType] ?? preferences.defaultStyle;
     },
-    [preferences]
+    [preferences, activityOverrides]
   );
 
   // Set 3D terrain mode - null activityType sets the default
@@ -275,12 +319,77 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     [savePreferences]
   );
 
-  // Get 3D terrain mode for a specific activity type
+  // Get 3D terrain mode for a specific activity type, with optional per-activity override
   const getTerrain3DMode = useCallback(
-    (activityType: ActivityType): Terrain3DMode => {
+    (activityType: ActivityType, activityId?: string): Terrain3DMode => {
+      if (activityId) {
+        const override = activityOverrides[activityId];
+        if (override?.terrain3D !== undefined) {
+          return override.terrain3D ? 'always' : 'off';
+        }
+      }
       return preferences.terrain3DModeByType[activityType] ?? preferences.terrain3DMode;
     },
-    [preferences]
+    [preferences, activityOverrides]
+  );
+
+  // Save activity overrides to storage
+  const saveActivityOverrides = useCallback(
+    async (overrides: Record<string, ActivityMapOverride>) => {
+      await AsyncStorage.setItem(ACTIVITY_OVERRIDES_KEY, JSON.stringify(overrides));
+    },
+    []
+  );
+
+  // Set per-activity map override
+  const setActivityOverride = useCallback(
+    async (activityId: string, override: ActivityMapOverride) => {
+      setActivityOverrides((prev) => {
+        const existing = prev[activityId] ?? {};
+        const merged = { ...existing, ...override };
+        const next = { ...prev, [activityId]: merged };
+        saveActivityOverrides(next).catch((error) => {
+          if (__DEV__) {
+            console.warn('[MapPreferences] Failed to persist activity override:', error);
+          }
+        });
+        return next;
+      });
+    },
+    [saveActivityOverrides]
+  );
+
+  // Clear per-activity map override
+  const clearActivityOverride = useCallback(
+    async (activityId: string) => {
+      setActivityOverrides((prev) => {
+        const next = { ...prev };
+        delete next[activityId];
+        saveActivityOverrides(next).catch((error) => {
+          if (__DEV__) {
+            console.warn('[MapPreferences] Failed to persist activity override removal:', error);
+          }
+        });
+        return next;
+      });
+    },
+    [saveActivityOverrides]
+  );
+
+  // Check if an activity has a per-activity override
+  const hasActivityOverride = useCallback(
+    (activityId: string): boolean => {
+      return activityId in activityOverrides;
+    },
+    [activityOverrides]
+  );
+
+  // Get the override for an activity (if any)
+  const getActivityOverride = useCallback(
+    (activityId: string): ActivityMapOverride | undefined => {
+      return activityOverrides[activityId];
+    },
+    [activityOverrides]
   );
 
   // Check if any activity type has 3D terrain enabled (not 'off')
@@ -302,6 +411,10 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
         setTerrain3DModeGroup,
         getTerrain3DMode,
         isAnyTerrain3DEnabled,
+        setActivityOverride,
+        clearActivityOverride,
+        hasActivityOverride,
+        getActivityOverride,
       }}
     >
       {children}

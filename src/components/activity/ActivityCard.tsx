@@ -1,16 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  Pressable,
-  Platform,
-  Share,
-  Text as RNText,
-} from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, Platform, Text as RNText } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useMetricSystem } from '@/hooks';
-import { Menu } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -33,6 +24,7 @@ import { colors, darkColors, typography, spacing, shadows } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { useMapPreferences } from '@/providers';
 import { ActivityMapPreview } from './ActivityMapPreview';
+import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
 import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
 
@@ -114,7 +106,6 @@ export const ActivityCard = React.memo(function ActivityCard({
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const [menuVisible, setMenuVisible] = useState(false);
-  const [menuAnchor, setMenuAnchor] = useState({ x: 0, y: 0 });
   const [isPressed, setIsPressed] = useState(false);
   const handlePressIn = useCallback(() => setIsPressed(true), []);
   const handlePressOut = useCallback(() => setIsPressed(false), []);
@@ -123,35 +114,12 @@ export const ActivityCard = React.memo(function ActivityCard({
     router.push(`/activity/${activity.id}`);
   };
 
-  const handleLongPress = useCallback(
-    (event: { nativeEvent: { pageX: number; pageY: number } }) => {
-      if (Platform.OS === 'ios') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
-      setMenuAnchor({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
-      setMenuVisible(true);
-    },
-    []
-  );
-
-  const handleShare = useCallback(async () => {
-    setMenuVisible(false);
-    const url = `https://intervals.icu/activities/${activity.id}`;
-    try {
-      await Share.share({
-        message: Platform.OS === 'ios' ? activity.name : `${activity.name}\n${url}`,
-        url: Platform.OS === 'ios' ? url : undefined,
-        title: activity.name,
-      });
-    } catch {
-      // User cancelled or error
+  const handleLongPress = useCallback(() => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-  }, [activity.id, activity.name]);
-
-  const handleViewDetails = useCallback(() => {
-    setMenuVisible(false);
-    router.push(`/activity/${activity.id}`);
-  }, [activity.id]);
+    setMenuVisible(true);
+  }, []);
 
   const scrollRef = useRef<ScrollView>(null);
   const hasFlashed = useRef(false);
@@ -167,7 +135,7 @@ export const ActivityCard = React.memo(function ActivityCard({
   const activityColor = getActivityColor(activity.type);
   const iconName = getActivityIcon(activity.type);
   const location = formatLocation(activity);
-  const mapStyle = getStyleForActivity(activity.type);
+  const mapStyle = getStyleForActivity(activity.type, activity.id);
   const theme = getGradientTheme(isDark, mapStyle);
   const hasGpsData = activity.stream_types?.includes('latlng');
 
@@ -247,19 +215,11 @@ export const ActivityCard = React.memo(function ActivityCard({
 
   // Context menu (shared between compact and full card)
   const contextMenu = (
-    <Menu
+    <ActivityCardContextMenu
       visible={menuVisible}
       onDismiss={() => setMenuVisible(false)}
-      anchor={menuAnchor}
-      contentStyle={[styles.menuContent, isDark && styles.menuContentDark]}
-    >
-      <Menu.Item onPress={handleShare} title={t('activity.share')} leadingIcon="share-variant" />
-      <Menu.Item
-        onPress={handleViewDetails}
-        title={t('activity.viewDetails')}
-        leadingIcon="information-outline"
-      />
-    </Menu>
+      activity={activity}
+    />
   );
 
   // Compact card for activities without GPS data
@@ -633,12 +593,5 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     marginLeft: spacing.sm,
     flexShrink: 1,
-  },
-  menuContent: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-  },
-  menuContentDark: {
-    backgroundColor: darkColors.surfaceElevated,
   },
 });

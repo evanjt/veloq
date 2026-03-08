@@ -1,4 +1,5 @@
 export { ActivityCard } from './ActivityCard';
+export { ActivityCardContextMenu } from './ActivityCardContextMenu';
 export { ActivityMapPreview, notifyMapScroll } from './ActivityMapPreview';
 export { SingularPlot } from './SingularPlot';
 export { ActivityDataChart } from './ActivityDataChart';

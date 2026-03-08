@@ -46,6 +46,7 @@
       "neutral": "Neutral"
     },
     "heartRate": "Herzfrequenz",
+    "mapStyle": "Kartenstil",
     "maxHR": "Max: {{value}} bpm",
     "noDataAvailable": "Keine Daten verfügbar",
     "noElevationData": "Keine Höhendaten",
@@ -54,6 +55,7 @@
     "ofMax": "vom Maximum",
     "power": "Leistung",
     "pwr": "PWR",
+    "resetToDefault": "Auf Standard zurücksetzen",
     "share": "Teilen",
     "speed": "Geschwindigkeit",
     "stats": {
@@ -745,6 +747,8 @@
     "terrainCacheSize": "Cache: {{size}}",
     "mapCacheSize": "Karten-Cache: {{size}}",
     "clearCache": "Löschen",
+    "tileCacheDetail": "{{count}} Geländekacheln",
+    "tileCacheDetail_one": "1 Geländekachel",
     "metricsHint": "Metriken ein-/ausschalten und mit den Pfeilen neu anordnen. Nur aktivierte Metriken erscheinen in der Dashboard-Kopfzeile.",
     "noData": "Keine Daten",
     "notCached": "Nicht zwischengespeichert",

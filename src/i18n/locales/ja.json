@@ -46,6 +46,7 @@
       "neutral": "普通"
     },
     "heartRate": "心拍数",
+    "mapStyle": "マップスタイル",
     "maxHR": "最大: {{value}} bpm",
     "noDataAvailable": "データがありません",
     "noElevationData": "標高データなし",
@@ -54,6 +55,7 @@
     "ofMax": "最大の",
     "power": "パワー",
     "pwr": "PWR",
+    "resetToDefault": "デフォルトに戻す",
     "share": "共有",
     "speed": "速度",
     "stats": {
@@ -745,6 +747,8 @@
     "terrainCacheSize": "キャッシュ: {{size}}",
     "mapCacheSize": "マップキャッシュ: {{size}}",
     "clearCache": "クリア",
+    "tileCacheDetail": "{{count}}個の地形タイル",
+    "tileCacheDetail_one": "{{count}}個の地形タイル",
     "metricsHint": "指標のオン/オフを切り替え、矢印で並べ替えます。有効な指標のみがダッシュボードヘッダーに表示されます。",
     "noData": "データなし",
     "notCached": "未キャッシュ",

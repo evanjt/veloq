@@ -46,6 +46,7 @@
       "neutral": "Neutre"
     },
     "heartRate": "Fréquence cardiaque",
+    "mapStyle": "Style de carte",
     "maxHR": "Max : {{value}} bpm",
     "noDataAvailable": "Aucune donnée disponible",
     "noElevationData": "Pas de données d'altitude",
@@ -54,6 +55,7 @@
     "ofMax": "du max",
     "power": "Puissance",
     "pwr": "PUIS",
+    "resetToDefault": "Réinitialiser par défaut",
     "share": "Partager",
     "speed": "Vitesse",
     "stats": {
@@ -745,6 +747,8 @@
     "terrainCacheSize": "Cache : {{size}}",
     "mapCacheSize": "Cache cartes : {{size}}",
     "clearCache": "Effacer",
+    "tileCacheDetail": "{{count}} tuiles de terrain",
+    "tileCacheDetail_one": "1 tuile de terrain",
     "metricsHint": "Activez/désactivez les métriques et réorganisez-les avec les flèches. Seules les métriques activées apparaissent dans l'en-tête du tableau de bord.",
     "noData": "Pas de données",
     "notCached": "Non mis en cache",

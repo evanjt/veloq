@@ -44,6 +44,7 @@ const PREFERENCE_KEYS = [
   'dashboard_summary_card',
   '@terrain_camera_overrides',
   '@map_camera_state',
+  'veloq-map-activity-overrides',
 ] as const;
 
 interface BackupCustomSection {

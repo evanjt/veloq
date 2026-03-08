@@ -41,9 +41,9 @@ export function ActivityMapPreview({
   snapshotRef,
 }: ActivityMapPreviewProps) {
   const { getStyleForActivity, getTerrain3DMode } = useMapPreferences();
-  const mapStyle = getStyleForActivity(activity.type);
+  const mapStyle = getStyleForActivity(activity.type, activity.id);
   const activityColor = getActivityColor(activity.type);
-  const terrain3DMode = getTerrain3DMode(activity.type);
+  const terrain3DMode = getTerrain3DMode(activity.type, activity.id);
 
   // Fast pre-filter: skip 3D entirely for obviously flat activities
   const maybeShow3D =

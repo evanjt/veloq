@@ -46,6 +46,7 @@
       "neutral": "Neutro"
     },
     "heartRate": "Frequenza cardiaca",
+    "mapStyle": "Stile mappa",
     "maxHR": "Max: {{value}} bpm",
     "noDataAvailable": "Nessun dato disponibile",
     "noElevationData": "Nessun dato dislivello",
@@ -54,6 +55,7 @@
     "ofMax": "del max",
     "power": "Potenza",
     "pwr": "POT",
+    "resetToDefault": "Ripristina predefinito",
     "share": "Condividi",
     "speed": "Velocità",
     "stats": {
@@ -745,6 +747,8 @@
     "terrainCacheSize": "Cache: {{size}}",
     "mapCacheSize": "Cache mappe: {{size}}",
     "clearCache": "Cancella",
+    "tileCacheDetail": "{{count}} tile del terreno",
+    "tileCacheDetail_one": "1 tile del terreno",
     "metricsHint": "Attiva/disattiva le metriche e riordinale usando le frecce. Solo le metriche attivate appaiono nell'intestazione della dashboard.",
     "noData": "Nessun dato",
     "notCached": "Non in cache",

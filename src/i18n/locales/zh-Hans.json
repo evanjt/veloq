@@ -46,6 +46,7 @@
       "neutral": "正常"
     },
     "heartRate": "心率",
+    "mapStyle": "地图样式",
     "maxHR": "最大: {{value}} bpm",
     "noDataAvailable": "无可用数据",
     "noElevationData": "无海拔数据",
@@ -54,6 +55,7 @@
     "ofMax": "最大值的",
     "power": "功率",
     "pwr": "功率",
+    "resetToDefault": "重置为默认",
     "share": "分享",
     "speed": "速度",
     "stats": {
@@ -745,6 +747,8 @@
     "terrainCacheSize": "缓存：{{size}}",
     "mapCacheSize": "地图缓存：{{size}}",
     "clearCache": "清除",
+    "tileCacheDetail": "{{count}}个地形瓦片",
+    "tileCacheDetail_one": "{{count}}个地形瓦片",
     "metricsHint": "开关指标并使用箭头重新排序。仅启用的指标会显示在仪表板标题中。",
     "noData": "无数据",
     "notCached": "未缓存",

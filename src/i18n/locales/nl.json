@@ -46,6 +46,7 @@
       "neutral": "Neutraal"
     },
     "heartRate": "Hartslag",
+    "mapStyle": "Kaartstijl",
     "maxHR": "Max: {{value}} bpm",
     "noDataAvailable": "Geen gegevens beschikbaar",
     "noElevationData": "Geen hoogtegegevens",
@@ -54,6 +55,7 @@
     "ofMax": "van max",
     "power": "Vermogen",
     "pwr": "PWR",
+    "resetToDefault": "Standaard herstellen",
     "share": "Delen",
     "speed": "Snelheid",
     "stats": {
@@ -745,6 +747,8 @@
     "terrainCacheSize": "Cache: {{size}}",
     "mapCacheSize": "Kaartcache: {{size}}",
     "clearCache": "Wissen",
+    "tileCacheDetail": "{{count}} terrein-tegels",
+    "tileCacheDetail_one": "1 terrein-tegel",
     "metricsHint": "Schakel statistieken aan/uit en herorden ze met de pijlen. Alleen ingeschakelde statistieken verschijnen in de dashboardkop.",
     "noData": "Geen gegevens",
     "notCached": "Niet gecacht",

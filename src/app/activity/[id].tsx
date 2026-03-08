@@ -687,7 +687,7 @@ export default function ActivityDetailScreen() {
 
   // Restore saved 3D camera angle, or auto-calculate based on terrain mode
   const { getTerrain3DMode } = useMapPreferences();
-  const terrain3DMode = activity?.type ? getTerrain3DMode(activity.type) : 'off';
+  const terrain3DMode = activity?.type ? getTerrain3DMode(activity.type, activity?.id) : 'off';
 
   const saved3DCamera = useMemo(() => {
     if (!activity?.id || terrain3DMode === 'off') return null;

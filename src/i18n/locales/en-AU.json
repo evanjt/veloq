@@ -46,6 +46,7 @@
       "neutral": "Not bad"
     },
     "heartRate": "Ticker",
+    "mapStyle": "Map Style",
     "maxHR": "Maxed out: {{value}} bpm",
     "noDataAvailable": "No data here yet",
     "noElevationData": "No elevation data yet",
@@ -54,6 +55,7 @@
     "ofMax": "of your max",
     "power": "Watts",
     "pwr": "PWR",
+    "resetToDefault": "Reset to Default",
     "share": "Share it",
     "speed": "How fast",
     "stats": {
@@ -745,6 +747,8 @@
     "terrainCacheSize": "Cache: {{size}}",
     "mapCacheSize": "Map cache: {{size}}",
     "clearCache": "Clear",
+    "tileCacheDetail": "{{count}} terrain tiles",
+    "tileCacheDetail_one": "1 terrain tile",
     "metricsHint": "Flick metrics on/off and shuffle them with the arrows. Only the ones turned on show up top.",
     "noData": "Nothin' here",
     "notCached": "Not stashed",

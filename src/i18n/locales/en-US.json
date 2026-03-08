@@ -46,6 +46,7 @@
       "neutral": "Neutral"
     },
     "heartRate": "Heart Rate",
+    "mapStyle": "Map Style",
     "maxHR": "Max: {{value}} bpm",
     "noDataAvailable": "No data available",
     "noElevationData": "No elevation data",
@@ -54,6 +55,7 @@
     "ofMax": "of max",
     "power": "Power",
     "pwr": "PWR",
+    "resetToDefault": "Reset to Default",
     "share": "Share",
     "speed": "Speed",
     "stats": {
@@ -783,7 +785,9 @@
     "terrain3DAlways": "Always",
     "terrainCacheSize": "Cache: {{size}}",
     "mapCacheSize": "Map cache: {{size}}",
-    "clearCache": "Clear"
+    "clearCache": "Clear",
+    "tileCacheDetail": "{{count}} terrain tiles",
+    "tileCacheDetail_one": "1 terrain tile"
   },
   "stats": {
     "activities": "Activities",

@@ -433,6 +433,8 @@ export interface TranslationResource {
   activity: {
     viewDetails: string;
     share: string;
+    mapStyle: string;
+    resetToDefault: string;
     distance: string;
     duration: string;
     elevation: string;

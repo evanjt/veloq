@@ -46,6 +46,7 @@
       "neutral": "Neutralny"
     },
     "heartRate": "Tętno",
+    "mapStyle": "Styl mapy",
     "maxHR": "Maks: {{value}} bpm",
     "noDataAvailable": "Brak dostępnych danych",
     "noElevationData": "Brak danych o przewyższeniu",
@@ -54,6 +55,7 @@
     "ofMax": "z maks.",
     "power": "Moc",
     "pwr": "MOC",
+    "resetToDefault": "Przywróć domyślne",
     "share": "Udostępnij",
     "speed": "Prędkość",
     "stats": {
@@ -745,6 +747,9 @@
     "terrainCacheSize": "Pamięć podręczna: {{size}}",
     "mapCacheSize": "Pamięć podręczna map: {{size}}",
     "clearCache": "Wyczyść",
+    "tileCacheDetail": "{{count}} kafelków terenu",
+    "tileCacheDetail_one": "1 kafelek terenu",
+    "tileCacheDetail_few": "{{count}} kafelki terenu",
     "metricsHint": "Włączaj/wyłączaj metryki i zmieniaj ich kolejność strzałkami. Tylko włączone metryki są wyświetlane w nagłówku pulpitu.",
     "noData": "Brak danych",
     "notCached": "Nie buforowane",

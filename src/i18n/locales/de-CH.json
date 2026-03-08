@@ -46,6 +46,7 @@
       "neutral": "So lala"
     },
     "heartRate": "Puls",
+    "mapStyle": "Chartestil",
     "maxHR": "Max: {{value}} bpm",
     "noDataAvailable": "Kei Date da",
     "noElevationData": "Kei Höhedate",
@@ -54,6 +55,7 @@
     "ofMax": "vom Max",
     "power": "Watt",
     "pwr": "PWR",
+    "resetToDefault": "Uf Standard zruggsetze",
     "share": "Teile",
     "speed": "Speed",
     "stats": {
@@ -745,6 +747,8 @@
     "terrainCacheSize": "Cache: {{size}}",
     "mapCacheSize": "Charte-Cache: {{size}}",
     "clearCache": "Lösche",
+    "tileCacheDetail": "{{count}} Gländechachle",
+    "tileCacheDetail_one": "1 Gländechachle",
     "metricsHint": "Metrike aa-/usschalte und mit de Pfiil neu ordne. Nur aktivierti Metrike chömed im Dashboard-Chopf.",
     "noData": "Nüüt da",
     "notCached": "Nöd cached",
