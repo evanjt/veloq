@@ -11,14 +11,21 @@
  * it survives setStyle() calls reliably across MapLibre GL JS versions.
  */
 
-import React, { useRef, useCallback, useImperativeHandle, forwardRef, useMemo } from 'react';
+import React, {
+  useRef,
+  useCallback,
+  useImperativeHandle,
+  useEffect,
+  forwardRef,
+  useMemo,
+} from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { MapStyleType } from './mapStyles';
 import { getCombinedSatelliteStyle3D, getTerrainSnapshotStyle } from './mapStyles';
 import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import { saveTerrainPreview, hasTerrainPreview } from '@/lib/storage/terrainPreviewCache';
-import { emitSnapshotComplete } from '@/lib/events/terrainSnapshotEvents';
+import { emitSnapshotComplete, onClearTileCache } from '@/lib/events/terrainSnapshotEvents';
 import { useSyncDateRange } from '@/providers';
 
 const SNAPSHOT_TIMEOUT_MS = 20000;
@@ -88,6 +95,22 @@ function generateWorkerHtml(id: number): string {
 
     // Generation counter for race condition guard
     window._snapshotGen = 0;
+
+    // Cache terrain DEM tiles via Cache API — persists across snapshot requests.
+    // MapLibre v5.19.0 uses promise-based addProtocol.
+    var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
+    maplibregl.addProtocol('cached-terrain', function(params) {
+      var realUrl = 'https://' + params.url.substring('cached-terrain://'.length);
+      return caches.open(TERRAIN_CACHE).then(function(cache) {
+        return cache.match(realUrl).then(function(cached) {
+          if (cached) return cached;
+          return fetch(realUrl).then(function(r) {
+            if (r.ok) cache.put(realUrl, r.clone());
+            return r;
+          });
+        });
+      });
+    });
 
     window._rn_log('Initializing MapLibre (worker ${id})...');
 
@@ -234,7 +257,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
 
               styleObj.sources['terrain'] = {
                 type: 'raster-dem',
-                tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+                tiles: ['cached-terrain://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
                 encoding: 'terrarium',
                 tileSize: 256,
                 maxzoom: 15,
@@ -638,6 +661,20 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       [workers, processNext, updateProgress]
     );
 
+    // Listen for tile cache clear events from settings
+    useEffect(() => {
+      return onClearTileCache(() => {
+        for (const worker of workers) {
+          worker.webViewRef.current?.injectJavaScript(`
+          caches.delete('veloq-terrain-dem-v1').then(function(ok) {
+            window._rn_log('Tile cache cleared: ' + ok);
+          });
+          true;
+        `);
+        }
+      });
+    }, [workers]);
+
     useImperativeHandle(
       ref,
       () => ({
@@ -683,7 +720,10 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           <WebView
             key={worker.id}
             ref={worker.webViewRef as React.RefObject<WebView>}
-            source={{ html: workerHtmls[worker.id], baseUrl: 'https://veloq.fit/' }}
+            source={{
+              html: workerHtmls[worker.id],
+              baseUrl: 'https://veloq.fit/',
+            }}
             style={StyleSheet.absoluteFillObject}
             scrollEnabled={false}
             bounces={false}

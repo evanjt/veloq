@@ -743,6 +743,7 @@
     "terrain3DSmart": "Slim",
     "terrain3DAlways": "Altijd",
     "terrainCacheSize": "Cache: {{size}}",
+    "mapCacheSize": "Kaartcache: {{size}}",
     "clearCache": "Wissen",
     "metricsHint": "Schakel statistieken aan/uit en herorden ze met de pijlen. Alleen ingeschakelde statistieken verschijnen in de dashboardkop.",
     "noData": "Geen gegevens",

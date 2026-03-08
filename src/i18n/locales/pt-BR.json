@@ -743,6 +743,7 @@
     "terrain3DSmart": "Inteligente",
     "terrain3DAlways": "Sempre",
     "terrainCacheSize": "Cache: {{size}}",
+    "mapCacheSize": "Cache de mapas: {{size}}",
     "clearCache": "Limpar",
     "metricsHint": "Ative/desative métricas e reordene-as usando as setas. Apenas as métricas ativadas aparecem no cabeçalho do painel.",
     "noData": "Sem dados",

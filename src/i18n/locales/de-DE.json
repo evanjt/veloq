@@ -743,6 +743,7 @@
     "terrain3DSmart": "Smart",
     "terrain3DAlways": "Immer",
     "terrainCacheSize": "Cache: {{size}}",
+    "mapCacheSize": "Karten-Cache: {{size}}",
     "clearCache": "Löschen",
     "metricsHint": "Metriken ein-/ausschalten und mit den Pfeilen neu anordnen. Nur aktivierte Metriken erscheinen in der Dashboard-Kopfzeile.",
     "noData": "Keine Daten",

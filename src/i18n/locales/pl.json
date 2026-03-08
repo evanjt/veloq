@@ -743,6 +743,7 @@
     "terrain3DSmart": "Inteligentny",
     "terrain3DAlways": "Zawsze",
     "terrainCacheSize": "Pamięć podręczna: {{size}}",
+    "mapCacheSize": "Pamięć podręczna map: {{size}}",
     "clearCache": "Wyczyść",
     "metricsHint": "Włączaj/wyłączaj metryki i zmieniaj ich kolejność strzałkami. Tylko włączone metryki są wyświetlane w nagłówku pulpitu.",
     "noData": "Brak danych",

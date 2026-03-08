@@ -743,6 +743,7 @@
     "terrain3DSmart": "スマート",
     "terrain3DAlways": "常時",
     "terrainCacheSize": "キャッシュ: {{size}}",
+    "mapCacheSize": "マップキャッシュ: {{size}}",
     "clearCache": "クリア",
     "metricsHint": "指標のオン/オフを切り替え、矢印で並べ替えます。有効な指標のみがダッシュボードヘッダーに表示されます。",
     "noData": "データなし",

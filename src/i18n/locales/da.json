@@ -743,6 +743,7 @@
     "terrain3DSmart": "Smart",
     "terrain3DAlways": "Altid",
     "terrainCacheSize": "Cache: {{size}}",
+    "mapCacheSize": "Kortcache: {{size}}",
     "clearCache": "Ryd",
     "metricsHint": "Slå målinger til/fra og omarranger dem med pilene. Kun aktiverede målinger vises i dashboard-headeren.",
     "noData": "Ingen data",

@@ -743,6 +743,7 @@
     "terrain3DSmart": "Smart",
     "terrain3DAlways": "Sempre",
     "terrainCacheSize": "Cache: {{size}}",
+    "mapCacheSize": "Cache mappe: {{size}}",
     "clearCache": "Cancella",
     "metricsHint": "Attiva/disattiva le metriche e riordinale usando le frecce. Solo le metriche attivate appaiono nell'intestazione della dashboard.",
     "noData": "Nessun dato",

@@ -743,6 +743,7 @@
     "terrain3DSmart": "智能",
     "terrain3DAlways": "始终",
     "terrainCacheSize": "缓存：{{size}}",
+    "mapCacheSize": "地图缓存：{{size}}",
     "clearCache": "清除",
     "metricsHint": "开关指标并使用箭头重新排序。仅启用的指标会显示在仪表板标题中。",
     "noData": "无数据",

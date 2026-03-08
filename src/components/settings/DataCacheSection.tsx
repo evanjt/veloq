@@ -21,6 +21,7 @@ import { TimelineSlider } from '@/components/maps';
 import { formatLocalDate, formatFullDate, formatFileSize } from '@/lib';
 import { estimateRoutesDatabaseSize } from '@/lib';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
+import { emitClearTileCache } from '@/lib/events/terrainSnapshotEvents';
 import { colors, darkColors, spacing, layout } from '@/theme';
 
 function formatDateOrDash(dateStr: string | null): string {
@@ -202,6 +203,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             // Note: clearCache() already calls engine.clear(), so don't call clearRouteCache()
             // as that would emit a second 'syncReset' event and trigger duplicate syncs
             await clearCache();
+            emitClearTileCache();
 
             // 5. Remove all cached query data
             // Now GlobalDataSync has the new 90-day range, so any refetch uses correct dates

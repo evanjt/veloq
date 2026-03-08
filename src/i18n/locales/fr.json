@@ -743,6 +743,7 @@
     "terrain3DSmart": "Intelligent",
     "terrain3DAlways": "Toujours",
     "terrainCacheSize": "Cache : {{size}}",
+    "mapCacheSize": "Cache cartes : {{size}}",
     "clearCache": "Effacer",
     "metricsHint": "Activez/désactivez les métriques et réorganisez-les avec les flèches. Seules les métriques activées apparaissent dans l'en-tête du tableau de bord.",
     "noData": "Pas de données",

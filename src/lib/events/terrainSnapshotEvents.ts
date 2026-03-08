@@ -41,3 +41,21 @@ export function emitSnapshotComplete(activityId: string, uri: string): void {
     }
   }
 }
+
+/**
+ * Tile cache clear event — broadcast to all WebView workers to clear
+ * the Cache API terrain DEM tile cache.
+ */
+type TileCacheClearListener = () => void;
+const tileCacheClearListeners = new Set<TileCacheClearListener>();
+
+export function onClearTileCache(cb: TileCacheClearListener): () => void {
+  tileCacheClearListeners.add(cb);
+  return () => {
+    tileCacheClearListeners.delete(cb);
+  };
+}
+
+export function emitClearTileCache(): void {
+  for (const cb of tileCacheClearListeners) cb();
+}

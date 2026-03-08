@@ -11,6 +11,7 @@ import {
   clearTerrainPreviews,
   getTerrainPreviewCacheSize,
 } from '@/lib/storage/terrainPreviewCache';
+import { emitClearTileCache } from '@/lib/events/terrainSnapshotEvents';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import type { ActivityType, Terrain3DMode } from '@/types';
 
@@ -140,6 +141,7 @@ export function MapsSection() {
 
   const handleClearTerrainCache = async () => {
     await clearTerrainPreviews();
+    emitClearTileCache();
     setTerrainCacheSize(0);
   };
 
@@ -152,8 +154,8 @@ export function MapsSection() {
         {terrainCacheSize > 0 && (
           <TouchableOpacity onPress={handleClearTerrainCache} style={styles.cacheClearButton}>
             <Text style={[styles.cacheClearText, isDark && styles.textMuted]}>
-              {t('settings.terrainCacheSize', {
-                defaultValue: 'Cache: {{size}}',
+              {t('settings.mapCacheSize', {
+                defaultValue: 'Map cache: {{size}}',
                 size: formatBytes(terrainCacheSize),
               })}
               {'  '}

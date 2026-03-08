@@ -782,6 +782,7 @@
     "terrain3DSmart": "Smart",
     "terrain3DAlways": "Always",
     "terrainCacheSize": "Cache: {{size}}",
+    "mapCacheSize": "Map cache: {{size}}",
     "clearCache": "Clear"
   },
   "stats": {

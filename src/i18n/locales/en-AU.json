@@ -743,6 +743,7 @@
     "terrain3DSmart": "Smart",
     "terrain3DAlways": "Always",
     "terrainCacheSize": "Cache: {{size}}",
+    "mapCacheSize": "Map cache: {{size}}",
     "clearCache": "Clear",
     "metricsHint": "Flick metrics on/off and shuffle them with the arrows. Only the ones turned on show up top.",
     "noData": "Nothin' here",

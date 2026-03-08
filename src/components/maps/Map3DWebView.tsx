@@ -72,9 +72,10 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
  * Uses free AWS Terrain Tiles (no API key required).
  * Supports light, dark, and satellite base styles.
  *
- * ARCHITECTURE NOTE: GeoJSON layers are updated dynamically via injectJavaScript
- * to avoid WebView reloads when toggling visibility. Only mapStyle changes trigger
- * a full reload, which preserves camera position via savedCamera.
+ * ARCHITECTURE NOTE: GeoJSON layers and style changes are applied dynamically via
+ * injectJavaScript to avoid WebView reloads. Style changes use map.setStyle() with
+ * terrain/sky/route layers embedded atomically. The WebView HTML is only regenerated
+ * when coordinates or pitch/exaggeration change.
  */
 export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInternal>(
   function Map3DWebView(
@@ -116,6 +117,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const initialCenterRef = useRef(initialCenter);
     const initialZoomRef = useRef(initialZoom);
     const initialCameraRef = useRef(initialCamera);
+    // Track mapStyle in ref — style changes are applied via setStyle() injection
+    const mapStyleRef = useRef(mapStyle);
+    const initialMapStyleRef = useRef(mapStyle);
 
     // Cleanup on unmount — stop WebView loading and mark map as not ready
     useEffect(() => {
@@ -291,6 +295,129 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       }
     }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON, updateLayers]);
 
+    // Apply style changes via setStyle() injection — avoids full WebView reload.
+    // Builds a complete style object with terrain, sky, hillshade, and route layers,
+    // then applies atomically via map.setStyle() (same pattern as TerrainSnapshotWebView).
+    useEffect(() => {
+      // Skip when style hasn't actually changed from what's rendered
+      if (mapStyle === mapStyleRef.current) return;
+      mapStyleRef.current = mapStyle;
+
+      if (!webViewRef.current || !mapReadyRef.current) return;
+
+      const isSatellite = mapStyle === 'satellite';
+      const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
+
+      const styleConfig = isSatellite
+        ? JSON.stringify(getCombinedSatelliteStyle3D())
+        : mapStyle === 'dark'
+          ? JSON.stringify(DARK_MATTER_STYLE)
+          : `null`; // light uses URL-based style, handled below
+
+      const lightStyleUrl = 'https://tiles.openfreemap.org/styles/liberty';
+
+      webViewRef.current.injectJavaScript(`
+        (function() {
+          if (!window.map) return;
+
+          var isSatellite = ${isSatellite};
+          var isDark = ${isDark};
+          var coords = window._routeCoords || [];
+          var routeColor = '${routeColor}';
+
+          // Build style: either JSON object or fetch URL-based style
+          function applyNewStyle(styleObj) {
+            // Add terrain source via cached protocol
+            styleObj.sources['terrain'] = {
+              type: 'raster-dem',
+              tiles: ['cached-terrain://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+              encoding: 'terrarium',
+              tileSize: 256,
+              maxzoom: 15,
+            };
+
+            styleObj.terrain = { source: 'terrain', exaggeration: ${terrainExaggeration} };
+
+            // Sky config embedded in style JSON (not via setSky — avoids MapLibre bug)
+            styleObj.sky = isSatellite
+              ? { 'sky-color': '#1a3a5c', 'horizon-color': '#2a4a6c', 'fog-color': '#1a3050',
+                  'fog-ground-blend': 0.5, 'horizon-fog-blend': 0.8, 'sky-horizon-blend': 0.5, 'atmosphere-blend': 0.8 }
+              : isDark
+              ? { 'sky-color': '#0a0a14', 'horizon-color': '#151520', 'fog-color': '#0a0a14',
+                  'fog-ground-blend': 0.5, 'horizon-fog-blend': 0.8, 'sky-horizon-blend': 0.5, 'atmosphere-blend': 0.8 }
+              : { 'sky-color': '#88C6FC', 'horizon-color': '#B0C8DC', 'fog-color': '#D8E4EE',
+                  'fog-ground-blend': 0.5, 'horizon-fog-blend': 0.8, 'sky-horizon-blend': 0.5, 'atmosphere-blend': 0.8 };
+
+            // Hillshade for non-satellite styles
+            if (!isSatellite) {
+              styleObj.layers.push({
+                id: 'hillshading',
+                type: 'hillshade',
+                source: 'terrain',
+                layout: { visibility: 'visible' },
+                paint: {
+                  'hillshade-shadow-color': isDark ? '#000000' : '#473B24',
+                  'hillshade-illumination-anchor': 'map',
+                  'hillshade-exaggeration': 0.3,
+                },
+              });
+            }
+
+            // Re-add route layers if route exists
+            if (coords.length > 0) {
+              var startPt = coords[0];
+              var endPt = coords[coords.length - 1];
+
+              styleObj.sources['route'] = {
+                type: 'geojson',
+                data: { type: 'Feature', properties: {},
+                  geometry: { type: 'LineString', coordinates: coords } },
+                tolerance: 0,
+              };
+              styleObj.sources['start-end-markers'] = {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features: [
+                  { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: startPt } },
+                  { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: endPt } },
+                ]},
+              };
+              styleObj.layers.push(
+                { id: 'route-outline', type: 'line', source: 'route',
+                  layout: { 'line-join': 'round', 'line-cap': 'round' },
+                  paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.8 } },
+                { id: 'route-line', type: 'line', source: 'route',
+                  layout: { 'line-join': 'round', 'line-cap': 'round' },
+                  paint: { 'line-color': routeColor, 'line-width': 5 } },
+                { id: 'start-end-border', type: 'circle', source: 'start-end-markers',
+                  paint: { 'circle-radius': 7, 'circle-color': '#FFFFFF' } },
+                { id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
+                  paint: { 'circle-radius': 5,
+                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'] } }
+              );
+            }
+
+            window.map.setStyle(styleObj);
+            console.log('[3D] Style changed via setStyle()');
+          }
+
+          var styleJSON = ${styleConfig};
+          if (styleJSON) {
+            applyNewStyle(styleJSON);
+          } else {
+            // Light style is URL-based — fetch it first, then apply modifications
+            fetch('${lightStyleUrl}')
+              .then(function(r) { return r.json(); })
+              .then(function(s) { applyNewStyle(s); })
+              .catch(function(e) { console.warn('[3D] Failed to fetch light style:', e); });
+          }
+        })();
+        true;
+      `);
+
+      // After style change, re-apply GeoJSON overlay layers once the new style settles
+      setTimeout(() => updateLayers(), 500);
+    }, [mapStyle, routeColor, terrainExaggeration, updateLayers]);
+
     // Expose reset method to parent
     useImperativeHandle(
       ref,
@@ -347,14 +474,17 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       const zoomValue = savedCamera ? savedCamera.zoom : (initialZoomRef.current ?? 12);
       const bearingValue = savedCamera ? savedCamera.bearing : 0;
       const pitchValue = savedCamera ? savedCamera.pitch : initialPitch;
-      const isSatellite = mapStyle === 'satellite';
-      const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
+      // Use initial style ref for HTML generation — subsequent style changes
+      // are handled via setStyle() injection without regenerating HTML
+      const initStyle = initialMapStyleRef.current;
+      const isSatellite = initStyle === 'satellite';
+      const isDark = initStyle === 'dark' || initStyle === 'satellite';
 
       // For satellite, we use combined style with all regional sources layered
       // For dark, we use the bundled Dark Matter style with OpenFreeMap tiles
       const styleConfig = isSatellite
         ? JSON.stringify(getCombinedSatelliteStyle3D())
-        : mapStyle === 'dark'
+        : initStyle === 'dark'
           ? JSON.stringify(DARK_MATTER_STYLE)
           : `'https://tiles.openfreemap.org/styles/liberty'`;
 
@@ -376,12 +506,35 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
   <div id="map"></div>
   <script>
     const coordinates = ${coordsJSON};
+    window._routeCoords = coordinates;
     const bounds = ${boundsJSON};
     const center = ${centerJSON};
     const savedZoom = ${zoomValue};
     const savedBearing = ${bearingValue};
     const savedPitch = ${pitchValue};
     const isSatellite = ${isSatellite};
+
+    // Cache terrain DEM tiles via Cache API — persists across WebView recreations
+    // because baseUrl is https://veloq.fit/ (stable HTTPS origin).
+    // Protocol name is forward-compatible with future Rust tile cache (ROADMAP 7.3).
+    var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
+    maplibregl.addProtocol('cached-terrain', function(params, callback) {
+      var realUrl = 'https://' + params.url.substring('cached-terrain://'.length);
+      caches.open(TERRAIN_CACHE).then(function(cache) {
+        return cache.match(realUrl).then(function(cached) {
+          if (cached) return cached.arrayBuffer().then(function(d) { callback(null, d, null, null); });
+          return fetch(realUrl).then(function(r) {
+            if (r.ok) { cache.put(realUrl, r.clone()); return r.arrayBuffer().then(function(d) { callback(null, d, null, null); }); }
+            callback(new Error('HTTP ' + r.status));
+          });
+        });
+      }).catch(function() {
+        fetch(realUrl).then(function(r) { return r.arrayBuffer(); })
+          .then(function(d) { callback(null, d, null, null); })
+          .catch(function(e) { callback(e); });
+      });
+      return { cancel: function() {} };
+    });
 
     // Create map with appropriate style
     // Use saved camera state if available, otherwise use bounds or center/zoom
@@ -445,10 +598,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     map.on('pitchend', saveCameraState);
 
     map.on('load', () => {
-      // Add AWS Terrain Tiles source (free, no API key)
+      // Add AWS Terrain Tiles source via cached-terrain:// protocol
       map.addSource('terrain', {
         type: 'raster-dem',
-        tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+        tiles: ['cached-terrain://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
         encoding: 'terrarium',
         tileSize: 256,
         maxzoom: 15,
@@ -595,9 +748,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         });
       }
 
-      // Wait for tiles before declaring map ready — at 60-degree pitch, horizon
-      // tiles are deprioritized and may not load until the viewport settles.
-      // Guard against duplicate mapReady messages and add hard timeout fallback.
+      // Terrain-first ready detection — only wait for DEM terrain and route sources,
+      // not ALL tiles. At 60° pitch, horizon vector/label tiles are deprioritized and
+      // may never fully load, causing the old areTilesLoaded() to always hit the timeout.
       var mapReadySent = false;
       function sendMapReady() {
         if (mapReadySent) return;
@@ -607,27 +760,57 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         }
       }
 
-      map.resize(); // Ensure MapLibre knows full WebView dimensions
-      map.once('idle', function() {
-        if (map.areTilesLoaded()) {
-          sendMapReady();
-        } else {
-          // Nudge: resize forces viewport recalculation → more tile requests
-          map.resize();
-          map.once('idle', function() {
-            sendMapReady();
-          });
+      var terrainReady = false;
+      var routeReady = coordinates.length === 0;
+
+      map.on('sourcedata', function(e) {
+        if (mapReadySent) return;
+        if (e.sourceId === 'terrain' && e.isSourceLoaded) terrainReady = true;
+        if (e.sourceId === 'route' && e.isSourceLoaded) routeReady = true;
+        if (terrainReady && routeReady) {
+          requestAnimationFrame(function() { sendMapReady(); });
         }
       });
 
-      // Hard fallback — at 60° pitch, horizon tiles may never load.
-      // 8s is long enough for terrain + route to render on most connections.
+      // Fallback for when sourcedata doesn't fire (e.g. cached tiles)
+      map.once('idle', function() {
+        if (!mapReadySent) {
+          requestAnimationFrame(function() { sendMapReady(); });
+        }
+      });
+
+      map.resize(); // Ensure MapLibre knows full WebView dimensions
+
+      // Hard fallback — reduced from 8s to 4s since we no longer wait for all tiles.
+      // Terrain + route sources load much faster than full vector tile sets.
       setTimeout(function() {
         if (!mapReadySent) {
-          console.log('[3D] Hard timeout — sending mapReady after 8s');
+          console.log('[3D] Hard timeout — sending mapReady after 4s');
           sendMapReady();
         }
-      }, 8000);
+      }, 4000);
+
+      // Preload adjacent DEM zoom levels after map settles — populates Cache API
+      // so zoom in/out has instant terrain. Uses cached-terrain:// protocol.
+      map.once('idle', function() {
+        setTimeout(function() {
+          var z = Math.floor(map.getZoom());
+          var b = map.getBounds();
+          function lng2tile(lng, zoom) { return Math.floor((lng + 180) / 360 * Math.pow(2, zoom)); }
+          function lat2tile(lat, zoom) { return Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom)); }
+          [z - 1, z + 1].filter(function(v) { return v >= 0 && v <= 15; }).forEach(function(zl) {
+            var xMin = lng2tile(b.getWest(), zl);
+            var xMax = lng2tile(b.getEast(), zl);
+            var yMin = lat2tile(b.getNorth(), zl);
+            var yMax = lat2tile(b.getSouth(), zl);
+            for (var x = xMin; x <= xMax; x++) {
+              for (var y = yMin; y <= yMax; y++) {
+                new Image().src = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + zl + '/' + x + '/' + y + '.png';
+              }
+            }
+          });
+        }, 1000);
+      });
     });
   </script>
 </body>
@@ -638,7 +821,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       bounds,
       // NOTE: initialCenter and initialZoom are stored in refs to prevent HTML regeneration
       // when parent updates these values (e.g., from 2D map interactions)
-      mapStyle,
+      // NOTE: mapStyle is NOT a dependency - style changes use setStyle() via injectJavaScript
+      // to avoid full WebView reload (which re-downloads all tiles)
       routeColor,
       initialPitch,
       terrainExaggeration,
