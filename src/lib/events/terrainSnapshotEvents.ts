@@ -67,6 +67,9 @@ export function emitClearTileCache(): void {
 export interface TileCacheStats {
   tileCount: number;
   totalBytes: number;
+  terrain?: { tileCount: number; totalBytes: number };
+  satellite?: { tileCount: number; totalBytes: number };
+  vector?: { tileCount: number; totalBytes: number };
 }
 
 type TileCacheStatsRequestListener = () => void;

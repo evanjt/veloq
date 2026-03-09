@@ -188,11 +188,19 @@ export function MapsSection() {
             </TouchableOpacity>
             {(tileCacheStats?.tileCount ?? 0) > 0 && (
               <Text style={[styles.tileCacheDetail, isDark && styles.textMuted]}>
-                {t('settings.tileCacheDetail', {
-                  defaultValue: '{{count}} terrain tiles',
-                  defaultValue_one: '1 terrain tile',
-                  count: tileCacheStats!.tileCount,
-                })}
+                {[
+                  tileCacheStats?.satellite?.tileCount
+                    ? `${tileCacheStats.satellite.tileCount.toLocaleString()} satellite`
+                    : null,
+                  tileCacheStats?.terrain?.tileCount
+                    ? `${tileCacheStats.terrain.tileCount.toLocaleString()} terrain`
+                    : null,
+                  tileCacheStats?.vector?.tileCount
+                    ? `${tileCacheStats.vector.tileCount.toLocaleString()} vector`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(' \u00B7 ') + ' tiles'}
               </Text>
             )}
           </View>

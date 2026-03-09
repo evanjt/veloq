@@ -24,7 +24,12 @@ import React, {
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { MapStyleType } from './mapStyles';
-import { getSnapshotSatelliteStyle, getTerrainSnapshotStyle } from './mapStyles';
+import {
+  getSnapshotSatelliteStyle,
+  getTerrainSnapshotStyle,
+  rewriteSatelliteUrls,
+  rewriteVectorUrls,
+} from './mapStyles';
 import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import { saveTerrainPreview, hasTerrainPreview } from '@/lib/storage/terrainPreviewCache';
 import {
@@ -54,6 +59,7 @@ interface SnapshotRequest {
 export interface TerrainSnapshotWebViewRef {
   requestSnapshot: (request: SnapshotRequest) => void;
   retryFailed: () => void;
+  preloadTiles: (script: string) => void;
 }
 
 interface WorkerState {
@@ -139,7 +145,7 @@ function generateWorkerHtml(id: number): string {
           }
           return fetch(realUrl).then(function(r) {
             window._rn_log('DEM fetch ' + r.status + ': ' + realUrl.split('/').slice(-3).join('/'));
-            if (r.ok) cache.put(realUrl, r.clone());
+            if (r.ok) { cache.put(realUrl, r.clone()); maybeEvict(TERRAIN_CACHE); }
             return r.blob().then(demBlobToImage);
           });
         });
@@ -148,6 +154,70 @@ function generateWorkerHtml(id: number): string {
         throw err;
       });
     });
+
+    // Cache satellite tiles via Cache API — same pattern as terrain DEM tiles.
+    var SATELLITE_CACHE = 'veloq-satellite-v1';
+    maplibregl.addProtocol('cached-satellite', function(params) {
+      var realUrl = 'https://' + params.url.substring('cached-satellite://'.length);
+      return caches.open(SATELLITE_CACHE).then(function(cache) {
+        return cache.match(realUrl).then(function(cached) {
+          if (cached) {
+            return cached.blob().then(demBlobToImage);
+          }
+          return fetch(realUrl).then(function(r) {
+            if (r.ok) { cache.put(realUrl, r.clone()); maybeEvict(SATELLITE_CACHE); }
+            return r.blob().then(demBlobToImage);
+          });
+        });
+      });
+    });
+
+    // Cache vector tiles (protocol buffers) via Cache API.
+    var VECTOR_CACHE = 'veloq-vector-v1';
+    maplibregl.addProtocol('cached-vector', function(params) {
+      var realUrl = 'https://' + params.url.substring('cached-vector://'.length);
+      return caches.open(VECTOR_CACHE).then(function(cache) {
+        return cache.match(realUrl).then(function(cached) {
+          if (cached) return cached.arrayBuffer().then(function(d) { return { data: d }; });
+          return fetch(realUrl).then(function(r) {
+            if (r.ok) { cache.put(realUrl, r.clone()); maybeEvict(VECTOR_CACHE); }
+            return r.arrayBuffer().then(function(d) { return { data: d }; });
+          });
+        });
+      });
+    });
+
+    // Cache eviction — FIFO, size-based. Checked every 50 inserts per cache.
+    var _insertCounts = {};
+    var CACHE_BUDGETS = {
+      'veloq-satellite-v1': 120 * 1024 * 1024,
+      'veloq-vector-v1': 50 * 1024 * 1024,
+      'veloq-terrain-dem-v1': 30 * 1024 * 1024,
+    };
+
+    function maybeEvict(cacheName) {
+      _insertCounts[cacheName] = (_insertCounts[cacheName] || 0) + 1;
+      if (_insertCounts[cacheName] % 50 !== 0) return;
+      var budget = CACHE_BUDGETS[cacheName];
+      if (!budget) return;
+      caches.open(cacheName).then(function(cache) {
+        cache.keys().then(function(requests) {
+          var sizes = requests.map(function(req) {
+            return cache.match(req).then(function(r) {
+              return { req: req, size: r ? (parseInt(r.headers.get('content-length') || '0') || 0) : 0 };
+            });
+          });
+          Promise.all(sizes).then(function(entries) {
+            var total = entries.reduce(function(s, e) { return s + e.size; }, 0);
+            if (total <= budget) return;
+            for (var i = 0; i < entries.length && total > budget; i++) {
+              cache.delete(entries[i].req);
+              total -= entries[i].size;
+            }
+          });
+        });
+      });
+    }
 
     window._rn_log('Initializing MapLibre (worker ${id})...');
 
@@ -293,13 +363,19 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         // (Liberty, Dark Matter) have dozens of flat layers that clash with 3D terrain
         const styleConfig = isSatellite
           ? JSON.stringify(
-              getSnapshotSatelliteStyle(
-                request.camera.center[1],
-                request.camera.center[0],
-                request.camera.zoom
+              rewriteSatelliteUrls(
+                getSnapshotSatelliteStyle(
+                  request.camera.center[1],
+                  request.camera.center[0],
+                  request.camera.zoom
+                )
               )
             )
-          : JSON.stringify(getTerrainSnapshotStyle(request.mapStyle === 'dark' ? 'dark' : 'light'));
+          : JSON.stringify(
+              rewriteVectorUrls(
+                getTerrainSnapshotStyle(request.mapStyle === 'dark' ? 'dark' : 'light')
+              )
+            );
 
         const coordsJSON = JSON.stringify(request.coordinates);
         const cameraJSON = JSON.stringify(request.camera);
@@ -824,6 +900,9 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             emitTileCacheStats({
               tileCount: data.tileCount ?? 0,
               totalBytes: data.totalBytes ?? 0,
+              terrain: data.terrain ?? undefined,
+              satellite: data.satellite ?? undefined,
+              vector: data.vector ?? undefined,
             });
           } else if (data.type === 'snapshotError') {
             // Discard stale errors from superseded requests
@@ -880,8 +959,12 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       return onClearTileCache(() => {
         for (const worker of workers) {
           worker.webViewRef.current?.injectJavaScript(`
-          caches.delete('veloq-terrain-dem-v1').then(function(ok) {
-            window._rn_log('Tile cache cleared: ' + ok);
+          Promise.all([
+            caches.delete('veloq-terrain-dem-v1'),
+            caches.delete('veloq-satellite-v1'),
+            caches.delete('veloq-vector-v1'),
+          ]).then(function() {
+            window._rn_log('All tile caches cleared');
             window._currentBaseStyle = null;
           });
           true;
@@ -898,23 +981,36 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         if (!worker?.mapReadyRef.current || !worker.webViewRef.current) return;
         worker.webViewRef.current.injectJavaScript(`
           (function() {
-            caches.open('veloq-terrain-dem-v1').then(function(cache) {
-              cache.keys().then(function(requests) {
-                var promises = requests.map(function(req) {
-                  return cache.match(req).then(function(r) {
-                    return r ? parseInt(r.headers.get('content-length') || '0') : 0;
+            var cacheNames = ['veloq-terrain-dem-v1', 'veloq-satellite-v1', 'veloq-vector-v1'];
+            Promise.all(cacheNames.map(function(name) {
+              return caches.open(name).then(function(cache) {
+                return cache.keys().then(function(requests) {
+                  return Promise.all(requests.map(function(req) {
+                    return cache.match(req).then(function(r) {
+                      return r ? (parseInt(r.headers.get('content-length') || '0') || 0) : 0;
+                    });
+                  })).then(function(sizes) {
+                    var total = 0;
+                    for (var i = 0; i < sizes.length; i++) total += sizes[i];
+                    return { name: name, tileCount: requests.length, totalBytes: total };
                   });
                 });
-                Promise.all(promises).then(function(sizes) {
-                  var total = 0;
-                  for (var i = 0; i < sizes.length; i++) total += sizes[i];
-                  window.ReactNativeWebView.postMessage(JSON.stringify({
-                    type: 'tileCacheStats', workerId: window._workerId,
-                    tileCount: requests.length, totalBytes: total,
-                  }));
-                });
+              }).catch(function() { return { name: name, tileCount: 0, totalBytes: 0 }; });
+            })).then(function(results) {
+              var combined = { tileCount: 0, totalBytes: 0, terrain: null, satellite: null, vector: null };
+              results.forEach(function(r) {
+                combined.tileCount += r.tileCount;
+                combined.totalBytes += r.totalBytes;
+                if (r.name.indexOf('terrain') >= 0) combined.terrain = { tileCount: r.tileCount, totalBytes: r.totalBytes };
+                else if (r.name.indexOf('satellite') >= 0) combined.satellite = { tileCount: r.tileCount, totalBytes: r.totalBytes };
+                else if (r.name.indexOf('vector') >= 0) combined.vector = { tileCount: r.tileCount, totalBytes: r.totalBytes };
               });
-            }).catch(function() {});
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'tileCacheStats', workerId: window._workerId,
+                tileCount: combined.tileCount, totalBytes: combined.totalBytes,
+                terrain: combined.terrain, satellite: combined.satellite, vector: combined.vector,
+              }));
+            });
           })();
           true;
         `);
@@ -955,6 +1051,13 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           }
           updateProgress();
           processNext();
+        },
+        preloadTiles: (script: string) => {
+          // Find an idle worker to run the preload script
+          const worker = workers.find((w) => w.mapReadyRef.current && !w.processingRef.current);
+          if (worker?.webViewRef.current) {
+            worker.webViewRef.current.injectJavaScript(script);
+          }
         },
       }),
       [processNext, updateProgress]

@@ -11,7 +11,12 @@ import { WebView } from 'react-native-webview';
 import { colors, darkColors } from '@/theme';
 import { getBoundsFromPoints } from '@/lib';
 import type { MapStyleType } from './mapStyles';
-import { getCombinedSatelliteStyle3D, SATELLITE_SOURCES } from './mapStyles';
+import {
+  getCombinedSatelliteStyle3D,
+  SATELLITE_SOURCES,
+  rewriteSatelliteUrls,
+  rewriteVectorUrls,
+} from './mapStyles';
 import { DARK_MATTER_STYLE } from './darkMatterStyle';
 import { SWITZERLAND_SIMPLE } from './countryBoundaries';
 
@@ -312,9 +317,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
 
       const styleConfig = isSatellite
-        ? JSON.stringify(getCombinedSatelliteStyle3D())
+        ? JSON.stringify(rewriteSatelliteUrls(getCombinedSatelliteStyle3D()))
         : mapStyle === 'dark'
-          ? JSON.stringify(DARK_MATTER_STYLE)
+          ? JSON.stringify(rewriteVectorUrls(DARK_MATTER_STYLE))
           : `null`; // light uses URL-based style, handled below
 
       const lightStyleUrl = 'https://tiles.openfreemap.org/styles/liberty';
@@ -407,10 +412,17 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           if (styleJSON) {
             applyNewStyle(styleJSON);
           } else {
-            // Light style is URL-based — fetch it first, then apply modifications
+            // Light style is URL-based — fetch, rewrite vector URLs, then apply
             fetch('${lightStyleUrl}')
               .then(function(r) { return r.json(); })
-              .then(function(s) { applyNewStyle(s); })
+              .then(function(s) {
+                if (s.sources && s.sources.openmaptiles && s.sources.openmaptiles.url === 'https://tiles.openfreemap.org/planet') {
+                  delete s.sources.openmaptiles.url;
+                  s.sources.openmaptiles.tiles = ['cached-vector://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'];
+                  s.sources.openmaptiles.maxzoom = 14;
+                }
+                applyNewStyle(s);
+              })
               .catch(function(e) { console.warn('[3D] Failed to fetch light style:', e); });
           }
         })();
@@ -518,11 +530,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 
       // For satellite, we use combined style with all regional sources layered
       // For dark, we use the bundled Dark Matter style with OpenFreeMap tiles
+      // Rewrite tile URLs to use cached protocols for offline/performance
       const styleConfig = isSatellite
-        ? JSON.stringify(getCombinedSatelliteStyle3D())
+        ? JSON.stringify(rewriteSatelliteUrls(getCombinedSatelliteStyle3D()))
         : initStyle === 'dark'
-          ? JSON.stringify(DARK_MATTER_STYLE)
-          : `'https://tiles.openfreemap.org/styles/liberty'`;
+          ? JSON.stringify(rewriteVectorUrls(DARK_MATTER_STYLE))
+          : `null`; // light uses URL-based style — fetched and rewritten in JS init
 
       return `
 <!DOCTYPE html>
@@ -572,32 +585,96 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       return { cancel: function() {} };
     });
 
-    // Create map with appropriate style
-    // Use saved camera state if available, otherwise use bounds or center/zoom
-    const mapOptions = {
-      container: 'map',
-      style: ${styleConfig},
-      pitch: savedPitch,
-      maxPitch: 85,
-      bearing: savedBearing,
-      attributionControl: false,
-      antialias: true,
-      pixelRatio: ${devicePixelRatio},
-    };
+    // Cache satellite tiles via Cache API
+    var SATELLITE_CACHE = 'veloq-satellite-v1';
+    maplibregl.addProtocol('cached-satellite', function(params, callback) {
+      var realUrl = 'https://' + params.url.substring('cached-satellite://'.length);
+      caches.open(SATELLITE_CACHE).then(function(cache) {
+        return cache.match(realUrl).then(function(cached) {
+          if (cached) return cached.arrayBuffer().then(function(d) { callback(null, d, null, null); });
+          return fetch(realUrl).then(function(r) {
+            if (r.ok) cache.put(realUrl, r.clone());
+            return r.arrayBuffer().then(function(d) { callback(null, d, null, null); });
+          });
+        });
+      }).catch(function(e) { callback(e); });
+      return { cancel: function() {} };
+    });
 
-    // Only use bounds for initial load (no saved camera)
-    if (bounds && !${!!savedCamera}) {
-      mapOptions.bounds = [bounds.sw, bounds.ne];
-      mapOptions.fitBoundsOptions = { padding: 50 };
-    } else if (center) {
-      mapOptions.center = center;
-      mapOptions.zoom = savedZoom;
-    } else {
-      mapOptions.center = [0, 0];
-      mapOptions.zoom = 2;
+    // Cache vector tiles (protocol buffers) via Cache API
+    var VECTOR_CACHE = 'veloq-vector-v1';
+    maplibregl.addProtocol('cached-vector', function(params, callback) {
+      var realUrl = 'https://' + params.url.substring('cached-vector://'.length);
+      caches.open(VECTOR_CACHE).then(function(cache) {
+        return cache.match(realUrl).then(function(cached) {
+          if (cached) return cached.arrayBuffer().then(function(d) { callback(null, d, null, null); });
+          return fetch(realUrl).then(function(r) {
+            if (r.ok) cache.put(realUrl, r.clone());
+            return r.arrayBuffer().then(function(d) { callback(null, d, null, null); });
+          });
+        });
+      }).catch(function(e) { callback(e); });
+      return { cancel: function() {} };
+    });
+
+    // Rewrite vector source URLs in a fetched style JSON
+    function rewriteVectorSources(s) {
+      if (s.sources && s.sources.openmaptiles && s.sources.openmaptiles.url === 'https://tiles.openfreemap.org/planet') {
+        delete s.sources.openmaptiles.url;
+        s.sources.openmaptiles.tiles = ['cached-vector://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'];
+        s.sources.openmaptiles.maxzoom = 14;
+      }
+      return s;
     }
 
-    window.map = new maplibregl.Map(mapOptions);
+    // Create map with appropriate style
+    // Use saved camera state if available, otherwise use bounds or center/zoom
+    function buildMapOptions(style) {
+      var opts = {
+        container: 'map',
+        style: style,
+        pitch: savedPitch,
+        maxPitch: 85,
+        bearing: savedBearing,
+        attributionControl: false,
+        antialias: true,
+        pixelRatio: ${devicePixelRatio},
+      };
+      if (bounds && !${!!savedCamera}) {
+        opts.bounds = [bounds.sw, bounds.ne];
+        opts.fitBoundsOptions = { padding: 50 };
+      } else if (center) {
+        opts.center = center;
+        opts.zoom = savedZoom;
+      } else {
+        opts.center = [0, 0];
+        opts.zoom = 2;
+      }
+      return opts;
+    }
+
+    var styleJSON = ${styleConfig};
+    if (styleJSON) {
+      window.map = new maplibregl.Map(buildMapOptions(styleJSON));
+    } else {
+      // Light style: fetch JSON, rewrite vector URLs, then init map
+      fetch('https://tiles.openfreemap.org/styles/liberty')
+        .then(function(r) { return r.json(); })
+        .then(function(s) {
+          rewriteVectorSources(s);
+          window.map = new maplibregl.Map(buildMapOptions(s));
+          initMap();
+        })
+        .catch(function(e) {
+          console.warn('[3D] Failed to fetch light style, using URL fallback:', e);
+          window.map = new maplibregl.Map(buildMapOptions('https://tiles.openfreemap.org/styles/liberty'));
+          initMap();
+        });
+    }
+
+    if (styleJSON) { initMap(); }
+
+    function initMap() {
 
     const map = window.map;
 
@@ -853,6 +930,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         }, 1000);
       });
     });
+    } // end initMap
   </script>
 </body>
 </html>

@@ -403,6 +403,33 @@ export function getCombinedSatelliteAttribution(lat: number, lng: number, zoom: 
   return attributions.join(' | ');
 }
 
+/** Rewrite raster source tile URLs from https:// to cached-satellite:// */
+export function rewriteSatelliteUrls(style: CombinedSatelliteMapStyle): CombinedSatelliteMapStyle {
+  const rewritten: CombinedSatelliteMapStyle = JSON.parse(JSON.stringify(style));
+  for (const source of Object.values(rewritten.sources)) {
+    if (source.type === 'raster' && source.tiles) {
+      source.tiles = source.tiles.map((url) => url.replace(/^https:\/\//, 'cached-satellite://'));
+    }
+  }
+  return rewritten;
+}
+
+/** Replace TileJSON url with explicit cached-vector:// tiles array */
+export function rewriteVectorUrls<T extends object>(style: T): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rewritten: any = JSON.parse(JSON.stringify(style));
+  if (rewritten.sources) {
+    for (const source of Object.values(rewritten.sources) as Array<Record<string, unknown>>) {
+      if (source.type === 'vector' && source.url === 'https://tiles.openfreemap.org/planet') {
+        delete source.url;
+        source.tiles = ['cached-vector://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'];
+        source.maxzoom = 14;
+      }
+    }
+  }
+  return rewritten;
+}
+
 // 3D terrain attribution
 export const TERRAIN_ATTRIBUTION = '© AWS Terrain Tiles';
 
