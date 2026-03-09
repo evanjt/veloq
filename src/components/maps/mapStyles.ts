@@ -254,6 +254,54 @@ export function getCombinedSatelliteStyle3D(): CombinedSatelliteMapStyle {
 }
 
 /**
+ * Build a minimal satellite style for snapshot rendering at a known location.
+ * Only includes EOX (global base) + the one relevant regional source.
+ * Avoids loading tiles from irrelevant regional servers that may hang
+ * (e.g. IGN tiles outside France stall indefinitely, blocking isStyleLoaded).
+ */
+export function getSnapshotSatelliteStyle(
+  lat: number,
+  lng: number,
+  zoom: number
+): CombinedSatelliteMapStyle {
+  const primarySource = getSatelliteSourceId(lat, lng, zoom);
+
+  const sources: CombinedSatelliteMapStyle['sources'] = {
+    'satellite-eox': {
+      type: 'raster',
+      tiles: SATELLITE_SOURCES.eox.tiles,
+      tileSize: SATELLITE_SOURCES.eox.tileSize,
+      maxzoom: SATELLITE_SOURCES.eox.maxzoom,
+    },
+  };
+
+  const layers: CombinedSatelliteMapStyle['layers'] = [
+    { id: 'background', type: 'background', paint: { 'background-color': '#0a1628' } },
+    { id: 'satellite-layer-eox', type: 'raster', source: 'satellite-eox', minzoom: 0, maxzoom: 22 },
+  ];
+
+  if (primarySource !== 'eox') {
+    const sourceKey = `satellite-${primarySource}`;
+    sources[sourceKey] = {
+      type: 'raster',
+      tiles: SATELLITE_SOURCES[primarySource].tiles,
+      tileSize: SATELLITE_SOURCES[primarySource].tileSize,
+      maxzoom: SATELLITE_SOURCES[primarySource].maxzoom,
+      bounds: SATELLITE_SOURCES[primarySource].bounds,
+    };
+    layers.push({
+      id: `satellite-layer-${primarySource}`,
+      type: 'raster',
+      source: sourceKey,
+      minzoom: 0,
+      maxzoom: 22,
+    });
+  }
+
+  return { version: 8, sources, layers };
+}
+
+/**
  * Build a MapLibre style object for satellite imagery at a given location.
  * @deprecated Use getCombinedSatelliteStyle() for multi-region support
  */

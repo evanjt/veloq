@@ -1176,36 +1176,29 @@ export const ActivityMapView = memo(function ActivityMapView({
     <View style={[styles.outerContainer, { height }]}>
       <View
         style={styles.container}
-        onTouchStart={(e) => {
-          touchStartRef.current = {
-            x: e.nativeEvent.locationX,
-            y: e.nativeEvent.locationY,
-            time: Date.now(),
-          };
-        }}
-        onTouchEnd={(e) => {
-          const start = touchStartRef.current;
-          if (!start) return;
-
-          const dx = Math.abs(e.nativeEvent.locationX - start.x);
-          const dy = Math.abs(e.nativeEvent.locationY - start.y);
-          const duration = Date.now() - start.time;
-
-          // Only treat as tap if: short duration, minimal movement
-          const isTap = duration < 300 && dx < 10 && dy < 10;
-          // Don't handle taps in fullscreen or 3D mode
-          const shouldHandle = !isFullscreen && !(is3DMode && is3DReady);
-
-          if (isTap && shouldHandle) {
-            if (creationMode) {
-              // Section creation needs map coordinates
-              handleiOSTap(e.nativeEvent.locationX, e.nativeEvent.locationY);
-            } else if (enableFullscreen) {
-              openFullscreen();
+        {...(creationMode && Platform.OS === 'ios'
+          ? {
+              onTouchStart: (e: { nativeEvent: { locationX: number; locationY: number } }) => {
+                touchStartRef.current = {
+                  x: e.nativeEvent.locationX,
+                  y: e.nativeEvent.locationY,
+                  time: Date.now(),
+                };
+              },
+              onTouchEnd: (e: { nativeEvent: { locationX: number; locationY: number } }) => {
+                const start = touchStartRef.current;
+                if (!start) return;
+                const dx = Math.abs(e.nativeEvent.locationX - start.x);
+                const dy = Math.abs(e.nativeEvent.locationY - start.y);
+                const duration = Date.now() - start.time;
+                const isTap = duration < 300 && dx < 10 && dy < 10;
+                if (isTap && !isFullscreen && !(is3DMode && is3DReady)) {
+                  handleiOSTap(e.nativeEvent.locationX, e.nativeEvent.locationY);
+                }
+                touchStartRef.current = null;
+              },
             }
-          }
-          touchStartRef.current = null;
-        }}
+          : {})}
       >
         {/* 2D Map layer - hidden when 3D is ready */}
         <View
@@ -1363,9 +1356,9 @@ export const ActivityMapView = memo(function ActivityMapView({
 
             {/* Highlight marker from elevation chart */}
             {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
-            {/* Key includes highlightIndex to force position update (stable when null) */}
+            {/* Stable key — coordinate prop updates position without remount (matches start/end markers) */}
             <MarkerView
-              key={`highlight-${highlightIndex ?? 'none'}`}
+              key="highlight-marker"
               coordinate={
                 highlightPoint ? [highlightPoint.longitude, highlightPoint.latitude] : [0, 0]
               }
@@ -1463,6 +1456,9 @@ export const ActivityMapView = memo(function ActivityMapView({
                 coordinates={routeCoords}
                 mapStyle={mapStyle}
                 routeColor={activityColor}
+                highlightCoordinate={
+                  highlightPoint ? [highlightPoint.longitude, highlightPoint.latitude] : null
+                }
                 onMapReady={handleMap3DReady}
                 onBearingChange={handleBearingChange}
                 onCameraStateChange={handleCameraStateChange}
@@ -1470,6 +1466,13 @@ export const ActivityMapView = memo(function ActivityMapView({
               />
             </Animated.View>
           </ComponentErrorBoundary>
+        )}
+
+        {/* 3D loading spinner */}
+        {is3DMode && !is3DReady && !isFullscreen && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
         )}
 
         {/* Attribution - uses ref-based updates to avoid map re-renders */}
@@ -1589,6 +1592,22 @@ export const ActivityMapView = memo(function ActivityMapView({
               />
             )}
           </TouchableOpacity>
+
+          {/* Fullscreen expand */}
+          {enableFullscreen && (
+            <TouchableOpacity
+              style={[styles.controlButton, isDark && styles.controlButtonDark]}
+              onPressIn={openFullscreen}
+              activeOpacity={0.6}
+              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+            >
+              <MaterialCommunityIcons
+                name="fullscreen"
+                size={22}
+                color={isDark ? colors.textOnDark : colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -1734,6 +1753,14 @@ const styles = StyleSheet.create({
   },
   map3DLayer: {
     zIndex: 1,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: layout.borderRadius,
   },
   hiddenLayer: {
     opacity: 0,

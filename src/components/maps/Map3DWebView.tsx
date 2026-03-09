@@ -39,6 +39,8 @@ interface Map3DWebViewProps {
   sectionsGeoJSON?: GeoJSON.FeatureCollection;
   /** GeoJSON for traces layer */
   tracesGeoJSON?: GeoJSON.FeatureCollection;
+  /** Highlight marker position as [lng, lat] (from chart scrubbing) */
+  highlightCoordinate?: [number, number] | null;
 }
 
 export interface Map3DWebViewRef {
@@ -90,6 +92,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       routesGeoJSON,
       sectionsGeoJSON,
       tracesGeoJSON,
+      highlightCoordinate,
       onMapReady,
       onBearingChange,
       onCameraStateChange,
@@ -438,6 +441,39 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       []
     );
 
+    // Update highlight marker position in WebView (from chart scrubbing)
+    // Throttled to ~16ms to avoid flooding the JS bridge at 60fps
+    const lastHighlightRef = useRef<number>(0);
+    useEffect(() => {
+      if (!webViewRef.current || !mapReadyRef.current) return;
+      const now = Date.now();
+      if (now - lastHighlightRef.current < 16) return;
+      lastHighlightRef.current = now;
+
+      if (highlightCoordinate) {
+        webViewRef.current.injectJavaScript(`
+          if (window._highlightMarker) {
+            window._highlightMarker.setLngLat([${highlightCoordinate[0]}, ${highlightCoordinate[1]}]);
+            window._highlightMarker.getElement().style.display = 'block';
+          }
+          true;
+        `);
+      } else {
+        webViewRef.current.injectJavaScript(`
+          if (window._highlightMarker) {
+            window._highlightMarker.getElement().style.display = 'none';
+          }
+          true;
+        `);
+      }
+    }, [highlightCoordinate]);
+
+    // Reload WebView on crash (iOS content process termination / Android render process gone)
+    const handleWebViewCrash = useCallback(() => {
+      mapReadyRef.current = false;
+      webViewRef.current?.reload();
+    }, []);
+
     // Calculate bounds from coordinates using utility
     // Coordinates are in [lng, lat] format, convert to {lat, lng} for utility
     const bounds = useMemo(() => {
@@ -748,6 +784,11 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         });
       }
 
+      // Create highlight marker (DOM-based, updated via injectJavaScript from React Native)
+      var hlEl = document.createElement('div');
+      hlEl.style.cssText = 'width:14px;height:14px;border-radius:50%;background:#FC4C02;border:1.5px solid white;display:none;box-shadow:0 0 4px rgba(0,0,0,0.4);';
+      window._highlightMarker = new maplibregl.Marker({element: hlEl}).setLngLat([0,0]).addTo(map);
+
       // Terrain-first ready detection — only wait for DEM terrain and route sources,
       // not ALL tiles. At 60° pitch, horizon vector/label tiles are deprioritized and
       // may never fully load, causing the old areTilesLoaded() to always hit the timeout.
@@ -848,6 +889,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           mixedContentMode="always"
           androidLayerType="hardware"
           onMessage={handleMessage}
+          onContentProcessDidTerminate={handleWebViewCrash}
+          onRenderProcessGone={handleWebViewCrash}
         />
       </View>
     );

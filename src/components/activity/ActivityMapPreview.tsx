@@ -248,6 +248,7 @@ export function ActivityMapPreview({
   // Only cards within the first N positions request snapshots to limit queue pressure
   useEffect(() => {
     if (!show3D || !snapshotRef?.current || !terrainCameraResult) return;
+    if (index >= 10) return; // Don't queue snapshots for far-off cards
     if (hasTerrainPreview(activity.id, mapStyle)) {
       setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle));
       return;

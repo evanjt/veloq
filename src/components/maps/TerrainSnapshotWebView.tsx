@@ -1,7 +1,9 @@
 /**
  * Hidden WebView pool that renders 3D terrain maps and captures JPEG snapshots.
  *
- * Rendered once in the feed screen, behind content (zIndex: -1, opacity: 0).
+ * Rendered once in the feed screen, behind content (zIndex: -1, opacity: 0.01).
+ * opacity: 0 throttles rAF on Android WebView; off-screen positioning prevents
+ * WebGL compositing. opacity: 0.01 keeps both rAF and GPU rendering active.
  * Two WebView workers process snapshot requests in parallel. Each worker:
  * - Has its own generation counter for race condition protection
  * - Handles one request at a time
@@ -22,7 +24,7 @@ import React, {
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { MapStyleType } from './mapStyles';
-import { getCombinedSatelliteStyle3D, getTerrainSnapshotStyle } from './mapStyles';
+import { getSnapshotSatelliteStyle, getTerrainSnapshotStyle } from './mapStyles';
 import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import { saveTerrainPreview, hasTerrainPreview } from '@/lib/storage/terrainPreviewCache';
 import {
@@ -33,8 +35,8 @@ import {
 } from '@/lib/events/terrainSnapshotEvents';
 import { useSyncDateRange } from '@/providers';
 
-const SNAPSHOT_TIMEOUT_MS = 20000;
-const MAX_QUEUE_SIZE = 30;
+const SNAPSHOT_TIMEOUT_MS = 12000;
+const MAX_QUEUE_SIZE = 15;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SNAPSHOT_HEIGHT = 240;
 const POOL_SIZE = 2;
@@ -101,6 +103,29 @@ function generateWorkerHtml(id: number): string {
     // Generation counter for race condition guard
     window._snapshotGen = 0;
 
+    // Track current base style for reuse optimisation
+    window._currentBaseStyle = null;
+
+    // Decode ArrayBuffer/Blob into HTMLImageElement via Object URL.
+    // MapLibre v5 uses it directly (instanceof HTMLImageElement check),
+    // bypassing arrayBufferToCanvasImageSource → createImageBitmap
+    // which fails silently in Android WebView.
+    function demBlobToImage(blob) {
+      return new Promise(function(resolve, reject) {
+        var url = URL.createObjectURL(blob);
+        var img = new Image();
+        img.onload = function() {
+          URL.revokeObjectURL(url);
+          resolve({ data: img });
+        };
+        img.onerror = function() {
+          URL.revokeObjectURL(url);
+          reject(new Error('DEM image decode failed'));
+        };
+        img.src = url;
+      });
+    }
+
     // Cache terrain DEM tiles via Cache API — persists across snapshot requests.
     // MapLibre v5.19.0 uses promise-based addProtocol.
     var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
@@ -108,12 +133,19 @@ function generateWorkerHtml(id: number): string {
       var realUrl = 'https://' + params.url.substring('cached-terrain://'.length);
       return caches.open(TERRAIN_CACHE).then(function(cache) {
         return cache.match(realUrl).then(function(cached) {
-          if (cached) return cached;
+          if (cached) {
+            window._rn_log('DEM cache hit');
+            return cached.blob().then(demBlobToImage);
+          }
           return fetch(realUrl).then(function(r) {
+            window._rn_log('DEM fetch ' + r.status + ': ' + realUrl.split('/').slice(-3).join('/'));
             if (r.ok) cache.put(realUrl, r.clone());
-            return r;
+            return r.blob().then(demBlobToImage);
           });
         });
+      }).catch(function(err) {
+        window._rn_log('DEM protocol error: ' + err.message);
+        throw err;
       });
     });
 
@@ -154,6 +186,39 @@ function generateWorkerHtml(id: number): string {
         window._tileErrorCount++;
       }
     });
+
+    // Track tile loading progress per source
+    window._tileStats = {};
+
+    window.map.on('data', function(e) {
+      if (e.dataType === 'source' && e.sourceId && e.tile) {
+        if (!window._tileStats[e.sourceId]) {
+          window._tileStats[e.sourceId] = { loaded: 0, total: 0 };
+        }
+        window._tileStats[e.sourceId].loaded++;
+        var s = window._tileStats[e.sourceId];
+        if (s.loaded % 5 === 0 || s.loaded <= 2) {
+          window._rn_log('Tiles [' + e.sourceId + ']: ' + s.loaded + ' loaded');
+        }
+      }
+    });
+
+    window.map.on('dataloading', function(e) {
+      if (e.dataType === 'source' && e.sourceId) {
+        if (!window._tileStats[e.sourceId]) {
+          window._tileStats[e.sourceId] = { loaded: 0, total: 0 };
+        }
+        window._tileStats[e.sourceId].total++;
+      }
+    });
+
+    // rAF heartbeat — confirms rendering loop is alive
+    var _rafCount = 0;
+    function rafHeartbeat() {
+      _rafCount++;
+      requestAnimationFrame(rafHeartbeat);
+    }
+    requestAnimationFrame(rafHeartbeat);
   </script>
 </body>
 </html>`;
@@ -227,7 +292,13 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         // Use minimal terrain-focused styles for light/dark — full vector styles
         // (Liberty, Dark Matter) have dozens of flat layers that clash with 3D terrain
         const styleConfig = isSatellite
-          ? JSON.stringify(getCombinedSatelliteStyle3D())
+          ? JSON.stringify(
+              getSnapshotSatelliteStyle(
+                request.camera.center[1],
+                request.camera.center[0],
+                request.camera.zoom
+              )
+            )
           : JSON.stringify(getTerrainSnapshotStyle(request.mapStyle === 'dark' ? 'dark' : 'light'));
 
         const coordsJSON = JSON.stringify(request.coordinates);
@@ -257,6 +328,95 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               }
 
               window._rn_log('Snapshot ' + activityId + ' gen=' + myGen + ': ' + coords.length + ' coords, style=' + mapStyle);
+
+              // --- Fast path: same base style, just update route + camera ---
+              if (window._currentBaseStyle === mapStyle && coords.length > 0) {
+                var routeSrc = window.map.getSource('route');
+                var markerSrc = window.map.getSource('start-end-markers');
+                if (routeSrc && markerSrc) {
+                  var fpStart = coords[0];
+                  var fpEnd = coords[coords.length - 1];
+                  routeSrc.setData({
+                    type: 'Feature', properties: {},
+                    geometry: { type: 'LineString', coordinates: coords },
+                  });
+                  markerSrc.setData({
+                    type: 'FeatureCollection',
+                    features: [
+                      { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: fpStart } },
+                      { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: fpEnd } },
+                    ],
+                  });
+                  window.map.setPaintProperty('route-line', 'line-color', routeColor);
+                  window.map.jumpTo({
+                    center: camera.center, zoom: camera.zoom,
+                    bearing: camera.bearing, pitch: camera.pitch,
+                  });
+                  window._rn_log('Fast path: reusing style, updating route + camera');
+                  var done = false;
+                  var fpStart = Date.now();
+                  var fpLastData = 0;
+
+                  function fpOnData() { fpLastData = Date.now(); }
+                  window.map.on('data', fpOnData);
+
+                  // Fast path: idle event
+                  window.map.once('idle', function() {
+                    if (done || isStale()) return;
+                    done = true;
+                    window.map.off('data', fpOnData);
+                    window._rn_log('Fast path idle, capturing...');
+                    requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                  });
+
+                  // Fast path: poll for tile activity settlement
+                  var fpPoll = setInterval(function() {
+                    if (done || isStale()) { clearInterval(fpPoll); return; }
+                    var now = Date.now();
+                    var quietTime = fpLastData > 0 ? now - fpLastData : 0;
+
+                    if (window.map.isStyleLoaded()) {
+                      done = true;
+                      clearInterval(fpPoll);
+                      window.map.off('data', fpOnData);
+                      window._rn_log('Fast path styleLoaded, capturing...');
+                      requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                      return;
+                    }
+                    if (fpLastData > 0 && quietTime > 1500) {
+                      done = true;
+                      clearInterval(fpPoll);
+                      window.map.off('data', fpOnData);
+                      window._rn_log('Fast path settled (' + quietTime + 'ms quiet), capturing...');
+                      requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                      return;
+                    }
+                    if (now - fpStart > 5000) {
+                      done = true;
+                      clearInterval(fpPoll);
+                      window.map.off('data', fpOnData);
+                      window._rn_log('Fast path max wait (5s), capturing...');
+                      requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                      return;
+                    }
+                  }, 500);
+
+                  setTimeout(function() {
+                    clearInterval(fpPoll);
+                    window.map.off('data', fpOnData);
+                    if (!done && !isStale()) {
+                      done = true;
+                      window._rn_log('Fast path timeout (8s)');
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'snapshotError', workerId: workerId, activityId: activityId,
+                        gen: myGen, error: 'Fast path render timeout',
+                        tileErrors: window._tileErrorCount,
+                      }));
+                    }
+                  }, 8000);
+                  return;
+                }
+              }
 
               // --- Build complete style with all sources and layers ---
 
@@ -362,53 +522,89 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 pitch: camera.pitch,
               });
 
+              // --- Readiness detection ---
+              // Track only 'data' events (tile loaded) for quiet period, not
+              // 'dataloading' (tile requested) which can keep firing from retries.
+              window._tileStats = {};
+              _rafCount = 0;
               var done = false;
+              var setStyleTime = Date.now();
+              var lastDataEvent = 0;
 
+              function onDataEvent() { lastDataEvent = Date.now(); }
+              window.map.on('data', onDataEvent);
+
+              function cleanup() {
+                window.map.off('data', onDataEvent);
+              }
+
+              // Fast path: idle event (works when all sources load correctly)
               window.map.once('idle', function() {
                 if (done || isStale()) return;
-                if (window.map.areTilesLoaded()) {
-                  done = true;
-                  window._rn_log('Tiles loaded, capturing...');
-                  requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
-                } else {
-                  window._rn_log('First idle but tiles incomplete, waiting...');
-                  window.map.once('idle', function() {
-                    if (done || isStale()) return;
-                    done = true;
-                    if (window.map.areTilesLoaded()) {
-                      window._rn_log('Tiles loaded on second idle, capturing...');
-                      requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
-                    } else {
-                      window._rn_log('Tiles still incomplete after second idle, skipping');
-                      window.ReactNativeWebView.postMessage(JSON.stringify({
-                        type: 'snapshotError',
-                        workerId: workerId,
-                        activityId: activityId,
-                        gen: myGen,
-                        error: 'Tiles incomplete after idle',
-                        tileErrors: window._tileErrorCount,
-                      }));
-                    }
-                  });
-                  setTimeout(function() {
-                    if (!done && !isStale()) {
-                      done = true;
-                      window._rn_log('Second idle timeout (5s), skipping');
-                      window.ReactNativeWebView.postMessage(JSON.stringify({
-                        type: 'snapshotError',
-                        workerId: workerId,
-                        activityId: activityId,
-                        gen: myGen,
-                        error: 'Tile load timeout',
-                        tileErrors: window._tileErrorCount,
-                      }));
-                    }
-                  }, 5000);
-                }
+                done = true;
+                cleanup();
+                window._currentBaseStyle = mapStyle;
+                window._rn_log('Idle event fired, capturing...');
+                requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
               });
 
-              // Hard timeout (10s safety net)
+              // Poll for readiness — multiple strategies
+              var readyPoll = setInterval(function() {
+                if (done || isStale()) { clearInterval(readyPoll); return; }
+                var now = Date.now();
+                var elapsed = now - setStyleTime;
+                var quietTime = lastDataEvent > 0 ? now - lastDataEvent : 0;
+
+                // Log progress every ~2s (every 4th poll at 500ms)
+                if (Math.floor(elapsed / 500) % 4 === 0) {
+                  var summary = Object.keys(window._tileStats).map(function(src) {
+                    var s = window._tileStats[src];
+                    return src + ':' + s.loaded + '/' + s.total;
+                  }).join(' | ');
+                  window._rn_log('Progress: elapsed=' + elapsed + 'ms quiet=' + quietTime
+                    + 'ms rAF/2s=' + _rafCount + ' sources=[' + summary + ']'
+                    + ' errors=' + window._tileErrorCount);
+                  _rafCount = 0;
+                }
+
+                // Strategy 1: MapLibre API says ready
+                if (window.map.isStyleLoaded()) {
+                  done = true;
+                  clearInterval(readyPoll);
+                  cleanup();
+                  window._currentBaseStyle = mapStyle;
+                  window._rn_log('styleLoaded=true after ' + elapsed + 'ms, capturing...');
+                  requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                  return;
+                }
+
+                // Strategy 2: Tile activity settled — no data events for 1.5s
+                if (lastDataEvent > 0 && quietTime > 1500) {
+                  done = true;
+                  clearInterval(readyPoll);
+                  cleanup();
+                  window._currentBaseStyle = mapStyle;
+                  window._rn_log('Tile activity settled (' + quietTime + 'ms quiet, ' + elapsed + 'ms total), capturing...');
+                  requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                  return;
+                }
+
+                // Strategy 3: Max wait — capture after 7s regardless
+                if (elapsed > 7000) {
+                  done = true;
+                  clearInterval(readyPoll);
+                  cleanup();
+                  window._currentBaseStyle = mapStyle;
+                  window._rn_log('Max wait (7s), capturing best-effort...');
+                  requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                  return;
+                }
+              }, 500);
+
+              // Hard timeout (10s safety net — only if capture itself hangs)
               setTimeout(function() {
+                clearInterval(readyPoll);
+                cleanup();
                 if (!done && !isStale()) {
                   done = true;
                   window._rn_log('Hard timeout (10s), skipping');
@@ -606,16 +802,24 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               'light';
             worker.processingRef.current = false;
             worker.currentRequestRef.current = null;
+            queueCompletedRef.current++;
+            updateProgress();
+            processNext(); // Start next render immediately
 
             console.log(
               `[TerrainSnapshot:${data.workerId}] Captured ${data.activityId} (${Math.round(data.base64.length / 1024)}KB base64${data.tileErrors ? `, ${data.tileErrors} tile errors` : ''})`
             );
-            const uri = await saveTerrainPreview(data.activityId, style, data.base64);
-            console.log(`[TerrainSnapshot:${data.workerId}] Saved ${data.activityId} → ${uri}`);
-            emitSnapshotComplete(data.activityId, uri);
-            queueCompletedRef.current++;
-            updateProgress();
-            processNext();
+            // Save concurrently — card shows loading state until emitSnapshotComplete
+            try {
+              const uri = await saveTerrainPreview(data.activityId, style, data.base64);
+              console.log(`[TerrainSnapshot:${data.workerId}] Saved ${data.activityId} → ${uri}`);
+              emitSnapshotComplete(data.activityId, uri);
+            } catch (saveErr) {
+              console.warn(
+                `[TerrainSnapshot:${data.workerId}] Save failed for ${data.activityId}:`,
+                saveErr
+              );
+            }
           } else if (data.type === 'tileCacheStats') {
             emitTileCacheStats({
               tileCount: data.tileCount ?? 0,
@@ -646,8 +850,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 ...currentRequest,
                 _retryAttempt: attempt + 1,
               });
-              // 1s delay before retry to let tile servers recover
-              setTimeout(() => processNext(), 1000);
+              // Short delay before retry to let tile servers recover
+              setTimeout(() => processNext(), 200);
             } else {
               // Exhausted retries — save for later re-attempt
               console.warn(
@@ -678,6 +882,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           worker.webViewRef.current?.injectJavaScript(`
           caches.delete('veloq-terrain-dem-v1').then(function(ok) {
             window._rn_log('Tile cache cleared: ' + ok);
+            window._currentBaseStyle = null;
           });
           true;
         `);
@@ -790,6 +995,6 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     height: SNAPSHOT_HEIGHT,
     zIndex: -1,
-    opacity: 0,
+    opacity: 0.01,
   },
 });

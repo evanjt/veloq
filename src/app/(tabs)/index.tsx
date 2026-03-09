@@ -436,7 +436,7 @@ export default function FeedScreen() {
           removeClippedSubviews={Platform.OS === 'ios'}
           maxToRenderPerBatch={Platform.OS === 'ios' ? 15 : 10}
           windowSize={Platform.OS === 'ios' ? 21 : 11}
-          initialNumToRender={10}
+          initialNumToRender={5}
           onViewableItemsChanged={handleViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
         />
