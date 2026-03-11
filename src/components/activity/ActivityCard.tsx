@@ -154,7 +154,7 @@ export const ActivityCard = React.memo(function ActivityCard({
       style={styles.secondaryScroll}
     >
       <Pressable onPress={handlePress} style={styles.secondaryStats}>
-        {activity.icu_training_load && (
+        {!!activity.icu_training_load && (
           <View
             style={styles.secondaryStat}
             accessibilityLabel={`${t('activity.stats.trainingLoad')}: ${formatTSS(activity.icu_training_load)}`}
@@ -165,7 +165,7 @@ export const ActivityCard = React.memo(function ActivityCard({
             </RNText>
           </View>
         )}
-        {(activity.average_heartrate || activity.icu_average_hr) && (
+        {!!(activity.average_heartrate || activity.icu_average_hr) && (
           <View
             style={styles.secondaryStat}
             accessibilityLabel={`${t('activity.heartRate')}: ${formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)} ${t('units.bpm')}`}
@@ -176,7 +176,7 @@ export const ActivityCard = React.memo(function ActivityCard({
             </RNText>
           </View>
         )}
-        {(activity.average_watts || activity.icu_average_watts) && (
+        {!!(activity.average_watts || activity.icu_average_watts) && (
           <View
             style={styles.secondaryStat}
             accessibilityLabel={`${t('activity.power')}: ${formatPower(activity.average_watts || activity.icu_average_watts!)} ${t('units.watts')}`}
@@ -187,7 +187,7 @@ export const ActivityCard = React.memo(function ActivityCard({
             </RNText>
           </View>
         )}
-        {activity.calories && (
+        {!!activity.calories && (
           <View
             style={styles.secondaryStat}
             accessibilityLabel={`${t('activity.calories')}: ${formatCalories(activity.calories)} ${t('units.kcal')}`}
