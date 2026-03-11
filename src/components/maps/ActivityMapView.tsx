@@ -1369,27 +1369,6 @@ export const ActivityMapView = memo(function ActivityMapView({
               </View>
             </MarkerView>
 
-            {/* Highlight marker from chart scrubbing — uses ShapeSource + CircleLayer */}
-            {/* instead of MarkerView because MarkerView coordinate updates break native position binding */}
-            <ShapeSource id="highlightSource" shape={highlightGeoJSON}>
-              <CircleLayer
-                id="highlight-border"
-                style={{
-                  circleRadius: 7,
-                  circleColor: '#FFFFFF',
-                  circleOpacity: highlightPoint ? 1 : 0,
-                }}
-              />
-              <CircleLayer
-                id="highlight-fill"
-                style={{
-                  circleRadius: 5,
-                  circleColor: colors.primary,
-                  circleOpacity: highlightPoint ? 1 : 0,
-                }}
-              />
-            </ShapeSource>
-
             {/* Section creation: selected section line */}
             {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
             <ShapeSource id="sectionSource" shape={sectionGeoJSON}>
@@ -1461,6 +1440,27 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* Numbered markers at center of each section, offset to the side */}
             {/* Memoized to prevent re-renders when highlight state changes (see sectionMarkerElements) */}
             {sectionMarkerElements}
+
+            {/* Highlight marker from chart scrubbing — rendered last so it's on top of all layers */}
+            {/* Uses ShapeSource + CircleLayer because MarkerView coordinate updates break native position binding */}
+            <ShapeSource id="highlightSource" shape={highlightGeoJSON}>
+              <CircleLayer
+                id="highlight-border"
+                style={{
+                  circleRadius: 7,
+                  circleColor: '#FFFFFF',
+                  circleOpacity: highlightPoint ? 1 : 0,
+                }}
+              />
+              <CircleLayer
+                id="highlight-fill"
+                style={{
+                  circleRadius: 5,
+                  circleColor: colors.primary,
+                  circleOpacity: highlightPoint ? 1 : 0,
+                }}
+              />
+            </ShapeSource>
           </MapView>
         </View>
 
