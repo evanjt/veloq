@@ -578,25 +578,15 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     id: 'start-end-border',
                     type: 'circle',
                     source: 'start-end-markers',
-                    paint: { 'circle-radius': 9, 'circle-color': '#FFFFFF' },
+                    paint: { 'circle-radius': 6, 'circle-color': '#FFFFFF' },
                   },
                   {
                     id: 'start-end-fill',
                     type: 'circle',
                     source: 'start-end-markers',
                     paint: {
-                      'circle-radius': 7,
-                      'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.95)', 'rgba(239,68,68,0.95)'],
-                    },
-                  },
-                  {
-                    id: 'start-end-icons',
-                    type: 'symbol',
-                    source: 'start-end-markers',
-                    layout: {
-                      'text-field': ['case', ['==', ['get', 'type'], 'start'], '⚑', '🏁'],
-                      'text-size': 10,
-                      'text-allow-overlap': true,
+                      'circle-radius': 4.5,
+                      'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.85)', 'rgba(239,68,68,0.85)'],
                     },
                   }
                 );
