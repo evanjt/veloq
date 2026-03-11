@@ -955,7 +955,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         id: 'highlight-fill',
         type: 'circle',
         source: 'highlight-point',
-        paint: { 'circle-radius': 5, 'circle-color': '#FC4C02' },
+        paint: { 'circle-radius': 5, 'circle-color': '#00BCD4' },
         layout: { visibility: 'none' },
       });
 

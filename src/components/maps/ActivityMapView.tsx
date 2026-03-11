@@ -1456,7 +1456,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 id="highlight-fill"
                 style={{
                   circleRadius: 5,
-                  circleColor: colors.primary,
+                  circleColor: '#00BCD4',
                   circleOpacity: highlightPoint ? 1 : 0,
                 }}
               />
