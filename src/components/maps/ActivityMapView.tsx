@@ -134,6 +134,7 @@ import {
   ShapeSource,
   LineLayer,
   MarkerView,
+  CircleLayer,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -1032,6 +1033,20 @@ export const ActivityMapView = memo(function ActivityMapView({
     return null;
   }, [highlightIndex, coordinates]);
 
+  // GeoJSON for highlight point — ShapeSource + CircleLayer instead of MarkerView
+  // because MarkerView coordinate updates break the native position binding
+  const highlightGeoJSON = useMemo(
+    (): GeoJSON.Feature<GeoJSON.Point> => ({
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'Point',
+        coordinates: highlightPoint ? [highlightPoint.longitude, highlightPoint.latitude] : [0, 0],
+      },
+    }),
+    [highlightPoint]
+  );
+
   const mapStyleValue = getMapStyle(mapStyle);
   const isDark = isDarkStyle(mapStyle);
 
@@ -1354,19 +1369,26 @@ export const ActivityMapView = memo(function ActivityMapView({
               </View>
             </MarkerView>
 
-            {/* Highlight marker from elevation chart */}
-            {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
-            {/* Stable key — coordinate prop updates position without remount (matches start/end markers) */}
-            <MarkerView
-              key="highlight-marker"
-              coordinate={
-                highlightPoint ? [highlightPoint.longitude, highlightPoint.latitude] : [0, 0]
-              }
-            >
-              <View style={[styles.markerContainer, { opacity: highlightPoint ? 1 : 0 }]}>
-                <View style={styles.highlightMarker} />
-              </View>
-            </MarkerView>
+            {/* Highlight marker from chart scrubbing — uses ShapeSource + CircleLayer */}
+            {/* instead of MarkerView because MarkerView coordinate updates break native position binding */}
+            <ShapeSource id="highlightSource" shape={highlightGeoJSON}>
+              <CircleLayer
+                id="highlight-border"
+                style={{
+                  circleRadius: 7,
+                  circleColor: '#FFFFFF',
+                  circleOpacity: highlightPoint ? 1 : 0,
+                }}
+              />
+              <CircleLayer
+                id="highlight-fill"
+                style={{
+                  circleRadius: 5,
+                  circleColor: colors.primary,
+                  circleOpacity: highlightPoint ? 1 : 0,
+                }}
+              />
+            </ShapeSource>
 
             {/* Section creation: selected section line */}
             {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
