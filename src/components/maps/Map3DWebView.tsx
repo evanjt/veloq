@@ -468,16 +468,18 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 
       if (highlightCoordinate) {
         webViewRef.current.injectJavaScript(`
-          if (window._highlightMarker) {
-            window._highlightMarker.setLngLat([${highlightCoordinate[0]}, ${highlightCoordinate[1]}]);
-            window._highlightMarker.getElement().style.display = 'block';
+          if (window.map && window.map.getSource('highlight-point')) {
+            window.map.getSource('highlight-point').setData({ type: 'Point', coordinates: [${highlightCoordinate[0]}, ${highlightCoordinate[1]}] });
+            window.map.setLayoutProperty('highlight-border', 'visibility', 'visible');
+            window.map.setLayoutProperty('highlight-fill', 'visibility', 'visible');
           }
           true;
         `);
       } else {
         webViewRef.current.injectJavaScript(`
-          if (window._highlightMarker) {
-            window._highlightMarker.getElement().style.display = 'none';
+          if (window.map && window.map.getSource('highlight-point')) {
+            window.map.setLayoutProperty('highlight-border', 'visibility', 'none');
+            window.map.setLayoutProperty('highlight-fill', 'visibility', 'none');
           }
           true;
         `);
@@ -743,9 +745,11 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 
     var map = window.map;
 
-    // Surface any map-level errors (style parse failures, tile load errors, etc.)
+    // Surface map-level errors, but suppress expected tile 404s from regional sources
     map.on('error', function(e) {
-      window._rn_log('map error: ' + (e.error ? e.error.message || e.error : e.message || JSON.stringify(e)));
+      var msg = e.error ? e.error.message || String(e.error) : e.message || '';
+      if (msg.indexOf('HTTP 4') === 0) return;
+      window._rn_log('map error: ' + msg);
     });
 
     // Track camera changes and save state for restoration
@@ -935,10 +939,25 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         });
       }
 
-      // Create highlight marker (DOM-based, updated via injectJavaScript from React Native)
-      var hlEl = document.createElement('div');
-      hlEl.style.cssText = 'width:14px;height:14px;border-radius:50%;background:#FC4C02;border:1.5px solid white;display:none;box-shadow:0 0 4px rgba(0,0,0,0.4);';
-      window._highlightMarker = new maplibregl.Marker({element: hlEl, occludedOpacity: 1}).setLngLat([0,0]).addTo(map);
+      // Create highlight marker as map layers (not DOM marker — immune to terrain occlusion)
+      map.addSource('highlight-point', {
+        type: 'geojson',
+        data: { type: 'Point', coordinates: [0, 0] },
+      });
+      map.addLayer({
+        id: 'highlight-border',
+        type: 'circle',
+        source: 'highlight-point',
+        paint: { 'circle-radius': 7, 'circle-color': '#FFFFFF' },
+        layout: { visibility: 'none' },
+      });
+      map.addLayer({
+        id: 'highlight-fill',
+        type: 'circle',
+        source: 'highlight-point',
+        paint: { 'circle-radius': 5, 'circle-color': '#FC4C02' },
+        layout: { visibility: 'none' },
+      });
 
       // Terrain-first ready detection — only wait for DEM terrain and route sources,
       // not ALL tiles. At 60° pitch, horizon vector/label tiles are deprioritized and
