@@ -641,12 +641,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         return cache.match(realUrl).then(function(cached) {
           if (cached) {
             terrainHits++;
-            window._rn_log('terrain cache hit');
             return cached.blob().then(demBlobToImage);
           }
           terrainMisses++;
           return fetch(realUrl).then(function(r) {
-            if (r.ok) { cache.put(realUrl, r.clone()); maybeEvict(TERRAIN_CACHE); }
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            cache.put(realUrl, r.clone()); maybeEvict(TERRAIN_CACHE);
             return r.blob().then(demBlobToImage);
           });
         });
@@ -666,7 +666,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           if (cached) { satHits++; return cached.blob().then(demBlobToImage); }
           satMisses++;
           return fetch(realUrl).then(function(r) {
-            if (r.ok) { cache.put(realUrl, r.clone()); maybeEvict(SATELLITE_CACHE); }
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            cache.put(realUrl, r.clone()); maybeEvict(SATELLITE_CACHE);
             return r.blob().then(demBlobToImage);
           });
         });
@@ -683,7 +684,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           if (cached) { vecHits++; return cached.arrayBuffer().then(function(d) { return { data: d }; }); }
           vecMisses++;
           return fetch(realUrl).then(function(r) {
-            if (r.ok) { cache.put(realUrl, r.clone()); maybeEvict(VECTOR_CACHE); }
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            cache.put(realUrl, r.clone()); maybeEvict(VECTOR_CACHE);
             return r.arrayBuffer().then(function(d) { return { data: d }; });
           });
         });
@@ -936,7 +938,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // Create highlight marker (DOM-based, updated via injectJavaScript from React Native)
       var hlEl = document.createElement('div');
       hlEl.style.cssText = 'width:14px;height:14px;border-radius:50%;background:#FC4C02;border:1.5px solid white;display:none;box-shadow:0 0 4px rgba(0,0,0,0.4);';
-      window._highlightMarker = new maplibregl.Marker({element: hlEl}).setLngLat([0,0]).addTo(map);
+      window._highlightMarker = new maplibregl.Marker({element: hlEl, occludedOpacity: 1}).setLngLat([0,0]).addTo(map);
 
       // Terrain-first ready detection — only wait for DEM terrain and route sources,
       // not ALL tiles. At 60° pitch, horizon vector/label tiles are deprioritized and

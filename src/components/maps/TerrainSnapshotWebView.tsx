@@ -145,7 +145,8 @@ function generateWorkerHtml(id: number): string {
           }
           return fetch(realUrl).then(function(r) {
             window._rn_log('DEM fetch ' + r.status + ': ' + realUrl.split('/').slice(-3).join('/'));
-            if (r.ok) { cache.put(realUrl, r.clone()); maybeEvict(TERRAIN_CACHE); }
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            cache.put(realUrl, r.clone()); maybeEvict(TERRAIN_CACHE);
             return r.blob().then(demBlobToImage);
           });
         });
@@ -165,7 +166,8 @@ function generateWorkerHtml(id: number): string {
             return cached.blob().then(demBlobToImage);
           }
           return fetch(realUrl).then(function(r) {
-            if (r.ok) { cache.put(realUrl, r.clone()); maybeEvict(SATELLITE_CACHE); }
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            cache.put(realUrl, r.clone()); maybeEvict(SATELLITE_CACHE);
             return r.blob().then(demBlobToImage);
           });
         });
@@ -180,7 +182,8 @@ function generateWorkerHtml(id: number): string {
         return cache.match(realUrl).then(function(cached) {
           if (cached) return cached.arrayBuffer().then(function(d) { return { data: d }; });
           return fetch(realUrl).then(function(r) {
-            if (r.ok) { cache.put(realUrl, r.clone()); maybeEvict(VECTOR_CACHE); }
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            cache.put(realUrl, r.clone()); maybeEvict(VECTOR_CACHE);
             return r.arrayBuffer().then(function(d) { return { data: d }; });
           });
         });
