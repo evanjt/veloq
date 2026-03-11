@@ -277,6 +277,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           if (typeof data !== 'object' || data === null || typeof data.type !== 'string') {
             return;
           }
+          if (data.type === 'console') {
+            console.log('[3D]', data.message);
+            return;
+          }
           if (data.type === 'mapReady') {
             mapReadyRef.current = true;
             onMapReady?.();
@@ -544,8 +548,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>3D Map</title>
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@5.19.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.19.0/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
     body { margin: 0; padding: 0; overflow: hidden; }
     #map { width: 100vw; height: 100vh; }
@@ -554,6 +558,17 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 <body>
   <div id="map"></div>
   <script>
+    // Bridge console logging to React Native for debugging
+    window._rn_log = function(msg) {
+      try {
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'console', message: String(msg)
+          }));
+        }
+      } catch(e) {}
+    };
+
     const coordinates = ${coordsJSON};
     window._routeCoords = coordinates;
     const bounds = ${boundsJSON};
@@ -563,58 +578,116 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const savedPitch = ${pitchValue};
     const isSatellite = ${isSatellite};
 
-    // Cache terrain DEM tiles via Cache API — persists across WebView recreations
-    // because baseUrl is https://veloq.fit/ (stable HTTPS origin).
-    // Protocol name is forward-compatible with future Rust tile cache (ROADMAP 7.3).
-    var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
-    maplibregl.addProtocol('cached-terrain', function(params, callback) {
-      var realUrl = 'https://' + params.url.substring('cached-terrain://'.length);
-      caches.open(TERRAIN_CACHE).then(function(cache) {
-        return cache.match(realUrl).then(function(cached) {
-          if (cached) return cached.arrayBuffer().then(function(d) { callback(null, d, null, null); });
-          return fetch(realUrl).then(function(r) {
-            if (r.ok) { cache.put(realUrl, r.clone()); return r.arrayBuffer().then(function(d) { callback(null, d, null, null); }); }
-            callback(new Error('HTTP ' + r.status));
+    // Decode ArrayBuffer/Blob into HTMLImageElement via Object URL.
+    // MapLibre v5 uses it directly (instanceof HTMLImageElement check),
+    // bypassing arrayBufferToCanvasImageSource → createImageBitmap
+    // which fails silently in Android WebView.
+    function demBlobToImage(blob) {
+      return new Promise(function(resolve, reject) {
+        var url = URL.createObjectURL(blob);
+        var img = new Image();
+        img.onload = function() {
+          URL.revokeObjectURL(url);
+          resolve({ data: img });
+        };
+        img.onerror = function() {
+          URL.revokeObjectURL(url);
+          reject(new Error('DEM image decode failed'));
+        };
+        img.src = url;
+      });
+    }
+
+    // Cache eviction — FIFO, size-based. Checked every 50 inserts per cache.
+    var _insertCounts = {};
+    var CACHE_BUDGETS = {
+      'veloq-satellite-v1': 120 * 1024 * 1024,
+      'veloq-vector-v1': 50 * 1024 * 1024,
+      'veloq-terrain-dem-v1': 30 * 1024 * 1024,
+    };
+
+    function maybeEvict(cacheName) {
+      _insertCounts[cacheName] = (_insertCounts[cacheName] || 0) + 1;
+      if (_insertCounts[cacheName] % 50 !== 0) return;
+      var budget = CACHE_BUDGETS[cacheName];
+      if (!budget) return;
+      caches.open(cacheName).then(function(cache) {
+        cache.keys().then(function(requests) {
+          var sizes = requests.map(function(req) {
+            return cache.match(req).then(function(r) {
+              return { req: req, size: r ? (parseInt(r.headers.get('content-length') || '0') || 0) : 0 };
+            });
+          });
+          Promise.all(sizes).then(function(entries) {
+            var total = entries.reduce(function(s, e) { return s + e.size; }, 0);
+            if (total <= budget) return;
+            for (var i = 0; i < entries.length && total > budget; i++) {
+              cache.delete(entries[i].req);
+              total -= entries[i].size;
+            }
           });
         });
-      }).catch(function() {
-        fetch(realUrl).then(function(r) { return r.arrayBuffer(); })
-          .then(function(d) { callback(null, d, null, null); })
-          .catch(function(e) { callback(e); });
       });
-      return { cancel: function() {} };
+    }
+
+    // Cache terrain DEM tiles via Cache API — persists across WebView recreations
+    // because baseUrl is https://veloq.fit/ (stable HTTPS origin).
+    // MapLibre v5.19.0 uses promise-based addProtocol.
+    var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
+    var terrainHits = 0, terrainMisses = 0;
+    maplibregl.addProtocol('cached-terrain', function(params) {
+      var realUrl = 'https://' + params.url.substring('cached-terrain://'.length);
+      return caches.open(TERRAIN_CACHE).then(function(cache) {
+        return cache.match(realUrl).then(function(cached) {
+          if (cached) {
+            terrainHits++;
+            window._rn_log('terrain cache hit');
+            return cached.blob().then(demBlobToImage);
+          }
+          terrainMisses++;
+          return fetch(realUrl).then(function(r) {
+            if (r.ok) { cache.put(realUrl, r.clone()); maybeEvict(TERRAIN_CACHE); }
+            return r.blob().then(demBlobToImage);
+          });
+        });
+      }).catch(function(err) {
+        window._rn_log('terrain protocol error: ' + err.message);
+        throw err;
+      });
     });
 
     // Cache satellite tiles via Cache API
     var SATELLITE_CACHE = 'veloq-satellite-v1';
-    maplibregl.addProtocol('cached-satellite', function(params, callback) {
+    var satHits = 0, satMisses = 0;
+    maplibregl.addProtocol('cached-satellite', function(params) {
       var realUrl = 'https://' + params.url.substring('cached-satellite://'.length);
-      caches.open(SATELLITE_CACHE).then(function(cache) {
+      return caches.open(SATELLITE_CACHE).then(function(cache) {
         return cache.match(realUrl).then(function(cached) {
-          if (cached) return cached.arrayBuffer().then(function(d) { callback(null, d, null, null); });
+          if (cached) { satHits++; return cached.blob().then(demBlobToImage); }
+          satMisses++;
           return fetch(realUrl).then(function(r) {
-            if (r.ok) cache.put(realUrl, r.clone());
-            return r.arrayBuffer().then(function(d) { callback(null, d, null, null); });
+            if (r.ok) { cache.put(realUrl, r.clone()); maybeEvict(SATELLITE_CACHE); }
+            return r.blob().then(demBlobToImage);
           });
         });
-      }).catch(function(e) { callback(e); });
-      return { cancel: function() {} };
+      });
     });
 
     // Cache vector tiles (protocol buffers) via Cache API
     var VECTOR_CACHE = 'veloq-vector-v1';
-    maplibregl.addProtocol('cached-vector', function(params, callback) {
+    var vecHits = 0, vecMisses = 0;
+    maplibregl.addProtocol('cached-vector', function(params) {
       var realUrl = 'https://' + params.url.substring('cached-vector://'.length);
-      caches.open(VECTOR_CACHE).then(function(cache) {
+      return caches.open(VECTOR_CACHE).then(function(cache) {
         return cache.match(realUrl).then(function(cached) {
-          if (cached) return cached.arrayBuffer().then(function(d) { callback(null, d, null, null); });
+          if (cached) { vecHits++; return cached.arrayBuffer().then(function(d) { return { data: d }; }); }
+          vecMisses++;
           return fetch(realUrl).then(function(r) {
-            if (r.ok) cache.put(realUrl, r.clone());
-            return r.arrayBuffer().then(function(d) { callback(null, d, null, null); });
+            if (r.ok) { cache.put(realUrl, r.clone()); maybeEvict(VECTOR_CACHE); }
+            return r.arrayBuffer().then(function(d) { return { data: d }; });
           });
         });
-      }).catch(function(e) { callback(e); });
-      return { cancel: function() {} };
+      });
     });
 
     // Rewrite vector source URLs in a fetched style JSON
@@ -653,39 +726,34 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       return opts;
     }
 
+    // All style paths create the map synchronously — no initMap() wrapper needed.
+    // Light style uses URL directly (no vector caching on initial load — the
+    // setStyle() injection path handles caching for subsequent style changes).
+    try {
     var styleJSON = ${styleConfig};
     if (styleJSON) {
+      window._rn_log('creating map with inline style (satellite/dark)');
       window.map = new maplibregl.Map(buildMapOptions(styleJSON));
     } else {
-      // Light style: fetch JSON, rewrite vector URLs, then init map
-      fetch('https://tiles.openfreemap.org/styles/liberty')
-        .then(function(r) { return r.json(); })
-        .then(function(s) {
-          rewriteVectorSources(s);
-          window.map = new maplibregl.Map(buildMapOptions(s));
-          initMap();
-        })
-        .catch(function(e) {
-          console.warn('[3D] Failed to fetch light style, using URL fallback:', e);
-          window.map = new maplibregl.Map(buildMapOptions('https://tiles.openfreemap.org/styles/liberty'));
-          initMap();
-        });
+      window._rn_log('creating map with light style URL');
+      window.map = new maplibregl.Map(buildMapOptions('https://tiles.openfreemap.org/styles/liberty'));
     }
 
-    if (styleJSON) { initMap(); }
+    var map = window.map;
 
-    function initMap() {
-
-    const map = window.map;
+    // Surface any map-level errors (style parse failures, tile load errors, etc.)
+    map.on('error', function(e) {
+      window._rn_log('map error: ' + (e.error ? e.error.message || e.error : e.message || JSON.stringify(e)));
+    });
 
     // Track camera changes and save state for restoration
     function saveCameraState() {
       if (window.ReactNativeWebView) {
-        const center = map.getCenter();
+        var c = map.getCenter();
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'cameraState',
           camera: {
-            center: [center.lng, center.lat],
+            center: [c.lng, c.lat],
             zoom: map.getZoom(),
             bearing: map.getBearing(),
             pitch: map.getPitch()
@@ -695,7 +763,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     }
 
     // Track bearing changes and notify React Native
-    map.on('rotate', () => {
+    map.on('rotate', function() {
       if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'bearingChange',
@@ -710,7 +778,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     map.on('rotateend', saveCameraState);
     map.on('pitchend', saveCameraState);
 
-    map.on('load', () => {
+    map.on('load', function() {
+      window._rn_log('map load event fired');
+
       // Add AWS Terrain Tiles source via cached-terrain:// protocol
       map.addSource('terrain', {
         type: 'raster-dem',
@@ -725,6 +795,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         source: 'terrain',
         exaggeration: ${terrainExaggeration},
       });
+      window._rn_log('terrain set, exaggeration=${terrainExaggeration}');
 
       // Sky/fog to blend horizon instead of white tiles
       // setSky may not be available in all MapLibre versions — cosmetic only, safe to skip
@@ -760,8 +831,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             'atmosphere-blend': 0.8,
           });
         }
+        window._rn_log('sky set');
       } catch(e) {
-        console.log('[3D] setSky unavailable (ok): ' + e.message);
+        window._rn_log('setSky unavailable (ok): ' + e.message);
       }
 
       // Add hillshade for better depth perception (skip for satellite - already has shadows)
@@ -873,6 +945,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       function sendMapReady() {
         if (mapReadySent) return;
         mapReadySent = true;
+        window._rn_log('sending mapReady — terrain:' + terrainHits + '/' + terrainMisses + ' sat:' + satHits + '/' + satMisses + ' vec:' + vecHits + '/' + vecMisses);
         if (window.ReactNativeWebView) {
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
         }
@@ -903,7 +976,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // Terrain + route sources load much faster than full vector tile sets.
       setTimeout(function() {
         if (!mapReadySent) {
-          console.log('[3D] Hard timeout — sending mapReady after 4s');
+          window._rn_log('hard timeout — sending mapReady after 4s');
           sendMapReady();
         }
       }, 4000);
@@ -930,7 +1003,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         }, 1000);
       });
     });
-    } // end initMap
+    } catch(e) {
+      window._rn_log('SCRIPT ERROR: ' + e.message + ' at ' + (e.stack || ''));
+    }
   </script>
 </body>
 </html>
