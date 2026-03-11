@@ -898,14 +898,14 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 
         function createFlagMarker(icon, bgColor) {
           var el = document.createElement('div');
-          el.style.cssText = 'position:relative;width:14px;height:14px;';
+          el.style.cssText = 'position:relative;width:20px;height:24px;';
           // Shadow ellipse underneath for 3D grounding effect
           var shadow = document.createElement('div');
-          shadow.style.cssText = 'position:absolute;bottom:-4px;left:1px;width:12px;height:5px;background:rgba(0,0,0,0.35);border-radius:50%;filter:blur(2px);';
+          shadow.style.cssText = 'position:absolute;bottom:0;left:2px;width:16px;height:6px;background:rgba(0,0,0,0.4);border-radius:50%;filter:blur(2px);';
           el.appendChild(shadow);
           // Pin circle
           var pin = document.createElement('div');
-          pin.style.cssText = 'position:absolute;top:0;left:0;width:14px;height:14px;border-radius:50%;background:' + bgColor + ';border:2px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.4);font-size:10px;line-height:1;color:white;';
+          pin.style.cssText = 'position:absolute;top:0;left:0;width:20px;height:20px;border-radius:50%;background:' + bgColor + ';border:2.5px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,0.5);font-size:11px;line-height:1;color:white;';
           pin.textContent = icon;
           el.appendChild(pin);
           return el;

@@ -1358,7 +1358,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             >
               <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
                 <View style={[styles.marker, styles.startMarker]}>
-                  <MaterialCommunityIcons name="flag-outline" size={10} color={colors.textOnDark} />
+                  <MaterialCommunityIcons name="flag-outline" size={12} color={colors.textOnDark} />
                 </View>
               </View>
             </MarkerView>
@@ -1370,7 +1370,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 <View style={[styles.marker, styles.endMarker]}>
                   <MaterialCommunityIcons
                     name="flag-checkered"
-                    size={10}
+                    size={12}
                     color={colors.textOnDark}
                   />
                 </View>
@@ -1736,7 +1736,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           >
             <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
               <View style={[styles.marker, styles.startMarker]}>
-                <MaterialCommunityIcons name="flag-outline" size={10} color={colors.textOnDark} />
+                <MaterialCommunityIcons name="flag-outline" size={12} color={colors.textOnDark} />
               </View>
             </View>
           </MarkerView>
@@ -1814,19 +1814,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   marker: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1.5,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
     borderColor: colors.textOnDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
   startMarker: {
-    backgroundColor: 'rgba(34,197,94,0.9)',
+    backgroundColor: 'rgba(34,197,94,0.95)',
   },
   endMarker: {
-    backgroundColor: 'rgba(239,68,68,0.9)',
+    backgroundColor: 'rgba(239,68,68,0.95)',
   },
   sectionStartMarker: {
     backgroundColor: '#00BCD4', // Cyan - distinct from activity start (green)
