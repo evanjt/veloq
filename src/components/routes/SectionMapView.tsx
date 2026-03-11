@@ -405,7 +405,9 @@ export const SectionMapView = memo(function SectionMapView({
       {/* Use opacity to hide when point is undefined */}
       <MarkerView coordinate={startPoint ? [startPoint.lng, startPoint.lat] : [0, 0]}>
         <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
-          <View style={[styles.marker, styles.startMarker]} />
+          <View style={[styles.marker, styles.startMarker]}>
+            <MaterialCommunityIcons name="flag-outline" size={10} color={colors.textOnDark} />
+          </View>
         </View>
       </MarkerView>
 
@@ -413,7 +415,9 @@ export const SectionMapView = memo(function SectionMapView({
       {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
       <MarkerView coordinate={endPoint ? [endPoint.lng, endPoint.lat] : [0, 0]}>
         <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
-          <View style={[styles.marker, styles.endMarker]} />
+          <View style={[styles.marker, styles.endMarker]}>
+            <MaterialCommunityIcons name="flag-checkered" size={10} color={colors.textOnDark} />
+          </View>
         </View>
       </MarkerView>
     </MapView>
@@ -578,7 +582,9 @@ export const SectionMapView = memo(function SectionMapView({
           {startPoint && (
             <MarkerView coordinate={[startPoint.lng, startPoint.lat]}>
               <View style={styles.markerContainer}>
-                <View style={[styles.marker, styles.startMarker]} />
+                <View style={[styles.marker, styles.startMarker]}>
+                  <MaterialCommunityIcons name="flag-outline" size={10} color={colors.textOnDark} />
+                </View>
               </View>
             </MarkerView>
           )}
@@ -587,7 +593,13 @@ export const SectionMapView = memo(function SectionMapView({
           {endPoint && (
             <MarkerView coordinate={[endPoint.lng, endPoint.lat]}>
               <View style={styles.markerContainer}>
-                <View style={[styles.marker, styles.endMarker]} />
+                <View style={[styles.marker, styles.endMarker]}>
+                  <MaterialCommunityIcons
+                    name="flag-checkered"
+                    size={10}
+                    color={colors.textOnDark}
+                  />
+                </View>
               </View>
             </MarkerView>
           )}
@@ -620,9 +632,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1.5,
     borderColor: colors.textOnDark,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
   startMarker: {
-    backgroundColor: 'rgba(34,197,94,0.75)',
+    backgroundColor: 'rgba(34,197,94,0.9)',
   },
   endMarker: {
     backgroundColor: 'rgba(239,68,68,0.75)',

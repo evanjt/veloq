@@ -1357,7 +1357,9 @@ export const ActivityMapView = memo(function ActivityMapView({
               coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
             >
               <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
-                <View style={[styles.marker, styles.startMarker]} />
+                <View style={[styles.marker, styles.startMarker]}>
+                  <MaterialCommunityIcons name="flag-outline" size={10} color={colors.textOnDark} />
+                </View>
               </View>
             </MarkerView>
 
@@ -1365,7 +1367,13 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
             <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
               <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
-                <View style={[styles.marker, styles.endMarker]} />
+                <View style={[styles.marker, styles.endMarker]}>
+                  <MaterialCommunityIcons
+                    name="flag-checkered"
+                    size={10}
+                    color={colors.textOnDark}
+                  />
+                </View>
               </View>
             </MarkerView>
 
@@ -1727,7 +1735,9 @@ export const ActivityMapView = memo(function ActivityMapView({
             coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
           >
             <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
-              <View style={[styles.marker, styles.startMarker]} />
+              <View style={[styles.marker, styles.startMarker]}>
+                <MaterialCommunityIcons name="flag-outline" size={10} color={colors.textOnDark} />
+              </View>
             </View>
           </MarkerView>
 
@@ -1735,7 +1745,9 @@ export const ActivityMapView = memo(function ActivityMapView({
           {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
           <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
             <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
-              <View style={[styles.marker, styles.endMarker]} />
+              <View style={[styles.marker, styles.endMarker]}>
+                <MaterialCommunityIcons name="flag-checkered" size={10} color={colors.textOnDark} />
+              </View>
             </View>
           </MarkerView>
         </BaseMapView>
@@ -1807,12 +1819,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1.5,
     borderColor: colors.textOnDark,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   startMarker: {
-    backgroundColor: 'rgba(34,197,94,0.75)',
+    backgroundColor: 'rgba(34,197,94,0.9)',
   },
   endMarker: {
-    backgroundColor: 'rgba(239,68,68,0.75)',
+    backgroundColor: 'rgba(239,68,68,0.9)',
   },
   sectionStartMarker: {
     backgroundColor: '#00BCD4', // Cyan - distinct from activity start (green)
