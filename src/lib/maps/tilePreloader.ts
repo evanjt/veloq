@@ -7,27 +7,13 @@
  */
 
 import { SATELLITE_SOURCES } from '@/components/maps/mapStyles';
+import { lng2tile, lat2tile } from './tileGeometry';
 
 interface ActivityBounds {
   minLat: number;
   maxLat: number;
   minLng: number;
   maxLng: number;
-}
-
-/** Convert longitude to tile X coordinate */
-function lng2tile(lng: number, z: number): number {
-  return Math.floor(((lng + 180) / 360) * Math.pow(2, z));
-}
-
-/** Convert latitude to tile Y coordinate */
-function lat2tile(lat: number, z: number): number {
-  return Math.floor(
-    ((1 -
-      Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) /
-      2) *
-      Math.pow(2, z)
-  );
 }
 
 /**

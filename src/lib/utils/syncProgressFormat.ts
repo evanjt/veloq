@@ -5,6 +5,7 @@
 
 import type { TFunction } from 'i18next';
 import type { GpsSyncProgress, TerrainSnapshotProgress } from '@/providers/SyncDateRangeStore';
+import type { PrefetchStatus } from '@/providers/TileCacheStore';
 
 export interface SyncDisplayInfo {
   icon: string;
@@ -76,6 +77,42 @@ export function formatTerrainSnapshotProgress(
     countText: `${progress.completed}/${progress.total}`,
     indeterminate: false,
   };
+}
+
+/**
+ * Format tile prefetch progress for display in the top banner.
+ * Returns null when idle, complete, or errored.
+ */
+export function formatTilePrefetchProgress(
+  status: PrefetchStatus,
+  progress: { downloaded: number; total: number },
+  t: TFunction
+): SyncDisplayInfo | null {
+  if (status === 'computing') {
+    return {
+      icon: 'map-outline',
+      text: t('settings.computing', { defaultValue: 'Computing tile regions...' }) as string,
+      percent: 0,
+      countText: null,
+      indeterminate: true,
+    };
+  }
+
+  if (status === 'downloading') {
+    const percent =
+      progress.total > 0
+        ? Math.min(100, Math.round((progress.downloaded / progress.total) * 100))
+        : 0;
+    return {
+      icon: 'map-outline',
+      text: t('cache.downloadingTiles', { defaultValue: 'Caching map tiles' }) as string,
+      percent,
+      countText: progress.total > 0 ? `${progress.downloaded}/${progress.total}` : null,
+      indeterminate: progress.downloaded === 0 && progress.total === 0,
+    };
+  }
+
+  return null;
 }
 
 /**

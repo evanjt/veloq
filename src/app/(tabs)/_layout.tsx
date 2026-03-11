@@ -7,9 +7,11 @@ import { useRef } from 'react';
 import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { PERF_DEBUG } from '@/lib/debug/renderTimer';
+import { useTilePrefetch } from '@/hooks/maps/useTilePrefetch';
 
 export default function TabsLayout() {
   const { t } = useTranslation();
+  useTilePrefetch();
   // Performance: Track render count
   const renderCount = useRef(0);
   renderCount.current++;

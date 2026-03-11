@@ -386,13 +386,25 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
                   geometry: { type: 'LineString', coordinates: coords } },
                 tolerance: 0,
               };
+              styleObj.sources['start-end-markers'] = {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features: [
+                  { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: startPt } },
+                  { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: endPt } },
+                ]},
+              };
               styleObj.layers.push(
                 { id: 'route-outline', type: 'line', source: 'route',
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
                   paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.8 } },
                 { id: 'route-line', type: 'line', source: 'route',
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': routeColor, 'line-width': 5 } }
+                  paint: { 'line-color': routeColor, 'line-width': 5 } },
+                { id: 'start-end-border', type: 'circle', source: 'start-end-markers',
+                  paint: { 'circle-radius': 7, 'circle-color': '#FFFFFF' } },
+                { id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
+                  paint: { 'circle-radius': 5,
+                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'] } }
               );
             }
 
@@ -892,29 +904,39 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           },
         });
 
-        // Start/end flag markers — DOM-based for 3D pin effect with drop shadow
+        // Start/end circle markers
         var startPt = coordinates[0];
         var endPt = coordinates[coordinates.length - 1];
-
-        function createFlagMarker(icon, bgColor) {
-          var el = document.createElement('div');
-          el.style.cssText = 'position:relative;width:14px;height:14px;';
-          // Shadow ellipse underneath for 3D grounding effect
-          var shadow = document.createElement('div');
-          shadow.style.cssText = 'position:absolute;bottom:-4px;left:1px;width:12px;height:5px;background:rgba(0,0,0,0.35);border-radius:50%;filter:blur(2px);';
-          el.appendChild(shadow);
-          // Pin circle
-          var pin = document.createElement('div');
-          pin.style.cssText = 'position:absolute;top:0;left:0;width:14px;height:14px;border-radius:50%;background:' + bgColor + ';border:2px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.4);font-size:10px;line-height:1;color:white;';
-          pin.textContent = icon;
-          el.appendChild(pin);
-          return el;
-        }
-
-        new maplibregl.Marker({ element: createFlagMarker('⚑', 'rgba(34,197,94,0.95)'), occludedOpacity: 1, anchor: 'center' })
-          .setLngLat(startPt).addTo(map);
-        new maplibregl.Marker({ element: createFlagMarker('🏁', 'rgba(239,68,68,0.95)'), occludedOpacity: 1, anchor: 'center' })
-          .setLngLat(endPt).addTo(map);
+        map.addSource('start-end-markers', {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection',
+            features: [
+              { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: startPt } },
+              { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: endPt } },
+            ],
+          },
+        });
+        // White border ring
+        map.addLayer({
+          id: 'start-end-border',
+          type: 'circle',
+          source: 'start-end-markers',
+          paint: {
+            'circle-radius': 7,
+            'circle-color': '#FFFFFF',
+          },
+        });
+        // Colored fill (green start, red end)
+        map.addLayer({
+          id: 'start-end-fill',
+          type: 'circle',
+          source: 'start-end-markers',
+          paint: {
+            'circle-radius': 5,
+            'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'],
+          },
+        });
       }
 
       // Create highlight marker as map layers (not DOM marker — immune to terrain occlusion)

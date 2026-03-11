@@ -41,6 +41,7 @@ jest.mock('@/providers', () => ({
   initializePotentialSections: jest.fn().mockResolvedValue(undefined),
   initializeDashboardPreferences: jest.fn().mockResolvedValue(undefined),
   initializeDebugStore: jest.fn().mockResolvedValue(undefined),
+  initializeTileCacheStore: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/lib/storage/terrainCameraOverrides', () => ({

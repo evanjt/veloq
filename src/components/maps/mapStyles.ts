@@ -254,51 +254,17 @@ export function getCombinedSatelliteStyle3D(): CombinedSatelliteMapStyle {
 }
 
 /**
- * Build a minimal satellite style for snapshot rendering at a known location.
- * Only includes EOX (global base) + the one relevant regional source.
- * Avoids loading tiles from irrelevant regional servers that may hang
- * (e.g. IGN tiles outside France stall indefinitely, blocking isStyleLoaded).
+ * Build a satellite style for snapshot rendering.
+ * Uses the full combined style (all regional sources with bounds).
+ * MapLibre only requests tiles from sources whose bounds overlap the viewport,
+ * so irrelevant sources add zero network overhead.
  */
 export function getSnapshotSatelliteStyle(
-  lat: number,
-  lng: number,
-  zoom: number
+  _lat: number,
+  _lng: number,
+  _zoom: number
 ): CombinedSatelliteMapStyle {
-  const primarySource = getSatelliteSourceId(lat, lng, zoom);
-
-  const sources: CombinedSatelliteMapStyle['sources'] = {
-    'satellite-eox': {
-      type: 'raster',
-      tiles: SATELLITE_SOURCES.eox.tiles,
-      tileSize: SATELLITE_SOURCES.eox.tileSize,
-      maxzoom: SATELLITE_SOURCES.eox.maxzoom,
-    },
-  };
-
-  const layers: CombinedSatelliteMapStyle['layers'] = [
-    { id: 'background', type: 'background', paint: { 'background-color': '#0a1628' } },
-    { id: 'satellite-layer-eox', type: 'raster', source: 'satellite-eox', minzoom: 0, maxzoom: 22 },
-  ];
-
-  if (primarySource !== 'eox') {
-    const sourceKey = `satellite-${primarySource}`;
-    sources[sourceKey] = {
-      type: 'raster',
-      tiles: SATELLITE_SOURCES[primarySource].tiles,
-      tileSize: SATELLITE_SOURCES[primarySource].tileSize,
-      maxzoom: SATELLITE_SOURCES[primarySource].maxzoom,
-      bounds: SATELLITE_SOURCES[primarySource].bounds,
-    };
-    layers.push({
-      id: `satellite-layer-${primarySource}`,
-      type: 'raster',
-      source: sourceKey,
-      minzoom: 0,
-      maxzoom: 22,
-    });
-  }
-
-  return { version: 8, sources, layers };
+  return getCombinedSatelliteStyle();
 }
 
 /**
@@ -458,20 +424,58 @@ export function getTerrainSnapshotStyle(mode: 'light' | 'dark') {
       {
         id: 'background',
         type: 'background' as const,
-        paint: {
-          'background-color': isLight ? '#E8E0D8' : '#1A1A1A',
-        },
+        paint: { 'background-color': isLight ? '#E8E0D8' : '#1A1A1A' },
       },
+      // Landcover — broad natural areas
+      {
+        id: 'landcover_wood',
+        type: 'fill' as const,
+        source: 'openmaptiles',
+        'source-layer': 'landcover',
+        filter: ['all', ['==', '$type', 'Polygon'], ['==', 'subclass', 'wood']],
+        paint: { 'fill-color': isLight ? '#ADD19E' : '#1A2E1A', 'fill-opacity': 0.7 },
+      },
+      {
+        id: 'landcover_grass',
+        type: 'fill' as const,
+        source: 'openmaptiles',
+        'source-layer': 'landcover',
+        filter: ['all', ['==', '$type', 'Polygon'], ['in', 'subclass', 'grass', 'farmland']],
+        paint: { 'fill-color': isLight ? '#D2E4B0' : '#1E2A16', 'fill-opacity': 0.6 },
+      },
+      // Landuse — human areas
+      {
+        id: 'landuse_residential',
+        type: 'fill' as const,
+        source: 'openmaptiles',
+        'source-layer': 'landuse',
+        filter: ['all', ['==', '$type', 'Polygon'], ['==', 'class', 'residential']],
+        paint: { 'fill-color': isLight ? '#DFDBD6' : '#252525', 'fill-opacity': 0.6 },
+      },
+      {
+        id: 'landuse_commercial',
+        type: 'fill' as const,
+        source: 'openmaptiles',
+        'source-layer': 'landuse',
+        filter: ['all', ['==', '$type', 'Polygon'], ['in', 'class', 'commercial', 'industrial']],
+        paint: { 'fill-color': isLight ? '#E0D8D0' : '#282828', 'fill-opacity': 0.5 },
+      },
+      {
+        id: 'landuse_park',
+        type: 'fill' as const,
+        source: 'openmaptiles',
+        'source-layer': 'landuse',
+        filter: ['all', ['==', '$type', 'Polygon'], ['in', 'class', 'park', 'cemetery']],
+        paint: { 'fill-color': isLight ? '#A8CC8C' : '#1C2E1C', 'fill-opacity': 0.7 },
+      },
+      // Water
       {
         id: 'water',
         type: 'fill' as const,
         source: 'openmaptiles',
         'source-layer': 'water',
         filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'brunnel', 'tunnel']],
-        paint: {
-          'fill-color': isLight ? '#A3C7DF' : '#1B1B1D',
-          'fill-antialias': false,
-        },
+        paint: { 'fill-color': isLight ? '#A3C7DF' : '#1B1B1D', 'fill-antialias': false },
       },
       {
         id: 'waterway',
@@ -485,6 +489,90 @@ export function getTerrainSnapshotStyle(mode: 'light' | 'dark') {
           'line-opacity': 0.6,
         },
       },
+      // Roads — major roads only, follow terrain for geographic context
+      {
+        id: 'road_motorway_casing',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation',
+        minzoom: 5,
+        filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'motorway']],
+        layout: { 'line-join': 'round' as const, 'line-cap': 'round' as const },
+        paint: {
+          'line-color': isLight ? '#E0A050' : '#333333',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 5, 1, 12, 4, 16, 8],
+          'line-opacity': 0.6,
+        },
+      },
+      {
+        id: 'road_motorway',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation',
+        minzoom: 5,
+        filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'motorway']],
+        layout: { 'line-join': 'round' as const, 'line-cap': 'round' as const },
+        paint: {
+          'line-color': isLight ? '#F0C070' : '#444444',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 12, 2.5, 16, 5],
+        },
+      },
+      {
+        id: 'road_trunk_casing',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation',
+        minzoom: 7,
+        filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'trunk']],
+        layout: { 'line-join': 'round' as const, 'line-cap': 'round' as const },
+        paint: {
+          'line-color': isLight ? '#D8A060' : '#333333',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.8, 12, 3, 16, 6],
+          'line-opacity': 0.5,
+        },
+      },
+      {
+        id: 'road_trunk',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation',
+        minzoom: 7,
+        filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'trunk']],
+        layout: { 'line-join': 'round' as const, 'line-cap': 'round' as const },
+        paint: {
+          'line-color': isLight ? '#F0D080' : '#3A3A3A',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.4, 12, 1.8, 16, 3.5],
+        },
+      },
+      {
+        id: 'road_primary',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation',
+        minzoom: 8,
+        filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'primary']],
+        layout: { 'line-join': 'round' as const, 'line-cap': 'round' as const },
+        paint: {
+          'line-color': isLight ? '#FFFFFF' : '#353535',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.3, 12, 1.2, 16, 3],
+          'line-opacity': 0.7,
+        },
+      },
+      {
+        id: 'road_secondary',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation',
+        minzoom: 10,
+        filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'secondary']],
+        layout: { 'line-join': 'round' as const, 'line-cap': 'round' as const },
+        paint: {
+          'line-color': isLight ? '#FFFFFF' : '#303030',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.2, 14, 0.8, 16, 2],
+          'line-opacity': 0.5,
+        },
+      },
+      // Boundaries
       {
         id: 'boundary_country',
         type: 'line' as const,

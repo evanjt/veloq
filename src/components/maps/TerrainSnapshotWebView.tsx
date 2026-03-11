@@ -37,7 +37,10 @@ import {
   onClearTileCache,
   onTileCacheStatsRequest,
   emitTileCacheStats,
+  onPrefetchTilesRequest,
+  type PrefetchTilesBatch,
 } from '@/lib/events/terrainSnapshotEvents';
+import { generatePreloadScript } from '@/lib/maps/tilePreloader';
 import { useSyncDateRange } from '@/providers';
 
 const SNAPSHOT_TIMEOUT_MS = 12000;
@@ -362,8 +365,9 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         const isSatellite = request.mapStyle === 'satellite';
         const isDark = request.mapStyle === 'dark' || request.mapStyle === 'satellite';
 
-        // Use minimal terrain-focused styles for light/dark — full vector styles
-        // (Liberty, Dark Matter) have dozens of flat layers that clash with 3D terrain
+        // Satellite and dark: use inline style objects.
+        // Light: fetch full Liberty style from URL (same as detail 3D view).
+        const isLight = !isSatellite && request.mapStyle !== 'dark';
         const styleConfig = isSatellite
           ? JSON.stringify(
               rewriteSatelliteUrls(
@@ -374,11 +378,10 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 )
               )
             )
-          : JSON.stringify(
-              rewriteVectorUrls(
-                getTerrainSnapshotStyle(request.mapStyle === 'dark' ? 'dark' : 'light')
-              )
-            );
+          : isLight
+            ? 'null'
+            : JSON.stringify(rewriteVectorUrls(getTerrainSnapshotStyle('dark')));
+        const lightStyleUrl = isLight ? 'https://tiles.openfreemap.org/styles/liberty' : '';
 
         const coordsJSON = JSON.stringify(request.coordinates);
         const cameraJSON = JSON.stringify(request.camera);
@@ -394,7 +397,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               var isSatellite = ${isSatellite};
               var isDark = ${isDark};
               var routeColor = '${request.routeColor}';
-              var styleObj = ${styleConfig};
+              var lightStyleUrl = '${lightStyleUrl}';
+              var inlineStyle = ${styleConfig};
               var activityId = '${request.activityId}';
               var mapStyle = '${request.mapStyle}';
               var myGen = ${gen};
@@ -439,13 +443,17 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                   function fpOnData() { fpLastData = Date.now(); }
                   window.map.on('data', fpOnData);
 
-                  // Fast path: idle event
-                  window.map.once('idle', function() {
-                    if (done || isStale()) return;
-                    done = true;
-                    window.map.off('data', fpOnData);
-                    window._rn_log('Fast path idle, capturing...');
-                    requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                  // Fast path: idle event — deferred by one frame so MapLibre
+                  // processes the camera change and queues tile requests first.
+                  // Without this, idle fires immediately (style unchanged, no pending tiles).
+                  requestAnimationFrame(function() {
+                    window.map.once('idle', function() {
+                      if (done || isStale()) return;
+                      done = true;
+                      window.map.off('data', fpOnData);
+                      window._rn_log('Fast path idle, capturing...');
+                      requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                    });
                   });
 
                   // Fast path: poll for tile activity settlement
@@ -454,7 +462,10 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     var now = Date.now();
                     var quietTime = fpLastData > 0 ? now - fpLastData : 0;
 
-                    if (window.map.isStyleLoaded()) {
+                    // Guard: require at least one tile load before accepting styleLoaded.
+                    // After jumpTo(), isStyleLoaded() returns true instantly because the
+                    // style itself hasn't changed — only the viewport moved.
+                    if (fpLastData > 0 && window.map.isStyleLoaded()) {
                       done = true;
                       clearInterval(fpPoll);
                       window.map.off('data', fpOnData);
@@ -498,6 +509,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               }
 
               // --- Build complete style with all sources and layers ---
+              function applyStyle(styleObj) {
 
               styleObj.sources['terrain'] = {
                 type: 'raster-dem',
@@ -526,10 +538,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                   layout: { visibility: 'visible' },
                   paint: {
                     'hillshade-shadow-color': isDark ? '#000000' : '#473B24',
-                    'hillshade-highlight-color': isDark ? '#2A2A2A' : '#FFFBF5',
-                    'hillshade-accent-color': isDark ? '#111111' : '#D4C4A8',
                     'hillshade-illumination-anchor': 'map',
-                    'hillshade-exaggeration': 0.6,
+                    'hillshade-exaggeration': 0.3,
                   },
                 });
               }
@@ -565,34 +575,38 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     type: 'line',
                     source: 'route',
                     layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: { 'line-color': '#FFFFFF', 'line-width': 7, 'line-opacity': 0.8 },
+                    paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.8 },
                   },
                   {
                     id: 'route-line',
                     type: 'line',
                     source: 'route',
                     layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: { 'line-color': routeColor, 'line-width': 4.5 },
+                    paint: { 'line-color': routeColor, 'line-width': 5 },
                   },
                   {
                     id: 'start-end-border',
                     type: 'circle',
                     source: 'start-end-markers',
-                    paint: { 'circle-radius': 6, 'circle-color': '#FFFFFF' },
+                    paint: { 'circle-radius': 7, 'circle-color': '#FFFFFF' },
                   },
                   {
                     id: 'start-end-fill',
                     type: 'circle',
                     source: 'start-end-markers',
                     paint: {
-                      'circle-radius': 4.5,
-                      'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.85)', 'rgba(239,68,68,0.85)'],
+                      'circle-radius': 5,
+                      'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'],
                     },
                   }
                 );
               }
 
               // --- Single atomic setStyle — MapLibre loads everything in parallel ---
+              window._rn_log('setStyle: ' + styleObj.layers.length + ' layers, '
+                + Object.keys(styleObj.sources).length + ' sources'
+                + (styleObj.glyphs ? ', glyphs OK' : ', NO glyphs')
+                + (styleObj.sprite ? ', sprite OK' : ', NO sprite'));
               window.map.setStyle(styleObj);
               window.map.jumpTo({
                 center: camera.center,
@@ -617,14 +631,17 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 window.map.off('data', onDataEvent);
               }
 
-              // Fast path: idle event (works when all sources load correctly)
-              window.map.once('idle', function() {
-                if (done || isStale()) return;
-                done = true;
-                cleanup();
-                window._currentBaseStyle = mapStyle;
-                window._rn_log('Idle event fired, capturing...');
-                requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+              // Idle event — deferred by one frame so MapLibre processes
+              // setStyle() and queues initial tile requests first.
+              requestAnimationFrame(function() {
+                window.map.once('idle', function() {
+                  if (done || isStale()) return;
+                  done = true;
+                  cleanup();
+                  window._currentBaseStyle = mapStyle;
+                  window._rn_log('Idle event fired, capturing...');
+                  requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                });
               });
 
               // Poll for readiness — multiple strategies
@@ -646,8 +663,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                   _rafCount = 0;
                 }
 
-                // Strategy 1: MapLibre API says ready
-                if (window.map.isStyleLoaded()) {
+                // Strategy 1: MapLibre API says ready (require tile activity first)
+                if (lastDataEvent > 0 && window.map.isStyleLoaded()) {
                   done = true;
                   clearInterval(readyPoll);
                   cleanup();
@@ -815,6 +832,38 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     tileErrors: window._tileErrorCount,
                   }));
                 }
+              } // end captureSnapshot
+              } // end applyStyle
+
+              // Light mode: fetch full Liberty style from URL, then apply.
+              // Dark/satellite: use the inline style object directly.
+              if (lightStyleUrl) {
+                window._rn_log('Fetching Liberty style for light mode...');
+                fetch(lightStyleUrl)
+                  .then(function(r) { return r.json(); })
+                  .then(function(fetchedStyle) {
+                    if (isStale()) return;
+                    // Rewrite OpenMapTiles source to use cached-vector:// protocol
+                    // and cap maxzoom at 14 (same as Map3DWebView) to avoid 404s
+                    if (fetchedStyle.sources) {
+                      var srcKeys = Object.keys(fetchedStyle.sources);
+                      for (var si = 0; si < srcKeys.length; si++) {
+                        var src = fetchedStyle.sources[srcKeys[si]];
+                        if (src.type === 'vector' && src.url === 'https://tiles.openfreemap.org/planet') {
+                          delete src.url;
+                          src.tiles = ['cached-vector://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'];
+                          src.maxzoom = 14;
+                        }
+                      }
+                    }
+                    applyStyle(fetchedStyle);
+                  })
+                  .catch(function(err) {
+                    window._rn_log('Liberty fetch failed: ' + err.message + ', using fallback');
+                    applyStyle(inlineStyle || { version: 8, sources: {}, layers: [] });
+                  });
+              } else {
+                applyStyle(inlineStyle);
               }
 
             } catch(e) {
@@ -1017,6 +1066,20 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           })();
           true;
         `);
+      });
+    }, [workers]);
+
+    // Listen for prefetch tile requests from TileCacheService
+    useEffect(() => {
+      return onPrefetchTilesRequest((batches: PrefetchTilesBatch[]) => {
+        // Find an idle worker to run the prefetch
+        const worker = workers.find((w) => w.mapReadyRef.current && !w.processingRef.current);
+        if (!worker?.webViewRef.current) return;
+
+        for (const batch of batches) {
+          const script = generatePreloadScript(batch.urls, batch.cacheName);
+          worker.webViewRef.current.injectJavaScript(script);
+        }
       });
     }, [workers]);
 

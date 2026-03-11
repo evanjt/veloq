@@ -19,6 +19,7 @@ import {
   initializePotentialSections,
   initializeDashboardPreferences,
   initializeDebugStore,
+  initializeTileCacheStore,
 } from '@/providers';
 import { reloadCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { reloadMapCameraState } from '@/lib/storage/mapCameraState';
@@ -45,6 +46,7 @@ const PREFERENCE_KEYS = [
   '@terrain_camera_overrides',
   '@map_camera_state',
   'veloq-map-activity-overrides',
+  'veloq-tile-cache',
 ] as const;
 
 interface BackupCustomSection {
@@ -277,6 +279,7 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
       initializePotentialSections(),
       initializeDashboardPreferences(),
       initializeDebugStore(),
+      initializeTileCacheStore(),
       reloadCameraOverrides(),
       reloadMapCameraState(),
     ]);

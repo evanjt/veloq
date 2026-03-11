@@ -99,3 +99,40 @@ export function onTileCacheStats(cb: TileCacheStatsListener): () => void {
 export function emitTileCacheStats(stats: TileCacheStats): void {
   for (const cb of tileCacheStatsListeners) cb(stats);
 }
+
+/**
+ * Prefetch tiles event — sends tile URL batches to TerrainSnapshotWebView
+ * for background downloading into the Cache API.
+ */
+export interface PrefetchTilesBatch {
+  urls: string[];
+  cacheName: string;
+}
+
+type PrefetchTilesRequestListener = (batches: PrefetchTilesBatch[]) => void;
+const prefetchTilesRequestListeners = new Set<PrefetchTilesRequestListener>();
+
+export function onPrefetchTilesRequest(cb: PrefetchTilesRequestListener): () => void {
+  prefetchTilesRequestListeners.add(cb);
+  return () => {
+    prefetchTilesRequestListeners.delete(cb);
+  };
+}
+
+export function emitPrefetchTilesRequest(batches: PrefetchTilesBatch[]): void {
+  for (const cb of prefetchTilesRequestListeners) cb(batches);
+}
+
+type PrefetchTilesProgressListener = (downloaded: number, total: number) => void;
+const prefetchTilesProgressListeners = new Set<PrefetchTilesProgressListener>();
+
+export function onPrefetchTilesProgress(cb: PrefetchTilesProgressListener): () => void {
+  prefetchTilesProgressListeners.add(cb);
+  return () => {
+    prefetchTilesProgressListeners.delete(cb);
+  };
+}
+
+export function emitPrefetchTilesProgress(downloaded: number, total: number): void {
+  for (const cb of prefetchTilesProgressListeners) cb(downloaded, total);
+}

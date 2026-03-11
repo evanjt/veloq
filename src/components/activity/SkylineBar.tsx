@@ -12,13 +12,14 @@ interface SkylineBarProps {
 export const SkylineBar = React.memo(function SkylineBar({
   skylineBytes,
   isDark,
-  height = 2,
+  height = 3,
 }: SkylineBarProps) {
   const decoded = useMemo(() => decodeSkylineBytes(skylineBytes), [skylineBytes]);
 
   if (!decoded || decoded.intervals.length === 0) return null;
 
   const palette = decoded.zoneBasis === 'hr' ? HR_ZONE_COLORS : POWER_ZONE_COLORS;
+  const dividerColor = isDark ? '#18181B' : '#FFFFFF';
 
   return (
     <View style={[styles.container, { height }]}>
@@ -29,7 +30,14 @@ export const SkylineBar = React.memo(function SkylineBar({
         if (isDark && interval.zone === 7 && decoded.zoneBasis === 'power') {
           color = '#B0B0B0';
         }
-        return <View key={i} style={{ flex: interval.duration, backgroundColor: color }} />;
+        const prevZone = i > 0 ? decoded.intervals[i - 1].zone : interval.zone;
+        const showDivider = i > 0 && prevZone !== interval.zone;
+        return (
+          <React.Fragment key={i}>
+            {showDivider && <View style={{ width: 1, backgroundColor: dividerColor }} />}
+            <View style={{ flex: interval.duration, backgroundColor: color }} />
+          </React.Fragment>
+        );
       })}
     </View>
   );

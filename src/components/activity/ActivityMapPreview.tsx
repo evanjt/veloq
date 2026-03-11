@@ -376,9 +376,7 @@ export function ActivityMapPreview({
         {/* Use opacity to hide when point is undefined */}
         <MarkerView coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}>
           <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
-            <View style={[styles.marker, styles.startMarker]}>
-              <MaterialCommunityIcons name="flag-outline" size={10} color={colors.textOnDark} />
-            </View>
+            <View style={[styles.marker, styles.startMarker]} />
           </View>
         </MarkerView>
 
@@ -386,9 +384,7 @@ export function ActivityMapPreview({
         {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
         <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
           <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
-            <View style={[styles.marker, styles.endMarker]}>
-              <MaterialCommunityIcons name="flag-checkered" size={10} color={colors.textOnDark} />
-            </View>
+            <View style={[styles.marker, styles.endMarker]} />
           </View>
         </MarkerView>
       </MapView>
@@ -449,11 +445,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1.5,
     borderColor: colors.textOnDark,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
   },
   startMarker: {
-    backgroundColor: 'rgba(34,197,94,0.9)',
+    backgroundColor: 'rgba(34,197,94,0.75)',
   },
   endMarker: {
     backgroundColor: 'rgba(239,68,68,0.75)',
