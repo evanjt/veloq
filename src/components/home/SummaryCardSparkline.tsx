@@ -10,7 +10,7 @@ import { getFormZone, FORM_ZONE_COLORS } from '@/lib';
 
 const CHART_HEIGHT = 44;
 const FORM_BAR_HEIGHT = 4;
-const GAP = 3;
+const GAP = 1;
 const LONG_PRESS_MS = 200;
 
 interface ScrubValues {
@@ -231,7 +231,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                 xKey="x"
                 yKeys={['fitness', 'fatigue']}
                 domain={domain}
-                padding={{ left: 0, right: 0, top: 2, bottom: 2 }}
+                padding={{ left: 0, right: 0, top: 1, bottom: 1 }}
               >
                 {({ points, chartBounds }) => {
                   // Sync bounds to shared values for gesture computation
