@@ -21,6 +21,7 @@ interface ScrubValues {
 
 interface SummaryCardSparklineProps {
   fitnessData: number[];
+  fatigueData?: number[];
   formData: number[];
   width: number;
   /** Show inline labels ("Fitness", "Form") — used in settings preview */
@@ -30,14 +31,15 @@ interface SummaryCardSparklineProps {
 }
 
 /**
- * Dual Fitness/Form sparkline chart for the SummaryCard.
+ * Fitness/Fatigue/Form sparkline chart for the SummaryCard.
  *
- * Fitness (CTL) rendered as an outlined sparkline.
+ * Fitness (CTL) rendered as a blue sparkline, Fatigue (ATL) as a pink sparkline.
  * Below: thin form zone bar colored by zone per day.
  * Long-press to scrub — updates hero value via onScrub callback.
  */
 export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   fitnessData,
+  fatigueData,
   formData,
   width,
   showLabels = false,
@@ -53,19 +55,28 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   const onScrubRef = useRef(onScrub);
   onScrubRef.current = onScrub;
 
+  const hasFatigue = fatigueData && fatigueData.length === fitnessData.length;
+
   const chartData = useMemo(
-    () => fitnessData.map((value, index) => ({ x: index, y: value })),
-    [fitnessData]
+    () =>
+      fitnessData.map((value, index) => ({
+        x: index,
+        fitness: value,
+        fatigue: hasFatigue ? fatigueData[index] : value,
+      })),
+    [fitnessData, fatigueData, hasFatigue]
   );
 
   const domain = useMemo(() => {
     if (fitnessData.length === 0) return { y: [0, 100] as [number, number] };
-    const min = Math.min(...fitnessData);
-    const max = Math.max(...fitnessData);
+    // Compute domain from both series for tighter fit
+    const allValues = hasFatigue ? [...fitnessData, ...fatigueData] : fitnessData;
+    const min = Math.min(...allValues);
+    const max = Math.max(...allValues);
     const range = max - min;
-    const padding = Math.max(range * 0.3, 5);
+    const padding = Math.max(range * 0.1, 2);
     return { y: [min - padding, max + padding] as [number, number] };
-  }, [fitnessData]);
+  }, [fitnessData, fatigueData, hasFatigue]);
 
   // Crosshair position shared value
   const crosshairX = useSharedValue(-1);
@@ -179,6 +190,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   // (White casing works on maps with varied backgrounds, but overpowers muted colors on uniform cards)
   const casingColor = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)';
   const fitnessLineColor = isDark ? '#42A5F5' : 'rgba(66,165,245,0.85)';
+  const fatigueLineColor = isDark ? '#EC407A' : 'rgba(236,64,122,0.75)';
 
   const dividerColor = isDark ? '#18181B' : '#FFFFFF';
 
@@ -214,12 +226,12 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
 
           {/* Chart area */}
           <View style={{ width: chartWidth, height: totalHeight }}>
-            {/* Fitness sparkline with border outline */}
+            {/* Fitness + Fatigue sparklines */}
             <View style={{ height: CHART_HEIGHT }}>
               <CartesianChart
                 data={chartData}
                 xKey="x"
-                yKeys={['y']}
+                yKeys={['fitness', 'fatigue']}
                 domain={domain}
                 padding={{ left: 0, right: 0, top: 4, bottom: 4 }}
               >
@@ -229,16 +241,32 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   chartRight.value = chartBounds.right;
                   return (
                     <>
-                      {/* Casing — 0.5px border on each side (matches map polyline style) */}
+                      {/* Fatigue (ATL) — drawn first so fitness renders on top */}
+                      {hasFatigue && (
+                        <>
+                          <Line
+                            points={points.fatigue}
+                            color={casingColor}
+                            strokeWidth={2}
+                            curveType="natural"
+                          />
+                          <Line
+                            points={points.fatigue}
+                            color={fatigueLineColor}
+                            strokeWidth={1}
+                            curveType="natural"
+                          />
+                        </>
+                      )}
+                      {/* Fitness (CTL) — primary line, on top */}
                       <Line
-                        points={points.y}
+                        points={points.fitness}
                         color={casingColor}
                         strokeWidth={2.5}
                         curveType="natural"
                       />
-                      {/* Fitness line — colored fill on top */}
                       <Line
-                        points={points.y}
+                        points={points.fitness}
                         color={fitnessLineColor}
                         strokeWidth={1.5}
                         curveType="natural"

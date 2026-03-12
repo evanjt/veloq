@@ -107,6 +107,7 @@ export default function FeedScreen() {
     heroZoneColor,
     heroTrend,
     fitnessData,
+    fatigueData,
     formData,
     showSparkline,
     supportingMetrics,
@@ -407,6 +408,7 @@ export default function FeedScreen() {
           heroTrend={heroTrend}
           onHeroPress={navigateToHeroMetric}
           fitnessData={fitnessData}
+          fatigueData={fatigueData}
           formData={formData}
           showSparkline={showSparkline}
           supportingMetrics={supportingMetrics}

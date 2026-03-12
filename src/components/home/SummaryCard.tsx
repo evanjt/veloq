@@ -35,8 +35,9 @@ export interface SummaryCardProps {
   heroTrend?: '↑' | '↓' | '';
   onHeroPress?: () => void;
 
-  // Sparkline data (30 days) — fitness line + form zone bar
+  // Sparkline data (30 days) — fitness line + fatigue line + form zone bar
   fitnessData?: number[];
+  fatigueData?: number[];
   formData?: number[];
   showSparkline: boolean;
   /** Show inline labels on sparkline (settings preview) */
@@ -70,6 +71,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   heroTrend,
   onHeroPress,
   fitnessData,
+  fatigueData,
   formData,
   showSparkline,
   showSparklineLabels = false,
@@ -176,7 +178,7 @@ export const SummaryCard = React.memo(function SummaryCard({
         </TouchableOpacity>
       </View>
 
-      {/* Sparkline row — fitness line + form zone bar */}
+      {/* Sparkline row — fitness + fatigue lines + form zone bar */}
       {showSparkline &&
         fitnessData &&
         fitnessData.length > 0 &&
@@ -185,6 +187,7 @@ export const SummaryCard = React.memo(function SummaryCard({
           <View style={styles.sparklineRow}>
             <SummaryCardSparkline
               fitnessData={fitnessData}
+              fatigueData={fatigueData}
               formData={formData}
               width={sparklineWidth}
               showLabels={showSparklineLabels}

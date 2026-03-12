@@ -41,6 +41,7 @@ export interface SummaryCardData {
 
   // Sparkline (fitness/form dual chart)
   fitnessData?: number[];
+  fatigueData?: number[];
   formData?: number[];
   showSparkline: boolean;
 
@@ -325,6 +326,13 @@ export function useSummaryCardData(): SummaryCardData {
     return sorted.map((w) => Math.round(w.ctl ?? w.ctlLoad ?? 0));
   }, [wellnessData, summaryCard.showSparkline]);
 
+  const fatigueData = useMemo(() => {
+    if (!summaryCard.showSparkline) return undefined;
+    if (!wellnessData || wellnessData.length === 0) return undefined;
+    const sorted = [...wellnessData].sort((a, b) => a.id.localeCompare(b.id)).slice(-30);
+    return sorted.map((w) => Math.round(w.atl ?? w.atlLoad ?? 0));
+  }, [wellnessData, summaryCard.showSparkline]);
+
   const formData = useMemo(() => {
     if (!summaryCard.showSparkline) return undefined;
     if (!wellnessData || wellnessData.length === 0) return undefined;
@@ -457,6 +465,7 @@ export function useSummaryCardData(): SummaryCardData {
   // Stabilize references to prevent downstream re-renders when values are unchanged
   const stableHeroData = useStableValue(heroData);
   const stableFitnessData = useStableArray(fitnessData);
+  const stableFatigueData = useStableArray(fatigueData);
   const stableFormData = useStableArray(formData);
   const stableSupportingMetrics = useStableValue(supportingMetrics);
 
@@ -470,6 +479,7 @@ export function useSummaryCardData(): SummaryCardData {
       heroZoneColor: stableHeroData.zoneColor,
       heroTrend: stableHeroData.trend,
       fitnessData: stableFitnessData,
+      fatigueData: stableFatigueData,
       formData: stableFormData,
       showSparkline: summaryCard.showSparkline,
       supportingMetrics: stableSupportingMetrics,
@@ -480,6 +490,7 @@ export function useSummaryCardData(): SummaryCardData {
       profileUrl,
       stableHeroData,
       stableFitnessData,
+      stableFatigueData,
       stableFormData,
       summaryCard.showSparkline,
       stableSupportingMetrics,
