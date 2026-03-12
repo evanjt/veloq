@@ -112,6 +112,15 @@ export const SummaryCard = React.memo(function SummaryCard({
 
   return (
     <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
+      {/* Scrub date label — top right of card */}
+      {scrubValues && (
+        <Text
+          style={[styles.scrubDate, { color: isDark ? darkColors.textMuted : colors.textMuted }]}
+        >
+          {scrubValues.dateLabel}
+        </Text>
+      )}
+
       {/* Top row: Profile + Hero value + zone */}
       <View style={styles.topRow}>
         {/* Profile photo with gear badge */}
@@ -169,11 +178,6 @@ export const SummaryCard = React.memo(function SummaryCard({
               <Text style={[styles.secondaryLabel, { color: currentFormColor }]}>
                 {FORM_ZONE_LABELS[currentFormZone]}
               </Text>
-              {scrubValues && (
-                <Text style={[styles.secondaryLabel, isDark && styles.textSecondary]}>
-                  {scrubValues.dateLabel}
-                </Text>
-              )}
             </View>
           ) : (
             <View style={styles.heroValueRow}>
@@ -281,6 +285,16 @@ const styles = StyleSheet.create({
     ...shadows.none,
     borderWidth: 1,
     borderColor: darkColors.border,
+  },
+
+  // Scrub date — top right corner
+  scrubDate: {
+    position: 'absolute',
+    top: spacing.xs,
+    right: spacing.md,
+    fontSize: 10,
+    fontWeight: '500',
+    zIndex: 1,
   },
 
   // Top row - profile + hero inline

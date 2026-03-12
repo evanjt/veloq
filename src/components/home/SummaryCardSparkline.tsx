@@ -77,7 +77,11 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     const max = Math.max(...allValues);
     // Ensure at least 1 unit range to avoid division by zero
     if (min === max) return { y: [min - 1, max + 1] as [number, number] };
-    return { y: [min, max] as [number, number] };
+    // Buffer the domain so casing strokes at min/max aren't clipped by the Skia clip rect.
+    // CartesianChart clips children to chartBounds — a 2px stroke extends 1px beyond,
+    // so we need enough domain headroom that the plotted extremes stay inside the clip.
+    const range = max - min;
+    return { y: [min - range * 0.06, max + range * 0.04] as [number, number] };
   }, [fitnessData, fatigueData, hasFatigue]);
 
   // Crosshair position shared value
@@ -245,6 +249,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                 data={chartData}
                 xKey="x"
                 yKeys={['fitness', 'fatigue']}
+                yAxis={[{ tickCount: 0, labelOffset: 0 }]}
                 domain={domain}
                 padding={{ left: 0, right: 0, top: 2, bottom: 2 }}
               >
@@ -358,7 +363,7 @@ const styles = StyleSheet.create({
   },
   rangeLabel: {
     position: 'absolute',
-    top: 0,
+    top: -12,
     right: 2,
     fontSize: 8,
     fontWeight: '500',
