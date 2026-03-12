@@ -73,9 +73,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     const allValues = hasFatigue ? [...fitnessData, ...fatigueData] : fitnessData;
     const min = Math.min(...allValues);
     const max = Math.max(...allValues);
-    const range = max - min;
-    const padding = Math.max(range * 0.1, 2);
-    return { y: [min - padding, max + padding] as [number, number] };
+    return { y: [min, max] as [number, number] };
   }, [fitnessData, fatigueData, hasFatigue]);
 
   // Crosshair position shared value
@@ -233,7 +231,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                 xKey="x"
                 yKeys={['fitness', 'fatigue']}
                 domain={domain}
-                padding={{ left: 0, right: 0, top: 4, bottom: 4 }}
+                padding={{ left: 0, right: 0, top: 0, bottom: 0 }}
               >
                 {({ points, chartBounds }) => {
                   // Sync bounds to shared values for gesture computation
