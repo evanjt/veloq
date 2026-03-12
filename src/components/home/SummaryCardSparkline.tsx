@@ -231,7 +231,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                 xKey="x"
                 yKeys={['fitness', 'fatigue']}
                 domain={domain}
-                padding={{ left: 0, right: 0, top: 0, bottom: 0 }}
+                padding={{ left: 0, right: 0, top: 2, bottom: 2 }}
               >
                 {({ points, chartBounds }) => {
                   // Sync bounds to shared values for gesture computation
