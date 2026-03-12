@@ -139,8 +139,15 @@ export function GlobalDataSync() {
   const displayInfo =
     gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo ?? tilePrefetchDisplayInfo;
 
-  // Show banner when there's something to display and not on screens with own indicator
-  const shouldShowBanner = displayInfo !== null && !isOnMapScreen && !isOnRoutesScreen;
+  // Show banner when there's something to display and not on screens with own indicator.
+  // Tile prefetch banner is shown on all screens (map/routes screens only suppress GPS/bounds sync).
+  const isTilePrefetchOnly =
+    tilePrefetchDisplayInfo !== null &&
+    !gpsDisplayInfo &&
+    !boundsDisplayInfo &&
+    !terrainDisplayInfo;
+  const shouldShowBanner =
+    displayInfo !== null && (isTilePrefetchOnly || (!isOnMapScreen && !isOnRoutesScreen));
 
   // Register sync banner with TopSafeAreaContext so screens exclude top safe area
   const { setSyncBannerVisible } = useTopSafeArea();

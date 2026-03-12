@@ -4,6 +4,7 @@
  * Listens for GPS sync completion, then clusters activity regions and
  * downloads tiles for both native 2D maps and WebView 3D maps.
  * Runs daily cleanup of stale tile packs (90-day window).
+ * Cancels downloads reactively when network conditions change.
  *
  * Mount in tab layout so it runs while the app is active.
  */
@@ -60,10 +61,26 @@ export function useTilePrefetch(): void {
   const lastCacheModeRef = useRef(settings.cacheMode);
   const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const isProactive = settings.cacheMode !== 'ambient';
+
   // Initialize ambient cache size on mount
   useEffect(() => {
     TileCacheService.initializeAmbientCache();
   }, []);
+
+  // Cancel downloads when network conditions change
+  useEffect(() => {
+    if (prefetchStatus !== 'downloading' && prefetchStatus !== 'computing') return;
+    if (!isProactive) return;
+
+    if (!isOnline) {
+      TileCacheService.cancelPrefetch();
+      return;
+    }
+    if (settings.wifiOnly && connectionType !== 'WIFI' && connectionType !== 'wifi') {
+      TileCacheService.cancelPrefetch();
+    }
+  }, [isOnline, connectionType, settings.wifiOnly, isProactive, prefetchStatus]);
 
   // Watch for sync completion → trigger prefetch
   useEffect(() => {
@@ -72,7 +89,7 @@ export function useTilePrefetch(): void {
 
     // Only trigger when transitioning to 'complete'
     if (gpsSyncProgress.status !== 'complete' || prevStatus === 'complete') return;
-    if (!settings.enabled) return;
+    if (!isProactive) return;
     if (!isOnline) return;
 
     // Wi-Fi only check
@@ -108,7 +125,7 @@ export function useTilePrefetch(): void {
     };
   }, [
     gpsSyncProgress.status,
-    settings.enabled,
+    isProactive,
     settings.wifiOnly,
     isOnline,
     connectionType,
@@ -116,13 +133,20 @@ export function useTilePrefetch(): void {
     preferences.activityTypeStyles,
   ]);
 
-  // Watch for cache mode change → trigger immediate prefetch
+  // Watch for cache mode change → cancel on ambient, trigger prefetch on proactive
   useEffect(() => {
     const prevMode = lastCacheModeRef.current;
     lastCacheModeRef.current = settings.cacheMode;
 
     if (prevMode === settings.cacheMode) return;
-    if (!settings.enabled) return;
+
+    // Cancel on transition to ambient
+    if (settings.cacheMode === 'ambient') {
+      TileCacheService.cancelPrefetch();
+      return;
+    }
+
+    // Trigger prefetch on transition from ambient to proactive
     if (!isOnline) return;
     if (settings.wifiOnly && connectionType !== 'WIFI' && connectionType !== 'wifi') return;
     if (prefetchStatus === 'downloading' || prefetchStatus === 'computing') return;
@@ -143,7 +167,6 @@ export function useTilePrefetch(): void {
     });
   }, [
     settings.cacheMode,
-    settings.enabled,
     settings.wifiOnly,
     isOnline,
     connectionType,
@@ -154,7 +177,7 @@ export function useTilePrefetch(): void {
 
   // Daily cleanup check
   useEffect(() => {
-    if (!settings.enabled) return;
+    if (!isProactive) return;
 
     const shouldCleanup =
       !lastCleanupDate || Date.now() - new Date(lastCleanupDate).getTime() > CLEANUP_INTERVAL_MS;
@@ -172,5 +195,5 @@ export function useTilePrefetch(): void {
     }, 10000);
 
     return () => clearTimeout(timer);
-  }, [settings.enabled, lastCleanupDate]);
+  }, [isProactive, lastCleanupDate]);
 }

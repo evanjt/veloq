@@ -9,8 +9,9 @@
  * - Handles one request at a time
  * - Routes messages back via workerId
  *
- * Sky spec is embedded in the style JSON root (not via setSky() API) to ensure
- * it survives setStyle() calls reliably across MapLibre GL JS versions.
+ * Terrain, hillshade, sky, and route layers are added via the map API after
+ * the base style loads — mirrors Map3DWebView so the first terrain drape
+ * render already includes the route polyline.
  */
 
 import React, {
@@ -24,12 +25,8 @@ import React, {
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { MapStyleType } from './mapStyles';
-import {
-  getSnapshotSatelliteStyle,
-  getTerrainSnapshotStyle,
-  rewriteSatelliteUrls,
-  rewriteVectorUrls,
-} from './mapStyles';
+import { getSnapshotSatelliteStyle, rewriteSatelliteUrls, TERRAIN_3D_CONFIG } from './mapStyles';
+import { DARK_MATTER_STYLE } from './darkMatterStyle';
 import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import { saveTerrainPreview, hasTerrainPreview } from '@/lib/storage/terrainPreviewCache';
 import {
@@ -38,6 +35,8 @@ import {
   onTileCacheStatsRequest,
   emitTileCacheStats,
   onPrefetchTilesRequest,
+  onCancelWebViewPrefetch,
+  emitPrefetchTilesProgress,
   type PrefetchTilesBatch,
 } from '@/lib/events/terrainSnapshotEvents';
 import { generatePreloadScript } from '@/lib/maps/tilePreloader';
@@ -138,15 +137,24 @@ function generateWorkerHtml(id: number): string {
     // Cache terrain DEM tiles via Cache API — persists across snapshot requests.
     // MapLibre v5.19.0 uses promise-based addProtocol.
     var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
+
+    function fetchWithRetry(url, retries, delay) {
+      return fetch(url).catch(function(err) {
+        if (retries <= 0) throw err;
+        window._rn_log('DEM fetch retry (' + retries + ' left) for ' + url.split('/').slice(-3).join('/') + ': ' + err.message);
+        return new Promise(function(resolve) { setTimeout(resolve, delay); })
+          .then(function() { return fetchWithRetry(url, retries - 1, delay * 2); });
+      });
+    }
+
     maplibregl.addProtocol('cached-terrain', function(params) {
       var realUrl = 'https://' + params.url.substring('cached-terrain://'.length);
       return caches.open(TERRAIN_CACHE).then(function(cache) {
         return cache.match(realUrl).then(function(cached) {
           if (cached) {
-            window._rn_log('DEM cache hit');
             return cached.blob().then(demBlobToImage);
           }
-          return fetch(realUrl).then(function(r) {
+          return fetchWithRetry(realUrl, 2, 300).then(function(r) {
             window._rn_log('DEM fetch ' + r.status + ': ' + realUrl.split('/').slice(-3).join('/'));
             if (!r.ok) throw new Error('HTTP ' + r.status);
             cache.put(realUrl, r.clone()); maybeEvict(TERRAIN_CACHE);
@@ -154,7 +162,7 @@ function generateWorkerHtml(id: number): string {
           });
         });
       }).catch(function(err) {
-        window._rn_log('DEM protocol error: ' + err.message);
+        window._rn_log('DEM error: ' + err.message + ' url=' + realUrl.split('/').slice(-3).join('/'));
         throw err;
       });
     });
@@ -210,7 +218,12 @@ function generateWorkerHtml(id: number): string {
         cache.keys().then(function(requests) {
           var sizes = requests.map(function(req) {
             return cache.match(req).then(function(r) {
-              return { req: req, size: r ? (parseInt(r.headers.get('content-length') || '0') || 0) : 0 };
+              if (!r) return { req: req, size: 0 };
+              var cl = parseInt(r.headers.get('content-length') || '0') || 0;
+              if (cl > 0) return { req: req, size: cl };
+              return r.arrayBuffer().then(function(buf) {
+                return { req: req, size: buf.byteLength };
+              });
             });
           });
           Promise.all(sizes).then(function(entries) {
@@ -234,11 +247,10 @@ function generateWorkerHtml(id: number): string {
       zoom: 10,
       pitch: 60,
       attributionControl: false,
+      antialias: true,
       canvasContextAttributes: {
         preserveDrawingBuffer: true,
-        antialias: true,
       },
-      anisotropicFilterPitch: 0,
       pixelRatio: window.devicePixelRatio || 2,
     });
 
@@ -322,6 +334,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
     const queueTotalRef = useRef(0);
     const queueCompletedRef = useRef(0);
     const failedRequestsRef = useRef<SnapshotRequest[]>([]);
+    const pendingPrefetchRef = useRef<PrefetchTilesBatch[]>([]);
 
     const updateProgress = useCallback(() => {
       const { setTerrainSnapshotProgress } = useSyncDateRange.getState();
@@ -349,7 +362,19 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         ) {
           queueRef.current.shift();
         }
-        if (queueRef.current.length === 0) break;
+        if (queueRef.current.length === 0) {
+          // No more snapshots — drain any queued prefetch batches on this idle worker
+          if (pendingPrefetchRef.current.length > 0 && worker.webViewRef.current) {
+            worker.webViewRef.current.injectJavaScript('window._prefetchAborted = false; true;');
+            const batches = pendingPrefetchRef.current.splice(0);
+            for (const batch of batches) {
+              worker.webViewRef.current.injectJavaScript(
+                generatePreloadScript(batch.urls, batch.cacheName, batch.config)
+              );
+            }
+          }
+          break;
+        }
 
         const request = queueRef.current.shift()!;
         worker.processingRef.current = true;
@@ -368,6 +393,10 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         // Satellite and dark: use inline style objects.
         // Light: fetch full Liberty style from URL (same as detail 3D view).
         const isLight = !isSatellite && request.mapStyle !== 'dark';
+        // Satellite: rewrite to cached protocol for tile caching.
+        // Dark: keep original TileJSON URL — let MapLibre fetch tiles natively
+        // (cached-vector:// rewrite was causing blank features after setStyle).
+        // Light: fetch URL-based style in JS.
         const styleConfig = isSatellite
           ? JSON.stringify(
               rewriteSatelliteUrls(
@@ -380,11 +409,24 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             )
           : isLight
             ? 'null'
-            : JSON.stringify(rewriteVectorUrls(getTerrainSnapshotStyle('dark')));
+            : JSON.stringify(DARK_MATTER_STYLE);
         const lightStyleUrl = isLight ? 'https://tiles.openfreemap.org/styles/liberty' : '';
 
         const coordsJSON = JSON.stringify(request.coordinates);
         const cameraJSON = JSON.stringify(request.camera);
+
+        // Serialize shared terrain config values for injection into WebView JS
+        const terrainSourceJSON = JSON.stringify(TERRAIN_3D_CONFIG.source);
+        const skyConfigJSON = JSON.stringify(
+          isSatellite
+            ? TERRAIN_3D_CONFIG.sky.satellite
+            : isDark
+              ? TERRAIN_3D_CONFIG.sky.dark
+              : TERRAIN_3D_CONFIG.sky.light
+        );
+        const hillshadePaintJSON = JSON.stringify(
+          isDark ? TERRAIN_3D_CONFIG.hillshadePaint.dark : TERRAIN_3D_CONFIG.hillshadePaint.light
+        );
 
         // Inject render command — builds complete style with terrain, route, and markers
         // embedded, then applies atomically via single setStyle() call.
@@ -402,6 +444,10 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               var activityId = '${request.activityId}';
               var mapStyle = '${request.mapStyle}';
               var myGen = ${gen};
+              var terrainSource = ${terrainSourceJSON};
+              var skyConfig = ${skyConfigJSON};
+              var hillshadePaint = ${hillshadePaintJSON};
+              var hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
 
               window._snapshotGen = myGen;
               window._tileErrorCount = 0;
@@ -411,309 +457,6 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               }
 
               window._rn_log('Snapshot ' + activityId + ' gen=' + myGen + ': ' + coords.length + ' coords, style=' + mapStyle);
-
-              // --- Fast path: same base style, just update route + camera ---
-              if (window._currentBaseStyle === mapStyle && coords.length > 0) {
-                var routeSrc = window.map.getSource('route');
-                var markerSrc = window.map.getSource('start-end-markers');
-                if (routeSrc && markerSrc) {
-                  var fpStart = coords[0];
-                  var fpEnd = coords[coords.length - 1];
-                  routeSrc.setData({
-                    type: 'Feature', properties: {},
-                    geometry: { type: 'LineString', coordinates: coords },
-                  });
-                  markerSrc.setData({
-                    type: 'FeatureCollection',
-                    features: [
-                      { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: fpStart } },
-                      { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: fpEnd } },
-                    ],
-                  });
-                  window.map.setPaintProperty('route-line', 'line-color', routeColor);
-                  window.map.jumpTo({
-                    center: camera.center, zoom: camera.zoom,
-                    bearing: camera.bearing, pitch: camera.pitch,
-                  });
-                  window._rn_log('Fast path: reusing style, updating route + camera');
-                  var done = false;
-                  var fpStart = Date.now();
-                  var fpLastData = 0;
-
-                  function fpOnData() { fpLastData = Date.now(); }
-                  window.map.on('data', fpOnData);
-
-                  // Fast path: idle event — deferred by one frame so MapLibre
-                  // processes the camera change and queues tile requests first.
-                  // Without this, idle fires immediately (style unchanged, no pending tiles).
-                  requestAnimationFrame(function() {
-                    window.map.once('idle', function() {
-                      if (done || isStale()) return;
-                      done = true;
-                      window.map.off('data', fpOnData);
-                      window._rn_log('Fast path idle, capturing...');
-                      requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
-                    });
-                  });
-
-                  // Fast path: poll for tile activity settlement
-                  var fpPoll = setInterval(function() {
-                    if (done || isStale()) { clearInterval(fpPoll); return; }
-                    var now = Date.now();
-                    var quietTime = fpLastData > 0 ? now - fpLastData : 0;
-
-                    // Guard: require at least one tile load before accepting styleLoaded.
-                    // After jumpTo(), isStyleLoaded() returns true instantly because the
-                    // style itself hasn't changed — only the viewport moved.
-                    if (fpLastData > 0 && window.map.isStyleLoaded()) {
-                      done = true;
-                      clearInterval(fpPoll);
-                      window.map.off('data', fpOnData);
-                      window._rn_log('Fast path styleLoaded, capturing...');
-                      requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
-                      return;
-                    }
-                    if (fpLastData > 0 && quietTime > 1500) {
-                      done = true;
-                      clearInterval(fpPoll);
-                      window.map.off('data', fpOnData);
-                      window._rn_log('Fast path settled (' + quietTime + 'ms quiet), capturing...');
-                      requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
-                      return;
-                    }
-                    if (now - fpStart > 5000) {
-                      done = true;
-                      clearInterval(fpPoll);
-                      window.map.off('data', fpOnData);
-                      window._rn_log('Fast path max wait (5s), capturing...');
-                      requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
-                      return;
-                    }
-                  }, 500);
-
-                  setTimeout(function() {
-                    clearInterval(fpPoll);
-                    window.map.off('data', fpOnData);
-                    if (!done && !isStale()) {
-                      done = true;
-                      window._rn_log('Fast path timeout (8s)');
-                      window.ReactNativeWebView.postMessage(JSON.stringify({
-                        type: 'snapshotError', workerId: workerId, activityId: activityId,
-                        gen: myGen, error: 'Fast path render timeout',
-                        tileErrors: window._tileErrorCount,
-                      }));
-                    }
-                  }, 8000);
-                  return;
-                }
-              }
-
-              // --- Build complete style with all sources and layers ---
-              function applyStyle(styleObj) {
-
-              styleObj.sources['terrain'] = {
-                type: 'raster-dem',
-                tiles: ['cached-terrain://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-                encoding: 'terrarium',
-                tileSize: 256,
-                maxzoom: 15,
-              };
-
-              styleObj.terrain = { source: 'terrain', exaggeration: 1.5 };
-
-              styleObj.sky = isSatellite
-                ? { 'sky-color': '#1a3a5c', 'horizon-color': '#2a4a6c', 'fog-color': '#1a3050',
-                    'fog-ground-blend': 0.5, 'horizon-fog-blend': 0.8, 'sky-horizon-blend': 0.5, 'atmosphere-blend': 0.8 }
-                : isDark
-                ? { 'sky-color': '#0a0a14', 'horizon-color': '#151520', 'fog-color': '#0a0a14',
-                    'fog-ground-blend': 0.5, 'horizon-fog-blend': 0.8, 'sky-horizon-blend': 0.5, 'atmosphere-blend': 0.8 }
-                : { 'sky-color': '#88C6FC', 'horizon-color': '#B0C8DC', 'fog-color': '#D8E4EE',
-                    'fog-ground-blend': 0.5, 'horizon-fog-blend': 0.8, 'sky-horizon-blend': 0.5, 'atmosphere-blend': 0.8 };
-
-              if (!isSatellite) {
-                styleObj.layers.push({
-                  id: 'hillshading',
-                  type: 'hillshade',
-                  source: 'terrain',
-                  layout: { visibility: 'visible' },
-                  paint: {
-                    'hillshade-shadow-color': isDark ? '#000000' : '#473B24',
-                    'hillshade-illumination-anchor': 'map',
-                    'hillshade-exaggeration': 0.3,
-                  },
-                });
-              }
-
-              if (coords.length > 0) {
-                var startPt = coords[0];
-                var endPt = coords[coords.length - 1];
-
-                styleObj.sources['route'] = {
-                  type: 'geojson',
-                  data: {
-                    type: 'Feature',
-                    properties: {},
-                    geometry: { type: 'LineString', coordinates: coords },
-                  },
-                  tolerance: 0,
-                };
-
-                styleObj.sources['start-end-markers'] = {
-                  type: 'geojson',
-                  data: {
-                    type: 'FeatureCollection',
-                    features: [
-                      { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: startPt } },
-                      { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: endPt } },
-                    ],
-                  },
-                };
-
-                styleObj.layers.push(
-                  {
-                    id: 'route-outline',
-                    type: 'line',
-                    source: 'route',
-                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.8 },
-                  },
-                  {
-                    id: 'route-line',
-                    type: 'line',
-                    source: 'route',
-                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: { 'line-color': routeColor, 'line-width': 5 },
-                  },
-                  {
-                    id: 'start-end-border',
-                    type: 'circle',
-                    source: 'start-end-markers',
-                    paint: { 'circle-radius': 7, 'circle-color': '#FFFFFF' },
-                  },
-                  {
-                    id: 'start-end-fill',
-                    type: 'circle',
-                    source: 'start-end-markers',
-                    paint: {
-                      'circle-radius': 5,
-                      'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'],
-                    },
-                  }
-                );
-              }
-
-              // --- Single atomic setStyle — MapLibre loads everything in parallel ---
-              window._rn_log('setStyle: ' + styleObj.layers.length + ' layers, '
-                + Object.keys(styleObj.sources).length + ' sources'
-                + (styleObj.glyphs ? ', glyphs OK' : ', NO glyphs')
-                + (styleObj.sprite ? ', sprite OK' : ', NO sprite'));
-              window.map.setStyle(styleObj);
-              window.map.jumpTo({
-                center: camera.center,
-                zoom: camera.zoom,
-                bearing: camera.bearing,
-                pitch: camera.pitch,
-              });
-
-              // --- Readiness detection ---
-              // Track only 'data' events (tile loaded) for quiet period, not
-              // 'dataloading' (tile requested) which can keep firing from retries.
-              window._tileStats = {};
-              _rafCount = 0;
-              var done = false;
-              var setStyleTime = Date.now();
-              var lastDataEvent = 0;
-
-              function onDataEvent() { lastDataEvent = Date.now(); }
-              window.map.on('data', onDataEvent);
-
-              function cleanup() {
-                window.map.off('data', onDataEvent);
-              }
-
-              // Idle event — deferred by one frame so MapLibre processes
-              // setStyle() and queues initial tile requests first.
-              requestAnimationFrame(function() {
-                window.map.once('idle', function() {
-                  if (done || isStale()) return;
-                  done = true;
-                  cleanup();
-                  window._currentBaseStyle = mapStyle;
-                  window._rn_log('Idle event fired, capturing...');
-                  requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
-                });
-              });
-
-              // Poll for readiness — multiple strategies
-              var readyPoll = setInterval(function() {
-                if (done || isStale()) { clearInterval(readyPoll); return; }
-                var now = Date.now();
-                var elapsed = now - setStyleTime;
-                var quietTime = lastDataEvent > 0 ? now - lastDataEvent : 0;
-
-                // Log progress every ~2s (every 4th poll at 500ms)
-                if (Math.floor(elapsed / 500) % 4 === 0) {
-                  var summary = Object.keys(window._tileStats).map(function(src) {
-                    var s = window._tileStats[src];
-                    return src + ':' + s.loaded + '/' + s.total;
-                  }).join(' | ');
-                  window._rn_log('Progress: elapsed=' + elapsed + 'ms quiet=' + quietTime
-                    + 'ms rAF/2s=' + _rafCount + ' sources=[' + summary + ']'
-                    + ' errors=' + window._tileErrorCount);
-                  _rafCount = 0;
-                }
-
-                // Strategy 1: MapLibre API says ready (require tile activity first)
-                if (lastDataEvent > 0 && window.map.isStyleLoaded()) {
-                  done = true;
-                  clearInterval(readyPoll);
-                  cleanup();
-                  window._currentBaseStyle = mapStyle;
-                  window._rn_log('styleLoaded=true after ' + elapsed + 'ms, capturing...');
-                  requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
-                  return;
-                }
-
-                // Strategy 2: Tile activity settled — no data events for 1.5s
-                if (lastDataEvent > 0 && quietTime > 1500) {
-                  done = true;
-                  clearInterval(readyPoll);
-                  cleanup();
-                  window._currentBaseStyle = mapStyle;
-                  window._rn_log('Tile activity settled (' + quietTime + 'ms quiet, ' + elapsed + 'ms total), capturing...');
-                  requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
-                  return;
-                }
-
-                // Strategy 3: Max wait — capture after 7s regardless
-                if (elapsed > 7000) {
-                  done = true;
-                  clearInterval(readyPoll);
-                  cleanup();
-                  window._currentBaseStyle = mapStyle;
-                  window._rn_log('Max wait (7s), capturing best-effort...');
-                  requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
-                  return;
-                }
-              }, 500);
-
-              // Hard timeout (10s safety net — only if capture itself hangs)
-              setTimeout(function() {
-                clearInterval(readyPoll);
-                cleanup();
-                if (!done && !isStale()) {
-                  done = true;
-                  window._rn_log('Hard timeout (10s), skipping');
-                  window.ReactNativeWebView.postMessage(JSON.stringify({
-                    type: 'snapshotError',
-                    workerId: workerId,
-                    activityId: activityId,
-                    gen: myGen,
-                    error: 'Render timeout',
-                    tileErrors: window._tileErrorCount,
-                  }));
-                }
-              }, 10000);
 
               function captureSnapshot() {
                 if (isStale()) { window._rn_log('gen=' + myGen + ' superseded, aborting'); return; }
@@ -775,8 +518,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                       if (r === 0 && g === 0 && b === 0) isGap = true;
                       // Satellite: sky color range (#1a3a5c area)
                       else if (isSatellite && r < 40 && g < 70 && b > 70 && b < 120) isGap = true;
-                      // Dark style: background #1A1A1A range
-                      else if (!isSatellite && isDark && r < 35 && g < 35 && b < 35) isGap = true;
+                      // Dark style: only catch failed DEM tiles (near pure black)
+                      else if (!isSatellite && isDark && r < 5 && g < 5 && b < 5) isGap = true;
                       // Light style: background #E8E0D8 range
                       else if (!isSatellite && !isDark && r > 220 && g > 210 && b > 200 && r < 245 && g < 235 && b < 225) isGap = true;
                       if (isGap) gapCount++;
@@ -832,10 +575,295 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     tileErrors: window._tileErrorCount,
                   }));
                 }
-              } // end captureSnapshot
+              }
+
+              // --- Helper: add route sources + layers via map API ---
+              // At IIFE scope so both fast path and full path can use it.
+              var hasRoute = coords.length > 0;
+
+              function addRouteLayers() {
+                if (!hasRoute) return;
+                var startPt = coords[0];
+                var endPt = coords[coords.length - 1];
+                try { window.map.removeLayer('start-end-fill'); } catch(e) {}
+                try { window.map.removeLayer('start-end-border'); } catch(e) {}
+                try { window.map.removeLayer('route-line'); } catch(e) {}
+                try { window.map.removeLayer('route-outline'); } catch(e) {}
+                try { window.map.removeSource('start-end-markers'); } catch(e) {}
+                try { window.map.removeSource('route'); } catch(e) {}
+                window.map.addSource('route', {
+                  type: 'geojson',
+                  data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } },
+                  tolerance: 0,
+                });
+                window.map.addSource('start-end-markers', {
+                  type: 'geojson',
+                  data: {
+                    type: 'FeatureCollection',
+                    features: [
+                      { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: startPt } },
+                      { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: endPt } },
+                    ],
+                  },
+                });
+                window.map.addLayer({
+                  id: 'route-outline', type: 'line', source: 'route',
+                  layout: { 'line-join': 'round', 'line-cap': 'round' },
+                  paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.8 },
+                });
+                window.map.addLayer({
+                  id: 'route-line', type: 'line', source: 'route',
+                  layout: { 'line-join': 'round', 'line-cap': 'round' },
+                  paint: { 'line-color': routeColor, 'line-width': 5 },
+                });
+                window.map.addLayer({
+                  id: 'start-end-border', type: 'circle', source: 'start-end-markers',
+                  paint: { 'circle-radius': 7, 'circle-color': '#FFFFFF' },
+                });
+                window.map.addLayer({
+                  id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
+                  paint: {
+                    'circle-radius': 5,
+                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'],
+                  },
+                });
+                window._rn_log('Route layers added via API');
+              }
+
+              // --- Helper: add terrain + hillshade (no route yet) ---
+              // Route is added AFTER terrain is fully rendered (separate idle cycle)
+              // so the drape texture re-render includes the route.
+              function addTerrain() {
+                window.map.addSource('terrain', terrainSource);
+                window.map.setTerrain({ source: 'terrain', exaggeration: ${TERRAIN_3D_CONFIG.defaultExaggeration} });
+                try { window.map.setSky(skyConfig); } catch(e) {}
+                if (!isSatellite) {
+                  var beforeId = null;
+                  for (var ci = 0; ci < hillshadeInsertCandidates.length; ci++) {
+                    if (window.map.getLayer(hillshadeInsertCandidates[ci])) {
+                      beforeId = hillshadeInsertCandidates[ci];
+                      break;
+                    }
+                  }
+                  window.map.addLayer({
+                    id: 'hillshading', type: 'hillshade', source: 'terrain',
+                    layout: { visibility: 'visible' },
+                    paint: hillshadePaint,
+                  }, beforeId);
+                }
+                window._rn_log('Terrain + hillshade added via API');
+              }
+
+              // --- Fast path: same base style, just update camera + route ---
+              if (window._currentBaseStyle === mapStyle && coords.length > 0) {
+                if (window.map.getSource('terrain')) {
+                  window.map.jumpTo({
+                    center: camera.center, zoom: camera.zoom,
+                    bearing: camera.bearing, pitch: camera.pitch,
+                  });
+                  window._rn_log('Fast path: jumped camera, waiting for terrain...');
+                  var done = false;
+                  var fpStart = Date.now();
+                  var fpLastData = 0;
+
+                  function fpOnData() { fpLastData = Date.now(); }
+                  window.map.on('data', fpOnData);
+
+                  // Helper: add route layers after terrain settles, then capture
+                  function fpAddRouteAndCapture(reason) {
+                    window._rn_log(reason);
+                    addRouteLayers();
+                    window.map.once('idle', function() {
+                      window._rn_log('Fast path route idle, capturing...');
+                      requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                    });
+                  }
+
+                  // Fast path: idle event — deferred by one frame so MapLibre
+                  // processes the camera change and queues tile requests first.
+                  requestAnimationFrame(function() {
+                    window.map.once('idle', function() {
+                      if (done || isStale()) return;
+                      done = true;
+                      window.map.off('data', fpOnData);
+                      fpAddRouteAndCapture('Fast path idle, adding route...');
+                    });
+                  });
+
+                  // Fast path: poll for tile activity settlement
+                  var fpPoll = setInterval(function() {
+                    if (done || isStale()) { clearInterval(fpPoll); return; }
+                    var now = Date.now();
+                    var quietTime = fpLastData > 0 ? now - fpLastData : 0;
+
+                    if (fpLastData > 0 && window.map.isStyleLoaded()) {
+                      done = true;
+                      clearInterval(fpPoll);
+                      window.map.off('data', fpOnData);
+                      fpAddRouteAndCapture('Fast path styleLoaded');
+                      return;
+                    }
+                    if (fpLastData > 0 && quietTime > 1500) {
+                      done = true;
+                      clearInterval(fpPoll);
+                      window.map.off('data', fpOnData);
+                      fpAddRouteAndCapture('Fast path settled (' + quietTime + 'ms quiet)');
+                      return;
+                    }
+                    if (now - fpStart > 5000) {
+                      done = true;
+                      clearInterval(fpPoll);
+                      window.map.off('data', fpOnData);
+                      fpAddRouteAndCapture('Fast path max wait (5s)');
+                      return;
+                    }
+                  }, 500);
+
+                  setTimeout(function() {
+                    clearInterval(fpPoll);
+                    window.map.off('data', fpOnData);
+                    if (!done && !isStale()) {
+                      done = true;
+                      window._rn_log('Fast path timeout (8s)');
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'snapshotError', workerId: workerId, activityId: activityId,
+                        gen: myGen, error: 'Fast path render timeout',
+                        tileErrors: window._tileErrorCount,
+                      }));
+                    }
+                  }, 8000);
+                  return;
+                }
+              }
+
+              // --- Full path: everything in style JSON (atomic) ---
+              function applyStyle(styleObj) {
+
+              // Embed terrain, hillshade, and route directly in the style JSON
+              // so the drape texture includes the route from the very first render.
+              styleObj.sources['terrain'] = terrainSource;
+              styleObj.terrain = { source: 'terrain', exaggeration: ${TERRAIN_3D_CONFIG.defaultExaggeration} };
+              styleObj.sky = skyConfig;
+
+              // Insert hillshade before the first transportation/building layer
+              if (!isSatellite) {
+                var candidateSet = {};
+                for (var ci = 0; ci < hillshadeInsertCandidates.length; ci++) {
+                  candidateSet[hillshadeInsertCandidates[ci]] = true;
+                }
+                var hillshadeIdx = styleObj.layers.length;
+                for (var li = 0; li < styleObj.layers.length; li++) {
+                  if (candidateSet[styleObj.layers[li].id]) {
+                    hillshadeIdx = li;
+                    break;
+                  }
+                }
+                styleObj.layers.splice(hillshadeIdx, 0, {
+                  id: 'hillshading',
+                  type: 'hillshade',
+                  source: 'terrain',
+                  layout: { visibility: 'visible' },
+                  paint: hillshadePaint,
+                });
+              }
+
+              // Add route source + layers at the end of the style
+              if (hasRoute) {
+                var startPt = coords[0];
+                var endPt = coords[coords.length - 1];
+
+                styleObj.sources['route'] = {
+                  type: 'geojson',
+                  data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } },
+                  tolerance: 0,
+                };
+                styleObj.sources['start-end-markers'] = {
+                  type: 'geojson',
+                  data: {
+                    type: 'FeatureCollection',
+                    features: [
+                      { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: startPt } },
+                      { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: endPt } },
+                    ],
+                  },
+                };
+
+                styleObj.layers.push({
+                  id: 'route-outline', type: 'line', source: 'route',
+                  layout: { 'line-join': 'round', 'line-cap': 'round' },
+                  paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.8 },
+                });
+                styleObj.layers.push({
+                  id: 'route-line', type: 'line', source: 'route',
+                  layout: { 'line-join': 'round', 'line-cap': 'round' },
+                  paint: { 'line-color': routeColor, 'line-width': 5 },
+                });
+                styleObj.layers.push({
+                  id: 'start-end-border', type: 'circle', source: 'start-end-markers',
+                  paint: { 'circle-radius': 7, 'circle-color': '#FFFFFF' },
+                });
+                styleObj.layers.push({
+                  id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
+                  paint: {
+                    'circle-radius': 5,
+                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'],
+                  },
+                });
+              }
+
+              window._rn_log('setStyle (all-in-one): ' + styleObj.layers.length + ' layers, '
+                + Object.keys(styleObj.sources).length + ' sources'
+                + (styleObj.glyphs ? ', glyphs OK' : ', NO glyphs')
+                + (styleObj.sprite ? ', sprite OK' : ', NO sprite'));
+              window.map.setStyle(styleObj);
+              window.map.jumpTo({
+                center: camera.center,
+                zoom: camera.zoom,
+                bearing: camera.bearing,
+                pitch: camera.pitch,
+              });
+
+              // Wait for everything to load (DEM + vector + route tiles)
+              window._tileStats = {};
+              _rafCount = 0;
+              var done = false;
+              var setStyleTime = Date.now();
+
+              var readyPoll = setInterval(function() {
+                if (done || isStale()) { clearInterval(readyPoll); return; }
+                var elapsed = Date.now() - setStyleTime;
+
+                if (window.map.isStyleLoaded() || elapsed > 7000) {
+                  done = true;
+                  clearInterval(readyPoll);
+                  window._currentBaseStyle = mapStyle;
+                  window._rn_log('All loaded after ' + elapsed + 'ms, capturing...');
+                  requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                  return;
+                }
+              }, 200);
+
+              // Hard timeout
+              setTimeout(function() {
+                clearInterval(readyPoll);
+                if (!done && !isStale()) {
+                  done = true;
+                  window._rn_log('Hard timeout (10s), skipping');
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'snapshotError',
+                    workerId: workerId,
+                    activityId: activityId,
+                    gen: myGen,
+                    error: 'Render timeout',
+                    tileErrors: window._tileErrorCount,
+                  }));
+                }
+              }, 10000);
+
               } // end applyStyle
 
               // Light mode: fetch full Liberty style from URL, then apply.
+              // Don't rewrite vector URLs — let MapLibre handle TileJSON natively.
               // Dark/satellite: use the inline style object directly.
               if (lightStyleUrl) {
                 window._rn_log('Fetching Liberty style for light mode...');
@@ -843,19 +871,6 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                   .then(function(r) { return r.json(); })
                   .then(function(fetchedStyle) {
                     if (isStale()) return;
-                    // Rewrite OpenMapTiles source to use cached-vector:// protocol
-                    // and cap maxzoom at 14 (same as Map3DWebView) to avoid 404s
-                    if (fetchedStyle.sources) {
-                      var srcKeys = Object.keys(fetchedStyle.sources);
-                      for (var si = 0; si < srcKeys.length; si++) {
-                        var src = fetchedStyle.sources[srcKeys[si]];
-                        if (src.type === 'vector' && src.url === 'https://tiles.openfreemap.org/planet') {
-                          delete src.url;
-                          src.tiles = ['cached-vector://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'];
-                          src.maxzoom = 14;
-                        }
-                      }
-                    }
                     applyStyle(fetchedStyle);
                   })
                   .catch(function(err) {
@@ -956,6 +971,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               satellite: data.satellite ?? undefined,
               vector: data.vector ?? undefined,
             });
+          } else if (data.type === 'prefetchProgress') {
+            emitPrefetchTilesProgress(data.completed ?? 0, data.total ?? 0);
           } else if (data.type === 'snapshotError') {
             // Discard stale errors from superseded requests
             if (typeof data.gen === 'number' && data.gen !== worker.generationRef.current) {
@@ -1074,12 +1091,31 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       return onPrefetchTilesRequest((batches: PrefetchTilesBatch[]) => {
         // Find an idle worker to run the prefetch
         const worker = workers.find((w) => w.mapReadyRef.current && !w.processingRef.current);
-        if (!worker?.webViewRef.current) return;
+        if (!worker?.webViewRef.current) {
+          // All workers busy — queue for later execution when snapshots finish
+          pendingPrefetchRef.current.push(...batches);
+          return;
+        }
+
+        // Reset abort flag before starting new prefetch
+        worker.webViewRef.current.injectJavaScript('window._prefetchAborted = false; true;');
 
         for (const batch of batches) {
-          const script = generatePreloadScript(batch.urls, batch.cacheName);
+          const script = generatePreloadScript(batch.urls, batch.cacheName, batch.config);
           worker.webViewRef.current.injectJavaScript(script);
         }
+      });
+    }, [workers]);
+
+    // Listen for cancel events — set abort flag in all workers
+    useEffect(() => {
+      return onCancelWebViewPrefetch(() => {
+        for (const worker of workers) {
+          if (worker.webViewRef.current && worker.mapReadyRef.current) {
+            worker.webViewRef.current.injectJavaScript('window._prefetchAborted = true; true;');
+          }
+        }
+        pendingPrefetchRef.current = [];
       });
     }, [workers]);
 

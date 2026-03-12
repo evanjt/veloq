@@ -2,6 +2,7 @@
 // Original style: https://github.com/openmaptiles/dark-matter-gl-style (BSD license)
 // Tiles: OpenFreeMap (MIT license)
 // Cartography: Based on CartoDB Dark Matter by Stamen Design (CC0)
+// Improved palette: blue-gray tones for semantic differentiation (2017 CARTO approach)
 
 export const DARK_MATTER_STYLE = {
   version: 8 as const,
@@ -18,7 +19,7 @@ export const DARK_MATTER_STYLE = {
     {
       id: 'background',
       type: 'background' as const,
-      paint: { 'background-color': 'rgb(12,12,12)' },
+      paint: { 'background-color': '#0e0e0e' },
     },
     {
       id: 'water',
@@ -26,7 +27,7 @@ export const DARK_MATTER_STYLE = {
       source: 'openmaptiles',
       'source-layer': 'water',
       filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'brunnel', 'tunnel']],
-      paint: { 'fill-antialias': false, 'fill-color': 'rgb(27,27,29)' },
+      paint: { 'fill-antialias': false, 'fill-color': '#2C353C' },
     },
     {
       id: 'landcover_ice_shelf',
@@ -35,7 +36,7 @@ export const DARK_MATTER_STYLE = {
       'source-layer': 'landcover',
       maxzoom: 8,
       filter: ['all', ['==', '$type', 'Polygon'], ['==', 'subclass', 'ice_shelf']],
-      paint: { 'fill-color': 'rgb(12,12,12)', 'fill-opacity': 0.7 },
+      paint: { 'fill-color': '#181828', 'fill-opacity': 0.7 },
     },
     {
       id: 'landcover_glacier',
@@ -62,7 +63,7 @@ export const DARK_MATTER_STYLE = {
       'source-layer': 'landuse',
       maxzoom: 9,
       filter: ['all', ['==', '$type', 'Polygon'], ['==', 'class', 'residential']],
-      paint: { 'fill-color': 'hsl(0, 2%, 5%)', 'fill-opacity': 0.4 },
+      paint: { 'fill-color': '#161618', 'fill-opacity': 0.4 },
     },
     {
       id: 'landuse_park',
@@ -70,7 +71,7 @@ export const DARK_MATTER_STYLE = {
       source: 'openmaptiles',
       'source-layer': 'landuse',
       filter: ['all', ['==', '$type', 'Polygon'], ['==', 'class', 'park']],
-      paint: { 'fill-color': 'rgb(32,32,32)' },
+      paint: { 'fill-color': '#1C2E1C' },
     },
     {
       id: 'waterway',
@@ -78,7 +79,28 @@ export const DARK_MATTER_STYLE = {
       source: 'openmaptiles',
       'source-layer': 'waterway',
       filter: ['==', '$type', 'LineString'],
-      paint: { 'line-color': 'rgb(27,27,29)' },
+      paint: { 'line-color': '#2C353C' },
+    },
+    {
+      id: 'water_name',
+      type: 'symbol' as const,
+      source: 'openmaptiles',
+      'source-layer': 'water_name',
+      minzoom: 10,
+      filter: ['==', '$type', 'Point'],
+      layout: {
+        'text-field': '{name:latin}',
+        'text-font': ['Noto Sans Regular'],
+        'text-size': 11,
+        'text-letter-spacing': 0.1,
+        'text-max-width': 8,
+      },
+      paint: {
+        'text-color': '#6090B0',
+        'text-halo-blur': 0.5,
+        'text-halo-color': 'rgba(5,5,12,0.7)',
+        'text-halo-width': 1,
+      },
     },
     {
       id: 'building',
@@ -89,8 +111,8 @@ export const DARK_MATTER_STYLE = {
       filter: ['==', '$type', 'Polygon'],
       paint: {
         'fill-antialias': true,
-        'fill-color': 'rgb(10,10,10)',
-        'fill-outline-color': 'rgb(27,27,29)',
+        'fill-color': '#1E1E22',
+        'fill-outline-color': '#0e0e0e',
       },
     },
     {
@@ -100,7 +122,7 @@ export const DARK_MATTER_STYLE = {
       'source-layer': 'aeroway',
       minzoom: 4,
       filter: ['all', ['==', '$type', 'Polygon'], ['in', 'class', 'runway', 'taxiway']],
-      paint: { 'fill-color': '#000', 'fill-opacity': 1 },
+      paint: { 'fill-color': '#181820', 'fill-opacity': 1 },
     },
     {
       id: 'aeroway-runway',
@@ -111,7 +133,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['all', ['in', 'class', 'runway'], ['==', '$type', 'LineString']],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': '#000',
+        'line-color': '#181820',
         'line-opacity': 1,
         'line-width': {
           base: 1.5,
@@ -130,7 +152,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['all', ['==', '$type', 'LineString'], ['in', 'class', 'pier']],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': 'rgb(12,12,12)',
+        'line-color': '#181820',
         'line-width': {
           base: 1.2,
           stops: [
@@ -148,7 +170,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'path']],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': 'rgb(27,27,29)',
+        'line-color': '#1E1E2C',
         'line-dasharray': [1.5, 1.5],
         'line-opacity': 0.9,
         'line-width': {
@@ -169,7 +191,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['all', ['==', '$type', 'LineString'], ['in', 'class', 'minor', 'service', 'track']],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': '#181818',
+        'line-color': '#222230',
         'line-opacity': 0.9,
         'line-width': {
           base: 1.55,
@@ -193,7 +215,7 @@ export const DARK_MATTER_STYLE = {
       ],
       layout: { 'line-cap': 'butt', 'line-join': 'miter' },
       paint: {
-        'line-color': 'rgba(60,60,60,0.8)',
+        'line-color': 'rgba(58,58,72,0.8)',
         'line-dasharray': [12, 0],
         'line-width': {
           base: 1.3,
@@ -217,7 +239,7 @@ export const DARK_MATTER_STYLE = {
       ],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': 'hsl(0, 0%, 7%)',
+        'line-color': '#333342',
         'line-width': {
           base: 1.3,
           stops: [
@@ -241,7 +263,7 @@ export const DARK_MATTER_STYLE = {
       ],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': '#2a2a2a',
+        'line-color': '#2A2A38',
         'line-width': {
           stops: [
             [6, 0],
@@ -259,7 +281,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'motorway']],
       layout: { 'line-cap': 'butt', 'line-join': 'miter' },
       paint: {
-        'line-color': 'rgba(60,60,60,0.8)',
+        'line-color': 'rgba(58,58,72,0.9)',
         'line-dasharray': [2, 0],
         'line-opacity': 1,
         'line-width': {
@@ -285,7 +307,7 @@ export const DARK_MATTER_STYLE = {
           base: 1,
           stops: [
             [5.8, 'hsla(0, 0%, 85%, 0.53)'],
-            [6, '#000'],
+            [6, '#3A3A48'],
           ],
         },
         'line-width': {
@@ -307,7 +329,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'motorway']],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': '#181818',
+        'line-color': '#282838',
         'line-width': {
           base: 1.4,
           stops: [
@@ -315,6 +337,37 @@ export const DARK_MATTER_STYLE = {
             [6, 1.3],
           ],
         },
+      },
+    },
+    {
+      id: 'road_name_major',
+      type: 'symbol' as const,
+      source: 'openmaptiles',
+      'source-layer': 'transportation_name',
+      minzoom: 12,
+      filter: [
+        'all',
+        ['==', '$type', 'LineString'],
+        ['in', 'class', 'motorway', 'trunk', 'primary', 'secondary'],
+      ],
+      layout: {
+        'symbol-placement': 'line',
+        'text-field': '{name:latin}',
+        'text-font': ['Noto Sans Regular'],
+        'text-size': {
+          stops: [
+            [12, 10],
+            [16, 12],
+          ],
+        },
+        'text-rotation-alignment': 'map',
+        'text-max-angle': 30,
+      },
+      paint: {
+        'text-color': '#8090A0',
+        'text-halo-blur': 0.5,
+        'text-halo-color': 'rgba(5,5,12,0.85)',
+        'text-halo-width': 1.5,
       },
     },
     {
@@ -326,7 +379,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'rail'], ['!has', 'service']],
       layout: { 'line-join': 'round' },
       paint: {
-        'line-color': 'rgb(35,35,35)',
+        'line-color': '#2A2A38',
         'line-width': {
           base: 1.3,
           stops: [
@@ -345,7 +398,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'rail'], ['!has', 'service']],
       layout: { 'line-join': 'round' },
       paint: {
-        'line-color': 'rgb(12,12,12)',
+        'line-color': '#0e0e0e',
         'line-dasharray': [3, 3],
         'line-width': {
           base: 1.3,
@@ -365,7 +418,7 @@ export const DARK_MATTER_STYLE = {
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-blur': 0.4,
-        'line-color': 'hsl(0, 0%, 21%)',
+        'line-color': 'rgba(80,80,90,0.8)',
         'line-dasharray': [2, 2],
         'line-opacity': 1,
         'line-width': {
@@ -392,7 +445,7 @@ export const DARK_MATTER_STYLE = {
             [22, 4],
           ],
         },
-        'line-color': 'hsl(0, 0%, 23%)',
+        'line-color': 'rgba(102,102,102,1)',
         'line-opacity': 1,
         'line-width': {
           base: 1.1,
@@ -423,10 +476,10 @@ export const DARK_MATTER_STYLE = {
         'text-transform': 'uppercase',
       },
       paint: {
-        'text-color': 'rgb(101,101,101)',
-        'text-halo-blur': 1,
-        'text-halo-color': 'rgba(0,0,0,0.7)',
-        'text-halo-width': 1,
+        'text-color': '#707C90',
+        'text-halo-blur': 0.5,
+        'text-halo-color': 'rgba(5,5,12,0.85)',
+        'text-halo-width': 1.5,
       },
     },
     {
@@ -441,14 +494,14 @@ export const DARK_MATTER_STYLE = {
         'text-field': '{name:latin}\n{name:nonlatin}',
         'text-font': ['Noto Sans Regular'],
         'text-justify': 'center',
-        'text-size': 10,
+        'text-size': 11,
         'text-transform': 'uppercase',
       },
       paint: {
-        'text-color': 'rgb(101,101,101)',
-        'text-halo-blur': 1,
-        'text-halo-color': 'rgba(0,0,0,0.7)',
-        'text-halo-width': 1,
+        'text-color': '#808CA0',
+        'text-halo-blur': 0.5,
+        'text-halo-color': 'rgba(5,5,12,0.85)',
+        'text-halo-width': 1.5,
       },
     },
     {
@@ -464,14 +517,14 @@ export const DARK_MATTER_STYLE = {
         'text-font': ['Noto Sans Regular'],
         'text-justify': 'left',
         'text-offset': [0.5, 0.2],
-        'text-size': 10,
+        'text-size': 11,
         'text-transform': 'uppercase',
       },
       paint: {
-        'text-color': 'rgb(101,101,101)',
-        'text-halo-blur': 1,
-        'text-halo-color': 'rgba(0,0,0,0.7)',
-        'text-halo-width': 1,
+        'text-color': '#8894A4',
+        'text-halo-blur': 0.5,
+        'text-halo-color': 'rgba(5,5,12,0.85)',
+        'text-halo-width': 1.5,
       },
     },
     {
@@ -486,14 +539,14 @@ export const DARK_MATTER_STYLE = {
         'text-field': '{name:latin}\n{name:nonlatin}',
         'text-font': ['Noto Sans Regular'],
         'text-justify': 'left',
-        'text-size': 10,
+        'text-size': 12,
         'text-transform': 'uppercase',
       },
       paint: {
-        'text-color': 'rgb(101,101,101)',
-        'text-halo-blur': 1,
-        'text-halo-color': 'rgba(0,0,0,0.7)',
-        'text-halo-width': 1,
+        'text-color': '#9CA8B8',
+        'text-halo-blur': 0.5,
+        'text-halo-color': 'rgba(5,5,12,0.85)',
+        'text-halo-width': 1.5,
       },
     },
     {
@@ -508,14 +561,14 @@ export const DARK_MATTER_STYLE = {
         'text-field': '{name:latin}\n{name:nonlatin}',
         'text-font': ['Noto Sans Regular'],
         'text-justify': 'left',
-        'text-size': 10,
+        'text-size': 13,
         'text-transform': 'uppercase',
       },
       paint: {
-        'text-color': 'rgb(101,101,101)',
-        'text-halo-blur': 1,
-        'text-halo-color': 'rgba(0,0,0,0.7)',
-        'text-halo-width': 1,
+        'text-color': '#B0BCC8',
+        'text-halo-blur': 0.5,
+        'text-halo-color': 'rgba(5,5,12,0.85)',
+        'text-halo-width': 1.5,
       },
     },
     {
@@ -530,14 +583,14 @@ export const DARK_MATTER_STYLE = {
         'text-field': '{name:latin}\n{name:nonlatin}',
         'text-font': ['Noto Sans Regular'],
         'text-justify': 'left',
-        'text-size': 14,
+        'text-size': 16,
         'text-transform': 'uppercase',
       },
       paint: {
-        'text-color': 'rgb(101,101,101)',
-        'text-halo-blur': 1,
-        'text-halo-color': 'rgba(0,0,0,0.7)',
-        'text-halo-width': 1,
+        'text-color': '#C8D4E0',
+        'text-halo-blur': 0.5,
+        'text-halo-color': 'rgba(5,5,12,0.85)',
+        'text-halo-width': 1.5,
       },
     },
     {
@@ -550,14 +603,14 @@ export const DARK_MATTER_STYLE = {
       layout: {
         'text-field': '{name:latin}\n{name:nonlatin}',
         'text-font': ['Noto Sans Regular'],
-        'text-size': 10,
+        'text-size': 11,
         'text-transform': 'uppercase',
       },
       paint: {
-        'text-color': 'rgb(101,101,101)',
-        'text-halo-blur': 1,
-        'text-halo-color': 'rgba(0,0,0,0.7)',
-        'text-halo-width': 1,
+        'text-color': '#8090A0',
+        'text-halo-blur': 0.5,
+        'text-halo-color': 'rgba(5,5,12,0.85)',
+        'text-halo-width': 1.5,
       },
     },
     {
@@ -574,16 +627,16 @@ export const DARK_MATTER_STYLE = {
         'text-size': {
           base: 1.4,
           stops: [
-            [0, 10],
-            [3, 12],
-            [4, 14],
+            [0, 11],
+            [3, 13],
+            [4, 16],
           ],
         },
         'text-transform': 'uppercase',
       },
       paint: {
-        'text-color': 'rgb(101,101,101)',
-        'text-halo-color': 'rgba(0,0,0,0.7)',
+        'text-color': '#D3E4EC',
+        'text-halo-color': 'rgba(5,5,12,0.85)',
         'text-halo-width': 1.4,
       },
     },

@@ -107,7 +107,7 @@ export function formatTilePrefetchProgress(
       icon: 'map-outline',
       text: t('cache.downloadingTiles', { defaultValue: 'Caching map tiles' }) as string,
       percent,
-      countText: progress.total > 0 ? `${progress.downloaded}/${progress.total}` : null,
+      countText: null,
       indeterminate: progress.downloaded === 0 && progress.total === 0,
     };
   }

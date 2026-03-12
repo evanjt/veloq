@@ -53,41 +53,78 @@ export function getSatellitePreloadUrls(
   return urls;
 }
 
+export interface PreloadConfig {
+  concurrency?: number;
+  delayMs?: number;
+}
+
 /**
  * Generate JS to inject into a WebView for background satellite tile preloading.
  * Fetches tiles with throttling and caches via Cache API.
+ * Emits prefetchProgress messages back to React Native for progress tracking.
+ * Checks `window._prefetchAborted` before each fetch for cancellation support.
  */
-export function generatePreloadScript(urls: string[], cacheName: string): string {
+export function generatePreloadScript(
+  urls: string[],
+  cacheName: string,
+  config?: PreloadConfig
+): string {
   const urlsJSON = JSON.stringify(urls);
+  const concurrency = config?.concurrency ?? 1;
+  const delayMs = config?.delayMs ?? 200;
   return `
     (function() {
       var urls = ${urlsJSON};
       var CACHE_NAME = '${cacheName}';
-      var CONCURRENCY = 2;
-      var DELAY_MS = 50;
+      var CONCURRENCY = ${concurrency};
+      var DELAY_MS = ${delayMs};
       var idx = 0;
       var active = 0;
+      var completed = 0;
+      var total = urls.length;
+
+      function reportProgress() {
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'prefetchProgress', cacheName: CACHE_NAME,
+            completed: completed, total: total
+          }));
+        }
+      }
 
       caches.open(CACHE_NAME).then(function(cache) {
         function next() {
+          if (window._prefetchAborted) {
+            reportProgress();
+            return;
+          }
           if (idx >= urls.length && active === 0) {
-            window._rn_log && window._rn_log('Preload done: ' + urls.length + ' tiles');
+            reportProgress();
+            window._rn_log && window._rn_log('Preload done: ' + total + ' tiles (' + CACHE_NAME + ')');
             return;
           }
           while (active < CONCURRENCY && idx < urls.length) {
+            if (window._prefetchAborted) {
+              reportProgress();
+              return;
+            }
             var url = urls[idx++];
             active++;
             cache.match(url).then(function(cached) {
               if (cached) {
                 active--;
+                completed++;
                 setTimeout(next, 0);
               } else {
                 return fetch(url).then(function(r) {
                   if (r.ok) cache.put(url, r);
                   active--;
+                  completed++;
+                  if (completed % 5 === 0) reportProgress();
                   setTimeout(next, DELAY_MS);
                 }).catch(function() {
                   active--;
+                  completed++;
                   setTimeout(next, DELAY_MS);
                 });
               }

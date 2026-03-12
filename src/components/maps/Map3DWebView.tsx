@@ -16,6 +16,7 @@ import {
   SATELLITE_SOURCES,
   rewriteSatelliteUrls,
   rewriteVectorUrls,
+  TERRAIN_3D_CONFIG,
 } from './mapStyles';
 import { DARK_MATTER_STYLE } from './darkMatterStyle';
 import { SWITZERLAND_SIMPLE } from './countryBoundaries';
@@ -320,13 +321,30 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       const isSatellite = mapStyle === 'satellite';
       const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
 
+      // Satellite: rewrite to cached protocol for tile caching.
+      // Dark: keep original TileJSON URL — let MapLibre fetch tiles natively
+      // (cached-vector:// rewrite was causing blank features after setStyle).
+      // Light: fetch URL-based style in JS.
       const styleConfig = isSatellite
         ? JSON.stringify(rewriteSatelliteUrls(getCombinedSatelliteStyle3D()))
         : mapStyle === 'dark'
-          ? JSON.stringify(rewriteVectorUrls(DARK_MATTER_STYLE))
-          : `null`; // light uses URL-based style, handled below
+          ? JSON.stringify(DARK_MATTER_STYLE)
+          : `null`;
 
       const lightStyleUrl = 'https://tiles.openfreemap.org/styles/liberty';
+
+      // Serialize shared terrain config for injection
+      const terrainSourceJSON = JSON.stringify(TERRAIN_3D_CONFIG.source);
+      const skyConfigJSON = JSON.stringify(
+        isSatellite
+          ? TERRAIN_3D_CONFIG.sky.satellite
+          : isDark
+            ? TERRAIN_3D_CONFIG.sky.dark
+            : TERRAIN_3D_CONFIG.sky.light
+      );
+      const hillshadePaintJSON = JSON.stringify(
+        isDark ? TERRAIN_3D_CONFIG.hillshadePaint.dark : TERRAIN_3D_CONFIG.hillshadePaint.light
+      );
 
       webViewRef.current.injectJavaScript(`
         (function() {
@@ -336,42 +354,36 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           var isDark = ${isDark};
           var coords = window._routeCoords || [];
           var routeColor = '${routeColor}';
+          var terrainSource = ${terrainSourceJSON};
+          var skyConfig = ${skyConfigJSON};
+          var hillshadePaint = ${hillshadePaintJSON};
+          var hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
 
           // Build style: either JSON object or fetch URL-based style
           function applyNewStyle(styleObj) {
-            // Add terrain source via cached protocol
-            styleObj.sources['terrain'] = {
-              type: 'raster-dem',
-              tiles: ['cached-terrain://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-              encoding: 'terrarium',
-              tileSize: 256,
-              maxzoom: 15,
-            };
-
+            styleObj.sources['terrain'] = terrainSource;
             styleObj.terrain = { source: 'terrain', exaggeration: ${terrainExaggeration} };
+            styleObj.sky = skyConfig;
 
-            // Sky config embedded in style JSON (not via setSky — avoids MapLibre bug)
-            styleObj.sky = isSatellite
-              ? { 'sky-color': '#1a3a5c', 'horizon-color': '#2a4a6c', 'fog-color': '#1a3050',
-                  'fog-ground-blend': 0.5, 'horizon-fog-blend': 0.8, 'sky-horizon-blend': 0.5, 'atmosphere-blend': 0.8 }
-              : isDark
-              ? { 'sky-color': '#0a0a14', 'horizon-color': '#151520', 'fog-color': '#0a0a14',
-                  'fog-ground-blend': 0.5, 'horizon-fog-blend': 0.8, 'sky-horizon-blend': 0.5, 'atmosphere-blend': 0.8 }
-              : { 'sky-color': '#88C6FC', 'horizon-color': '#B0C8DC', 'fog-color': '#D8E4EE',
-                  'fog-ground-blend': 0.5, 'horizon-fog-blend': 0.8, 'sky-horizon-blend': 0.5, 'atmosphere-blend': 0.8 };
-
-            // Hillshade for non-satellite styles
+            // Insert hillshade before the first transportation/building layer found
             if (!isSatellite) {
-              styleObj.layers.push({
+              var candidateSet = {};
+              for (var ci = 0; ci < hillshadeInsertCandidates.length; ci++) {
+                candidateSet[hillshadeInsertCandidates[ci]] = true;
+              }
+              var hillshadeIdx = styleObj.layers.length;
+              for (var li = 0; li < styleObj.layers.length; li++) {
+                if (candidateSet[styleObj.layers[li].id]) {
+                  hillshadeIdx = li;
+                  break;
+                }
+              }
+              styleObj.layers.splice(hillshadeIdx, 0, {
                 id: 'hillshading',
                 type: 'hillshade',
                 source: 'terrain',
                 layout: { visibility: 'visible' },
-                paint: {
-                  'hillshade-shadow-color': isDark ? '#000000' : '#473B24',
-                  'hillshade-illumination-anchor': 'map',
-                  'hillshade-exaggeration': 0.3,
-                },
+                paint: hillshadePaint,
               });
             }
 
@@ -416,15 +428,11 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           if (styleJSON) {
             applyNewStyle(styleJSON);
           } else {
-            // Light style is URL-based — fetch, rewrite vector URLs, then apply
+            // Light style is URL-based — fetch and apply without rewriting vector URLs.
+            // Let MapLibre handle TileJSON resolution natively for reliable tile loading.
             fetch('${lightStyleUrl}')
               .then(function(r) { return r.json(); })
               .then(function(s) {
-                if (s.sources && s.sources.openmaptiles && s.sources.openmaptiles.url === 'https://tiles.openfreemap.org/planet') {
-                  delete s.sources.openmaptiles.url;
-                  s.sources.openmaptiles.tiles = ['cached-vector://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'];
-                  s.sources.openmaptiles.maxzoom = 14;
-                }
                 applyNewStyle(s);
               })
               .catch(function(e) { console.warn('[3D] Failed to fetch light style:', e); });
@@ -534,6 +542,19 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       const isSatellite = initStyle === 'satellite';
       const isDark = initStyle === 'dark' || initStyle === 'satellite';
 
+      // Serialize shared terrain config for injection into initial HTML
+      const initTerrainSourceJSON = JSON.stringify(TERRAIN_3D_CONFIG.source);
+      const initSkyConfigJSON = JSON.stringify(
+        isSatellite
+          ? TERRAIN_3D_CONFIG.sky.satellite
+          : isDark
+            ? TERRAIN_3D_CONFIG.sky.dark
+            : TERRAIN_3D_CONFIG.sky.light
+      );
+      const initHillshadePaintJSON = JSON.stringify(
+        isDark ? TERRAIN_3D_CONFIG.hillshadePaint.dark : TERRAIN_3D_CONFIG.hillshadePaint.light
+      );
+
       // For satellite, we use combined style with all regional sources layered
       // For dark, we use the bundled Dark Matter style with OpenFreeMap tiles
       // Rewrite tile URLs to use cached protocols for offline/performance
@@ -579,6 +600,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const savedBearing = ${bearingValue};
     const savedPitch = ${pitchValue};
     const isSatellite = ${isSatellite};
+    const _terrainSource = ${initTerrainSourceJSON};
+    const _skyConfig = ${initSkyConfigJSON};
+    const _hillshadePaint = ${initHillshadePaintJSON};
+    const _hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
 
     // Decode ArrayBuffer/Blob into HTMLImageElement via Object URL.
     // MapLibre v5 uses it directly (instanceof HTMLImageElement check),
@@ -617,7 +642,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         cache.keys().then(function(requests) {
           var sizes = requests.map(function(req) {
             return cache.match(req).then(function(r) {
-              return { req: req, size: r ? (parseInt(r.headers.get('content-length') || '0') || 0) : 0 };
+              if (!r) return { req: req, size: 0 };
+              var cl = parseInt(r.headers.get('content-length') || '0') || 0;
+              if (cl > 0) return { req: req, size: cl };
+              return r.arrayBuffer().then(function(buf) {
+                return { req: req, size: buf.byteLength };
+              });
             });
           });
           Promise.all(sizes).then(function(entries) {
@@ -730,9 +760,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       return opts;
     }
 
-    // All style paths create the map synchronously — no initMap() wrapper needed.
-    // Light style uses URL directly (no vector caching on initial load — the
-    // setStyle() injection path handles caching for subsequent style changes).
+    // Satellite/dark use inline style JSON; light uses URL directly.
+    // Light mode URL-based init lets MapLibre handle TileJSON resolution
+    // and vector tile loading natively — more reliable than fetch+rewrite.
     try {
     var styleJSON = ${styleConfig};
     if (styleJSON) {
@@ -787,14 +817,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     map.on('load', function() {
       window._rn_log('map load event fired');
 
-      // Add AWS Terrain Tiles source via cached-terrain:// protocol
-      map.addSource('terrain', {
-        type: 'raster-dem',
-        tiles: ['cached-terrain://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-        encoding: 'terrarium',
-        tileSize: 256,
-        maxzoom: 15,
-      });
+      // Add terrain source from shared config
+      map.addSource('terrain', _terrainSource);
 
       // Enable 3D terrain
       map.setTerrain({
@@ -803,59 +827,31 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       });
       window._rn_log('terrain set, exaggeration=${terrainExaggeration}');
 
-      // Sky/fog to blend horizon instead of white tiles
-      // setSky may not be available in all MapLibre versions — cosmetic only, safe to skip
+      // Sky/fog from shared config — setSky may not be available, cosmetic only
       try {
-        if (isSatellite) {
-          map.setSky({
-            'sky-color': '#1a3a5c',
-            'horizon-color': '#2a4a6c',
-            'fog-color': '#1a3050',
-            'fog-ground-blend': 0.5,
-            'horizon-fog-blend': 0.8,
-            'sky-horizon-blend': 0.5,
-            'atmosphere-blend': 0.8,
-          });
-        } else if (${isDark}) {
-          map.setSky({
-            'sky-color': '#0a0a14',
-            'horizon-color': '#151520',
-            'fog-color': '#0a0a14',
-            'fog-ground-blend': 0.5,
-            'horizon-fog-blend': 0.8,
-            'sky-horizon-blend': 0.5,
-            'atmosphere-blend': 0.8,
-          });
-        } else {
-          map.setSky({
-            'sky-color': '#88C6FC',
-            'horizon-color': '#B0C8DC',
-            'fog-color': '#D8E4EE',
-            'fog-ground-blend': 0.5,
-            'horizon-fog-blend': 0.8,
-            'sky-horizon-blend': 0.5,
-            'atmosphere-blend': 0.8,
-          });
-        }
+        map.setSky(_skyConfig);
         window._rn_log('sky set');
       } catch(e) {
         window._rn_log('setSky unavailable (ok): ' + e.message);
       }
 
-      // Add hillshade for better depth perception (skip for satellite - already has shadows)
-      // Reuses the existing 'terrain' raster-dem source to avoid downloading tiles twice
+      // Add hillshade before the first transportation/building layer found
       if (!isSatellite) {
+        var _hillshadeBefore = undefined;
+        for (var ci = 0; ci < _hillshadeInsertCandidates.length; ci++) {
+          if (map.getLayer(_hillshadeInsertCandidates[ci])) {
+            _hillshadeBefore = _hillshadeInsertCandidates[ci];
+            break;
+          }
+        }
+        window._rn_log('hillshade insert before: ' + (_hillshadeBefore || 'end'));
         map.addLayer({
           id: 'hillshading',
           type: 'hillshade',
           source: 'terrain',
           layout: { visibility: 'visible' },
-          paint: {
-            'hillshade-shadow-color': '${isDark ? '#000000' : '#473B24'}',
-            'hillshade-illumination-anchor': 'map',
-            'hillshade-exaggeration': 0.3,
-          },
-        }, 'building');
+          paint: _hillshadePaint,
+        }, _hillshadeBefore);
       }
 
       // Add route if coordinates exist
@@ -1024,6 +1020,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         }, 1000);
       });
     });
+
     } catch(e) {
       window._rn_log('SCRIPT ERROR: ' + e.message + ' at ' + (e.stack || ''));
     }

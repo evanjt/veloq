@@ -400,6 +400,82 @@ export function rewriteVectorUrls<T extends object>(style: T): T {
 export const TERRAIN_ATTRIBUTION = '© AWS Terrain Tiles';
 
 /**
+ * Shared 3D terrain configuration — single source of truth for both
+ * Map3DWebView (interactive detail) and TerrainSnapshotWebView (feed previews).
+ * Keeps terrain source, sky, and hillshade definitions in sync.
+ */
+export const TERRAIN_3D_CONFIG = {
+  source: {
+    type: 'raster-dem' as const,
+    tiles: ['cached-terrain://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+    encoding: 'terrarium' as const,
+    tileSize: 256,
+    maxzoom: 15,
+  },
+  defaultExaggeration: 1.5,
+  sky: {
+    satellite: {
+      'sky-color': '#1a3a5c',
+      'horizon-color': '#2a4a6c',
+      'fog-color': '#1a3050',
+      'fog-ground-blend': 0.5,
+      'horizon-fog-blend': 0.8,
+      'sky-horizon-blend': 0.5,
+      'atmosphere-blend': 0.8,
+    },
+    dark: {
+      'sky-color': '#0a1428',
+      'horizon-color': '#1a2538',
+      'fog-color': '#0e1520',
+      'fog-ground-blend': 0.5,
+      'horizon-fog-blend': 0.8,
+      'sky-horizon-blend': 0.5,
+      'atmosphere-blend': 0.8,
+    },
+    light: {
+      'sky-color': '#88C6FC',
+      'horizon-color': '#B0C8DC',
+      'fog-color': '#D8E4EE',
+      'fog-ground-blend': 0.5,
+      'horizon-fog-blend': 0.8,
+      'sky-horizon-blend': 0.5,
+      'atmosphere-blend': 0.8,
+    },
+  },
+  hillshadePaint: {
+    dark: {
+      'hillshade-shadow-color': 'rgba(10,10,20,0.35)',
+      'hillshade-highlight-color': 'rgba(200,210,230,0.25)',
+      'hillshade-illumination-anchor': 'map',
+      'hillshade-exaggeration': 0.4,
+    },
+    light: {
+      'hillshade-shadow-color': '#473B24',
+      'hillshade-highlight-color': 'rgba(255,255,255,0.1)',
+      'hillshade-illumination-anchor': 'map',
+      'hillshade-exaggeration': 0.3,
+    },
+  },
+  /**
+   * Insert hillshade before the first transportation/building layer found.
+   * In Liberty, 'building' is after all roads (layer ~85) — using it would
+   * put hillshade ON TOP of roads. In Dark Matter, 'building' is before roads
+   * (layer ~10). This list catches the correct insertion point in both styles.
+   */
+  hillshadeInsertBeforeCandidates: [
+    'building',
+    'aeroway_fill',
+    'aeroway-area',
+    'aeroway-runway',
+    'tunnel_motorway_link_casing',
+    'road_pier',
+    'road_area_pattern',
+    'road_motorway_casing',
+    'highway_path',
+  ],
+} as const;
+
+/**
  * Minimal map style for 3D terrain snapshot previews.
  *
  * Full vector styles (Liberty, Dark Matter) have dozens of layers (roads, labels,
@@ -475,7 +551,7 @@ export function getTerrainSnapshotStyle(mode: 'light' | 'dark') {
         source: 'openmaptiles',
         'source-layer': 'water',
         filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'brunnel', 'tunnel']],
-        paint: { 'fill-color': isLight ? '#A3C7DF' : '#1B1B1D', 'fill-antialias': false },
+        paint: { 'fill-color': isLight ? '#A3C7DF' : '#2C353C', 'fill-antialias': false },
       },
       {
         id: 'waterway',
@@ -484,7 +560,7 @@ export function getTerrainSnapshotStyle(mode: 'light' | 'dark') {
         'source-layer': 'waterway',
         filter: ['==', '$type', 'LineString'],
         paint: {
-          'line-color': isLight ? '#A3C7DF' : '#1B1B1D',
+          'line-color': isLight ? '#A3C7DF' : '#2C353C',
           'line-width': 1,
           'line-opacity': 0.6,
         },

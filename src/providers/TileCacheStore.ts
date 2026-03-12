@@ -11,28 +11,30 @@ const log = debug.create('TileCache');
 
 const STORAGE_KEY = 'veloq-tile-cache';
 
-export type CacheMode = 'standard' | 'maximum';
+export type CacheMode = 'ambient' | 'standard' | 'maximum';
 
 export type PrefetchStatus = 'idle' | 'computing' | 'downloading' | 'complete' | 'error';
 
 interface TileCacheSettings {
-  enabled: boolean;
   wifiOnly: boolean;
   cacheMode: CacheMode;
 }
 
 const DEFAULT_SETTINGS: TileCacheSettings = {
-  enabled: true,
   wifiOnly: true,
-  cacheMode: 'standard',
+  cacheMode: 'ambient',
 };
 
 function isTileCacheSettings(value: unknown): value is TileCacheSettings {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const obj = value as Record<string, unknown>;
-  if ('enabled' in obj && typeof obj.enabled !== 'boolean') return false;
   if ('wifiOnly' in obj && typeof obj.wifiOnly !== 'boolean') return false;
-  if ('cacheMode' in obj && obj.cacheMode !== 'standard' && obj.cacheMode !== 'maximum')
+  if (
+    'cacheMode' in obj &&
+    obj.cacheMode !== 'ambient' &&
+    obj.cacheMode !== 'standard' &&
+    obj.cacheMode !== 'maximum'
+  )
     return false;
   return true;
 }
@@ -49,7 +51,6 @@ interface TileCacheState {
   errorMessage: string | null;
 
   initialize: () => Promise<void>;
-  setEnabled: (enabled: boolean) => void;
   setWifiOnly: (wifiOnly: boolean) => void;
   setCacheMode: (mode: CacheMode) => void;
   setPrefetchStatus: (status: PrefetchStatus) => void;
@@ -81,22 +82,30 @@ export const useTileCacheStore = create<TileCacheState>((set, get) => ({
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
-        const parsed = safeJsonParseWithSchema(stored, isTileCacheSettings, DEFAULT_SETTINGS);
-        set({ settings: { ...DEFAULT_SETTINGS, ...parsed }, isLoaded: true });
+        const raw = JSON.parse(stored) as Record<string, unknown>;
+        // Migrate old format: { enabled: boolean, cacheMode: 'standard'|'maximum' }
+        // → new format: { cacheMode: 'ambient'|'standard'|'maximum' }
+        if ('enabled' in raw && typeof raw.enabled === 'boolean') {
+          const migrated: TileCacheSettings = {
+            wifiOnly: typeof raw.wifiOnly === 'boolean' ? raw.wifiOnly : DEFAULT_SETTINGS.wifiOnly,
+            cacheMode: raw.enabled
+              ? raw.cacheMode === 'maximum'
+                ? 'maximum'
+                : 'standard'
+              : 'ambient',
+          };
+          persistSettings(migrated);
+          set({ settings: migrated, isLoaded: true });
+        } else {
+          const parsed = safeJsonParseWithSchema(stored, isTileCacheSettings, DEFAULT_SETTINGS);
+          set({ settings: { ...DEFAULT_SETTINGS, ...parsed }, isLoaded: true });
+        }
       } else {
         set({ isLoaded: true });
       }
     } catch {
       set({ isLoaded: true });
     }
-  },
-
-  setEnabled: (enabled: boolean) => {
-    set((state) => {
-      const newSettings = { ...state.settings, enabled };
-      persistSettings(newSettings);
-      return { settings: newSettings };
-    });
   },
 
   setWifiOnly: (wifiOnly: boolean) => {
@@ -111,6 +120,13 @@ export const useTileCacheStore = create<TileCacheState>((set, get) => ({
     set((state) => {
       const newSettings = { ...state.settings, cacheMode: mode };
       persistSettings(newSettings);
+      if (mode === 'ambient') {
+        return {
+          settings: newSettings,
+          prefetchStatus: 'idle' as PrefetchStatus,
+          progress: { downloaded: 0, total: 0 },
+        };
+      }
       return { settings: newSettings };
     });
   },
@@ -120,7 +136,10 @@ export const useTileCacheStore = create<TileCacheState>((set, get) => ({
   },
 
   setProgress: (downloaded: number, total: number) => {
-    set({ progress: { downloaded, total } });
+    // Monotonic: never let downloaded go backwards (prevents visual jitter
+    // from interleaved native pack callbacks and WebView progress events)
+    const current = get().progress.downloaded;
+    set({ progress: { downloaded: Math.max(downloaded, current), total } });
   },
 
   setLastPrefetchDate: (date: string) => {
@@ -140,9 +159,9 @@ export const useTileCacheStore = create<TileCacheState>((set, get) => ({
   },
 }));
 
-/** Derived: radius in km based on cache mode */
+/** Derived: radius in km based on cache mode (ambient and standard use 0) */
 export function getCacheRadius(): number {
-  return useTileCacheStore.getState().settings.cacheMode === 'maximum' ? 20 : 5;
+  return useTileCacheStore.getState().settings.cacheMode === 'maximum' ? 5 : 0;
 }
 
 /** Derived: whether all styles should be cached */

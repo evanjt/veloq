@@ -107,6 +107,7 @@ export function emitTileCacheStats(stats: TileCacheStats): void {
 export interface PrefetchTilesBatch {
   urls: string[];
   cacheName: string;
+  config?: { concurrency?: number; delayMs?: number };
 }
 
 type PrefetchTilesRequestListener = (batches: PrefetchTilesBatch[]) => void;
@@ -135,4 +136,22 @@ export function onPrefetchTilesProgress(cb: PrefetchTilesProgressListener): () =
 
 export function emitPrefetchTilesProgress(downloaded: number, total: number): void {
   for (const cb of prefetchTilesProgressListeners) cb(downloaded, total);
+}
+
+/**
+ * Cancel WebView prefetch event — sets abort flag in all WebView workers
+ * to stop in-flight tile fetches.
+ */
+type CancelWebViewPrefetchListener = () => void;
+const cancelWebViewPrefetchListeners = new Set<CancelWebViewPrefetchListener>();
+
+export function onCancelWebViewPrefetch(cb: CancelWebViewPrefetchListener): () => void {
+  cancelWebViewPrefetchListeners.add(cb);
+  return () => {
+    cancelWebViewPrefetchListeners.delete(cb);
+  };
+}
+
+export function emitCancelWebViewPrefetch(): void {
+  for (const cb of cancelWebViewPrefetchListeners) cb();
 }

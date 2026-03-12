@@ -225,6 +225,15 @@ export function enumerateTileUrls(
 }
 
 /**
+ * Check whether two bounding boxes overlap.
+ * `b` uses [west, south, east, north] format (same as SATELLITE_SOURCES bounds).
+ */
+export function boundsOverlap(a: Bounds, b: [number, number, number, number]): boolean {
+  const [west, south, east, north] = b;
+  return a.minLng <= east && a.maxLng >= west && a.minLat <= north && a.maxLat >= south;
+}
+
+/**
  * Estimate total tile count across clusters for multiple sources and zoom ranges.
  * Used for UI display of expected download size.
  */

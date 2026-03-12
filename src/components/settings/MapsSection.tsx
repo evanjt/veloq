@@ -444,120 +444,113 @@ export function MapsSection() {
           </View>
         )}
 
-        {/* Offline tile caching — integrated into maps card */}
-        <View style={[styles.offlineRow, styles.actionRowBorder]}>
-          <MaterialCommunityIcons name="download-outline" size={22} color={colors.primary} />
-          <Text style={[styles.actionText, isDark && styles.textLight]}>
-            {t('settings.autoDownloadTiles', { defaultValue: 'Auto-download map tiles' })}
+        {/* Offline tile caching — cache mode picker */}
+        <View
+          style={[
+            styles.actionRowBorder,
+            { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+          ]}
+        >
+          <Text style={[styles.offlineModeLabel, isDark && styles.textLight]}>
+            {t('settings.cacheMode', { defaultValue: 'Cache mode' })}
           </Text>
-          <Switch
-            value={tileCacheSettings.enabled}
-            onValueChange={tileCacheActions.setEnabled}
-            color={colors.primary}
+          <SegmentedButtons
+            value={tileCacheSettings.cacheMode}
+            onValueChange={(value) => tileCacheActions.setCacheMode(value as CacheMode)}
+            buttons={[
+              {
+                value: 'ambient',
+                label: t('settings.cacheModeAmbient', { defaultValue: 'Ambient' }),
+              },
+              {
+                value: 'standard',
+                label: t('settings.cacheModeStandard', { defaultValue: 'Standard' }),
+              },
+              {
+                value: 'maximum',
+                label: t('settings.cacheModeMaximum', { defaultValue: 'Maximum' }),
+                disabled: !canUseMaximum,
+              },
+            ]}
+            density="small"
+            style={{ marginTop: spacing.xs }}
           />
+          <Text style={[styles.offlineModeHint, isDark && styles.textMuted]}>
+            {tileCacheSettings.cacheMode === 'ambient'
+              ? t('settings.cacheModeAmbientHint', {
+                  defaultValue: 'Tiles cached as you browse maps',
+                })
+              : tileCacheSettings.cacheMode === 'standard'
+                ? t('settings.cacheModeStandardHint', {
+                    defaultValue: 'Slowly downloads tiles for your activities',
+                  })
+                : t('settings.cacheModeMaximumHint', {
+                    defaultValue: 'Slowly downloads 5 km radius · all styles',
+                  })}
+          </Text>
+          {!canUseMaximum && tileCacheSettings.cacheMode === 'maximum' && (
+            <Text style={styles.offlineWarning}>
+              {t('settings.notEnoughStorage', {
+                defaultValue: 'Not enough storage for Maximum mode',
+              })}
+            </Text>
+          )}
         </View>
 
-        {tileCacheSettings.enabled && (
-          <>
-            {/* Wi-Fi only toggle */}
-            <View style={[styles.offlineRow, styles.actionRowBorder]}>
-              <MaterialCommunityIcons name="wifi" size={22} color={colors.primary} />
-              <Text style={[styles.actionText, isDark && styles.textLight]}>
-                {t('settings.wifiOnly', { defaultValue: 'Wi-Fi only' })}
-              </Text>
-              <Switch
-                value={tileCacheSettings.wifiOnly}
-                onValueChange={tileCacheActions.setWifiOnly}
-                color={colors.primary}
-              />
-            </View>
+        {/* Wi-Fi only toggle — only for proactive modes */}
+        {tileCacheSettings.cacheMode !== 'ambient' && (
+          <View style={[styles.offlineRow, styles.actionRowBorder]}>
+            <MaterialCommunityIcons name="wifi" size={22} color={colors.primary} />
+            <Text style={[styles.actionText, isDark && styles.textLight]}>
+              {t('settings.wifiOnly', { defaultValue: 'Wi-Fi only' })}
+            </Text>
+            <Switch
+              value={tileCacheSettings.wifiOnly}
+              onValueChange={tileCacheActions.setWifiOnly}
+              color={colors.primary}
+            />
+          </View>
+        )}
 
-            {/* Cache mode picker */}
-            <View
-              style={[
-                styles.actionRowBorder,
-                { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-              ]}
-            >
-              <Text style={[styles.offlineModeLabel, isDark && styles.textLight]}>
-                {t('settings.cacheMode', { defaultValue: 'Cache mode' })}
-              </Text>
-              <SegmentedButtons
-                value={tileCacheSettings.cacheMode}
-                onValueChange={(value) => tileCacheActions.setCacheMode(value as CacheMode)}
-                buttons={[
-                  {
-                    value: 'standard',
-                    label: t('settings.cacheModeStandard', { defaultValue: 'Standard' }),
-                  },
-                  {
-                    value: 'maximum',
-                    label: t('settings.cacheModeMaximum', { defaultValue: 'Maximum' }),
-                    disabled: !canUseMaximum,
-                  },
-                ]}
-                density="small"
-                style={{ marginTop: spacing.xs }}
-              />
-              <Text style={[styles.offlineModeHint, isDark && styles.textMuted]}>
-                {tileCacheSettings.cacheMode === 'standard'
-                  ? t('settings.cacheModeStandardHint', {
-                      defaultValue: '5 km radius · active style · ~84 MB for 5 regions',
-                    })
-                  : t('settings.cacheModeMaximumHint', {
-                      defaultValue: '20 km radius · all styles · ~405 MB for 5 regions',
-                    })}
-              </Text>
-              {!canUseMaximum && (
-                <Text style={styles.offlineWarning}>
-                  {t('settings.notEnoughStorage', {
-                    defaultValue: 'Not enough storage for Maximum mode',
+        {/* Status display */}
+        {(prefetchStatus === 'downloading' ||
+          prefetchStatus === 'computing' ||
+          prefetchStatus === 'error' ||
+          lowStorage) && (
+          <View style={[styles.actionRowBorder, styles.offlineStatusRow]}>
+            {prefetchStatus === 'downloading' && (
+              <View style={styles.offlineProgressRow}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.offlineStatusText, isDark && styles.textMuted]}>
+                  {t('settings.downloading', {
+                    defaultValue: 'Downloading {{done}}/{{total}} tiles...',
+                    done: prefetchProgress.downloaded.toLocaleString(),
+                    total: prefetchProgress.total.toLocaleString(),
                   })}
                 </Text>
-              )}
-            </View>
-
-            {/* Status display */}
-            {(prefetchStatus === 'downloading' ||
-              prefetchStatus === 'computing' ||
-              prefetchStatus === 'error' ||
-              lowStorage) && (
-              <View style={[styles.actionRowBorder, styles.offlineStatusRow]}>
-                {prefetchStatus === 'downloading' && (
-                  <View style={styles.offlineProgressRow}>
-                    <ActivityIndicator size="small" color={colors.primary} />
-                    <Text style={[styles.offlineStatusText, isDark && styles.textMuted]}>
-                      {t('settings.downloading', {
-                        defaultValue: 'Downloading {{done}}/{{total}} tiles...',
-                        done: prefetchProgress.downloaded.toLocaleString(),
-                        total: prefetchProgress.total.toLocaleString(),
-                      })}
-                    </Text>
-                  </View>
-                )}
-                {prefetchStatus === 'computing' && (
-                  <View style={styles.offlineProgressRow}>
-                    <ActivityIndicator size="small" color={colors.primary} />
-                    <Text style={[styles.offlineStatusText, isDark && styles.textMuted]}>
-                      {t('settings.computing', {
-                        defaultValue: 'Computing tile regions...',
-                      })}
-                    </Text>
-                  </View>
-                )}
-                {prefetchStatus === 'error' && tileCacheError && (
-                  <Text style={styles.offlineWarning}>{tileCacheError}</Text>
-                )}
-                {lowStorage && (
-                  <Text style={styles.offlineWarning}>
-                    {t('settings.lowStorage', {
-                      defaultValue: 'Low device storage — tile download paused',
-                    })}
-                  </Text>
-                )}
               </View>
             )}
-          </>
+            {prefetchStatus === 'computing' && (
+              <View style={styles.offlineProgressRow}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.offlineStatusText, isDark && styles.textMuted]}>
+                  {t('settings.computing', {
+                    defaultValue: 'Computing tile regions...',
+                  })}
+                </Text>
+              </View>
+            )}
+            {prefetchStatus === 'error' && tileCacheError && (
+              <Text style={styles.offlineWarning}>{tileCacheError}</Text>
+            )}
+            {lowStorage && (
+              <Text style={styles.offlineWarning}>
+                {t('settings.lowStorage', {
+                  defaultValue: 'Low device storage — tile download paused',
+                })}
+              </Text>
+            )}
+          </View>
         )}
 
         {/* Storage breakdown bar — always visible if there's cache data */}

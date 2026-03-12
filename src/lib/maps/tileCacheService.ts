@@ -20,11 +20,16 @@ import {
   clusterActivityBounds,
   enumerateTileUrls,
   estimateTotalTiles,
+  boundsOverlap,
   type Bounds,
   type TileCluster,
 } from './tileGeometry';
-import { generatePreloadScript } from './tilePreloader';
-import { emitPrefetchTilesRequest } from '@/lib/events/terrainSnapshotEvents';
+import { generatePreloadScript, type PreloadConfig } from './tilePreloader';
+import {
+  emitPrefetchTilesRequest,
+  emitCancelWebViewPrefetch,
+  onPrefetchTilesProgress,
+} from '@/lib/events/terrainSnapshotEvents';
 import {
   useTileCacheStore,
   getCacheRadius,
@@ -46,6 +51,12 @@ const ZOOM_RANGES = {
   satellite: [10, 14] as [number, number],
   terrain: [8, 13] as [number, number],
 } as const;
+
+/** Delay between native pack creations (ms) — gentle trickle */
+const INTER_PACK_DELAY_MS = 5000;
+
+/** WebView trickle config: ~5 tiles/sec */
+const WEBVIEW_CONFIG: PreloadConfig = { concurrency: 1, delayMs: 200 };
 
 /** Minimum free disk space to allow prefetching (500 MB) */
 const MIN_FREE_SPACE_BYTES = 500 * 1024 * 1024;
@@ -137,9 +148,17 @@ function getStyleKey(style: MapStyleType): string {
   return 'satellite';
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Create native MapLibre offline packs for the given clusters and style.
  */
+/** Tracks cumulative tile downloads across all packs and WebView batches */
+let cumulativeDownloaded = 0;
+let overallTotal = 0;
+
 async function prefetchNativePacks(
   clusters: TileCluster[],
   style: MapStyleType,
@@ -160,11 +179,21 @@ async function prefetchNativePacks(
 
   const store = useTileCacheStore.getState();
 
+  let isFirstPack = true;
   for (const cluster of clusters) {
     if (signal.aborted) return;
 
     const packName = `${PACK_PREFIX}${styleKey}-${cluster.hash}`;
     if (existingNames.has(packName)) continue;
+
+    // Trickle: wait between pack creations to be gentle on tile servers
+    if (!isFirstPack) {
+      await sleep(INTER_PACK_DELAY_MS);
+      if (signal.aborted) return;
+    }
+    isFirstPack = false;
+
+    const packStartOffset = cumulativeDownloaded;
 
     try {
       await OfflineManager.createPack(
@@ -184,8 +213,9 @@ async function prefetchNativePacks(
           },
         },
         (_pack: OfflinePack, status: OfflinePackStatus) => {
-          // Progress callback
-          store.setProgress(status.completedTileCount, status.requiredResourceCount);
+          // Accumulate: pack's completed + tiles from previous packs
+          cumulativeDownloaded = packStartOffset + status.completedTileCount;
+          store.setProgress(cumulativeDownloaded, overallTotal);
         },
         (_pack: OfflinePack, err: { name: string; message: string }) => {
           log.error(`Pack ${packName} error: ${err.message}`);
@@ -202,24 +232,41 @@ async function prefetchNativePacks(
  * Prefetch terrain DEM and additional tiles via the WebView Cache API.
  * Sends tile URLs to TerrainSnapshotWebView for background downloading.
  */
-function prefetchWebViewTiles(clusters: TileCluster[], styles: Set<MapStyleType>): void {
-  const batches: Array<{ urls: string[]; cacheName: string }> = [];
+function prefetchWebViewTiles(
+  clusters: TileCluster[],
+  styles: Set<MapStyleType>,
+  config?: PreloadConfig
+): void {
+  const batches: Array<{ urls: string[]; cacheName: string; config?: PreloadConfig }> = [];
 
   // Always prefetch terrain DEM tiles
   const terrainUrls = enumerateTileUrls(clusters, TERRAIN_TILE_TEMPLATE, ZOOM_RANGES.terrain);
   if (terrainUrls.length > 0) {
-    batches.push({ urls: terrainUrls, cacheName: 'veloq-terrain-dem-v1' });
+    batches.push({ urls: terrainUrls, cacheName: 'veloq-terrain-dem-v1', config });
   }
 
   // Prefetch satellite tiles for WebView 3D rendering
   if (styles.has('satellite')) {
-    const satelliteUrls = enumerateTileUrls(
+    // Global EOX (low-res base layer)
+    const eoxUrls = enumerateTileUrls(
       clusters,
       SATELLITE_SOURCES.eox.tiles[0],
       ZOOM_RANGES.satellite
     );
-    if (satelliteUrls.length > 0) {
-      batches.push({ urls: satelliteUrls, cacheName: 'veloq-satellite-v1' });
+    if (eoxUrls.length > 0) {
+      batches.push({ urls: eoxUrls, cacheName: 'veloq-satellite-v1', config });
+    }
+
+    // Regional high-res sources — only for clusters overlapping region bounds
+    for (const [sourceId, source] of Object.entries(SATELLITE_SOURCES)) {
+      if (sourceId === 'eox') continue;
+      if (!source.bounds) continue;
+      const regionalClusters = clusters.filter((c) => boundsOverlap(c.bounds, source.bounds!));
+      if (regionalClusters.length === 0) continue;
+      const urls = enumerateTileUrls(regionalClusters, source.tiles[0], ZOOM_RANGES.satellite);
+      if (urls.length > 0) {
+        batches.push({ urls, cacheName: 'veloq-satellite-v1', config });
+      }
     }
   }
 
@@ -227,13 +274,103 @@ function prefetchWebViewTiles(clusters: TileCluster[], styles: Set<MapStyleType>
   if (styles.has('light') || styles.has('dark')) {
     const vectorUrls = enumerateTileUrls(clusters, VECTOR_TILE_TEMPLATE, ZOOM_RANGES.terrain);
     if (vectorUrls.length > 0) {
-      batches.push({ urls: vectorUrls, cacheName: 'veloq-vector-v1' });
+      batches.push({ urls: vectorUrls, cacheName: 'veloq-vector-v1', config });
     }
   }
 
   if (batches.length > 0) {
     emitPrefetchTilesRequest(batches);
   }
+}
+
+/**
+ * Count how many WebView tile batches will be emitted for progress tracking.
+ */
+function countWebViewBatches(clusters: TileCluster[], styles: Set<MapStyleType>): number {
+  let count = 0;
+  // Terrain
+  const terrainUrls = enumerateTileUrls(clusters, TERRAIN_TILE_TEMPLATE, ZOOM_RANGES.terrain);
+  if (terrainUrls.length > 0) count++;
+  // Satellite
+  if (styles.has('satellite')) {
+    const eoxUrls = enumerateTileUrls(
+      clusters,
+      SATELLITE_SOURCES.eox.tiles[0],
+      ZOOM_RANGES.satellite
+    );
+    if (eoxUrls.length > 0) count++;
+    for (const [sourceId, source] of Object.entries(SATELLITE_SOURCES)) {
+      if (sourceId === 'eox' || !source.bounds) continue;
+      const regional = clusters.filter((c) => boundsOverlap(c.bounds, source.bounds!));
+      if (regional.length === 0) continue;
+      const urls = enumerateTileUrls(regional, source.tiles[0], ZOOM_RANGES.satellite);
+      if (urls.length > 0) count++;
+    }
+  }
+  // Vector
+  if (styles.has('light') || styles.has('dark')) {
+    const vecUrls = enumerateTileUrls(clusters, VECTOR_TILE_TEMPLATE, ZOOM_RANGES.terrain);
+    if (vecUrls.length > 0) count++;
+  }
+  return count;
+}
+
+/**
+ * Wait for WebView prefetch batches to report completion via progress events.
+ * Each batch emits a final progress message when completed === total.
+ * Times out after 5 minutes to avoid blocking indefinitely.
+ */
+function waitForWebViewPrefetch(
+  expectedBatches: number,
+  _store: ReturnType<typeof useTileCacheStore.getState>,
+  signal: AbortSignal
+): Promise<void> {
+  return new Promise<void>((resolve) => {
+    let completedBatches = 0;
+    // Track last-seen downloaded count to compute forward deltas only
+    let lastDownloaded = 0;
+    const timeout = setTimeout(
+      () => {
+        unsubscribe();
+        log.log(`WebView prefetch timeout — ${completedBatches}/${expectedBatches} batches done`);
+        resolve();
+      },
+      5 * 60 * 1000
+    );
+
+    // Each batch emits progress events where completed/total are cumulative for that batch.
+    // When completed >= total, that batch is done and the next batch starts from 0.
+    const unsubscribe = onPrefetchTilesProgress((downloaded, total) => {
+      // Detect batch boundary: downloaded < lastDownloaded means a new batch started
+      if (downloaded < lastDownloaded) {
+        lastDownloaded = 0;
+      }
+      const delta = downloaded - lastDownloaded;
+      lastDownloaded = downloaded;
+
+      if (delta > 0) {
+        cumulativeDownloaded += delta;
+        useTileCacheStore.getState().setProgress(cumulativeDownloaded, overallTotal);
+      }
+
+      if (downloaded >= total && total > 0) {
+        completedBatches++;
+        lastDownloaded = 0; // reset for next batch
+        log.log(`WebView batch ${completedBatches}/${expectedBatches} done (${total} tiles)`);
+        if (completedBatches >= expectedBatches) {
+          clearTimeout(timeout);
+          unsubscribe();
+          resolve();
+        }
+      }
+    });
+
+    if (signal.aborted) {
+      clearTimeout(timeout);
+      unsubscribe();
+      resolve();
+    }
+  });
 }
 
 /**
@@ -248,7 +385,7 @@ export async function prefetch(
 ): Promise<void> {
   const store = useTileCacheStore.getState();
 
-  if (!store.settings.enabled) return;
+  if (store.settings.cacheMode === 'ambient') return;
   if (activities.length === 0) return;
 
   // Cancel any in-flight prefetch
@@ -276,7 +413,7 @@ export async function prefetch(
         ? 'standard'
         : store.settings.cacheMode;
 
-    const radiusKm = effectiveMode === 'maximum' ? 20 : 5;
+    const radiusKm = effectiveMode === 'maximum' ? 5 : 0;
     const clusters = clusterActivityBounds(activities, GRID_SIZE_KM, radiusKm);
 
     if (clusters.length === 0) {
@@ -296,6 +433,9 @@ export async function prefetch(
     sources.push({ zoomRange: ZOOM_RANGES.terrain }); // Always terrain
     const totalTiles = estimateTotalTiles(clusters, sources);
 
+    // Reset cumulative counters for this prefetch run
+    cumulativeDownloaded = 0;
+    overallTotal = totalTiles;
     store.setProgress(0, totalTiles);
     store.setPrefetchStatus('downloading');
 
@@ -315,7 +455,15 @@ export async function prefetch(
     if (signal.aborted) return;
 
     // Prefetch WebView tiles (terrain DEM + satellite/vector for 3D)
-    prefetchWebViewTiles(clusters, styles);
+    // Count batches to track when all WebView prefetch completes
+    const webViewBatchCount = countWebViewBatches(clusters, styles);
+
+    if (webViewBatchCount > 0) {
+      prefetchWebViewTiles(clusters, styles, WEBVIEW_CONFIG);
+
+      // Wait for WebView batches to complete (with timeout)
+      await waitForWebViewPrefetch(webViewBatchCount, store, signal);
+    }
 
     // Update status
     store.setPrefetchStatus('complete');
@@ -344,6 +492,7 @@ export function cancelPrefetch(): void {
     abortController = null;
     useTileCacheStore.getState().setPrefetchStatus('idle');
   }
+  emitCancelWebViewPrefetch();
 }
 
 /**
