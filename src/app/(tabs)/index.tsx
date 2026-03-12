@@ -100,6 +100,7 @@ export default function FeedScreen() {
   // Summary card data (hero metric, sparkline, supporting metrics)
   const {
     profileUrl,
+    heroMetric,
     heroValue,
     heroLabel,
     heroColor,
@@ -109,6 +110,8 @@ export default function FeedScreen() {
     fitnessData,
     fatigueData,
     formData,
+    hrvData,
+    rhrData,
     showSparkline,
     supportingMetrics,
     refetch: refetchSummary,
@@ -400,6 +403,7 @@ export default function FeedScreen() {
         <SummaryCard
           profileUrl={profileUrl}
           onProfilePress={navigateToSettings}
+          heroMetric={heroMetric}
           heroValue={heroValue}
           heroLabel={heroLabel}
           heroColor={heroColor}
@@ -410,6 +414,8 @@ export default function FeedScreen() {
           fitnessData={fitnessData}
           fatigueData={fatigueData}
           formData={formData}
+          hrvData={hrvData}
+          rhrData={rhrData}
           showSparkline={showSparkline}
           supportingMetrics={supportingMetrics}
         />

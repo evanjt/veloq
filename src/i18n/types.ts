@@ -362,6 +362,8 @@ export interface TranslationResource {
     showSparkline: string;
     supportingMetrics: string;
     maxMetricsHint: string;
+    appTour: string;
+    appTourDescription: string;
   };
 
   alerts: {
@@ -591,6 +593,26 @@ export interface TranslationResource {
     linkFitnessPage: string;
     linkTSBManagement: string;
     linkTrainingLoad: string;
+  };
+
+  whatsNew: {
+    skipButton: string;
+    nextButton: string;
+    doneButton: string;
+    showMeButton: string;
+    seeAllFeatures: string;
+    justWhatsNew: string;
+    backToTour: string;
+    closeTour: string;
+    v022: {
+      mapStylesTitle: string;
+      mapStylesBody: string;
+      mapStylesHint: string;
+      heatmapTitle: string;
+      heatmapBody: string;
+      fitnessTitle: string;
+      fitnessBody: string;
+    };
   };
 
   wellnessScreen: {

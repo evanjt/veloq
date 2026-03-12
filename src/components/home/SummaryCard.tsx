@@ -6,6 +6,7 @@ import { router, Href } from 'expo-router';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
 import { SummaryCardSparkline, type ScrubValues } from './SummaryCardSparkline';
+import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/lib';
 
 /**
@@ -28,6 +29,7 @@ export interface SummaryCardProps {
   onProfilePress: () => void;
 
   // Hero metric data
+  heroMetric?: string;
   heroValue: number | string;
   heroLabel: string; // "Form", "Fitness", etc.
   heroColor: string;
@@ -40,6 +42,9 @@ export interface SummaryCardProps {
   fitnessData?: number[];
   fatigueData?: number[];
   formData?: number[];
+  // HRV sparkline data — HRV line + RHR line
+  hrvData?: number[];
+  rhrData?: number[];
   showSparkline: boolean;
   /** Show inline labels on sparkline (settings preview) */
   showSparklineLabels?: boolean;
@@ -64,6 +69,7 @@ export interface SummaryCardProps {
 export const SummaryCard = React.memo(function SummaryCard({
   profileUrl,
   onProfilePress,
+  heroMetric = 'fitness',
   heroValue,
   heroLabel,
   heroColor,
@@ -74,6 +80,8 @@ export const SummaryCard = React.memo(function SummaryCard({
   fitnessData,
   fatigueData,
   formData,
+  hrvData,
+  rhrData,
   showSparkline,
   showSparklineLabels = false,
   supportingMetrics,
@@ -90,22 +98,42 @@ export const SummaryCard = React.memo(function SummaryCard({
   const hasValidProfileUrl =
     profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
-  // During scrub, override the hero display with scrubbed fitness value
-  const displayValue = scrubValues !== null ? scrubValues.fitness : heroValue;
-  const displayColor = scrubValues !== null ? colors.fitnessBlue : heroColor;
+  // Determine which sparkline to show
+  const isHrvMode = heroMetric === 'hrv';
+  const fitnessSparklineVisible =
+    showSparkline &&
+    !isHrvMode &&
+    fitnessData &&
+    fitnessData.length > 0 &&
+    formData &&
+    formData.length > 0;
+  const hrvSparklineVisible = showSparkline && isHrvMode && hrvData && hrvData.length >= 2;
 
-  // Format hero value (no sign prefix — CTL/fitness values are always positive)
+  // During scrub, override the hero display
+  const displayValue =
+    scrubValues !== null
+      ? isHrvMode
+        ? (scrubValues.hrv ?? heroValue)
+        : scrubValues.fitness
+      : heroValue;
+  const displayColor =
+    scrubValues !== null ? (isHrvMode ? colors.chartPink : colors.fitnessBlue) : heroColor;
+
+  // Format hero value (no sign prefix — CTL/fitness/HRV values are always positive)
   const formattedHeroValue = String(displayValue);
 
-  // Current sparkline values (latest or scrubbed)
-  const sparklineVisible =
-    showSparkline && fitnessData && fitnessData.length > 0 && formData && formData.length > 0;
+  // Current fitness sparkline values (latest or scrubbed)
   const lastIdx = fitnessData ? fitnessData.length - 1 : 0;
   const currentFitness = scrubValues ? scrubValues.fitness : (fitnessData?.[lastIdx] ?? 0);
   const currentFatigue = scrubValues ? scrubValues.fatigue : (fatigueData?.[lastIdx] ?? null);
   const currentForm = scrubValues ? scrubValues.form : (formData?.[lastIdx] ?? 0);
   const currentFormZone = getFormZone(currentForm);
   const currentFormColor = FORM_ZONE_COLORS[currentFormZone];
+
+  // Current HRV sparkline values (latest or scrubbed)
+  const hrvLastIdx = hrvData ? hrvData.length - 1 : 0;
+  const currentHrv = scrubValues?.hrv ?? hrvData?.[hrvLastIdx] ?? 0;
+  const currentRhr = scrubValues?.rhr ?? rhrData?.[hrvLastIdx] ?? null;
 
   // Compute explicit sparkline width (screen minus card margins and padding)
   const sparklineWidth = Dimensions.get('window').width - layout.screenPadding * 2 - spacing.md * 2;
@@ -160,7 +188,7 @@ export const SummaryCard = React.memo(function SummaryCard({
           disabled={!onHeroPress}
           activeOpacity={onHeroPress ? 0.7 : 1}
         >
-          {sparklineVisible ? (
+          {fitnessSparklineVisible ? (
             <View style={styles.heroValueRow}>
               <Text style={[styles.heroValueFixed, { color: '#42A5F5' }]}>{currentFitness}</Text>
               <Text style={[styles.heroLabel, { color: '#42A5F5' }]}>Fitness</Text>
@@ -178,6 +206,19 @@ export const SummaryCard = React.memo(function SummaryCard({
               <Text style={[styles.secondaryLabel, { color: currentFormColor }]}>
                 {FORM_ZONE_LABELS[currentFormZone]}
               </Text>
+            </View>
+          ) : hrvSparklineVisible ? (
+            <View style={styles.heroValueRow}>
+              <Text style={[styles.heroValueFixed, { color: colors.chartPink }]}>{currentHrv}</Text>
+              <Text style={[styles.heroLabel, { color: colors.chartPink }]}>HRV</Text>
+              {currentRhr !== null && (
+                <>
+                  <Text style={[styles.secondaryValueFixed, { color: '#EF5350' }]}>
+                    {currentRhr}
+                  </Text>
+                  <Text style={[styles.secondaryLabel, { color: '#EF5350' }]}>RHR</Text>
+                </>
+              )}
             </View>
           ) : (
             <View style={styles.heroValueRow}>
@@ -199,23 +240,30 @@ export const SummaryCard = React.memo(function SummaryCard({
         </TouchableOpacity>
       </View>
 
-      {/* Sparkline row — fitness + fatigue lines + form zone bar */}
-      {showSparkline &&
-        fitnessData &&
-        fitnessData.length > 0 &&
-        formData &&
-        formData.length > 0 && (
-          <View style={styles.sparklineRow}>
-            <SummaryCardSparkline
-              fitnessData={fitnessData}
-              fatigueData={fatigueData}
-              formData={formData}
-              width={sparklineWidth}
-              showLabels={showSparklineLabels}
-              onScrub={showSparklineLabels ? undefined : handleScrub}
-            />
-          </View>
-        )}
+      {/* Sparkline row — fitness or HRV depending on hero metric */}
+      {fitnessSparklineVisible && (
+        <View style={styles.sparklineRow}>
+          <SummaryCardSparkline
+            fitnessData={fitnessData!}
+            fatigueData={fatigueData}
+            formData={formData!}
+            width={sparklineWidth}
+            showLabels={showSparklineLabels}
+            onScrub={showSparklineLabels ? undefined : handleScrub}
+          />
+        </View>
+      )}
+      {hrvSparklineVisible && (
+        <View style={styles.sparklineRow}>
+          <SummaryCardHRVSparkline
+            hrvData={hrvData!}
+            rhrData={rhrData}
+            width={sparklineWidth}
+            showLabels={showSparklineLabels}
+            onScrub={showSparklineLabels ? undefined : handleScrub}
+          />
+        </View>
+      )}
 
       {/* Supporting metrics row — each metric tappable */}
       <View style={styles.supportingRow}>

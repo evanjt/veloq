@@ -740,6 +740,8 @@
     "light": "Claro",
     "maps": "Mapas",
     "maxMetricsHint": "Máximo 4 métricas",
+    "appTour": "Tour do app",
+    "appTourDescription": "Explore funcionalidades e aprenda a usá-las",
     "terrain3D": "3D Terrain",
     "terrain3DHint": "O modo inteligente mostra 3D para terrenos montanhosos",
     "terrain3DOff": "Desligado",
@@ -803,7 +805,8 @@
     "unitsMetric": "Métrico",
     "unitsMetricHint": "Distâncias em quilômetros, elevação em metros, temperatura em Celsius",
     "version": "Versao",
-    "viewRoutes": "Ver rotas"
+    "viewRoutes": "Ver rotas",
+    "mapTiles": "Blocos do mapa"
   },
   "stats": {
     "activities": "Atividades",
@@ -970,6 +973,25 @@
     "smoothingTitle": "Suavizacao de dados",
     "trendHint": "As tendencias de VFC, sono e FC em repouso aparecerao aqui quando os dados forem registrados",
     "weight": "Peso"
+  },
+  "whatsNew": {
+    "skipButton": "Pular",
+    "nextButton": "Próximo",
+    "doneButton": "Concluído",
+    "showMeButton": "Mostrar",
+    "seeAllFeatures": "Ver todas as funcionalidades",
+    "justWhatsNew": "Apenas novidades",
+    "backToTour": "Voltar ao tour",
+    "closeTour": "Fechar",
+    "v022": {
+      "mapStylesTitle": "Mapas 3D e estilos",
+      "mapStylesBody": "Escolha estilos de mapa claro, escuro ou satélite com terreno 3D inteligente para atividades montanhosas.",
+      "mapStylesHint": "Satélite de alta resolução disponível para Suíça e França. O 3D inteligente se ativa para atividades com +30 m de desnível e +3 m/km de inclinação.",
+      "heatmapTitle": "Mapa de calor",
+      "heatmapBody": "Seu calendário de treino na página Saúde. Toque em um dia para ver seus dados de bem-estar — VFC, frequência cardíaca em repouso e sono — sincronizados em tempo real em todos os gráficos.",
+      "fitnessTitle": "Resumo de fitness",
+      "fitnessBody": "Acompanhe seu condicionamento, fadiga e forma com zonas codificadas por cores. Saiba quando você está descansado e pronto para render."
+    }
   },
   "wellnessScreen": {
     "title": "Bem-estar",

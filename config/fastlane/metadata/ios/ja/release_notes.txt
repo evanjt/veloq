@@ -1,5 +1,11 @@
-v0.2.1 (Feb 2026)
+v0.2.2 (Mar 2026)
 
-• 3D map mode: improved styling and background colours across all map themes
-• Map tiles: restored full tile resolution for better previews
-• Fixed dark halo around activity card text on iOS with light theme
+• ヘルスページ：アクティビティヒートマップ、任意の日にスクラブ
+• フィットネスヒーロー：フォーム/疲労/フィットネスとゾーンラベル
+• スパークライン：ATLライン、Y軸の範囲を縮小
+• 3Dマップ：MapLibre v5、地形の修正、円形マーカー
+• マップ：フラグマーカー、シアンのスクラブハイライト、タイルキャッシュ
+• 設定をキャッシュ詳細付きで再編成
+• オフラインモード：信頼性の向上
+• すべての画面にエラーバウンダリ
+• Rustエンジン：ドメインオブジェクトアーキテクチャ

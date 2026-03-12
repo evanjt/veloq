@@ -37,6 +37,7 @@ import {
   initializeDashboardPreferences,
   initializeDebugStore,
   initializeTileCacheStore,
+  initializeWhatsNewStore,
   useSyncDateRange,
 } from '@/providers';
 import { formatLocalDate } from '@/lib';
@@ -48,6 +49,8 @@ import {
   OfflineBanner,
   BottomTabBar,
   GlobalErrorBoundary,
+  WhatsNewModal,
+  TourReturnPill,
 } from '@/components/ui';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 
@@ -222,6 +225,7 @@ export default function RootLayout() {
         initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
         initializeDebugStore(),
         initializeTileCacheStore(),
+        initializeWhatsNewStore(),
       ]);
     }
     initialize().finally(() => setAppReady(true));
@@ -262,6 +266,8 @@ export default function RootLayout() {
                     <OfflineBanner />
                     <GlobalDataSync />
                     <DemoBanner />
+                    <WhatsNewModal />
+                    <TourReturnPill />
                     <Stack
                       screenOptions={{
                         headerShown: false,

@@ -740,6 +740,8 @@
     "light": "Licht",
     "maps": "Kaarten",
     "maxMetricsHint": "Maximaal 4 metrieken",
+    "appTour": "App-tour",
+    "appTourDescription": "Ontdek functies en leer hoe je ze gebruikt",
     "terrain3D": "3D Terrein",
     "terrain3DHint": "Slimme modus toont 3D voor heuvelachtig en bergachtig terrein",
     "terrain3DOff": "Uit",
@@ -803,7 +805,8 @@
     "unitsMetric": "Metrisch",
     "unitsMetricHint": "Afstanden in kilometers, hoogte in meters, temperatuur in Celsius",
     "version": "Versie",
-    "viewRoutes": "Routes bekijken"
+    "viewRoutes": "Routes bekijken",
+    "mapTiles": "Kaarttegels"
   },
   "stats": {
     "activities": "Activiteiten",
@@ -970,6 +973,25 @@
     "smoothingTitle": "Data smoothing",
     "trendHint": "HRV-, slaap- en rusthartslag-trends verschijnen hier wanneer gegevens worden gelogd",
     "weight": "Gewicht"
+  },
+  "whatsNew": {
+    "skipButton": "Overslaan",
+    "nextButton": "Volgende",
+    "doneButton": "Klaar",
+    "showMeButton": "Toon",
+    "seeAllFeatures": "Alle functies bekijken",
+    "justWhatsNew": "Alleen nieuw",
+    "backToTour": "Terug naar tour",
+    "closeTour": "Sluiten",
+    "v022": {
+      "mapStylesTitle": "3D-kaarten & stijlen",
+      "mapStylesBody": "Kies lichte, donkere of satelliet kaartstijlen met slim 3D-terrein voor heuvelachtige activiteiten.",
+      "mapStylesHint": "Hoge resolutie satelliet beschikbaar voor Zwitserland en Frankrijk. Slim 3D activeert bij activiteiten met 30 m+ hoogteverschil en 3 m/km+ helling.",
+      "heatmapTitle": "Activiteiten-heatmap",
+      "heatmapBody": "Je trainingskalender op de Gezondheidspagina. Tik op een dag om je welzijnsdata — HRV, rusthartslag en slaap — in real time gesynchroniseerd over alle grafieken te zien.",
+      "fitnessTitle": "Fitnessoverzicht",
+      "fitnessBody": "Volg je fitheid, vermoeidheid en vorm met kleurgecodeerde zones. Weet wanneer je fris en klaar bent om te presteren."
+    }
   },
   "wellnessScreen": {
     "title": "Welzijn",

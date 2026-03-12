@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   useActivityBoundsCache,
   useRouteProcessing,
@@ -21,12 +22,141 @@ import { TimelineSlider } from '@/components/maps';
 import { formatLocalDate, formatFullDate, formatFileSize } from '@/lib';
 import { estimateRoutesDatabaseSize } from '@/lib';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
-import { emitClearTileCache } from '@/lib/events/terrainSnapshotEvents';
+import { useTileCacheStore } from '@/providers/TileCacheStore';
+import {
+  emitClearTileCache,
+  requestTileCacheStats,
+  onTileCacheStats,
+  type TileCacheStats,
+} from '@/lib/events/terrainSnapshotEvents';
+import {
+  clearTerrainPreviews,
+  getTerrainPreviewCacheSize,
+} from '@/lib/storage/terrainPreviewCache';
+import * as TileCacheService from '@/lib/maps/tileCacheService';
 import { colors, darkColors, spacing, layout } from '@/theme';
 
 function formatDateOrDash(dateStr: string | null): string {
   if (!dateStr) return '-';
   return formatFullDate(dateStr);
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+interface StorageBarSegment {
+  label: string;
+  bytes: number;
+  color: string;
+}
+
+function StorageBreakdownBar({
+  routesSize,
+  nativeSizeEstimate,
+  tileCacheStats,
+  terrainCacheSize,
+  freeStorage,
+  isDark,
+}: {
+  routesSize: number;
+  nativeSizeEstimate: number;
+  tileCacheStats: TileCacheStats | null;
+  terrainCacheSize: number;
+  freeStorage: number | null;
+  isDark: boolean;
+}) {
+  const segments = useMemo<StorageBarSegment[]>(() => {
+    const result: StorageBarSegment[] = [];
+    if (routesSize > 0) {
+      result.push({ label: 'Database', bytes: routesSize, color: colors.primary });
+    }
+    if (nativeSizeEstimate > 0) {
+      result.push({ label: 'Map packs', bytes: nativeSizeEstimate, color: colors.chartBlue });
+    }
+    if (tileCacheStats?.satellite?.totalBytes) {
+      result.push({
+        label: 'Satellite',
+        bytes: tileCacheStats.satellite.totalBytes,
+        color: colors.chartPurple,
+      });
+    }
+    if (tileCacheStats?.terrain?.totalBytes) {
+      result.push({
+        label: 'Terrain',
+        bytes: tileCacheStats.terrain.totalBytes,
+        color: colors.chartGreen,
+      });
+    }
+    if (tileCacheStats?.vector?.totalBytes) {
+      result.push({
+        label: 'Vector',
+        bytes: tileCacheStats.vector.totalBytes,
+        color: colors.chartCyan,
+      });
+    }
+    if (terrainCacheSize > 0) {
+      result.push({ label: '3D previews', bytes: terrainCacheSize, color: colors.chartYellow });
+    }
+    return result;
+  }, [routesSize, nativeSizeEstimate, tileCacheStats, terrainCacheSize]);
+
+  const totalCacheBytes = segments.reduce((sum, s) => sum + s.bytes, 0);
+
+  if (totalCacheBytes === 0) return null;
+
+  const freeColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
+  const totalDevice = freeStorage !== null ? totalCacheBytes + freeStorage : 0;
+  const deviceUsagePct = totalDevice > 0 ? (totalCacheBytes / totalDevice) * 100 : 0;
+
+  return (
+    <View style={styles.storageBarContainer}>
+      <View style={styles.storageBar}>
+        {segments.map((seg) => {
+          const pct = totalCacheBytes > 0 ? (seg.bytes / totalCacheBytes) * 100 : 0;
+          if (pct < 0.5) return null;
+          return (
+            <View
+              key={seg.label}
+              style={[styles.storageBarSegment, { width: `${pct}%`, backgroundColor: seg.color }]}
+            />
+          );
+        })}
+      </View>
+      <View style={styles.storageLegend}>
+        {segments.map((seg) => (
+          <View key={seg.label} style={styles.storageLegendItem}>
+            <View style={[styles.storageLegendDot, { backgroundColor: seg.color }]} />
+            <Text style={[styles.storageLegendText, isDark && styles.textMuted]}>
+              {seg.label} {formatBytes(seg.bytes)}
+            </Text>
+          </View>
+        ))}
+      </View>
+      {freeStorage !== null && (
+        <>
+          <View style={styles.deviceUsageBar}>
+            <View
+              style={[
+                styles.deviceUsageBarFill,
+                {
+                  width: `${Math.max(deviceUsagePct, 2)}%`,
+                  backgroundColor: colors.chartBlue,
+                },
+              ]}
+            />
+            <View style={[styles.deviceUsageBarFree, { backgroundColor: freeColor }]} />
+          </View>
+          <Text style={[styles.storageLegendText, { marginTop: 2 }, isDark && styles.textMuted]}>
+            {formatBytes(totalCacheBytes)} of {formatBytes(totalDevice)} used
+          </Text>
+        </>
+      )}
+    </View>
+  );
 }
 
 interface DataCacheSectionProps {
@@ -72,6 +202,44 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     total: bulkTotal,
     sizeBytes: bulkSizeBytes,
   } = useBulkExport();
+
+  // Map tile cache stats
+  const { nativePackCount, nativeSizeEstimate } = useTileCacheStore();
+  const [terrainCacheSize, setTerrainCacheSize] = useState(0);
+  const [tileCacheStats, setTileCacheStats] = useState<TileCacheStats | null>(null);
+  const [freeStorage, setFreeStorage] = useState<number | null>(null);
+
+  useEffect(() => {
+    getTerrainPreviewCacheSize().then(setTerrainCacheSize);
+  }, []);
+
+  useEffect(() => {
+    const unsub = onTileCacheStats(setTileCacheStats);
+    requestTileCacheStats();
+    const timeout = setTimeout(() => {
+      setTileCacheStats((prev) => prev ?? null);
+    }, 500);
+    return () => {
+      unsub();
+      clearTimeout(timeout);
+    };
+  }, []);
+
+  useEffect(() => {
+    FileSystem.getFreeDiskStorageAsync()
+      .then(setFreeStorage)
+      .catch(() => setFreeStorage(null));
+  }, []);
+
+  const totalMapCache = nativeSizeEstimate + terrainCacheSize + (tileCacheStats?.totalBytes ?? 0);
+
+  const handleClearMapCache = async () => {
+    await clearTerrainPreviews();
+    await TileCacheService.clearAllPacks();
+    emitClearTileCache();
+    setTerrainCacheSize(0);
+    setTileCacheStats(null);
+  };
 
   // Memoized date range text for cache stats (prevents Date parsing on every render)
   const dateRangeText = useMemo(() => {
@@ -203,7 +371,11 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             // Note: clearCache() already calls engine.clear(), so don't call clearRouteCache()
             // as that would emit a second 'syncReset' event and trigger duplicate syncs
             await clearCache();
+            await clearTerrainPreviews();
+            await TileCacheService.clearAllPacks();
             emitClearTileCache();
+            setTerrainCacheSize(0);
+            setTileCacheStats(null);
 
             // 5. Remove all cached query data
             // Now GlobalDataSync has the new 90-day range, so any refetch uses correct dates
@@ -506,6 +678,35 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
           </Text>
         </View>
 
+        {/* Map tiles cache row with clear button */}
+        <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
+          <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+            {t('settings.mapTiles', { defaultValue: 'Map tiles' })}
+          </Text>
+          <View style={styles.infoValueRow}>
+            <Text style={[styles.infoValue, isDark && styles.textLight]}>
+              {totalMapCache > 0 ? formatFileSize(totalMapCache) : '-'}
+            </Text>
+            {totalMapCache > 0 && (
+              <TouchableOpacity onPress={handleClearMapCache} style={styles.clearInlineButton}>
+                <Text style={styles.clearInlineText}>
+                  {t('settings.clearCache', { defaultValue: 'Clear' })}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Storage breakdown bar */}
+        <StorageBreakdownBar
+          routesSize={cacheSizes.routes}
+          nativeSizeEstimate={nativeSizeEstimate}
+          tileCacheStats={tileCacheStats}
+          terrainCacheSize={terrainCacheSize}
+          freeStorage={freeStorage}
+          isDark={isDark}
+        />
+
         <View style={[styles.divider, isDark && styles.dividerDark]} />
 
         {/* Route Matching Toggle - moved here from separate section */}
@@ -684,5 +885,68 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: darkColors.textSecondary,
+  },
+  infoValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  clearInlineButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  clearInlineText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  storageBarContainer: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  storageBar: {
+    flexDirection: 'row',
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  storageBarSegment: {
+    height: '100%',
+  },
+  deviceUsageBar: {
+    flexDirection: 'row',
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: spacing.sm,
+  },
+  deviceUsageBarFill: {
+    height: '100%',
+  },
+  deviceUsageBarFree: {
+    flex: 1,
+    height: '100%',
+  },
+  storageLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  storageLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  storageLegendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  storageLegendText: {
+    fontSize: 11,
+    color: colors.textSecondary,
   },
 });

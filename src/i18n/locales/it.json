@@ -740,6 +740,8 @@
     "light": "Chiaro",
     "maps": "Mappe",
     "maxMetricsHint": "Massimo 4 metriche",
+    "appTour": "Tour dell'app",
+    "appTourDescription": "Esplora le funzionalità e scopri come usarle",
     "terrain3D": "3D Terrain",
     "terrain3DHint": "La modalità smart mostra il 3D per terreni collinari e montuosi",
     "terrain3DOff": "Disattivato",
@@ -803,7 +805,8 @@
     "unitsMetric": "Metrico",
     "unitsMetricHint": "Distanze in chilometri, altitudine in metri, temperatura in Celsius",
     "version": "Versione",
-    "viewRoutes": "Visualizza percorsi"
+    "viewRoutes": "Visualizza percorsi",
+    "mapTiles": "Riquadri mappa"
   },
   "stats": {
     "activities": "Attività",
@@ -970,6 +973,25 @@
     "smoothingTitle": "Smoothing dati",
     "trendHint": "Le tendenze di HRV, sonno e FC a riposo appariranno qui quando i dati saranno registrati",
     "weight": "Peso"
+  },
+  "whatsNew": {
+    "skipButton": "Salta",
+    "nextButton": "Avanti",
+    "doneButton": "Fatto",
+    "showMeButton": "Mostra",
+    "seeAllFeatures": "Vedi tutte le funzioni",
+    "justWhatsNew": "Solo le novità",
+    "backToTour": "Torna al tour",
+    "closeTour": "Chiudi",
+    "v022": {
+      "mapStylesTitle": "Mappe 3D e stili",
+      "mapStylesBody": "Scegli stili mappa chiari, scuri o satellite con terreno 3D intelligente per attività collinari.",
+      "mapStylesHint": "Satellite ad alta risoluzione disponibile per Svizzera e Francia. Il 3D intelligente si attiva per attività con +30 m di dislivello e +3 m/km di pendenza.",
+      "heatmapTitle": "Mappa di calore",
+      "heatmapBody": "Il tuo calendario di allenamento nella pagina Salute. Tocca un giorno per vedere i dati benessere — HRV, frequenza cardiaca a riposo e sonno — sincronizzarsi in tempo reale su tutti i grafici.",
+      "fitnessTitle": "Panoramica fitness",
+      "fitnessBody": "Monitora forma fisica, fatica e stato di forma con zone colorate. Scopri quando sei fresco e pronto a dare il massimo."
+    }
   },
   "wellnessScreen": {
     "title": "Benessere",

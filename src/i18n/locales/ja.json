@@ -740,6 +740,8 @@
     "light": "ライト",
     "maps": "マップ",
     "maxMetricsHint": "最大4つの指標",
+    "appTour": "アプリツアー",
+    "appTourDescription": "機能を探索して使い方を学ぶ",
     "terrain3D": "3D地形",
     "terrain3DHint": "スマートモードは起伏のある地形で3Dを表示します",
     "terrain3DOff": "オフ",
@@ -803,7 +805,8 @@
     "unitsMetric": "メートル法",
     "unitsMetricHint": "距離はキロメートル、標高はメートル、温度は摂氏",
     "version": "バージョン",
-    "viewRoutes": "ルートを表示"
+    "viewRoutes": "ルートを表示",
+    "mapTiles": "マップタイル"
   },
   "stats": {
     "activities": "アクティビティ",
@@ -970,6 +973,25 @@
     "smoothingTitle": "データ平滑化",
     "trendHint": "データが記録されると、HRV、睡眠、安静時心拍のトレンドがここに表示されます",
     "weight": "体重"
+  },
+  "whatsNew": {
+    "skipButton": "スキップ",
+    "nextButton": "次へ",
+    "doneButton": "完了",
+    "showMeButton": "見てみる",
+    "seeAllFeatures": "すべての機能を見る",
+    "justWhatsNew": "新機能のみ",
+    "backToTour": "ツアーに戻る",
+    "closeTour": "閉じる",
+    "v022": {
+      "mapStylesTitle": "3Dマップとスタイル",
+      "mapStylesBody": "ライト、ダーク、衛星の地図スタイルを選択。スマート3Dが起伏のあるアクティビティに自動適用されます。",
+      "mapStylesHint": "高解像度衛星画像はスイスとフランスで利用可能。スマート3Dは獲得標高30 m以上、勾配3 m/km以上で有効になります。",
+      "heatmapTitle": "アクティビティヒートマップ",
+      "heatmapBody": "健康ページのトレーニングカレンダー。任意の日をタップすると、HRV、安静時心拍数、睡眠などのウェルネスデータがすべてのチャートでリアルタイムに同期されます。",
+      "fitnessTitle": "フィットネス概要",
+      "fitnessBody": "フィットネス、疲労、フォームを色分けされたゾーンで追跡。フレッシュでパフォーマンスの準備ができている時を把握できます。"
+    }
   },
   "wellnessScreen": {
     "title": "ウェルネス",

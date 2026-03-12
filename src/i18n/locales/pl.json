@@ -740,6 +740,8 @@
     "light": "Jasny",
     "maps": "Mapy",
     "maxMetricsHint": "Maksymalnie 4 metryki",
+    "appTour": "Tour po aplikacji",
+    "appTourDescription": "Odkryj funkcje i dowiedz się, jak ich używać",
     "terrain3D": "Teren 3D",
     "terrain3DHint": "Tryb inteligentny pokazuje 3D dla pagórkowatych i górskich terenów",
     "terrain3DOff": "Wyłączone",
@@ -804,7 +806,8 @@
     "unitsMetric": "Metryczne",
     "unitsMetricHint": "Dystanse w kilometrach, wysokość w metrach, temperatura w Celsjuszach",
     "version": "Wersja",
-    "viewRoutes": "Zobacz trasy"
+    "viewRoutes": "Zobacz trasy",
+    "mapTiles": "Kafelki mapy"
   },
   "stats": {
     "activities": "Aktywności",
@@ -971,6 +974,25 @@
     "smoothingTitle": "Wygładzanie danych",
     "trendHint": "Trendy HRV, snu i tętna spoczynkowego pojawią się tutaj po zalogowaniu danych",
     "weight": "Waga"
+  },
+  "whatsNew": {
+    "skipButton": "Pomiń",
+    "nextButton": "Dalej",
+    "doneButton": "Gotowe",
+    "showMeButton": "Pokaż",
+    "seeAllFeatures": "Zobacz wszystkie funkcje",
+    "justWhatsNew": "Tylko nowości",
+    "backToTour": "Wróć do tour",
+    "closeTour": "Zamknij",
+    "v022": {
+      "mapStylesTitle": "Mapy 3D i style",
+      "mapStylesBody": "Wybierz jasny, ciemny lub satelitarny styl mapy z inteligentnym terenem 3D dla górzystych aktywności.",
+      "mapStylesHint": "Satelita wysokiej rozdzielczości dostępny dla Szwajcarii i Francji. Inteligentne 3D aktywuje się przy przewyższeniu 30 m+ i nachyleniu 3 m/km+.",
+      "heatmapTitle": "Mapa aktywności",
+      "heatmapBody": "Twój kalendarz treningowy na stronie Zdrowie. Dotknij dowolnego dnia, aby zobaczyć dane o samopoczuciu — HRV, tętno spoczynkowe i sen — synchronizowane na żywo na wszystkich wykresach.",
+      "fitnessTitle": "Przegląd formy",
+      "fitnessBody": "Śledź kondycję, zmęczenie i formę z kolorowymi strefami. Dowiedz się, kiedy jesteś wypoczęty i gotowy do wysiłku."
+    }
   },
   "wellnessScreen": {
     "title": "Zdrowie",

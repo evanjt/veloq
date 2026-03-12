@@ -1,25 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Text, SegmentedButtons, Switch } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, SegmentedButtons } from 'react-native-paper';
 import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMapPreferences } from '@/providers';
-import { useTileCacheStore, type CacheMode } from '@/providers/TileCacheStore';
 import { type MapStyleType } from '@/components/maps';
 import { MapStylePreviewPicker } from './MapStylePreviewPicker';
-import {
-  clearTerrainPreviews,
-  getTerrainPreviewCacheSize,
-} from '@/lib/storage/terrainPreviewCache';
-import {
-  emitClearTileCache,
-  requestTileCacheStats,
-  onTileCacheStats,
-  type TileCacheStats,
-} from '@/lib/events/terrainSnapshotEvents';
-import * as TileCacheService from '@/lib/maps/tileCacheService';
-import * as FileSystem from 'expo-file-system/legacy';
+import { clearTerrainPreviews } from '@/lib/storage/terrainPreviewCache';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import type { ActivityType, Terrain3DMode } from '@/types';
 
@@ -76,124 +64,6 @@ const MAP_ACTIVITY_GROUPS: {
   },
 ];
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-interface StorageBarSegment {
-  label: string;
-  bytes: number;
-  color: string;
-}
-
-function StorageBreakdownBar({
-  nativeSizeEstimate,
-  tileCacheStats,
-  terrainCacheSize,
-  freeStorage,
-  isDark,
-}: {
-  nativeSizeEstimate: number;
-  tileCacheStats: TileCacheStats | null;
-  terrainCacheSize: number;
-  freeStorage: number | null;
-  isDark: boolean;
-}) {
-  const segments = useMemo<StorageBarSegment[]>(() => {
-    const result: StorageBarSegment[] = [];
-    if (nativeSizeEstimate > 0) {
-      result.push({ label: 'Map packs', bytes: nativeSizeEstimate, color: colors.chartBlue });
-    }
-    if (tileCacheStats?.satellite?.totalBytes) {
-      result.push({
-        label: 'Satellite',
-        bytes: tileCacheStats.satellite.totalBytes,
-        color: colors.chartPurple,
-      });
-    }
-    if (tileCacheStats?.terrain?.totalBytes) {
-      result.push({
-        label: 'Terrain',
-        bytes: tileCacheStats.terrain.totalBytes,
-        color: colors.chartGreen,
-      });
-    }
-    if (tileCacheStats?.vector?.totalBytes) {
-      result.push({
-        label: 'Vector',
-        bytes: tileCacheStats.vector.totalBytes,
-        color: colors.chartCyan,
-      });
-    }
-    if (terrainCacheSize > 0) {
-      result.push({ label: '3D previews', bytes: terrainCacheSize, color: colors.chartYellow });
-    }
-    return result;
-  }, [nativeSizeEstimate, tileCacheStats, terrainCacheSize]);
-
-  const totalCacheBytes = segments.reduce((sum, s) => sum + s.bytes, 0);
-
-  if (totalCacheBytes === 0) return null;
-
-  const freeColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
-  const totalDevice = freeStorage !== null ? totalCacheBytes + freeStorage : 0;
-  const deviceUsagePct = totalDevice > 0 ? (totalCacheBytes / totalDevice) * 100 : 0;
-
-  return (
-    <View style={[styles.actionRowBorder, styles.storageBarContainer]}>
-      {/* App cache breakdown bar */}
-      <View style={styles.storageBar}>
-        {segments.map((seg) => {
-          const pct = totalCacheBytes > 0 ? (seg.bytes / totalCacheBytes) * 100 : 0;
-          if (pct < 0.5) return null;
-          return (
-            <View
-              key={seg.label}
-              style={[styles.storageBarSegment, { width: `${pct}%`, backgroundColor: seg.color }]}
-            />
-          );
-        })}
-      </View>
-      {/* App cache legend — directly under cache bar */}
-      <View style={styles.storageLegend}>
-        {segments.map((seg) => (
-          <View key={seg.label} style={styles.storageLegendItem}>
-            <View style={[styles.storageLegendDot, { backgroundColor: seg.color }]} />
-            <Text style={[styles.storageLegendText, isDark && styles.textMuted]}>
-              {seg.label} {formatBytes(seg.bytes)}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Device usage bar */}
-      {freeStorage !== null && (
-        <>
-          <View style={styles.deviceUsageBar}>
-            <View
-              style={[
-                styles.deviceUsageBarFill,
-                {
-                  width: `${Math.max(deviceUsagePct, 2)}%`,
-                  backgroundColor: colors.chartBlue,
-                },
-              ]}
-            />
-            <View style={[styles.deviceUsageBarFree, { backgroundColor: freeColor }]} />
-          </View>
-          {/* Device label — directly under device bar */}
-          <Text style={[styles.storageLegendText, { marginTop: 2 }, isDark && styles.textMuted]}>
-            {formatBytes(totalCacheBytes)} of {formatBytes(totalDevice)} used
-          </Text>
-        </>
-      )}
-    </View>
-  );
-}
-
 export function MapsSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
@@ -206,28 +76,6 @@ export function MapsSection() {
     setTerrain3DModeGroup,
     getTerrain3DMode,
   } = useMapPreferences();
-
-  // Terrain cache stats
-  const [terrainCacheSize, setTerrainCacheSize] = useState(0);
-  const [tileCacheStats, setTileCacheStats] = useState<TileCacheStats | null>(null);
-
-  useEffect(() => {
-    getTerrainPreviewCacheSize().then(setTerrainCacheSize);
-  }, [mapPreferences.terrain3DMode, mapPreferences.terrain3DModeByType]);
-
-  // Request DEM tile cache stats from WebView on mount
-  useEffect(() => {
-    const unsub = onTileCacheStats(setTileCacheStats);
-    requestTileCacheStats();
-    // Timeout: if no WebView is mounted (3D disabled), stats stay null
-    const timeout = setTimeout(() => {
-      setTileCacheStats((prev) => prev ?? null);
-    }, 500);
-    return () => {
-      unsub();
-      clearTimeout(timeout);
-    };
-  }, []);
 
   // Migrate stale per-type 3D overrides: old code only set types[0] per group.
   // Normalize so all types in a group share the same override.
@@ -249,7 +97,6 @@ export function MapsSection() {
     const style = value as MapStyleType;
     await setDefaultStyle(style);
     await clearTerrainPreviews();
-    setTerrainCacheSize(0);
   };
 
   const handleActivityGroupMapStyleChange = async (groupKey: string, value: string) => {
@@ -259,53 +106,17 @@ export function MapsSection() {
     const style = value === 'default' ? null : (value as MapStyleType);
     await setActivityGroupStyle(group.types, style);
     await clearTerrainPreviews();
-    setTerrainCacheSize(0);
   };
 
   const handleTerrain3DModeChange = async (mode: string) => {
     await setTerrain3DMode(null, mode as Terrain3DMode);
     await clearTerrainPreviews();
-    setTerrainCacheSize(0);
   };
 
   const handleTerrain3DGroupModeChange = async (types: ActivityType[], mode: string) => {
     await setTerrain3DModeGroup(types, mode as Terrain3DMode);
     await clearTerrainPreviews();
-    setTerrainCacheSize(0);
   };
-
-  const handleClearAllMapCache = async () => {
-    await clearTerrainPreviews();
-    await TileCacheService.clearAllPacks();
-    emitClearTileCache();
-    setTerrainCacheSize(0);
-    setTileCacheStats(null);
-  };
-
-  // Offline tile cache store
-  const {
-    settings: tileCacheSettings,
-    prefetchStatus,
-    progress: prefetchProgress,
-    nativePackCount,
-    nativeSizeEstimate,
-    errorMessage: tileCacheError,
-  } = useTileCacheStore();
-  const tileCacheActions = useTileCacheStore();
-
-  const [freeStorage, setFreeStorage] = useState<number | null>(null);
-
-  useEffect(() => {
-    FileSystem.getFreeDiskStorageAsync()
-      .then(setFreeStorage)
-      .catch(() => setFreeStorage(null));
-  }, []);
-
-  const lowStorage = freeStorage !== null && freeStorage < 500 * 1024 * 1024;
-  const canUseMaximum = freeStorage === null || freeStorage >= 2 * 1024 * 1024 * 1024;
-
-  // Total map cache for header display
-  const totalMapCache = nativeSizeEstimate + terrainCacheSize + (tileCacheStats?.totalBytes ?? 0);
 
   // 3D terrain mode label
   const terrain3DLabel =
@@ -317,23 +128,9 @@ export function MapsSection() {
 
   return (
     <>
-      <View style={styles.sectionLabelRow}>
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-          {t('settings.maps').toUpperCase()}
-        </Text>
-        {totalMapCache > 0 && (
-          <TouchableOpacity onPress={handleClearAllMapCache} style={styles.cacheClearButton}>
-            <Text style={[styles.cacheClearText, isDark && styles.textMuted]}>
-              {formatBytes(totalMapCache)}
-              {nativePackCount > 0 ? ` · ${nativePackCount} regions` : ''}
-              {'  '}
-            </Text>
-            <Text style={styles.cacheClearAction}>
-              {t('settings.clearCache', { defaultValue: 'Clear' })}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+        {t('settings.maps').toUpperCase()}
+      </Text>
       <View style={[styles.section, isDark && styles.sectionDark]}>
         {/* Default style + 3D terrain toggle in header row */}
         <View style={styles.styleHeaderRow}>
@@ -443,156 +240,20 @@ export function MapsSection() {
             </Text>
           </View>
         )}
-
-        {/* Offline tile caching — cache mode picker */}
-        <View
-          style={[
-            styles.actionRowBorder,
-            { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-          ]}
-        >
-          <Text style={[styles.offlineModeLabel, isDark && styles.textLight]}>
-            {t('settings.cacheMode', { defaultValue: 'Cache mode' })}
-          </Text>
-          <SegmentedButtons
-            value={tileCacheSettings.cacheMode}
-            onValueChange={(value) => tileCacheActions.setCacheMode(value as CacheMode)}
-            buttons={[
-              {
-                value: 'ambient',
-                label: t('settings.cacheModeAmbient', { defaultValue: 'Ambient' }),
-              },
-              {
-                value: 'standard',
-                label: t('settings.cacheModeStandard', { defaultValue: 'Standard' }),
-              },
-              {
-                value: 'maximum',
-                label: t('settings.cacheModeMaximum', { defaultValue: 'Maximum' }),
-                disabled: !canUseMaximum,
-              },
-            ]}
-            density="small"
-            style={{ marginTop: spacing.xs }}
-          />
-          <Text style={[styles.offlineModeHint, isDark && styles.textMuted]}>
-            {tileCacheSettings.cacheMode === 'ambient'
-              ? t('settings.cacheModeAmbientHint', {
-                  defaultValue: 'Tiles cached as you browse maps',
-                })
-              : tileCacheSettings.cacheMode === 'standard'
-                ? t('settings.cacheModeStandardHint', {
-                    defaultValue: 'Slowly downloads tiles for your activities',
-                  })
-                : t('settings.cacheModeMaximumHint', {
-                    defaultValue: 'Slowly downloads 5 km radius · all styles',
-                  })}
-          </Text>
-          {!canUseMaximum && tileCacheSettings.cacheMode === 'maximum' && (
-            <Text style={styles.offlineWarning}>
-              {t('settings.notEnoughStorage', {
-                defaultValue: 'Not enough storage for Maximum mode',
-              })}
-            </Text>
-          )}
-        </View>
-
-        {/* Wi-Fi only toggle — only for proactive modes */}
-        {tileCacheSettings.cacheMode !== 'ambient' && (
-          <View style={[styles.offlineRow, styles.actionRowBorder]}>
-            <MaterialCommunityIcons name="wifi" size={22} color={colors.primary} />
-            <Text style={[styles.actionText, isDark && styles.textLight]}>
-              {t('settings.wifiOnly', { defaultValue: 'Wi-Fi only' })}
-            </Text>
-            <Switch
-              value={tileCacheSettings.wifiOnly}
-              onValueChange={tileCacheActions.setWifiOnly}
-              color={colors.primary}
-            />
-          </View>
-        )}
-
-        {/* Status display */}
-        {(prefetchStatus === 'downloading' ||
-          prefetchStatus === 'computing' ||
-          prefetchStatus === 'error' ||
-          lowStorage) && (
-          <View style={[styles.actionRowBorder, styles.offlineStatusRow]}>
-            {prefetchStatus === 'downloading' && (
-              <View style={styles.offlineProgressRow}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={[styles.offlineStatusText, isDark && styles.textMuted]}>
-                  {t('settings.downloading', {
-                    defaultValue: 'Downloading {{done}}/{{total}} tiles...',
-                    done: prefetchProgress.downloaded.toLocaleString(),
-                    total: prefetchProgress.total.toLocaleString(),
-                  })}
-                </Text>
-              </View>
-            )}
-            {prefetchStatus === 'computing' && (
-              <View style={styles.offlineProgressRow}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={[styles.offlineStatusText, isDark && styles.textMuted]}>
-                  {t('settings.computing', {
-                    defaultValue: 'Computing tile regions...',
-                  })}
-                </Text>
-              </View>
-            )}
-            {prefetchStatus === 'error' && tileCacheError && (
-              <Text style={styles.offlineWarning}>{tileCacheError}</Text>
-            )}
-            {lowStorage && (
-              <Text style={styles.offlineWarning}>
-                {t('settings.lowStorage', {
-                  defaultValue: 'Low device storage — tile download paused',
-                })}
-              </Text>
-            )}
-          </View>
-        )}
-
-        {/* Storage breakdown bar — always visible if there's cache data */}
-        <StorageBreakdownBar
-          nativeSizeEstimate={nativeSizeEstimate}
-          tileCacheStats={tileCacheStats}
-          terrainCacheSize={terrainCacheSize}
-          freeStorage={freeStorage}
-          isDark={isDark}
-        />
       </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    marginHorizontal: layout.screenPadding,
-  },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '600',
     color: colors.textSecondary,
     letterSpacing: 0.5,
-  },
-  cacheClearButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cacheClearText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  cacheClearAction: {
-    fontSize: 11,
-    color: colors.primary,
-    fontWeight: '500',
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    marginHorizontal: layout.screenPadding,
   },
   section: {
     backgroundColor: colors.surface,
@@ -695,88 +356,5 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: darkColors.textSecondary,
-  },
-  offlineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  offlineModeLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  offlineModeHint: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  offlineWarning: {
-    fontSize: 12,
-    color: '#E53935',
-    marginTop: spacing.xs,
-  },
-  offlineStatusRow: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  offlineProgressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  offlineStatusText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  storageBarContainer: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  storageBar: {
-    flexDirection: 'row',
-    height: 10,
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  storageBarSegment: {
-    height: '100%',
-  },
-  deviceUsageBar: {
-    flexDirection: 'row',
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginTop: spacing.sm,
-  },
-  deviceUsageBarFill: {
-    height: '100%',
-  },
-  deviceUsageBarFree: {
-    flex: 1,
-    height: '100%',
-  },
-  storageLegend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  storageLegendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  storageLegendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  storageLegendText: {
-    fontSize: 11,
-    color: colors.textSecondary,
   },
 });

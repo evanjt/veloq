@@ -1,0 +1,11 @@
+v0.2.2 (Mar 2026)
+
+• Sundhedsside: aktivitets-heatmap, skrub til enhver dag
+• Fitness-hero: form/træthed/fitness med zonelabels
+• Sparkline: ATL-linje, strammere y-akse
+• 3D-kort: MapLibre v5, terræn-rettelser, cirkelmarkører
+• Kort: flagmarkører, cyan skrub-fremhævning, tile-caching
+• Indstillinger reorganiseret med cache-detaljer
+• Offline-tilstand: forbedret pålidelighed
+• Fejlgrænser på alle skærme
+• Rust-motor: domæneobjekt-arkitektur

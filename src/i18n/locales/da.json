@@ -740,6 +740,8 @@
     "light": "Lys",
     "maps": "Kort",
     "maxMetricsHint": "Maksimalt 4 metrikker",
+    "appTour": "App-tour",
+    "appTourDescription": "Udforsk funktioner og lær at bruge dem",
     "terrain3D": "3D Terræn",
     "terrain3DHint": "Smart tilstand viser 3D for bakket og bjergterræn",
     "terrain3DOff": "Fra",
@@ -803,7 +805,8 @@
     "unitsMetric": "Metrisk",
     "unitsMetricHint": "Afstande i kilometer, højde i meter, temperatur i Celsius",
     "version": "Version",
-    "viewRoutes": "Vis ruter"
+    "viewRoutes": "Vis ruter",
+    "mapTiles": "Korttegn"
   },
   "stats": {
     "activities": "Aktiviteter",
@@ -970,6 +973,25 @@
     "smoothingTitle": "Dataudglatning",
     "trendHint": "HRV-, søvn- og hvilepulstendenser vises her, når data logges",
     "weight": "Vægt"
+  },
+  "whatsNew": {
+    "skipButton": "Spring over",
+    "nextButton": "Næste",
+    "doneButton": "Færdig",
+    "showMeButton": "Vis mig",
+    "seeAllFeatures": "Se alle funktioner",
+    "justWhatsNew": "Kun nyheder",
+    "backToTour": "Tilbage til tour",
+    "closeTour": "Luk",
+    "v022": {
+      "mapStylesTitle": "3D-kort og stilarter",
+      "mapStylesBody": "Vælg lys, mørk eller satellit-kortstil med smart 3D-terræn til kuperede aktiviteter.",
+      "mapStylesHint": "Højopløselig satellit dækker Schweiz og Frankrig. Smart 3D aktiveres ved aktiviteter med 30 m+ stigning og 3 m/km+ hældning.",
+      "heatmapTitle": "Aktivitets-heatmap",
+      "heatmapBody": "Din træningskalender på Sundhedssiden. Tryk på en dag for at se dine wellness-data — HRV, hvilepuls og søvn — synkroniseret i realtid på tværs af alle diagrammer.",
+      "fitnessTitle": "Fitnessoversigt",
+      "fitnessBody": "Følg din kondition, træthed og form med farvekodede zoner. Vid hvornår du er frisk og klar til at præstere."
+    }
   },
   "wellnessScreen": {
     "title": "Velvære",

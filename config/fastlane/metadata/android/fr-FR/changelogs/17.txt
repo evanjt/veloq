@@ -1,0 +1,11 @@
+v0.2.2 (Mar 2026)
+
+• Santé : carte thermique, navigation par jour
+• Hero fitness : forme/fatigue/fitness avec labels de zone
+• Sparkline : ligne ATL, axe Y resserré
+• Cartes 3D : MapLibre v5, corrections terrain, marqueurs cercle
+• Cartes : marqueurs drapeau, surbrillance cyan, cache tuiles
+• Paramètres réorganisés avec détails du cache
+• Mode hors ligne : fiabilité améliorée
+• Limites d'erreur sur tous les écrans
+• Moteur Rust : architecture objets de domaine

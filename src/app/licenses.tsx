@@ -242,16 +242,18 @@ const LICENSE_DATA: LicenseSection[] = [
         description: 'Vector tile schema.',
       },
       {
-        name: 'EOX Sentinel-2',
-        license: 'CC-BY-NC-SA 4.0',
+        name: 'EOX Sentinel-2 Cloudless',
+        license: 'CC BY 4.0',
         repository: 'https://s2maps.eu',
-        description: 'Satellite imagery © EOX / Copernicus.',
+        description:
+          'Sentinel-2 cloudless by EOX IT Services GmbH. Contains modified Copernicus Sentinel data 2017.',
       },
       {
-        name: 'AWS Terrain Tiles',
+        name: 'Mapzen Terrain Tiles',
         license: 'Public Domain',
         repository: 'https://registry.opendata.aws/terrain-tiles/',
-        description: '3D elevation data.',
+        description:
+          '3D elevation data courtesy of U.S. Geological Survey and U.S. National Oceanic and Atmospheric Administration.',
       },
     ],
   },

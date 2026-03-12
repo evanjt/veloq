@@ -27,6 +27,7 @@ export function SummaryCardSection() {
           <SummaryCard
             profileUrl={summaryCardData.profileUrl}
             onProfilePress={() => {}}
+            heroMetric={summaryCardData.heroMetric}
             heroValue={summaryCardData.heroValue}
             heroLabel={summaryCardData.heroLabel}
             heroColor={summaryCardData.heroColor}
@@ -36,6 +37,8 @@ export function SummaryCardSection() {
             fitnessData={summaryCardData.fitnessData}
             fatigueData={summaryCardData.fatigueData}
             formData={summaryCardData.formData}
+            hrvData={summaryCardData.hrvData}
+            rhrData={summaryCardData.rhrData}
             showSparkline={summaryCardData.showSparkline}
             showSparklineLabels
             supportingMetrics={summaryCardData.supportingMetrics}

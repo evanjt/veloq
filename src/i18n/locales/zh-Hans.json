@@ -740,6 +740,8 @@
     "light": "浅色",
     "maps": "地图",
     "maxMetricsHint": "最多 4 个指标",
+    "appTour": "应用导览",
+    "appTourDescription": "探索功能并学习如何使用",
     "terrain3D": "3D 地形",
     "terrain3DHint": "智能模式在地形起伏较大时显示3D",
     "terrain3DOff": "关闭",
@@ -803,7 +805,8 @@
     "unitsMetric": "公制",
     "unitsMetricHint": "距离用公里，海拔用米，温度用摄氏度",
     "version": "版本",
-    "viewRoutes": "查看路线"
+    "viewRoutes": "查看路线",
+    "mapTiles": "地图瓦片"
   },
   "stats": {
     "activities": "活动",
@@ -970,6 +973,25 @@
     "smoothingTitle": "数据平滑",
     "trendHint": "记录数据后，心率变异性、睡眠和静息心率趋势将显示在这里",
     "weight": "体重"
+  },
+  "whatsNew": {
+    "skipButton": "跳过",
+    "nextButton": "下一步",
+    "doneButton": "完成",
+    "showMeButton": "查看",
+    "seeAllFeatures": "查看所有功能",
+    "justWhatsNew": "仅新功能",
+    "backToTour": "返回导览",
+    "closeTour": "关闭",
+    "v022": {
+      "mapStylesTitle": "3D 地图与样式",
+      "mapStylesBody": "选择浅色、深色或卫星地图样式，智能3D地形自动适用于起伏活动。",
+      "mapStylesHint": "高分辨率卫星覆盖瑞士和法国。智能3D在累计爬升30米以上、坡度3米/公里以上时激活。",
+      "heatmapTitle": "活动热力图",
+      "heatmapBody": "健康页面上的训练日历。点击任意一天，即可查看健康数据 — HRV、静息心率和睡眠 — 在所有图表中实时同步。",
+      "fitnessTitle": "体能概览",
+      "fitnessBody": "通过彩色区域追踪您的体能、疲劳和状态。了解何时状态最佳，准备好发挥最好表现。"
+    }
   },
   "wellnessScreen": {
     "title": "健康",

@@ -91,11 +91,5 @@ export {
   type MetricPreference,
 } from './DashboardPreferencesStore';
 export { useDebugStore, isDebugEnabled, initializeDebugStore } from './DebugStore';
-export {
-  useTileCacheStore,
-  getCacheRadius,
-  shouldCacheAllStyles,
-  initializeTileCacheStore,
-  type CacheMode,
-  type PrefetchStatus,
-} from './TileCacheStore';
+export { useTileCacheStore, initializeTileCacheStore } from './TileCacheStore';
+export { useWhatsNewStore, initializeWhatsNewStore } from './WhatsNewStore';

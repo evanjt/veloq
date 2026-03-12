@@ -16,6 +16,8 @@ export interface ScrubValues {
   fitness: number;
   fatigue: number;
   form: number;
+  hrv?: number;
+  rhr?: number;
   dateLabel: string;
 }
 
@@ -155,11 +157,11 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     .manualActivation(true)
     .enabled(scrubEnabled)
     .onTouchesMove((_, manager) => {
-      // Only activate if longPress already fired (crosshairX >= 0)
+      // Only activate once longPress has fired (crosshairX >= 0).
+      // Don't call fail() — that permanently kills the gesture for this touch.
+      // Staying undetermined lets Pan activate once the long press triggers.
       if (crosshairX.value >= 0) {
         manager.activate();
-      } else {
-        manager.fail();
       }
     })
     .onUpdate((e) => {

@@ -1,0 +1,11 @@
+v0.2.2 (Mar 2026)
+
+• Gezondheidspagina: activiteiten-heatmap, scrub naar elke dag
+• Fitness-hero: vorm/vermoeidheid/fitness met zonelabels
+• Sparkline: ATL-lijn, strakkere y-as
+• 3D-kaarten: MapLibre v5, terrein-fixes, cirkelmarkers
+• Kaarten: vlagmarkers, cyaan scrub-markering, tile-caching
+• Instellingen gereorganiseerd met cache-details
+• Offlinemodus: verbeterde betrouwbaarheid
+• Foutgrenzen op alle schermen
+• Rust-engine: domeinobject-architectuur

@@ -740,6 +740,8 @@
     "light": "Light",
     "maps": "Maps",
     "maxMetricsHint": "Maximum 4 metrics",
+    "appTour": "App Tour",
+    "appTourDescription": "Explore features and learn how to use them",
     "terrain3D": "3D Terrain",
     "terrain3DHint": "Smart mode shows 3D for hilly and mountainous terrain",
     "terrain3DOff": "Off",
@@ -803,7 +805,8 @@
     "unitsMetric": "Metric",
     "unitsMetricHint": "Distances in kays, height in metres, temp in Celsius",
     "version": "Version",
-    "viewRoutes": "Check out Routes"
+    "viewRoutes": "Check out Routes",
+    "mapTiles": "Map tiles"
   },
   "stats": {
     "activities": "Activities",
@@ -970,6 +973,25 @@
     "dayAverage": "{{count}}-day average",
     "none": "None",
     "rawData": "Raw data"
+  },
+  "whatsNew": {
+    "skipButton": "Skip",
+    "nextButton": "Next",
+    "doneButton": "Done",
+    "showMeButton": "Show Me",
+    "seeAllFeatures": "See all features",
+    "justWhatsNew": "Just what's new",
+    "backToTour": "Back to Tour",
+    "closeTour": "Close",
+    "v022": {
+      "mapStylesTitle": "3D Maps & Styles",
+      "mapStylesBody": "Choose light, dark, or satellite map styles with smart 3D terrain for hilly activities.",
+      "mapStylesHint": "High-res satellite covers Switzerland and France. Smart 3D activates for activities with 30 m+ gain and 3 m/km+ gradient.",
+      "heatmapTitle": "Activity Heatmap",
+      "heatmapBody": "Your training calendar on the Health page. Tap any day to see your wellness data — HRV, resting heart rate, and sleep — sync across charts in real time.",
+      "fitnessTitle": "Fitness Overview",
+      "fitnessBody": "Track your fitness, fatigue, and form with colour-coded zones. Know when you're fresh and ready to perform."
+    }
   },
   "wellnessScreen": {
     "title": "How ya goin'",

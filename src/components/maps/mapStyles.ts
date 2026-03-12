@@ -83,7 +83,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     ],
     tileSize: 64,
     maxzoom: 17,
-    attribution: '© USDA NAIP',
+    attribution: 'USGS NAIP',
     bounds: [-124.733, 24.544, -66.95, 49.384], // Continental USA [west, south, east, north]
   },
   // Global fallback: EOX Sentinel-2 2016/2017 (CC BY 4.0 - commercial OK)
@@ -92,7 +92,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg'],
     tileSize: 64,
     maxzoom: 14,
-    attribution: 'Sentinel-2 cloudless by EOX © Copernicus 2016-2017',
+    attribution: 'Sentinel-2 cloudless — s2maps.eu by EOX, Copernicus Sentinel data 2017',
     // No bounds - global coverage
   },
 };
@@ -332,7 +332,7 @@ export function getStyleIcon(
 export const MAP_ATTRIBUTIONS: Record<MapStyleType, string> = {
   light: '© OpenFreeMap © OpenMapTiles © OpenStreetMap',
   dark: '© OpenFreeMap © OpenMapTiles © OpenStreetMap',
-  satellite: '© EOX Sentinel-2', // Default, updated dynamically
+  satellite: 'Sentinel-2 cloudless by EOX', // Default, updated dynamically
 };
 
 // Get attribution for a specific satellite source
@@ -397,7 +397,7 @@ export function rewriteVectorUrls<T extends object>(style: T): T {
 }
 
 // 3D terrain attribution
-export const TERRAIN_ATTRIBUTION = '© AWS Terrain Tiles';
+export const TERRAIN_ATTRIBUTION = 'Terrain: USGS, NOAA (Mapzen Terrain Tiles)';
 
 /**
  * Shared 3D terrain configuration — single source of truth for both

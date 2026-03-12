@@ -42,3 +42,4 @@ export { GlobalErrorBoundary } from './GlobalErrorBoundary';
 export { ScreenErrorBoundary } from './ScreenErrorBoundary';
 export { CollapsibleSection } from './CollapsibleSection';
 export { ScreenSafeAreaView } from './ScreenSafeAreaView';
+export { WhatsNewModal, TourReturnPill } from './whatsNew';

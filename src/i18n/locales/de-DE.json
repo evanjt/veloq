@@ -740,6 +740,8 @@
     "light": "Hell",
     "maps": "Karten",
     "maxMetricsHint": "Maximal 4 Metriken",
+    "appTour": "App-Tour",
+    "appTourDescription": "Entdecke Funktionen und lerne sie kennen",
     "terrain3D": "3D Terrain",
     "terrain3DHint": "Smart-Modus zeigt 3D für hügeliges und bergiges Gelände",
     "terrain3DOff": "Aus",
@@ -803,7 +805,8 @@
     "unitsMetric": "Metrisch",
     "unitsMetricHint": "Entfernungen in Kilometern, Höhe in Metern, Temperatur in Celsius",
     "version": "Version",
-    "viewRoutes": "Routen anzeigen"
+    "viewRoutes": "Routen anzeigen",
+    "mapTiles": "Kartenkacheln"
   },
   "stats": {
     "activities": "Aktivitäten",
@@ -970,6 +973,25 @@
     "smoothingTitle": "Datenglättung",
     "trendHint": "HRV-, Schlaf- und Ruhe-HF-Trends erscheinen hier, wenn Daten protokolliert werden",
     "weight": "Gewicht"
+  },
+  "whatsNew": {
+    "skipButton": "Überspringen",
+    "nextButton": "Weiter",
+    "doneButton": "Fertig",
+    "showMeButton": "Zeig mir",
+    "seeAllFeatures": "Alle Funktionen anzeigen",
+    "justWhatsNew": "Nur Neuheiten",
+    "backToTour": "Zurück zur Tour",
+    "closeTour": "Schließen",
+    "v022": {
+      "mapStylesTitle": "3D-Karten & Stile",
+      "mapStylesBody": "Wähle helle, dunkle oder Satelliten-Kartenstile mit intelligentem 3D-Gelände für hügelige Aktivitäten.",
+      "mapStylesHint": "Hochauflösende Satellitenbilder für die Schweiz und Frankreich. Smartes 3D aktiviert sich bei Aktivitäten mit 30 m+ Höhengewinn und 3 m/km+ Steigung.",
+      "heatmapTitle": "Aktivitäts-Heatmap",
+      "heatmapBody": "Dein Trainingskalender auf der Gesundheitsseite. Tippe auf einen Tag, um Wellness-Daten — HRV, Ruhe-Herzfrequenz und Schlaf — in Echtzeit über alle Diagramme synchronisiert zu sehen.",
+      "fitnessTitle": "Fitness-Übersicht",
+      "fitnessBody": "Verfolge Fitness, Ermüdung und Form mit farbcodierten Zonen. Erkenne, wann du frisch und leistungsbereit bist."
+    }
   },
   "wellnessScreen": {
     "title": "Wohlbefinden",

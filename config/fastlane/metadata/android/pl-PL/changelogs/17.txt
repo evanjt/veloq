@@ -1,0 +1,11 @@
+v0.2.2 (Mar 2026)
+
+• Zdrowie: mapa cieplna aktywności, przewiń do dowolnego dnia
+• Hero fitness: forma/zmęczenie/fitness z etykietami stref
+• Sparkline: linia ATL, ściślejsza oś Y
+• Mapy 3D: MapLibre v5, poprawki terenu, znaczniki kół
+• Mapy: znaczniki flag, cyjanowe podświetlenie, cache kafelków
+• Ustawienia zreorganizowane z detalami cache
+• Tryb offline: lepsza niezawodność
+• Granice błędów na wszystkich ekranach
+• Silnik Rust: architektura obiektów domeny

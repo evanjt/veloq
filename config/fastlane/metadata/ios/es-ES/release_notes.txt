@@ -1,5 +1,11 @@
-v0.2.1 (Feb 2026)
+v0.2.2 (Mar 2026)
 
-• 3D map mode: improved styling and background colours across all map themes
-• Map tiles: restored full tile resolution for better previews
-• Fixed dark halo around activity card text on iOS with light theme
+• Página de salud: mapa de calor de actividades, desplázate a cualquier día
+• Hero de fitness: forma/fatiga/fitness con etiquetas de zona
+• Sparkline: línea ATL, eje Y más ajustado
+• Mapas 3D: MapLibre v5, correcciones de terreno, marcadores circulares
+• Mapas: marcadores de bandera, resaltado cyan al desplazar, caché de teselas
+• Ajustes reorganizados con detalles de caché
+• Modo sin conexión: fiabilidad mejorada
+• Límites de error en todas las pantallas
+• Motor Rust: arquitectura de objetos de dominio

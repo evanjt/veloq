@@ -740,6 +740,8 @@
     "light": "Hell",
     "maps": "Charte",
     "maxMetricsHint": "Maximal 4 Metrike",
+    "appTour": "App-Tour",
+    "appTourDescription": "Funktione entdecke und lerne wie si funktioniere",
     "terrain3D": "3D Terrain",
     "terrain3DHint": "Smart-Modus zeigt 3D für hügeliges und bergiges Gelände",
     "terrain3DOff": "Aus",
@@ -803,7 +805,8 @@
     "unitsMetric": "Metrisch",
     "unitsMetricHint": "Distanze i Kilometer, Höchi i Meter, Temperatur i Celsius",
     "version": "Version",
-    "viewRoutes": "Route zeige"
+    "viewRoutes": "Route zeige",
+    "mapTiles": "Chartechachle"
   },
   "stats": {
     "activities": "Aktivitäte",
@@ -970,6 +973,25 @@
     "smoothingTitle": "Glättig",
     "trendHint": "Trends chömed wenn Date iigeh wärded",
     "weight": "Gwicht"
+  },
+  "whatsNew": {
+    "skipButton": "Überspringä",
+    "nextButton": "Wiiter",
+    "doneButton": "Fertig",
+    "showMeButton": "Zeig mir",
+    "seeAllFeatures": "Alli Funktione azeige",
+    "justWhatsNew": "Nur s Neuschte",
+    "backToTour": "Zrugg zur Tour",
+    "closeTour": "Schliesse",
+    "v022": {
+      "mapStylesTitle": "3D-Chartä & Stil",
+      "mapStylesBody": "Wähl hälle, dunkli oder Satellite-Chartestil mit intelligäntem 3D-Gländ für hügligi Aktivitäte.",
+      "mapStylesHint": "Hochuflösendi Satellitebilder für d Schwiiz und Frankriich. Smartes 3D aktiviert sich bi Aktivitäte mit 30 m+ Höhegewinn und 3 m/km+ Stiiging.",
+      "heatmapTitle": "Aktivitäts-Heatmap",
+      "heatmapBody": "Din Trainingskaländer uf dr Gsundheitssiitä. Tipp uf en Tag zum Wellness-Date — HRV, Rueh-Herzfrequänz und Schlaf — in Echtziit über alli Diagramm synchronisiert gseh.",
+      "fitnessTitle": "Fitness-Überblick",
+      "fitnessBody": "Verfolg Fitness, Ermüedig und Form mit farbcodierte Zone. Wüss, wenn du frisch und ready bisch."
+    }
   },
   "wellnessScreen": {
     "title": "Wohlsii",

@@ -1,5 +1,11 @@
-v0.2.1 (Feb 2026)
+v0.2.2 (Mar 2026)
 
-• 3D map mode: improved styling and background colours across all map themes
-• Map tiles: restored full tile resolution for better previews
-• Fixed dark halo around activity card text on iOS with light theme
+• 健康页面：活动热力图，滑动到任意日期
+• 健身主图：体能状态/疲劳/健身并带区域标签
+• 迷你图：ATL 线，更紧凑的 Y 轴
+• 3D 地图：MapLibre v5，地形修复，圆形标记
+• 地图：旗帜标记，青色滑动高亮，瓦片缓存
+• 设置重新整理并增加缓存详情
+• 离线模式：可靠性提升
+• 所有页面添加错误边界
+• Rust 引擎：领域对象架构

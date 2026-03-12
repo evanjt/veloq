@@ -32,6 +32,7 @@ export interface SummaryCardData {
   profileUrl?: string;
 
   // Hero metric
+  heroMetric: string;
   heroValue: number | string;
   heroLabel: string;
   heroColor: string;
@@ -39,10 +40,12 @@ export interface SummaryCardData {
   heroZoneColor?: string;
   heroTrend?: '↑' | '↓' | '';
 
-  // Sparkline (fitness/form dual chart)
+  // Sparkline (fitness/form dual chart or HRV/RHR chart)
   fitnessData?: number[];
   fatigueData?: number[];
   formData?: number[];
+  hrvData?: number[];
+  rhrData?: number[];
   showSparkline: boolean;
 
   // Supporting metrics
@@ -344,6 +347,40 @@ export function useSummaryCardData(): SummaryCardData {
     });
   }, [wellnessData, summaryCard.showSparkline]);
 
+  // Build HRV, RHR, and HRV trend data arrays from wellness (last 30 days)
+  const hrvData = useMemo(() => {
+    if (!summaryCard.showSparkline) return undefined;
+    if (!wellnessData || wellnessData.length === 0) return undefined;
+    const sorted = [...wellnessData].sort((a, b) => a.id.localeCompare(b.id)).slice(-30);
+    const raw = sorted.map((w) => w.hrv ?? null);
+    // Forward-fill null values so the line is continuous
+    let last = raw.find((v) => v !== null) ?? 0;
+    if (last === 0 && raw.every((v) => v === null)) return undefined;
+    return raw.map((v) => {
+      if (v !== null) {
+        last = Math.round(v);
+        return last;
+      }
+      return last;
+    });
+  }, [wellnessData, summaryCard.showSparkline]);
+
+  const rhrData = useMemo(() => {
+    if (!summaryCard.showSparkline) return undefined;
+    if (!wellnessData || wellnessData.length === 0) return undefined;
+    const sorted = [...wellnessData].sort((a, b) => a.id.localeCompare(b.id)).slice(-30);
+    const raw = sorted.map((w) => w.restingHR ?? null);
+    let last = raw.find((v) => v !== null) ?? 0;
+    if (last === 0 && raw.every((v) => v === null)) return undefined;
+    return raw.map((v) => {
+      if (v !== null) {
+        last = Math.round(v);
+        return last;
+      }
+      return last;
+    });
+  }, [wellnessData, summaryCard.showSparkline]);
+
   // Get sport-specific metrics
   const sportMetrics = useMemo(() => {
     const runSettings = getSettingsForSport(sportSettings, 'Run');
@@ -467,11 +504,14 @@ export function useSummaryCardData(): SummaryCardData {
   const stableFitnessData = useStableArray(fitnessData);
   const stableFatigueData = useStableArray(fatigueData);
   const stableFormData = useStableArray(formData);
+  const stableHrvData = useStableArray(hrvData);
+  const stableRhrData = useStableArray(rhrData);
   const stableSupportingMetrics = useStableValue(supportingMetrics);
 
   return useMemo(
     () => ({
       profileUrl,
+      heroMetric: summaryCard.heroMetric,
       heroValue: stableHeroData.value,
       heroLabel: stableHeroData.label,
       heroColor: stableHeroData.color,
@@ -481,6 +521,8 @@ export function useSummaryCardData(): SummaryCardData {
       fitnessData: stableFitnessData,
       fatigueData: stableFatigueData,
       formData: stableFormData,
+      hrvData: stableHrvData,
+      rhrData: stableRhrData,
       showSparkline: summaryCard.showSparkline,
       supportingMetrics: stableSupportingMetrics,
       isLoading,
@@ -488,10 +530,13 @@ export function useSummaryCardData(): SummaryCardData {
     }),
     [
       profileUrl,
+      summaryCard.heroMetric,
       stableHeroData,
       stableFitnessData,
       stableFatigueData,
       stableFormData,
+      stableHrvData,
+      stableRhrData,
       summaryCard.showSparkline,
       stableSupportingMetrics,
       isLoading,

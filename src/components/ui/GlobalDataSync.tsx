@@ -27,9 +27,7 @@ import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,
   formatTerrainSnapshotProgress,
-  formatTilePrefetchProgress,
 } from '@/lib/utils/syncProgressFormat';
-import { useTileCacheStore } from '@/providers/TileCacheStore';
 import { colors } from '@/theme';
 
 export function GlobalDataSync() {
@@ -103,10 +101,6 @@ export function GlobalDataSync() {
   // Terrain snapshot rendering progress
   const terrainSnapshotProgress = useSyncDateRange((s) => s.terrainSnapshotProgress);
 
-  // Tile prefetch progress
-  const tilePrefetchStatus = useTileCacheStore((s) => s.prefetchStatus);
-  const tilePrefetchProgress = useTileCacheStore((s) => s.progress);
-
   // Don't show banner on screens that have their own sync indicator
   const isOnMapScreen = routeParts.includes('map' as never);
   const isOnRoutesScreen = routeParts.includes('routes' as never);
@@ -129,25 +123,11 @@ export function GlobalDataSync() {
     [terrainSnapshotProgress, t]
   );
 
-  // Tile prefetch display info
-  const tilePrefetchDisplayInfo = useMemo(
-    () => formatTilePrefetchProgress(tilePrefetchStatus, tilePrefetchProgress, t),
-    [tilePrefetchStatus, tilePrefetchProgress, t]
-  );
-
-  // Pick which info to show — GPS sync > bounds sync > terrain snapshots > tile prefetch
-  const displayInfo =
-    gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo ?? tilePrefetchDisplayInfo;
+  // Pick which info to show — GPS sync > bounds sync > terrain snapshots
+  const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo;
 
   // Show banner when there's something to display and not on screens with own indicator.
-  // Tile prefetch banner is shown on all screens (map/routes screens only suppress GPS/bounds sync).
-  const isTilePrefetchOnly =
-    tilePrefetchDisplayInfo !== null &&
-    !gpsDisplayInfo &&
-    !boundsDisplayInfo &&
-    !terrainDisplayInfo;
-  const shouldShowBanner =
-    displayInfo !== null && (isTilePrefetchOnly || (!isOnMapScreen && !isOnRoutesScreen));
+  const shouldShowBanner = displayInfo !== null && !isOnMapScreen && !isOnRoutesScreen;
 
   // Register sync banner with TopSafeAreaContext so screens exclude top safe area
   const { setSyncBannerVisible } = useTopSafeArea();

@@ -740,6 +740,8 @@
     "light": "Claro",
     "maps": "Mapas",
     "maxMetricsHint": "Máximo 4 métricas",
+    "appTour": "Tour de la app",
+    "appTourDescription": "Explora funciones y aprende a usarlas",
     "terrain3D": "3D Terrain",
     "terrain3DHint": "El modo inteligente muestra 3D para terrenos montañosos",
     "terrain3DOff": "Apagado",
@@ -803,7 +805,8 @@
     "unitsMetric": "Métrico",
     "unitsMetricHint": "Distancias en kilómetros, elevación en metros, temperatura en Celsius",
     "version": "Versión",
-    "viewRoutes": "Ver rutas"
+    "viewRoutes": "Ver rutas",
+    "mapTiles": "Mosaicos de mapa"
   },
   "stats": {
     "activities": "Actividades",
@@ -970,6 +973,25 @@
     "smoothingTitle": "Suavizado de datos",
     "trendHint": "Las tendencias de VFC, sueño y FC en reposo aparecerán aquí cuando se registren datos",
     "weight": "Peso"
+  },
+  "whatsNew": {
+    "skipButton": "Omitir",
+    "nextButton": "Siguiente",
+    "doneButton": "Hecho",
+    "showMeButton": "Mostrar",
+    "seeAllFeatures": "Ver todas las funciones",
+    "justWhatsNew": "Solo novedades",
+    "backToTour": "Volver al tour",
+    "closeTour": "Cerrar",
+    "v022": {
+      "mapStylesTitle": "Mapas 3D y estilos",
+      "mapStylesBody": "Elige estilos de mapa claro, oscuro o satélite con terreno 3D inteligente para actividades montañosas.",
+      "mapStylesHint": "Satélite de alta resolución disponible en Suiza y Francia El 3D inteligente se activa con +30 m de desnivel y +3 m/km de pendiente.",
+      "heatmapTitle": "Mapa de calor",
+      "heatmapBody": "Tu calendario de entrenamiento en la página de Salud. Toca cualquier día para ver tus datos de bienestar — VFC, frecuencia cardíaca en reposo y sueño — sincronizados en tiempo real en todos los gráficos.",
+      "fitnessTitle": "Resumen de fitness",
+      "fitnessBody": "Sigue tu forma física, fatiga y estado de forma con zonas codificadas por colores. Descubre cuándo estás fresco y listo para rendir."
+    }
   },
   "wellnessScreen": {
     "title": "Bienestar",

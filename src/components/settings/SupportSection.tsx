@@ -7,7 +7,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
 import { router, type Href } from 'expo-router';
-import { useDebugStore } from '@/providers';
+import { useDebugStore, useWhatsNewStore } from '@/providers';
+import { getAllSlides } from '@/components/ui/whatsNew/slides';
 import { colors, darkColors, spacing, layout } from '@/theme';
 
 export function SupportSection() {
@@ -79,6 +80,28 @@ export function SupportSection() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {getAllSlides().length > 0 && (
+        <TouchableOpacity
+          style={styles.toggleRow}
+          onPress={() => useWhatsNewStore.getState().startTour('tutorial')}
+          activeOpacity={0.7}
+        >
+          <View style={styles.toggleInfo}>
+            <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
+              {t('settings.appTour')}
+            </Text>
+            <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
+              {t('settings.appTourDescription')}
+            </Text>
+          </View>
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={24}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+        </TouchableOpacity>
+      )}
 
       <Pressable onPress={handleVersionTap}>
         <Text

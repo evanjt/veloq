@@ -740,6 +740,8 @@
     "light": "Clair",
     "maps": "Cartes",
     "maxMetricsHint": "Maximum 4 métriques",
+    "appTour": "Visite guidée",
+    "appTourDescription": "Explorez les fonctionnalités et apprenez à les utiliser",
     "terrain3D": "3D Terrain",
     "terrain3DHint": "Le mode intelligent affiche la 3D pour les terrains vallonnés et montagneux",
     "terrain3DOff": "Désactivé",
@@ -803,7 +805,8 @@
     "unitsMetric": "Métrique",
     "unitsMetricHint": "Distances en kilomètres, altitude en mètres, température en Celsius",
     "version": "Version",
-    "viewRoutes": "Voir les parcours"
+    "viewRoutes": "Voir les parcours",
+    "mapTiles": "Tuiles de carte"
   },
   "stats": {
     "activities": "Activités",
@@ -970,6 +973,25 @@
     "smoothingTitle": "Lissage des données",
     "trendHint": "Les tendances VFC, sommeil et FC au repos apparaîtront ici lorsque des données seront enregistrées",
     "weight": "Poids"
+  },
+  "whatsNew": {
+    "skipButton": "Passer",
+    "nextButton": "Suivant",
+    "doneButton": "Terminé",
+    "showMeButton": "Montrer",
+    "seeAllFeatures": "Voir toutes les fonctions",
+    "justWhatsNew": "Nouveautés uniquement",
+    "backToTour": "Retour au tour",
+    "closeTour": "Fermer",
+    "v022": {
+      "mapStylesTitle": "Cartes 3D et styles",
+      "mapStylesBody": "Choisissez un style de carte clair, sombre ou satellite avec terrain 3D intelligent pour les activités vallonnées.",
+      "mapStylesHint": "Satellite haute résolution en Suisse et France. Le 3D intelligent s'active pour les activités avec +30 m de dénivelé et +3 m/km de pente.",
+      "heatmapTitle": "Carte thermique",
+      "heatmapBody": "Votre calendrier d'entraînement sur la page Santé. Touchez un jour pour voir vos données bien-être — VFC, fréquence cardiaque au repos et sommeil — se synchroniser en temps réel sur tous les graphiques.",
+      "fitnessTitle": "Aperçu fitness",
+      "fitnessBody": "Suivez votre condition physique, fatigue et forme avec des zones colorées. Sachez quand vous êtes frais et prêt à performer."
+    }
   },
   "wellnessScreen": {
     "title": "Bien-être",
