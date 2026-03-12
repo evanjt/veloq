@@ -19,7 +19,13 @@ import { useMapPreferences } from '@/providers';
 import { getMapStyle } from '@/components/maps';
 import { StaticCompassArrow } from '@/components/ui';
 import { useActivityStreams } from '@/hooks';
-import { hasTerrainPreview, getTerrainPreviewUri } from '@/lib/storage/terrainPreviewCache';
+import {
+  hasTerrainPreview,
+  getTerrainPreviewUri,
+  isTerrainPreviewDirty,
+  clearTerrainPreviewDirty,
+  deleteTerrainPreviewsForActivity,
+} from '@/lib/storage/terrainPreviewCache';
 import { getCameraOverride } from '@/lib/storage/terrainCameraOverrides';
 import { subscribeSnapshot } from '@/lib/events/terrainSnapshotEvents';
 import { calculateTerrainCamera, isLikelyInterestingTerrain } from '@/lib/utils/cameraAngle';
@@ -32,6 +38,8 @@ interface ActivityMapPreviewProps {
   index?: number;
   /** Ref to the shared snapshot WebView for requesting 3D terrain previews */
   snapshotRef?: React.RefObject<TerrainSnapshotWebViewRef | null>;
+  /** Whether the parent screen is focused — defers snapshot requests when false */
+  screenFocused?: boolean;
 }
 
 export function ActivityMapPreview({
@@ -39,6 +47,7 @@ export function ActivityMapPreview({
   height = 160,
   index = 0,
   snapshotRef,
+  screenFocused = true,
 }: ActivityMapPreviewProps) {
   const { getStyleForActivity, getTerrain3DMode } = useMapPreferences();
   const mapStyle = getStyleForActivity(activity.type, activity.id);
@@ -246,10 +255,19 @@ export function ActivityMapPreview({
 
   // Request 3D terrain snapshot when enabled and coordinates are available
   // Only cards within the first N positions request snapshots to limit queue pressure
+  // Deferred until the feed screen is focused — avoids competing with the detail view's Map3DWebView
   useEffect(() => {
+    if (!screenFocused) return;
     if (!show3D || !snapshotRef?.current || !terrainCameraResult) return;
     if (index >= 10) return; // Don't queue snapshots for far-off cards
-    if (hasTerrainPreview(activity.id, mapStyle)) {
+
+    // If dirty (style/3D changed in detail view), delete old preview first
+    if (isTerrainPreviewDirty(activity.id)) {
+      deleteTerrainPreviewsForActivity(activity.id).then(() => {
+        clearTerrainPreviewDirty(activity.id);
+      });
+      // Fall through to request new snapshot below
+    } else if (hasTerrainPreview(activity.id, mapStyle)) {
       setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle));
       return;
     }
@@ -265,6 +283,7 @@ export function ActivityMapPreview({
       routeColor: activityColor,
     });
   }, [
+    screenFocused,
     show3D,
     terrainCameraResult,
     validCoordinates,

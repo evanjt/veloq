@@ -267,6 +267,8 @@ interface ActivityMapViewProps {
   polyline?: string;
   coordinates?: LatLng[];
   activityType: ActivityType;
+  /** Activity ID — used to resolve per-activity map style overrides */
+  activityId?: string;
   height?: number;
   showStyleToggle?: boolean;
   /** Show map attribution (default: true) */
@@ -320,6 +322,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   polyline: encodedPolyline,
   coordinates: providedCoordinates,
   activityType,
+  activityId,
   height = 300,
   showStyleToggle = false,
   showAttribution = true,
@@ -343,7 +346,7 @@ export const ActivityMapView = memo(function ActivityMapView({
 }: ActivityMapViewProps) {
   const { t } = useTranslation();
   const { getStyleForActivity } = useMapPreferences();
-  const preferredStyle = getStyleForActivity(activityType);
+  const preferredStyle = getStyleForActivity(activityType, activityId);
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);
@@ -528,7 +531,14 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // Notify parent when 3D mode changes (outside of render cycle)
   // Also fire onCameraCapture when exiting 3D mode with a saved camera
+  // Skip initial mount — only user-initiated toggles should save overrides
+  const modeInitRef = useRef(true);
   useEffect(() => {
+    if (modeInitRef.current) {
+      modeInitRef.current = false;
+      prev3DModeRef.current = is3DMode;
+      return;
+    }
     if (prev3DModeRef.current && !is3DMode && camera3DRef.current) {
       onCameraCapture?.(camera3DRef.current);
     }
@@ -536,8 +546,13 @@ export const ActivityMapView = memo(function ActivityMapView({
     on3DModeChange?.(is3DMode);
   }, [is3DMode, on3DModeChange, onCameraCapture]);
 
-  // Notify parent when map style changes (for external attribution display)
+  // Notify parent when map style changes (skip initial mount — only user-initiated changes)
+  const styleInitRef = useRef(true);
   useEffect(() => {
+    if (styleInitRef.current) {
+      styleInitRef.current = false;
+      return;
+    }
     onStyleChange?.(mapStyle);
   }, [mapStyle, onStyleChange]);
 

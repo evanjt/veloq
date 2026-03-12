@@ -98,9 +98,11 @@ import {
   getCameraOverride,
   deleteCameraOverride,
 } from '@/lib/storage/terrainCameraOverrides';
+import { invalidateTerrainPreview } from '@/lib/storage/terrainPreviewCache';
 import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import { calculateTerrainCamera } from '@/lib/utils/cameraAngle';
 import { useMapPreferences } from '@/providers';
+import type { MapStyleType } from '@/components/maps/mapStyles';
 import type { ChartTypeId } from '@/lib';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -661,10 +663,31 @@ export default function ActivityDetailScreen() {
     setChartInteracting(isInteracting);
   }, []);
 
-  // Handle 3D map mode changes
-  const handle3DModeChange = useCallback((is3D: boolean) => {
-    setIs3DMapActive(is3D);
-  }, []);
+  // Map preferences — read terrain mode and save per-activity overrides
+  const { getTerrain3DMode, setActivityOverride } = useMapPreferences();
+
+  // Handle 3D map mode changes — persist as per-activity override
+  const handle3DModeChange = useCallback(
+    (is3D: boolean) => {
+      setIs3DMapActive(is3D);
+      if (activity?.id) {
+        setActivityOverride(activity.id, { terrain3D: is3D });
+        invalidateTerrainPreview(activity.id);
+      }
+    },
+    [activity?.id, setActivityOverride]
+  );
+
+  // Handle map style changes — persist as per-activity override
+  const handleStyleChange = useCallback(
+    (style: MapStyleType) => {
+      if (activity?.id) {
+        setActivityOverride(activity.id, { style });
+        invalidateTerrainPreview(activity.id);
+      }
+    },
+    [activity?.id, setActivityOverride]
+  );
 
   // Save custom camera angle when user exits 3D mode
   const handleCameraCapture = useCallback(
@@ -686,7 +709,6 @@ export default function ActivityDetailScreen() {
   }, [activity?.id]);
 
   // Restore saved 3D camera angle, or auto-calculate based on terrain mode
-  const { getTerrain3DMode } = useMapPreferences();
   const terrain3DMode = activity?.type ? getTerrain3DMode(activity.type, activity?.id) : 'off';
 
   const saved3DCamera = useMemo(() => {
@@ -910,12 +932,14 @@ export default function ActivityDetailScreen() {
               coordinates={coordinates}
               polyline={activity.polyline}
               activityType={activity.type}
+              activityId={activity.id}
               height={MAP_HEIGHT}
               showStyleToggle={!sectionCreationMode}
               showAttribution={true}
               highlightIndex={highlightIndex}
               enableFullscreen={!sectionCreationMode}
               on3DModeChange={handle3DModeChange}
+              onStyleChange={handleStyleChange}
               onCameraCapture={handleCameraCapture}
               initial3DCamera={saved3DCamera}
               creationMode={sectionCreationMode}

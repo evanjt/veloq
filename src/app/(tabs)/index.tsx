@@ -15,6 +15,7 @@ import { ScreenSafeAreaView } from '@/components/ui';
 import { logScreenRender, PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { isNetworkError } from '@/lib/utils/errorHandler';
 import { router, Href } from 'expo-router';
+import { useIsFocused } from '@react-navigation/core';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -77,9 +78,10 @@ export default function FeedScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
 
-  // 3D terrain snapshot WebView
+  // 3D terrain snapshot WebView — only request snapshots when feed is focused
   const { isAnyTerrain3DEnabled } = useMapPreferences();
   const snapshotRef = useRef<TerrainSnapshotWebViewRef | null>(null);
+  const isFeedFocused = useIsFocused();
 
   // FlatList ref for scroll-to-reveal search
   const listRef = useRef<FlatList>(null);
@@ -185,9 +187,14 @@ export default function FeedScreen() {
 
   const renderActivity = useCallback(
     ({ item, index }: { item: Activity; index: number }) => (
-      <ActivityCard activity={item} index={index} snapshotRef={snapshotRef} />
+      <ActivityCard
+        activity={item}
+        index={index}
+        snapshotRef={snapshotRef}
+        screenFocused={isFeedFocused}
+      />
     ),
-    []
+    [isFeedFocused]
   );
 
   // Notify map previews when items become visible for lazy loading

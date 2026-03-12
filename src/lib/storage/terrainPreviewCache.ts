@@ -23,7 +23,7 @@ const MAX_CACHED_PREVIEWS = 50;
  * (style, hillshade, tile loading, camera, pixel ratio).
  * On mismatch, all cached snapshots are cleared so users get fresh renders.
  */
-const TERRAIN_CACHE_VERSION = 35;
+const TERRAIN_CACHE_VERSION = 36;
 const VERSION_KEY = 'terrain-preview-cache-version';
 
 /** Compound cache key */
@@ -34,6 +34,37 @@ function cacheKey(activityId: string, style: string): string {
 /** In-memory index of cached compound keys (ordered by insertion) */
 let cachedKeys: string[] = [];
 let initialized = false;
+
+/**
+ * Activities flagged for preview regeneration.
+ * When style/3D is changed in the detail view, the activity is marked dirty
+ * instead of immediately deleting + regenerating (which would compete with
+ * the active Map3DWebView for WebView resources). The feed checks this set
+ * and triggers regeneration when the card becomes visible again.
+ */
+const dirtyActivities = new Set<string>();
+
+/**
+ * Mark an activity's previews as needing regeneration.
+ * The old cached file is kept until the new snapshot replaces it.
+ */
+export function invalidateTerrainPreview(activityId: string): void {
+  dirtyActivities.add(activityId);
+}
+
+/**
+ * Check if an activity has been flagged for regeneration.
+ */
+export function isTerrainPreviewDirty(activityId: string): boolean {
+  return dirtyActivities.has(activityId);
+}
+
+/**
+ * Clear the dirty flag for an activity (called after successful regeneration).
+ */
+export function clearTerrainPreviewDirty(activityId: string): void {
+  dirtyActivities.delete(activityId);
+}
 
 /**
  * Load index from disk on app start.
@@ -75,8 +106,10 @@ async function ensureDir(): Promise<void> {
 
 /**
  * Check if a preview exists for the given activity and style (sync via in-memory index).
+ * Returns false for dirty activities so the feed triggers regeneration.
  */
 export function hasTerrainPreview(activityId: string, style: string): boolean {
+  if (dirtyActivities.has(activityId)) return false;
   return cachedKeys.includes(cacheKey(activityId, style));
 }
 
@@ -117,6 +150,9 @@ export async function saveTerrainPreview(
   // Update index - remove if already present, add to end
   cachedKeys = cachedKeys.filter((k) => k !== key);
   cachedKeys.push(key);
+
+  // Clear dirty flag — fresh preview saved
+  dirtyActivities.delete(activityId);
 
   return filePath;
 }

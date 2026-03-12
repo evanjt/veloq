@@ -609,12 +609,12 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 window.map.addLayer({
                   id: 'route-outline', type: 'line', source: 'route',
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.8 },
+                  paint: { 'line-color': '#FFFFFF', 'line-width': 5, 'line-opacity': 0.8 },
                 });
                 window.map.addLayer({
                   id: 'route-line', type: 'line', source: 'route',
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': routeColor, 'line-width': 5 },
+                  paint: { 'line-color': routeColor, 'line-width': 3 },
                 });
                 window.map.addLayer({
                   id: 'start-end-border', type: 'circle', source: 'start-end-markers',
@@ -791,12 +791,12 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 styleObj.layers.push({
                   id: 'route-outline', type: 'line', source: 'route',
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.8 },
+                  paint: { 'line-color': '#FFFFFF', 'line-width': 5, 'line-opacity': 0.8 },
                 });
                 styleObj.layers.push({
                   id: 'route-line', type: 'line', source: 'route',
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': routeColor, 'line-width': 5 },
+                  paint: { 'line-color': routeColor, 'line-width': 3 },
                 });
                 styleObj.layers.push({
                   id: 'start-end-border', type: 'circle', source: 'start-end-markers',

@@ -408,10 +408,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               styleObj.layers.push(
                 { id: 'route-outline', type: 'line', source: 'route',
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.8 } },
+                  paint: { 'line-color': '#FFFFFF', 'line-width': 5, 'line-opacity': 0.8 } },
                 { id: 'route-line', type: 'line', source: 'route',
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': routeColor, 'line-width': 5 } },
+                  paint: { 'line-color': routeColor, 'line-width': 3 } },
                 { id: 'start-end-border', type: 'circle', source: 'start-end-markers',
                   paint: { 'circle-radius': 7, 'circle-color': '#FFFFFF' } },
                 { id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
@@ -880,7 +880,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           },
           paint: {
             'line-color': '#FFFFFF',
-            'line-width': 8,
+            'line-width': 5,
             'line-opacity': 0.8,
           },
         });
@@ -896,7 +896,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           },
           paint: {
             'line-color': '${routeColor}',
-            'line-width': 5,
+            'line-width': 3,
           },
         });
 
