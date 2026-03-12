@@ -58,37 +58,34 @@ export function ActivityHeatmap({ activities }: ActivityHeatmapProps) {
     const startDate = cutoff.toISOString().split('T')[0];
     const endDate = new Date().toISOString().split('T')[0];
 
-    // Try Rust engine cache first
+    // Try Rust engine cache first (fast: single SQL query, but limited to sync range)
     const engine = getRouteEngine();
     if (engine) {
       try {
         const days = engine.getActivityHeatmap(startDate, endDate);
-        if (days.length > 0) {
-          for (const day of days) {
-            map.set(day.date, day.intensity);
-          }
-          return map;
+        for (const day of days) {
+          map.set(day.date, day.intensity);
         }
       } catch {
         // Fall through to JS fallback
       }
     }
 
-    // JS fallback: iterate over activity list from API
-    if (!activities || activities.length === 0) return map;
+    // Supplement with API activities (fills in dates outside engine cache range)
+    if (activities && activities.length > 0) {
+      for (const activity of activities) {
+        const date = activity.start_date_local.split('T')[0];
+        if (date < startDate) continue;
 
-    for (const activity of activities) {
-      const date = activity.start_date_local.split('T')[0];
-      if (date < startDate) continue;
+        const current = map.get(date) || 0;
+        const duration = activity.moving_time || 0;
+        let intensity = 1;
+        if (duration > 3600) intensity = 2;
+        if (duration > 5400) intensity = 3;
+        if (duration > 7200) intensity = 4;
 
-      const current = map.get(date) || 0;
-      const duration = activity.moving_time || 0;
-      let intensity = 1;
-      if (duration > 3600) intensity = 2;
-      if (duration > 5400) intensity = 3;
-      if (duration > 7200) intensity = 4;
-
-      map.set(date, Math.max(current, intensity));
+        map.set(date, Math.max(current, intensity));
+      }
     }
 
     return map;

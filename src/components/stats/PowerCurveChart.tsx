@@ -332,8 +332,14 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
                     </SkiaLine>
                   )}
 
-                  {/* Power curve line */}
-                  <Line points={points.y} color={color} strokeWidth={2.5} curveType="natural" />
+                  {/* Power curve line with casing */}
+                  <Line
+                    points={points.y}
+                    color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                    strokeWidth={2.5}
+                    curveType="natural"
+                  />
+                  <Line points={points.y} color={color} strokeWidth={1.5} curveType="natural" />
                 </>
               );
             }}

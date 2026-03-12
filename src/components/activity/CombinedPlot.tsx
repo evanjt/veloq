@@ -8,7 +8,6 @@ import {
   Line as SkiaLine,
   DashPathEffect,
   Rect,
-  Shadow,
 } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -743,20 +742,24 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                       );
                     })}
 
-                    {/* Stream line strokes — hairline edge for clarity */}
+                    {/* Stream line strokes — hairline casing for clarity */}
                     {seriesInfo.map((series) => {
                       const width = series.isPreview ? 0.75 : 1;
-                      const glowAlpha = series.isPreview ? '20' : '35';
                       return (
-                        <Line
-                          key={`line-${series.id}`}
-                          points={points[series.id] as Parameters<typeof Line>[0]['points']}
-                          color={series.color}
-                          strokeWidth={width}
-                          curveType="natural"
-                        >
-                          <Shadow dx={0} dy={0} blur={2} color={series.color + glowAlpha} />
-                        </Line>
+                        <React.Fragment key={`line-${series.id}`}>
+                          <Line
+                            points={points[series.id] as Parameters<typeof Line>[0]['points']}
+                            color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                            strokeWidth={width + 0.75}
+                            curveType="natural"
+                          />
+                          <Line
+                            points={points[series.id] as Parameters<typeof Line>[0]['points']}
+                            color={series.color}
+                            strokeWidth={width}
+                            curveType="natural"
+                          />
+                        </React.Fragment>
                       );
                     })}
 

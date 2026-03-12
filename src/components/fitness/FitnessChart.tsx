@@ -4,7 +4,7 @@ import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area } from 'victory-native';
-import { LinearGradient, vec, Shadow } from '@shopify/react-native-skia';
+import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   SharedValue,
@@ -417,28 +417,40 @@ export const FitnessChart = React.memo(function FitnessChart({
                       </Area>
                     )}
 
-                    {/* Fitness line (CTL) with glow effect */}
+                    {/* Fitness line (CTL) with casing */}
                     {visibleLines.fitness && (
-                      <Line
-                        points={points.fitness}
-                        color={COLORS.fitness}
-                        strokeWidth={3}
-                        curveType="natural"
-                      >
-                        <Shadow dx={0} dy={0} blur={6} color={COLORS.fitness + '60'} />
-                      </Line>
+                      <>
+                        <Line
+                          points={points.fitness}
+                          color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                          strokeWidth={2.5}
+                          curveType="natural"
+                        />
+                        <Line
+                          points={points.fitness}
+                          color={COLORS.fitness}
+                          strokeWidth={1.5}
+                          curveType="natural"
+                        />
+                      </>
                     )}
 
-                    {/* Fatigue line (ATL) */}
+                    {/* Fatigue line (ATL) with casing */}
                     {visibleLines.fatigue && (
-                      <Line
-                        points={points.fatigue}
-                        color={COLORS.fatigue}
-                        strokeWidth={2.5}
-                        curveType="natural"
-                      >
-                        <Shadow dx={0} dy={0} blur={4} color={COLORS.fatigue + '40'} />
-                      </Line>
+                      <>
+                        <Line
+                          points={points.fatigue}
+                          color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                          strokeWidth={2}
+                          curveType="natural"
+                        />
+                        <Line
+                          points={points.fatigue}
+                          color={COLORS.fatigue}
+                          strokeWidth={1}
+                          curveType="natural"
+                        />
+                      </>
                     )}
                   </>
                 );

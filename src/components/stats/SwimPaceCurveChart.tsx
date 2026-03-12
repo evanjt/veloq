@@ -345,11 +345,17 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
                     </SkiaLine>
                   )}
 
-                  {/* Pace curve */}
+                  {/* Pace curve with casing */}
+                  <Line
+                    points={points.y}
+                    color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                    strokeWidth={2.5}
+                    curveType="natural"
+                  />
                   <Line
                     points={points.y}
                     color={CHART_COLOR}
-                    strokeWidth={2.5}
+                    strokeWidth={1.5}
                     curveType="natural"
                   />
                 </>

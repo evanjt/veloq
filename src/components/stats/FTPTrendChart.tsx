@@ -120,7 +120,13 @@ export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartP
                   colors={[CHART_COLOR + '60', CHART_COLOR + '10']}
                 />
               </Area>
-              <Line points={points.y} color={CHART_COLOR} strokeWidth={2.5} curveType="natural" />
+              <Line
+                points={points.y}
+                color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                strokeWidth={2.5}
+                curveType="natural"
+              />
+              <Line points={points.y} color={CHART_COLOR} strokeWidth={1.5} curveType="natural" />
               {/* Latest point indicator */}
               {points.y.length > 0 &&
                 points.y[points.y.length - 1].x != null &&

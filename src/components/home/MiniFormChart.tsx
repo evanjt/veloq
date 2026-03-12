@@ -5,7 +5,7 @@
 import React, { memo, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { CartesianChart, Line } from 'victory-native';
-import { Rect, Shadow } from '@shopify/react-native-skia';
+import { Rect } from '@shopify/react-native-skia';
 import { useTheme } from '@/hooks';
 
 // Form zone backgrounds (matching intervals.icu and FitnessFormChart)
@@ -156,10 +156,14 @@ export const MiniFormChart = memo(function MiniFormChart({
                 color={isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)'}
               />
 
-              {/* Form line with glow */}
-              <Line points={points.form} color={lineColor} strokeWidth={2.5} curveType="natural">
-                <Shadow dx={0} dy={0} blur={4} color={lineColor + '80'} />
-              </Line>
+              {/* Form line with casing */}
+              <Line
+                points={points.form}
+                color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                strokeWidth={2}
+                curveType="natural"
+              />
+              <Line points={points.form} color={lineColor} strokeWidth={1} curveType="natural" />
             </>
           );
         }}

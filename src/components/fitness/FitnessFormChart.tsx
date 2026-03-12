@@ -4,7 +4,7 @@ import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area, Bar } from 'victory-native';
-import { LinearGradient, vec, Shadow, Rect } from '@shopify/react-native-skia';
+import { LinearGradient, vec, Rect } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   useSharedValue,
@@ -409,19 +409,31 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                       />
                     </Area>
 
-                    {/* Fitness line */}
+                    {/* Fitness line with casing */}
+                    <Line
+                      points={points.fitness}
+                      color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                      strokeWidth={2.5}
+                      curveType="natural"
+                    />
                     <Line
                       points={points.fitness}
                       color={COLORS.fitness}
-                      strokeWidth={2}
+                      strokeWidth={1.5}
                       curveType="natural"
                     />
 
-                    {/* Fatigue line */}
+                    {/* Fatigue line with casing */}
+                    <Line
+                      points={points.fatigue}
+                      color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                      strokeWidth={2}
+                      curveType="natural"
+                    />
                     <Line
                       points={points.fatigue}
                       color={COLORS.fatigue}
-                      strokeWidth={2}
+                      strokeWidth={1}
                       curveType="natural"
                     />
                   </>
@@ -515,20 +527,19 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                         color={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'}
                       />
 
-                      {/* Form line - colored by zone */}
+                      {/* Form line with casing */}
+                      <Line
+                        points={points.form}
+                        color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                        strokeWidth={2}
+                        curveType="natural"
+                      />
                       <Line
                         points={points.form}
                         color={getFormLineColor(displayData.form)}
-                        strokeWidth={2.5}
+                        strokeWidth={1}
                         curveType="natural"
-                      >
-                        <Shadow
-                          dx={0}
-                          dy={0}
-                          blur={4}
-                          color={getFormLineColor(displayData.form) + '60'}
-                        />
-                      </Line>
+                      />
                     </>
                   );
                 }}

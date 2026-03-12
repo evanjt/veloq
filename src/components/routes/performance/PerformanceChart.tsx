@@ -279,8 +279,14 @@ export function PerformanceChart({
                   <>
                     <Line
                       points={points.speed}
+                      color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                      strokeWidth={2}
+                      curveType="monotoneX"
+                    />
+                    <Line
+                      points={points.speed}
                       color={isDark ? '#444' : '#DDD'}
-                      strokeWidth={1.5}
+                      strokeWidth={1}
                       curveType="monotoneX"
                     />
                     {points.speed.map((point, idx) => {

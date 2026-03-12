@@ -388,11 +388,17 @@ export const FormZoneChart = React.memo(function FormZoneChart({
                     style="stroke"
                   />
 
-                  {/* Form line */}
+                  {/* Form line with casing */}
+                  <Line
+                    points={points.form}
+                    color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                    strokeWidth={2}
+                    curveType="natural"
+                  />
                   <Line
                     points={points.form}
                     color={isDark ? '#FFFFFF' : '#333333'}
-                    strokeWidth={2}
+                    strokeWidth={1}
                     curveType="natural"
                   />
                 </>
