@@ -6,7 +6,7 @@ import { router, Href } from 'expo-router';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
 import { SummaryCardSparkline, type ScrubValues } from './SummaryCardSparkline';
-import { getFormZone, FORM_ZONE_COLORS } from '@/lib';
+import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/lib';
 
 /**
  * Supporting metric displayed in the bottom row of SummaryCard
@@ -153,23 +153,25 @@ export const SummaryCard = React.memo(function SummaryCard({
         >
           {sparklineVisible ? (
             <View style={styles.heroValueRow}>
-              <Text style={[styles.heroValue, { color: '#42A5F5' }]}>{currentFitness}</Text>
+              <Text style={[styles.heroValueFixed, { color: '#42A5F5' }]}>{currentFitness}</Text>
               <Text style={[styles.heroLabel, { color: '#42A5F5' }]}>Fitness</Text>
               {currentFatigue !== null && (
                 <>
-                  <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{'\u00B7'}</Text>
-                  <Text style={[styles.heroValue, { color: '#EC407A' }]}>{currentFatigue}</Text>
-                  <Text style={[styles.heroLabel, { color: '#EC407A' }]}>Fatigue</Text>
+                  <Text style={[styles.secondaryValueFixed, { color: '#EC407A' }]}>
+                    {currentFatigue}
+                  </Text>
+                  <Text style={[styles.secondaryLabel, { color: '#EC407A' }]}>Fatigue</Text>
                 </>
               )}
-              <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{'\u00B7'}</Text>
-              <Text style={[styles.heroValue, { color: currentFormColor }]}>
+              <Text style={[styles.secondaryValueFixed, { color: currentFormColor }]}>
                 {currentForm > 0 ? `+${currentForm}` : currentForm}
               </Text>
-              <Text style={[styles.heroLabel, { color: currentFormColor }]}>Form</Text>
+              <Text style={[styles.secondaryLabel, { color: currentFormColor }]}>
+                {FORM_ZONE_LABELS[currentFormZone]}
+              </Text>
               {scrubValues && (
-                <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>
-                  {'\u00B7'} {scrubValues.dateLabel}
+                <Text style={[styles.secondaryLabel, isDark && styles.textSecondary]}>
+                  {scrubValues.dateLabel}
                 </Text>
               )}
             </View>
@@ -345,6 +347,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 28,
     letterSpacing: -0.5,
+  },
+  heroValueFixed: {
+    fontSize: 24,
+    fontWeight: '700',
+    lineHeight: 28,
+    letterSpacing: -0.5,
+    minWidth: 38,
+    textAlign: 'right' as const,
+  },
+  secondaryValueFixed: {
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 20,
+    letterSpacing: -0.3,
+    minWidth: 30,
+    textAlign: 'right' as const,
+  },
+  secondaryLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textSecondary,
   },
   heroTrend: {
     fontSize: 18,

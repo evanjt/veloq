@@ -201,17 +201,24 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   const dividerColor = isDark ? '#18181B' : '#FFFFFF';
 
   const { formBarRects, transitions } = useMemo(() => {
-    const barW = chartWidth / formData.length;
-    const rects = formData.map((value, i) => ({
-      x: i * barW,
-      width: barW + 0.5,
-      color: FORM_ZONE_COLORS[getFormZone(value)],
-    }));
-    // Find zone transition positions for divider lines
+    const N = formData.length;
+    // Match CartesianChart's N-1 interval spacing: point i at i * step
+    const step = N > 1 ? chartWidth / (N - 1) : chartWidth;
+    const rects = formData.map((value, i) => {
+      const px = i * step;
+      const left = i === 0 ? 0 : (px + (i - 1) * step) / 2;
+      const right = i === N - 1 ? chartWidth : (px + (i + 1) * step) / 2;
+      return {
+        x: left,
+        width: right - left + 0.5,
+        color: FORM_ZONE_COLORS[getFormZone(value)],
+      };
+    });
+    // Zone transition dividers at midpoints between adjacent chart points
     const trans: number[] = [];
-    for (let i = 0; i < formData.length - 1; i++) {
+    for (let i = 0; i < N - 1; i++) {
       if (getFormZone(formData[i]) !== getFormZone(formData[i + 1])) {
-        trans.push((i + 1) * barW);
+        trans.push((i * step + (i + 1) * step) / 2);
       }
     }
     return { formBarRects: rects, transitions: trans };
@@ -268,7 +275,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                       <Line
                         points={points.fitness}
                         color={casingColor}
-                        strokeWidth={2.5}
+                        strokeWidth={2}
                         curveType="monotoneX"
                       />
                       <Line
