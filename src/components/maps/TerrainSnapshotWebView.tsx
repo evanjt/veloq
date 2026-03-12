@@ -42,7 +42,7 @@ import {
 import { generatePreloadScript } from '@/lib/maps/tilePreloader';
 import { useSyncDateRange } from '@/providers';
 
-const SNAPSHOT_TIMEOUT_MS = 12000;
+const SNAPSHOT_TIMEOUT_MS = 8000;
 const MAX_QUEUE_SIZE = 15;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SNAPSHOT_HEIGHT = 240;
@@ -724,14 +724,14 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     window.map.off('data', fpOnData);
                     if (!done && !isStale()) {
                       done = true;
-                      window._rn_log('Fast path timeout (8s)');
+                      window._rn_log('Fast path timeout (6s)');
                       window.ReactNativeWebView.postMessage(JSON.stringify({
                         type: 'snapshotError', workerId: workerId, activityId: activityId,
                         gen: myGen, error: 'Fast path render timeout',
                         tileErrors: window._tileErrorCount,
                       }));
                     }
-                  }, 8000);
+                  }, 6000);
                   return;
                 }
               }
@@ -833,7 +833,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 if (done || isStale()) { clearInterval(readyPoll); return; }
                 var elapsed = Date.now() - setStyleTime;
 
-                if (window.map.isStyleLoaded() || elapsed > 7000) {
+                if (window.map.isStyleLoaded() || elapsed > 5000) {
                   done = true;
                   clearInterval(readyPoll);
                   window._currentBaseStyle = mapStyle;
@@ -848,7 +848,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 clearInterval(readyPoll);
                 if (!done && !isStale()) {
                   done = true;
-                  window._rn_log('Hard timeout (10s), skipping');
+                  window._rn_log('Hard timeout (6s), skipping');
                   window.ReactNativeWebView.postMessage(JSON.stringify({
                     type: 'snapshotError',
                     workerId: workerId,
@@ -858,7 +858,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                     tileErrors: window._tileErrorCount,
                   }));
                 }
-              }, 10000);
+              }, 6000);
 
               } // end applyStyle
 
@@ -998,8 +998,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 ...currentRequest,
                 _retryAttempt: attempt + 1,
               });
-              // Short delay before retry to let tile servers recover
-              setTimeout(() => processNext(), 200);
+              // Delay retry to let tile servers recover
+              setTimeout(() => processNext(), 2000);
             } else {
               // Exhausted retries — save for later re-attempt
               console.warn(

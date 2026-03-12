@@ -23,7 +23,7 @@ const MAX_CACHED_PREVIEWS = 50;
  * (style, hillshade, tile loading, camera, pixel ratio).
  * On mismatch, all cached snapshots are cleared so users get fresh renders.
  */
-const TERRAIN_CACHE_VERSION = 36;
+const TERRAIN_CACHE_VERSION = 4;
 const VERSION_KEY = 'terrain-preview-cache-version';
 
 /** Compound cache key */
