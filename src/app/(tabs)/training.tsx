@@ -8,7 +8,8 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
-import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
+import { Text, ActivityIndicator } from 'react-native-paper';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
   ScreenSafeAreaView,
   ScreenErrorBoundary,
@@ -18,7 +19,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/components/stats';
-import { WellnessDashboard, WellnessTrendsChart } from '@/components/wellness';
+import { WellnessTrendsChart } from '@/components/wellness';
 import { useActivities, useWellness, useAthleteSummary, useTheme, type TimeRange } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
@@ -41,8 +42,9 @@ export default function HealthScreen() {
   });
 
   // Defer below-fold cards across two frames to spread Skia canvas initialisation.
+  // Frame 0: ActivityHeatmap (Skia Picture, single draw call) + WellnessTrendsChart (Skia).
   // Frame 1: WeeklySummary (pure RN, cheap).
-  // Frame 2: ActivityHeatmap + SeasonComparison (both Skia canvases — expensive together).
+  // Frame 2: SeasonComparison (Skia canvas).
   const [belowFoldReady, setBelowFoldReady] = useState(false);
   const [chartsReady, setChartsReady] = useState(false);
   useEffect(() => {
@@ -60,6 +62,9 @@ export default function HealthScreen() {
   const [timeRange, setTimeRange] = useState<TimeRange>('1m');
   const [smoothingWindow, setSmoothingWindow] = useState<SmoothingWindow>('auto');
   const [showSmoothingModal, setShowSmoothingModal] = useState(false);
+
+  // Cross-chart scrubbing: highlight heatmap cell when scrubbing wellness trends
+  const [highlightDate, setHighlightDate] = useState<string | null>(null);
 
   // Fetch activities for calendar year comparison (current + previous year)
   const { oldest, newest, currentYearStart } = useMemo(() => {
@@ -171,14 +176,14 @@ export default function HealthScreen() {
             />
           }
         >
-          {/* Wellness Dashboard - Today's trends */}
+          {/* Activity Heatmap — promoted to top (Skia Picture, lightweight) */}
           <View style={[styles.card, isDark && styles.cardDark]}>
-            {wellnessLoading && !wellness ? (
+            {activitiesLoading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color={colors.primary} />
               </View>
             ) : (
-              <WellnessDashboard data={wellness} />
+              <ActivityHeatmap activities={activities} highlightDate={highlightDate} />
             )}
           </View>
 
@@ -209,15 +214,18 @@ export default function HealthScreen() {
               ))}
             </View>
             <TouchableOpacity
-              style={[styles.smoothingButton, isDark && styles.smoothingButtonDark]}
+              style={[
+                styles.smoothingButton,
+                isDark && styles.smoothingButtonDark,
+                smoothingWindow !== 'auto' && styles.smoothingButtonActive,
+              ]}
               onPress={() => setShowSmoothingModal(true)}
               activeOpacity={0.7}
             >
-              <IconButton
-                icon="chart-bell-curve-cumulative"
-                iconColor={smoothingWindow !== 'auto' ? colors.primary : themeColors.textSecondary}
+              <MaterialCommunityIcons
+                name="chart-bell-curve-cumulative"
                 size={18}
-                style={{ margin: 0 }}
+                color={smoothingWindow !== 'auto' ? colors.textOnDark : themeColors.textSecondary}
               />
             </TouchableOpacity>
           </View>
@@ -242,6 +250,7 @@ export default function HealthScreen() {
                 height={200}
                 timeRange={timeRange}
                 smoothingWindow={smoothingWindow}
+                onDateSelect={setHighlightDate}
               />
             )}
           </View>
@@ -263,35 +272,21 @@ export default function HealthScreen() {
             </View>
           )}
 
-          {/* Below-fold Skia cards — frame 2: ActivityHeatmap + SeasonComparison */}
+          {/* Below-fold Skia card — frame 2: SeasonComparison */}
           {chartsReady && (
-            <>
-              {/* Activity Heatmap */}
-              <View style={[styles.card, isDark && styles.cardDark]}>
-                {activitiesLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  </View>
-                ) : (
-                  <ActivityHeatmap activities={activities} />
-                )}
-              </View>
-
-              {/* Season Comparison */}
-              <View style={[styles.card, isDark && styles.cardDark]}>
-                {activitiesLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  </View>
-                ) : (
-                  <SeasonComparison
-                    height={180}
-                    currentYearActivities={currentYearActivities}
-                    previousYearActivities={previousYearActivities}
-                  />
-                )}
-              </View>
-            </>
+            <View style={[styles.card, isDark && styles.cardDark]}>
+              {activitiesLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : (
+                <SeasonComparison
+                  height={180}
+                  currentYearActivities={currentYearActivities}
+                  previousYearActivities={previousYearActivities}
+                />
+              )}
+            </View>
           )}
         </ScrollView>
 
@@ -435,15 +430,18 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
   },
   smoothingButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.xs,
+    borderRadius: 14,
     backgroundColor: opacity.overlay.light,
     justifyContent: 'center',
     alignItems: 'center',
   },
   smoothingButtonDark: {
     backgroundColor: opacity.overlayDark.medium,
+  },
+  smoothingButtonActive: {
+    backgroundColor: colors.primary,
   },
   modalOverlay: {
     flex: 1,

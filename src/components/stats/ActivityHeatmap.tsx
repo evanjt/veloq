@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
@@ -11,6 +11,8 @@ import type { Activity } from '@/types';
 interface ActivityHeatmapProps {
   /** Activities to display */
   activities?: Activity[];
+  /** Date string (YYYY-MM-DD) to highlight — used for cross-chart scrubbing */
+  highlightDate?: string | null;
 }
 
 // Color scale for activity intensity (based on TSS or duration)
@@ -39,7 +41,7 @@ const CELL_GAP = 2;
 const DAY_LABELS_WIDTH = 20;
 const DAY_LABELS_MARGIN = spacing.xs; // 4
 
-export function ActivityHeatmap({ activities }: ActivityHeatmapProps) {
+export function ActivityHeatmap({ activities, highlightDate }: ActivityHeatmapProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const intensityColors = isDark ? INTENSITY_COLORS : INTENSITY_COLORS_LIGHT;
@@ -160,6 +162,35 @@ export function ActivityHeatmap({ activities }: ActivityHeatmapProps) {
     return recorder.finishRecordingAsPicture();
   }, [intensities, cellSize, cellGap, gridWidth, gridHeight, intensityColors]);
 
+  // Compute highlight cell position from highlightDate using the same date logic
+  // as the grid builder loop to avoid timezone mismatches.
+  const highlightPos = useMemo(() => {
+    if (!highlightDate) return null;
+    const today = new Date();
+    for (let w = WEEKS_TO_SHOW - 1; w >= 0; w--) {
+      for (let d = 0; d < 7; d++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - (w * 7 + (6 - d)));
+        if (date.toISOString().split('T')[0] === highlightDate) {
+          const col = WEEKS_TO_SHOW - 1 - w;
+          return {
+            x: col * (cellSize + cellGap),
+            y: d * (cellSize + cellGap),
+          };
+        }
+      }
+    }
+    return null;
+  }, [highlightDate, cellSize, cellGap]);
+
+  // Auto-scroll to highlighted cell
+  useEffect(() => {
+    if (highlightPos && scrollRef.current) {
+      const scrollX = Math.max(0, highlightPos.x - 100);
+      scrollRef.current.scrollTo({ x: scrollX, animated: true });
+    }
+  }, [highlightPos]);
+
   // Show empty state if no activities
   if (!activities || activities.length === 0) {
     return (
@@ -250,9 +281,24 @@ export function ActivityHeatmap({ activities }: ActivityHeatmapProps) {
               ))}
             </View>
 
-            <Canvas style={{ width: gridWidth, height: gridHeight }}>
-              <Picture picture={heatmapPicture} />
-            </Canvas>
+            <View>
+              <Canvas style={{ width: gridWidth, height: gridHeight }}>
+                <Picture picture={heatmapPicture} />
+              </Canvas>
+              {highlightPos && (
+                <View
+                  style={[
+                    styles.highlightCell,
+                    {
+                      left: highlightPos.x - 2,
+                      top: highlightPos.y - 2,
+                      width: cellSize + 4,
+                      height: cellSize + 4,
+                    },
+                  ]}
+                />
+              )}
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -348,6 +394,12 @@ const styles = StyleSheet.create({
   },
   legendCell: {
     borderRadius: 2,
+  },
+  highlightCell: {
+    position: 'absolute',
+    borderRadius: 3,
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
   emptyState: {
     alignItems: 'center',

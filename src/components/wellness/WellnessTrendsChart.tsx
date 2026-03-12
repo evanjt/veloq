@@ -23,6 +23,7 @@ interface WellnessTrendsChartProps {
   height?: number;
   timeRange: TimeRange;
   smoothingWindow?: SmoothingWindow;
+  onDateSelect?: (date: string | null) => void;
 }
 
 // Colors for different metrics (NO orange)
@@ -117,6 +118,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   height = 200,
   timeRange,
   smoothingWindow = 'auto',
+  onDateSelect,
 }: WellnessTrendsChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -390,13 +392,17 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       const ratio = Math.max(0, Math.min(1, relativeX / chartWidth));
       const idx = Math.round(ratio * (totalDays - 1));
       setSelectedIdx(idx);
+      if (onDateSelect && sortedData[idx]) {
+        onDateSelect(sortedData[idx].id);
+      }
     },
-    [chartWidth, totalDays, leftPadding]
+    [chartWidth, totalDays, leftPadding, onDateSelect, sortedData]
   );
 
   const clearSelection = useCallback(() => {
     setSelectedIdx(null);
-  }, []);
+    onDateSelect?.(null);
+  }, [onDateSelect]);
 
   // Gesture handler
   const gesture = Gesture.Pan()
