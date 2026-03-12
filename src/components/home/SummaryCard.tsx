@@ -5,7 +5,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Href } from 'expo-router';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
-import { SummaryCardSparkline } from './SummaryCardSparkline';
+import { SummaryCardSparkline, type ScrubValues } from './SummaryCardSparkline';
+import { getFormZone, FORM_ZONE_COLORS } from '@/lib';
 
 /**
  * Supporting metric displayed in the bottom row of SummaryCard
@@ -79,18 +80,11 @@ export const SummaryCard = React.memo(function SummaryCard({
 }: SummaryCardProps) {
   const { isDark, colors: themeColors } = useTheme();
   const [profileImageError, setProfileImageError] = React.useState(false);
-  const [scrubValues, setScrubValues] = useState<{
-    fitness: number;
-    form: number;
-    dateLabel: string;
-  } | null>(null);
+  const [scrubValues, setScrubValues] = useState<ScrubValues | null>(null);
 
-  const handleScrub = useCallback(
-    (values: { fitness: number; form: number; dateLabel: string } | null) => {
-      setScrubValues(values);
-    },
-    []
-  );
+  const handleScrub = useCallback((values: ScrubValues | null) => {
+    setScrubValues(values);
+  }, []);
 
   // Validate profile URL - must be a non-empty string starting with http
   const hasValidProfileUrl =
@@ -102,6 +96,16 @@ export const SummaryCard = React.memo(function SummaryCard({
 
   // Format hero value (no sign prefix — CTL/fitness values are always positive)
   const formattedHeroValue = String(displayValue);
+
+  // Current sparkline values (latest or scrubbed)
+  const sparklineVisible =
+    showSparkline && fitnessData && fitnessData.length > 0 && formData && formData.length > 0;
+  const lastIdx = fitnessData ? fitnessData.length - 1 : 0;
+  const currentFitness = scrubValues ? scrubValues.fitness : (fitnessData?.[lastIdx] ?? 0);
+  const currentFatigue = scrubValues ? scrubValues.fatigue : (fatigueData?.[lastIdx] ?? null);
+  const currentForm = scrubValues ? scrubValues.form : (formData?.[lastIdx] ?? 0);
+  const currentFormZone = getFormZone(currentForm);
+  const currentFormColor = FORM_ZONE_COLORS[currentFormZone];
 
   // Compute explicit sparkline width (screen minus card margins and padding)
   const sparklineWidth = Dimensions.get('window').width - layout.screenPadding * 2 - spacing.md * 2;
@@ -147,34 +151,45 @@ export const SummaryCard = React.memo(function SummaryCard({
           disabled={!onHeroPress}
           activeOpacity={onHeroPress ? 0.7 : 1}
         >
-          <View style={styles.heroValueRow}>
-            <Text style={[styles.heroValue, { color: displayColor }]}>
-              {formattedHeroValue}
-              {!scrubValues && heroTrend && <Text style={styles.heroTrend}>{heroTrend}</Text>}
-            </Text>
-            {scrubValues ? (
-              <>
-                <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{heroLabel}</Text>
+          {sparklineVisible ? (
+            <View style={styles.heroValueRow}>
+              <Text style={[styles.heroValue, { color: '#42A5F5' }]}>{currentFitness}</Text>
+              <Text style={[styles.heroLabel, { color: '#42A5F5' }]}>Fitness</Text>
+              {currentFatigue !== null && (
+                <>
+                  <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{'\u00B7'}</Text>
+                  <Text style={[styles.heroValue, { color: '#EC407A' }]}>{currentFatigue}</Text>
+                  <Text style={[styles.heroLabel, { color: '#EC407A' }]}>Fatigue</Text>
+                </>
+              )}
+              <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{'\u00B7'}</Text>
+              <Text style={[styles.heroValue, { color: currentFormColor }]}>
+                {currentForm > 0 ? `+${currentForm}` : currentForm}
+              </Text>
+              <Text style={[styles.heroLabel, { color: currentFormColor }]}>Form</Text>
+              {scrubValues && (
                 <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>
-                  {scrubValues.dateLabel}
+                  {'\u00B7'} {scrubValues.dateLabel}
                 </Text>
-              </>
-            ) : (
-              <>
-                <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{heroLabel}</Text>
-                {heroZoneLabel && (
-                  <>
-                    <View
-                      style={[styles.zoneDot, { backgroundColor: heroZoneColor || heroColor }]}
-                    />
-                    <Text style={[styles.zoneLabel, { color: heroZoneColor || heroColor }]}>
-                      {heroZoneLabel}
-                    </Text>
-                  </>
-                )}
-              </>
-            )}
-          </View>
+              )}
+            </View>
+          ) : (
+            <View style={styles.heroValueRow}>
+              <Text style={[styles.heroValue, { color: displayColor }]}>
+                {formattedHeroValue}
+                {!scrubValues && heroTrend && <Text style={styles.heroTrend}>{heroTrend}</Text>}
+              </Text>
+              <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{heroLabel}</Text>
+              {heroZoneLabel && (
+                <>
+                  <View style={[styles.zoneDot, { backgroundColor: heroZoneColor || heroColor }]} />
+                  <Text style={[styles.zoneLabel, { color: heroZoneColor || heroColor }]}>
+                    {heroZoneLabel}
+                  </Text>
+                </>
+              )}
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -354,7 +369,6 @@ const styles = StyleSheet.create({
   sparklineRow: {
     marginTop: spacing.xs,
   },
-
   // Supporting metrics row
   supportingRow: {
     flexDirection: 'row',

@@ -10,11 +10,11 @@ import { getFormZone, FORM_ZONE_COLORS } from '@/lib';
 
 const CHART_HEIGHT = 44;
 const FORM_BAR_HEIGHT = 4;
-const GAP = 1;
 const LONG_PRESS_MS = 200;
 
-interface ScrubValues {
+export interface ScrubValues {
   fitness: number;
+  fatigue: number;
   form: number;
   dateLabel: string;
 }
@@ -35,6 +35,7 @@ interface SummaryCardSparklineProps {
  *
  * Fitness (CTL) rendered as a blue sparkline, Fatigue (ATL) as a pink sparkline.
  * Below: thin form zone bar colored by zone per day.
+ * Right-aligned value labels show latest values (or scrubbed values during interaction).
  * Long-press to scrub — updates hero value via onScrub callback.
  */
 export const SummaryCardSparkline = memo(function SummaryCardSparkline({
@@ -50,6 +51,8 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   // Refs for stable access inside gesture callbacks (avoids stale closures)
   const fitnessRef = useRef(fitnessData);
   fitnessRef.current = fitnessData;
+  const fatigueRef = useRef(fatigueData);
+  fatigueRef.current = fatigueData;
   const formRef = useRef(formData);
   formRef.current = formData;
   const onScrubRef = useRef(onScrub);
@@ -69,10 +72,11 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
 
   const domain = useMemo(() => {
     if (fitnessData.length === 0) return { y: [0, 100] as [number, number] };
-    // Compute domain from both series for tighter fit
     const allValues = hasFatigue ? [...fitnessData, ...fatigueData] : fitnessData;
     const min = Math.min(...allValues);
     const max = Math.max(...allValues);
+    // Ensure at least 1 unit range to avoid division by zero
+    if (min === max) return { y: [min - 1, max + 1] as [number, number] };
     return { y: [min, max] as [number, number] };
   }, [fitnessData, fatigueData, hasFatigue]);
 
@@ -86,6 +90,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   // JS-side scrub notification (called via runOnJS from worklet)
   const notifyScrub = (index: number) => {
     const fitness = fitnessRef.current;
+    const fatigue = fatigueRef.current;
     const form = formRef.current;
     const cb = onScrubRef.current;
     if (!cb || index < 0 || index >= fitness.length) return;
@@ -93,7 +98,12 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     const date = new Date();
     date.setDate(date.getDate() - daysAgo);
     const dateLabel = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    cb({ fitness: fitness[index], form: form[index], dateLabel });
+    cb({
+      fitness: fitness[index],
+      fatigue: fatigue ? fatigue[index] : fitness[index],
+      form: form[index],
+      dateLabel,
+    });
   };
 
   const clearScrub = () => {
@@ -177,15 +187,13 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
 
   const labelWidth = showLabels ? 42 : 0;
   const chartWidth = width - labelWidth;
-  const totalHeight = CHART_HEIGHT + GAP + FORM_BAR_HEIGHT;
+  const totalHeight = CHART_HEIGHT + FORM_BAR_HEIGHT;
 
   if (fitnessData.length === 0 || formData.length === 0 || width <= 0) {
     return <View style={{ width, height: totalHeight }} />;
   }
 
   const labelColor = isDark ? darkColors.textMuted : colors.textMuted;
-  // Dark outline adds definition without washing out zone colors
-  // (White casing works on maps with varied backgrounds, but overpowers muted colors on uniform cards)
   const casingColor = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)';
   const fitnessLineColor = isDark ? '#42A5F5' : 'rgba(66,165,245,0.85)';
   const fatigueLineColor = isDark ? '#EC407A' : 'rgba(236,64,122,0.75)';
@@ -224,14 +232,14 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
 
           {/* Chart area */}
           <View style={{ width: chartWidth, height: totalHeight }}>
-            {/* Fitness + Fatigue sparklines */}
-            <View style={{ height: CHART_HEIGHT }}>
+            {/* Fitness + Fatigue sparklines — overflow visible so strokes aren't clipped */}
+            <View style={{ height: CHART_HEIGHT, overflow: 'visible' }}>
               <CartesianChart
                 data={chartData}
                 xKey="x"
                 yKeys={['fitness', 'fatigue']}
                 domain={domain}
-                padding={{ left: 0, right: 0, top: 1, bottom: 1 }}
+                padding={{ left: 0, right: 0, top: 2, bottom: 2 }}
               >
                 {({ points, chartBounds }) => {
                   // Sync bounds to shared values for gesture computation
@@ -246,13 +254,13 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                             points={points.fatigue}
                             color={casingColor}
                             strokeWidth={2}
-                            curveType="natural"
+                            curveType="monotoneX"
                           />
                           <Line
                             points={points.fatigue}
                             color={fatigueLineColor}
                             strokeWidth={1}
-                            curveType="natural"
+                            curveType="monotoneX"
                           />
                         </>
                       )}
@@ -261,13 +269,13 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                         points={points.fitness}
                         color={casingColor}
                         strokeWidth={2.5}
-                        curveType="natural"
+                        curveType="monotoneX"
                       />
                       <Line
                         points={points.fitness}
                         color={fitnessLineColor}
                         strokeWidth={1.5}
-                        curveType="natural"
+                        curveType="monotoneX"
                       />
                     </>
                   );
@@ -275,10 +283,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
               </CartesianChart>
             </View>
 
-            {/* Gap */}
-            <View style={{ height: GAP }} />
-
-            {/* Form zone bar — colored rects with dividers at zone transitions */}
+            {/* Form zone bar — sits directly below chart, no gap */}
             <Canvas style={{ width: chartWidth, height: FORM_BAR_HEIGHT }}>
               {formBarRects.map((rect, i) => (
                 <Rect
