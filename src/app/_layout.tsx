@@ -35,6 +35,7 @@ import {
   initializeTileCacheStore,
   initializeWhatsNewStore,
   initializeInsightsStore,
+  initializeRecordingPreferences,
   useSyncDateRange,
 } from '@/providers';
 import { formatLocalDate } from '@/lib';
@@ -49,6 +50,7 @@ import {
   WhatsNewModal,
   TourReturnPill,
 } from '@/components/ui';
+import { RecordingBanner } from '@/components/recording/RecordingBanner';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
@@ -224,6 +226,7 @@ export default function RootLayout() {
         initializeTileCacheStore(),
         initializeWhatsNewStore(),
         initializeInsightsStore(),
+        initializeRecordingPreferences(),
       ]);
     }
     initialize().finally(() => setAppReady(true));
@@ -262,6 +265,7 @@ export default function RootLayout() {
                   />
                   <AuthGate>
                     <OfflineBanner />
+                    <RecordingBanner />
                     <GlobalDataSync />
                     <DemoBanner />
                     <WhatsNewModal />

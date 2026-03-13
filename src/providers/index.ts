@@ -94,3 +94,8 @@ export { useDebugStore, isDebugEnabled, initializeDebugStore } from './DebugStor
 export { useTileCacheStore, initializeTileCacheStore } from './TileCacheStore';
 export { useWhatsNewStore, initializeWhatsNewStore } from './WhatsNewStore';
 export { useInsightsStore, initializeInsightsStore } from './InsightsStore';
+export { useRecordingStore, getRecordingStatus } from './RecordingStore';
+export {
+  useRecordingPreferences,
+  initializeRecordingPreferences,
+} from './RecordingPreferencesStore';
