@@ -5960,6 +5960,10 @@ export interface SectionManagerInterface {
   getCalendarSummary(
     sectionId: string,
   ) /*throws*/ : FfiCalendarSummary | undefined;
+  getFiltered(
+    sportType: string | undefined,
+    minVisits: /*u32*/ number | undefined,
+  ) /*throws*/ : Array<FfiFrequentSection>;
   getForActivity(activityId: string) /*throws*/ : Array<FfiSection>;
   getPerformances(sectionId: string) /*throws*/ : FfiSectionPerformanceResult;
   getPolyline(sectionId: string) /*throws*/ : Array<FfiGpsPoint>;
@@ -6173,6 +6177,28 @@ export class SectionManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_calendar_summary(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  public getFiltered(
+    sportType: string | undefined,
+    minVisits: /*u32*/ number | undefined,
+  ): Array<FfiFrequentSection> /*throws*/ {
+    return FfiConverterArrayTypeFfiFrequentSection.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_filtered(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterOptionalString.lower(sportType),
+            FfiConverterOptionalUInt32.lower(minVisits),
             callStatus,
           );
         },
@@ -6622,6 +6648,11 @@ export interface VeloqEngineInterface {
     retentionDays: /*u32*/ number,
   ) /*throws*/ : /*u32*/ number;
   clear() /*throws*/ : void;
+  /**
+   * Drop the persistent engine entirely, closing the SQLite connection.
+   * The next call to `create()` will re-initialize from scratch.
+   */
+  destroy(): void;
   detection(): DetectionManagerInterface;
   fitness(): FitnessManagerInterface;
   getActivityCount() /*throws*/ : /*u32*/ number;
@@ -6705,6 +6736,22 @@ export class VeloqEngine
       ),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_clear(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Drop the persistent engine entirely, closing the SQLite connection.
+   * The next call to `create()` will re-initialize from scratch.
+   */
+  public destroy(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_destroy(
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           callStatus,
         );
@@ -7562,6 +7609,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered() !==
+    38420
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_filtered",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity() !==
     38227
   ) {
@@ -7687,6 +7742,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_clear",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_destroy() !==
+    60841
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_destroy",
     );
   }
   if (
