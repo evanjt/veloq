@@ -2,12 +2,32 @@
 // All sources are commercially licensed (MIT, BSD, OGD, CC BY, Public Domain)
 
 import { DARK_MATTER_STYLE } from './darkMatterStyle';
-import { isPointInSwitzerland, isPointInFrance, isPointInUSA } from './countryBoundaries';
+import {
+  isPointInSwitzerland,
+  isPointInFrance,
+  isPointInUSA,
+  isPointInSpain,
+  isPointInAustria,
+  isPointInNetherlands,
+  isPointInCzechia,
+  isPointInPoland,
+  isPointInLuxembourg,
+} from './countryBoundaries';
 
 export type MapStyleType = 'light' | 'dark' | 'satellite';
 
 // Satellite source identifiers for attribution
-export type SatelliteSourceId = 'swisstopo' | 'ign' | 'naip' | 'eox';
+export type SatelliteSourceId =
+  | 'swisstopo'
+  | 'ign'
+  | 'naip'
+  | 'eox'
+  | 'spain'
+  | 'austria'
+  | 'netherlands'
+  | 'czechia'
+  | 'poland'
+  | 'luxembourg';
 
 // Map style URLs - no API key required
 export const MAP_STYLE_URLS = {
@@ -39,6 +59,54 @@ const REGIONS = {
     minLng: -125,
     maxLng: -66.9,
     minZoom: 10, // NAIP high-res kicks in at zoom 10+
+  },
+  // Spain (mainland + Balearics; Canaries handled by isPointInSpain bbox check)
+  spain: {
+    minLat: 36.0,
+    maxLat: 43.8,
+    minLng: -9.4,
+    maxLng: 4.4,
+    minZoom: 8,
+  },
+  // Austria
+  austria: {
+    minLat: 46.37,
+    maxLat: 49.02,
+    minLng: 9.53,
+    maxLng: 17.17,
+    minZoom: 8,
+  },
+  // Netherlands
+  netherlands: {
+    minLat: 50.75,
+    maxLat: 53.55,
+    minLng: 3.37,
+    maxLng: 7.21,
+    minZoom: 8,
+  },
+  // Czech Republic
+  czechia: {
+    minLat: 48.55,
+    maxLat: 51.06,
+    minLng: 12.09,
+    maxLng: 18.85,
+    minZoom: 8,
+  },
+  // Poland
+  poland: {
+    minLat: 49.0,
+    maxLat: 54.85,
+    minLng: 14.12,
+    maxLng: 24.15,
+    minZoom: 8,
+  },
+  // Luxembourg
+  luxembourg: {
+    minLat: 49.44,
+    maxLat: 50.18,
+    minLng: 5.73,
+    maxLng: 6.53,
+    minZoom: 8,
   },
 } as const;
 
@@ -86,6 +154,73 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     attribution: 'USGS NAIP',
     bounds: [-124.733, 24.544, -66.95, 49.384], // Continental USA [west, south, east, north]
   },
+  // Spain: PNOA via IGN Spain (CC BY 4.0 scne.es - commercial OK)
+  // Orden FOM/2807/2015 guarantees free and unrestricted reuse
+  spain: {
+    tiles: [
+      'https://www.ign.es/wmts/pnoa-ma?service=WMTS&request=GetTile&version=1.0.0&Format=image/jpeg&layer=OI.OrthoimageCoverage&style=default&tilematrixset=GoogleMapsCompatible&TileMatrix={z}&TileRow={y}&TileCol={x}',
+    ],
+    tileSize: 64,
+    maxzoom: 20,
+    attribution: 'CC BY 4.0 scne.es',
+    bounds: [-9.4, 36.0, 4.4, 43.8],
+  },
+  // Austria: basemap.at Orthophoto (CC BY 4.0 OGD Austria - commercial OK)
+  austria: {
+    tiles: [
+      'https://maps1.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg',
+      'https://maps2.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg',
+      'https://maps3.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg',
+      'https://maps4.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg',
+    ],
+    tileSize: 64,
+    maxzoom: 20,
+    attribution: 'Datenquelle: basemap.at',
+    bounds: [9.53, 46.37, 17.17, 49.02],
+  },
+  // Netherlands: PDOK Luchtfoto (CC BY 4.0 Kadaster - commercial OK)
+  netherlands: {
+    tiles: [
+      'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg',
+    ],
+    tileSize: 64,
+    maxzoom: 21,
+    attribution: '© Kadaster / PDOK',
+    bounds: [3.37, 50.75, 7.21, 53.55],
+  },
+  // Czech Republic: CUZK Orthophoto (CC BY 4.0 since July 2023 - commercial OK)
+  czechia: {
+    tiles: [
+      'https://ags.cuzk.gov.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer/WMTS/tile/1.0.0/ORTOFOTO_WM/default/GoogleMapsCompatible/{z}/{y}/{x}',
+    ],
+    tileSize: 64,
+    maxzoom: 18,
+    attribution: '© ČÚZK',
+    bounds: [12.09, 48.55, 18.85, 51.06],
+  },
+  // Poland: GUGiK Orthophoto (free for all use, Art. 40a Geodetic Law 2020 - commercial OK)
+  poland: {
+    tiles: [
+      'https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMTS/StandardResolution?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTOFOTOMAPA&STYLE=default&FORMAT=image/jpeg&TILEMATRIXSET=EPSG:3857&TILEMATRIX=EPSG:3857:{z}&TILEROW={y}&TILECOL={x}',
+    ],
+    tileSize: 64,
+    maxzoom: 19,
+    attribution: '© GUGiK',
+    bounds: [14.12, 49.0, 24.15, 54.85],
+  },
+  // Luxembourg: ACT BD-L-ORTHO (CC0 Public Domain - commercial OK, no attribution required)
+  luxembourg: {
+    tiles: [
+      'https://wmts1.geoportail.lu/opendata/wmts/ortho_latest/GLOBAL_WEBMERCATOR_4_V3/{z}/{x}/{y}.jpeg',
+      'https://wmts2.geoportail.lu/opendata/wmts/ortho_latest/GLOBAL_WEBMERCATOR_4_V3/{z}/{x}/{y}.jpeg',
+      'https://wmts3.geoportail.lu/opendata/wmts/ortho_latest/GLOBAL_WEBMERCATOR_4_V3/{z}/{x}/{y}.jpeg',
+      'https://wmts4.geoportail.lu/opendata/wmts/ortho_latest/GLOBAL_WEBMERCATOR_4_V3/{z}/{x}/{y}.jpeg',
+    ],
+    tileSize: 64,
+    maxzoom: 21,
+    attribution: '© ACT Luxembourg',
+    bounds: [5.73, 49.44, 6.53, 50.18],
+  },
   // Global fallback: EOX Sentinel-2 2016/2017 (CC BY 4.0 - commercial OK)
   // Note: 2018+ versions are CC BY-NC-SA (not commercial)
   eox: {
@@ -102,17 +237,49 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
  * Returns the source ID and whether regional high-res imagery is available.
  */
 export function getSatelliteSourceId(lat: number, lng: number, zoom: number): SatelliteSourceId {
-  // Switzerland - use Swisstopo with precise boundary check
+  // Check smallest/highest-priority countries first, then larger regions
+
+  // Switzerland - highest priority (maxzoom 20, 10cm)
   if (zoom >= REGIONS.switzerland.minZoom && isPointInSwitzerland(lng, lat)) {
     return 'swisstopo';
   }
 
-  // France - use IGN with precise boundary check (excludes Switzerland)
+  // Luxembourg - tiny, must check before France (maxzoom 21, 10cm, CC0)
+  if (zoom >= REGIONS.luxembourg.minZoom && isPointInLuxembourg(lng, lat)) {
+    return 'luxembourg';
+  }
+
+  // Austria - borders Switzerland (maxzoom 20, 20cm)
+  if (zoom >= REGIONS.austria.minZoom && isPointInAustria(lng, lat)) {
+    return 'austria';
+  }
+
+  // Netherlands (maxzoom 21, 8cm)
+  if (zoom >= REGIONS.netherlands.minZoom && isPointInNetherlands(lng, lat)) {
+    return 'netherlands';
+  }
+
+  // France - excludes Switzerland and Luxembourg (maxzoom 20, 20cm)
   if (zoom >= REGIONS.france.minZoom && isPointInFrance(lng, lat)) {
     return 'ign';
   }
 
-  // USA - use NAIP with precise boundary check
+  // Czech Republic (maxzoom 18, 12.5cm)
+  if (zoom >= REGIONS.czechia.minZoom && isPointInCzechia(lng, lat)) {
+    return 'czechia';
+  }
+
+  // Spain (maxzoom 20, 25-50cm)
+  if (zoom >= REGIONS.spain.minZoom && isPointInSpain(lng, lat)) {
+    return 'spain';
+  }
+
+  // Poland (maxzoom 19, 25cm)
+  if (zoom >= REGIONS.poland.minZoom && isPointInPoland(lng, lat)) {
+    return 'poland';
+  }
+
+  // USA - NAIP (maxzoom 17, 60cm)
   if (zoom >= REGIONS.usa.minZoom && isPointInUSA(lng, lat)) {
     return 'naip';
   }
@@ -196,6 +363,54 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
         maxzoom: SATELLITE_SOURCES.naip.maxzoom,
         bounds: SATELLITE_SOURCES.naip.bounds,
       },
+      // Spain (PNOA) - mainland + Balearics
+      'satellite-spain': {
+        type: 'raster',
+        tiles: SATELLITE_SOURCES.spain.tiles,
+        tileSize: SATELLITE_SOURCES.spain.tileSize,
+        maxzoom: SATELLITE_SOURCES.spain.maxzoom,
+        bounds: SATELLITE_SOURCES.spain.bounds,
+      },
+      // Austria (basemap.at)
+      'satellite-austria': {
+        type: 'raster',
+        tiles: SATELLITE_SOURCES.austria.tiles,
+        tileSize: SATELLITE_SOURCES.austria.tileSize,
+        maxzoom: SATELLITE_SOURCES.austria.maxzoom,
+        bounds: SATELLITE_SOURCES.austria.bounds,
+      },
+      // Netherlands (PDOK)
+      'satellite-netherlands': {
+        type: 'raster',
+        tiles: SATELLITE_SOURCES.netherlands.tiles,
+        tileSize: SATELLITE_SOURCES.netherlands.tileSize,
+        maxzoom: SATELLITE_SOURCES.netherlands.maxzoom,
+        bounds: SATELLITE_SOURCES.netherlands.bounds,
+      },
+      // Czech Republic (CUZK)
+      'satellite-czechia': {
+        type: 'raster',
+        tiles: SATELLITE_SOURCES.czechia.tiles,
+        tileSize: SATELLITE_SOURCES.czechia.tileSize,
+        maxzoom: SATELLITE_SOURCES.czechia.maxzoom,
+        bounds: SATELLITE_SOURCES.czechia.bounds,
+      },
+      // Poland (GUGiK)
+      'satellite-poland': {
+        type: 'raster',
+        tiles: SATELLITE_SOURCES.poland.tiles,
+        tileSize: SATELLITE_SOURCES.poland.tileSize,
+        maxzoom: SATELLITE_SOURCES.poland.maxzoom,
+        bounds: SATELLITE_SOURCES.poland.bounds,
+      },
+      // Luxembourg (ACT)
+      'satellite-luxembourg': {
+        type: 'raster',
+        tiles: SATELLITE_SOURCES.luxembourg.tiles,
+        tileSize: SATELLITE_SOURCES.luxembourg.tileSize,
+        maxzoom: SATELLITE_SOURCES.luxembourg.maxzoom,
+        bounds: SATELLITE_SOURCES.luxembourg.bounds,
+      },
     },
     layers: [
       // Dark background so empty tile areas show dark blue instead of white
@@ -213,7 +428,21 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
         maxzoom: 22,
       },
       // Regional layers on top (higher resolution where available)
-      // Order: France first (larger area), then Switzerland (overlays France where applicable)
+      // Order: largest areas first, smallest on top (later = higher priority)
+      {
+        id: 'satellite-layer-spain',
+        type: 'raster',
+        source: 'satellite-spain',
+        minzoom: REGIONS.spain.minZoom,
+        maxzoom: 22,
+      },
+      {
+        id: 'satellite-layer-poland',
+        type: 'raster',
+        source: 'satellite-poland',
+        minzoom: REGIONS.poland.minZoom,
+        maxzoom: 22,
+      },
       {
         id: 'satellite-layer-ign',
         type: 'raster',
@@ -228,8 +457,35 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
         minzoom: REGIONS.usa.minZoom,
         maxzoom: 22,
       },
-      // Switzerland layer - high resolution imagery
-      // Only shows at zoom 8+ where the rectangular boundary is less noticeable
+      {
+        id: 'satellite-layer-czechia',
+        type: 'raster',
+        source: 'satellite-czechia',
+        minzoom: REGIONS.czechia.minZoom,
+        maxzoom: 22,
+      },
+      {
+        id: 'satellite-layer-netherlands',
+        type: 'raster',
+        source: 'satellite-netherlands',
+        minzoom: REGIONS.netherlands.minZoom,
+        maxzoom: 22,
+      },
+      {
+        id: 'satellite-layer-austria',
+        type: 'raster',
+        source: 'satellite-austria',
+        minzoom: REGIONS.austria.minZoom,
+        maxzoom: 22,
+      },
+      {
+        id: 'satellite-layer-luxembourg',
+        type: 'raster',
+        source: 'satellite-luxembourg',
+        minzoom: REGIONS.luxembourg.minZoom,
+        maxzoom: 22,
+      },
+      // Switzerland - highest priority, on top of Austria and France
       {
         id: 'satellite-layer-swisstopo',
         type: 'raster',
@@ -348,17 +604,30 @@ export function getCombinedSatelliteAttribution(lat: number, lng: number, zoom: 
   const attributions: string[] = [];
 
   // Check which regional sources are visible using precise polygon checks
-  // Switzerland (Swisstopo) - highest priority, uses actual country boundary
   if (zoom >= REGIONS.switzerland.minZoom && isPointInSwitzerland(lng, lat)) {
     attributions.push(SATELLITE_SOURCES.swisstopo.attribution);
   }
-
-  // France (IGN) - uses actual country boundary, excludes Switzerland
+  if (zoom >= REGIONS.luxembourg.minZoom && isPointInLuxembourg(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.luxembourg.attribution);
+  }
+  if (zoom >= REGIONS.austria.minZoom && isPointInAustria(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.austria.attribution);
+  }
+  if (zoom >= REGIONS.netherlands.minZoom && isPointInNetherlands(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.netherlands.attribution);
+  }
   if (zoom >= REGIONS.france.minZoom && isPointInFrance(lng, lat)) {
     attributions.push(SATELLITE_SOURCES.ign.attribution);
   }
-
-  // USA (NAIP) - uses actual country boundary
+  if (zoom >= REGIONS.czechia.minZoom && isPointInCzechia(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.czechia.attribution);
+  }
+  if (zoom >= REGIONS.spain.minZoom && isPointInSpain(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.spain.attribution);
+  }
+  if (zoom >= REGIONS.poland.minZoom && isPointInPoland(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.poland.attribution);
+  }
   if (zoom >= REGIONS.usa.minZoom && isPointInUSA(lng, lat)) {
     attributions.push(SATELLITE_SOURCES.naip.attribution);
   }

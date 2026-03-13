@@ -65,4 +65,16 @@ impl FitnessManager {
             swim_pace_trend: e.get_pace_trend("Swim"),
         })
     }
+
+    fn get_activity_patterns(&self) -> Result<Vec<crate::FfiActivityPattern>, VeloqError> {
+        with_engine(|e| {
+            crate::patterns::compute_activity_patterns(&e.db, &e.activity_metrics)
+        })
+    }
+
+    fn get_pattern_for_today(&self) -> Result<Option<crate::FfiActivityPattern>, VeloqError> {
+        with_engine(|e| {
+            crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics)
+        })
+    }
 }

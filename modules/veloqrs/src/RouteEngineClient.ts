@@ -597,6 +597,39 @@ class RouteEngineClient {
     );
   }
 
+  // ==========================================================================
+  // Activity Pattern Detection (K-means clustering)
+  // ==========================================================================
+
+  /**
+   * Get activity patterns detected via k-means clustering on activity features.
+   * Returns patterns meeting confidence >= 0.6 threshold.
+   * K-means on [day_of_week, duration, TSS, distance] per sport type.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getActivityPatterns(): any[] {
+    if (!this.ready) return [];
+    return this.timed('getActivityPatterns', () =>
+      this.engine.fitness().getActivityPatterns(),
+    );
+  }
+
+  /**
+   * Get the highest-confidence pattern matching today's day_of_week + season.
+   * Convenience method for Feed tab teaser (avoids loading all patterns in JS).
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getPatternForToday(): any | undefined {
+    if (!this.ready) return undefined;
+    return this.timed('getPatternForToday', () =>
+      this.engine.fitness().getPatternForToday() ?? undefined,
+    );
+  }
+
+  // ==========================================================================
+  // Athlete Profile & Sport Settings Cache
+  // ==========================================================================
+
   setAthleteProfile(json: string): void {
     if (!this.ready) return;
     try {

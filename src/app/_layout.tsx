@@ -34,6 +34,7 @@ import {
   initializeDebugStore,
   initializeTileCacheStore,
   initializeWhatsNewStore,
+  initializeInsightsStore,
   useSyncDateRange,
 } from '@/providers';
 import { formatLocalDate } from '@/lib';
@@ -222,6 +223,7 @@ export default function RootLayout() {
         initializeDebugStore(),
         initializeTileCacheStore(),
         initializeWhatsNewStore(),
+        initializeInsightsStore(),
       ]);
     }
     initialize().finally(() => setAppReady(true));

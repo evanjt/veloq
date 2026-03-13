@@ -14,3 +14,5 @@ export { DebugInfoPanel } from './DebugInfoPanel';
 export { DebugWarningBanner } from './DebugWarningBanner';
 export { SyncDebugTab } from './SyncDebugTab';
 export { SectionTrimOverlay } from './SectionTrimOverlay';
+export { TodayBanner } from './TodayBanner';
+export { WorkoutStepBar } from './WorkoutStepBar';

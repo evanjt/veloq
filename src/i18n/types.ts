@@ -196,6 +196,7 @@ export interface TranslationResource {
     map: string;
     settings: string;
     activities: string;
+    insights: string;
   };
 
   feed: {
@@ -568,6 +569,48 @@ export interface TranslationResource {
     hours: string;
     minutes: string;
     seconds: string;
+  };
+
+  insights: {
+    title: string;
+    noInsights: string;
+    noInsightsHint: string;
+    sectionPr: string;
+    sectionPrSubtitle: string;
+    sectionTrendSummary: string;
+    sectionTrendSummaryBody: string;
+    sectionImproving: string;
+    sectionImprovingBody: string;
+    sectionDeclining: string;
+    sectionDecliningBody: string;
+    ftpIncrease: string;
+    paceImproved: string;
+    weeklyVolumeUp: string;
+    weeklyVolumeDown: string;
+    weeklyLoadUp: string;
+    weeklyLoadDown: string;
+    loadBody: string;
+    patternMatch: string;
+    consistencyStreak: string;
+    peakFitness: string;
+    formAdvice: {
+      fresh: string;
+      grey: string;
+      optimal: string;
+      tired: string;
+      overreaching: string;
+    };
+    volumeBody: string;
+    formBody: {
+      fresh: string;
+      grey: string;
+      optimal: string;
+      tired: string;
+      overreaching: string;
+    };
+    viewDetails: string;
+    today: string;
+    tomorrow: string;
   };
 
   fitnessScreen: {

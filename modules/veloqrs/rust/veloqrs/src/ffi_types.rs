@@ -1101,6 +1101,60 @@ impl From<crate::CalendarSummary> for FfiCalendarSummary {
 }
 
 // ============================================================================
+// Activity Pattern Types
+// ============================================================================
+
+/// A detected recurring training pattern from k-means clustering.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivityPattern {
+    /// Sport type (e.g., "Ride", "Run")
+    pub sport_type: String,
+    /// Cluster identifier within the sport group
+    pub cluster_id: u8,
+    /// Most common day of week (0=Mon..6=Sun)
+    pub primary_day: u8,
+    /// Dominant season label ("winter", "spring", "summer", "autumn", "all")
+    pub season_label: String,
+    /// Number of activities in this pattern
+    pub activity_count: u32,
+    /// Average moving time in seconds
+    pub avg_duration_secs: u32,
+    /// Average training load (TSS)
+    pub avg_tss: f32,
+    /// Average distance in meters
+    pub avg_distance_meters: f32,
+    /// How often this pattern occurs per month
+    pub frequency_per_month: f32,
+    /// Weighted confidence score (0.0-1.0)
+    pub confidence: f32,
+    /// Silhouette score for cluster quality (0.0-1.0)
+    pub silhouette_score: f32,
+    /// Days since the most recent activity in this cluster
+    pub days_since_last: u32,
+    /// Sections commonly traversed by activities in this pattern
+    pub common_sections: Vec<FfiPatternSection>,
+}
+
+/// A section commonly associated with a training pattern.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiPatternSection {
+    /// Section identifier
+    pub section_id: String,
+    /// Section display name
+    pub section_name: String,
+    /// Fraction of cluster activities that traverse this section (0.0-1.0)
+    pub appearance_rate: f32,
+    /// Best (fastest) traversal time in seconds
+    pub best_time_secs: f32,
+    /// Median of the 5 most recent traversal times in seconds
+    pub median_recent_secs: f32,
+    /// Performance trend: None=insufficient data, -1=declining, 0=stable, 1=improving
+    pub trend: Option<i8>,
+    /// Total number of traversals across cluster activities
+    pub traversal_count: u32,
+}
+
+// ============================================================================
 // Helper functions
 // ============================================================================
 

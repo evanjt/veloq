@@ -113,6 +113,12 @@ export { useSectionDetail } from './routes/useRouteEngine';
 
 // Home hooks
 export { useSummaryCardData, type SummaryCardData } from './home';
+export { useTodayWorkout } from './home';
+export { useWorkoutSections, type WorkoutSection } from './home';
+export { useActivityPatterns } from './home';
+
+// Insights hooks
+export { useInsights } from './insights';
 
 // Export hooks
 export { useGpxExport } from './export';

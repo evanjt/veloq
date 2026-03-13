@@ -93,3 +93,4 @@ export {
 export { useDebugStore, isDebugEnabled, initializeDebugStore } from './DebugStore';
 export { useTileCacheStore, initializeTileCacheStore } from './TileCacheStore';
 export { useWhatsNewStore, initializeWhatsNewStore } from './WhatsNewStore';
+export { useInsightsStore, initializeInsightsStore } from './InsightsStore';
