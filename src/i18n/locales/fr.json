@@ -989,6 +989,7 @@
       "mapStylesHint": "Satellite haute résolution en Suisse et France. Le 3D intelligent s'active pour les activités avec +30 m de dénivelé et +3 m/km de pente.",
       "heatmapTitle": "Carte thermique",
       "heatmapBody": "Votre calendrier d'entraînement sur la page Santé. Touchez un jour pour voir vos données bien-être — VFC, fréquence cardiaque au repos et sommeil — se synchroniser en temps réel sur tous les graphiques.",
+      "heatmapTip": "Appuyez longuement sur les métriques de santé pour voir les valeurs. La carte d'activité se met à jour en conséquence.",
       "fitnessTitle": "Aperçu fitness",
       "fitnessBody": "Suivez votre condition physique, fatigue et forme avec des zones colorées. Sachez quand vous êtes frais et prêt à performer."
     }

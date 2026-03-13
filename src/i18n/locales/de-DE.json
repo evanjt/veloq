@@ -989,6 +989,7 @@
       "mapStylesHint": "Hochauflösende Satellitenbilder für die Schweiz und Frankreich. Smartes 3D aktiviert sich bei Aktivitäten mit 30 m+ Höhengewinn und 3 m/km+ Steigung.",
       "heatmapTitle": "Aktivitäts-Heatmap",
       "heatmapBody": "Dein Trainingskalender auf der Gesundheitsseite. Tippe auf einen Tag, um Wellness-Daten — HRV, Ruhe-Herzfrequenz und Schlaf — in Echtzeit über alle Diagramme synchronisiert zu sehen.",
+      "heatmapTip": "Halte die Gesundheitskennzahlen gedrückt, um die Werte zu sehen. Die Aktivitäts-Heatmap aktualisiert sich entsprechend.",
       "fitnessTitle": "Fitness-Übersicht",
       "fitnessBody": "Verfolge Fitness, Ermüdung und Form mit farbcodierten Zonen. Erkenne, wann du frisch und leistungsbereit bist."
     }

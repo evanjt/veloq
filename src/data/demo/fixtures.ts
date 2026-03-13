@@ -536,6 +536,9 @@ function generateActivities(): ApiActivity[] {
   let atl = 35;
   let lastRoute: string | null = null;
 
+  // Swiss routes: Valais rides (0-1), Grindelwald/Lavaux virtual rides (2-3), Lauterbrunnen hikes (11-12)
+  const swissIndices = [0, 1, 2, 3, 11, 12];
+
   // Helper to select a template from a range, avoiding the last used route (deterministic)
   const selectTemplate = (indices: number[], random: () => number): (typeof templates)[0] => {
     // Filter to templates with different routes than last used
@@ -581,7 +584,10 @@ function generateActivities(): ApiActivity[] {
     // Select template based on day (using deterministic random)
     // Templates: 0-1=Ride, 2-4=VirtualRide, 5-7=Run, 8-10=Swim, 11-12=Hike, 13-14=Walk
     let template;
-    if (dayOfWeek === 0) {
+    if (daysAgo <= 7) {
+      // Most recent week: Swiss mountain activities for beautiful satellite/3D showcase
+      template = selectTemplate(swissIndices, dayRandom);
+    } else if (dayOfWeek === 0) {
       // Sunday: Long activities - long ride, long run, or mountain hike
       const r = dayRandom();
       if (r < 0.4)
@@ -768,12 +774,13 @@ function generateActivities(): ApiActivity[] {
   }
 
   // === STRESS TEST: High-traversal section ===
-  // Add 200 short runs on the same route to test section detail at scale.
+  // Add 20 short runs on the same route to test section detection grouping.
   // All use identical GPS coordinates so section detection groups them together.
+  // Start from 14 days ago to keep the most recent week free for Swiss showcase activities.
   const stressRoute = templates[5]; // route-rio-run-1 (3km short run)
   const stressLocation = getRouteLocation(stressRoute.route!);
-  for (let i = 0; i < 200; i++) {
-    const daysAgo = Math.floor((i / 200) * 365);
+  for (let i = 0; i < 20; i++) {
+    const daysAgo = 14 + Math.floor((i / 20) * 351);
     const date = new Date(referenceDate);
     date.setDate(date.getDate() - daysAgo);
     date.setHours(6, 30, 0, 0);
@@ -1222,7 +1229,10 @@ export function getActivities(params?: { oldest?: string; newest?: string }): Ap
     result = result.filter((a) => new Date(a.start_date_local) <= newest);
   }
 
-  return result.reverse(); // Newest first
+  // Sort by date descending (newest first)
+  return result.sort(
+    (a, b) => new Date(b.start_date_local).getTime() - new Date(a.start_date_local).getTime()
+  );
 }
 
 export function getActivityMap(id: string, boundsOnly = false): ApiActivityMap | null {

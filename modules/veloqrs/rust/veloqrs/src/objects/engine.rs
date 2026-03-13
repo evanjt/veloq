@@ -52,6 +52,15 @@ impl VeloqEngine {
         })?
     }
 
+    /// Drop the persistent engine entirely, closing the SQLite connection.
+    /// The next call to `create()` will re-initialize from scratch.
+    fn destroy(&self) {
+        if let Ok(mut guard) = PERSISTENT_ENGINE.lock() {
+            info!("[VeloqEngine] Destroying persistent engine");
+            *guard = None;
+        }
+    }
+
     fn cleanup_old_activities(&self, retention_days: u32) -> Result<u32, VeloqError> {
         with_engine(|e| {
             match e.cleanup_old_activities(retention_days) {

@@ -13,6 +13,8 @@ export interface WhatsNewSlideDefinition {
   showMeRoute?: string;
   /** Optional pre-navigation action tag. The modal handles execution. */
   showMeAction?: string;
+  /** i18n key for a tip shown on the TourReturnPill after navigating. */
+  showMeTip?: string;
 }
 
 /**
@@ -37,6 +39,7 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       bodyKey: 'whatsNew.v022.heatmapBody',
       icon: 'grid',
       showMeRoute: '/training',
+      showMeTip: 'whatsNew.v022.heatmapTip',
       get Component() {
         return require('./HeatmapSlide').HeatmapSlide;
       },

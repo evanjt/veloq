@@ -989,6 +989,7 @@
       "mapStylesHint": "Højopløselig satellit dækker Schweiz og Frankrig. Smart 3D aktiveres ved aktiviteter med 30 m+ stigning og 3 m/km+ hældning.",
       "heatmapTitle": "Aktivitets-heatmap",
       "heatmapBody": "Din træningskalender på Sundhedssiden. Tryk på en dag for at se dine wellness-data — HRV, hvilepuls og søvn — synkroniseret i realtid på tværs af alle diagrammer.",
+      "heatmapTip": "Hold sundhedsmetrikker nede for at se værdierne. Aktivitetsheatmappet opdateres tilsvarende.",
       "fitnessTitle": "Fitnessoversigt",
       "fitnessBody": "Følg din kondition, træthed og form med farvekodede zoner. Vid hvornår du er frisk og klar til at præstere."
     }

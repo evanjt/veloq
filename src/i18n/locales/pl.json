@@ -990,6 +990,7 @@
       "mapStylesHint": "Satelita wysokiej rozdzielczości dostępny dla Szwajcarii i Francji. Inteligentne 3D aktywuje się przy przewyższeniu 30 m+ i nachyleniu 3 m/km+.",
       "heatmapTitle": "Mapa aktywności",
       "heatmapBody": "Twój kalendarz treningowy na stronie Zdrowie. Dotknij dowolnego dnia, aby zobaczyć dane o samopoczuciu — HRV, tętno spoczynkowe i sen — synchronizowane na żywo na wszystkich wykresach.",
+      "heatmapTip": "Przytrzymaj metryki zdrowia, aby zobaczyć wartości. Mapa aktywności aktualizuje się odpowiednio.",
       "fitnessTitle": "Przegląd formy",
       "fitnessBody": "Śledź kondycję, zmęczenie i formę z kolorowymi strefami. Dowiedz się, kiedy jesteś wypoczęty i gotowy do wysiłku."
     }

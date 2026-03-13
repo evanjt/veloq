@@ -989,6 +989,7 @@
       "mapStylesHint": "Hochuflösendi Satellitebilder für d Schwiiz und Frankriich. Smartes 3D aktiviert sich bi Aktivitäte mit 30 m+ Höhegewinn und 3 m/km+ Stiiging.",
       "heatmapTitle": "Aktivitäts-Heatmap",
       "heatmapBody": "Din Trainingskaländer uf dr Gsundheitssiitä. Tipp uf en Tag zum Wellness-Date — HRV, Rueh-Herzfrequänz und Schlaf — in Echtziit über alli Diagramm synchronisiert gseh.",
+      "heatmapTip": "Halt d Gsundheitskennzahle gdrückt zum d Wärt gseh. D Aktivitäts-Heatmap aktualisiert sich entsprächend.",
       "fitnessTitle": "Fitness-Überblick",
       "fitnessBody": "Verfolg Fitness, Ermüedig und Form mit farbcodierte Zone. Wüss, wenn du frisch und ready bisch."
     }

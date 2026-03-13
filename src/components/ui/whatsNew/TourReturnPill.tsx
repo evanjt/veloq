@@ -35,7 +35,6 @@ export function TourReturnPill() {
   };
 
   const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
-  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const primaryColor = isDark ? darkColors.primary : colors.primary;
   const bottomOffset = TAB_BAR_HEIGHT + GRADIENT_HEIGHT + insets.bottom + spacing.sm;
@@ -46,20 +45,37 @@ export function TourReturnPill() {
       entering={FadeIn.duration(250)}
       exiting={FadeOut.duration(200)}
     >
-      <View style={[styles.pill, { backgroundColor: bgColor }, shadows.elevated]}>
-        <Pressable style={styles.backButton} onPress={resumeTour} hitSlop={8}>
-          <MaterialCommunityIcons name="arrow-left" size={18} color={primaryColor} />
-          <Text style={[styles.backText, { color: primaryColor }]}>{t('whatsNew.backToTour')}</Text>
-        </Pressable>
+      <View style={[styles.pillWrapper, { backgroundColor: bgColor }, shadows.elevated]}>
+        {tourState.tip && (
+          <Text
+            style={[
+              styles.tipText,
+              { color: isDark ? darkColors.textPrimary : colors.textPrimary },
+            ]}
+          >
+            {t(tourState.tip as never)}
+          </Text>
+        )}
+        <View style={styles.buttonRow}>
+          <Pressable style={styles.backButton} onPress={resumeTour} hitSlop={8}>
+            <MaterialCommunityIcons name="arrow-left" size={18} color={primaryColor} />
+            <Text style={[styles.backText, { color: primaryColor }]}>
+              {t('whatsNew.backToTour')}
+            </Text>
+          </Pressable>
 
-        <View
-          style={[styles.divider, { backgroundColor: isDark ? darkColors.border : colors.border }]}
-        />
+          <View
+            style={[
+              styles.divider,
+              { backgroundColor: isDark ? darkColors.border : colors.border },
+            ]}
+          />
 
-        <Pressable style={styles.closeButton} onPress={handleClose} hitSlop={8}>
-          <Text style={[styles.closeText, { color: mutedColor }]}>{t('whatsNew.closeTour')}</Text>
-          <MaterialCommunityIcons name="close" size={16} color={mutedColor} />
-        </Pressable>
+          <Pressable style={styles.closeButton} onPress={handleClose} hitSlop={8}>
+            <Text style={[styles.closeText, { color: mutedColor }]}>{t('whatsNew.closeTour')}</Text>
+            <MaterialCommunityIcons name="close" size={16} color={mutedColor} />
+          </Pressable>
+        </View>
       </View>
     </Animated.View>
   );
@@ -73,12 +89,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 999,
   },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 24,
+  pillWrapper: {
+    borderRadius: 16,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    maxWidth: '85%',
+  },
+  tipText: {
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backButton: {
     flexDirection: 'row',

@@ -38,8 +38,11 @@ interface UseMapHandlersOptions {
   setUserLocation: (value: [number, number] | null) => void;
   setLocationLoading: (value: boolean) => void;
   setVisibleActivityIds: (value: Set<string> | null) => void;
-  setCurrentZoom: (value: number) => void;
-  setCurrentCenter: (value: [number, number] | null) => void;
+  currentZoomRef: React.MutableRefObject<number>;
+  currentCenterRef: React.MutableRefObject<[number, number] | null>;
+  setAboveTraceZoom: (value: boolean) => void;
+  traceZoomThreshold: number;
+  onCameraSettled?: (center: [number, number], zoom: number) => void;
   cameraRef: React.RefObject<React.ElementRef<typeof Camera> | null>;
   map3DRef: React.RefObject<Map3DWebViewRef | null>;
   bearingAnim: Animated.Value;
@@ -83,8 +86,11 @@ export function useMapHandlers({
   setUserLocation,
   setLocationLoading,
   setVisibleActivityIds,
-  setCurrentZoom,
-  setCurrentCenter,
+  currentZoomRef,
+  currentCenterRef,
+  setAboveTraceZoom,
+  traceZoomThreshold,
+  onCameraSettled,
   cameraRef,
   map3DRef,
   bearingAnim,
@@ -106,7 +112,7 @@ export function useMapHandlers({
   const prevVisibleKeyRef = useRef<string>('');
   // Track previous viewport bounds to skip queryViewport FFI calls when camera hasn't moved
   const prevBoundsKeyRef = useRef<string>('');
-  // Track previous center/zoom to skip React re-renders when values haven't changed
+  // Track previous center/zoom to skip redundant ref updates and threshold checks
   const prevCenterRef = useRef<[number, number] | null>(null);
   const prevZoomRef = useRef<number>(-1);
 
@@ -282,14 +288,20 @@ export function useMapHandlers({
         currentZoomLevel.current = zoomLevel;
       }
 
-      // Debounce zoom/center state updates (triggers attribution recalculation).
-      // Only call setters when values actually change — same-coordinate calls with new array
-      // references trigger React re-renders, which on Android can cause spurious regionDidChange.
+      // Update zoom/center refs directly — no React state, no re-renders during gestures.
+      // State updates from regionDidChange cause React re-renders that disrupt MapLibre
+      // gesture handling on Android, causing camera snap-back.
       if (zoomCenterDebounceRef.current) clearTimeout(zoomCenterDebounceRef.current);
       zoomCenterDebounceRef.current = setTimeout(() => {
         if (zoomLevel !== undefined && Math.abs(zoomLevel - prevZoomRef.current) > 0.01) {
+          // Check trace threshold crossing BEFORE updating prev
+          const wasAbove = prevZoomRef.current >= traceZoomThreshold;
+          const nowAbove = zoomLevel >= traceZoomThreshold;
+          if (wasAbove !== nowAbove) {
+            setAboveTraceZoom(nowAbove);
+          }
           prevZoomRef.current = zoomLevel;
-          setCurrentZoom(zoomLevel);
+          currentZoomRef.current = zoomLevel;
         }
         if (center) {
           const prev = prevCenterRef.current;
@@ -299,7 +311,7 @@ export function useMapHandlers({
             Math.abs(prev[1] - center[1]) > 1e-6
           ) {
             prevCenterRef.current = center;
-            setCurrentCenter(center);
+            currentCenterRef.current = center;
           }
         }
 
@@ -308,6 +320,7 @@ export function useMapHandlers({
         const finalCenter = center ?? prevCenterRef.current;
         if (finalCenter && finalZoom > 0) {
           saveMapCameraState(finalCenter, finalZoom);
+          onCameraSettled?.(finalCenter, finalZoom);
         }
       }, 300);
 
@@ -351,7 +364,16 @@ export function useMapHandlers({
 
       markUserInteracted();
     },
-    [currentZoomLevel, setCurrentZoom, setCurrentCenter, setVisibleActivityIds, markUserInteracted]
+    [
+      currentZoomLevel,
+      currentZoomRef,
+      currentCenterRef,
+      setAboveTraceZoom,
+      traceZoomThreshold,
+      setVisibleActivityIds,
+      onCameraSettled,
+      markUserInteracted,
+    ]
   );
 
   // Cache last location to avoid slow GPS re-acquisition

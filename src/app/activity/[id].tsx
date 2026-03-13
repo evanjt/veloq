@@ -933,6 +933,7 @@ export default function ActivityDetailScreen() {
               polyline={activity.polyline}
               activityType={activity.type}
               activityId={activity.id}
+              country={activity.country}
               height={MAP_HEIGHT}
               showStyleToggle={!sectionCreationMode}
               showAttribution={true}

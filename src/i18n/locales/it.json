@@ -989,6 +989,7 @@
       "mapStylesHint": "Satellite ad alta risoluzione disponibile per Svizzera e Francia. Il 3D intelligente si attiva per attività con +30 m di dislivello e +3 m/km di pendenza.",
       "heatmapTitle": "Mappa di calore",
       "heatmapBody": "Il tuo calendario di allenamento nella pagina Salute. Tocca un giorno per vedere i dati benessere — HRV, frequenza cardiaca a riposo e sonno — sincronizzarsi in tempo reale su tutti i grafici.",
+      "heatmapTip": "Tieni premuto sulle metriche di salute per vedere i valori. La heatmap delle attività si aggiorna di conseguenza.",
       "fitnessTitle": "Panoramica fitness",
       "fitnessBody": "Monitora forma fisica, fatica e stato di forma con zone colorate. Scopri quando sei fresco e pronto a dare il massimo."
     }

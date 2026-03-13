@@ -989,6 +989,7 @@
       "mapStylesHint": "Hoge resolutie satelliet beschikbaar voor Zwitserland en Frankrijk. Slim 3D activeert bij activiteiten met 30 m+ hoogteverschil en 3 m/km+ helling.",
       "heatmapTitle": "Activiteiten-heatmap",
       "heatmapBody": "Je trainingskalender op de Gezondheidspagina. Tik op een dag om je welzijnsdata — HRV, rusthartslag en slaap — in real time gesynchroniseerd over alle grafieken te zien.",
+      "heatmapTip": "Houd de gezondheidsmetrieken ingedrukt om de waarden te zien. De activiteitsheatmap past zich aan.",
       "fitnessTitle": "Fitnessoverzicht",
       "fitnessBody": "Volg je fitheid, vermoeidheid en vorm met kleurgecodeerde zones. Weet wanneer je fris en klaar bent om te presteren."
     }

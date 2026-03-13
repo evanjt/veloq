@@ -16,17 +16,25 @@ interface MapCameraState {
 
 let state: MapCameraState | null = null;
 let initialized = false;
+let initPromise: Promise<void> | null = null;
 
-export async function initMapCameraState(): Promise<void> {
-  if (initialized) return;
-  try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (raw) state = JSON.parse(raw);
-  } catch {
-    // Best effort — start without saved state
-  }
-  initialized = true;
+export function initMapCameraState(): Promise<void> {
+  if (initPromise) return initPromise;
+  initPromise = (async () => {
+    if (initialized) return;
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      if (raw) state = JSON.parse(raw);
+    } catch {
+      // Best effort — start without saved state
+    }
+    initialized = true;
+  })();
+  return initPromise;
 }
+
+// Start reading immediately on import — don't wait for useEffect
+initMapCameraState();
 
 export function getMapCameraState(): MapCameraState | null {
   return state;
@@ -40,5 +48,6 @@ export function saveMapCameraState(center: [number, number], zoom: number): void
 export async function reloadMapCameraState(): Promise<void> {
   initialized = false;
   state = null;
+  initPromise = null;
   await initMapCameraState();
 }

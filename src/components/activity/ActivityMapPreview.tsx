@@ -50,7 +50,7 @@ export function ActivityMapPreview({
   screenFocused = true,
 }: ActivityMapPreviewProps) {
   const { getStyleForActivity, getTerrain3DMode } = useMapPreferences();
-  const mapStyle = getStyleForActivity(activity.type, activity.id);
+  const mapStyle = getStyleForActivity(activity.type, activity.id, activity.country);
   const activityColor = getActivityColor(activity.type);
   const terrain3DMode = getTerrain3DMode(activity.type, activity.id);
 

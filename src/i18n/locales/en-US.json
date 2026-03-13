@@ -989,6 +989,7 @@
       "mapStylesHint": "High-res satellite covers Switzerland and France. Smart 3D activates for activities with 30 m+ gain and 3 m/km+ gradient.",
       "heatmapTitle": "Activity Heatmap",
       "heatmapBody": "Your training calendar on the Health page. Tap any day to see your wellness data — HRV, resting heart rate, and sleep — sync across charts in real time.",
+      "heatmapTip": "Press and hold on the health metrics to see the values. The activity heatmap updates to match.",
       "fitnessTitle": "Fitness Overview",
       "fitnessBody": "Track your fitness, fatigue, and form with color-coded zones. Know when you're fresh and ready to perform."
     }

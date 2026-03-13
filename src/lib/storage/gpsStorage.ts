@@ -564,7 +564,9 @@ export async function clearAllAppCaches(queryClient: { clear: () => void }): Pro
   // 2. Clear persisted query cache in AsyncStorage (critical!)
   await AsyncStorage.removeItem('veloq-query-cache');
 
-  // 3. Clear Rust engine cache
+  // 3. Clear Rust engine cache (deletes all rows from SQLite tables)
+  // Note: cannot delete the database file — Rust PERSISTENT_ENGINE global holds
+  // the connection and VeloqEngine.create() skips re-init if the global is Some.
   const routeEngine = getRouteEngine();
   if (routeEngine) routeEngine.clear();
 

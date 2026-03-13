@@ -18,7 +18,6 @@
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import type { Camera } from '@maplibre/maplibre-react-native';
 import { normalizeBounds, getBoundsCenter } from '@/lib';
-import { getMapCameraState } from '@/lib/storage/mapCameraState';
 import type { ActivityBoundsItem } from '@/types';
 import type { RouteSignature } from '@/hooks/routes';
 
@@ -33,10 +32,8 @@ interface UseMapCameraOptions {
 interface UseMapCameraResult {
   activityCenters: Record<string, [number, number]>;
   mapCenter: [number, number] | null;
-  currentCenter: [number, number] | null;
-  currentZoom: number;
-  setCurrentCenter: (v: [number, number] | null) => void;
-  setCurrentZoom: (v: number) => void;
+  currentZoomRef: React.MutableRefObject<number>;
+  currentCenterRef: React.MutableRefObject<[number, number] | null>;
   markUserInteracted: () => void;
 }
 
@@ -57,8 +54,11 @@ export function useMapCamera({
   mapKey,
   cameraRef,
 }: UseMapCameraOptions): UseMapCameraResult {
-  const [currentZoom, setCurrentZoom] = useState(10);
-  const [currentCenter, setCurrentCenter] = useState<[number, number] | null>(null);
+  // Refs for zoom/center avoid re-renders during map gestures.
+  // State updates from regionDidChange cause React re-renders that disrupt
+  // MapLibre gesture handling on Android, causing camera snap-back.
+  const currentZoomRef = useRef(10);
+  const currentCenterRef = useRef<[number, number] | null>(null);
 
   // ===========================================
   // 120HZ OPTIMIZATION: Pre-compute and cache activity start positions
@@ -97,91 +97,107 @@ export function useMapCamera({
   // repositioning, keeping programmaticMoveRef=true indefinitely and blocking user interaction.
   const hasAutoRepositionedRef = useRef(false);
 
-  // Calculate bounds from activities (used for initial camera position and auto-reposition)
-  // Uses normalizeBounds to auto-detect coordinate format from API
-  //
-  // Compact areas (zoom >= 4, sub-continental scale):
-  //   fitBounds to the full extent with 500ms animation
-  //
-  // World-spanning areas (zoom < 4, e.g. US + Europe):
-  //   setCamera to the most recent activity's center at a sensible zoom (instant, no animation).
-  //   fitBounds on a multi-continent extent produces an ocean view and its animation fights
-  //   user pan gestures while it runs.
+  // Calculate bounds from activities for initial camera position.
+  // When activities span multiple regions, finds the densest cluster
+  // (where most activities are) rather than zooming out to fit everything.
   const calculateBoundsAndCenter = useCallback(
     (activityList: ActivityBoundsItem[]): BoundsData | null => {
       if (activityList.length === 0) return null;
 
+      // Compute center of each activity
+      const centers: { lat: number; lng: number }[] = [];
+      for (const activity of activityList) {
+        const n = normalizeBounds(activity.bounds);
+        centers.push({
+          lat: (n.minLat + n.maxLat) / 2,
+          lng: (n.minLng + n.maxLng) / 2,
+        });
+      }
+
+      // Find the densest cluster: for each activity, count how many others are
+      // within ~200km (~2 degrees). The activity with the most neighbours defines
+      // the cluster center, and the cluster includes all activities within range.
+      const CLUSTER_RADIUS_DEG = 2;
+      let bestIdx = 0;
+      let bestCount = 0;
+      for (let i = 0; i < centers.length; i++) {
+        let count = 0;
+        for (let j = 0; j < centers.length; j++) {
+          const dLat = Math.abs(centers[i].lat - centers[j].lat);
+          const dLng = Math.abs(centers[i].lng - centers[j].lng);
+          if (dLat <= CLUSTER_RADIUS_DEG && dLng <= CLUSTER_RADIUS_DEG) {
+            count++;
+          }
+        }
+        if (count > bestCount) {
+          bestCount = count;
+          bestIdx = i;
+        }
+      }
+
+      // Collect all activities in the winning cluster
+      const clusterActivities: ActivityBoundsItem[] = [];
+      for (let j = 0; j < centers.length; j++) {
+        const dLat = Math.abs(centers[bestIdx].lat - centers[j].lat);
+        const dLng = Math.abs(centers[bestIdx].lng - centers[j].lng);
+        if (dLat <= CLUSTER_RADIUS_DEG && dLng <= CLUSTER_RADIUS_DEG) {
+          clusterActivities.push(activityList[j]);
+        }
+      }
+
+      // Compute bounds from the cluster (or all activities if they're all in one cluster)
       let minLat = Infinity,
         maxLat = -Infinity;
       let minLng = Infinity,
         maxLng = -Infinity;
-
-      for (const activity of activityList) {
-        const normalized = normalizeBounds(activity.bounds);
-        minLat = Math.min(minLat, normalized.minLat);
-        maxLat = Math.max(maxLat, normalized.maxLat);
-        minLng = Math.min(minLng, normalized.minLng);
-        maxLng = Math.max(maxLng, normalized.maxLng);
+      for (const activity of clusterActivities) {
+        const n = normalizeBounds(activity.bounds);
+        minLat = Math.min(minLat, n.minLat);
+        maxLat = Math.max(maxLat, n.maxLat);
+        minLng = Math.min(minLng, n.minLng);
+        maxLng = Math.max(maxLng, n.maxLng);
       }
 
-      // Calculate zoom level based on full bounds span
-      // Using Mercator projection formula: zoom = log2(360 / lonSpan) or log2(180 / latSpan)
+      // Full bounds (all activities) for reference
+      let fullMinLat = Infinity,
+        fullMaxLat = -Infinity;
+      let fullMinLng = Infinity,
+        fullMaxLng = -Infinity;
+      for (const activity of activityList) {
+        const n = normalizeBounds(activity.bounds);
+        fullMinLat = Math.min(fullMinLat, n.minLat);
+        fullMaxLat = Math.max(fullMaxLat, n.maxLat);
+        fullMinLng = Math.min(fullMinLng, n.minLng);
+        fullMaxLng = Math.max(fullMaxLng, n.maxLng);
+      }
+
+      const centerLng = (minLng + maxLng) / 2;
+      const centerLat = (minLat + maxLat) / 2;
+
+      // Check if cluster covers most activities (>= 70%) — if so, just use it.
+      // Otherwise fall back to the cluster anyway (better than an ocean view).
       const latSpan = maxLat - minLat;
       const lngSpan = maxLng - minLng;
       const latZoom = Math.log2(180 / (latSpan || 1)) - 0.5;
       const lngZoom = Math.log2(360 / (lngSpan || 1)) - 0.5;
-      // Use the smaller zoom (shows more area) to fit all activities
       const zoomLevel = Math.max(1, Math.min(latZoom, lngZoom));
 
-      const COMPACT_AREA_MIN_ZOOM = 4;
-      const worldSpanning = zoomLevel < COMPACT_AREA_MIN_ZOOM;
-
-      let centerLng: number, centerLat: number;
-      let targetBounds: { ne: [number, number]; sw: [number, number] };
-      let recentZoom: number;
-
-      if (!worldSpanning) {
-        centerLng = (minLng + maxLng) / 2;
-        centerLat = (minLat + maxLat) / 2;
-        targetBounds = {
-          ne: [maxLng, maxLat] as [number, number],
-          sw: [minLng, minLat] as [number, number],
-        };
-        recentZoom = zoomLevel; // unused in compact path
-      } else {
-        // World-spanning: target the most recent single activity, not the midpoint of the ocean.
-        const sortedByDate = [...activityList].sort((a, b) =>
-          (b.date || '').localeCompare(a.date || '')
-        );
-        const recentBounds = normalizeBounds(sortedByDate[0].bounds);
-        centerLng = (recentBounds.minLng + recentBounds.maxLng) / 2;
-        centerLat = (recentBounds.minLat + recentBounds.maxLat) / 2;
-
-        // Compute zoom from the single activity's bounds — generous padding so context is visible.
-        // Capped 9–12: prevents zooming to a useless world view or an extreme street-level zoom.
-        const rLatSpan = recentBounds.maxLat - recentBounds.minLat;
-        const rLngSpan = recentBounds.maxLng - recentBounds.minLng;
-        const rLatZoom = Math.log2(180 / (rLatSpan || 0.1)) - 1.0;
-        const rLngZoom = Math.log2(360 / (rLngSpan || 0.1)) - 1.0;
-        recentZoom = Math.max(9, Math.min(12, Math.min(rLatZoom, rLngZoom)));
-
-        // targetBounds is set to the recent activity for logging; camera uses setCamera not fitBounds
-        targetBounds = {
-          ne: [recentBounds.maxLng, recentBounds.maxLat] as [number, number],
-          sw: [recentBounds.minLng, recentBounds.minLat] as [number, number],
-        };
-      }
+      // World-spanning if even the cluster is huge (unlikely but possible)
+      const worldSpanning = zoomLevel < 3;
 
       return {
         bounds: {
+          ne: [fullMaxLng, fullMaxLat] as [number, number],
+          sw: [fullMinLng, fullMinLat] as [number, number],
+        },
+        targetBounds: {
           ne: [maxLng, maxLat] as [number, number],
           sw: [minLng, minLat] as [number, number],
         },
-        targetBounds,
         center: [centerLng, centerLat] as [number, number],
         zoomLevel,
         worldSpanning,
-        recentZoom,
+        recentZoom: Math.max(5, Math.min(9, zoomLevel)),
       };
     },
     []
@@ -205,13 +221,12 @@ export function useMapCamera({
   const cachedData = initialBoundsRef.current;
   const mapCenter = currentData?.center ?? cachedData?.center ?? null;
 
-  // Initialize currentCenter from mapCenter for region-aware satellite source detection
-  // This effect runs when mapCenter is computed from activities and currentCenter hasn't been set yet
+  // Initialize currentCenterRef from mapCenter (no re-render needed)
   useEffect(() => {
-    if (mapCenter !== null && currentCenter === null) {
-      setCurrentCenter(mapCenter);
+    if (mapCenter !== null && currentCenterRef.current === null) {
+      currentCenterRef.current = mapCenter;
     }
-  }, [currentCenter, mapCenter]);
+  }, [mapCenter]);
 
   // Stable refs so markUserInteracted (a useCallback with no deps) can access current values.
   // Avoids adding activities/calculateBoundsAndCenter as deps, which would recreate the callback
@@ -230,52 +245,46 @@ export function useMapCamera({
     }
   }, [mapKey]);
 
-  /** Apply the computed camera position. Extracted to avoid duplication between the
-   *  immediate path (markUserInteracted) and the fallback effect.
-   *
-   *  Priority 1: Restore persisted camera position (user's last-viewed location).
-   *  Priority 2: First-ever open — use computed bounds from activity data. */
+  /** Apply the computed camera position — fit all activities with padding.
+   *  Uses fitBounds for proper pixel-based padding, then releases MapLibre
+   *  tracking state to prevent snap-back (same pattern as handleFitAll). */
   const applyPosition = useCallback(
     (data: BoundsData) => {
       hasAutoRepositionedRef.current = true;
       programmaticMoveRef.current = true;
 
-      // Priority 1: Restore persisted camera position (every major map app does this)
-      const saved = getMapCameraState();
-      if (saved) {
-        cameraRef.current?.setCamera({
-          centerCoordinate: saved.center,
-          zoomLevel: saved.zoom,
-          animationDuration: 0,
-        });
-        setTimeout(() => {
-          programmaticMoveRef.current = false;
-        }, 100);
-        return;
-      }
-
-      // Priority 2: First-ever open — use computed bounds
       if (data.worldSpanning) {
         // Multi-continent data: jump instantly to the most recent activity's area.
-        // Using setCamera (not fitBounds) avoids a slow animation that fights user pan gestures.
+        // fitBounds on world-spanning data produces an ocean view, so use setCamera.
         cameraRef.current?.setCamera({
           centerCoordinate: data.center,
           zoomLevel: data.recentZoom,
           animationDuration: 0,
+          animationMode: 'moveTo',
         });
         setTimeout(() => {
+          cameraRef.current?.setCamera({
+            animationDuration: 0,
+            animationMode: 'moveTo',
+          });
           programmaticMoveRef.current = false;
         }, 100);
       } else {
-        // Compact area: animate smoothly to fit all activities in view
+        // Compact area: fitBounds to show all activities with proper padding.
+        // Padding: [top, right, bottom, left] in pixels — bottom accounts for timeline slider.
         cameraRef.current?.fitBounds(
           data.targetBounds.ne,
           data.targetBounds.sw,
-          [60, 40, 260, 40],
+          [100, 60, 280, 60],
           500
         );
-        // NOTE: Do NOT call setCamera after fitBounds — resets camera to invalid position (Antarctica bug).
+        // Release MapLibre tracking state after animation completes — without this,
+        // the camera snaps back to the bounds after any user gesture.
         setTimeout(() => {
+          cameraRef.current?.setCamera({
+            animationDuration: 0,
+            animationMode: 'moveTo',
+          });
           programmaticMoveRef.current = false;
         }, 600);
       }
@@ -325,10 +334,8 @@ export function useMapCamera({
   return {
     activityCenters,
     mapCenter,
-    currentCenter,
-    currentZoom,
-    setCurrentCenter,
-    setCurrentZoom,
+    currentZoomRef,
+    currentCenterRef,
     markUserInteracted,
   };
 }

@@ -138,7 +138,7 @@ export const ActivityCard = React.memo(function ActivityCard({
   const activityColor = getActivityColor(activity.type);
   const iconName = getActivityIcon(activity.type);
   const location = formatLocation(activity);
-  const mapStyle = getStyleForActivity(activity.type, activity.id);
+  const mapStyle = getStyleForActivity(activity.type, activity.id, activity.country);
   const theme = getGradientTheme(isDark, mapStyle);
   const hasGpsData = activity.stream_types?.includes('latlng');
 

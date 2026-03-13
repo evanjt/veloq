@@ -136,18 +136,13 @@ export function RegionalMapView({
   const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
 
   // Camera, bounds, and pre-computed activity centers
-  const {
-    activityCenters,
-    mapCenter,
-    currentCenter,
-    currentZoom,
-    setCurrentCenter,
-    setCurrentZoom,
-    markUserInteracted,
-  } = useMapCamera({ activities, routeSignatures, mapKey, cameraRef });
+  const { activityCenters, mapCenter, currentZoomRef, currentCenterRef, markUserInteracted } =
+    useMapCamera({ activities, routeSignatures, mapKey, cameraRef });
 
-  // Show GPS traces when zoomed in past this level
+  // GPS trace visibility: zoom above threshold + activities visible.
+  // aboveTraceZoom is state updated by handlers only on threshold crossing (avoids re-renders during pan).
   const TRACE_ZOOM_THRESHOLD = 11;
+  const [aboveTraceZoom, setAboveTraceZoom] = useState(false);
   const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
@@ -164,22 +159,41 @@ export function RegionalMapView({
     return getMapStyle(mapStyle);
   }, [mapStyle]);
 
+  // Camera position for satellite attribution (updated by onCameraSettled callback, not on every gesture)
+  const [cameraForAttribution, setCameraForAttribution] = useState<{
+    center: [number, number];
+    zoom: number;
+  } | null>(null);
+
+  // Initialize satellite attribution from mapCenter when activities load
+  useEffect(() => {
+    if (mapCenter && !cameraForAttribution) {
+      setCameraForAttribution({ center: mapCenter, zoom: currentZoomRef.current });
+    }
+  }, [mapCenter, cameraForAttribution, currentZoomRef]);
+
+  // Stable callback for camera settle notifications (uses ref to avoid dep changes)
+  const mapStyleRef = useRef(mapStyle);
+  mapStyleRef.current = mapStyle;
+  const handleCameraSettled = useCallback((center: [number, number], zoom: number) => {
+    if (mapStyleRef.current === 'satellite') {
+      setCameraForAttribution({ center, zoom });
+    }
+  }, []);
+
   // Dynamic attribution based on visible satellite sources at current location
   const attributionText = useMemo(() => {
-    let result: string;
-    if (mapStyle === 'satellite' && currentCenter) {
+    if (mapStyle === 'satellite' && cameraForAttribution) {
       const satAttribution = getCombinedSatelliteAttribution(
-        currentCenter[1],
-        currentCenter[0],
-        currentZoom
+        cameraForAttribution.center[1],
+        cameraForAttribution.center[0],
+        cameraForAttribution.zoom
       );
-      result = is3DMode ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
-    } else {
-      const baseAttribution = MAP_ATTRIBUTIONS[mapStyle];
-      result = is3DMode ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
+      return is3DMode ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
     }
-    return result;
-  }, [mapStyle, currentCenter, currentZoom, is3DMode]);
+    const baseAttribution = MAP_ATTRIBUTIONS[mapStyle];
+    return is3DMode ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
+  }, [mapStyle, cameraForAttribution, is3DMode]);
 
   // Notify parent when attribution changes
   useEffect(() => {
@@ -203,8 +217,7 @@ export function RegionalMapView({
     return activities.filter((a) => visibleActivityIds.has(a.id));
   }, [activities, visibleActivityIds]);
 
-  // GPS trace visibility: zoomed in + activities visible
-  const showTraces = currentZoom >= TRACE_ZOOM_THRESHOLD && showActivities;
+  const showTraces = aboveTraceZoom && showActivities;
 
   // All GeoJSON data for map layers
   const {
@@ -264,8 +277,11 @@ export function RegionalMapView({
     setUserLocation,
     setLocationLoading,
     setVisibleActivityIds,
-    setCurrentZoom,
-    setCurrentCenter,
+    currentZoomRef,
+    currentCenterRef,
+    setAboveTraceZoom,
+    traceZoomThreshold: TRACE_ZOOM_THRESHOLD,
+    onCameraSettled: handleCameraSettled,
     cameraRef,
     map3DRef,
     bearingAnim,
@@ -385,8 +401,8 @@ export function RegionalMapView({
             coordinates={route3DCoords.length > 0 ? route3DCoords : undefined}
             mapStyle={mapStyle}
             routeColor={selected ? getActivityTypeConfig(selected.activity.type).color : undefined}
-            initialCenter={currentCenter ?? mapCenter ?? undefined}
-            initialZoom={currentZoom}
+            initialCenter={currentCenterRef.current ?? mapCenter ?? undefined}
+            initialZoom={currentZoomRef.current}
             routesGeoJSON={showRoutes ? (routesGeoJSON ?? undefined) : undefined}
             sectionsGeoJSON={showSections ? (sectionsGeoJSON ?? undefined) : undefined}
             // In 3D mode, use showActivities directly (no zoom check - 3D doesn't track zoom)

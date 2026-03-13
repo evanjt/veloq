@@ -142,9 +142,9 @@ describe('Demo Data Integration Tests', () => {
   });
 
   describe('Stress test fixtures', () => {
-    it('should generate 200 stress test activities with unique IDs', () => {
+    it('should generate 20 stress test activities with unique IDs', () => {
       const stressActivities = demoActivities.filter((a) => a.id.startsWith('demo-stress-'));
-      expect(stressActivities.length).toBe(200);
+      expect(stressActivities.length).toBe(20);
       const unique = new Set(stressActivities.map((a) => a.id));
       expect(unique.size).toBe(stressActivities.length);
     });

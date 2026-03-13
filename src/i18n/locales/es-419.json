@@ -986,9 +986,10 @@
     "v022": {
       "mapStylesTitle": "Mapas 3D y estilos",
       "mapStylesBody": "Elige estilos de mapa claro, oscuro o satélite con terreno 3D inteligente para actividades montañosas.",
-      "mapStylesHint": "Satélite de alta resolución disponible en Suiza y Francia El 3D inteligente se activa con +30 m de desnivel y +3 m/km de pendiente.",
+      "mapStylesHint": "Satélite de alta resolución disponible en Suiza y Francia. El 3D inteligente se activa con +30 m de desnivel y +3 m/km de pendiente.",
       "heatmapTitle": "Mapa de calor",
       "heatmapBody": "Tu calendario de entrenamiento en la página de Salud. Toca cualquier día para ver tus datos de bienestar — VFC, frecuencia cardíaca en reposo y sueño — sincronizados en tiempo real en todos los gráficos.",
+      "heatmapTip": "Mantén pulsado sobre las métricas de salud para ver los valores. El mapa de actividad se actualiza a la vez.",
       "fitnessTitle": "Resumen de fitness",
       "fitnessBody": "Sigue tu condición física, fatiga y forma con zonas codificadas por colores. Sabe cuándo estás fresco y listo para rendir."
     }

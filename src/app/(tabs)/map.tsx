@@ -10,7 +10,6 @@ import {
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
-import { initMapCameraState } from '@/lib/storage/mapCameraState';
 import {
   useActivityBoundsCache,
   useOldestActivityDate,
@@ -33,11 +32,6 @@ export default function MapScreen() {
   useEffect(() => {
     perfEndRef.current?.();
   });
-
-  // Load persisted camera position from AsyncStorage on first mount
-  useEffect(() => {
-    initMapCameraState();
-  }, []);
 
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();

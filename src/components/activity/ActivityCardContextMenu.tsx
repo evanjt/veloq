@@ -44,7 +44,7 @@ export function ActivityCardContextMenu({
     hasActivityOverride,
   } = useMapPreferences();
 
-  const currentStyle = getStyleForActivity(activity.type, activity.id);
+  const currentStyle = getStyleForActivity(activity.type, activity.id, activity.country);
   const currentTerrain = getTerrain3DMode(activity.type, activity.id);
   const is3DOn = currentTerrain === 'always';
   const hasOverride = hasActivityOverride(activity.id);

@@ -178,6 +178,14 @@ class RouteEngineClient {
     } catch {
       // Best-effort clear — reset local state regardless
     }
+    try {
+      // Drop the Rust PERSISTENT_ENGINE global so the next create() re-initializes
+      // from scratch. Without this, the global retains stale data (e.g., from demo mode)
+      // because create() skips init when the global is already Some.
+      this.engine?.destroy();
+    } catch {
+      // Best-effort destroy
+    }
     this.initialized = false;
     this.dbPath = null;
     this.engine = null;

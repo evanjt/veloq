@@ -610,6 +610,7 @@ export interface TranslationResource {
       mapStylesHint: string;
       heatmapTitle: string;
       heatmapBody: string;
+      heatmapTip: string;
       fitnessTitle: string;
       fitnessBody: string;
     };

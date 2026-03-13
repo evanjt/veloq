@@ -12,6 +12,7 @@ import { safeJsonParseWithSchema } from '@/lib/utils/validation';
 import type { MapStyleType } from '@/components/maps/mapStyles';
 import type { ActivityType, Terrain3DMode } from '@/types';
 import { isActivityType } from '@/types';
+import { useAuthStore } from './AuthStore';
 
 const STORAGE_KEY = 'veloq-map-preferences';
 const ACTIVITY_OVERRIDES_KEY = 'veloq-map-activity-overrides';
@@ -39,7 +40,11 @@ interface MapPreferencesContextValue {
     activityTypes: ActivityType[],
     style: MapStyleType | null
   ) => Promise<void>;
-  getStyleForActivity: (activityType: ActivityType, activityId?: string) => MapStyleType;
+  getStyleForActivity: (
+    activityType: ActivityType,
+    activityId?: string,
+    country?: string | null
+  ) => MapStyleType;
   setTerrain3DMode: (activityType: ActivityType | null, mode: Terrain3DMode) => Promise<void>;
   setTerrain3DModeGroup: (activityTypes: ActivityType[], mode: Terrain3DMode) => Promise<void>;
   getTerrain3DMode: (activityType: ActivityType, activityId?: string) => Terrain3DMode;
@@ -256,11 +261,15 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
   );
 
   // Get style for a specific activity type, with optional per-activity override
+  // In demo mode, Swiss activities default to satellite for scenic mountain imagery
   const getStyleForActivity = useCallback(
-    (activityType: ActivityType, activityId?: string): MapStyleType => {
+    (activityType: ActivityType, activityId?: string, country?: string | null): MapStyleType => {
       if (activityId) {
         const override = activityOverrides[activityId];
         if (override?.style) return override.style;
+      }
+      if (country === 'Switzerland' && useAuthStore.getState().isDemoMode) {
+        return 'satellite';
       }
       return preferences.activityTypeStyles[activityType] ?? preferences.defaultStyle;
     },

@@ -125,7 +125,7 @@ export function WhatsNewModal() {
     }
 
     const nextIndex = Math.min(current + 1, slideCount - 1);
-    showMe(nextIndex);
+    showMe(nextIndex, slide.showMeTip);
     router.navigate(slide.showMeRoute as Href);
   }, [activeIndex, slides, slideCount, showMe, setDefaultStyle, setTerrain3DMode]);
 

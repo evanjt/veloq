@@ -7,6 +7,7 @@ interface TourState {
   mode: 'whatsNew' | 'tutorial';
   resumeIndex: number;
   exploring: boolean;
+  tip: string | null;
 }
 
 interface WhatsNewState {
@@ -18,7 +19,7 @@ interface WhatsNewState {
   markSeen: (version: string) => Promise<void>;
 
   startTour: (mode: 'whatsNew' | 'tutorial') => void;
-  showMe: (nextIndex: number) => void;
+  showMe: (nextIndex: number, tip?: string) => void;
   resumeTour: () => void;
   endTour: () => void;
 }
@@ -47,13 +48,20 @@ export const useWhatsNewStore = create<WhatsNewState>((set) => ({
   },
 
   startTour: (mode) => {
-    set({ tourState: { mode, resumeIndex: 0, exploring: false } });
+    set({ tourState: { mode, resumeIndex: 0, exploring: false, tip: null } });
   },
 
-  showMe: (nextIndex) => {
+  showMe: (nextIndex, tip) => {
     set((state) => {
       if (!state.tourState) return state;
-      return { tourState: { ...state.tourState, resumeIndex: nextIndex, exploring: true } };
+      return {
+        tourState: {
+          ...state.tourState,
+          resumeIndex: nextIndex,
+          exploring: true,
+          tip: tip ?? null,
+        },
+      };
     });
   },
 

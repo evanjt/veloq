@@ -316,6 +316,8 @@ interface ActivityMapViewProps {
     bearing: number;
     pitch: number;
   } | null;
+  /** Activity country — used for demo mode satellite default on Swiss activities */
+  country?: string | null;
 }
 
 export const ActivityMapView = memo(function ActivityMapView({
@@ -343,10 +345,11 @@ export const ActivityMapView = memo(function ActivityMapView({
   highlightedSectionId,
   onCameraCapture,
   initial3DCamera,
+  country,
 }: ActivityMapViewProps) {
   const { t } = useTranslation();
   const { getStyleForActivity } = useMapPreferences();
-  const preferredStyle = getStyleForActivity(activityType, activityId);
+  const preferredStyle = getStyleForActivity(activityType, activityId, country);
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);

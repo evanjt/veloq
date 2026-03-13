@@ -989,6 +989,7 @@
       "mapStylesHint": "Satélite de alta resolução disponível para Suíça e França. O 3D inteligente se ativa para atividades com +30 m de desnível e +3 m/km de inclinação.",
       "heatmapTitle": "Mapa de calor",
       "heatmapBody": "Seu calendário de treino na página Saúde. Toque em um dia para ver seus dados de bem-estar — VFC, frequência cardíaca em repouso e sono — sincronizados em tempo real em todos os gráficos.",
+      "heatmapTip": "Mantenha pressionado nas métricas de saúde para ver os valores. O mapa de atividade se atualiza de acordo.",
       "fitnessTitle": "Resumo de fitness",
       "fitnessBody": "Acompanhe seu condicionamento, fadiga e forma com zonas codificadas por cores. Saiba quando você está descansado e pronto para render."
     }
