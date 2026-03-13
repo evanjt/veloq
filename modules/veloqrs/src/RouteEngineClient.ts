@@ -779,6 +779,44 @@ class RouteEngineClient {
     return { activityId: info?.activityId, isUserDefined: info?.isUserDefined ?? false };
   }
 
+  // ==========================================================================
+  // Section Bounds Trimming
+  // ==========================================================================
+
+  trimSection(sectionId: string, startIndex: number, endIndex: number): boolean {
+    if (!this.ready) return false;
+    validateId(sectionId, 'section ID');
+    try {
+      this.timed('trimSection', () =>
+        this.engine.sections().trim(sectionId, startIndex, endIndex),
+      );
+      this.notifyAll('sections');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  resetSectionBounds(sectionId: string): boolean {
+    if (!this.ready) return false;
+    validateId(sectionId, 'section ID');
+    try {
+      this.timed('resetSectionBounds', () => this.engine.sections().resetBounds(sectionId));
+      this.notifyAll('sections');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  hasOriginalBounds(sectionId: string): boolean {
+    if (!this.ready) return false;
+    validateId(sectionId, 'section ID');
+    return this.timed('hasOriginalBounds', () =>
+      this.engine.sections().hasOriginalBounds(sectionId),
+    );
+  }
+
   getDownloadProgress(): DownloadProgressResult {
     return gen().getDownloadProgress();
   }

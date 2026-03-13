@@ -229,6 +229,24 @@ impl SectionManager {
         })
     }
 
+    fn trim(&self, section_id: String, start_index: u32, end_index: u32) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.trim_section(&section_id, start_index, end_index)
+                .map_err(|e| VeloqError::Database { msg: e })
+        })?
+    }
+
+    fn reset_bounds(&self, section_id: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.reset_section_bounds(&section_id)
+                .map_err(|e| VeloqError::Database { msg: e })
+        })?
+    }
+
+    fn has_original_bounds(&self, section_id: String) -> Result<bool, VeloqError> {
+        with_engine(|e| e.has_original_bounds(&section_id))
+    }
+
     fn extract_traces_batch(
         &self,
         activity_ids: Vec<String>,

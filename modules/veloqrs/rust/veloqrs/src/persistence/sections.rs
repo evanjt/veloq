@@ -1087,9 +1087,9 @@ impl PersistentRouteEngine {
     fn save_sections(&self) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
 
-        // Clear existing auto sections (keep custom sections)
-        tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto')", [])?;
-        tx.execute("DELETE FROM sections WHERE section_type = 'auto'", [])?;
+        // Clear existing auto sections (keep custom sections and trimmed auto sections)
+        tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL)", [])?;
+        tx.execute("DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL", [])?;
 
         // Load existing section names to preserve user-set names (from custom sections)
         let existing_names: HashMap<String, String> = {

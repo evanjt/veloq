@@ -10,7 +10,7 @@ use super::PersistentRouteEngine;
 impl PersistentRouteEngine {
     /// Current schema version for app-level tracking.
     /// This is separate from rusqlite_migration and tracks the overall schema state.
-    pub(super) const SCHEMA_VERSION: i32 = 7; // v0.1.4 schema (pace_history table)
+    pub(super) const SCHEMA_VERSION: i32 = 8; // v0.2.0 schema (section original_polyline_json for trim)
 
     /// Get the database migrations.
     /// Each migration is applied in order, tracked in `__rusqlite_migrations` table.
@@ -38,6 +38,8 @@ impl PersistentRouteEngine {
             M::up(include_str!("../migrations/010_route_groups_activity_count.sql")),
             // M11: Pace history cache for running/swimming trend tracking
             M::up(include_str!("../migrations/011_pace_history.sql")),
+            // M12: Original polyline backup for section bounds trimming
+            M::up(include_str!("../migrations/012_section_original_polyline.sql")),
         ])
     }
 

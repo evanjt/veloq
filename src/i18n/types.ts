@@ -821,6 +821,15 @@ export interface TranslationResource {
     resetReference: string;
     resetReferenceConfirm: string;
     referenceUpdated: string;
+    editBounds: string;
+    trimming: string;
+    resetBounds: string;
+    resetBoundsConfirm: string;
+    boundsModified: string;
+    trimFailed: string;
+    trimTooShort: string;
+    originalDistance: string;
+    points: string;
     traversalsCount: string;
     visitsCount: string;
     bestPerWeek: string;

@@ -685,6 +685,233 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Trim a section's bounds by slicing its polyline to the given index range.
+    /// Backs up the original polyline on first trim (preserves true original across multiple trims).
+    /// Re-matches all activities against the new trimmed polyline.
+    pub fn trim_section(
+        &mut self,
+        section_id: &str,
+        start_index: u32,
+        end_index: u32,
+    ) -> Result<(), String> {
+        // Load current polyline
+        let polyline_json: String = self
+            .db
+            .query_row(
+                "SELECT polyline_json FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .map_err(|_| format!("Section not found: {}", section_id))?;
+
+        let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
+            .map_err(|e| format!("Failed to parse polyline: {}", e))?;
+
+        // Validate indices
+        let start = start_index as usize;
+        let end = end_index as usize;
+        if start >= end {
+            return Err("Start index must be less than end index".to_string());
+        }
+        if end >= polyline.len() {
+            return Err(format!(
+                "End index {} out of bounds (polyline has {} points)",
+                end,
+                polyline.len()
+            ));
+        }
+        if end - start + 1 < 5 {
+            return Err("Trimmed section must have at least 5 points".to_string());
+        }
+
+        // Slice the polyline
+        let trimmed: Vec<GpsPoint> = polyline[start..=end].to_vec();
+
+        // Check minimum distance (50m)
+        let distance = calculate_polyline_distance(&trimmed);
+        if distance < 50.0 {
+            return Err("Trimmed section must be at least 50 meters".to_string());
+        }
+
+        // Back up original polyline if not already backed up
+        let has_original: bool = self
+            .db
+            .query_row(
+                "SELECT original_polyline_json IS NOT NULL FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+
+        if !has_original {
+            self.db
+                .execute(
+                    "UPDATE sections SET original_polyline_json = polyline_json WHERE id = ?",
+                    params![section_id],
+                )
+                .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
+        }
+
+        // Compute new bounds and distance
+        let bounds = tracematch::geo_utils::compute_bounds(&trimmed);
+        let trimmed_json =
+            serde_json::to_string(&trimmed).unwrap_or_else(|_| "[]".to_string());
+        let updated_at = chrono::Utc::now().to_rfc3339();
+
+        // Update section
+        self.db
+            .execute(
+                "UPDATE sections SET
+                    polyline_json = ?,
+                    distance_meters = ?,
+                    is_user_defined = 1,
+                    updated_at = ?,
+                    bounds_min_lat = ?,
+                    bounds_max_lat = ?,
+                    bounds_min_lng = ?,
+                    bounds_max_lng = ?
+                 WHERE id = ?",
+                params![
+                    trimmed_json,
+                    distance,
+                    updated_at,
+                    bounds.min_lat,
+                    bounds.max_lat,
+                    bounds.min_lng,
+                    bounds.max_lng,
+                    section_id
+                ],
+            )
+            .map_err(|e| format!("Failed to update section: {}", e))?;
+
+        // Re-match activities against new polyline
+        // For custom sections, scan ALL activities by sport (not just previously matched)
+        let section_type: String = self
+            .db
+            .query_row(
+                "SELECT section_type FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or_else(|_| "auto".to_string());
+
+        if section_type == "custom" {
+            let sport_type: String = self
+                .db
+                .query_row(
+                    "SELECT sport_type FROM sections WHERE id = ?",
+                    params![section_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or_else(|_| "Ride".to_string());
+
+            // Clear existing matches first, then scan all activities
+            self.db
+                .execute(
+                    "DELETE FROM section_activities WHERE section_id = ?",
+                    params![section_id],
+                )
+                .map_err(|e| format!("Failed to clear section activities: {}", e))?;
+            self.match_activities_to_section(section_id, &trimmed, &sport_type)?;
+        } else {
+            self.rematch_section_activities(section_id, &trimmed)?;
+        }
+
+        // Invalidate caches
+        self.invalidate_section_cache(section_id);
+        self.refresh_section_in_memory(section_id);
+
+        Ok(())
+    }
+
+    /// Reset a section's bounds to the original (pre-trim) polyline.
+    /// Restores the backed-up original_polyline_json and re-matches activities.
+    /// For auto sections, clears is_user_defined. For custom sections, preserves it.
+    pub fn reset_section_bounds(&mut self, section_id: &str) -> Result<(), String> {
+        // Load original polyline and section type
+        let (original_json, section_type, sport_type): (Option<String>, String, String) = self
+            .db
+            .query_row(
+                "SELECT original_polyline_json, section_type, sport_type FROM sections WHERE id = ?",
+                params![section_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .map_err(|_| format!("Section not found: {}", section_id))?;
+
+        let original_json =
+            original_json.ok_or_else(|| "Section has no original bounds to restore".to_string())?;
+
+        let original: Vec<GpsPoint> = serde_json::from_str(&original_json)
+            .map_err(|e| format!("Failed to parse original polyline: {}", e))?;
+
+        // Recompute distance and bounds
+        let distance = calculate_polyline_distance(&original);
+        let bounds = tracematch::geo_utils::compute_bounds(&original);
+        let updated_at = chrono::Utc::now().to_rfc3339();
+
+        // Custom sections are always user-defined; auto sections revert to algorithm-defined
+        let is_user_defined = if section_type == "custom" { 1 } else { 0 };
+
+        // Restore polyline and clear original backup
+        self.db
+            .execute(
+                "UPDATE sections SET
+                    polyline_json = ?,
+                    original_polyline_json = NULL,
+                    distance_meters = ?,
+                    is_user_defined = ?,
+                    updated_at = ?,
+                    bounds_min_lat = ?,
+                    bounds_max_lat = ?,
+                    bounds_min_lng = ?,
+                    bounds_max_lng = ?
+                 WHERE id = ?",
+                params![
+                    original_json,
+                    distance,
+                    is_user_defined,
+                    updated_at,
+                    bounds.min_lat,
+                    bounds.max_lat,
+                    bounds.min_lng,
+                    bounds.max_lng,
+                    section_id
+                ],
+            )
+            .map_err(|e| format!("Failed to restore section bounds: {}", e))?;
+
+        // Re-match activities against restored polyline
+        // For custom sections, scan ALL activities by sport (not just previously matched)
+        if section_type == "custom" {
+            self.db
+                .execute(
+                    "DELETE FROM section_activities WHERE section_id = ?",
+                    params![section_id],
+                )
+                .map_err(|e| format!("Failed to clear section activities: {}", e))?;
+            self.match_activities_to_section(section_id, &original, &sport_type)?;
+        } else {
+            self.rematch_section_activities(section_id, &original)?;
+        }
+
+        // Invalidate caches
+        self.invalidate_section_cache(section_id);
+        self.refresh_section_in_memory(section_id);
+
+        Ok(())
+    }
+
+    /// Check if a section has original (pre-trim) bounds that can be restored.
+    pub fn has_original_bounds(&self, section_id: &str) -> bool {
+        self.db
+            .query_row(
+                "SELECT original_polyline_json IS NOT NULL FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false)
+    }
+
     /// Delete a section.
     pub fn delete_section(&mut self, section_id: &str) -> Result<(), String> {
         // Junction table entries are deleted via CASCADE
