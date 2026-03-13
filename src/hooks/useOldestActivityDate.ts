@@ -16,7 +16,7 @@ export function useOldestActivityDate() {
       const dateStr = await intervalsApi.getOldestActivityDate();
       return dateStr ? new Date(dateStr) : null;
     },
-    staleTime: 24 * 60 * 60 * 1000, // 24 hours - oldest date rarely changes
+    staleTime: 0, // Always refetch on mount — prevents stale null from persisting
     gcTime: 7 * 24 * 60 * 60 * 1000, // Keep in cache for 7 days
   });
 }

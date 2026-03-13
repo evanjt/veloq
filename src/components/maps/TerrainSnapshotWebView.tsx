@@ -268,9 +268,13 @@ function generateWorkerHtml(id: number): string {
 
     window.map.on('error', function(e) {
       var msg = e.error ? e.error.message : JSON.stringify(e);
+      // Only count server errors (429, 5xx) and network failures as tile errors.
+      // 404s are expected from regional satellite sources (swisstopo, eox, ign)
+      // that return 404 for tiles outside their coverage area.
+      var status = e.error && e.error.status;
+      if (status === 404 || /HTTP 404/.test(msg)) return;
       window._rn_log('Map error: ' + msg);
-      // Count tile-related errors (HTTP failures, 404s, network errors, source errors)
-      if (e.sourceId || (e.error && (e.error.status >= 400 || /tile|source|fetch|network|load/i.test(msg)))) {
+      if (e.sourceId || (e.error && (status >= 400 || /tile|source|fetch|network|load/i.test(msg)))) {
         window._tileErrorCount++;
       }
     });
@@ -987,12 +991,13 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
 
             const currentRequest = worker.currentRequestRef.current;
             worker.currentRequestRef.current = null;
+            const tileErrors = data.tileErrors ?? 0;
             const attempt = currentRequest?._retryAttempt ?? 0;
 
             if (currentRequest && attempt < MAX_SNAPSHOT_RETRIES) {
               // Retry: push back to front of queue with incremented attempt
               console.warn(
-                `[TerrainSnapshot:${data.workerId}] Scheduling retry for ${data.activityId} (attempt ${attempt + 1}, error: ${data.error}, tile errors: ${data.tileErrors ?? 0})`
+                `[TerrainSnapshot:${data.workerId}] Scheduling retry for ${data.activityId} (attempt ${attempt + 1}, error: ${data.error}, tile errors: ${tileErrors})`
               );
               queueRef.current.unshift({
                 ...currentRequest,
@@ -1003,7 +1008,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             } else {
               // Exhausted retries — save for later re-attempt
               console.warn(
-                `[TerrainSnapshot:${data.workerId}] Giving up on ${data.activityId} (error: ${data.error}, tile errors: ${data.tileErrors ?? 0})`
+                `[TerrainSnapshot:${data.workerId}] Giving up on ${data.activityId} (error: ${data.error}, tile errors: ${tileErrors})`
               );
               if (currentRequest) {
                 failedRequestsRef.current.push({

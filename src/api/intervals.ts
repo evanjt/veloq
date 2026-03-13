@@ -133,26 +133,22 @@ export const intervalsApi = {
     if (isDemoMode()) return mockIntervalsApi.getOldestActivityDate();
     const athleteId = getAthleteId();
 
-    try {
-      const response = await apiClient.get(`/athlete/${athleteId}/activities`, {
-        params: {
-          oldest: '2000-01-01',
-          newest: formatLocalDate(new Date()),
-          fields: 'id,start_date_local',
-        },
-      });
+    const response = await apiClient.get(`/athlete/${athleteId}/activities`, {
+      params: {
+        oldest: '2000-01-01',
+        newest: formatLocalDate(new Date()),
+        fields: 'id,start_date_local',
+      },
+    });
 
-      const activities = response.data as Activity[];
-      if (activities.length === 0) return null;
+    const activities = response.data as Activity[];
+    if (activities.length === 0) return null;
 
-      // intervals.icu returns newest-first, so find the minimum date
-      return activities.reduce(
-        (oldest, a) => (a.start_date_local < oldest ? a.start_date_local : oldest),
-        activities[0].start_date_local
-      );
-    } catch {
-      return null;
-    }
+    // intervals.icu returns newest-first, so find the minimum date
+    return activities.reduce(
+      (oldest, a) => (a.start_date_local < oldest ? a.start_date_local : oldest),
+      activities[0].start_date_local
+    );
   },
 
   async getActivityStreams(id: string, types?: string[]): Promise<ActivityStreams> {

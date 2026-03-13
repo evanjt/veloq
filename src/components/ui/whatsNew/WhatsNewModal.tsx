@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import { useWhatsNewStore, useMapPreferences } from '@/providers';
+import { useWhatsNewStore, useMapPreferences, useAuthStore } from '@/providers';
 import { WHATS_NEW_SLIDES, getAllSlides } from './slides';
 import { WhatsNewSlide } from './WhatsNewSlide';
 
@@ -40,17 +40,19 @@ export function WhatsNewModal() {
   const showMe = useWhatsNewStore((s) => s.showMe);
   const endTour = useWhatsNewStore((s) => s.endTour);
   const { setDefaultStyle, setTerrain3DMode } = useMapPreferences();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const currentVersion = Constants.expoConfig?.version ?? '';
   const versionSlides = WHATS_NEW_SLIDES[currentVersion] ?? [];
   const allSlides = useMemo(() => getAllSlides(), []);
   const isAutoTriggered = lastSeenVersion !== currentVersion;
 
-  // Auto-trigger tour when new version slides are available
+  // Auto-trigger tour when new version slides are available (only after login)
   const hasAutoTriggered = useRef(false);
   useEffect(() => {
     if (
       isLoaded &&
+      isAuthenticated &&
       !hasAutoTriggered.current &&
       lastSeenVersion !== currentVersion &&
       versionSlides.length > 0 &&
@@ -59,7 +61,15 @@ export function WhatsNewModal() {
       hasAutoTriggered.current = true;
       startTour('whatsNew');
     }
-  }, [isLoaded, lastSeenVersion, currentVersion, versionSlides.length, tourState, startTour]);
+  }, [
+    isLoaded,
+    isAuthenticated,
+    lastSeenVersion,
+    currentVersion,
+    versionSlides.length,
+    tourState,
+    startTour,
+  ]);
 
   const slides =
     tourState?.mode === 'tutorial'
