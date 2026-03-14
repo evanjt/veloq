@@ -147,13 +147,18 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         throw new Error('Route engine not initialized');
       }
 
+      // Generate date-stamped default name if none provided
+      const name =
+        params.name ??
+        `${params.sportType} Section (${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`;
+
       // Create section via unified FFI
       const sectionId = engine.createSectionFromIndices(
         params.sourceActivityId,
         params.startIndex,
         params.endIndex,
         params.sportType,
-        params.name
+        name
       );
 
       if (!sectionId) {
