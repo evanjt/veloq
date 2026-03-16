@@ -4,10 +4,10 @@ export type InsightCategory =
   | 'period_comparison'
   | 'activity_pattern'
   | 'training_consistency'
-  | 'recovery_readiness'
-  | 'workload_risk'
-  | 'section_performance'
-  | 'form_trajectory';
+  | 'hrv_trend'
+  | 'tsb_form'
+  | 'weekly_load'
+  | 'intensity_context';
 
 export type InsightPriority = 1 | 2 | 3 | 4 | 5;
 
@@ -27,11 +27,18 @@ export interface InsightAlternative {
   thresholds?: DataPoint[];
 }
 
+export interface InsightReference {
+  citation: string;
+  url?: string;
+}
+
 export interface InsightMethodology {
   name: string;
   description: string;
   formula?: string;
   reference?: string;
+  referenceUrl?: string;
+  references?: InsightReference[];
 }
 
 export interface SupportingSection {

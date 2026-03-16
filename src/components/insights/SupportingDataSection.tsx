@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, opacity, shadows } from '@/theme';
 import { DataPointRow } from './DataPointRow';
 import type { InsightSupportingData } from '@/types';
+
+const SPARKLINE_HEIGHT = 60;
 
 interface SupportingDataSectionProps {
   data: InsightSupportingData;
@@ -37,6 +40,44 @@ function computeSparklineTrend(data: number[]): { direction: string; change: str
   return { direction, change: `${pct > 0 ? '+' : ''}${pct.toFixed(0)}%` };
 }
 
+function buildSparklinePath(
+  data: number[],
+  width: number,
+  height: number,
+  padding: number
+): string {
+  if (data.length < 2) return '';
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const drawH = height - padding * 2;
+  const stepX = width / (data.length - 1);
+
+  const points = data.map((v, i) => ({
+    x: i * stepX,
+    y: padding + drawH - ((v - min) / range) * drawH,
+  }));
+
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length; i++) {
+    d += ` L ${points[i].x} ${points[i].y}`;
+  }
+  return d;
+}
+
+function buildSparklineAreaPath(
+  data: number[],
+  width: number,
+  height: number,
+  padding: number
+): string {
+  const linePath = buildSparklinePath(data, width, height, padding);
+  if (!linePath) return '';
+  const stepX = width / (data.length - 1);
+  const lastX = (data.length - 1) * stepX;
+  return `${linePath} L ${lastX} ${height} L 0 ${height} Z`;
+}
+
 export const SupportingDataSection = React.memo(function SupportingDataSection({
   data,
 }: SupportingDataSectionProps) {
@@ -45,9 +86,21 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
   const router = useRouter();
 
   const hasDataPoints = data.dataPoints && data.dataPoints.length > 0;
-  const hasSparkline = data.sparklineData && data.sparklineData.length > 0;
+  const hasSparkline = data.sparklineData && data.sparklineData.length >= 2;
   const hasComparison = data.comparisonData != null;
   const hasSections = data.sections && data.sections.length > 0;
+
+  const sparklineTrend = useMemo(
+    () => (hasSparkline ? computeSparklineTrend(data.sparklineData!) : null),
+    [hasSparkline, data.sparklineData]
+  );
+
+  const trendColor = useMemo(() => {
+    if (!sparklineTrend) return colors.success;
+    if (sparklineTrend.direction === 'trending-up') return colors.success;
+    if (sparklineTrend.direction === 'trending-down') return colors.error;
+    return isDark ? darkColors.textSecondary : colors.textSecondary;
+  }, [sparklineTrend, isDark]);
 
   return (
     <View style={styles.container}>
@@ -56,43 +109,35 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
         ? data.dataPoints!.map((dp, i) => <DataPointRow key={`dp-${i}`} dataPoint={dp} />)
         : null}
 
-      {/* Sparkline (text-based trend representation) */}
+      {/* Sparkline — Skia Canvas with gradient fill */}
       {hasSparkline ? (
         <View style={[styles.sparklineCard, isDark && styles.sparklineCardDark]}>
-          {data.sparklineLabel ? (
-            <Text style={[styles.sparklineLabel, isDark && styles.sparklineLabelDark]}>
-              {data.sparklineLabel}
-            </Text>
-          ) : null}
-          {(() => {
-            const trend = computeSparklineTrend(data.sparklineData!);
-            return (
+          <View style={styles.sparklineHeader}>
+            {data.sparklineLabel ? (
+              <Text style={[styles.sparklineLabel, isDark && styles.sparklineLabelDark]}>
+                {data.sparklineLabel}
+              </Text>
+            ) : null}
+            {sparklineTrend ? (
               <View style={styles.sparklineTrend}>
                 <MaterialCommunityIcons
-                  name={trend.direction as never}
-                  size={20}
-                  color={
-                    trend.direction === 'trending-up'
-                      ? colors.success
-                      : trend.direction === 'trending-down'
-                        ? colors.error
-                        : isDark
-                          ? darkColors.textSecondary
-                          : colors.textSecondary
-                  }
+                  name={sparklineTrend.direction as never}
+                  size={18}
+                  color={trendColor}
                 />
                 <Text
                   style={[
                     styles.sparklineChange,
-                    trend.direction === 'trending-up' && styles.sparklinePositive,
-                    trend.direction === 'trending-down' && styles.sparklineNegative,
+                    sparklineTrend.direction === 'trending-up' && styles.sparklinePositive,
+                    sparklineTrend.direction === 'trending-down' && styles.sparklineNegative,
                   ]}
                 >
-                  {trend.change}
+                  {sparklineTrend.change}
                 </Text>
               </View>
-            );
-          })()}
+            ) : null}
+          </View>
+          <SparklineChart data={data.sparklineData!} color={trendColor} />
         </View>
       ) : null}
 
@@ -211,15 +256,48 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
   );
 });
 
+/** Inline Skia sparkline with gradient fill */
+const SparklineChart = React.memo(function SparklineChart({
+  data,
+  color,
+}: {
+  data: number[];
+  color: string;
+}) {
+  const WIDTH = 280;
+  const PADDING = 4;
+
+  const linePath = useMemo(
+    () => buildSparklinePath(data, WIDTH, SPARKLINE_HEIGHT, PADDING),
+    [data]
+  );
+  const areaPath = useMemo(
+    () => buildSparklineAreaPath(data, WIDTH, SPARKLINE_HEIGHT, PADDING),
+    [data]
+  );
+
+  if (!linePath) return null;
+
+  return (
+    <Canvas style={{ width: WIDTH, height: SPARKLINE_HEIGHT }}>
+      <Path path={areaPath} style="fill">
+        <LinearGradient
+          start={vec(0, 0)}
+          end={vec(0, SPARKLINE_HEIGHT)}
+          colors={[`${color}40`, `${color}05`]}
+        />
+      </Path>
+      <Path path={linePath} style="stroke" strokeWidth={2} color={color} />
+    </Canvas>
+  );
+});
+
 const styles = StyleSheet.create({
   container: {
     marginTop: spacing.sm,
   },
   // Sparkline
   sparklineCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: opacity.overlay.subtle,
     borderRadius: 10,
     padding: spacing.sm,
@@ -227,6 +305,12 @@ const styles = StyleSheet.create({
   },
   sparklineCardDark: {
     backgroundColor: opacity.overlayDark.light,
+  },
+  sparklineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
   },
   sparklineLabel: {
     fontSize: 13,

@@ -209,13 +209,8 @@
     "syncComplete": "Synchronisatie voltooid",
     "syncFailed": "Synchronisatie mislukt",
     "syncResetDiscarded": "Sync gereset - resultaten verwijderd",
-    "analyzingRouteGroups": "Routes analyseren...",
-    "detectingSectionsProgress": "Secties detecteren... {{percent}}%",
-    "downloadingActivities": "Activiteiten downloaden...",
     "downloadingTiles": "Kaarttegels worden gecacht",
-    "processingGpsTracks": "GPS-sporen verwerken...",
     "renderingTerrainPreviews": "3D-voorbeelden renderen",
-    "syncComplete": "Synchronisatie voltooid",
     "syncingActivities": "Activiteiten synchroniseren"
   },
   "chartTypes": {
@@ -396,11 +391,11 @@
     "understandingMetrics": "De statistieken begrijpen"
   },
   "formZones": {
+    "detraining": "Overgang",
     "fresh": "Fris",
-    "greyZone": "Grijze zone",
-    "highRisk": "Hoog risico",
-    "optimal": "Optimaal",
-    "transition": "Overgang"
+    "maintenance": "Grijze zone",
+    "productive": "Optimaal",
+    "deepFatigue": "Hoog risico"
   },
   "healthScreen": {
     "title": "Gezondheid"
@@ -642,6 +637,9 @@
     "gpsAcquiring": "Wachten op GPS...",
     "gpsReady": "Opname starten",
     "gpsWeakWarning": "GPS-signaal zwak — opname kan onnauwkeurig zijn",
+    "backgroundNotificationTitle": "Activiteit opnemen",
+    "backgroundNotificationBody": "Veloq volgt je locatie",
+    "trimmed": "Bijgesneden",
     "splitBanner": "{{unit}} {{index}} — {{pace}}",
     "settings": "Opname-instellingen",
     "settingsAutoPause": "Auto-pauze",
@@ -659,8 +657,6 @@
     "sectionTrendSummaryBody": "Verbetering: {{names}}. {{stable}} stabiel, {{declining}} dalend.",
     "sectionImproving": "{{name}} wordt sneller",
     "sectionImprovingBody": "Recente mediaan: {{median}}. Beste: {{best}} over {{count}} pogingen.",
-    "sectionDeclining": "{{name}} wordt langzamer",
-    "sectionDecliningBody": "Recente mediaan: {{median}} tegen beste van {{best}}. Tijd om te herzien?",
     "ftpIncrease": "FTP +{{delta}}W",
     "paceImproved": "Tempo verbeterd {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% weekvolume",
@@ -670,26 +666,10 @@
     "loadBody": "TSS: {{currentTss}} deze week vs {{previousTss}} vorige week. Duur: {{currentDuration}} vs {{previousDuration}}.",
     "patternMatch": "{{day}} - meestal {{verb}} ~{{duration}}",
     "consistencyStreak": "{{count}}-weken reeks",
-    "peakFitness": "Piekfitness: {{value}} CTL",
-    "formAdvice": {
-      "fresh": "Goede dag voor intensiteit",
-      "grey": "Matige inspanning aanbevolen",
-      "optimal": "Piekvorm-venster",
-      "tired": "Overweeg herstel",
-      "overreaching": "Rust aanbevolen"
-    },
     "volumeBody": "Trainingsduur: {{current}} deze week vs {{previous}} vorige week. Dit meet tijd, niet trainingsbelasting (TSS).",
-    "formBody": {
-      "fresh": "Je vorm (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Vermoeidheid (ATL: {{atl}}). Frisse zone — goed hersteld, goede dag voor zware inspanningen.",
-      "grey": "Je vorm (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Vermoeidheid (ATL: {{atl}}). Overgangszone — matige inspanning aanbevolen.",
-      "optimal": "Je vorm (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Vermoeidheid (ATL: {{atl}}). Optimale zone — piekprestatie-venster.",
-      "tired": "Je vorm (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Vermoeidheid (ATL: {{atl}}). Vermoeidheidzone — overweeg lichtere sessies of rust.",
-      "overreaching": "Je vorm (TSB) is {{tsb}}. Fitness (CTL: {{ctl}}) – Vermoeidheid (ATL: {{atl}}). Overbelasting — rust sterk aanbevolen."
-    },
     "viewDetails": "Details bekijken",
     "today": "VANDAAG",
     "tomorrow": "MORGEN",
-    "whyThisRecommendation": "Waarom deze aanbeveling",
     "showMethodology": "Methodologie tonen",
     "basedOnActivities": "Gebaseerd op {{count}} activiteiten",
     "confidence": "{{value}}% zeker",
@@ -698,83 +678,17 @@
     "current": "Huidig",
     "previous": "Vorige",
     "change": "Verschil",
-    "recovery": {
-      "wellRecovered": "Goed hersteld",
-      "adequate": "Voldoende hersteld",
-      "accumulating": "Vermoeidheid neemt toe",
-      "recoveryNeeded": "Herstel nodig",
-      "extendedRecovery": "Uitgebreid herstel nodig",
-      "wellRecoveredBody": "HRV is {{deviation}}% {{direction}} je basislijn met TSB van {{tsb}}. Goede omstandigheden voor kwaliteitstraining.",
-      "adequateBody": "HRV binnen normaal bereik met TSB van {{tsb}}. Training volgens planning zou prima moeten gaan.",
-      "accumulatingBody": "HRV trending {{deviation}}% {{direction}} basislijn met TSB van {{tsb}}. Overweeg de intensiteit te verlagen.",
-      "recoveryNeededBody": "HRV {{deviation}}% {{direction}} basislijn met TSB van {{tsb}}. Lichte sessie of rust aanbevolen.",
-      "extendedRecoveryBody": "HRV {{deviation}}% {{direction}} basislijn met ernstige vermoeidheid (TSB: {{tsb}}). Rust sterk aanbevolen.",
-      "selectedReasoning": "Je HRV-afwijking van {{deviation}}% met TSB van {{tsb}} past bij dit niveau",
-      "notSelectedReasoning": "Je HRV-afwijking van {{deviation}}% met TSB van {{tsb}} past niet bij dit niveau"
-    },
-    "acwr": {
-      "undertrained": "Ondertraind",
-      "sweetSpot": "Training sweet spot",
-      "highLoad": "Hoge belastingszone",
-      "spikeRisk": "Blessurerisico door piek",
-      "undertrainedBody": "Je acute:chronische ratio is {{acwr}}. Trainingsbelasting ligt onder je vastgestelde basislijn (< 0,8). Overweeg het volume geleidelijk te verhogen.",
-      "sweetSpotBody": "Je acute:chronische ratio is {{acwr}}. Trainingsbelasting is goed in balans met je recente historie (0,8 - 1,3).",
-      "highLoadBody": "Je acute:chronische ratio is {{acwr}}. Trainingsbelasting is verhoogd boven je basislijn (1,3 - 1,5). Let op overbelastingssymptomen.",
-      "spikeRiskBody": "Je acute:chronische ratio is {{acwr}}. Trainingsbelasting is sterk gestegen (> 1,5). Hoog blessurerisico - verlaag de belasting.",
-      "selectedReasoning": "Je ACWR van {{acwr}} valt in de {{zone}} zone ({{min}} - {{max}})",
-      "notSelectedReasoning": "Je ACWR van {{acwr}} valt buiten de {{zone}} zone ({{min}} - {{max}})"
-    },
-    "monotony": {
-      "highMonotony": "Training te eentonig",
-      "goodVariety": "Goede trainingsvariatie",
-      "moderate": "Matige trainingsvariatie",
-      "highMonotonyBody": "Trainingsmonotoniescore: {{value}}. Zeer vergelijkbare dagelijkse belasting verhoogt het overtrainingsrisico. Varieer de intensiteit.",
-      "goodVarietyBody": "Trainingsmonotoniescore: {{value}}. Je sessies hebben een goede variatie in belasting en intensiteit.",
-      "moderateBody": "Trainingsmonotoniescore: {{value}}. Overweeg meer variatie in je training toe te voegen."
-    },
-    "formTrajectory": {
-      "improving": "Vorm verbetert",
-      "improvingWithEstimate": "Vorm verbetert",
-      "declining": "Vorm daalt",
-      "stable": "Vorm stabiel",
-      "improvingBody": "TSB stijgt ({{tsb}}). Vermoeidheid lost sneller op dan fitheid afneemt. Huidige trend is positief.",
-      "improvingWithEstimateBody": "TSB stijgt ({{tsb}}). Bij het huidige tempo zou je over ~{{days}} dagen positieve vorm moeten bereiken.",
-      "decliningBody": "TSB daalt ({{tsb}}). Trainingsbelasting hoopt zich sneller op dan herstel. Overweeg rustiger aan te doen.",
-      "stableBody": "TSB blijft stabiel ({{tsb}}). Training en herstel zijn in balans bij de huidige belasting."
-    },
-    "rampRate": {
-      "aggressive": "Agressieve fitheidsopbouw",
-      "building": "Fitheid bouwt goed op",
-      "maintenance": "Onderhoudsfase",
-      "detraining": "Detrainingsrisico",
-      "aggressiveBody": "CTL-opbouwsnelheid: {{rate}} per week. Fitheid bouwt snel op, maar let op overbelasting. Huidige CTL: {{ctl}}.",
-      "buildingBody": "CTL-opbouwsnelheid: {{rate}} per week. Solide progressieve overbelasting. Huidige CTL: {{ctl}}.",
-      "maintenanceBody": "CTL-opbouwsnelheid: {{rate}} per week. Fitheid blijft stabiel. Huidige CTL: {{ctl}}.",
-      "detrainingBody": "CTL-opbouwsnelheid: {{rate}} per week. Fitheid neemt af - verhoog de trainingsprikkel om dit om te keren. Huidige CTL: {{ctl}}.",
-      "selectedReasoning": "Je opbouwsnelheid van {{rate}}/week valt in de {{zone}} zone ({{min}} - {{max}})",
-      "notSelectedReasoning": "Je opbouwsnelheid van {{rate}}/week valt buiten de {{zone}} zone ({{min}} - {{max}})"
-    },
-    "sectionFitness": "Fitheidswinst zichtbaar op {{name}}",
-    "sectionFitnessBody": "Je verbeterde prestatie op {{name}} correleert met je stijgende fitheid (CTL: {{ctl}}).",
     "restDay": {
-      "hrvTrending": "HRV trending {{percent}}% omhoog deze week",
-      "sectionExplore": "Verken je {{total}} secties - {{improving}} verbeteren, {{declining}} dalen",
-      "tomorrowPrediction": "Morgen is meestal een {{verb}} dag (~{{duration}})",
-      "recoveryProgress": "HRV trending {{percent}}% omhoog deze week",
-      "recoveryProgressBody": "Je hartslagvariabiliteit verbetert, wat wijst op een goed herstelverloop.",
       "hrvTrend": "HRV (7 dagen)",
-      "sectionDeepDive": "Verken je {{count}} secties",
-      "sectionDeepDiveBody": "{{improving}} verbeterend, {{declining}} dalend van {{total}} secties. Tik om je sectieprestaties te verkennen.",
       "tomorrowPattern": "Morgen is meestal een {{verb}} dag (~{{duration}})",
-      "tomorrowPatternBody": "Gebaseerd op {{count}} eerdere activiteiten voor deze dag van de week."
+      "tomorrowPatternBody": "Gebaseerd op {{count}} eerdere activiteiten voor deze dag van de week.",
+      "intensityContext": "{{count}} sessions this week",
+      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
+      "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
       "banister": "Berekent Training Stress Balance uit het verschil tussen fitheid (CTL) en vermoeidheid (ATL).",
-      "acwr": "Vergelijkt de trainingsstress van deze week met je 4-weekse gemiddelde om blessurerisico in te schatten.",
       "hrv": "Vergelijkt je hartslagvariabiliteit met je 7-daagse basislijn om je herstelstatus te beoordelen.",
-      "monotony": "Meet hoe repetitief je trainingsbelasting dag-tot-dag is. Hoge monotonie verhoogt het overtrainingsrisico.",
-      "formProjection": "Projecteert je Training Stress Balance vooruit op basis van huidige fitheids- en vermoeidheidsvervalsnelheden.",
-      "rampRate": "Meet hoe snel je fitheid (CTL) per week verandert.",
       "kmeans": "Groepeert je activiteiten op dag, duur en sporttype om terugkerende trainingspatronen te identificeren.",
       "prDetection": "Vergelijkt je laatste sectietijd met alle eerdere pogingen om persoonlijke records te detecteren.",
       "sectionTrend": "Volgt de mediane prestatie op veelbezochte secties door de tijd.",
@@ -809,25 +723,51 @@
       "todayHrv": "HRV vandaag",
       "sevenDayAvg": "7-daags gemiddelde",
       "hrvSevenDay": "HRV (7 dagen)",
-      "acwrRange": "ACWR-bereik",
-      "acuteTss": "Acute TSS (deze week)",
-      "chronicAvgTss": "Chronisch gem. TSS (4 weken)",
-      "monotony": "Monotoniescore",
-      "meanLoad": "Gemiddelde dagbelasting",
-      "loadVariation": "Belastingvariatie (SD)",
-      "dailyTrend": "Dagelijkse trend",
-      "rampRange": "Opbouwsnelheidsbereik",
-      "rampRate": "Opbouwsnelheid",
-      "improvingSections": "Verbeterende secties"
+      "latestHrv": "Latest HRV",
+      "dataPoints": "Data points",
+      "thisWeekTss": "This week",
+      "fourWeekAvgTss": "4-week average"
     },
-    "formAlternatives": {
-      "selectedReasoning": "Je TSB van {{tsb}} valt in het {{zone}} bereik ({{min}} tot {{max}})",
-      "notSelectedReasoning": "Je TSB van {{tsb}} valt buiten het {{zone}} bereik ({{min}} tot {{max}})"
+    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
+    "tsbForm": {
+      "title": "Form: {{tsb}} ({{zone}})",
+      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
+      "zones": {
+        "fresh": "Fresh",
+        "detraining": "Transition",
+        "maintenance": "Maintenance",
+        "productive": "Productive training",
+        "deepFatigue": "Deep fatigue"
+      },
+      "zoneDescriptions": {
+        "fresh": "Well-rested, fitness exceeds fatigue",
+        "detraining": "Between training and freshness",
+        "maintenance": "Moderate training load",
+        "productive": "Where most adaptation occurs",
+        "deepFatigue": "Significant accumulated fatigue"
+      }
     },
-    "sectionPerformance": {
-      "fitnessGains": "Fitheidswinst zichtbaar op {{name}}",
-      "fitnessGainsBody": "Je verbeterde prestatie op {{name}} correleert met je stijgende fitheid (CTL: {{ctl}})."
-    }
+    "hrvTrend": {
+      "trendingUp": "HRV trending up",
+      "trendingDown": "HRV trending down",
+      "stable": "HRV stable",
+      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
+      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
+      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
+    },
+    "weeklyLoad": {
+      "title": "Training load {{percent}}% {{direction}} average",
+      "above": "above",
+      "below": "below",
+      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
+    },
+    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
+    "aboutInsights": "About Insights",
+    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
+    "showMore": "Show {{count}} more",
+    "aboutTitle": "About Insights",
+    "whyThisRecommendation": "Why this recommendation?",
+    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
   },
   "routeDetail": {
     "avgTime": "Gem. tijd",
@@ -994,13 +934,9 @@
     "boundsModified": "Grenzen gewijzigd",
     "editBounds": "Grenzen bewerken",
     "originalDistance": "Origineel",
-    "performanceHistory": "Prestatiegeschiedenis",
     "points": "punten",
-    "referenceUpdated": "Referentie-activiteit bijgewerkt",
     "resetBounds": "Herstellen naar origineel",
     "resetBoundsConfirm": "Herstellen naar de oorspronkelijk automatisch gedetecteerde grenzen?\n\nHet traject wordt opnieuw vergeleken met al je activiteiten.",
-    "resetReference": "Referentie resetten",
-    "resetReferenceConfirm": "Terugzetten naar automatische referentieselectie?\n\nDe sectie wordt opnieuw gematcht met al je activiteiten. Dit kan activiteiten toevoegen aan of verwijderen uit deze sectie.",
     "totalTraversals": "Totaal doorkruisingen",
     "traversals": "doorgangen",
     "traversalsCount": "{{count}} passages",
@@ -1063,13 +999,12 @@
     "appTour": "App-tour",
     "appTourDescription": "Ontdek functies en leer hoe je ze gebruikt",
     "terrain3D": "3D Terrein",
-    "terrain3DHint": "Slimme modus toont 3D voor heuvelachtig en bergachtig terrein",
+    "terrain3DHint": "Vooraf gerenderd 3D-terrein in feedkaarten",
     "terrain3DOff": "Uit",
     "terrain3DSmart": "Slim",
     "terrain3DAlways": "Altijd",
     "terrainCacheSize": "Cache: {{size}}",
     "mapCacheSize": "Kaartcache: {{size}}",
-    "clearCache": "Wissen",
     "tileCacheDetail": "{{count}} terrein-tegels",
     "tileCacheDetail_one": "1 terrein-tegel",
     "offlineMaps": "Offline Maps",
@@ -1114,9 +1049,6 @@
     "syncAllHistoryDescription": "Dit synchroniseert tot 10 jaar activiteitsgegevens op de achtergrond. Dit maakt diepere route-analyse en vergelijking mogelijk.",
     "syncInProgress": "Wacht tot de huidige synchronisatie is voltooid.",
     "system": "Systeem",
-    "terrain3D": "3D Terrein",
-    "terrain3DHint": "Vooraf gerenderd 3D-terrein in feedkaarten",
-    "terrainCacheSize": "Cache: {{size}}",
     "title": "Instellingen",
     "total": "Totaal",
     "units": "Eenheden",

@@ -238,19 +238,19 @@ describe('Data Pipeline', () => {
   // Test 12: TSB → form zones at boundaries
   it('TSB at boundaries → correct form zones', () => {
     // Exact boundaries from getFormZone:
-    // < -30 → highRisk, < -10 → optimal, < 5 → grey, < 25 → fresh, >= 25 → transition
-    expect(getFormZone(-31)).toBe('highRisk');
-    expect(getFormZone(-30)).toBe('optimal'); // -30 is NOT < -30
-    expect(getFormZone(-10)).toBe('grey'); // -10 is NOT < -10
+    // < -30 → deepFatigue, < -10 → productive, < 5 → maintenance, < 25 → fresh, >= 25 → detraining
+    expect(getFormZone(-31)).toBe('deepFatigue');
+    expect(getFormZone(-30)).toBe('productive'); // -30 is NOT < -30
+    expect(getFormZone(-10)).toBe('maintenance'); // -10 is NOT < -10
     expect(getFormZone(5)).toBe('fresh'); // 5 is NOT < 5
-    expect(getFormZone(25)).toBe('transition'); // 25 is NOT < 25
+    expect(getFormZone(25)).toBe('detraining'); // 25 is NOT < 25
 
     // Mid-zone values
-    expect(getFormZone(-40)).toBe('highRisk');
-    expect(getFormZone(-20)).toBe('optimal');
-    expect(getFormZone(0)).toBe('grey');
+    expect(getFormZone(-40)).toBe('deepFatigue');
+    expect(getFormZone(-20)).toBe('productive');
+    expect(getFormZone(0)).toBe('maintenance');
     expect(getFormZone(15)).toBe('fresh');
-    expect(getFormZone(30)).toBe('transition');
+    expect(getFormZone(30)).toBe('detraining');
   });
 });
 

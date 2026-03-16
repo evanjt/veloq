@@ -209,13 +209,8 @@
     "syncComplete": "同期完了",
     "syncFailed": "同期に失敗しました",
     "syncResetDiscarded": "同期がリセットされました - 結果は破棄されました",
-    "analyzingRouteGroups": "ルートを分析中...",
-    "detectingSectionsProgress": "区間を検出中... {{percent}}%",
-    "downloadingActivities": "アクティビティをダウンロード中...",
     "downloadingTiles": "マップタイルをキャッシュ中",
-    "processingGpsTracks": "GPSトラックを処理中...",
     "renderingTerrainPreviews": "3Dプレビューを生成中",
-    "syncComplete": "同期完了",
     "syncingActivities": "アクティビティを同期中"
   },
   "chartTypes": {
@@ -396,11 +391,11 @@
     "understandingMetrics": "指標を理解する"
   },
   "formZones": {
+    "detraining": "移行",
     "fresh": "フレッシュ",
-    "greyZone": "グレーゾーン",
-    "highRisk": "高リスク",
-    "optimal": "最適",
-    "transition": "移行"
+    "maintenance": "グレーゾーン",
+    "productive": "最適",
+    "deepFatigue": "高リスク"
   },
   "healthScreen": {
     "title": "健康"
@@ -642,6 +637,9 @@
     "gpsAcquiring": "GPSを取得中...",
     "gpsReady": "記録を開始",
     "gpsWeakWarning": "GPS信号が弱い — 記録が不正確になる可能性があります",
+    "backgroundNotificationTitle": "アクティビティ記録中",
+    "backgroundNotificationBody": "Veloqが位置情報を追跡中",
+    "trimmed": "トリミング済み",
     "splitBanner": "{{unit}} {{index}} — {{pace}}",
     "settings": "記録設定",
     "settingsAutoPause": "自動一時停止",
@@ -659,8 +657,6 @@
     "sectionTrendSummaryBody": "改善中: {{names}}。{{stable}}区間安定、{{declining}}区間低下。",
     "sectionImproving": "{{name}}が速くなっています",
     "sectionImprovingBody": "最近の中央値: {{median}}。ベスト: {{best}}（{{count}}回の走行）。",
-    "sectionDeclining": "{{name}}が遅くなっています",
-    "sectionDecliningBody": "最近の中央値: {{median}}、ベスト: {{best}}。見直してみませんか？",
     "ftpIncrease": "FTP +{{delta}}W",
     "paceImproved": "ペース改善 {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% 週間ボリューム",
@@ -670,26 +666,10 @@
     "loadBody": "TSS: 今週 {{currentTss}} vs 先週 {{previousTss}}。時間: {{currentDuration}} vs {{previousDuration}}。",
     "patternMatch": "{{day}} - 通常 {{verb}} ~{{duration}}",
     "consistencyStreak": "{{count}}週連続",
-    "peakFitness": "ピークフィットネス: {{value}} CTL",
-    "formAdvice": {
-      "fresh": "高強度に適した日",
-      "grey": "適度な運動を推奨",
-      "optimal": "ピークフォーム期間",
-      "tired": "回復を検討",
-      "overreaching": "休息を推奨"
-    },
     "volumeBody": "トレーニング時間: 今週 {{current}} vs 先週 {{previous}}。これは時間であり、トレーニング負荷 (TSS) ではありません。",
-    "formBody": {
-      "fresh": "フォーム (TSB) は {{tsb}} です。フィットネス (CTL: {{ctl}}) – 疲労 (ATL: {{atl}})。フレッシュゾーン — よく回復しています。高強度トレーニングに最適です。",
-      "grey": "フォーム (TSB) は {{tsb}} です。フィットネス (CTL: {{ctl}}) – 疲労 (ATL: {{atl}})。移行ゾーン — 適度な運動を推奨します。",
-      "optimal": "フォーム (TSB) は {{tsb}} です。フィットネス (CTL: {{ctl}}) – 疲労 (ATL: {{atl}})。最適ゾーン — ピークパフォーマンスの期間です。",
-      "tired": "フォーム (TSB) は {{tsb}} です。フィットネス (CTL: {{ctl}}) – 疲労 (ATL: {{atl}})。疲労ゾーン — 軽めのセッションまたは休息を検討してください。",
-      "overreaching": "フォーム (TSB) は {{tsb}} です。フィットネス (CTL: {{ctl}}) – 疲労 (ATL: {{atl}})。オーバーリーチング — 休息を強くお勧めします。"
-    },
     "viewDetails": "詳細を見る",
     "today": "今日",
     "tomorrow": "明日",
-    "whyThisRecommendation": "この推奨の理由",
     "showMethodology": "手法を表示",
     "basedOnActivities": "{{count}}件のアクティビティに基づく",
     "confidence": "{{value}}% の確信度",
@@ -698,83 +678,17 @@
     "current": "現在",
     "previous": "前回",
     "change": "変化",
-    "recovery": {
-      "wellRecovered": "十分に回復",
-      "adequate": "適度に回復",
-      "accumulating": "疲労蓄積中",
-      "recoveryNeeded": "回復が必要",
-      "extendedRecovery": "長期回復が必要",
-      "wellRecoveredBody": "HRVがベースラインより{{deviation}}% {{direction}}で、TSBは{{tsb}}です。質の高いトレーニングに適した状態です。",
-      "adequateBody": "HRVは正常範囲内で、TSBは{{tsb}}です。予定通りのトレーニングで問題ないでしょう。",
-      "accumulatingBody": "HRVがベースラインより{{deviation}}% {{direction}}で、TSBは{{tsb}}です。強度を下げることを検討してください。",
-      "recoveryNeededBody": "HRVがベースラインより{{deviation}}% {{direction}}で、TSBは{{tsb}}です。軽めのセッションまたは休息をお勧めします。",
-      "extendedRecoveryBody": "HRVがベースラインより{{deviation}}% {{direction}}で、深刻な疲労状態です（TSB: {{tsb}}）。休息を強くお勧めします。",
-      "selectedReasoning": "HRV偏差 {{deviation}}% とTSB {{tsb}} がこのレベルに該当します",
-      "notSelectedReasoning": "HRV偏差 {{deviation}}% とTSB {{tsb}} はこのレベルに該当しません"
-    },
-    "acwr": {
-      "undertrained": "トレーニング不足",
-      "sweetSpot": "トレーニングの最適ゾーン",
-      "highLoad": "高負荷ゾーン",
-      "spikeRisk": "故障リスク上昇",
-      "undertrainedBody": "急性・慢性比率は {{acwr}} です。トレーニング負荷がベースラインを下回っています（< 0.8）。徐々にボリュームを増やすことを検討してください。",
-      "sweetSpotBody": "急性・慢性比率は {{acwr}} です。最近のトレーニング履歴に対してバランスが取れています（0.8 - 1.3）。",
-      "highLoadBody": "急性・慢性比率は {{acwr}} です。ベースラインを超える負荷がかかっています（1.3 - 1.5）。使いすぎの症状に注意してください。",
-      "spikeRiskBody": "急性・慢性比率は {{acwr}} です。トレーニング負荷が急激に増加しています（> 1.5）。故障リスクが高い状態です。負荷を下げてください。",
-      "selectedReasoning": "あなたのACWR {{acwr}} は {{zone}} ゾーン（{{min}} - {{max}}）に該当します",
-      "notSelectedReasoning": "あなたのACWR {{acwr}} は {{zone}} ゾーン（{{min}} - {{max}}）の範囲外です"
-    },
-    "monotony": {
-      "highMonotony": "トレーニングが単調すぎます",
-      "goodVariety": "良好なトレーニングバリエーション",
-      "moderate": "適度なトレーニングバリエーション",
-      "highMonotonyBody": "トレーニング単調性スコア: {{value}}。毎日似た負荷はオーバートレーニングのリスクを高めます。強度を変えてください。",
-      "goodVarietyBody": "トレーニング単調性スコア: {{value}}。セッションの負荷と強度に良いバリエーションがあります。",
-      "moderateBody": "トレーニング単調性スコア: {{value}}。トレーニングにもう少しバリエーションを加えることを検討してください。"
-    },
-    "formTrajectory": {
-      "improving": "フォーム改善中",
-      "improvingWithEstimate": "フォーム改善中",
-      "declining": "フォーム低下中",
-      "stable": "フォーム安定",
-      "improvingBody": "TSBが上昇中です（{{tsb}}）。疲労がフィットネスの減衰より早く解消されています。現在の軌道はプラスです。",
-      "improvingWithEstimateBody": "TSBが上昇中です（{{tsb}}）。現在のペースで約{{days}}日後にプラスのフォームに達する見込みです。",
-      "decliningBody": "TSBが低下中です（{{tsb}}）。回復よりも速くトレーニング負荷が蓄積しています。少し楽にすることを検討してください。",
-      "stableBody": "TSBが安定しています（{{tsb}}）。現在の負荷でトレーニングと回復のバランスが取れています。"
-    },
-    "rampRate": {
-      "aggressive": "急激なフィットネス上昇",
-      "building": "フィットネス順調に構築中",
-      "maintenance": "維持フェーズ",
-      "detraining": "ディトレーニングリスク",
-      "aggressiveBody": "CTLランプレート: 週 {{rate}}。フィットネスが急速に向上していますが、使いすぎに注意してください。現在のCTL: {{ctl}}。",
-      "buildingBody": "CTLランプレート: 週 {{rate}}。着実な漸進的過負荷です。現在のCTL: {{ctl}}。",
-      "maintenanceBody": "CTLランプレート: 週 {{rate}}。フィットネスが安定しています。現在のCTL: {{ctl}}。",
-      "detrainingBody": "CTLランプレート: 週 {{rate}}。フィットネスが低下しています。逆転させるにはトレーニング刺激を増やしてください。現在のCTL: {{ctl}}。",
-      "selectedReasoning": "あなたのランプレート {{rate}}/週 は {{zone}} ゾーン（{{min}} - {{max}}）に該当します",
-      "notSelectedReasoning": "あなたのランプレート {{rate}}/週 は {{zone}} ゾーン（{{min}} - {{max}}）の範囲外です"
-    },
-    "sectionFitness": "{{name}}でフィットネス向上が表れています",
-    "sectionFitnessBody": "{{name}}でのパフォーマンス向上は、上昇中のフィットネス（CTL: {{ctl}}）と相関しています。",
     "restDay": {
-      "hrvTrending": "HRVが今週 {{percent}}% 上昇傾向",
-      "sectionExplore": "{{total}}区間を探索 — {{improving}}区間改善中、{{declining}}区間低下中",
-      "tomorrowPrediction": "明日は通常 {{verb}} の日（~{{duration}}）",
-      "recoveryProgress": "HRVが今週 {{percent}}% 上昇傾向",
-      "recoveryProgressBody": "心拍変動が改善しており、回復が順調に進んでいることを示しています。",
       "hrvTrend": "HRV（7日間）",
-      "sectionDeepDive": "{{count}}区間を詳しく見る",
-      "sectionDeepDiveBody": "{{improving}}区間改善中、{{declining}}区間低下中（全{{total}}区間）。タップして区間パフォーマンスを確認。",
       "tomorrowPattern": "明日は通常 {{verb}} の日（~{{duration}}）",
-      "tomorrowPatternBody": "この曜日の過去{{count}}件のアクティビティに基づいています。"
+      "tomorrowPatternBody": "この曜日の過去{{count}}件のアクティビティに基づいています。",
+      "intensityContext": "{{count}} sessions this week",
+      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
+      "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
       "banister": "フィットネス (CTL) と疲労 (ATL) の差からトレーニングストレスバランスを算出します。",
-      "acwr": "今週のトレーニングストレスを4週間平均と比較して故障リスクを推定します。",
       "hrv": "心拍変動のトレンドを7日間のベースラインと比較して回復状態を評価します。",
-      "monotony": "日々のトレーニング負荷の反復性を測定します。高い単調性はオーバートレーニングリスクを高めます。",
-      "formProjection": "現在のフィットネスと疲労の減衰率に基づいてトレーニングストレスバランスを予測します。",
-      "rampRate": "フィットネス (CTL) が週あたりどの程度変化しているかを測定します。",
       "kmeans": "アクティビティを曜日、時間、スポーツタイプでグループ化し、繰り返しのトレーニングパターンを特定します。",
       "prDetection": "最新の区間タイムを過去のすべてのタイムと比較してPRを検出します。",
       "sectionTrend": "頻繁に訪れる区間での中央値パフォーマンスの推移を追跡します。",
@@ -809,25 +723,51 @@
       "todayHrv": "今日のHRV",
       "sevenDayAvg": "7日平均",
       "hrvSevenDay": "HRV（7日間）",
-      "acwrRange": "ACWR範囲",
-      "acuteTss": "急性TSS（今週）",
-      "chronicAvgTss": "慢性平均TSS（4週間）",
-      "monotony": "単調性スコア",
-      "meanLoad": "平均日次負荷",
-      "loadVariation": "負荷変動（SD）",
-      "dailyTrend": "日次トレンド",
-      "rampRange": "ランプレート範囲",
-      "rampRate": "ランプレート",
-      "improvingSections": "改善中の区間"
+      "latestHrv": "Latest HRV",
+      "dataPoints": "Data points",
+      "thisWeekTss": "This week",
+      "fourWeekAvgTss": "4-week average"
     },
-    "formAlternatives": {
-      "selectedReasoning": "あなたのTSB {{tsb}} は {{zone}} 範囲（{{min}} から {{max}}）に該当します",
-      "notSelectedReasoning": "あなたのTSB {{tsb}} は {{zone}} 範囲（{{min}} から {{max}}）の範囲外です"
+    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
+    "tsbForm": {
+      "title": "Form: {{tsb}} ({{zone}})",
+      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
+      "zones": {
+        "fresh": "Fresh",
+        "detraining": "Transition",
+        "maintenance": "Maintenance",
+        "productive": "Productive training",
+        "deepFatigue": "Deep fatigue"
+      },
+      "zoneDescriptions": {
+        "fresh": "Well-rested, fitness exceeds fatigue",
+        "detraining": "Between training and freshness",
+        "maintenance": "Moderate training load",
+        "productive": "Where most adaptation occurs",
+        "deepFatigue": "Significant accumulated fatigue"
+      }
     },
-    "sectionPerformance": {
-      "fitnessGains": "{{name}}でフィットネス向上が表れています",
-      "fitnessGainsBody": "{{name}}でのパフォーマンス向上は、上昇中のフィットネス（CTL: {{ctl}}）と相関しています。"
-    }
+    "hrvTrend": {
+      "trendingUp": "HRV trending up",
+      "trendingDown": "HRV trending down",
+      "stable": "HRV stable",
+      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
+      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
+      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
+    },
+    "weeklyLoad": {
+      "title": "Training load {{percent}}% {{direction}} average",
+      "above": "above",
+      "below": "below",
+      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
+    },
+    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
+    "aboutInsights": "About Insights",
+    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
+    "showMore": "Show {{count}} more",
+    "aboutTitle": "About Insights",
+    "whyThisRecommendation": "Why this recommendation?",
+    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
   },
   "routeDetail": {
     "avgTime": "平均時間",
@@ -994,13 +934,9 @@
     "boundsModified": "範囲が変更されました",
     "editBounds": "範囲を編集",
     "originalDistance": "元の距離",
-    "performanceHistory": "パフォーマンス履歴",
     "points": "ポイント",
-    "referenceUpdated": "基準アクティビティが更新されました",
     "resetBounds": "元に戻す",
     "resetBoundsConfirm": "自動検出された元の範囲に戻しますか？\n\nセクションはすべてのアクティビティと再照合されます。",
-    "resetReference": "基準をリセット",
-    "resetReferenceConfirm": "自動基準選択にリセットしますか？\n\nこの区間はすべてのアクティビティと再照合されます。これにより、この区間のアクティビティが追加または削除される場合があります。",
     "totalTraversals": "合計通過回数",
     "traversals": "通過回数",
     "traversalsCount": "{{count}}回の走行",
@@ -1063,13 +999,12 @@
     "appTour": "アプリツアー",
     "appTourDescription": "機能を探索して使い方を学ぶ",
     "terrain3D": "3D地形",
-    "terrain3DHint": "スマートモードは起伏のある地形で3Dを表示します",
+    "terrain3DHint": "フィードカードに事前レンダリングされた3D地形",
     "terrain3DOff": "オフ",
     "terrain3DSmart": "スマート",
     "terrain3DAlways": "常時",
     "terrainCacheSize": "キャッシュ: {{size}}",
     "mapCacheSize": "マップキャッシュ: {{size}}",
-    "clearCache": "クリア",
     "tileCacheDetail": "{{count}}個の地形タイル",
     "tileCacheDetail_one": "{{count}}個の地形タイル",
     "offlineMaps": "Offline Maps",
@@ -1114,9 +1049,6 @@
     "syncAllHistoryDescription": "最大10年分のアクティビティデータをバックグラウンドで同期します。より深いルート分析と比較が可能になります。",
     "syncInProgress": "現在の同期が完了するまでお待ちください。",
     "system": "システム",
-    "terrain3D": "3D地形",
-    "terrain3DHint": "フィードカードに事前レンダリングされた3D地形",
-    "terrainCacheSize": "キャッシュ: {{size}}",
     "title": "設定",
     "total": "合計",
     "units": "単位",

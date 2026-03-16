@@ -1107,11 +1107,11 @@ export interface TranslationResource {
   };
 
   formZones: {
-    transition: string;
+    detraining: string;
     fresh: string;
-    greyZone: string;
-    optimal: string;
-    highRisk: string;
+    maintenance: string;
+    productive: string;
+    deepFatigue: string;
   };
 
   recording: {

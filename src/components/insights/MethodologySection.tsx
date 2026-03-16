@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, StyleSheet, Linking, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { CollapsibleSection } from '@/components/ui';
 import { colors, darkColors, spacing, opacity } from '@/theme';
-import type { InsightMethodology } from '@/types';
+import type { InsightMethodology, InsightReference } from '@/types';
 
 interface MethodologySectionProps {
   methodology: InsightMethodology;
@@ -18,19 +18,90 @@ export const MethodologySection = React.memo(function MethodologySection({
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
 
+  const handleReferencePress = useCallback(() => {
+    if (methodology.referenceUrl) {
+      Linking.openURL(methodology.referenceUrl);
+    }
+  }, [methodology.referenceUrl]);
+
+  const handleRefPress = useCallback((url: string) => {
+    Linking.openURL(url);
+  }, []);
+
+  // New references array takes precedence over legacy reference/referenceUrl
+  const hasReferences = methodology.references && methodology.references.length > 0;
+
+  const legacyReferenceContent =
+    !hasReferences && methodology.reference ? (
+      methodology.referenceUrl ? (
+        <TouchableOpacity onPress={handleReferencePress} activeOpacity={0.7}>
+          <Text
+            style={[styles.reference, isDark && styles.referenceDark, styles.referenceTappable]}
+          >
+            {methodology.reference}
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <Text style={[styles.reference, isDark && styles.referenceDark]}>
+          {methodology.reference}
+        </Text>
+      )
+    ) : null;
+
+  const referencesContent = hasReferences ? (
+    <View style={styles.referencesList}>
+      {methodology.references!.map((ref: InsightReference, i: number) => (
+        <View key={i} style={styles.referenceItem}>
+          <Text style={[styles.referenceNumber, isDark && styles.referenceNumberDark]}>
+            {i + 1}.
+          </Text>
+          {ref.url ? (
+            <TouchableOpacity
+              style={styles.referenceTextContainer}
+              onPress={() => handleRefPress(ref.url!)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.referenceText,
+                  isDark && styles.referenceDark,
+                  styles.referenceTappable,
+                ]}
+              >
+                {ref.citation}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <Text
+              style={[
+                styles.referenceText,
+                isDark && styles.referenceDark,
+                styles.referenceTextContainer,
+              ]}
+            >
+              {ref.citation}
+            </Text>
+          )}
+        </View>
+      ))}
+    </View>
+  ) : null;
+
+  const hasCollapsibleContent = methodology.formula || hasReferences || methodology.reference;
+
   return (
     <View style={styles.container}>
       <Text style={[styles.description, isDark && styles.descriptionDark]}>
         {methodology.description}
       </Text>
 
-      {methodology.formula || methodology.reference ? (
+      {hasCollapsibleContent ? (
         <CollapsibleSection
           title={t('insights.showMethodology', 'Show methodology')}
           expanded={expanded}
           onToggle={setExpanded}
           icon="flask-outline"
-          estimatedHeight={120}
+          estimatedHeight={hasReferences ? 60 + methodology.references!.length * 60 : 120}
         >
           <View style={styles.collapsibleContent}>
             {methodology.formula ? (
@@ -40,11 +111,8 @@ export const MethodologySection = React.memo(function MethodologySection({
                 </Text>
               </View>
             ) : null}
-            {methodology.reference ? (
-              <Text style={[styles.reference, isDark && styles.referenceDark]}>
-                {methodology.reference}
-              </Text>
-            ) : null}
+            {referencesContent}
+            {legacyReferenceContent}
           </View>
         </CollapsibleSection>
       ) : null}
@@ -94,7 +162,37 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 18,
   },
+  referenceTappable: {
+    color: '#009688',
+    textDecorationLine: 'underline',
+  },
   referenceDark: {
     color: darkColors.textSecondary,
+  },
+  referencesList: {
+    gap: spacing.sm,
+  },
+  referenceItem: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  referenceNumber: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    lineHeight: 18,
+    minWidth: 16,
+  },
+  referenceNumberDark: {
+    color: darkColors.textSecondary,
+  },
+  referenceTextContainer: {
+    flex: 1,
+  },
+  referenceText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
 });

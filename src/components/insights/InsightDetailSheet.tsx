@@ -28,13 +28,6 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   const { t } = useTranslation();
   const router = useRouter();
 
-  const handleViewDetails = useCallback(() => {
-    if (insight?.navigationTarget) {
-      onClose();
-      router.push(insight.navigationTarget as never);
-    }
-  }, [insight?.navigationTarget, onClose, router]);
-
   const handleSectionPress = useCallback(
     (sectionId: string) => {
       onClose();
@@ -113,37 +106,28 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
             </View>
           ) : null}
 
-          {/* Explore section */}
-          {insight.navigationTarget || hasSectionLinks ? (
+          {/* Section links */}
+          {hasSectionLinks ? (
             <View style={styles.exploreSection}>
-              {insight.navigationTarget ? (
-                <Pressable style={styles.viewDetailsButton} onPress={handleViewDetails}>
-                  <Text style={styles.viewDetailsText}>
-                    {t('insights.viewDetails', 'View details')} {'\u2192'}
+              {insight.supportingData!.sections!.map((section) => (
+                <Pressable
+                  key={section.sectionId}
+                  style={[styles.exploreSectionLink, isDark && styles.exploreSectionLinkDark]}
+                  onPress={() => handleSectionPress(section.sectionId)}
+                >
+                  <Text
+                    style={[styles.exploreSectionName, isDark && styles.exploreSectionNameDark]}
+                    numberOfLines={1}
+                  >
+                    {section.sectionName}
                   </Text>
+                  <MaterialCommunityIcons
+                    name="chevron-right"
+                    size={18}
+                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  />
                 </Pressable>
-              ) : null}
-              {hasSectionLinks
-                ? insight.supportingData!.sections!.map((section) => (
-                    <Pressable
-                      key={section.sectionId}
-                      style={[styles.exploreSectionLink, isDark && styles.exploreSectionLinkDark]}
-                      onPress={() => handleSectionPress(section.sectionId)}
-                    >
-                      <Text
-                        style={[styles.exploreSectionName, isDark && styles.exploreSectionNameDark]}
-                        numberOfLines={1}
-                      >
-                        {section.sectionName}
-                      </Text>
-                      <MaterialCommunityIcons
-                        name="chevron-right"
-                        size={18}
-                        color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                      />
-                    </Pressable>
-                  ))
-                : null}
+              ))}
             </View>
           ) : null}
         </ScrollView>
@@ -266,15 +250,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
     gap: spacing.sm,
-  },
-  viewDetailsButton: {
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  viewDetailsText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FC4C02',
   },
   exploreSectionLink: {
     flexDirection: 'row',

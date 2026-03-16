@@ -41,15 +41,15 @@ describe('Demo Data Integration Tests', () => {
 
         // Verify zone assignment matches TSB value
         if (day.tsb < -30) {
-          expect(zone).toBe('highRisk');
+          expect(zone).toBe('deepFatigue');
         } else if (day.tsb < -10) {
-          expect(zone).toBe('optimal');
+          expect(zone).toBe('productive');
         } else if (day.tsb < 5) {
-          expect(zone).toBe('grey');
+          expect(zone).toBe('maintenance');
         } else if (day.tsb < 25) {
           expect(zone).toBe('fresh');
         } else {
-          expect(zone).toBe('transition');
+          expect(zone).toBe('detraining');
         }
       });
     });

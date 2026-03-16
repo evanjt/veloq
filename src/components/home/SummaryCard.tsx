@@ -207,7 +207,7 @@ export const SummaryCard = React.memo(function SummaryCard({
               <Text style={[styles.secondaryValueFixed, { color: currentFormColor }]}>
                 {currentForm > 0 ? `+${currentForm}` : currentForm}
               </Text>
-              <Text style={[styles.secondaryLabel, { color: currentFormColor }]}>
+              <Text style={[styles.secondaryLabel, { color: currentFormColor }]} numberOfLines={1}>
                 {FORM_ZONE_LABELS[currentFormZone]}
               </Text>
             </View>
@@ -408,7 +408,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    flexWrap: 'wrap',
   },
   heroValue: {
     fontSize: 24,
@@ -431,11 +430,13 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     minWidth: 30,
     textAlign: 'right' as const,
+    flexShrink: 1,
   },
   secondaryLabel: {
     fontSize: 12,
     fontWeight: '500',
     color: colors.textSecondary,
+    flexShrink: 1,
   },
   heroTrend: {
     fontSize: 18,

@@ -799,19 +799,19 @@ export default function FitnessScreen() {
             </View>
 
             <View style={styles.infoRow}>
-              <View style={[styles.infoDot, { backgroundColor: FORM_ZONE_COLORS.optimal }]} />
+              <View style={[styles.infoDot, { backgroundColor: FORM_ZONE_COLORS.productive }]} />
               <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
                 <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
                   {t('metrics.form')}
                 </Text>{' '}
                 {t('fitnessScreen.formDescription')}{' '}
-                <Text style={{ color: FORM_ZONE_COLORS.optimal }}>
+                <Text style={{ color: FORM_ZONE_COLORS.productive }}>
                   {t('fitnessScreen.optimalZone')}
                 </Text>{' '}
                 {t('fitnessScreen.toBuildFitness')}{' '}
                 <Text style={{ color: FORM_ZONE_COLORS.fresh }}>{t('fitnessScreen.fresh')}</Text>{' '}
                 {t('fitnessScreen.forRaces')}{' '}
-                <Text style={{ color: FORM_ZONE_COLORS.highRisk }}>
+                <Text style={{ color: FORM_ZONE_COLORS.deepFatigue }}>
                   {t('fitnessScreen.highRiskZone')}
                 </Text>{' '}
                 {t('fitnessScreen.toPreventOvertraining')}

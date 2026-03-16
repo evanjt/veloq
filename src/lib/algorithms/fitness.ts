@@ -20,47 +20,47 @@ export function calculateTSB(wellness: WellnessData[]): (WellnessData & { tsb: n
 }
 
 /**
- * Form zones based on TSB (Training Stress Balance):
+ * Form zones based on TSB (Training Stress Balance) — intervals.icu boundaries:
  *
- * - highRisk (TSB < -30): Overtrained, high injury/illness risk
- * - optimal (-30 to -10): Productive training, building fitness
- * - grey (-10 to 5): Maintenance zone, unclear benefit
- * - fresh (5 to 25): Recovered, good for racing/testing
- * - transition (> 25): Detraining, losing fitness
+ * - deepFatigue (TSB < -30): Significant accumulated fatigue
+ * - productive (-30 to -10): Where most adaptation occurs
+ * - maintenance (-10 to 5): Moderate training load
+ * - fresh (5 to 25): Well-rested, fitness exceeds fatigue
+ * - detraining (> 25): Losing fitness from insufficient stimulus
  */
-export type FormZone = 'highRisk' | 'optimal' | 'grey' | 'fresh' | 'transition';
+export type FormZone = 'deepFatigue' | 'productive' | 'maintenance' | 'fresh' | 'detraining';
 
 export function getFormZone(tsb: number): FormZone {
-  if (tsb < -30) return 'highRisk';
-  if (tsb < -10) return 'optimal';
-  if (tsb < 5) return 'grey';
+  if (tsb < -30) return 'deepFatigue';
+  if (tsb < -10) return 'productive';
+  if (tsb < 5) return 'maintenance';
   if (tsb < 25) return 'fresh';
-  return 'transition';
+  return 'detraining';
 }
 
 export const FORM_ZONE_COLORS: Record<FormZone, string> = {
-  highRisk: '#EF5350', // Red - Overtrained (matches intervals.icu)
-  optimal: '#66BB6A', // Green - Peak training zone (matches intervals.icu)
-  grey: '#9E9E9E', // Grey - Neutral zone (matches intervals.icu)
-  fresh: '#81C784', // Light green - Ready for events (matches intervals.icu)
-  transition: '#64B5F6', // Light blue - Detraining risk (matches intervals.icu)
+  deepFatigue: '#EF5350', // Red (matches intervals.icu)
+  productive: '#66BB6A', // Green (matches intervals.icu)
+  maintenance: '#9E9E9E', // Grey (matches intervals.icu)
+  fresh: '#81C784', // Light green (matches intervals.icu)
+  detraining: '#64B5F6', // Light blue (matches intervals.icu)
 };
 
 export const FORM_ZONE_LABELS: Record<FormZone, string> = {
-  highRisk: 'High Risk',
-  optimal: 'Optimal',
-  grey: 'Grey Zone',
+  deepFatigue: 'Deep Fatigue',
+  productive: 'Productive',
+  maintenance: 'Maintenance',
   fresh: 'Fresh',
-  transition: 'Transition',
+  detraining: 'Detraining',
 };
 
 /**
  * Zone boundaries (TSB values) for chart rendering
  */
 export const FORM_ZONE_BOUNDARIES: Record<FormZone, { min: number; max: number }> = {
-  transition: { min: 25, max: 50 },
+  detraining: { min: 25, max: 50 },
   fresh: { min: 5, max: 25 },
-  grey: { min: -10, max: 5 },
-  optimal: { min: -30, max: -10 },
-  highRisk: { min: -50, max: -30 },
+  maintenance: { min: -10, max: 5 },
+  productive: { min: -30, max: -10 },
+  deepFatigue: { min: -50, max: -30 },
 };

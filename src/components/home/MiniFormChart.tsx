@@ -1,6 +1,6 @@
 /**
  * Mini Form chart with colored zones for the Summary Card.
- * Shows 7-day form trend with zone backgrounds (Fresh, Grey, Optimal, etc.)
+ * Shows 7-day form trend with zone backgrounds (Fresh, Maintenance, Productive, etc.)
  */
 import React, { memo, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
@@ -10,20 +10,20 @@ import { useTheme } from '@/hooks';
 
 // Form zone backgrounds (matching intervals.icu and FitnessFormChart)
 const FORM_ZONES = {
-  highRisk: { min: -Infinity, max: -30, color: 'rgba(239, 83, 80, 0.3)' },
-  optimal: { min: -30, max: -10, color: 'rgba(76, 175, 80, 0.3)' },
-  grey: { min: -10, max: 5, color: 'rgba(158, 158, 158, 0.2)' },
+  deepFatigue: { min: -Infinity, max: -30, color: 'rgba(239, 83, 80, 0.3)' },
+  productive: { min: -30, max: -10, color: 'rgba(76, 175, 80, 0.3)' },
+  maintenance: { min: -10, max: 5, color: 'rgba(158, 158, 158, 0.2)' },
   fresh: { min: 5, max: 25, color: 'rgba(129, 199, 132, 0.3)' },
-  transition: { min: 25, max: Infinity, color: 'rgba(100, 181, 246, 0.25)' },
+  detraining: { min: 25, max: Infinity, color: 'rgba(100, 181, 246, 0.25)' },
 };
 
 // Get form line color based on current value
 function getFormLineColor(form: number): string {
-  if (form < -30) return '#EF5350'; // High Risk - Red
-  if (form < -10) return '#66BB6A'; // Optimal - Green
-  if (form < 5) return '#9E9E9E'; // Grey Zone - Grey
+  if (form < -30) return '#EF5350'; // Deep Fatigue - Red
+  if (form < -10) return '#66BB6A'; // Productive - Green
+  if (form < 5) return '#9E9E9E'; // Maintenance - Grey
   if (form < 25) return '#81C784'; // Fresh - Light Green
-  return '#64B5F6'; // Transition - Blue
+  return '#64B5F6'; // Detraining - Blue
 }
 
 interface MiniFormChartProps {
@@ -106,29 +106,29 @@ export const MiniFormChart = memo(function MiniFormChart({
           return (
             <>
               {/* Zone backgrounds */}
-              {/* High Risk zone (< -30) */}
+              {/* Deep Fatigue zone (< -30) */}
               <Rect
                 x={chartBounds.left}
                 y={getY(-30)}
                 width={chartBounds.right - chartBounds.left}
                 height={chartBounds.bottom - getY(-30)}
-                color={FORM_ZONES.highRisk.color}
+                color={FORM_ZONES.deepFatigue.color}
               />
-              {/* Optimal zone (-30 to -10) */}
+              {/* Productive zone (-30 to -10) */}
               <Rect
                 x={chartBounds.left}
                 y={getY(-10)}
                 width={chartBounds.right - chartBounds.left}
                 height={getY(-30) - getY(-10)}
-                color={FORM_ZONES.optimal.color}
+                color={FORM_ZONES.productive.color}
               />
-              {/* Grey zone (-10 to 5) */}
+              {/* Maintenance zone (-10 to 5) */}
               <Rect
                 x={chartBounds.left}
                 y={getY(5)}
                 width={chartBounds.right - chartBounds.left}
                 height={getY(-10) - getY(5)}
-                color={FORM_ZONES.grey.color}
+                color={FORM_ZONES.maintenance.color}
               />
               {/* Fresh zone (5 to 25) */}
               <Rect
@@ -138,13 +138,13 @@ export const MiniFormChart = memo(function MiniFormChart({
                 height={getY(5) - getY(25)}
                 color={FORM_ZONES.fresh.color}
               />
-              {/* Transition zone (> 25) */}
+              {/* Detraining zone (> 25) */}
               <Rect
                 x={chartBounds.left}
                 y={chartBounds.top}
                 width={chartBounds.right - chartBounds.left}
                 height={getY(25) - chartBounds.top}
-                color={FORM_ZONES.transition.color}
+                color={FORM_ZONES.detraining.color}
               />
 
               {/* Zero line */}

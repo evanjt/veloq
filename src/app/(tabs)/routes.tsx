@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { ScreenSafeAreaView, ScreenErrorBoundary } from '@/components/ui';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -22,7 +22,7 @@ import { useRouteSettings, useSyncDateRange, useDebugStore } from '@/providers';
 import { colors, darkColors, spacing } from '@/theme';
 import type { ActivityType } from '@/types';
 
-type TabType = 'routes' | 'sections' | 'debug';
+type TabType = 'insights' | 'routes' | 'sections' | 'debug';
 
 export default function RoutesScreen() {
   // Performance timing
@@ -36,13 +36,6 @@ export default function RoutesScreen() {
   const { isDark } = useTheme();
   const { tab } = useLocalSearchParams<{ tab?: string }>();
   const { insights, markAsSeen } = useInsights();
-
-  // Mark insights as seen when screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      markAsSeen();
-    }, [markAsSeen])
-  );
 
   // Check if route matching is enabled
   const routeSettings = useRouteSettings((s) => s.settings);
@@ -90,14 +83,23 @@ export default function RoutesScreen() {
     sync: triggerSync,
   } = useActivityBoundsCache();
 
-  // Tab state - initialize from URL param if provided
+  // Tab state - initialize from URL param if provided, default to insights
   const [activeTab, setActiveTab] = useState<TabType>(() =>
-    tab === 'sections' ? 'sections' : 'routes'
+    tab === 'sections' ? 'sections' : tab === 'routes' ? 'routes' : 'insights'
+  );
+
+  // Mark insights as seen when insights tab is active and screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      if (activeTab === 'insights') {
+        markAsSeen();
+      }
+    }, [markAsSeen, activeTab])
   );
 
   // Update tab when URL param changes (e.g., navigating from settings with ?tab=sections)
   useEffect(() => {
-    if (tab === 'sections' || tab === 'routes') {
+    if (tab === 'sections' || tab === 'routes' || tab === 'insights') {
       setActiveTab(tab);
     }
   }, [tab]);
@@ -112,6 +114,11 @@ export default function RoutesScreen() {
   // Tabs configuration for SwipeableTabs
   const tabs = useMemo<SwipeableTab[]>(() => {
     const result: SwipeableTab[] = [
+      {
+        key: 'insights',
+        label: t('insights.title', 'Insights'),
+        icon: 'lightbulb-outline',
+      },
       {
         key: 'routes',
         label: t('trainingScreen.routes'),
@@ -311,6 +318,21 @@ export default function RoutesScreen() {
           <Text style={[styles.headerTitle, isDark && styles.textLight]}>
             {t('insights.title', 'Insights')}
           </Text>
+          <IconButton
+            icon="information-outline"
+            size={20}
+            iconColor={isDark ? darkColors.textMuted : colors.textMuted}
+            onPress={() =>
+              Alert.alert(
+                t('insights.aboutTitle', 'About Insights'),
+                t(
+                  'insights.aboutBody',
+                  'Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only \u2014 not medical or coaching advice.'
+                )
+              )
+            }
+            style={styles.infoButton}
+          />
         </View>
 
         {/* Date range summary - shows cached range with link to expand */}
@@ -326,10 +348,7 @@ export default function RoutesScreen() {
           }
         />
 
-        {/* Insights: today's context + insight cards */}
-        <InsightsPanel insights={insights} />
-
-        {/* Swipeable Routes/Sections tabs */}
+        {/* Swipeable Insights/Routes/Sections tabs */}
         <SwipeableTabs
           tabs={tabs}
           activeTab={activeTab}
@@ -337,6 +356,7 @@ export default function RoutesScreen() {
           isDark={isDark}
           lazy
         >
+          <InsightsPanel insights={insights} />
           <RoutesList
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}
@@ -368,8 +388,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  infoButton: {
+    margin: 0,
   },
   headerTitle: {
     fontSize: 18,

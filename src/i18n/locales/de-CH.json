@@ -209,13 +209,8 @@
     "syncComplete": "Sync fertig",
     "syncFailed": "Synchronisierig fählgschlage",
     "syncResetDiscarded": "Sync zrugggsetzt - Ergebnis verwörfe",
-    "analyzingRouteGroups": "Route analysiere...",
-    "detectingSectionsProgress": "Abschnitt erchenne... {{percent}}%",
-    "downloadingActivities": "Aktivitäte abelade...",
     "downloadingTiles": "Chartechachle werde zwüschegschpeicheret",
-    "processingGpsTracks": "GPS-Spuure verarbeite...",
     "renderingTerrainPreviews": "3D-Vorschaue am lade",
-    "syncComplete": "Sync fertig",
     "syncingActivities": "Aktivitäte am synce..."
   },
   "chartTypes": {
@@ -396,11 +391,11 @@
     "understandingMetrics": "D Zahle verstaa"
   },
   "formZones": {
+    "detraining": "Übergang",
     "fresh": "Fit",
-    "greyZone": "Grauzone",
-    "highRisk": "Ufpasse!",
-    "optimal": "Optimal",
-    "transition": "Übergang"
+    "maintenance": "Grauzone",
+    "productive": "Optimal",
+    "deepFatigue": "Ufpasse!"
   },
   "healthScreen": {
     "title": "Gsundheit"
@@ -642,6 +637,9 @@
     "gpsAcquiring": "Warte uf GPS...",
     "gpsReady": "Ufnahm starte",
     "gpsWeakWarning": "GPS-Signal schwach — Ufnahm chönnt ungenau sii",
+    "backgroundNotificationTitle": "Aktivität aufzeichnen",
+    "backgroundNotificationBody": "Veloq verfolgt deinen Standort",
+    "trimmed": "Gekürzt",
     "splitBanner": "{{unit}} {{index}} — {{pace}}",
     "settings": "Ufnahm-Iistellige",
     "settingsAutoPause": "Auto-Pause",
@@ -659,8 +657,6 @@
     "sectionTrendSummaryBody": "Am Gas gee: {{names}}. {{stable}} stabil, {{declining}} am nachla.",
     "sectionImproving": "{{name}} wird schnäller!",
     "sectionImprovingBody": "Letschte Median: {{median}}. Bestziit: {{best}} us {{count}} Versüech.",
-    "sectionDeclining": "{{name}} wird langsamer",
-    "sectionDecliningBody": "Letschte Median: {{median}} vs Bestziit {{best}}. Ziit für en neue Aalauf?",
     "ftpIncrease": "FTP +{{delta}}W, lässig!",
     "paceImproved": "Tempo besser {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% die Wuche",
@@ -670,22 +666,7 @@
     "loadBody": "TSS: {{currentTss}} die Wuche vs {{previousTss}} letschti Wuche. Ziit: {{currentDuration}} vs {{previousDuration}}.",
     "patternMatch": "{{day}} - meischtens {{verb}} ~{{duration}}",
     "consistencyStreak": "{{count}}-Wuche-Serie, cheibe guet!",
-    "peakFitness": "Topform: {{value}} CTL",
-    "formAdvice": {
-      "fresh": "Lässige Tag zum Gas gee!",
-      "grey": "Hüt lieber gemüetlich",
-      "optimal": "Du bisch im Schuss, Siech!",
-      "tired": "Mach mal langsam, gäll",
-      "overreaching": "Ab ufs Sofa, Siech!"
-    },
     "volumeBody": "Trainingsziit: {{current}} die Wuche vs {{previous}} letscht Wuche. Das misst d Ziit, nöd d Trainingsbelastig (TSS).",
-    "formBody": {
-      "fresh": "Dini Form (TSB) isch {{tsb}}. Fitness (CTL: {{ctl}}) – Müedigkeit (ATL: {{atl}}). Fit wie en Turnschueh — lässige Tag für herts Training.",
-      "grey": "Dini Form (TSB) isch {{tsb}}. Fitness (CTL: {{ctl}}) – Müedigkeit (ATL: {{atl}}). So mittelmässig — lieber gemüetlich hüt.",
-      "optimal": "Dini Form (TSB) isch {{tsb}}. Fitness (CTL: {{ctl}}) – Müedigkeit (ATL: {{atl}}). Cheibe lässig — du bisch i de Topform!",
-      "tired": "Dini Form (TSB) isch {{tsb}}. Fitness (CTL: {{ctl}}) – Müedigkeit (ATL: {{atl}}). Bisch müed — mach es ruhig oder rueht di us.",
-      "overreaching": "Dini Form (TSB) isch {{tsb}}. Fitness (CTL: {{ctl}}) – Müedigkeit (ATL: {{atl}}). Total am Aschlag — rueht di us, Siech!"
-    },
     "viewDetails": "Details luege",
     "today": "HÜTT",
     "tomorrow": "MORN",
@@ -698,69 +679,17 @@
     "current": "Aktuell",
     "previous": "Vorher",
     "change": "Änderig",
-    "acwr": {
-      "undertrained": "Z wenig trainiert",
-      "sweetSpot": "Training-Sweet-Spot",
-      "highLoad": "Hohi Belastig",
-      "spikeRisk": "Verletzigsgfahr!",
-      "undertrainedBody": "Dis Akut:Chronisch-Verhältnis isch {{acwr}}. D Trainingsbelastig isch under dim Grundniveau (< 0.8). Überleg der langsam meh z mache.",
-      "sweetSpotBody": "Dis Akut:Chronisch-Verhältnis isch {{acwr}}. D Trainingsbelastig isch guet balanciert gäge dini letschti Gschicht (0.8 - 1.3).",
-      "highLoadBody": "Dis Akut:Chronisch-Verhältnis isch {{acwr}}. D Trainingsbelastig isch höcher als din Grundwert (1.3 - 1.5). Pass uf Überbelastigssymptom uf.",
-      "spikeRiskBody": "Dis Akut:Chronisch-Verhältnis isch {{acwr}}. D Trainingsbelastig isch cheibe ufegange (> 1.5). Hohes Verletzungsrisiko — Belastig reduziere!",
-      "selectedReasoning": "Din ACWR vo {{acwr}} isch i de {{zone}}-Zone ({{min}} - {{max}})",
-      "notSelectedReasoning": "Din ACWR vo {{acwr}} isch usserhalb vo de {{zone}}-Zone ({{min}} - {{max}})"
-    },
-    "monotony": {
-      "highMonotony": "Training z eintönig",
-      "goodVariety": "Gueti Trainingsvariation",
-      "moderate": "Mässigi Trainingsvariation",
-      "highMonotonyBody": "Monotonie-Score: {{value}}. Sehr ähnlichi täglichi Belastig erhöht s Risiko für Übertraining. Wächsle d Intensität ab.",
-      "goodVarietyBody": "Monotonie-Score: {{value}}. Dini Trainings händ gueti Abwächslig bi Belastig und Intensität.",
-      "moderateBody": "Monotonie-Score: {{value}}. Überleg der meh Abwächslig is Training z bringe."
-    },
-    "formTrajectory": {
-      "improving": "Form wird besser",
-      "improvingWithEstimate": "Form wird besser",
-      "declining": "Form gaht abe",
-      "stable": "Form isch stabil",
-      "improvingBody": "TSB stiigt ({{tsb}}). D Müedigkeit nimmt schnäller ab als d Fitness. De Trend isch positiv.",
-      "improvingWithEstimateBody": "TSB stiigt ({{tsb}}). Bi dem Tempo sötsch i ca. ~{{days}} Täg positivi Form erreiche.",
-      "decliningBody": "TSB sinkt ({{tsb}}). D Trainingsbelastig baut sich schnäller uf als d Erholig. Vilicht es bitzeli weniger.",
-      "stableBody": "TSB blibt stabil ({{tsb}}). Training und Erholig sind im Gliichgwicht."
-    },
-    "rampRate": {
-      "aggressive": "Aggressivi Fitness-Stiigerig",
-      "building": "Fitness baut sich guet uf",
-      "maintenance": "Erhaltigsphase",
-      "detraining": "Detraining-Risiko",
-      "aggressiveBody": "CTL-Stiigerig: {{rate}} pro Wuche. Fitness baut sich schnäll uf, aber pass uf Überbelastig uf. Aktuell CTL: {{ctl}}.",
-      "buildingBody": "CTL-Stiigerig: {{rate}} pro Wuche. Solidi progressivi Belastig. Aktuell CTL: {{ctl}}.",
-      "maintenanceBody": "CTL-Stiigerig: {{rate}} pro Wuche. Fitness blibt konstant. Aktuell CTL: {{ctl}}.",
-      "detrainingBody": "CTL-Stiigerig: {{rate}} pro Wuche. Fitness nimmt ab — meh trainiere zum das umchehre. Aktuell CTL: {{ctl}}.",
-      "selectedReasoning": "Dini Stiigerig vo {{rate}}/Wuche isch i de {{zone}}-Zone ({{min}} - {{max}})",
-      "notSelectedReasoning": "Dini Stiigerig vo {{rate}}/Wuche isch usserhalb vo de {{zone}}-Zone ({{min}} - {{max}})"
-    },
-    "sectionFitness": "Fitnessfortschritt zeigt sich uf {{name}}",
-    "sectionFitnessBody": "Dini besseri Leistig uf {{name}} passt zu dinere stiigender Fitness (CTL: {{ctl}}).",
     "restDay": {
-      "hrvTrending": "HRV die Wuche {{percent}}% ufe",
-      "sectionExplore": "Erkund dini {{total}} Abschnitt — {{improving}} besser, {{declining}} schlechter",
-      "tomorrowPrediction": "Morn isch normaaler {{verb}}-Tag (~{{duration}})",
-      "recoveryProgress": "Erholig am Laufe",
-      "recoveryProgressBody": "Dini HRV gaat die Wuche {{direction}}. D Erholigssignal sind {{status}}.",
       "hrvTrend": "HRV {{direction}} {{percent}}% die Wuche",
-      "sectionDeepDive": "Erkund dini {{total}} Abschnitt",
-      "sectionDeepDiveBody": "{{improving}} besser, {{declining}} schlechter, {{stable}} stabil. Tipp zum dini Abschnitts-Leistig z erkunde.",
       "tomorrowPattern": "Morn isch normaaler {{verb}}-Tag",
-      "tomorrowPatternBody": "Basierend uf {{count}} früheri {{day}}-Aktivitäte, machsch normalerwiis {{verb}} für ~{{duration}}."
+      "tomorrowPatternBody": "Basierend uf {{count}} früheri {{day}}-Aktivitäte, machsch normalerwiis {{verb}} für ~{{duration}}.",
+      "intensityContext": "{{count}} sessions this week",
+      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
+      "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
       "banister": "Berechnet d Training Stress Balance us em Unterschied zwüsche Fitness (CTL) und Müedigkeit (ATL).",
-      "acwr": "Vergliicht d Trainingsbelastig vo dere Wuche mit dim 4-Wuche-Schnitt zum s Verletzungsrisiko iizschtze.",
       "hrv": "Vergliicht din HRV-Trend mit dim 7-Täg-Grundwert zum din Erholigsstatus z beurteile.",
-      "monotony": "Misst wie eintönig dini tägliche Trainingsbelastig isch. Hohi Monotonie erhöht s Übertrainigsrisiko.",
-      "formProjection": "Projiziert din TSB voruse basierend uf de akutelle Fitness- und Müedigkeitsabbauraten.",
-      "rampRate": "Misst wie schnäll sich dini Fitness (CTL) pro Wuche veränderet.",
       "kmeans": "Gruppiert dini Aktivitäte nach Tag, Duur und Sportart zum wiederkehrendi Trainingsmuster z finde.",
       "prDetection": "Vergliicht dini letschti Abschnittsziit mit allne früheri Versüech zum persönlichi Rekord z erchenne.",
       "sectionTrend": "Verfolgt d Median-Leistig uf oft bsuechte Abschnitt über d Ziit.",
@@ -795,39 +724,50 @@
       "todayHrv": "HRV hüt",
       "sevenDayAvg": "7-Täg-Schnitt",
       "hrvSevenDay": "HRV (7 Täg)",
-      "acwrRange": "ACWR-Bereich",
-      "acuteTss": "Akut TSS (die Wuche)",
-      "chronicAvgTss": "Chronisch Ø TSS (4 Wuche)",
-      "monotony": "Monotonie-Score",
-      "meanLoad": "Ø tägliche Belastig",
-      "loadVariation": "Belastigsvariation (SD)",
-      "dailyTrend": "Täglichi Trend",
-      "rampRange": "Stiigerigs-Bereich",
-      "rampRate": "Stiigerig",
-      "improvingSections": "Abschnitt wo besser wärded"
+      "latestHrv": "Latest HRV",
+      "dataPoints": "Data points",
+      "thisWeekTss": "This week",
+      "fourWeekAvgTss": "4-week average"
     },
-    "formAlternatives": {
-      "selectedReasoning": "Din TSB vo {{tsb}} isch im {{zone}}-Bereich ({{min}} bis {{max}})",
-      "notSelectedReasoning": "Din TSB vo {{tsb}} isch usserhalb vom {{zone}}-Bereich ({{min}} bis {{max}})"
+    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
+    "tsbForm": {
+      "title": "Form: {{tsb}} ({{zone}})",
+      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
+      "zones": {
+        "fresh": "Fresh",
+        "detraining": "Transition",
+        "maintenance": "Maintenance",
+        "productive": "Productive training",
+        "deepFatigue": "Deep fatigue"
+      },
+      "zoneDescriptions": {
+        "fresh": "Well-rested, fitness exceeds fatigue",
+        "detraining": "Between training and freshness",
+        "maintenance": "Moderate training load",
+        "productive": "Where most adaptation occurs",
+        "deepFatigue": "Significant accumulated fatigue"
+      }
     },
-    "recovery": {
-      "wellRecovered": "Guet erholet",
-      "wellRecoveredBody": "HRV isch {{deviation}}% {{direction}} dim Grundwert mit eme TSB vo {{tsb}}. Gueti Bedingige für intensivs Training.",
-      "adequate": "Gnueg erholet",
-      "adequateBody": "HRV im normale Bereich mit eme TSB vo {{tsb}}. Training wie plant sött kei Problem sii.",
-      "accumulating": "Müedigkeit baut sich uf",
-      "accumulatingBody": "HRV gaht {{deviation}}% {{direction}} dim Grundwert mit eme TSB vo {{tsb}}. Vilicht weniger Intensität.",
-      "recoveryNeeded": "Erholig bruuchts",
-      "recoveryNeededBody": "HRV {{deviation}}% {{direction}} dim Grundwert mit eme TSB vo {{tsb}}. Liechts Training oder Ruehtag empfohle.",
-      "extendedRecovery": "Längeri Erholig bruuchts",
-      "extendedRecoveryBody": "HRV {{deviation}}% {{direction}} dim Grundwert mit hefiger Müedigkeit (TSB: {{tsb}}). Ruehtag isch dringend empfohle.",
-      "selectedReasoning": "Dini HRV-Abwiichig vo {{deviation}}% mit TSB vo {{tsb}} passt zu dem Level",
-      "notSelectedReasoning": "Dini HRV-Abwiichig vo {{deviation}}% mit TSB vo {{tsb}} passt nöd zu dem Level"
+    "hrvTrend": {
+      "trendingUp": "HRV trending up",
+      "trendingDown": "HRV trending down",
+      "stable": "HRV stable",
+      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
+      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
+      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
     },
-    "sectionPerformance": {
-      "fitnessGains": "Fitnessfortschritt zeigt sich uf {{name}}",
-      "fitnessGainsBody": "Dini besseri Leistig uf {{name}} passt zu dinere stiigender Fitness (CTL: {{ctl}})."
-    }
+    "weeklyLoad": {
+      "title": "Training load {{percent}}% {{direction}} average",
+      "above": "above",
+      "below": "below",
+      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
+    },
+    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
+    "aboutInsights": "About Insights",
+    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
+    "showMore": "Show {{count}} more",
+    "aboutTitle": "About Insights",
+    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
   },
   "routeDetail": {
     "avgTime": "Ø Ziit",
@@ -994,13 +934,9 @@
     "boundsModified": "Grenzen geändert",
     "editBounds": "Grenzen bearbeiten",
     "originalDistance": "Original",
-    "performanceHistory": "Leistigshistorie",
     "points": "Punkte",
-    "referenceUpdated": "Referänz-Aktivität aktualisiert",
     "resetBounds": "Auf Original zurücksetzen",
     "resetBoundsConfirm": "Auf die ursprünglich automatisch erkannten Grenzen zurücksetzen?\n\nDer Abschnitt wird erneut mit allen deinen Aktivitäten abgeglichen.",
-    "resetReference": "Referänz zruggsetze",
-    "resetReferenceConfirm": "Zrugg uf automatischi Referänzuswahl?\n\nDe Abschnitt wird neu mit allne dine Aktivitäte abgliche. Das chan Aktivitäte dezuetuä oder ussenäh.",
     "totalTraversals": "Total Durchfahrte",
     "traversals": "Durchfahrte",
     "traversalsCount": "{{count}} Durchfahrte",
@@ -1063,13 +999,12 @@
     "appTour": "App-Tour",
     "appTourDescription": "Funktione entdecke und lerne wie si funktioniere",
     "terrain3D": "3D Terrain",
-    "terrain3DHint": "Smart-Modus zeigt 3D für hügeliges und bergiges Gelände",
+    "terrain3DHint": "Vorgerenderets 3D-Terrain in Feed-Charte",
     "terrain3DOff": "Aus",
     "terrain3DSmart": "Smart",
     "terrain3DAlways": "Immer",
     "terrainCacheSize": "Cache: {{size}}",
     "mapCacheSize": "Charte-Cache: {{size}}",
-    "clearCache": "Lösche",
     "tileCacheDetail": "{{count}} Gländechachle",
     "tileCacheDetail_one": "1 Gländechachle",
     "offlineMaps": "Offline Maps",
@@ -1114,9 +1049,6 @@
     "syncAllHistoryDescription": "Bis zu 10 Jahr. Cheibe lässig für Route!",
     "syncInProgress": "Momäntli, bin dra...",
     "system": "System",
-    "terrain3D": "3D Terrain",
-    "terrain3DHint": "Vorgerenderets 3D-Terrain in Feed-Charte",
-    "terrainCacheSize": "Cache: {{size}}",
     "title": "Istellige",
     "total": "Total",
     "units": "Einheite",

@@ -209,13 +209,8 @@
     "syncComplete": "同步完成",
     "syncFailed": "同步失败",
     "syncResetDiscarded": "同步已重置 - 结果已丢弃",
-    "analyzingRouteGroups": "正在分析路线...",
-    "detectingSectionsProgress": "正在检测路段... {{percent}}%",
-    "downloadingActivities": "正在下载活动...",
     "downloadingTiles": "正在缓存地图瓦片",
-    "processingGpsTracks": "正在处理GPS轨迹...",
     "renderingTerrainPreviews": "正在渲染3D预览",
-    "syncComplete": "同步完成",
     "syncingActivities": "正在同步活动"
   },
   "chartTypes": {
@@ -396,11 +391,11 @@
     "understandingMetrics": "了解指标"
   },
   "formZones": {
+    "detraining": "过渡期",
     "fresh": "恢复期",
-    "greyZone": "灰色区间",
-    "highRisk": "高风险",
-    "optimal": "最佳区间",
-    "transition": "过渡期"
+    "maintenance": "灰色区间",
+    "productive": "最佳区间",
+    "deepFatigue": "高风险"
   },
   "healthScreen": {
     "title": "健康"
@@ -642,6 +637,9 @@
     "gpsAcquiring": "正在获取GPS...",
     "gpsReady": "开始录制",
     "gpsWeakWarning": "GPS信号弱 — 录制可能不准确",
+    "backgroundNotificationTitle": "正在记录活动",
+    "backgroundNotificationBody": "Veloq正在跟踪您的位置",
+    "trimmed": "已裁剪",
     "splitBanner": "{{unit}} {{index}} — {{pace}}",
     "settings": "录制设置",
     "settingsAutoPause": "自动暂停",
@@ -659,8 +657,6 @@
     "sectionTrendSummaryBody": "改善中: {{names}}。{{stable}}个稳定，{{declining}}个下降。",
     "sectionImproving": "{{name}}正在变快",
     "sectionImprovingBody": "近期中位数: {{median}}。最佳: {{best}}，共{{count}}次。",
-    "sectionDeclining": "{{name}}正在变慢",
-    "sectionDecliningBody": "近期中位数: {{median}}，最佳为{{best}}。是时候重新挑战了？",
     "ftpIncrease": "FTP +{{delta}}W",
     "paceImproved": "配速提升 {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% 周训练量",
@@ -670,26 +666,10 @@
     "loadBody": "TSS: 本周 {{currentTss}} vs 上周 {{previousTss}}。时长: {{currentDuration}} vs {{previousDuration}}。",
     "patternMatch": "{{day}} - 通常 {{verb}} ~{{duration}}",
     "consistencyStreak": "{{count}}周连续",
-    "peakFitness": "巅峰体能: {{value}} CTL",
-    "formAdvice": {
-      "fresh": "适合高强度训练",
-      "grey": "建议适度运动",
-      "optimal": "巅峰状态窗口",
-      "tired": "考虑恢复",
-      "overreaching": "建议休息"
-    },
     "volumeBody": "训练时长: 本周 {{current}} vs 上周 {{previous}}。这衡量的是时间，不是训练负荷 (TSS)。",
-    "formBody": {
-      "fresh": "你的状态 (TSB) 为 {{tsb}}。体能 (CTL: {{ctl}}) – 疲劳 (ATL: {{atl}})。新鲜区 — 恢复良好，适合高强度训练。",
-      "grey": "你的状态 (TSB) 为 {{tsb}}。体能 (CTL: {{ctl}}) – 疲劳 (ATL: {{atl}})。过渡区 — 建议适度运动。",
-      "optimal": "你的状态 (TSB) 为 {{tsb}}。体能 (CTL: {{ctl}}) – 疲劳 (ATL: {{atl}})。最佳区 — 巅峰表现窗口期。",
-      "tired": "你的状态 (TSB) 为 {{tsb}}。体能 (CTL: {{ctl}}) – 疲劳 (ATL: {{atl}})。疲劳区 — 考虑轻松训练或休息。",
-      "overreaching": "你的状态 (TSB) 为 {{tsb}}。体能 (CTL: {{ctl}}) – 疲劳 (ATL: {{atl}})。过度训练 — 强烈建议休息。"
-    },
     "viewDetails": "查看详情",
     "today": "今天",
     "tomorrow": "明天",
-    "whyThisRecommendation": "为什么有此建议",
     "showMethodology": "显示方法论",
     "basedOnActivities": "基于 {{count}} 个活动",
     "confidence": "{{value}}% 置信度",
@@ -698,69 +678,17 @@
     "current": "当前",
     "previous": "上一个",
     "change": "变化",
-    "acwr": {
-      "undertrained": "训练不足",
-      "sweetSpot": "训练甜区",
-      "highLoad": "高负荷区",
-      "spikeRisk": "受伤峰值风险",
-      "selectedReasoning": "你的 ACWR 为 {{acwr}}，处于 {{zone}} 区间 ({{min}} - {{max}})",
-      "notSelectedReasoning": "你的 ACWR 为 {{acwr}}，不在 {{zone}} 区间内 ({{min}} - {{max}})",
-      "undertrainedBody": "你的急性:慢性比率为 {{acwr}}。训练负荷低于已建立的基线 (< 0.8)。考虑逐步增加训练量。",
-      "sweetSpotBody": "你的急性:慢性比率为 {{acwr}}。训练负荷与近期历史很好地平衡 (0.8 - 1.3)。",
-      "highLoadBody": "你的急性:慢性比率为 {{acwr}}。训练负荷高于基线 (1.3 - 1.5)。注意过度使用的症状。",
-      "spikeRiskBody": "你的急性:慢性比率为 {{acwr}}。训练负荷大幅飙升 (> 1.5)。受伤风险高 - 请降低负荷。"
-    },
-    "monotony": {
-      "moderate": "训练变化适中",
-      "highMonotony": "训练过于单调",
-      "goodVariety": "训练变化丰富",
-      "highMonotonyBody": "训练单调性评分: {{value}}。每日负荷过于相似会增加过度训练的风险。请变化强度。",
-      "goodVarietyBody": "训练单调性评分: {{value}}。你的训练课在负荷和强度方面有良好的变化。",
-      "moderateBody": "训练单调性评分: {{value}}。考虑为你的训练增加更多变化。"
-    },
-    "formTrajectory": {
-      "improving": "状态在改善",
-      "declining": "状态在下降",
-      "stable": "状态稳定",
-      "improvingWithEstimate": "状态在改善",
-      "improvingBody": "TSB 正在上升 ({{tsb}})。疲劳消退的速度快于体能衰减的速度。当前趋势积极。",
-      "improvingWithEstimateBody": "TSB 正在上升 ({{tsb}})。按当前速率，大约 ~{{days}} 天后可达到正值状态。",
-      "decliningBody": "TSB 正在下降 ({{tsb}})。训练负荷累积的速度快于恢复。考虑减量。",
-      "stableBody": "TSB 保持稳定 ({{tsb}})。当前负荷下训练与恢复处于平衡状态。"
-    },
-    "rampRate": {
-      "aggressive": "体能激进提升",
-      "building": "体能稳步提升",
-      "maintenance": "维持阶段",
-      "detraining": "退训风险",
-      "selectedReasoning": "你的提升速率为 {{rate}}/周，处于 {{zone}} 区间 ({{min}} - {{max}})",
-      "notSelectedReasoning": "你的提升速率为 {{rate}}/周，不在 {{zone}} 区间内 ({{min}} - {{max}})",
-      "aggressiveBody": "CTL 提升速率: 每周 {{rate}}。体能快速提升但需注意过度使用。当前 CTL: {{ctl}}。",
-      "buildingBody": "CTL 提升速率: 每周 {{rate}}。稳健的渐进超负荷。当前 CTL: {{ctl}}。",
-      "maintenanceBody": "CTL 提升速率: 每周 {{rate}}。体能保持稳定。当前 CTL: {{ctl}}。",
-      "detrainingBody": "CTL 提升速率: 每周 {{rate}}。体能正在下降 - 增加训练刺激以扭转。当前 CTL: {{ctl}}。"
-    },
-    "sectionFitness": "{{name}}上显现体能提升",
-    "sectionFitnessBody": "你在{{name}}上表现的改善与你体能的提升 (CTL: {{ctl}}) 相关。",
     "restDay": {
-      "hrvTrending": "本周 HRV 上升趋势 {{percent}}%",
-      "sectionExplore": "探索你的 {{total}} 个路段 - {{improving}} 个改善中，{{declining}} 个下降中",
-      "tomorrowPrediction": "明天通常是 {{verb}} 日 (~{{duration}})",
-      "recoveryProgress": "恢复进行中",
-      "recoveryProgressBody": "你的 HRV 本周趋势为{{direction}}。恢复信号{{status}}。",
       "hrvTrend": "HRV 本周{{direction}} {{percent}}%",
-      "sectionDeepDive": "探索你的 {{total}} 个路段",
-      "sectionDeepDiveBody": "{{improving}} 个改善中，{{declining}} 个下降中，{{stable}} 个稳定。点击探索你的路段表现。",
       "tomorrowPattern": "明天通常是 {{verb}} 日",
-      "tomorrowPatternBody": "根据 {{count}} 次之前{{day}}的活动，你通常 {{verb}} 约 ~{{duration}}。"
+      "tomorrowPatternBody": "根据 {{count}} 次之前{{day}}的活动，你通常 {{verb}} 约 ~{{duration}}。",
+      "intensityContext": "{{count}} sessions this week",
+      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
+      "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
       "banister": "通过体能 (CTL) 与疲劳 (ATL) 的差值计算训练压力平衡。",
-      "acwr": "将本周训练压力与 4 周平均值进行比较，以估算受伤风险。",
       "hrv": "将你的心率变异性趋势与 7 天基线进行比较，以评估恢复状态。",
-      "monotony": "衡量你每日训练负荷的重复程度。高单调性会增加过度训练的风险。",
-      "formProjection": "根据当前体能和疲劳衰减率预测你的训练压力平衡。",
-      "rampRate": "衡量你的体能 (CTL) 每周变化的速度。",
       "kmeans": "按日期、时长和运动类型对你的活动进行分组，以识别反复出现的训练模式。",
       "prDetection": "将你最近一次路段时间与所有之前的表现进行比较，以检测个人纪录。",
       "sectionTrend": "跟踪经常访问的路段上的中位表现随时间的变化。",
@@ -795,39 +723,51 @@
       "todayHrv": "今日 HRV",
       "sevenDayAvg": "7 日平均",
       "hrvSevenDay": "HRV (7 天)",
-      "acwrRange": "ACWR 范围",
-      "acuteTss": "急性 TSS (本周)",
-      "chronicAvgTss": "慢性平均 TSS (4 周)",
-      "monotony": "单调性评分",
-      "meanLoad": "日均负荷",
-      "loadVariation": "负荷变化 (标准差)",
-      "dailyTrend": "每日趋势",
-      "rampRange": "提升速率范围",
-      "rampRate": "提升速率",
-      "improvingSections": "改善中的路段"
+      "latestHrv": "Latest HRV",
+      "dataPoints": "Data points",
+      "thisWeekTss": "This week",
+      "fourWeekAvgTss": "4-week average"
     },
-    "formAlternatives": {
-      "selectedReasoning": "你的 TSB 为 {{tsb}}，处于 {{zone}} 范围 ({{min}} 至 {{max}})",
-      "notSelectedReasoning": "你的 TSB 为 {{tsb}}，不在 {{zone}} 范围内 ({{min}} 至 {{max}})"
+    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
+    "tsbForm": {
+      "title": "Form: {{tsb}} ({{zone}})",
+      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
+      "zones": {
+        "fresh": "Fresh",
+        "detraining": "Transition",
+        "maintenance": "Maintenance",
+        "productive": "Productive training",
+        "deepFatigue": "Deep fatigue"
+      },
+      "zoneDescriptions": {
+        "fresh": "Well-rested, fitness exceeds fatigue",
+        "detraining": "Between training and freshness",
+        "maintenance": "Moderate training load",
+        "productive": "Where most adaptation occurs",
+        "deepFatigue": "Significant accumulated fatigue"
+      }
     },
-    "recovery": {
-      "selectedReasoning": "你的 HRV 偏差为 {{deviation}}%，TSB 为 {{tsb}}，匹配此级别",
-      "notSelectedReasoning": "你的 HRV 偏差为 {{deviation}}%，TSB 为 {{tsb}}，不匹配此级别",
-      "wellRecovered": "恢复良好",
-      "wellRecoveredBody": "HRV {{direction}}基线 {{deviation}}%，TSB 为 {{tsb}}。适合高质量训练。",
-      "adequate": "恢复充分",
-      "adequateBody": "HRV 在正常范围内，TSB 为 {{tsb}}。按计划训练应该没问题。",
-      "accumulating": "疲劳累积中",
-      "accumulatingBody": "HRV 趋势{{direction}}基线 {{deviation}}%，TSB 为 {{tsb}}。考虑降低强度。",
-      "recoveryNeeded": "需要恢复",
-      "recoveryNeededBody": "HRV {{direction}}基线 {{deviation}}%，TSB 为 {{tsb}}。建议轻松训练或休息。",
-      "extendedRecovery": "需要深度恢复",
-      "extendedRecoveryBody": "HRV {{direction}}基线 {{deviation}}%，疲劳严重 (TSB: {{tsb}})。强烈建议休息。"
+    "hrvTrend": {
+      "trendingUp": "HRV trending up",
+      "trendingDown": "HRV trending down",
+      "stable": "HRV stable",
+      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
+      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
+      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
     },
-    "sectionPerformance": {
-      "fitnessGains": "{{name}}上显现体能提升",
-      "fitnessGainsBody": "你在{{name}}上表现的改善与你体能的提升 (CTL: {{ctl}}) 相关。"
-    }
+    "weeklyLoad": {
+      "title": "Training load {{percent}}% {{direction}} average",
+      "above": "above",
+      "below": "below",
+      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
+    },
+    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
+    "aboutInsights": "About Insights",
+    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
+    "showMore": "Show {{count}} more",
+    "aboutTitle": "About Insights",
+    "whyThisRecommendation": "Why this recommendation?",
+    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
   },
   "routeDetail": {
     "avgTime": "平均时间",
@@ -994,13 +934,9 @@
     "boundsModified": "边界已修改",
     "editBounds": "编辑边界",
     "originalDistance": "原始",
-    "performanceHistory": "表现历史",
     "points": "个点",
-    "referenceUpdated": "参考活动已更新",
     "resetBounds": "恢复原始",
     "resetBoundsConfirm": "恢复到自动检测的原始边界？\n\n该路段将与您的所有活动重新匹配。",
-    "resetReference": "重置参考",
-    "resetReferenceConfirm": "重置为自动参考选择？\n\n该路段将与您的所有活动重新匹配。这可能会从该路段中添加或删除活动。",
     "totalTraversals": "总通过次数",
     "traversals": "次通过",
     "traversalsCount": "{{count}} 次通过",
@@ -1063,13 +999,12 @@
     "appTour": "应用导览",
     "appTourDescription": "探索功能并学习如何使用",
     "terrain3D": "3D 地形",
-    "terrain3DHint": "智能模式在地形起伏较大时显示3D",
+    "terrain3DHint": "在动态卡片中预渲染 3D 地形",
     "terrain3DOff": "关闭",
     "terrain3DSmart": "智能",
     "terrain3DAlways": "始终",
     "terrainCacheSize": "缓存：{{size}}",
     "mapCacheSize": "地图缓存：{{size}}",
-    "clearCache": "清除",
     "tileCacheDetail": "{{count}}个地形瓦片",
     "tileCacheDetail_one": "{{count}}个地形瓦片",
     "offlineMaps": "Offline Maps",
@@ -1114,9 +1049,6 @@
     "syncAllHistoryDescription": "这将在后台同步最多 10 年的活动数据。这可以实现更深入的路线分析和比较。",
     "syncInProgress": "请等待当前同步完成。",
     "system": "跟随系统",
-    "terrain3D": "3D 地形",
-    "terrain3DHint": "在动态卡片中预渲染 3D 地形",
-    "terrainCacheSize": "缓存：{{size}}",
     "title": "设置",
     "total": "总计",
     "units": "单位",

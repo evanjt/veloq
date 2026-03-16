@@ -1,16 +1,28 @@
-import React, { useEffect, useRef, useCallback } from 'react';
-import { StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useCallback, useMemo, useRef } from 'react';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { router, Href } from 'expo-router';
 import { useTheme } from '@/hooks';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, colorWithOpacity } from '@/theme';
 import type { Insight } from '@/types';
 
 const ROTATION_INTERVAL = 8000;
 const FADE_DURATION = 300;
 const MAX_DISPLAY = 5;
+
+const CATEGORY_COLORS: Record<string, string> = {
+  section_pr: '#FFD700',
+  fitness_milestone: '#4CAF50',
+  period_comparison: '#2196F3',
+  activity_pattern: '#9C27B0',
+  training_consistency: '#FF9800',
+  hrv_trend: '#66BB6A',
+  tsb_form: '#42A5F5',
+  weekly_load: '#FFA726',
+  intensity_context: '#FFA726',
+};
 
 interface InsightLineProps {
   insights: Insight[];
@@ -19,25 +31,24 @@ interface InsightLineProps {
 export const InsightLine = React.memo(function InsightLine({ insights }: InsightLineProps) {
   const { isDark } = useTheme();
   const opacity = useSharedValue(1);
-  const indexRef = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [currentIndex, setCurrentIndex] = React.useState(0);
 
-  const displayInsights = insights.slice(0, MAX_DISPLAY);
+  // Filter consecutive identical titles
+  const displayInsights = useMemo(() => {
+    const sliced = insights.slice(0, MAX_DISPLAY);
+    return sliced.filter((insight, i) => i === 0 || insight.title !== sliced[i - 1].title);
+  }, [insights]);
 
   useEffect(() => {
     if (displayInsights.length <= 1) return;
 
     const interval = setInterval(() => {
-      opacity.value = withTiming(0, { duration: FADE_DURATION }, (finished) => {
-        if (finished) {
-          indexRef.current = (indexRef.current + 1) % displayInsights.length;
-        }
-      });
+      opacity.value = withTiming(0, { duration: FADE_DURATION });
 
-      // After fade out, update displayed index and fade in
+      // After fade out, advance index on JS thread and fade in
       timeoutRef.current = setTimeout(() => {
-        setCurrentIndex(indexRef.current);
+        setCurrentIndex((prev) => (prev + 1) % displayInsights.length);
         opacity.value = withTiming(1, { duration: FADE_DURATION });
       }, FADE_DURATION);
     }, ROTATION_INTERVAL);
@@ -62,43 +73,90 @@ export const InsightLine = React.memo(function InsightLine({ insights }: Insight
   const insight = displayInsights[currentIndex];
   if (!insight) return null;
 
+  const categoryColor = CATEGORY_COLORS[insight.category] ?? colors.primary;
+  const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
+
   return (
-    <TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.7}>
-      <Animated.View style={[styles.content, animatedStyle]}>
-        <MaterialCommunityIcons
-          name={insight.icon as keyof typeof MaterialCommunityIcons.glyphMap}
-          size={13}
-          color={insight.iconColor}
-          style={styles.icon}
-        />
-        <Text
-          style={[styles.text, { color: isDark ? darkColors.textSecondary : colors.textSecondary }]}
-          numberOfLines={1}
+    <View style={styles.wrapper}>
+      <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
+        <Animated.View
+          style={[
+            styles.pill,
+            { backgroundColor: colorWithOpacity(categoryColor, 0.1) },
+            animatedStyle,
+          ]}
         >
-          {insight.title}
-        </Text>
-      </Animated.View>
-    </TouchableOpacity>
+          <MaterialCommunityIcons
+            name={insight.icon as keyof typeof MaterialCommunityIcons.glyphMap}
+            size={13}
+            color={insight.iconColor}
+          />
+          <Text
+            style={[
+              styles.title,
+              { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+            ]}
+            numberOfLines={1}
+          >
+            {insight.title}
+          </Text>
+          <MaterialCommunityIcons name="chevron-right" size={10} color={mutedColor} />
+        </Animated.View>
+      </TouchableOpacity>
+
+      {displayInsights.length > 1 ? (
+        <View style={styles.dots}>
+          {displayInsights.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.dot,
+                {
+                  backgroundColor:
+                    i === currentIndex
+                      ? (CATEGORY_COLORS[displayInsights[i].category] ?? colors.primary)
+                      : isDark
+                        ? darkColors.textMuted
+                        : colors.textDisabled,
+                },
+              ]}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     maxWidth: '45%',
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
-  content: {
+  pill: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: 12,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     gap: spacing.xs,
   },
-  icon: {
-    flexShrink: 0,
-  },
-  text: {
-    fontSize: typography.caption.fontSize,
+  title: {
+    fontSize: 12,
     fontWeight: '500',
     flexShrink: 1,
+  },
+  dots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: 3,
+  },
+  dot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
   },
 });

@@ -209,13 +209,8 @@
     "syncComplete": "Synkronisering fuldført",
     "syncFailed": "Synkronisering fejlede",
     "syncResetDiscarded": "Sync nulstillet - resultater kasseret",
-    "analyzingRouteGroups": "Analyserer ruter...",
-    "detectingSectionsProgress": "Registrerer sektioner... {{percent}}%",
-    "downloadingActivities": "Downloader aktiviteter...",
     "downloadingTiles": "Cacher korttegninger",
-    "processingGpsTracks": "Behandler GPS-spor...",
     "renderingTerrainPreviews": "Genererer 3D-forhåndsvisninger",
-    "syncComplete": "Synkronisering fuldført",
     "syncingActivities": "Synkroniserer aktiviteter"
   },
   "chartTypes": {
@@ -396,11 +391,11 @@
     "understandingMetrics": "Forstå målingerne"
   },
   "formZones": {
+    "detraining": "Overgang",
     "fresh": "Frisk",
-    "greyZone": "Gråzone",
-    "highRisk": "Høj risiko",
-    "optimal": "Optimal",
-    "transition": "Overgang"
+    "maintenance": "Gråzone",
+    "productive": "Optimal",
+    "deepFatigue": "Høj risiko"
   },
   "healthScreen": {
     "title": "Sundhed"
@@ -642,6 +637,9 @@
     "gpsAcquiring": "Venter på GPS...",
     "gpsReady": "Start optagelse",
     "gpsWeakWarning": "Svagt GPS-signal — optagelsen kan være unøjagtig",
+    "backgroundNotificationTitle": "Optager aktivitet",
+    "backgroundNotificationBody": "Veloq sporer din placering",
+    "trimmed": "Beskåret",
     "splitBanner": "{{unit}} {{index}} — {{pace}}",
     "settings": "Optagelsesindstillinger",
     "settingsAutoPause": "Auto-pause",
@@ -659,8 +657,6 @@
     "sectionTrendSummaryBody": "Forbedring: {{names}}. {{stable}} stabile, {{declining}} faldende.",
     "sectionImproving": "{{name}} bliver hurtigere",
     "sectionImprovingBody": "Seneste median: {{median}}. Bedste: {{best}} over {{count}} forsøg.",
-    "sectionDeclining": "{{name}} bliver langsommere",
-    "sectionDecliningBody": "Seneste median: {{median}} mod bedste på {{best}}. Tid til at genbesøge?",
     "ftpIncrease": "FTP op {{delta}}W",
     "paceImproved": "Tempo forbedret {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% ugentlig volumen",
@@ -670,26 +666,10 @@
     "loadBody": "TSS: {{currentTss}} denne uge vs {{previousTss}} sidste uge. Varighed: {{currentDuration}} vs {{previousDuration}}.",
     "patternMatch": "{{day}} - plejer at {{verb}} ~{{duration}}",
     "consistencyStreak": "{{count}}-ugers streak",
-    "peakFitness": "Topform: {{value}} CTL",
-    "formAdvice": {
-      "fresh": "God dag til intensitet",
-      "grey": "Moderat indsats anbefales",
-      "optimal": "Topform-vindue",
-      "tired": "Overvej restitution",
-      "overreaching": "Hvile anbefales"
-    },
     "volumeBody": "Træningstid: {{current}} denne uge vs {{previous}} sidste uge. Dette måler tid, ikke træningsbelastning (TSS).",
-    "formBody": {
-      "fresh": "Din form (TSB) er {{tsb}}. Fitness (CTL: {{ctl}}) – Træthed (ATL: {{atl}}). Frisk zone — godt restitueret, god dag til hårde indsatser.",
-      "grey": "Din form (TSB) er {{tsb}}. Fitness (CTL: {{ctl}}) – Træthed (ATL: {{atl}}). Overgangszone — moderat indsats anbefales.",
-      "optimal": "Din form (TSB) er {{tsb}}. Fitness (CTL: {{ctl}}) – Træthed (ATL: {{atl}}). Optimal zone — vindue for toppræstation.",
-      "tired": "Din form (TSB) er {{tsb}}. Fitness (CTL: {{ctl}}) – Træthed (ATL: {{atl}}). Træt zone — overvej lettere sessioner eller hvile.",
-      "overreaching": "Din form (TSB) er {{tsb}}. Fitness (CTL: {{ctl}}) – Træthed (ATL: {{atl}}). Overtræning — hvile stærkt anbefalet."
-    },
     "viewDetails": "Se detaljer",
     "today": "I DAG",
     "tomorrow": "I MORGEN",
-    "whyThisRecommendation": "Hvorfor denne anbefaling",
     "showMethodology": "Vis metode",
     "basedOnActivities": "Baseret på {{count}} aktiviteter",
     "confidence": "{{value}}% sikker",
@@ -698,83 +678,17 @@
     "current": "Nuværende",
     "previous": "Forrige",
     "change": "Ændring",
-    "recovery": {
-      "wellRecovered": "Godt restitueret",
-      "adequate": "Tilstrækkeligt restitueret",
-      "accumulating": "Træthed ophobes",
-      "recoveryNeeded": "Restitution nødvendig",
-      "extendedRecovery": "Forlænget restitution nødvendig",
-      "wellRecoveredBody": "HRV er {{deviation}}% {{direction}} din baseline med TSB på {{tsb}}. Gode betingelser for kvalitetstræning.",
-      "adequateBody": "HRV inden for normalområdet med TSB på {{tsb}}. Træning som planlagt burde være fint.",
-      "accumulatingBody": "HRV-tendens {{deviation}}% {{direction}} baseline med TSB på {{tsb}}. Overvej at reducere intensiteten.",
-      "recoveryNeededBody": "HRV {{deviation}}% {{direction}} baseline med TSB på {{tsb}}. Let session eller hvile anbefales.",
-      "extendedRecoveryBody": "HRV {{deviation}}% {{direction}} baseline med alvorlig træthed (TSB: {{tsb}}). Hvile stærkt anbefalet.",
-      "selectedReasoning": "Din HRV-afvigelse på {{deviation}}% med TSB på {{tsb}} matcher dette niveau",
-      "notSelectedReasoning": "Din HRV-afvigelse på {{deviation}}% med TSB på {{tsb}} matcher ikke dette niveau"
-    },
-    "acwr": {
-      "undertrained": "Undertrænet",
-      "sweetSpot": "Træningens sweet spot",
-      "highLoad": "Høj belastningszone",
-      "spikeRisk": "Risiko for skadespidser",
-      "undertrainedBody": "Dit akutte:kroniske forhold er {{acwr}}. Træningsbelastningen er under din etablerede baseline (< 0,8). Overvej at øge volumen gradvist.",
-      "sweetSpotBody": "Dit akutte:kroniske forhold er {{acwr}}. Træningsbelastningen er godt balanceret mod din nylige historik (0,8 - 1,3).",
-      "highLoadBody": "Dit akutte:kroniske forhold er {{acwr}}. Træningsbelastningen er forhøjet over din baseline (1,3 - 1,5). Hold øje med overbelastningssymptomer.",
-      "spikeRiskBody": "Dit akutte:kroniske forhold er {{acwr}}. Træningsbelastningen er steget markant (> 1,5). Høj skaderisiko — reducér belastningen.",
-      "selectedReasoning": "Din ACWR på {{acwr}} ligger i {{zone}}-zonen ({{min}} - {{max}})",
-      "notSelectedReasoning": "Din ACWR på {{acwr}} er uden for {{zone}}-zonen ({{min}} - {{max}})"
-    },
-    "monotony": {
-      "highMonotony": "Træning for ensformig",
-      "goodVariety": "God træningsmæssig variation",
-      "moderate": "Moderat træningsmæssig variation",
-      "highMonotonyBody": "Træningsmonotoni-score: {{value}}. Meget ens daglige belastninger øger risikoen for overtræning. Variér intensiteten.",
-      "goodVarietyBody": "Træningsmonotoni-score: {{value}}. Dine sessioner har god variation i belastning og intensitet.",
-      "moderateBody": "Træningsmonotoni-score: {{value}}. Overvej at tilføje mere variation i din træning."
-    },
-    "formTrajectory": {
-      "improving": "Formen forbedres",
-      "improvingWithEstimate": "Formen forbedres",
-      "declining": "Formen falder",
-      "stable": "Formen er stabil",
-      "improvingBody": "TSB stiger ({{tsb}}). Træthed forsvinder hurtigere end fitness aftager. Nuværende bane er positiv.",
-      "improvingWithEstimateBody": "TSB stiger ({{tsb}}). Med nuværende hastighed bør du nå positiv form om ~{{days}} dage.",
-      "decliningBody": "TSB falder ({{tsb}}). Træningsbelastning ophobes hurtigere end restitution. Overvej at skrue ned.",
-      "stableBody": "TSB holder sig stabilt ({{tsb}}). Træning og restitution er i balance ved nuværende belastning."
-    },
-    "rampRate": {
-      "aggressive": "Aggressiv fitnessopbygning",
-      "building": "Fitness opbygges godt",
-      "maintenance": "Vedligeholdelsesfase",
-      "detraining": "Risiko for detræning",
-      "aggressiveBody": "CTL-opbygningsrate: {{rate}} pr. uge. Fitness opbygges hurtigt, men pas på overbelastning. Nuværende CTL: {{ctl}}.",
-      "buildingBody": "CTL-opbygningsrate: {{rate}} pr. uge. Solid progressiv overbelastning. Nuværende CTL: {{ctl}}.",
-      "maintenanceBody": "CTL-opbygningsrate: {{rate}} pr. uge. Fitness holder sig stabilt. Nuværende CTL: {{ctl}}.",
-      "detrainingBody": "CTL-opbygningsrate: {{rate}} pr. uge. Fitness falder — øg træningsstimulus for at vende udviklingen. Nuværende CTL: {{ctl}}.",
-      "selectedReasoning": "Din opbygningsrate på {{rate}}/uge ligger i {{zone}}-zonen ({{min}} - {{max}})",
-      "notSelectedReasoning": "Din opbygningsrate på {{rate}}/uge er uden for {{zone}}-zonen ({{min}} - {{max}})"
-    },
-    "sectionFitness": "Fitnessgevinster viser sig på {{name}}",
-    "sectionFitnessBody": "Din forbedrede præstation på {{name}} korrelerer med din stigende fitness (CTL: {{ctl}}).",
     "restDay": {
-      "hrvTrending": "HRV-tendens op {{percent}}% denne uge",
-      "sectionExplore": "Udforsk dine {{total}} sektioner — {{improving}} forbedres, {{declining}} falder",
-      "tomorrowPrediction": "I morgen er normalt {{verb}}-dag (~{{duration}})",
-      "recoveryProgress": "HRV-tendens op {{percent}}% denne uge",
-      "recoveryProgressBody": "Din hjertefrekvensvariabilitet forbedres, hvilket tyder på god restitutionsfremgang.",
       "hrvTrend": "HRV (7 dage)",
-      "sectionDeepDive": "Udforsk dine {{count}} sektioner",
-      "sectionDeepDiveBody": "{{improving}} forbedres, {{declining}} falder ud af {{total}} sektioner. Tryk for at udforske din sektionspræstation.",
       "tomorrowPattern": "I morgen er normalt {{verb}}-dag (~{{duration}})",
-      "tomorrowPatternBody": "Baseret på {{count}} tidligere aktiviteter for denne ugedag."
+      "tomorrowPatternBody": "Baseret på {{count}} tidligere aktiviteter for denne ugedag.",
+      "intensityContext": "{{count}} sessions this week",
+      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
+      "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
       "banister": "Beregner Training Stress Balance ud fra forskellen mellem fitness (CTL) og træthed (ATL).",
-      "acwr": "Sammenligner denne uges træningsstress med dit 4-ugers gennemsnit for at estimere skaderisiko.",
       "hrv": "Sammenligner din hjertefrekvensvariabilitetstendens med din 7-dages baseline for at vurdere restitutionsstatus.",
-      "monotony": "Måler hvor ensformig din daglige træningsbelastning er. Høj monotoni øger risikoen for overtræning.",
-      "formProjection": "Projicerer din Training Stress Balance fremad baseret på nuværende fitness- og træthedshenfaldshastigheder.",
-      "rampRate": "Måler hvor hurtigt din fitness (CTL) ændrer sig pr. uge.",
       "kmeans": "Grupperer dine aktiviteter efter dag, varighed og sportstype for at identificere tilbagevendende træningsmønstre.",
       "prDetection": "Sammenligner din seneste sektionstid med alle tidligere forsøg for at registrere personlige rekorder.",
       "sectionTrend": "Sporer medianpræstation på ofte besøgte sektioner over tid.",
@@ -809,25 +723,51 @@
       "todayHrv": "Dagens HRV",
       "sevenDayAvg": "7-dages gennemsnit",
       "hrvSevenDay": "HRV (7 dage)",
-      "acwrRange": "ACWR-interval",
-      "acuteTss": "Akut TSS (denne uge)",
-      "chronicAvgTss": "Kronisk gns. TSS (4 uger)",
-      "monotony": "Monotoni-score",
-      "meanLoad": "Gennemsnitlig daglig belastning",
-      "loadVariation": "Belastningsvariation (SD)",
-      "dailyTrend": "Daglig tendens",
-      "rampRange": "Opbygningsrate-interval",
-      "rampRate": "Opbygningsrate",
-      "improvingSections": "Sektioner i forbedring"
+      "latestHrv": "Latest HRV",
+      "dataPoints": "Data points",
+      "thisWeekTss": "This week",
+      "fourWeekAvgTss": "4-week average"
     },
-    "formAlternatives": {
-      "selectedReasoning": "Din TSB på {{tsb}} ligger i {{zone}}-intervallet ({{min}} til {{max}})",
-      "notSelectedReasoning": "Din TSB på {{tsb}} er uden for {{zone}}-intervallet ({{min}} til {{max}})"
+    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
+    "tsbForm": {
+      "title": "Form: {{tsb}} ({{zone}})",
+      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
+      "zones": {
+        "fresh": "Fresh",
+        "detraining": "Transition",
+        "maintenance": "Maintenance",
+        "productive": "Productive training",
+        "deepFatigue": "Deep fatigue"
+      },
+      "zoneDescriptions": {
+        "fresh": "Well-rested, fitness exceeds fatigue",
+        "detraining": "Between training and freshness",
+        "maintenance": "Moderate training load",
+        "productive": "Where most adaptation occurs",
+        "deepFatigue": "Significant accumulated fatigue"
+      }
     },
-    "sectionPerformance": {
-      "fitnessGains": "Fitnessgevinster viser sig på {{name}}",
-      "fitnessGainsBody": "Din forbedrede præstation på {{name}} korrelerer med din stigende fitness (CTL: {{ctl}})."
-    }
+    "hrvTrend": {
+      "trendingUp": "HRV trending up",
+      "trendingDown": "HRV trending down",
+      "stable": "HRV stable",
+      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
+      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
+      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
+    },
+    "weeklyLoad": {
+      "title": "Training load {{percent}}% {{direction}} average",
+      "above": "above",
+      "below": "below",
+      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
+    },
+    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
+    "aboutInsights": "About Insights",
+    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
+    "showMore": "Show {{count}} more",
+    "aboutTitle": "About Insights",
+    "whyThisRecommendation": "Why this recommendation?",
+    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
   },
   "routeDetail": {
     "avgTime": "Gns. tid",
@@ -994,13 +934,9 @@
     "boundsModified": "Grænser ændret",
     "editBounds": "Rediger grænser",
     "originalDistance": "Original",
-    "performanceHistory": "Præstationshistorik",
     "points": "punkter",
-    "referenceUpdated": "Referenceaktivitet opdateret",
     "resetBounds": "Nulstil til original",
     "resetBoundsConfirm": "Nulstil til de originale automatisk registrerede grænser?\n\nSektionen vil blive genmatchet mod alle dine aktiviteter.",
-    "resetReference": "Nulstil reference",
-    "resetReferenceConfirm": "Nulstil til automatisk referencevalg?\n\nSektionen vil blive matchet igen mod alle dine aktiviteter. Dette kan tilføje eller fjerne aktiviteter fra denne sektion.",
     "totalTraversals": "Samlede gennemkørsler",
     "traversals": "gennemkørsler",
     "traversalsCount": "{{count}} gennemkørsler",
@@ -1063,13 +999,12 @@
     "appTour": "App-tour",
     "appTourDescription": "Udforsk funktioner og lær at bruge dem",
     "terrain3D": "3D Terræn",
-    "terrain3DHint": "Smart tilstand viser 3D for bakket og bjergterræn",
+    "terrain3DHint": "Forudrenderet 3D-terræn i feedkort",
     "terrain3DOff": "Fra",
     "terrain3DSmart": "Smart",
     "terrain3DAlways": "Altid",
     "terrainCacheSize": "Cache: {{size}}",
     "mapCacheSize": "Kortcache: {{size}}",
-    "clearCache": "Ryd",
     "tileCacheDetail": "{{count}} terrænfliser",
     "tileCacheDetail_one": "1 terrænflise",
     "offlineMaps": "Offline Maps",
@@ -1114,9 +1049,6 @@
     "syncAllHistoryDescription": "Dette vil synkronisere op til 10 års aktivitetsdata i baggrunden. Dette muliggør dybere ruteanalyse og sammenligning.",
     "syncInProgress": "Vent venligst på at den nuværende synkronisering afsluttes.",
     "system": "System",
-    "terrain3D": "3D Terræn",
-    "terrain3DHint": "Forudrenderet 3D-terræn i feedkort",
-    "terrainCacheSize": "Cache: {{size}}",
     "title": "Indstillinger",
     "total": "I alt",
     "units": "Enheder",

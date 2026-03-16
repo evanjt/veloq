@@ -209,13 +209,8 @@
     "syncComplete": "Synchronizacja zakończona",
     "syncFailed": "Synchronizacja nie powiodła się",
     "syncResetDiscarded": "Synchronizacja zresetowana - wyniki odrzucone",
-    "analyzingRouteGroups": "Analizowanie tras...",
-    "detectingSectionsProgress": "Wykrywanie sekcji... {{percent}}%",
-    "downloadingActivities": "Pobieranie aktywności...",
     "downloadingTiles": "Buforowanie kafelków mapy",
-    "processingGpsTracks": "Przetwarzanie śladów GPS...",
     "renderingTerrainPreviews": "Generowanie podglądów 3D",
-    "syncComplete": "Synchronizacja zakończona",
     "syncingActivities": "Synchronizacja aktywności"
   },
   "chartTypes": {
@@ -396,11 +391,11 @@
     "understandingMetrics": "Zrozumienie metryk"
   },
   "formZones": {
+    "detraining": "Przejściowa",
     "fresh": "Wypoczęty",
-    "greyZone": "Szara strefa",
-    "highRisk": "Wysokie ryzyko",
-    "optimal": "Optymalna",
-    "transition": "Przejściowa"
+    "maintenance": "Szara strefa",
+    "productive": "Optymalna",
+    "deepFatigue": "Wysokie ryzyko"
   },
   "healthScreen": {
     "title": "Zdrowie"
@@ -642,6 +637,9 @@
     "gpsAcquiring": "Oczekiwanie na GPS...",
     "gpsReady": "Rozpocznij nagrywanie",
     "gpsWeakWarning": "Słaby sygnał GPS — nagrywanie może być niedokładne",
+    "backgroundNotificationTitle": "Nagrywanie aktywności",
+    "backgroundNotificationBody": "Veloq śledzi Twoją lokalizację",
+    "trimmed": "Przycięto",
     "splitBanner": "{{unit}} {{index}} — {{pace}}",
     "settings": "Ustawienia nagrywania",
     "settingsAutoPause": "Auto-pauza",
@@ -659,8 +657,6 @@
     "sectionTrendSummaryBody": "Poprawa: {{names}}. {{stable}} stabilnych, {{declining}} spadających.",
     "sectionImproving": "{{name}} przyspiesza",
     "sectionImprovingBody": "Ostatnia mediana: {{median}}. Najlepszy: {{best}} z {{count}} prób.",
-    "sectionDeclining": "{{name}} zwalnia",
-    "sectionDecliningBody": "Ostatnia mediana: {{median}} vs najlepszy {{best}}. Czas na powrót?",
     "ftpIncrease": "FTP +{{delta}}W",
     "paceImproved": "Tempo poprawione {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% tygodniowego wolumenu",
@@ -670,26 +666,10 @@
     "loadBody": "TSS: {{currentTss}} w tym tygodniu vs {{previousTss}} w zeszłym tygodniu. Czas: {{currentDuration}} vs {{previousDuration}}.",
     "patternMatch": "{{day}} - zwykle {{verb}} ~{{duration}}",
     "consistencyStreak": "{{count}}-tygodniowa seria",
-    "peakFitness": "Szczytowa forma: {{value}} CTL",
-    "formAdvice": {
-      "fresh": "Dobry dzień na intensywność",
-      "grey": "Zalecany umiarkowany wysiłek",
-      "optimal": "Okno szczytowej formy",
-      "tired": "Rozważ regenerację",
-      "overreaching": "Zalecany odpoczynek"
-    },
     "volumeBody": "Czas treningu: {{current}} w tym tygodniu vs {{previous}} w zeszłym tygodniu. Mierzy czas, nie obciążenie treningowe (TSS).",
-    "formBody": {
-      "fresh": "Twoja forma (TSB) wynosi {{tsb}}. Kondycja (CTL: {{ctl}}) – Zmęczenie (ATL: {{atl}}). Strefa świeżości — dobrze zregenerowany, dobry dzień na intensywne wysiłki.",
-      "grey": "Twoja forma (TSB) wynosi {{tsb}}. Kondycja (CTL: {{ctl}}) – Zmęczenie (ATL: {{atl}}). Strefa przejściowa — zalecany umiarkowany wysiłek.",
-      "optimal": "Twoja forma (TSB) wynosi {{tsb}}. Kondycja (CTL: {{ctl}}) – Zmęczenie (ATL: {{atl}}). Strefa optymalna — okno szczytowej wydajności.",
-      "tired": "Twoja forma (TSB) wynosi {{tsb}}. Kondycja (CTL: {{ctl}}) – Zmęczenie (ATL: {{atl}}). Strefa zmęczenia — rozważ lżejsze sesje lub odpoczynek.",
-      "overreaching": "Twoja forma (TSB) wynosi {{tsb}}. Kondycja (CTL: {{ctl}}) – Zmęczenie (ATL: {{atl}}). Przetrenowanie — odpoczynek zdecydowanie zalecany."
-    },
     "viewDetails": "Zobacz szczegóły",
     "today": "DZIŚ",
     "tomorrow": "JUTRO",
-    "whyThisRecommendation": "Dlaczego ta rekomendacja",
     "showMethodology": "Pokaż metodologię",
     "basedOnActivities": "Na podstawie {{count}} aktywności",
     "confidence": "{{value}}% pewności",
@@ -698,83 +678,17 @@
     "current": "Bieżący",
     "previous": "Poprzedni",
     "change": "Zmiana",
-    "recovery": {
-      "wellRecovered": "Dobrze zregenerowany",
-      "adequate": "Wystarczająco zregenerowany",
-      "accumulating": "Narastające zmęczenie",
-      "recoveryNeeded": "Potrzebna regeneracja",
-      "extendedRecovery": "Potrzebna dłuższa regeneracja",
-      "wellRecoveredBody": "HRV jest {{deviation}}% {{direction}} Twojej linii bazowej z TSB {{tsb}}. Dobre warunki na jakościowy trening.",
-      "adequateBody": "HRV w normalnym zakresie z TSB {{tsb}}. Trening zgodnie z planem powinien być w porządku.",
-      "accumulatingBody": "HRV {{deviation}}% {{direction}} linii bazowej z TSB {{tsb}}. Rozważ zmniejszenie intensywności.",
-      "recoveryNeededBody": "HRV {{deviation}}% {{direction}} linii bazowej z TSB {{tsb}}. Lekka sesja lub odpoczynek zalecany.",
-      "extendedRecoveryBody": "HRV {{deviation}}% {{direction}} linii bazowej z poważnym zmęczeniem (TSB: {{tsb}}). Odpoczynek zdecydowanie zalecany.",
-      "selectedReasoning": "Twoje odchylenie HRV {{deviation}}% z TSB {{tsb}} odpowiada temu poziomowi",
-      "notSelectedReasoning": "Twoje odchylenie HRV {{deviation}}% z TSB {{tsb}} nie odpowiada temu poziomowi"
-    },
-    "acwr": {
-      "undertrained": "Niedotrenowany",
-      "sweetSpot": "Optymalny punkt treningowy",
-      "highLoad": "Strefa wysokiego obciążenia",
-      "spikeRisk": "Ryzyko kontuzji przez skok obciążenia",
-      "undertrainedBody": "Twój stosunek ostry:chroniczny wynosi {{acwr}}. Obciążenie treningowe jest poniżej ustalonej linii bazowej (< 0,8). Rozważ stopniowe zwiększanie objętości.",
-      "sweetSpotBody": "Twój stosunek ostry:chroniczny wynosi {{acwr}}. Obciążenie treningowe jest dobrze zbalansowane z ostatnią historią (0,8 - 1,3).",
-      "highLoadBody": "Twój stosunek ostry:chroniczny wynosi {{acwr}}. Obciążenie treningowe jest podwyższone ponad linię bazową (1,3 - 1,5). Monitoruj objawy przeciążenia.",
-      "spikeRiskBody": "Twój stosunek ostry:chroniczny wynosi {{acwr}}. Obciążenie treningowe gwałtownie wzrosło (> 1,5). Wysokie ryzyko kontuzji - zmniejsz obciążenie.",
-      "selectedReasoning": "Twój ACWR {{acwr}} mieści się w strefie {{zone}} ({{min}} - {{max}})",
-      "notSelectedReasoning": "Twój ACWR {{acwr}} jest poza strefą {{zone}} ({{min}} - {{max}})"
-    },
-    "monotony": {
-      "highMonotony": "Trening zbyt powtarzalny",
-      "goodVariety": "Dobra różnorodność treningowa",
-      "moderate": "Umiarkowana różnorodność treningowa",
-      "highMonotonyBody": "Wynik monotonii treningowej: {{value}}. Bardzo podobne dzienne obciążenia zwiększają ryzyko przetrenowania. Różnicuj intensywność.",
-      "goodVarietyBody": "Wynik monotonii treningowej: {{value}}. Twoje sesje mają dobrą zmienność obciążenia i intensywności.",
-      "moderateBody": "Wynik monotonii treningowej: {{value}}. Rozważ dodanie większej różnorodności do treningu."
-    },
-    "formTrajectory": {
-      "improving": "Forma się poprawia",
-      "improvingWithEstimate": "Forma się poprawia",
-      "declining": "Forma spada",
-      "stable": "Forma stabilna",
-      "improvingBody": "TSB rośnie ({{tsb}}). Zmęczenie ustępuje szybciej niż kondycja maleje. Obecna trajektoria jest pozytywna.",
-      "improvingWithEstimateBody": "TSB rośnie ({{tsb}}). Przy obecnym tempie pozytywna forma powinna nastąpić za ~{{days}} dni.",
-      "decliningBody": "TSB spada ({{tsb}}). Obciążenie treningowe narasta szybciej niż regeneracja. Rozważ odpuszczenie.",
-      "stableBody": "TSB utrzymuje się na stałym poziomie ({{tsb}}). Trening i regeneracja są zbalansowane przy obecnym obciążeniu."
-    },
-    "rampRate": {
-      "aggressive": "Agresywny wzrost kondycji",
-      "building": "Kondycja rośnie dobrze",
-      "maintenance": "Faza utrzymania",
-      "detraining": "Ryzyko detreningu",
-      "aggressiveBody": "Tempo wzrostu CTL: {{rate}} na tydzień. Kondycja rośnie szybko, ale uważaj na przeciążenie. Bieżący CTL: {{ctl}}.",
-      "buildingBody": "Tempo wzrostu CTL: {{rate}} na tydzień. Solidna progresywna nadwaga. Bieżący CTL: {{ctl}}.",
-      "maintenanceBody": "Tempo wzrostu CTL: {{rate}} na tydzień. Kondycja utrzymuje się na stałym poziomie. Bieżący CTL: {{ctl}}.",
-      "detrainingBody": "Tempo wzrostu CTL: {{rate}} na tydzień. Kondycja spada - zwiększ bodziec treningowy, aby odwrócić trend. Bieżący CTL: {{ctl}}.",
-      "selectedReasoning": "Twoje tempo wzrostu {{rate}}/tydz. mieści się w strefie {{zone}} ({{min}} - {{max}})",
-      "notSelectedReasoning": "Twoje tempo wzrostu {{rate}}/tydz. jest poza strefą {{zone}} ({{min}} - {{max}})"
-    },
-    "sectionFitness": "Wzrost kondycji widoczny na {{name}}",
-    "sectionFitnessBody": "Twoja poprawa na {{name}} koreluje z rosnącą kondycją (CTL: {{ctl}}).",
     "restDay": {
-      "hrvTrending": "HRV wzrasta o {{percent}}% w tym tygodniu",
-      "sectionExplore": "Zbadaj swoje {{total}} odcinków - {{improving}} poprawia się, {{declining}} spada",
-      "tomorrowPrediction": "Jutro to zwykle dzień {{verb}} (~{{duration}})",
-      "recoveryProgress": "HRV wzrasta o {{percent}}% w tym tygodniu",
-      "recoveryProgressBody": "Zmienność rytmu serca się poprawia, co wskazuje na dobry postęp regeneracji.",
       "hrvTrend": "HRV (7 dni)",
-      "sectionDeepDive": "Zbadaj swoje {{count}} odcinków",
-      "sectionDeepDiveBody": "{{improving}} poprawiających się, {{declining}} spadających z {{total}} odcinków. Dotknij, aby zbadać wyniki na odcinkach.",
       "tomorrowPattern": "Jutro to zwykle dzień {{verb}} (~{{duration}})",
-      "tomorrowPatternBody": "Na podstawie {{count}} poprzednich aktywności dla tego dnia tygodnia."
+      "tomorrowPatternBody": "Na podstawie {{count}} poprzednich aktywności dla tego dnia tygodnia.",
+      "intensityContext": "{{count}} sessions this week",
+      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
+      "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
       "banister": "Oblicza bilans stresu treningowego z różnicy między kondycją (CTL) a zmęczeniem (ATL).",
-      "acwr": "Porównuje stres treningowy z tego tygodnia ze średnią z 4 tygodni, aby oszacować ryzyko kontuzji.",
       "hrv": "Porównuje trend zmienności rytmu serca z 7-dniową linią bazową, aby ocenić stan regeneracji.",
-      "monotony": "Mierzy powtarzalność obciążenia treningowego z dnia na dzień. Wysoka monotonia zwiększa ryzyko przetrenowania.",
-      "formProjection": "Prognozuje bilans stresu treningowego na podstawie bieżących wskaźników zaniku kondycji i zmęczenia.",
-      "rampRate": "Mierzy tempo zmian kondycji (CTL) na tydzień.",
       "kmeans": "Grupuje aktywności według dnia, czasu trwania i typu sportu, aby identyfikować powtarzające się wzorce treningowe.",
       "prDetection": "Porównuje ostatni czas na odcinku ze wszystkimi poprzednimi próbami w celu wykrycia rekordów osobistych.",
       "sectionTrend": "Śledzi medianę wyników na często odwiedzanych odcinkach w czasie.",
@@ -809,25 +723,51 @@
       "todayHrv": "Dzisiejsze HRV",
       "sevenDayAvg": "Średnia 7-dniowa",
       "hrvSevenDay": "HRV (7 dni)",
-      "acwrRange": "Zakres ACWR",
-      "acuteTss": "Ostry TSS (ten tydzień)",
-      "chronicAvgTss": "Chroniczny śr. TSS (4 tygodnie)",
-      "monotony": "Wynik monotonii",
-      "meanLoad": "Średnie dzienne obciążenie",
-      "loadVariation": "Zmienność obciążenia (SD)",
-      "dailyTrend": "Trend dzienny",
-      "rampRange": "Zakres tempa wzrostu",
-      "rampRate": "Tempo wzrostu",
-      "improvingSections": "Odcinki z poprawą"
+      "latestHrv": "Latest HRV",
+      "dataPoints": "Data points",
+      "thisWeekTss": "This week",
+      "fourWeekAvgTss": "4-week average"
     },
-    "formAlternatives": {
-      "selectedReasoning": "Twój TSB {{tsb}} mieści się w zakresie {{zone}} ({{min}} do {{max}})",
-      "notSelectedReasoning": "Twój TSB {{tsb}} jest poza zakresem {{zone}} ({{min}} do {{max}})"
+    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
+    "tsbForm": {
+      "title": "Form: {{tsb}} ({{zone}})",
+      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
+      "zones": {
+        "fresh": "Fresh",
+        "detraining": "Transition",
+        "maintenance": "Maintenance",
+        "productive": "Productive training",
+        "deepFatigue": "Deep fatigue"
+      },
+      "zoneDescriptions": {
+        "fresh": "Well-rested, fitness exceeds fatigue",
+        "detraining": "Between training and freshness",
+        "maintenance": "Moderate training load",
+        "productive": "Where most adaptation occurs",
+        "deepFatigue": "Significant accumulated fatigue"
+      }
     },
-    "sectionPerformance": {
-      "fitnessGains": "Wzrost kondycji widoczny na {{name}}",
-      "fitnessGainsBody": "Twoja poprawa na {{name}} koreluje z rosnącą kondycją (CTL: {{ctl}})."
-    }
+    "hrvTrend": {
+      "trendingUp": "HRV trending up",
+      "trendingDown": "HRV trending down",
+      "stable": "HRV stable",
+      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
+      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
+      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
+    },
+    "weeklyLoad": {
+      "title": "Training load {{percent}}% {{direction}} average",
+      "above": "above",
+      "below": "below",
+      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
+    },
+    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
+    "aboutInsights": "About Insights",
+    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
+    "showMore": "Show {{count}} more",
+    "aboutTitle": "About Insights",
+    "whyThisRecommendation": "Why this recommendation?",
+    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
   },
   "routeDetail": {
     "avgTime": "Śr. czas",
@@ -994,13 +934,9 @@
     "boundsModified": "Granice zmienione",
     "editBounds": "Edytuj granice",
     "originalDistance": "Oryginał",
-    "performanceHistory": "Historia wyników",
     "points": "punktów",
-    "referenceUpdated": "Aktywność odniesienia zaktualizowana",
     "resetBounds": "Przywróć oryginał",
     "resetBoundsConfirm": "Przywrócić oryginalne automatycznie wykryte granice?\n\nSekcja zostanie ponownie dopasowana do wszystkich Twoich aktywności.",
-    "resetReference": "Resetuj odniesienie",
-    "resetReferenceConfirm": "Przywrócić automatyczny wybór odniesienia?\n\nOdcinek zostanie ponownie dopasowany do wszystkich Twoich aktywności. Może to dodać lub usunąć aktywności z tego odcinka.",
     "totalTraversals": "Łączna Liczba Przejazdów",
     "traversals": "przejazdy",
     "traversalsCount": "{{count}} przejazdów",
@@ -1063,16 +999,14 @@
     "appTour": "Tour po aplikacji",
     "appTourDescription": "Odkryj funkcje i dowiedz się, jak ich używać",
     "terrain3D": "Teren 3D",
-    "terrain3DHint": "Tryb inteligentny pokazuje 3D dla pagórkowatych i górskich terenów",
+    "terrain3DHint": "Wstępnie renderowany teren 3D w kartach kanału",
     "terrain3DOff": "Wyłączone",
     "terrain3DSmart": "Inteligentny",
     "terrain3DAlways": "Zawsze",
     "terrainCacheSize": "Pamięć podręczna: {{size}}",
     "mapCacheSize": "Pamięć podręczna map: {{size}}",
-    "clearCache": "Wyczyść",
     "tileCacheDetail": "{{count}} kafelków terenu",
     "tileCacheDetail_one": "1 kafelek terenu",
-    "tileCacheDetail_few": "{{count}} kafelki terenu",
     "offlineMaps": "Offline Maps",
     "offlineRegions": "regions",
     "wifiOnly": "Wi-Fi only",
@@ -1115,9 +1049,6 @@
     "syncAllHistoryDescription": "Zsynchronizuje do 10 lat danych aktywności w tle. Umożliwia głębszą analizę tras i porównania.",
     "syncInProgress": "Poczekaj na zakończenie bieżącej synchronizacji.",
     "system": "Systemowy",
-    "terrain3D": "Teren 3D",
-    "terrain3DHint": "Wstępnie renderowany teren 3D w kartach kanału",
-    "terrainCacheSize": "Pamięć podręczna: {{size}}",
     "title": "Ustawienia",
     "total": "Łącznie",
     "units": "Jednostki",

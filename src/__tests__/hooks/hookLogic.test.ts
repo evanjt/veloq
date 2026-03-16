@@ -313,29 +313,29 @@ describe('SPORT_COLORS', () => {
 
 describe('getFormZone', () => {
   const boundaryTests: { tsb: number; expected: FormZone }[] = [
-    // highRisk: TSB < -30
-    { tsb: -100, expected: 'highRisk' },
-    { tsb: -31, expected: 'highRisk' },
+    // deepFatigue: TSB < -30
+    { tsb: -100, expected: 'deepFatigue' },
+    { tsb: -31, expected: 'deepFatigue' },
 
-    // optimal: -30 <= TSB < -10
-    { tsb: -30, expected: 'optimal' },
-    { tsb: -20, expected: 'optimal' },
-    { tsb: -11, expected: 'optimal' },
+    // productive: -30 <= TSB < -10
+    { tsb: -30, expected: 'productive' },
+    { tsb: -20, expected: 'productive' },
+    { tsb: -11, expected: 'productive' },
 
-    // grey: -10 <= TSB < 5
-    { tsb: -10, expected: 'grey' },
-    { tsb: 0, expected: 'grey' },
-    { tsb: 4, expected: 'grey' },
+    // maintenance: -10 <= TSB < 5
+    { tsb: -10, expected: 'maintenance' },
+    { tsb: 0, expected: 'maintenance' },
+    { tsb: 4, expected: 'maintenance' },
 
     // fresh: 5 <= TSB < 25
     { tsb: 5, expected: 'fresh' },
     { tsb: 15, expected: 'fresh' },
     { tsb: 24, expected: 'fresh' },
 
-    // transition: TSB >= 25
-    { tsb: 25, expected: 'transition' },
-    { tsb: 50, expected: 'transition' },
-    { tsb: 100, expected: 'transition' },
+    // detraining: TSB >= 25
+    { tsb: 25, expected: 'detraining' },
+    { tsb: 50, expected: 'detraining' },
+    { tsb: 100, expected: 'detraining' },
   ];
 
   boundaryTests.forEach(({ tsb, expected }) => {
@@ -344,29 +344,29 @@ describe('getFormZone', () => {
     });
   });
 
-  it('handles exact boundary at -30 (start of optimal)', () => {
-    expect(getFormZone(-30)).toBe('optimal');
-    expect(getFormZone(-30.01)).toBe('highRisk');
+  it('handles exact boundary at -30 (start of productive)', () => {
+    expect(getFormZone(-30)).toBe('productive');
+    expect(getFormZone(-30.01)).toBe('deepFatigue');
   });
 
-  it('handles exact boundary at -10 (start of grey)', () => {
-    expect(getFormZone(-10)).toBe('grey');
-    expect(getFormZone(-10.01)).toBe('optimal');
+  it('handles exact boundary at -10 (start of maintenance)', () => {
+    expect(getFormZone(-10)).toBe('maintenance');
+    expect(getFormZone(-10.01)).toBe('productive');
   });
 
   it('handles exact boundary at 5 (start of fresh)', () => {
     expect(getFormZone(5)).toBe('fresh');
-    expect(getFormZone(4.99)).toBe('grey');
+    expect(getFormZone(4.99)).toBe('maintenance');
   });
 
-  it('handles exact boundary at 25 (start of transition)', () => {
-    expect(getFormZone(25)).toBe('transition');
+  it('handles exact boundary at 25 (start of detraining)', () => {
+    expect(getFormZone(25)).toBe('detraining');
     expect(getFormZone(24.99)).toBe('fresh');
   });
 });
 
 describe('FORM_ZONE_COLORS', () => {
-  const allZones: FormZone[] = ['highRisk', 'optimal', 'grey', 'fresh', 'transition'];
+  const allZones: FormZone[] = ['deepFatigue', 'productive', 'maintenance', 'fresh', 'detraining'];
 
   it('has a color for every form zone', () => {
     allZones.forEach((zone) => {
@@ -382,7 +382,7 @@ describe('FORM_ZONE_COLORS', () => {
 });
 
 describe('FORM_ZONE_LABELS', () => {
-  const allZones: FormZone[] = ['highRisk', 'optimal', 'grey', 'fresh', 'transition'];
+  const allZones: FormZone[] = ['deepFatigue', 'productive', 'maintenance', 'fresh', 'detraining'];
 
   it('has a label for every form zone', () => {
     allZones.forEach((zone) => {
@@ -394,7 +394,7 @@ describe('FORM_ZONE_LABELS', () => {
 });
 
 describe('FORM_ZONE_BOUNDARIES', () => {
-  const allZones: FormZone[] = ['highRisk', 'optimal', 'grey', 'fresh', 'transition'];
+  const allZones: FormZone[] = ['deepFatigue', 'productive', 'maintenance', 'fresh', 'detraining'];
 
   it('has boundaries for every form zone', () => {
     allZones.forEach((zone) => {
