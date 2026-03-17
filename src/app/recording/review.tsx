@@ -221,6 +221,24 @@ export default function ReviewScreen() {
     getTrimmedStreams,
   ]);
 
+  // Compute trim delta when trimming is active
+  const trimDelta = useMemo(() => {
+    if (!canTrim || (trimStart === 0 && trimEnd === streams.latlng.length - 1)) return null;
+
+    const fullDist =
+      (streams.distance[streams.distance.length - 1] ?? 0) - (streams.distance[0] ?? 0);
+    const fullElapsed =
+      startTime && streams.time.length >= 2
+        ? (streams.time[streams.time.length - 1] - streams.time[0]) / 1000
+        : 0;
+
+    const distDelta = summary.distance - fullDist;
+    const durationDelta = summary.duration - fullElapsed;
+
+    if (distDelta === 0 && durationDelta === 0) return null;
+    return { distance: distDelta, duration: durationDelta };
+  }, [canTrim, trimStart, trimEnd, streams, startTime, summary]);
+
   // Generate default name
   useEffect(() => {
     if (params.name) {
@@ -266,7 +284,7 @@ export default function ReviewScreen() {
         const trimmedStreams = getTrimmedStreams();
         const adjustedStart =
           canTrim && trimmedStreams.time.length > 0
-            ? new Date(trimmedStreams.time[0])
+            ? new Date(startTime! + trimmedStreams.time[0] * 1000)
             : new Date(startTime!);
         const fitBuffer = await generateFitFile({
           activityType: type,
@@ -275,82 +293,71 @@ export default function ReviewScreen() {
           laps,
           name,
         });
-        await intervalsApi.uploadActivity(fitBuffer, `${name}.fit`, {
-          name,
-          pairedEventId: pairedEventId ?? undefined,
-        });
+
+        try {
+          await intervalsApi.uploadActivity(fitBuffer, `${name}.fit`, {
+            name,
+            pairedEventId: pairedEventId ?? undefined,
+          });
+        } catch {
+          // Network error → queue the pre-generated FIT for later upload
+          try {
+            const FileSystem = require('expo-file-system/legacy');
+            const dir = `${FileSystem.documentDirectory}pending_uploads/`;
+            const dirInfo = await FileSystem.getInfoAsync(dir);
+            if (!dirInfo.exists) {
+              await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+            }
+
+            const filePath = `${dir}${Date.now()}.fit`;
+            const bytes = new Uint8Array(fitBuffer);
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) {
+              binary += String.fromCharCode(bytes[i]);
+            }
+            const base64 = btoa(binary);
+            await FileSystem.writeAsStringAsync(filePath, base64, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+
+            await enqueueUpload({
+              filePath,
+              activityType: type,
+              name,
+              pairedEventId: pairedEventId ?? undefined,
+              createdAt: Date.now(),
+            });
+
+            // Show queued message briefly then navigate
+            setQueuedMessage(
+              t(
+                'recording.savedQueued',
+                'Activity saved. It will upload automatically when you are back online.'
+              )
+            );
+            setIsUploading(false);
+            setTimeout(() => {
+              useRecordingStore.getState().reset();
+              router.replace('/');
+            }, 1500);
+            return;
+          } catch {
+            // Both upload and queue failed
+            setErrorMessage(t('recording.saveError', 'Could not save activity. Please try again.'));
+            return;
+          }
+        }
       }
 
       useRecordingStore.getState().reset();
       router.replace('/');
     } catch (err) {
-      // Network error on GPS activities → auto-queue for later upload
-      if (!isManual) {
-        try {
-          const trimmedStreams = getTrimmedStreams();
-          const adjustedStart =
-            canTrim && trimmedStreams.time.length > 0
-              ? new Date(trimmedStreams.time[0])
-              : new Date(startTime!);
-          const fitBuffer = await generateFitFile({
-            activityType: type,
-            startTime: adjustedStart,
-            streams: trimmedStreams,
-            laps,
-            name,
-          });
-
-          const FileSystem = require('expo-file-system/legacy');
-          const dir = `${FileSystem.documentDirectory}pending_uploads/`;
-          const dirInfo = await FileSystem.getInfoAsync(dir);
-          if (!dirInfo.exists) {
-            await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
-          }
-
-          const filePath = `${dir}${Date.now()}.fit`;
-          const bytes = new Uint8Array(fitBuffer);
-          let binary = '';
-          for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
-          }
-          const base64 = btoa(binary);
-          await FileSystem.writeAsStringAsync(filePath, base64, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-
-          await enqueueUpload({
-            filePath,
-            activityType: type,
-            name,
-            pairedEventId: pairedEventId ?? undefined,
-            createdAt: Date.now(),
-          });
-
-          // Show queued message briefly then navigate
-          setQueuedMessage(
-            t(
-              'recording.savedQueued',
-              'Activity saved. It will upload automatically when you are back online.'
-            )
-          );
-          setIsUploading(false);
-          setTimeout(() => {
-            useRecordingStore.getState().reset();
-            router.replace('/');
-          }, 1500);
-          return;
-        } catch {
-          // Both upload and queue failed
-          setErrorMessage(t('recording.saveError', 'Could not save activity. Please try again.'));
-        }
-      } else {
-        const message = err instanceof Error ? err.message : 'Unknown error';
-        setErrorMessage(
-          t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
-            error: message,
-          })
-        );
-      }
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setErrorMessage(
+        t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
+          error: message,
+        })
+      );
     } finally {
       if (!queuedMessage) setIsUploading(false);
     }
@@ -541,6 +548,14 @@ export default function ReviewScreen() {
             </View>
           )}
         </View>
+
+        {/* Trim delta feedback */}
+        {trimDelta && (
+          <Text style={[styles.trimDelta, { color: textSecondary }]}>
+            {t('recording.trimmed', 'Trimmed')}: {formatDistance(trimDelta.distance, isMetric)},{' '}
+            {formatDuration(trimDelta.duration)}
+          </Text>
+        )}
 
         {/* Activity Type (tappable) */}
         <TouchableOpacity
@@ -825,6 +840,11 @@ const styles = StyleSheet.create({
   compactStatLabel: {
     ...typography.caption,
     marginTop: 2,
+  },
+  trimDelta: {
+    ...typography.caption,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
   // Activity type chip
   typeChip: {

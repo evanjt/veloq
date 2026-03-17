@@ -77,7 +77,11 @@ export function RecordSwipeTarget({ visible, dragY, isActivated }: RecordSwipeTa
     >
       {/* Target ring */}
       <Animated.View style={[styles.targetRing, ringStyle]}>
-        <MaterialCommunityIcons name="plus" size={20} color="rgba(255, 255, 255, 0.8)" />
+        <MaterialCommunityIcons
+          name="record-circle-outline"
+          size={20}
+          color="rgba(255, 255, 255, 0.8)"
+        />
       </Animated.View>
 
       {/* Red dot that follows finger */}

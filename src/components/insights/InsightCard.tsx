@@ -13,6 +13,10 @@ const CATEGORY_COLORS: Record<string, string> = {
   period_comparison: '#2196F3',
   activity_pattern: '#9C27B0',
   training_consistency: '#FF9800',
+  hrv_trend: '#66BB6A',
+  tsb_form: '#42A5F5',
+  weekly_load: '#FFA726',
+  intensity_context: '#FFA726',
 };
 
 interface InsightCardProps {

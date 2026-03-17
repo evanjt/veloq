@@ -26,21 +26,7 @@ import ReAnimated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Svg, {
-  Defs,
-  ClipPath,
-  Polygon,
-  G,
-  Path as SvgPath,
-  Line as SvgLine,
-} from 'react-native-svg';
 import { router, usePathname } from 'expo-router';
-
-// SVG path data from Material Design Icons (24×24 viewBox)
-const MAP_OUTLINE_D =
-  'M20.5,3L20.34,3.03L15,5.1L9,3L3.36,4.9C3.15,4.97 3,5.15 3,5.38V20.5A0.5,0.5 0 0,0 3.5,21L3.66,20.97L9,18.9L15,21L20.64,19.1C20.85,19.03 21,18.85 21,18.62V3.5A0.5,0.5 0 0,0 20.5,3M10,5.47L14,6.87V18.53L10,17.13V5.47M5,6.46L8,5.45V17.15L5,18.31V6.46M19,17.54L16,18.55V6.86L19,5.7V17.54Z';
-const RECORD_CIRCLE_D =
-  'M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9Z';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
@@ -261,35 +247,8 @@ function BottomTabBarComponent() {
                     accessibilityState={{ selected: isActive }}
                   >
                     <View style={styles.iconContainer}>
-                      <Svg width={sz} height={sz} viewBox="0 0 24 24">
-                        <Defs>
-                          {/* Diagonal: bottom-left → top-right, with 1px gap each side */}
-                          <ClipPath id="br">
-                            <Polygon points="24,1 24,24 1,24" />
-                          </ClipPath>
-                          <ClipPath id="tl">
-                            <Polygon points="0,0 23,0 0,23" />
-                          </ClipPath>
-                        </Defs>
-                        {/* Map — bottom-right half */}
-                        <G clipPath="url(#br)">
-                          <SvgPath d={MAP_OUTLINE_D} fill={mapIconColor} />
-                        </G>
-                        {/* Record circle outline — top-left half */}
-                        <G clipPath="url(#tl)">
-                          <SvgPath d={RECORD_CIRCLE_D} fill="#EF4444" fillOpacity={0.45} />
-                        </G>
-                        {/* Diagonal separator: bottom-left → top-right */}
-                        <SvgLine
-                          x1={0}
-                          y1={24}
-                          x2={24}
-                          y2={0}
-                          stroke={mapIconColor}
-                          strokeWidth={0.7}
-                          opacity={0.4}
-                        />
-                      </Svg>
+                      <MaterialCommunityIcons name="map-outline" size={sz} color={mapIconColor} />
+                      <View style={styles.recordDot} />
                     </View>
                     <Text
                       style={[
@@ -409,5 +368,14 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: '#FC4C02',
+  },
+  recordDot: {
+    position: 'absolute',
+    top: 0,
+    right: -4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#EF4444',
   },
 });

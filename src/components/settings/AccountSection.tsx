@@ -9,6 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/providers';
 import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import { clearAllAppCaches } from '@/lib';
+import { clearUploadQueue } from '@/lib/storage/uploadQueue';
 import { colors, darkColors, spacing, layout } from '@/theme';
 
 export function AccountSection() {
@@ -29,6 +30,7 @@ export function AccountSection() {
             await clearCredentials();
             await queryClient.cancelQueries();
             await clearAllAppCaches(queryClient);
+            await clearUploadQueue();
             resetSyncDateRange();
             router.replace('/login' as Href);
           } catch {

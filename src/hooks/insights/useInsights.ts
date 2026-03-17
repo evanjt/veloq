@@ -4,7 +4,11 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
 import { useActivityPatterns } from '@/hooks/home/useActivityPatterns';
 import { useWellness } from '@/hooks/fitness';
-import { useInsightsStore } from '@/providers/InsightsStore';
+import {
+  useInsightsStore,
+  computeInsightFingerprint,
+  diffInsights,
+} from '@/providers/InsightsStore';
 import { generateInsights } from './generateInsights';
 import type { Insight } from '@/types';
 
@@ -25,10 +29,11 @@ export function useInsights(): {
   const { t } = useTranslation();
   const trigger = useEngineSubscription(['activities', 'sections']);
   const { todayPattern, allPatterns } = useActivityPatterns();
-  const lastSeenTimestamp = useInsightsStore((s) => s.lastSeenTimestamp);
-  const setHasNewInsights = useInsightsStore((s) => s.setHasNewInsights);
-  const markSeen = useInsightsStore((s) => s.markSeen);
+  const lastSeenFingerprint = useInsightsStore((s) => s.lastSeenFingerprint);
+  const setNewInsights = useInsightsStore((s) => s.setNewInsights);
+  const markSeenStore = useInsightsStore((s) => s.markSeen);
   const hasNewInsights = useInsightsStore((s) => s.hasNewInsights);
+  const changedInsightIds = useInsightsStore((s) => s.changedInsightIds);
 
   // Get wellness data for form/TSB
   const { data: wellnessData } = useWellness('1m');
@@ -60,7 +65,7 @@ export function useInsights(): {
       const currentPeriod = engine.getPeriodStats(toTs(startOfWeek), toTs(now));
       const previousPeriod = engine.getPeriodStats(toTs(startOfLastWeek), toTs(startOfWeek));
 
-      // 4-week chronic period for ACWR calculation
+      // 4-week chronic period for weekly load change
       const fourWeeksAgo = new Date(startOfWeek);
       fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
       const chronicPeriodRaw = engine.getPeriodStats(toTs(fourWeeksAgo), toTs(startOfWeek));
@@ -128,15 +133,6 @@ export function useInsights(): {
         // Section PR detection is optional -- don't fail the whole hook
       }
 
-      // Find peak CTL from wellness data
-      let peakCtl: number | null = null;
-      if (wellnessData) {
-        for (const w of wellnessData) {
-          const c = w.ctl ?? w.ctlLoad ?? 0;
-          if (c > (peakCtl ?? 0)) peakCtl = c;
-        }
-      }
-
       // Extract section trends from all patterns (deduplicate by highest traversalCount)
       const sectionTrendMap = new Map<
         string,
@@ -172,7 +168,7 @@ export function useInsights(): {
         (a, b) => b.traversalCount - a.traversalCount
       );
 
-      // 7-day wellness window for new generators
+      // 7-day wellness window
       const wellnessWindow = (wellnessData ?? [])
         .sort((a, b) => a.id.localeCompare(b.id))
         .slice(-7)
@@ -215,11 +211,10 @@ export function useInsights(): {
           formTsb: latestWellness ? tsb : null,
           formCtl: ctl > 0 ? ctl : null,
           formAtl: atl > 0 ? atl : null,
-          peakCtl,
+          peakCtl: null, // Removed: no validated concept
           currentCtl: ctl > 0 ? ctl : null,
           wellnessWindow,
           chronicPeriod,
-          rampRate: latestWellness?.rampRate ?? null,
           isRestDay,
           allSectionTrends: sectionTrends,
           tomorrowPattern: tomorrowPattern
@@ -250,17 +245,41 @@ export function useInsights(): {
     return insights;
   }, [insights]);
 
-  // Update hasNewInsights flag based on insight timestamps vs lastSeen
+  // Annotate isNew based on fingerprint diffing
+  const annotatedInsights = useMemo(() => {
+    if (stableInsights.length === 0) return stableInsights;
+    const currentFingerprint = computeInsightFingerprint(stableInsights);
+    if (currentFingerprint === lastSeenFingerprint) return stableInsights;
+    const changed = diffInsights(stableInsights, lastSeenFingerprint);
+    if (changed.size === 0) return stableInsights;
+    return stableInsights.map((i) => (changed.has(i.id) ? { ...i, isNew: true } : i));
+  }, [stableInsights, lastSeenFingerprint]);
+
+  // Update hasNewInsights flag based on fingerprint diff
   useEffect(() => {
-    const hasNew =
-      stableInsights.length > 0 && stableInsights.some((i) => i.timestamp > lastSeenTimestamp);
-    setHasNewInsights(hasNew);
-  }, [stableInsights, lastSeenTimestamp, setHasNewInsights]);
+    if (annotatedInsights.length === 0) {
+      setNewInsights(new Set());
+      return;
+    }
+    const currentFingerprint = computeInsightFingerprint(annotatedInsights);
+    if (currentFingerprint === lastSeenFingerprint) {
+      setNewInsights(new Set());
+    } else {
+      const changed = diffInsights(annotatedInsights, lastSeenFingerprint);
+      setNewInsights(changed);
+    }
+  }, [annotatedInsights, lastSeenFingerprint, setNewInsights]);
+
+  // markAsSeen stores the current fingerprint
+  const markAsSeen = useMemo(
+    () => () => markSeenStore(annotatedInsights),
+    [markSeenStore, annotatedInsights]
+  );
 
   return {
-    insights: stableInsights,
-    topInsight: stableInsights[0] ?? null,
+    insights: annotatedInsights,
+    topInsight: annotatedInsights[0] ?? null,
     hasNewInsights,
-    markAsSeen: markSeen,
+    markAsSeen,
   };
 }

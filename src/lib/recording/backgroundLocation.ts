@@ -23,6 +23,9 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   if (status !== 'recording') return;
 
   for (const location of locations) {
+    // Drop low-accuracy points (>30m) to reduce GPS noise
+    if (location.coords.accuracy != null && location.coords.accuracy > 30) continue;
+
     addGpsPoint({
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
@@ -37,15 +40,18 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   log.log(`Background: processed ${locations.length} location(s)`);
 });
 
-export async function startBackgroundLocation(): Promise<void> {
+export async function startBackgroundLocation(options?: {
+  notificationTitle?: string;
+  notificationBody?: string;
+}): Promise<void> {
   log.log('Starting background location updates');
   await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
     accuracy: Location.Accuracy.BestForNavigation,
     distanceInterval: 5,
     timeInterval: 1000,
     foregroundService: {
-      notificationTitle: 'Recording activity',
-      notificationBody: 'Veloq is tracking your location',
+      notificationTitle: options?.notificationTitle ?? 'Recording activity',
+      notificationBody: options?.notificationBody ?? 'Veloq is tracking your location',
       notificationColor: '#FC4C02',
     },
     activityType: Location.ActivityType.Fitness,

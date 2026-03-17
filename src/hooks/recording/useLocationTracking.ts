@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import * as Location from 'expo-location';
+import { useTranslation } from 'react-i18next';
 import { useRecordingStore } from '@/providers/RecordingStore';
 import {
   startBackgroundLocation,
@@ -18,6 +19,7 @@ export function useLocationTracking(): {
   currentLocation: { latitude: number; longitude: number } | null;
   accuracy: number | null;
 } {
+  const { t } = useTranslation();
   const [hasPermission, setHasPermission] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<{
     latitude: number;
@@ -27,6 +29,10 @@ export function useLocationTracking(): {
   const watchRef = useRef<Location.LocationSubscription | null>(null);
   const isTrackingRef = useRef(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const bgNotificationRef = useRef({
+    notificationTitle: t('recording.backgroundNotificationTitle', 'Recording activity'),
+    notificationBody: t('recording.backgroundNotificationBody', 'Veloq is tracking your location'),
+  });
 
   // Check permission on mount
   useEffect(() => {
@@ -68,6 +74,9 @@ export function useLocationTracking(): {
         setCurrentLocation({ latitude, longitude });
         setAccuracy(acc);
 
+        // Drop low-accuracy points (>30m) to reduce GPS noise
+        if (acc != null && acc > 30) return;
+
         const { addGpsPoint, status } = useRecordingStore.getState();
         if (status === 'recording') {
           addGpsPoint({
@@ -105,7 +114,7 @@ export function useLocationTracking(): {
         log.log('App backgrounded, switching to background location');
         stopForegroundWatch();
         try {
-          await startBackgroundLocation();
+          await startBackgroundLocation(bgNotificationRef.current);
         } catch (e) {
           log.error('Failed to start background location:', e);
         }

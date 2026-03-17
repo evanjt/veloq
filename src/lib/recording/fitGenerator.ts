@@ -52,6 +52,14 @@ const SPORT_MAP: Partial<Record<ActivityType, [number, number]>> = {
   NordicSki: [12, 0],
   Rowing: [15, 0],
   Kayaking: [41, 0],
+  Yoga: [4, 15],
+  WeightTraining: [4, 13],
+  Workout: [4, 0],
+  Surfing: [56, 0],
+  Snowboard: [14, 0],
+  Golf: [25, 0],
+  Skateboard: [0, 0],
+  Other: [0, 0],
 };
 
 function getSport(activityType: ActivityType): [number, number] {

@@ -51,7 +51,7 @@ const PREFERENCE_KEYS = [
   'veloq-map-activity-overrides',
   'veloq-tile-cache',
   'veloq-whats-new-seen',
-  'veloq-insights-last-seen',
+  'veloq-insights-fingerprint',
   'veloq-recording-preferences',
 ] as const;
 

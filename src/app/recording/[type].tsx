@@ -34,8 +34,8 @@ const log = debug.create('RecordingScreen');
 // How long to wait for first GPS fix before warning
 const GPS_TIMEOUT_MS = 20_000;
 
-// Crash recovery backup interval
-const BACKUP_INTERVAL_MS = 30_000;
+// Crash recovery backup interval (15s to finish before iOS ~30s background limit)
+const BACKUP_INTERVAL_MS = 15_000;
 
 // Km split banner display duration
 const SPLIT_BANNER_DURATION_MS = 3_000;

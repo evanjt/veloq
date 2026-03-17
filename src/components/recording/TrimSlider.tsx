@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { View, StyleSheet, PanResponder } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -6,8 +6,8 @@ import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { formatDuration } from '@/lib';
 
-const HANDLE_WIDTH = 20;
-const HANDLE_HEIGHT = 40;
+const HANDLE_WIDTH = 28;
+const HANDLE_HEIGHT = 48;
 const TRACK_HEIGHT = 6;
 const MIN_SELECTION = 0.05; // 5% minimum
 
@@ -41,23 +41,31 @@ export function TrimSlider({
   const startTime = totalDuration * startFraction;
   const endTime = totalDuration * endFraction;
 
-  const clampFraction = useCallback(
-    (raw: number, isStart: boolean) => {
-      const clamped = Math.max(0, Math.min(1, raw));
-      if (isStart) {
-        return Math.min(clamped, endFraction - MIN_SELECTION);
-      }
-      return Math.max(clamped, startFraction + MIN_SELECTION);
-    },
-    [startFraction, endFraction]
-  );
-
-  const fractionToIndex = useCallback(
-    (fraction: number) => {
-      return Math.round(fraction * (totalPoints - 1));
-    },
-    [totalPoints]
-  );
+  // Store current values in refs so PanResponder closures always read fresh state
+  const startFracRef = useRef(startFraction);
+  const endFracRef = useRef(endFraction);
+  const startIdxRef = useRef(startIdx);
+  const endIdxRef = useRef(endIdx);
+  const totalPointsRef = useRef(totalPoints);
+  const onTrimChangeRef = useRef(onTrimChange);
+  useEffect(() => {
+    startFracRef.current = startFraction;
+  }, [startFraction]);
+  useEffect(() => {
+    endFracRef.current = endFraction;
+  }, [endFraction]);
+  useEffect(() => {
+    startIdxRef.current = startIdx;
+  }, [startIdx]);
+  useEffect(() => {
+    endIdxRef.current = endIdx;
+  }, [endIdx]);
+  useEffect(() => {
+    totalPointsRef.current = totalPoints;
+  }, [totalPoints]);
+  useEffect(() => {
+    onTrimChangeRef.current = onTrimChange;
+  }, [onTrimChange]);
 
   const startPan = useRef(
     PanResponder.create({
@@ -66,8 +74,10 @@ export function TrimSlider({
       onPanResponderMove: (_, gesture) => {
         if (trackWidthRef.current <= 0) return;
         const delta = gesture.dx / trackWidthRef.current;
-        const newFrac = clampFraction(startFraction + delta, true);
-        onTrimChange(fractionToIndex(newFrac), endIdx);
+        const raw = startFracRef.current + delta;
+        const clamped = Math.max(0, Math.min(raw, endFracRef.current - MIN_SELECTION));
+        const idx = Math.round(clamped * (totalPointsRef.current - 1));
+        onTrimChangeRef.current(idx, endIdxRef.current);
       },
     })
   ).current;
@@ -79,8 +89,10 @@ export function TrimSlider({
       onPanResponderMove: (_, gesture) => {
         if (trackWidthRef.current <= 0) return;
         const delta = gesture.dx / trackWidthRef.current;
-        const newFrac = clampFraction(endFraction + delta, false);
-        onTrimChange(startIdx, fractionToIndex(newFrac));
+        const raw = endFracRef.current + delta;
+        const clamped = Math.max(startFracRef.current + MIN_SELECTION, Math.min(1, raw));
+        const idx = Math.round(clamped * (totalPointsRef.current - 1));
+        onTrimChangeRef.current(startIdxRef.current, idx);
       },
     })
   ).current;

@@ -70,13 +70,34 @@ export async function markUploadComplete(id: string): Promise<void> {
   log.log(`Upload complete: ${id}`);
 }
 
+const MAX_RETRIES = 5;
+
 export async function markUploadFailed(id: string, error: string): Promise<void> {
   const queue = await loadQueue();
+  const entry = queue.find((e) => e.id === id);
+
+  // Remove entries that have exceeded max retries
+  if (entry && entry.retryCount + 1 >= MAX_RETRIES) {
+    log.warn(`Upload ${id} exceeded ${MAX_RETRIES} retries, removing from queue`);
+    const filtered = queue.filter((e) => e.id !== id);
+    await saveQueue(filtered);
+    // Clean up the file
+    try {
+      const info = await FileSystem.getInfoAsync(entry.filePath);
+      if (info.exists) {
+        await FileSystem.deleteAsync(entry.filePath, { idempotent: true });
+      }
+    } catch {
+      // Best effort cleanup
+    }
+    return;
+  }
+
   const updated = queue.map((e) =>
     e.id === id ? { ...e, retryCount: e.retryCount + 1, lastError: error } : e
   );
   await saveQueue(updated);
-  log.log(`Upload failed: ${id} (${error})`);
+  log.log(`Upload failed: ${id} (${error}), retry ${(entry?.retryCount ?? 0) + 1}/${MAX_RETRIES}`);
 }
 
 export async function getQueueSize(): Promise<number> {

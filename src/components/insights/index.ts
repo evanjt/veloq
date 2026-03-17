@@ -1,5 +1,6 @@
 export { InsightsPanel } from './InsightsPanel';
 export { InsightCard } from './InsightCard';
+export { InsightListCard } from './InsightListCard';
 export { InsightDetailSheet } from './InsightDetailSheet';
 export { PatternDetailSheet } from './PatternDetailSheet';
 export { AlternativesCarousel } from './AlternativesCarousel';
