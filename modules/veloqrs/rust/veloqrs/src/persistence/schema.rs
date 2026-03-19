@@ -10,7 +10,7 @@ use super::PersistentRouteEngine;
 impl PersistentRouteEngine {
     /// Current schema version for app-level tracking.
     /// This is separate from rusqlite_migration and tracks the overall schema state.
-    pub(super) const SCHEMA_VERSION: i32 = 10; // v0.3.0 schema (cross-sport section fix)
+    pub(super) const SCHEMA_VERSION: i32 = 11; // v0.3.0 schema (section activity exclusion)
 
     /// Get the database migrations.
     /// Each migration is applied in order, tracked in `__rusqlite_migrations` table.
@@ -44,6 +44,8 @@ impl PersistentRouteEngine {
             M::up(include_str!("../migrations/013_redetect_section_portions.sql")),
             // M14: Force re-detection to clean cross-sport activity associations
             M::up(include_str!("../migrations/014_redetect_cross_sport_fix.sql")),
+            // M15: Add excluded flag to section_activities for hiding outlier activities
+            M::up(include_str!("../migrations/015_section_activity_excluded.sql")),
         ])
     }
 

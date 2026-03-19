@@ -1,0 +1,1 @@
+ALTER TABLE section_activities ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0;

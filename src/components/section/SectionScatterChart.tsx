@@ -62,6 +62,7 @@ export interface SectionScatterChartProps {
   reverseStats: DirectionSummaryStats | null;
   onActivitySelect?: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
   onScrubChange?: (scrubbing: boolean) => void;
+  onExcludeActivity?: (activityId: string) => void;
 }
 
 export function SectionScatterChart({
@@ -74,6 +75,7 @@ export function SectionScatterChart({
   reverseStats,
   onActivitySelect,
   onScrubChange,
+  onExcludeActivity,
 }: SectionScatterChartProps) {
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
@@ -265,11 +267,11 @@ export function SectionScatterChart({
       if (allPoints.length === 0) return;
       const chartContentW = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right;
       const chartContentH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
-      const normalizedX = Math.max(0, Math.min(1, (locationX - CHART_PADDING.left) / chartContentW));
-      const normalizedY = Math.max(
+      const normalizedX = Math.max(
         0,
-        Math.min(1, (locationY - CHART_PADDING.top) / chartContentH)
+        Math.min(1, (locationX - CHART_PADDING.left) / chartContentW)
       );
+      const normalizedY = Math.max(0, Math.min(1, (locationY - CHART_PADDING.top) / chartContentH));
       // Y in chart goes top=maxSpeed, bottom=minSpeed → invert to get speed-space
       const speedRange = maxSpeed - minSpeed || 1;
 
@@ -645,6 +647,23 @@ export function SectionScatterChart({
               >
                 {formatSpeedValue(selectedPoint.speed)}
               </Text>
+              {onExcludeActivity && (
+                <TouchableOpacity
+                  onPress={() => {
+                    onExcludeActivity(selectedPoint.activityId);
+                    setSelectedPoint(null);
+                    onActivitySelect?.(null);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.excludeButton}
+                >
+                  <MaterialCommunityIcons
+                    name="close-circle-outline"
+                    size={16}
+                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              )}
               <MaterialCommunityIcons
                 name="chevron-right"
                 size={14}
@@ -816,6 +835,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+  },
+  excludeButton: {
+    padding: 2,
+    marginLeft: 4,
   },
   tooltipSpeed: {
     fontSize: 14,

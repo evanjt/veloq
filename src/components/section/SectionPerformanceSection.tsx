@@ -27,6 +27,7 @@ export interface SectionPerformanceSectionProps {
   bestReverseRecord: DirectionBestRecord | null;
   onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
   onScrubChange?: (scrubbing: boolean) => void;
+  onExcludeActivity?: (activityId: string) => void;
 }
 
 export function SectionPerformanceSection({
@@ -39,6 +40,7 @@ export function SectionPerformanceSection({
   bestReverseRecord,
   onActivitySelect,
   onScrubChange,
+  onExcludeActivity,
 }: SectionPerformanceSectionProps) {
   if (chartData.length < 1) return null;
 
@@ -54,6 +56,7 @@ export function SectionPerformanceSection({
         reverseStats={reverseStats}
         onActivitySelect={onActivitySelect}
         onScrubChange={onScrubChange}
+        onExcludeActivity={onExcludeActivity}
       />
     </View>
   );

@@ -809,7 +809,7 @@ fn enrich_with_sections(
         "SELECT sa.section_id, COALESCE(s.name, ''), COUNT(DISTINCT sa.activity_id) as act_count
          FROM section_activities sa
          JOIN sections s ON sa.section_id = s.id
-         WHERE sa.activity_id IN ({})
+         WHERE sa.activity_id IN ({}) AND sa.excluded = 0
          GROUP BY sa.section_id
          ORDER BY act_count DESC",
         placeholder_str
@@ -868,6 +868,7 @@ fn build_pattern_section(
          WHERE sa.section_id = ?1
            AND sa.activity_id IN ({})
            AND sa.lap_time IS NOT NULL
+           AND sa.excluded = 0
          ORDER BY am.date DESC",
         placeholder_str
     );

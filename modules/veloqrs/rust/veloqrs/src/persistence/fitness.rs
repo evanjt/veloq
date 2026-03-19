@@ -515,7 +515,7 @@ impl PersistentRouteEngine {
                     sa.distance_meters, sa.lap_time, sa.lap_pace
              FROM section_activities sa
              JOIN activity_metrics am ON sa.activity_id = am.activity_id
-             WHERE sa.section_id = ? AND am.sport_type = ?
+             WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 0
              ORDER BY sa.activity_id, sa.start_index"
         ) {
             Ok(s) => s,

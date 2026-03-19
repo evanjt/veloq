@@ -183,6 +183,24 @@ impl SectionManager {
         })?
     }
 
+    fn exclude_activity(&self, section_id: String, activity_id: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.exclude_activity_from_section(&section_id, &activity_id)
+                .map_err(|e| VeloqError::Database { msg: e })
+        })?
+    }
+
+    fn include_activity(&self, section_id: String, activity_id: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.include_activity_in_section(&section_id, &activity_id)
+                .map_err(|e| VeloqError::Database { msg: e })
+        })?
+    }
+
+    fn get_excluded_activities(&self, section_id: String) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| e.get_excluded_activity_ids(&section_id))
+    }
+
     fn delete(&self, section_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.delete_section(&section_id)

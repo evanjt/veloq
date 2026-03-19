@@ -35,7 +35,7 @@ impl PersistentRouteEngine {
                  FROM section_activities sa
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
                  JOIN sections s ON sa.section_id = s.id
-                 WHERE am.sport_type = s.sport_type
+                 WHERE am.sport_type = s.sport_type AND sa.excluded = 0
                  ORDER BY sa.section_id, sa.start_index"
             )?;
             let mut map: HashMap<String, Vec<SectionPortion>> = HashMap::new();
@@ -345,7 +345,7 @@ impl PersistentRouteEngine {
             let mut stmt = match self.db.prepare(
                 "SELECT DISTINCT sa.activity_id FROM section_activities sa
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                 WHERE sa.section_id = ? AND am.sport_type = ?"
+                 WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 0"
             ) {
                 Ok(s) => s,
                 Err(_) => return,
@@ -366,7 +366,7 @@ impl PersistentRouteEngine {
             .query_row(
                 "SELECT COUNT(*) FROM section_activities sa
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                 WHERE sa.section_id = ? AND am.sport_type = ?",
+                 WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 0",
                 params![section_id, &sport_type],
                 |row| row.get(0),
             )
@@ -443,7 +443,7 @@ impl PersistentRouteEngine {
                 "SELECT sa.section_id, COUNT(*) FROM section_activities sa
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
                  JOIN sections s ON sa.section_id = s.id
-                 WHERE am.sport_type = s.sport_type
+                 WHERE am.sport_type = s.sport_type AND sa.excluded = 0
                  GROUP BY sa.section_id"
             ) {
                 Ok(s) => s,
@@ -618,7 +618,7 @@ impl PersistentRouteEngine {
              FROM section_activities sa
              JOIN activity_metrics am ON sa.activity_id = am.activity_id
              JOIN sections s ON sa.section_id = s.id
-             WHERE sa.section_id = ? AND am.sport_type = s.sport_type
+             WHERE sa.section_id = ? AND am.sport_type = s.sport_type AND sa.excluded = 0
              ORDER BY sa.start_index"
         ) {
             Ok(s) => s,

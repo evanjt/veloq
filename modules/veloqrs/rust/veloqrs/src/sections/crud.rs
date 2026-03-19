@@ -159,7 +159,7 @@ impl PersistentRouteEngine {
     pub fn get_sections_for_activity(&self, activity_id: &str) -> Vec<Section> {
         // Query junction table for section IDs (indexed by activity_id)
         let section_ids: Vec<String> = match self.db.prepare(
-            "SELECT DISTINCT section_id FROM section_activities WHERE activity_id = ?"
+            "SELECT DISTINCT section_id FROM section_activities WHERE activity_id = ? AND excluded = 0"
         ) {
             Ok(mut stmt) => stmt
                 .query_map([activity_id], |row| row.get(0))
@@ -193,8 +193,8 @@ impl PersistentRouteEngine {
         let query = match &sport_type {
             Some(_) => "SELECT DISTINCT sa.activity_id FROM section_activities sa
                          JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                         WHERE sa.section_id = ?1 AND am.sport_type = ?2",
-            None => "SELECT DISTINCT activity_id FROM section_activities WHERE section_id = ?1",
+                         WHERE sa.section_id = ?1 AND am.sport_type = ?2 AND sa.excluded = 0",
+            None => "SELECT DISTINCT activity_id FROM section_activities WHERE section_id = ?1 AND excluded = 0",
         };
 
         let mut stmt = match self.db.prepare(query) {
@@ -220,7 +220,7 @@ impl PersistentRouteEngine {
                 "SELECT COUNT(*) FROM section_activities sa
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
                  JOIN sections s ON sa.section_id = s.id
-                 WHERE sa.section_id = ? AND am.sport_type = s.sport_type",
+                 WHERE sa.section_id = ? AND am.sport_type = s.sport_type AND sa.excluded = 0",
                 params![section_id],
                 |row| row.get(0),
             )
@@ -314,11 +314,52 @@ impl PersistentRouteEngine {
                 "SELECT COUNT(*) FROM section_activities sa
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
                  JOIN sections s ON sa.section_id = s.id
-                 WHERE sa.section_id = ? AND am.sport_type = s.sport_type",
+                 WHERE sa.section_id = ? AND am.sport_type = s.sport_type AND sa.excluded = 0",
                 params![section_id],
                 |row| row.get(0),
             )
             .unwrap_or(0)
+    }
+
+    /// Exclude an activity from a section's analysis.
+    /// Sets the `excluded` flag to 1 on the junction table row(s).
+    pub fn exclude_activity_from_section(&mut self, section_id: &str, activity_id: &str) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE section_activities SET excluded = 1 WHERE section_id = ? AND activity_id = ?",
+                params![section_id, activity_id],
+            )
+            .map_err(|e| format!("Failed to exclude activity: {}", e))?;
+        self.refresh_section_in_memory(section_id);
+        self.invalidate_section_cache(section_id);
+        Ok(())
+    }
+
+    /// Re-include a previously excluded activity in a section's analysis.
+    /// Sets the `excluded` flag back to 0 on the junction table row(s).
+    pub fn include_activity_in_section(&mut self, section_id: &str, activity_id: &str) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE section_activities SET excluded = 0 WHERE section_id = ? AND activity_id = ?",
+                params![section_id, activity_id],
+            )
+            .map_err(|e| format!("Failed to include activity: {}", e))?;
+        self.refresh_section_in_memory(section_id);
+        self.invalidate_section_cache(section_id);
+        Ok(())
+    }
+
+    /// Get activity IDs that are excluded from a section.
+    pub fn get_excluded_activity_ids(&self, section_id: &str) -> Vec<String> {
+        let mut stmt = match self.db.prepare(
+            "SELECT DISTINCT activity_id FROM section_activities WHERE section_id = ? AND excluded = 1"
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+        stmt.query_map(params![section_id], |row| row.get(0))
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
     }
 
     /// Create a new section.

@@ -114,6 +114,10 @@ export default function SectionDetailScreen() {
   // Key to force section data refresh after reference change
   const [sectionRefreshKey, setSectionRefreshKey] = useState(0);
 
+  // Excluded activities state
+  const [showExcluded, setShowExcluded] = useState(false);
+  const [excludedActivityIds, setExcludedActivityIds] = useState<Set<string>>(new Set());
+
   // Custom section IDs start with "custom_" (e.g., "custom_1767268142052_qyfoos8")
   const isCustomId = id?.startsWith('custom_');
 
@@ -555,6 +559,47 @@ export default function SectionDetailScreen() {
     setHighlightedActivityId(activityId);
   }, []);
 
+  // Load excluded activity IDs for this section
+  useEffect(() => {
+    if (!id) return;
+    const engine = getRouteEngine();
+    if (!engine) return;
+    const ids = engine.getExcludedActivityIds(id);
+    setExcludedActivityIds(new Set(ids));
+  }, [id, sectionRefreshKey]);
+
+  const handleExcludeActivity = useCallback(
+    (activityId: string) => {
+      if (!id) return;
+      const engine = getRouteEngine();
+      if (!engine) return;
+      engine.excludeActivityFromSection(id, activityId);
+      setExcludedActivityIds((prev) => new Set([...prev, activityId]));
+      setSectionRefreshKey((k) => k + 1);
+    },
+    [id]
+  );
+
+  const handleIncludeActivity = useCallback(
+    (activityId: string) => {
+      if (!id) return;
+      const engine = getRouteEngine();
+      if (!engine) return;
+      engine.includeActivityInSection(id, activityId);
+      setExcludedActivityIds((prev) => {
+        const next = new Set(prev);
+        next.delete(activityId);
+        return next;
+      });
+      setSectionRefreshKey((k) => k + 1);
+    },
+    [id]
+  );
+
+  const handleToggleShowExcluded = useCallback(() => {
+    setShowExcluded((v) => !v);
+  }, []);
+
   // Get section activities from engine metrics (no API call needed).
   // Activities are already cached in the Rust engine's in-memory HashMap.
   const isLoading = false; // Engine lookup is synchronous
@@ -611,6 +656,35 @@ export default function SectionDetailScreen() {
     bucketType,
   });
 
+  // Load excluded activities when toggle is on
+  const excludedActivities = useMemo(() => {
+    if (!showExcluded || excludedActivityIds.size === 0) return [];
+    const engine = getRouteEngine();
+    if (!engine) return [];
+    const ids = Array.from(excludedActivityIds);
+    return engine.getActivityMetricsForIds(ids).map(
+      (m): Activity => ({
+        id: m.activityId,
+        name: m.name,
+        type: m.sportType as ActivityType,
+        start_date_local: fromUnixSeconds(m.date)?.toISOString() ?? '',
+        distance: m.distance,
+        moving_time: m.movingTime,
+        elapsed_time: m.elapsedTime,
+        total_elevation_gain: m.elevationGain,
+        average_speed: m.movingTime > 0 ? m.distance / m.movingTime : 0,
+        max_speed: 0,
+        average_heartrate: m.avgHr ?? undefined,
+      })
+    );
+  }, [showExcluded, excludedActivityIds]);
+
+  // Combined list: normal activities + excluded (at the end)
+  const displayActivities = useMemo(() => {
+    if (!showExcluded || excludedActivities.length === 0) return sectionActivities;
+    return [...sectionActivities, ...excludedActivities];
+  }, [sectionActivities, showExcluded, excludedActivities]);
+
   const activityCount = section?.activityIds?.length ?? 0;
 
   // Calendar summary: Year > Month performance history
@@ -647,6 +721,7 @@ export default function SectionDetailScreen() {
       const rank = rankMap.get(activity.id);
       const activityTracePoints = sectionWithTraces?.activityTraces?.[activity.id];
       const isReference = effectiveReferenceId === activity.id;
+      const isActivityExcluded = excludedActivityIds.has(activity.id);
 
       return (
         <ActivityRow
@@ -665,8 +740,10 @@ export default function SectionDetailScreen() {
           bestTime={bestTimeValue}
           bestPace={bestPaceValue}
           isReference={isReference}
+          isExcluded={isActivityExcluded}
           onHighlightChange={handleRowHighlightChange}
           onSetAsReference={handleSetAsReference}
+          onInclude={isActivityExcluded ? handleIncludeActivity : undefined}
         />
       );
     },
@@ -684,6 +761,8 @@ export default function SectionDetailScreen() {
       bestPaceValue,
       handleRowHighlightChange,
       handleSetAsReference,
+      excludedActivityIds,
+      handleIncludeActivity,
     ]
   );
 
@@ -728,7 +807,7 @@ export default function SectionDetailScreen() {
       >
         <StatusBar barStyle="light-content" />
         <FlatList
-          data={isLoading ? [] : sectionActivities}
+          data={isLoading ? [] : displayActivities}
           keyExtractor={keyExtractor}
           renderItem={renderActivityRow}
           style={styles.scrollView}
@@ -816,6 +895,7 @@ export default function SectionDetailScreen() {
                   bestReverseRecord={computedBestReverse}
                   onActivitySelect={handleActivitySelect}
                   onScrubChange={handleScrubChange}
+                  onExcludeActivity={handleExcludeActivity}
                 />
 
                 {/* Calendar performance history */}
@@ -829,7 +909,12 @@ export default function SectionDetailScreen() {
                 )}
 
                 {/* Activities header */}
-                <TraversalListHeader isDark={isDark} />
+                <TraversalListHeader
+                  isDark={isDark}
+                  showExcluded={showExcluded}
+                  hasExcluded={excludedActivityIds.size > 0}
+                  onToggleShowExcluded={handleToggleShowExcluded}
+                />
               </View>
             </>
           }

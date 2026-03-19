@@ -4,7 +4,7 @@
  */
 
 import React, { memo, useMemo, useCallback } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -46,8 +46,10 @@ export interface ActivityRowProps {
   bestTime?: number;
   bestPace?: number;
   isReference?: boolean;
+  isExcluded?: boolean;
   onHighlightChange?: (activityId: string | null) => void;
   onSetAsReference?: (activityId: string) => void;
+  onInclude?: (activityId: string) => void;
 }
 
 export const ActivityRow = memo(function ActivityRow({
@@ -66,8 +68,10 @@ export const ActivityRow = memo(function ActivityRow({
   bestTime,
   bestPace,
   isReference = false,
+  isExcluded = false,
   onHighlightChange,
   onSetAsReference,
+  onInclude,
 }: ActivityRowProps) {
   const { t } = useTranslation();
   const handlePress = useCallback(() => {
@@ -85,6 +89,10 @@ export const ActivityRow = memo(function ActivityRow({
   const handleLongPress = useCallback(() => {
     onSetAsReference?.(activity.id);
   }, [onSetAsReference, activity.id]);
+
+  const handleInclude = useCallback(() => {
+    onInclude?.(activity.id);
+  }, [onInclude, activity.id]);
 
   const isReverse = direction === 'reverse';
   const traceColor = isHighlighted
@@ -135,18 +143,19 @@ export const ActivityRow = memo(function ActivityRow({
 
   return (
     <Pressable
-      onPress={handlePress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      onLongPress={handleLongPress}
+      onPress={isExcluded ? handleInclude : handlePress}
+      onPressIn={isExcluded ? undefined : handlePressIn}
+      onPressOut={isExcluded ? undefined : handlePressOut}
+      onLongPress={isExcluded ? undefined : handleLongPress}
       delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
       style={({ pressed }) => [
         styles.activityRow,
         isDark && styles.activityRowDark,
         isHighlighted && styles.activityRowHighlighted,
         pressed && styles.activityRowPressed,
-        isBest && styles.activityRowBest,
-        isReference && styles.activityRowReference,
+        isBest && !isExcluded && styles.activityRowBest,
+        isReference && !isExcluded && styles.activityRowReference,
+        isExcluded && styles.activityRowExcluded,
       ]}
     >
       {activityPoints && activityPoints.length > 1 ? (
@@ -230,11 +239,15 @@ export const ActivityRow = memo(function ActivityRow({
           <Text style={[styles.deltaText, { color: deltaColor }]}>{deltaDisplay}</Text>
         )}
       </View>
-      <MaterialCommunityIcons
-        name="chevron-right"
-        size={20}
-        color={isDark ? darkColors.textMuted : colors.divider}
-      />
+      {isExcluded ? (
+        <MaterialCommunityIcons name="undo" size={18} color={colors.primary} />
+      ) : (
+        <MaterialCommunityIcons
+          name="chevron-right"
+          size={20}
+          color={isDark ? darkColors.textMuted : colors.divider}
+        />
+      )}
     </Pressable>
   );
 });
@@ -245,9 +258,17 @@ export const ActivityRow = memo(function ActivityRow({
 
 export interface TraversalListHeaderProps {
   isDark: boolean;
+  showExcluded?: boolean;
+  hasExcluded?: boolean;
+  onToggleShowExcluded?: () => void;
 }
 
-export function TraversalListHeader({ isDark }: TraversalListHeaderProps) {
+export function TraversalListHeader({
+  isDark,
+  showExcluded,
+  hasExcluded,
+  onToggleShowExcluded,
+}: TraversalListHeaderProps) {
   const { t } = useTranslation();
 
   return (
@@ -257,6 +278,19 @@ export function TraversalListHeader({ isDark }: TraversalListHeaderProps) {
           {t('sections.activities')}
         </Text>
         <View style={styles.legend}>
+          {hasExcluded && onToggleShowExcluded && (
+            <TouchableOpacity
+              onPress={onToggleShowExcluded}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.legendItem}
+            >
+              <MaterialCommunityIcons
+                name={showExcluded ? 'eye' : 'eye-off'}
+                size={14}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
           <View style={styles.legendItem}>
             <View style={[styles.legendIndicator, { backgroundColor: colors.chartGold }]} />
             <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
@@ -312,6 +346,9 @@ const styles = StyleSheet.create({
   activityRowBest: {
     borderLeftWidth: 3,
     borderLeftColor: colors.chartGold,
+  },
+  activityRowExcluded: {
+    opacity: 0.4,
   },
   activityRowReference: {
     borderLeftWidth: 3,

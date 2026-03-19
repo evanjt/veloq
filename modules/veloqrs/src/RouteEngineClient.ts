@@ -429,6 +429,29 @@ class RouteEngineClient {
     );
   }
 
+  excludeActivityFromSection(sectionId: string, activityId: string): void {
+    if (!this.ready) return;
+    this.timed('excludeActivityFromSection', () =>
+      this.engine.sections().excludeActivity(sectionId, activityId),
+    );
+    this.notify('sections');
+  }
+
+  includeActivityInSection(sectionId: string, activityId: string): void {
+    if (!this.ready) return;
+    this.timed('includeActivityInSection', () =>
+      this.engine.sections().includeActivity(sectionId, activityId),
+    );
+    this.notify('sections');
+  }
+
+  getExcludedActivityIds(sectionId: string): string[] {
+    if (!this.ready) return [];
+    return this.timed('getExcludedActivityIds', () =>
+      this.engine.sections().getExcludedActivities(sectionId),
+    );
+  }
+
   getSectionCalendarSummary(sectionId: string): FfiCalendarSummary | null {
     if (!this.ready) return null;
     return (
