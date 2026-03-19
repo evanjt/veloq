@@ -508,12 +508,15 @@ impl PersistentRouteEngine {
         );
 
         // Load portions WITH cached performance metrics from database
+        // JOIN activity_metrics to filter by sport type — prevents cross-sport contamination
+        // (e.g., cycling activities appearing in running sections)
         let mut stmt = match self.db.prepare(
-            "SELECT activity_id, direction, start_index, end_index,
-                    distance_meters, lap_time, lap_pace
-             FROM section_activities
-             WHERE section_id = ?
-             ORDER BY activity_id, start_index"
+            "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
+                    sa.distance_meters, sa.lap_time, sa.lap_pace
+             FROM section_activities sa
+             JOIN activity_metrics am ON sa.activity_id = am.activity_id
+             WHERE sa.section_id = ? AND am.sport_type = ?
+             ORDER BY sa.activity_id, sa.start_index"
         ) {
             Ok(s) => s,
             Err(e) => {
@@ -540,7 +543,7 @@ impl PersistentRouteEngine {
         }
 
         let portions: Vec<CachedPortion> = match stmt
-            .query_map([section_id], |row| {
+            .query_map(params![section_id, &section.sport_type], |row| {
                 Ok(CachedPortion {
                     activity_id: row.get(0)?,
                     direction: row.get(1)?,

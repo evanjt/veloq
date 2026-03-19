@@ -10,7 +10,7 @@ use super::PersistentRouteEngine;
 impl PersistentRouteEngine {
     /// Current schema version for app-level tracking.
     /// This is separate from rusqlite_migration and tracks the overall schema state.
-    pub(super) const SCHEMA_VERSION: i32 = 9; // v0.3.0 schema (lap-splitting re-detection)
+    pub(super) const SCHEMA_VERSION: i32 = 10; // v0.3.0 schema (cross-sport section fix)
 
     /// Get the database migrations.
     /// Each migration is applied in order, tracked in `__rusqlite_migrations` table.
@@ -42,6 +42,8 @@ impl PersistentRouteEngine {
             M::up(include_str!("../migrations/012_section_original_polyline.sql")),
             // M13: Force re-detection with improved lap splitting algorithm
             M::up(include_str!("../migrations/013_redetect_section_portions.sql")),
+            // M14: Force re-detection to clean cross-sport activity associations
+            M::up(include_str!("../migrations/014_redetect_cross_sport_fix.sql")),
         ])
     }
 

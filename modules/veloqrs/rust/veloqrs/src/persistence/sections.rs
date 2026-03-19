@@ -28,10 +28,15 @@ impl PersistentRouteEngine {
         );
 
         // Load full activity portions from junction table (includes direction, indices, distance)
+        // JOIN activity_metrics + sections to filter by sport type — prevents cross-sport contamination
         let section_portions: HashMap<String, Vec<SectionPortion>> = {
             let mut stmt = self.db.prepare(
-                "SELECT section_id, activity_id, direction, start_index, end_index, distance_meters
-                 FROM section_activities ORDER BY section_id, start_index"
+                "SELECT sa.section_id, sa.activity_id, sa.direction, sa.start_index, sa.end_index, sa.distance_meters
+                 FROM section_activities sa
+                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
+                 JOIN sections s ON sa.section_id = s.id
+                 WHERE am.sport_type = s.sport_type
+                 ORDER BY sa.section_id, sa.start_index"
             )?;
             let mut map: HashMap<String, Vec<SectionPortion>> = HashMap::new();
             let rows = stmt.query_map([], |row| {

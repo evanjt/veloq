@@ -49,7 +49,7 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 import { formatRelativeDate, getActivityIcon, getActivityColor, isRunningActivity } from '@/lib';
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { DEFAULT_BUCKET_TYPE, type SectionTimeRange, type BucketType } from '@/constants';
+import type { SectionTimeRange, BucketType } from '@/constants';
 import type { Activity, ActivityType, RoutePoint, FrequentSection } from '@/types';
 
 export default function SectionDetailScreen() {
@@ -99,15 +99,9 @@ export default function SectionDetailScreen() {
   // Defer map loading until after first paint for faster perceived load
   const [mapReady, setMapReady] = useState(false);
 
-  // Time range for bucketed performance chart
-  const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>('1y');
-  const [bucketType, setBucketType] = useState<BucketType>(DEFAULT_BUCKET_TYPE['1y']);
-  const [showBucketModal, setShowBucketModal] = useState(false);
-
-  // Auto-update bucket type when time range changes
-  useEffect(() => {
-    setBucketType(DEFAULT_BUCKET_TYPE[sectionTimeRange]);
-  }, [sectionTimeRange]);
+  // Time range for chart data (passed to useSectionChartData)
+  const [sectionTimeRange] = useState<SectionTimeRange>('1y');
+  const [bucketType] = useState<BucketType>('monthly');
 
   // State for section renaming
   const [isEditing, setIsEditing] = useState(false);
@@ -598,23 +592,6 @@ export default function SectionDetailScreen() {
     performanceRecordMap,
     sectionActivities,
     chartData,
-    minSpeed,
-    maxSpeed,
-    bestIndex,
-    hasReverseRuns,
-    useBucketedChart,
-    bucketChartData,
-    bucketMinSpeed,
-    bucketMaxSpeed,
-    bucketBestIndex,
-    bucketHasReverseRuns,
-    bucketSummaryStats,
-    bucketForwardStats,
-    bucketReverseStats,
-    bucketResult,
-    bucketBestForward,
-    bucketBestReverse,
-    summaryStats,
     rankMap,
     bestActivityId,
     bestTimeValue,
@@ -818,37 +795,13 @@ export default function SectionDetailScreen() {
                 <SectionPerformanceSection
                   isDark={isDark}
                   section={section}
-                  useBucketedChart={useBucketedChart}
-                  bucketChartData={bucketChartData}
-                  bucketMinSpeed={bucketMinSpeed}
-                  bucketMaxSpeed={bucketMaxSpeed}
-                  bucketBestIndex={bucketBestIndex}
-                  bucketHasReverseRuns={bucketHasReverseRuns}
-                  bucketSummaryStats={bucketSummaryStats}
-                  bucketForwardStats={bucketForwardStats}
-                  bucketReverseStats={bucketReverseStats}
-                  bucketBestForward={bucketBestForward}
-                  bucketBestReverse={bucketBestReverse}
-                  bucketTotalTraversals={bucketResult?.totalTraversals ?? 0}
                   chartData={chartData}
-                  minSpeed={minSpeed}
-                  maxSpeed={maxSpeed}
-                  bestIndex={bestIndex}
-                  hasReverseRuns={hasReverseRuns}
-                  summaryStats={summaryStats}
                   forwardStats={computedForwardStats}
                   reverseStats={computedReverseStats}
                   bestForwardRecord={computedBestForward}
                   bestReverseRecord={computedBestReverse}
-                  sectionTimeRange={sectionTimeRange}
-                  bucketType={bucketType}
-                  showBucketModal={showBucketModal}
-                  highlightedActivityId={highlightedActivityId}
                   onActivitySelect={handleActivitySelect}
                   onScrubChange={handleScrubChange}
-                  onTimeRangeChange={setSectionTimeRange}
-                  onBucketTypeChange={setBucketType}
-                  onShowBucketModal={setShowBucketModal}
                 />
 
                 {/* Calendar performance history */}

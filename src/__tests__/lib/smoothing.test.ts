@@ -2,6 +2,7 @@ import {
   getEffectiveWindow,
   smoothDataPoints,
   getSmoothingDescription,
+  loessSmooth,
 } from '@/lib/utils/smoothing';
 
 describe('getEffectiveWindow', () => {
@@ -76,6 +77,88 @@ describe('smoothDataPoints', () => {
     result.forEach((point) => {
       expect(point.value).toBe(42);
     });
+  });
+});
+
+describe('loessSmooth', () => {
+  it('returns empty array for fewer than 2 points', () => {
+    expect(loessSmooth([1], [2])).toEqual([]);
+    expect(loessSmooth([], [])).toEqual([]);
+  });
+
+  it('returns the 2 points directly when given exactly 2', () => {
+    const result = loessSmooth([0, 1], [10, 20]);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ x: 0, y: 10 });
+    expect(result[1]).toEqual({ x: 1, y: 20 });
+  });
+
+  it('returns empty when xs and ys have different lengths', () => {
+    expect(loessSmooth([0, 1, 2], [10, 20])).toEqual([]);
+  });
+
+  it('returns single point when all x values are the same', () => {
+    const result = loessSmooth([5, 5, 5], [10, 20, 30]);
+    expect(result).toHaveLength(1);
+    expect(result[0].y).toBe(20); // mean of 10, 20, 30
+  });
+
+  it('produces a smooth trend for linear data (y = 2x + 1)', () => {
+    const xs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const ys = xs.map((x) => 2 * x + 1);
+    const result = loessSmooth(xs, ys, 0.5, 10);
+
+    expect(result.length).toBe(10);
+    // LOESS should recover the linear trend closely
+    for (const pt of result) {
+      const expected = 2 * pt.x + 1;
+      expect(pt.y).toBeCloseTo(expected, 0);
+    }
+  });
+
+  it('smooths noisy data without extreme deviation', () => {
+    // y = x with noise
+    const xs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const ys = [0.2, 1.5, 1.8, 3.1, 3.9, 5.2, 6.1, 7.3, 7.8, 9.1];
+    const result = loessSmooth(xs, ys, 0.4, 20);
+
+    expect(result.length).toBe(20);
+    // All output y values should be within [0, 10] — no wild extrapolation
+    for (const pt of result) {
+      expect(pt.y).toBeGreaterThanOrEqual(-1);
+      expect(pt.y).toBeLessThanOrEqual(11);
+    }
+    // Output x values should span the input range
+    expect(result[0].x).toBe(0);
+    expect(result[result.length - 1].x).toBe(9);
+  });
+
+  it('respects outputCount parameter', () => {
+    const xs = [0, 1, 2, 3, 4];
+    const ys = [1, 2, 3, 4, 5];
+    expect(loessSmooth(xs, ys, 0.5, 5).length).toBe(5);
+    expect(loessSmooth(xs, ys, 0.5, 100).length).toBe(100);
+  });
+
+  it('handles constant y values (flat line)', () => {
+    const xs = [0, 1, 2, 3, 4, 5];
+    const ys = [42, 42, 42, 42, 42, 42];
+    const result = loessSmooth(xs, ys, 0.5, 10);
+    for (const pt of result) {
+      expect(pt.y).toBeCloseTo(42, 5);
+    }
+  });
+
+  it('uses auto span when none provided', () => {
+    const xs = Array.from({ length: 50 }, (_, i) => i);
+    const ys = xs.map((x) => Math.sin(x / 5));
+    const result = loessSmooth(xs, ys);
+    expect(result.length).toBe(40); // default outputCount
+    // Should produce smooth values within [-1, 1] range
+    for (const pt of result) {
+      expect(pt.y).toBeGreaterThanOrEqual(-1.5);
+      expect(pt.y).toBeLessThanOrEqual(1.5);
+    }
   });
 });
 
