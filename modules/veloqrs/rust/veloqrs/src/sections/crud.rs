@@ -8,6 +8,8 @@ use crate::persistence::PersistentRouteEngine;
 use rusqlite::params;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tracematch::matching::calculate_route_distance;
+use tracematch::sections::find_all_track_portions;
 use tracematch::{GpsPoint, SectionPortion};
 
 impl PersistentRouteEngine {
@@ -475,7 +477,7 @@ impl PersistentRouteEngine {
                 .to_vec();
 
             let polyline_json = serde_json::to_string(&polyline).unwrap_or_else(|_| "[]".to_string());
-            let distance = calculate_polyline_distance(&polyline);
+            let distance = calculate_route_distance(&polyline);
             let bounds = tracematch::geo_utils::compute_bounds(&polyline);
 
             self.db
@@ -505,21 +507,24 @@ impl PersistentRouteEngine {
                 return Err("Section has no polyline to match against".to_string());
             }
 
-            // Compute portion details for the new reference activity
-            let portion = compute_section_portion(activity_id, &track, &current_polyline)
-                .ok_or_else(|| format!(
+            // Compute all traversals (laps) for the new reference activity
+            let portions = compute_section_portions(activity_id, &track, &current_polyline);
+            if portions.is_empty() {
+                return Err(format!(
                     "Activity {} does not overlap sufficiently with section {}",
                     activity_id, section_id
-                ))?;
+                ));
+            }
 
-            // Use the portion's indices to extract the new polyline
-            let start = portion.start_index as usize;
-            let end = (portion.end_index as usize + 1).min(track.len());
+            // Use the first portion's indices to extract the new polyline
+            let first = &portions[0];
+            let start = first.start_index as usize;
+            let end = (first.end_index as usize + 1).min(track.len());
             let new_polyline: Vec<GpsPoint> = track[start..end].to_vec();
 
             let polyline_json =
                 serde_json::to_string(&new_polyline).unwrap_or_else(|_| "[]".to_string());
-            let distance = calculate_polyline_distance(&new_polyline);
+            let distance = calculate_route_distance(&new_polyline);
             let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
 
             self.db
@@ -543,9 +548,11 @@ impl PersistentRouteEngine {
             // Re-match all activities against the new polyline
             self.rematch_section_activities(section_id, &new_polyline)?;
 
-            // Add the new reference activity with proper portion details
+            // Add the new reference activity with proper portion details (all laps)
             // (rematch only includes previously-associated activities)
-            self.add_section_activity_with_portion(section_id, &portion)?;
+            for portion in &portions {
+                self.add_section_activity_with_portion(section_id, portion)?;
+            }
         }
 
         // For custom sections, add the reference activity with portion details
@@ -560,11 +567,14 @@ impl PersistentRouteEngine {
                 .map_err(|e| format!("Failed to get section polyline: {}", e))?;
             let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json).unwrap_or_default();
 
-            if let Some(portion) = compute_section_portion(activity_id, &track, &polyline) {
-                self.add_section_activity_with_portion(section_id, &portion)?;
-            } else {
+            let portions = compute_section_portions(activity_id, &track, &polyline);
+            if portions.is_empty() {
                 // Fallback for custom sections - the source activity should always match
                 self.add_section_activity(section_id, activity_id)?;
+            } else {
+                for portion in &portions {
+                    self.add_section_activity_with_portion(section_id, portion)?;
+                }
             }
         }
 
@@ -599,10 +609,10 @@ impl PersistentRouteEngine {
             )
             .map_err(|e| format!("Failed to clear section activities: {}", e))?;
 
-        // Re-add only activities that still match, with full portion details
+        // Re-add only activities that still match, with full portion details (all laps)
         for aid in &activity_ids {
             if let Some(track) = self.get_gps_track(aid) {
-                if let Some(portion) = compute_section_portion(aid, &track, new_polyline) {
+                for portion in compute_section_portions(aid, &track, new_polyline) {
                     self.add_section_activity_with_portion(section_id, &portion)?;
                 }
             }
@@ -647,11 +657,14 @@ impl PersistentRouteEngine {
 
         let mut match_count: u32 = 0;
 
-        // Compute full portion details for each matching activity
+        // Compute full portion details for each matching activity (all laps)
         for aid in &activity_ids {
             if let Some(track) = track_map.get(aid) {
-                if let Some(portion) = compute_section_portion(aid, track, polyline) {
-                    self.add_section_activity_with_portion(section_id, &portion)?;
+                let portions = compute_section_portions(aid, track, polyline);
+                if !portions.is_empty() {
+                    for portion in &portions {
+                        self.add_section_activity_with_portion(section_id, portion)?;
+                    }
                     match_count += 1;
                 }
             }
@@ -728,7 +741,7 @@ impl PersistentRouteEngine {
         let trimmed: Vec<GpsPoint> = polyline[start..=end].to_vec();
 
         // Check minimum distance (50m)
-        let distance = calculate_polyline_distance(&trimmed);
+        let distance = calculate_route_distance(&trimmed);
         if distance < 50.0 {
             return Err("Trimmed section must be at least 50 meters".to_string());
         }
@@ -845,7 +858,7 @@ impl PersistentRouteEngine {
             .map_err(|e| format!("Failed to parse original polyline: {}", e))?;
 
         // Recompute distance and bounds
-        let distance = calculate_polyline_distance(&original);
+        let distance = calculate_route_distance(&original);
         let bounds = tracematch::geo_utils::compute_bounds(&original);
         let updated_at = chrono::Utc::now().to_rfc3339();
 
@@ -1053,137 +1066,26 @@ impl PersistentRouteEngine {
     }
 }
 
-/// Distance threshold for considering a point "on" the section (meters)
-const TRACE_PROXIMITY_THRESHOLD: f64 = 50.0;
-
-/// Minimum points to consider a valid overlap trace
-const MIN_TRACE_POINTS: usize = 3;
-
-/// Compute a SectionPortion for an activity's overlap with a section polyline.
-/// Returns None if the activity doesn't sufficiently overlap.
-fn compute_section_portion(
+/// Compute all traversals (laps) of an activity over a section polyline.
+/// Uses the tracematch lap-splitting algorithm.
+fn compute_section_portions(
     activity_id: &str,
     track: &[GpsPoint],
     section_polyline: &[GpsPoint],
-) -> Option<SectionPortion> {
-    if track.len() < MIN_TRACE_POINTS || section_polyline.len() < 2 {
-        return None;
-    }
+) -> Vec<SectionPortion> {
+    let traversals = find_all_track_portions(track, section_polyline, 50.0);
 
-    // Convert threshold from meters to approximate degrees
-    let threshold_deg = (TRACE_PROXIMITY_THRESHOLD * 1.2) / 111_000.0;
-
-    // Find the start and end indices of the overlapping portion
-    let mut start_index: Option<usize> = None;
-    let mut end_index: Option<usize> = None;
-    let mut overlap_points: Vec<GpsPoint> = Vec::new();
-    let mut gap_count = 0;
-    const MAX_GAP: usize = 3;
-
-    for (i, point) in track.iter().enumerate() {
-        // Check if point is near any point on the section polyline
-        let is_near = section_polyline.iter().any(|sp| {
-            let dlat = point.latitude - sp.latitude;
-            let dlon = point.longitude - sp.longitude;
-            (dlat * dlat + dlon * dlon).sqrt() <= threshold_deg
-        });
-
-        if is_near {
-            gap_count = 0;
-            if start_index.is_none() {
-                start_index = Some(i);
+    traversals
+        .into_iter()
+        .map(|(start_idx, end_idx, direction)| {
+            let distance = calculate_route_distance(&track[start_idx..end_idx]);
+            SectionPortion {
+                activity_id: activity_id.to_string(),
+                start_index: start_idx as u32,
+                end_index: end_idx as u32,
+                distance_meters: distance,
+                direction,
             }
-            end_index = Some(i);
-            overlap_points.push(*point);
-        } else {
-            gap_count += 1;
-            if gap_count <= MAX_GAP && start_index.is_some() {
-                overlap_points.push(*point);
-                end_index = Some(i);
-            } else if gap_count > MAX_GAP && overlap_points.len() >= MIN_TRACE_POINTS {
-                // Found a valid sequence, stop here
-                break;
-            } else if gap_count > MAX_GAP {
-                // Reset if we haven't found enough points yet
-                start_index = None;
-                end_index = None;
-                overlap_points.clear();
-            }
-        }
-    }
-
-    // Check if we found a valid overlap
-    let start_idx = start_index?;
-    let end_idx = end_index?;
-    if overlap_points.len() < MIN_TRACE_POINTS {
-        return None;
-    }
-
-    // Compute direction by comparing trace direction with section direction
-    let direction = compute_direction(&overlap_points, section_polyline);
-
-    // Compute distance
-    let distance_meters = calculate_polyline_distance(&overlap_points);
-
-    Some(SectionPortion {
-        activity_id: activity_id.to_string(),
-        start_index: start_idx as u32,
-        end_index: end_idx as u32,
-        distance_meters,
-        direction,
-    })
-}
-
-/// Determine if the trace travels in the same or reverse direction as the section.
-fn compute_direction(trace: &[GpsPoint], section_polyline: &[GpsPoint]) -> tracematch::Direction {
-    if trace.len() < 2 || section_polyline.len() < 2 {
-        return tracematch::Direction::Same;
-    }
-
-    // Compare the direction vectors of trace and section
-    let trace_start = &trace[0];
-    let trace_end = &trace[trace.len() - 1];
-    let section_start = &section_polyline[0];
-    let section_end = &section_polyline[section_polyline.len() - 1];
-
-    // Compute dot product of direction vectors to determine if same or opposite direction
-    let trace_dx = trace_end.longitude - trace_start.longitude;
-    let trace_dy = trace_end.latitude - trace_start.latitude;
-    let section_dx = section_end.longitude - section_start.longitude;
-    let section_dy = section_end.latitude - section_start.latitude;
-
-    let dot_product = trace_dx * section_dx + trace_dy * section_dy;
-
-    if dot_product >= 0.0 {
-        tracematch::Direction::Same
-    } else {
-        tracematch::Direction::Reverse
-    }
-}
-
-/// Calculate total distance of a polyline in meters.
-fn calculate_polyline_distance(points: &[GpsPoint]) -> f64 {
-    if points.len() < 2 {
-        return 0.0;
-    }
-
-    points
-        .windows(2)
-        .map(|w| haversine_distance(w[0].latitude, w[0].longitude, w[1].latitude, w[1].longitude))
-        .sum()
-}
-
-/// Haversine distance between two points in meters.
-fn haversine_distance(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
-    const R: f64 = 6_371_000.0; // Earth's radius in meters
-
-    let d_lat = (lat2 - lat1).to_radians();
-    let d_lon = (lon2 - lon1).to_radians();
-
-    let a = (d_lat / 2.0).sin().powi(2)
-        + lat1.to_radians().cos() * lat2.to_radians().cos() * (d_lon / 2.0).sin().powi(2);
-
-    let c = 2.0 * a.sqrt().asin();
-
-    R * c
+        })
+        .collect()
 }
