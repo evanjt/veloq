@@ -130,6 +130,7 @@ export function SectionHeader({
             originalDistance={section.distanceMeters}
             isSaving={isTrimSaving}
             canReset={canResetBounds}
+            initiallyExpanded={!canResetBounds}
             onStartChange={onTrimStartChange}
             onEndChange={onTrimEndChange}
             onConfirm={onConfirmTrim}
@@ -156,27 +157,6 @@ export function SectionHeader({
               name="arrow-expand-horizontal"
               size={24}
               color={canResetBounds ? colors.primary : colors.textOnDark}
-            />
-          </TouchableOpacity>
-        )}
-        {isCustomId ? (
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={onDeleteSection}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons name="delete-outline" size={24} color={colors.textOnDark} />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.actionButton, isSectionDisabled && styles.disabledButtonActive]}
-            onPress={onToggleDisable}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons
-              name={isSectionDisabled ? 'eye-off' : 'eye-off-outline'}
-              size={24}
-              color={isSectionDisabled ? colors.error : colors.textOnDark}
             />
           </TouchableOpacity>
         )}
@@ -240,6 +220,44 @@ export function SectionHeader({
             {activityCount} {t('sections.traversals')}
           </Text>
         </View>
+
+        {!isTrimming && (
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={styles.editBoundsPill}
+              onPress={onStartTrim}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="content-cut"
+                size={16}
+                color="rgba(255, 255, 255, 0.9)"
+              />
+              <Text style={styles.editBoundsText}>{t('sections.editBounds')}</Text>
+            </TouchableOpacity>
+            {isCustomId ? (
+              <TouchableOpacity
+                style={styles.secondaryPill}
+                onPress={onDeleteSection}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="delete-outline" size={16} color={colors.error} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.secondaryPill}
+                onPress={onToggleDisable}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name={isSectionDisabled ? 'eye' : 'eye-off-outline'}
+                  size={16}
+                  color="rgba(255, 255, 255, 0.7)"
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -294,9 +312,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  disabledButtonActive: {
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
   infoOverlay: {
     position: 'absolute',
@@ -362,6 +377,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 6,
     flexWrap: 'wrap',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  editBoundsPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  editBoundsText: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  secondaryPill: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   heroStat: {
     fontSize: typography.bodySmall.fontSize,

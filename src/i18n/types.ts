@@ -865,6 +865,8 @@ export interface TranslationResource {
     resetReferenceConfirm: string;
     referenceUpdated: string;
     editBounds: string;
+    edited: string;
+    moreActions: string;
     trimming: string;
     resetBounds: string;
     resetBoundsConfirm: string;

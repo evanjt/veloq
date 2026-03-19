@@ -42,6 +42,8 @@ interface SectionTrimOverlayProps {
   isSaving: boolean;
   /** Whether original bounds can be restored */
   canReset: boolean;
+  /** Whether the detail pill should start expanded (first-time trim) */
+  initiallyExpanded?: boolean;
   /** Called when start index changes */
   onStartChange: (index: number) => void;
   /** Called when end index changes */
@@ -62,6 +64,7 @@ export function SectionTrimOverlay({
   originalDistance,
   isSaving,
   canReset,
+  initiallyExpanded,
   onStartChange,
   onEndChange,
   onConfirm,
@@ -72,7 +75,7 @@ export function SectionTrimOverlay({
   const insets = useSafeAreaInsets();
   const isMetric = useMetricSystem();
   const [trackWidth, setTrackWidth] = useState(0);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(initiallyExpanded ?? false);
 
   const maxIndex = pointCount - 1;
 
