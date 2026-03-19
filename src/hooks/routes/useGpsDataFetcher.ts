@@ -597,7 +597,14 @@ export function useGpsDataFetcher() {
         // Now notify UI that activities have been added (metrics are already in DB)
         routeEngine.triggerRefresh('activities');
         routeEngine.triggerRefresh('groups');
+      }
 
+      // Run section detection if new activities were synced OR if the engine
+      // needs re-detection (e.g., after a migration updated the portions algorithm)
+      const needsDetection =
+        result.syncedIds.length > 0 || routeEngine.getStats()?.sectionsDirty === true;
+
+      if (needsDetection && isMountedRef.current) {
         updateProgress({
           status: 'computing',
           completed: 0,

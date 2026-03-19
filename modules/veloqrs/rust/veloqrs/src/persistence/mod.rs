@@ -422,6 +422,17 @@ impl PersistentRouteEngine {
         self.load_sections()?;
         self.load_processed_activity_ids()?;
         self.load_activity_metrics()?;
+
+        // If activities exist but none are marked as processed (migration cleared the table),
+        // mark sections as dirty so re-detection runs with the updated algorithm.
+        if !self.activity_metadata.is_empty() && self.processed_activity_ids.is_empty() {
+            log::info!(
+                "tracematch: [PersistentEngine] {} activities but no processed IDs — marking sections dirty for re-detection",
+                self.activity_metadata.len()
+            );
+            self.sections_dirty = true;
+        }
+
         Ok(())
     }
 
