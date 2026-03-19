@@ -36,7 +36,7 @@ import type { DirectionBestRecord, DirectionSummaryStats } from '@/components/ro
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - 32;
 const CHART_HEIGHT = 120;
-const CHART_PADDING = { left: 40, right: 20, top: 12, bottom: 12 } as const;
+const CHART_PADDING = { left: 12, right: 8, top: 12, bottom: 12 } as const;
 
 /** Format date with 2-digit year (e.g., "Jan 15 '24") */
 function formatShortDate(date: Date): string {
@@ -116,10 +116,10 @@ export function SectionScatterChart({
     const lastTime = sorted[sorted.length - 1].date.getTime();
     const timeRange = lastTime - firstTime || 1;
 
-    // Normalize x to 0-1
+    // Normalize x to 0-1 (small edge margin so dots aren't clipped)
     const positioned = sorted.map((p) => ({
       ...p,
-      x: 0.05 + ((p.date.getTime() - firstTime) / timeRange) * 0.9,
+      x: 0.02 + ((p.date.getTime() - firstTime) / timeRange) * 0.96,
     }));
 
     const fwd: (PerformanceDataPoint & { x: number })[] = [];
@@ -178,39 +178,13 @@ export function SectionScatterChart({
     };
   }, [forwardPoints, reversePoints]);
 
-  // Time axis labels
+  // Time axis labels: start, middle, end
   const timeAxisLabels = useMemo(() => {
     if (allPoints.length < 2) return [];
     const firstDate = allPoints[0].date;
     const lastDate = allPoints[allPoints.length - 1].date;
-    const monthsInRange =
-      (lastDate.getFullYear() - firstDate.getFullYear()) * 12 +
-      (lastDate.getMonth() - firstDate.getMonth());
-    const monthStep = monthsInRange > 18 ? 3 : monthsInRange > 6 ? 2 : 1;
-
-    const firstTime = firstDate.getTime();
-    const lastTime = lastDate.getTime();
-    const timeRange = lastTime - firstTime || 1;
-
-    const labels: { date: Date; position: number }[] = [];
-    const currentMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
-    while (currentMonth <= lastDate) {
-      if (currentMonth >= firstDate || currentMonth.getMonth() === firstDate.getMonth()) {
-        const pos = 0.05 + ((currentMonth.getTime() - firstTime) / timeRange) * 0.9;
-        labels.push({ date: new Date(currentMonth), position: pos });
-      }
-      currentMonth.setMonth(currentMonth.getMonth() + monthStep);
-    }
-
-    // Filter labels that are too close
-    const chartContentW = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right;
-    const minSpacing = 70 / chartContentW;
-    return labels
-      .sort((a, b) => a.position - b.position)
-      .filter(
-        (label, idx, arr) =>
-          idx === 0 || Math.abs(label.position - arr[idx - 1].position) >= minSpacing
-      );
+    const midDate = new Date((firstDate.getTime() + lastDate.getTime()) / 2);
+    return [firstDate, midDate, lastDate];
   }, [allPoints]);
 
   // Build Skia path from LOESS data (mapped through chart coordinates)
@@ -258,7 +232,7 @@ export function SectionScatterChart({
     [onActivitySelect]
   );
 
-  // Map a pixel X position to the closest data point and select it
+  // Map a pixel X position to the closest data point (X-only, for scrubbing)
   const lastNotifiedIdx = useRef(-1);
   const selectPointAtX = useCallback(
     (locationX: number) => {
@@ -283,6 +257,40 @@ export function SectionScatterChart({
       }
     },
     [allPoints, handlePointPress]
+  );
+
+  // Map pixel (X, Y) to the closest data point using 2D distance (for taps)
+  const selectPointAtXY = useCallback(
+    (locationX: number, locationY: number) => {
+      if (allPoints.length === 0) return;
+      const chartContentW = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right;
+      const chartContentH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
+      const normalizedX = Math.max(0, Math.min(1, (locationX - CHART_PADDING.left) / chartContentW));
+      const normalizedY = Math.max(
+        0,
+        Math.min(1, (locationY - CHART_PADDING.top) / chartContentH)
+      );
+      // Y in chart goes top=maxSpeed, bottom=minSpeed → invert to get speed-space
+      const speedRange = maxSpeed - minSpeed || 1;
+
+      let closestIdx = 0;
+      let closestDist = Infinity;
+      for (let i = 0; i < allPoints.length; i++) {
+        const dx = allPoints[i].x - normalizedX;
+        // Normalize speed to 0-1 range, invert Y (top of chart = high speed)
+        const pointNormY = 1 - (allPoints[i].speed - minSpeed) / speedRange;
+        const dy = pointNormY - normalizedY;
+        const dist = dx * dx + dy * dy;
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestIdx = i;
+        }
+      }
+      lastNotifiedIdx.current = closestIdx;
+      const closest = allPoints[closestIdx];
+      if (closest) handlePointPress(closest);
+    },
+    [allPoints, handlePointPress, minSpeed, maxSpeed]
   );
 
   // Shared value for scrub crosshair position
@@ -322,16 +330,16 @@ export function SectionScatterChart({
     [touchX, onGestureStart, onGestureEnd]
   );
 
-  // Tap gesture for point selection
+  // Tap gesture for point selection (uses 2D distance for better outlier targeting)
   const tapGesture = useMemo(
     () =>
       Gesture.Tap()
         .maxDuration(200)
         .onEnd((e) => {
           'worklet';
-          runOnJS(selectPointAtX)(e.x);
+          runOnJS(selectPointAtXY)(e.x, e.y);
         }),
-    [selectPointAtX]
+    [selectPointAtXY]
   );
 
   // Combined gesture — allows ScrollView to handle scroll momentum
@@ -560,20 +568,21 @@ export function SectionScatterChart({
         </View>
       </View>
 
-      {/* Time axis */}
+      {/* Time axis: start / middle / end */}
       {timeAxisLabels.length > 0 && (
         <View style={styles.timeAxis}>
-          {timeAxisLabels.map((label, idx) => (
+          {timeAxisLabels.map((date, idx) => (
             <Text
               key={idx}
               style={[
                 styles.timeAxisLabel,
                 isDark && styles.axisLabelDark,
                 idx === 0 && styles.timeAxisLabelFirst,
+                idx === 1 && styles.timeAxisLabelMiddle,
                 idx === timeAxisLabels.length - 1 && styles.timeAxisLabelLast,
               ]}
             >
-              {formatAxisDate(label.date)}
+              {formatAxisDate(date)}
             </Text>
           ))}
         </View>
@@ -724,7 +733,7 @@ const styles = StyleSheet.create({
   },
   yAxisOverlay: {
     position: 'absolute',
-    left: 6,
+    left: CHART_PADDING.left + 2,
     top: CHART_PADDING.top,
     bottom: CHART_PADDING.bottom,
     justifyContent: 'space-between',
@@ -741,6 +750,9 @@ const styles = StyleSheet.create({
   },
   timeAxisLabelFirst: {
     textAlign: 'left',
+  },
+  timeAxisLabelMiddle: {
+    textAlign: 'center',
   },
   timeAxisLabelLast: {
     textAlign: 'right',
