@@ -6,25 +6,45 @@
  * and uses filter expressions to show/hide them. This avoids expensive shape
  * geometry updates when the user scrubs through different activities.
  *
+ * When interactive={true} (section detail hero), renders a full control stack
+ * matching ActivityMapView: style toggle, 3D terrain, compass, GPS, fullscreen.
+ *
  * Wrapped in React.memo to prevent re-renders during scrubbing when props are stable.
  */
 
-import React, { useMemo, useRef, useState, useCallback, memo } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
+import React, { useMemo, useRef, useState, useCallback, useEffect, memo } from 'react';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  StatusBar,
+  Animated,
+  ActivityIndicator,
+} from 'react-native';
 import {
   MapView,
   Camera,
   ShapeSource,
   LineLayer,
   MarkerView,
-  type CameraBounds,
   type Expression,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import * as Location from 'expo-location';
 import { getActivityColor, getBoundsFromPoints } from '@/lib';
-import { colors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, shadows } from '@/theme';
 import { useMapPreferences } from '@/providers';
-import { getMapStyle, BaseMapView, isDarkStyle } from '@/components/maps';
+import {
+  getMapStyle,
+  BaseMapView,
+  isDarkStyle,
+  getNextStyle,
+  getStyleIcon,
+} from '@/components/maps';
+import { Map3DWebView, type Map3DWebViewRef } from '@/components/maps/Map3DWebView';
+import { CompassArrow, ComponentErrorBoundary } from '@/components/ui';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
 
 /**
@@ -97,6 +117,7 @@ export const SectionMapView = memo(function SectionMapView({
   isScrubbing = false,
   trimRange = null,
 }: SectionMapViewProps) {
+  const { t } = useTranslation();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { getStyleForActivity } = useMapPreferences();
 
@@ -106,14 +127,128 @@ export const SectionMapView = memo(function SectionMapView({
     ? section.sportType
     : 'Ride'; // Safe fallback
 
-  const mapStyle = getStyleForActivity(validSportType);
+  const preferredStyle = getStyleForActivity(validSportType);
+  const [currentMapStyle, setCurrentMapStyle] = useState(preferredStyle);
   const activityColor = getActivityColor(validSportType);
   const mapRef = useRef(null);
+
+  // Interactive-mode state
+  const [is3DMode, setIs3DMode] = useState(false);
+  const [is3DReady, setIs3DReady] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const map3DRef = useRef<Map3DWebViewRef>(null);
+  const map3DOpacity = useRef(new Animated.Value(0)).current;
+  const bearingAnim = useRef(new Animated.Value(0)).current;
+  const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
 
   const displayPoints = section.polyline || [];
 
   // Calculate bounds from the section polyline (15% padding)
   const bounds = useMemo(() => getBoundsFromPoints(displayPoints, 0.15), [displayPoints]);
+
+  // Section coordinates for 3D map and BaseMapView [lng, lat] format
+  const sectionCoords = useMemo(() => {
+    return displayPoints.map((p) => [p.lng, p.lat] as [number, number]);
+  }, [displayPoints]);
+
+  const hasRoute = sectionCoords.length > 0;
+  const isDark = isDarkStyle(currentMapStyle);
+
+  // Stop in-flight animations on unmount
+  useEffect(() => {
+    return () => {
+      map3DOpacity.stopAnimation();
+      bearingAnim.stopAnimation();
+    };
+  }, [map3DOpacity, bearingAnim]);
+
+  // Reset 3D ready state when toggling off
+  useEffect(() => {
+    if (!is3DMode) {
+      setIs3DReady(false);
+      map3DOpacity.setValue(0);
+    }
+  }, [is3DMode, map3DOpacity]);
+
+  // Handle 3D map ready - fade in the 3D view
+  const handleMap3DReady = useCallback(() => {
+    setIs3DReady(true);
+    Animated.timing(map3DOpacity, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [map3DOpacity]);
+
+  // Handle 3D map bearing changes (for compass sync)
+  const handleBearingChange = useCallback(
+    (bearing: number) => {
+      bearingAnim.setValue(-bearing);
+    },
+    [bearingAnim]
+  );
+
+  // Handle region change for compass (real-time during gesture)
+  const handleRegionIsChanging = useCallback(
+    (feature: GeoJSON.Feature) => {
+      const properties = feature.properties as { heading?: number } | undefined;
+      if (properties?.heading !== undefined) {
+        bearingAnim.setValue(-properties.heading);
+      }
+    },
+    [bearingAnim]
+  );
+
+  // Toggle map style
+  const toggleMapStyle = useCallback(() => {
+    setCurrentMapStyle((current) => getNextStyle(current));
+  }, []);
+
+  // Toggle 3D mode
+  const toggle3D = useCallback(() => {
+    setIs3DMode((current) => !current);
+  }, []);
+
+  // Reset orientation (bearing and pitch in 3D)
+  const resetOrientation = useCallback(() => {
+    if (is3DMode && is3DReady) {
+      map3DRef.current?.resetOrientation();
+    } else {
+      cameraRef.current?.setCamera({
+        heading: 0,
+        animationDuration: 300,
+      });
+    }
+    Animated.timing(bearingAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [is3DMode, is3DReady, bearingAnim]);
+
+  // Get user location and refocus camera
+  const handleGetLocation = useCallback(async () => {
+    try {
+      setLocationLoading(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationLoading(false);
+        return;
+      }
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
+      setLocationLoading(false);
+      cameraRef.current?.setCamera({
+        centerCoordinate: coords,
+        zoomLevel: 14,
+        animationDuration: 500,
+      });
+    } catch {
+      setLocationLoading(false);
+    }
+  }, []);
 
   // Create GeoJSON for the section polyline
   // CRITICAL: Always return valid GeoJSON to avoid iOS MapLibre crash during view reconciliation
@@ -274,7 +409,7 @@ export const SectionMapView = memo(function SectionMapView({
   // Adjust opacity when something is highlighted or trimming
   const sectionOpacity = highlightedActivityId || highlightedLapPoints || trimRange ? 0.4 : 1;
 
-  const styleUrl = getMapStyle(mapStyle);
+  const styleUrl = getMapStyle(currentMapStyle);
 
   // Use trimmed positions for markers when trimming
   const startPoint = trimRange ? displayPoints[trimRange.start] : displayPoints[0];
@@ -297,13 +432,15 @@ export const SectionMapView = memo(function SectionMapView({
       mapStyle={styleUrl}
       logoEnabled={false}
       attributionEnabled={false}
-      compassEnabled={interactive}
+      compassEnabled={false}
       scrollEnabled={interactive}
       zoomEnabled={interactive}
       rotateEnabled={interactive}
       pitchEnabled={false}
+      onRegionIsChanging={interactive ? handleRegionIsChanging : undefined}
     >
       <Camera
+        ref={interactive ? cameraRef : undefined}
         defaultSettings={{
           bounds: { ne: bounds.ne, sw: bounds.sw },
           padding: { paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 },
@@ -471,32 +608,160 @@ export const SectionMapView = memo(function SectionMapView({
     }
   }, [enableFullscreen]);
 
+  const openFullscreen = useCallback(() => {
+    if (enableFullscreen) {
+      setIsFullscreen(true);
+    }
+  }, [enableFullscreen]);
+
   const closeFullscreen = useCallback(() => {
     setIsFullscreen(false);
   }, []);
 
-  // Section coordinates for BaseMapView [lng, lat] format
-  const sectionCoords = useMemo(() => {
-    return displayPoints.map((p) => [p.lng, p.lat] as [number, number]);
-  }, [displayPoints]);
-
-  const isDark = isDarkStyle(mapStyle);
-
-  // When interactive, don't wrap in TouchableOpacity (would intercept zoom/pan gestures)
-  // Instead show a dedicated fullscreen button
-  const showExpandButton = enableFullscreen && interactive;
+  // Whether to show the interactive control stack (not during trim mode)
+  const showControls = interactive;
   const showExpandOverlay = enableFullscreen && !interactive;
+  // Fullscreen button is part of control stack when interactive
+  const isTrimming = !!trimRange;
 
   return (
     <>
       {interactive ? (
-        // Interactive map - no TouchableOpacity wrapper, use dedicated button for fullscreen
-        <View style={[styles.container, { height }]}>
-          {mapContent}
-          {showExpandButton && (
-            <TouchableOpacity style={styles.expandButton} onPress={handleMapPress}>
-              <MaterialCommunityIcons name="fullscreen" size={20} color={colors.textOnDark} />
-            </TouchableOpacity>
+        // Interactive map with control stack and optional 3D
+        <View style={[styles.outerContainer, { height }]}>
+          <View style={styles.container}>
+            {/* 2D Map layer - hidden when 3D is ready */}
+            <View style={[styles.mapLayer, is3DMode && is3DReady && styles.hiddenLayer]}>
+              {mapContent}
+            </View>
+
+            {/* 3D Map layer */}
+            {is3DMode && hasRoute && (
+              <ComponentErrorBoundary
+                componentName="3D Map"
+                showRetry={false}
+                onError={() => setIs3DMode(false)}
+              >
+                <Animated.View
+                  style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}
+                  pointerEvents={is3DReady ? 'auto' : 'none'}
+                >
+                  <Map3DWebView
+                    ref={map3DRef}
+                    coordinates={sectionCoords}
+                    mapStyle={currentMapStyle}
+                    routeColor={activityColor}
+                    onMapReady={handleMap3DReady}
+                    onBearingChange={handleBearingChange}
+                  />
+                </Animated.View>
+              </ComponentErrorBoundary>
+            )}
+
+            {/* 3D loading spinner */}
+            {is3DMode && !is3DReady && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            )}
+          </View>
+
+          {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}
+          {showControls && (
+            <View style={styles.controlsContainer}>
+              {/* Style toggle */}
+              <TouchableOpacity
+                style={[styles.controlButton, isDark && styles.controlButtonDark]}
+                onPressIn={toggleMapStyle}
+                activeOpacity={0.6}
+                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+              >
+                <MaterialCommunityIcons
+                  name={getStyleIcon(currentMapStyle)}
+                  size={22}
+                  color={isDark ? colors.textOnDark : colors.textSecondary}
+                />
+              </TouchableOpacity>
+
+              {/* 3D toggle */}
+              {hasRoute && (
+                <TouchableOpacity
+                  style={[
+                    styles.controlButton,
+                    isDark && styles.controlButtonDark,
+                    is3DMode && styles.controlButtonActive,
+                  ]}
+                  onPressIn={toggle3D}
+                  activeOpacity={0.6}
+                  hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                >
+                  <MaterialCommunityIcons
+                    name="terrain"
+                    size={22}
+                    color={
+                      is3DMode
+                        ? colors.textOnDark
+                        : isDark
+                          ? colors.textOnDark
+                          : colors.textSecondary
+                    }
+                  />
+                </TouchableOpacity>
+              )}
+
+              {/* Compass */}
+              <TouchableOpacity
+                style={[styles.controlButton, isDark && styles.controlButtonDark]}
+                onPressIn={resetOrientation}
+                activeOpacity={0.6}
+                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+              >
+                <CompassArrow
+                  size={22}
+                  rotation={bearingAnim}
+                  northColor={colors.error}
+                  southColor={isDark ? colors.textOnDark : colors.textSecondary}
+                />
+              </TouchableOpacity>
+
+              {/* GPS location */}
+              <TouchableOpacity
+                style={[styles.controlButton, isDark && styles.controlButtonDark]}
+                onPress={locationLoading ? undefined : handleGetLocation}
+                activeOpacity={locationLoading ? 1 : 0.6}
+                disabled={locationLoading}
+                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+              >
+                {locationLoading ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={isDark ? colors.textOnDark : colors.textSecondary}
+                  />
+                ) : (
+                  <MaterialCommunityIcons
+                    name="crosshairs-gps"
+                    size={22}
+                    color={isDark ? colors.textOnDark : colors.textSecondary}
+                  />
+                )}
+              </TouchableOpacity>
+
+              {/* Fullscreen expand (hidden during trim mode) */}
+              {enableFullscreen && !isTrimming && (
+                <TouchableOpacity
+                  style={[styles.controlButton, isDark && styles.controlButtonDark]}
+                  onPressIn={openFullscreen}
+                  activeOpacity={0.6}
+                  hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                >
+                  <MaterialCommunityIcons
+                    name="fullscreen"
+                    size={22}
+                    color={isDark ? colors.textOnDark : colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
           )}
         </View>
       ) : (
@@ -530,7 +795,7 @@ export const SectionMapView = memo(function SectionMapView({
             highlightedActivityId || highlightedTraceGeoJSON ? activityColor + '66' : activityColor
           }
           bounds={bounds || undefined}
-          initialStyle={mapStyle}
+          initialStyle={currentMapStyle}
           onClose={closeFullscreen}
         >
           {/* CRITICAL: Always render all ShapeSources to avoid iOS crash */}
@@ -668,8 +933,30 @@ export const SectionMapView = memo(function SectionMapView({
 });
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    position: 'relative',
+  },
   container: {
+    flex: 1,
     overflow: 'hidden',
+    borderRadius: layout.borderRadius,
+  },
+  mapLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  map3DLayer: {
+    zIndex: 1,
+  },
+  hiddenLayer: {
+    opacity: 0,
+    pointerEvents: 'none',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: layout.borderRadius,
   },
   map: {
@@ -705,12 +992,27 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     padding: spacing.xs,
   },
-  expandButton: {
+  controlsContainer: {
     position: 'absolute',
-    bottom: spacing.sm,
-    right: spacing.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 6,
-    padding: spacing.xs,
+    top: 48,
+    right: layout.cardMargin,
+    gap: spacing.sm,
+    zIndex: 100,
+    elevation: 100,
+  },
+  controlButton: {
+    width: layout.minTapTarget,
+    height: layout.minTapTarget,
+    borderRadius: layout.minTapTarget / 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.modal,
+  },
+  controlButtonDark: {
+    backgroundColor: darkColors.surfaceCard,
+  },
+  controlButtonActive: {
+    backgroundColor: colors.primary,
   },
 });

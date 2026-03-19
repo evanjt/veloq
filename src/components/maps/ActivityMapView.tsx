@@ -983,7 +983,10 @@ export const ActivityMapView = memo(function ActivityMapView({
             showRetry={false}
             onError={() => setIs3DMode(false)}
           >
-            <Animated.View style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}>
+            <Animated.View
+              style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}
+              pointerEvents={is3DReady ? 'auto' : 'none'}
+            >
               <Map3DWebView
                 ref={map3DRef}
                 coordinates={routeCoords}
