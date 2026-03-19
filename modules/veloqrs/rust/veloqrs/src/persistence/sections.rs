@@ -340,15 +340,17 @@ impl PersistentRouteEngine {
             return;
         }
 
-        // Get activity IDs from junction table (deduplicated)
+        // Get activity IDs from junction table (deduplicated, sport-type filtered)
         let activity_ids: Vec<String> = {
             let mut stmt = match self.db.prepare(
-                "SELECT DISTINCT activity_id FROM section_activities WHERE section_id = ?"
+                "SELECT DISTINCT sa.activity_id FROM section_activities sa
+                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
+                 WHERE sa.section_id = ? AND am.sport_type = ?"
             ) {
                 Ok(s) => s,
                 Err(_) => return,
             };
-            stmt.query_map(params![section_id], |row| row.get(0))
+            stmt.query_map(params![section_id, &sport_type], |row| row.get(0))
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
                 .unwrap_or_default()
         };
@@ -359,11 +361,13 @@ impl PersistentRouteEngine {
             .and_then(|j| serde_json::from_str(&j).ok())
             .unwrap_or_default();
 
-        // Count total traversals (laps), not unique activities
+        // Count total traversals (laps), not unique activities (sport-type filtered)
         let visit_count: u32 = self.db
             .query_row(
-                "SELECT COUNT(*) FROM section_activities WHERE section_id = ?",
-                params![section_id],
+                "SELECT COUNT(*) FROM section_activities sa
+                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
+                 WHERE sa.section_id = ? AND am.sport_type = ?",
+                params![section_id, &sport_type],
                 |row| row.get(0),
             )
             .unwrap_or(activity_ids.len() as u32);
@@ -433,10 +437,14 @@ impl PersistentRouteEngine {
     /// Queries SQLite and extracts only summary fields, skipping heavy data like
     /// polylines, activityTraces, and pointDensity.
     pub fn get_section_summaries(&self) -> Vec<SectionSummary> {
-        // First get activity counts per section from junction table
+        // Get activity counts per section from junction table (sport-type filtered)
         let activity_counts: HashMap<String, u32> = {
             let mut stmt = match self.db.prepare(
-                "SELECT section_id, COUNT(*) FROM section_activities GROUP BY section_id"
+                "SELECT sa.section_id, COUNT(*) FROM section_activities sa
+                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
+                 JOIN sections s ON sa.section_id = s.id
+                 WHERE am.sport_type = s.sport_type
+                 GROUP BY sa.section_id"
             ) {
                 Ok(s) => s,
                 Err(_) => return Vec::new(),
@@ -603,10 +611,15 @@ impl PersistentRouteEngine {
     }
 
     /// Load activity portions for a section from the junction table.
+    /// JOIN activity_metrics to filter by sport type — prevents cross-sport contamination.
     fn get_section_portions(&self, section_id: &str) -> Vec<SectionPortion> {
         let mut stmt = match self.db.prepare(
-            "SELECT activity_id, direction, start_index, end_index, distance_meters
-             FROM section_activities WHERE section_id = ? ORDER BY start_index"
+            "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index, sa.distance_meters
+             FROM section_activities sa
+             JOIN activity_metrics am ON sa.activity_id = am.activity_id
+             JOIN sections s ON sa.section_id = s.id
+             WHERE sa.section_id = ? AND am.sport_type = s.sport_type
+             ORDER BY sa.start_index"
         ) {
             Ok(s) => s,
             Err(e) => {
