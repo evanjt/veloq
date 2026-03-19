@@ -850,6 +850,47 @@ class RouteEngineClient {
     );
   }
 
+  /**
+   * Get the representative activity's full GPS track for section expansion.
+   * Returns the track as flat coords [lat, lng, ...] + section start/end indices.
+   */
+  getSectionExtensionTrack(
+    sectionId: string,
+  ): { track: number[]; sectionStartIdx: number; sectionEndIdx: number } | null {
+    if (!this.ready) return null;
+    validateId(sectionId, 'section ID');
+    try {
+      return this.timed('getSectionExtensionTrack', () => {
+        const result = this.engine.sections().getExtensionTrack(sectionId);
+        return {
+          track: result.track,
+          sectionStartIdx: result.sectionStartIdx,
+          sectionEndIdx: result.sectionEndIdx,
+        };
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Expand section bounds by providing a new polyline (can be larger than original).
+   * Backs up original polyline on first edit, re-matches activities.
+   */
+  expandSectionBounds(sectionId: string, newPolylineJson: string): boolean {
+    if (!this.ready) return false;
+    validateId(sectionId, 'section ID');
+    try {
+      this.timed('expandSectionBounds', () =>
+        this.engine.sections().expandBounds(sectionId, newPolylineJson),
+      );
+      this.notifyAll('sections');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   getDownloadProgress(): DownloadProgressResult {
     return gen().getDownloadProgress();
   }

@@ -247,6 +247,36 @@ impl SectionManager {
         with_engine(|e| e.has_original_bounds(&section_id))
     }
 
+    fn get_extension_track(
+        &self,
+        section_id: String,
+    ) -> Result<crate::FfiSectionExtensionTrack, VeloqError> {
+        with_engine(|e| {
+            let (track, start, end) = e
+                .get_section_extension_track(&section_id)
+                .map_err(|msg| VeloqError::Database { msg })?;
+            Ok(crate::FfiSectionExtensionTrack {
+                track: track
+                    .iter()
+                    .flat_map(|p| vec![p.latitude, p.longitude])
+                    .collect(),
+                section_start_idx: start,
+                section_end_idx: end,
+            })
+        })?
+    }
+
+    fn expand_bounds(
+        &self,
+        section_id: String,
+        new_polyline_json: String,
+    ) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.expand_section_bounds(&section_id, &new_polyline_json)
+                .map_err(|e| VeloqError::Database { msg: e })
+        })?
+    }
+
     fn extract_traces_batch(
         &self,
         activity_ids: Vec<String>,

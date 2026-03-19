@@ -17,6 +17,18 @@ pub struct FfiBatchTrace {
     pub coords: Vec<f64>,
 }
 
+/// Extension track for expanding section bounds.
+/// Contains the representative activity's full GPS track with section start/end indices.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionExtensionTrack {
+    /// Flat coordinates [lat, lng, lat, lng, ...] of the full representative activity track
+    pub track: Vec<f64>,
+    /// Index in the track where the current section starts
+    pub section_start_idx: u32,
+    /// Index in the track where the current section ends
+    pub section_end_idx: u32,
+}
+
 /// Section detection progress info.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiDetectionProgress {

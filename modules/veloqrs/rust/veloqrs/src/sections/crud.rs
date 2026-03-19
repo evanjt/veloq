@@ -9,7 +9,7 @@ use rusqlite::params;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracematch::matching::calculate_route_distance;
-use tracematch::sections::find_all_track_portions;
+use tracematch::sections::{build_rtree, find_all_track_portions};
 use tracematch::{GpsPoint, SectionPortion};
 
 impl PersistentRouteEngine {
@@ -946,6 +946,187 @@ impl PersistentRouteEngine {
                 |row| row.get(0),
             )
             .unwrap_or(false)
+    }
+
+    /// Get the representative activity's full GPS track for section expansion.
+    /// Returns the track + the indices where the current section starts/ends within it.
+    /// Used by the UI to let users extend section bounds beyond the current polyline.
+    pub fn get_section_extension_track(
+        &self,
+        section_id: &str,
+    ) -> Result<(Vec<GpsPoint>, u32, u32), String> {
+        // Load section data: representative activity ID + current polyline
+        let (rep_id, polyline_json): (Option<String>, String) = self
+            .db
+            .query_row(
+                "SELECT representative_activity_id, polyline_json FROM sections WHERE id = ?",
+                params![section_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|_| format!("Section not found: {}", section_id))?;
+
+        let rep_id = rep_id.ok_or_else(|| "Section has no representative activity".to_string())?;
+
+        // Load the representative activity's full GPS track
+        let track = self
+            .get_gps_track(&rep_id)
+            .ok_or_else(|| format!("GPS track not found for activity: {}", rep_id))?;
+
+        if track.len() < 3 {
+            return Err("Representative activity track too short".to_string());
+        }
+
+        let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
+            .map_err(|e| format!("Failed to parse polyline: {}", e))?;
+
+        if polyline.len() < 2 {
+            return Err("Section polyline too short".to_string());
+        }
+
+        // Find where the section starts/ends in the representative activity's track
+        // Use find_all_track_portions with a generous threshold to locate the section
+        let portions = find_all_track_portions(&track, &polyline, 100.0);
+
+        if portions.is_empty() {
+            // Fallback: use nearest-point matching for start and end
+            let ref_tree = build_rtree(&track);
+            let start_query = [polyline[0].latitude, polyline[0].longitude];
+            let end_query = [
+                polyline[polyline.len() - 1].latitude,
+                polyline[polyline.len() - 1].longitude,
+            ];
+
+            let start_idx = ref_tree
+                .nearest_neighbor(&start_query)
+                .map(|p| p.idx as u32)
+                .unwrap_or(0);
+            let end_idx = ref_tree
+                .nearest_neighbor(&end_query)
+                .map(|p| p.idx as u32)
+                .unwrap_or(track.len() as u32 - 1);
+
+            let (s, e) = if start_idx <= end_idx {
+                (start_idx, end_idx)
+            } else {
+                (end_idx, start_idx)
+            };
+            return Ok((track, s, e));
+        }
+
+        // Use the first (longest) matching portion
+        let best = portions
+            .iter()
+            .max_by_key(|(s, e, _)| e - s)
+            .unwrap();
+        Ok((track, best.0 as u32, best.1 as u32))
+    }
+
+    /// Expand section bounds by replacing the polyline with a new one (can be larger than original).
+    /// Backs up the original polyline on first edit (preserves true original across multiple edits).
+    /// Re-matches all activities against the new polyline.
+    pub fn expand_section_bounds(
+        &mut self,
+        section_id: &str,
+        new_polyline_json: &str,
+    ) -> Result<(), String> {
+        let new_polyline: Vec<GpsPoint> = serde_json::from_str(new_polyline_json)
+            .map_err(|e| format!("Failed to parse new polyline: {}", e))?;
+
+        if new_polyline.len() < 5 {
+            return Err("Expanded section must have at least 5 points".to_string());
+        }
+
+        // Check minimum distance (50m)
+        let distance = calculate_route_distance(&new_polyline);
+        if distance < 50.0 {
+            return Err("Expanded section must be at least 50 meters".to_string());
+        }
+
+        // Back up original polyline if not already backed up
+        let has_original: bool = self
+            .db
+            .query_row(
+                "SELECT original_polyline_json IS NOT NULL FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+
+        if !has_original {
+            self.db
+                .execute(
+                    "UPDATE sections SET original_polyline_json = polyline_json WHERE id = ?",
+                    params![section_id],
+                )
+                .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
+        }
+
+        // Compute new bounds and distance
+        let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
+        let updated_at = chrono::Utc::now().to_rfc3339();
+
+        // Update section
+        self.db
+            .execute(
+                "UPDATE sections SET
+                    polyline_json = ?,
+                    distance_meters = ?,
+                    is_user_defined = 1,
+                    updated_at = ?,
+                    bounds_min_lat = ?,
+                    bounds_max_lat = ?,
+                    bounds_min_lng = ?,
+                    bounds_max_lng = ?
+                 WHERE id = ?",
+                params![
+                    new_polyline_json,
+                    distance,
+                    updated_at,
+                    bounds.min_lat,
+                    bounds.max_lat,
+                    bounds.min_lng,
+                    bounds.max_lng,
+                    section_id
+                ],
+            )
+            .map_err(|e| format!("Failed to update section: {}", e))?;
+
+        // Re-match activities against new polyline
+        let section_type: String = self
+            .db
+            .query_row(
+                "SELECT section_type FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or_else(|_| "auto".to_string());
+
+        if section_type == "custom" {
+            let sport_type: String = self
+                .db
+                .query_row(
+                    "SELECT sport_type FROM sections WHERE id = ?",
+                    params![section_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or_else(|_| "Ride".to_string());
+
+            self.db
+                .execute(
+                    "DELETE FROM section_activities WHERE section_id = ?",
+                    params![section_id],
+                )
+                .map_err(|e| format!("Failed to clear section activities: {}", e))?;
+            self.match_activities_to_section(section_id, &new_polyline, &sport_type)?;
+        } else {
+            self.rematch_section_activities(section_id, &new_polyline)?;
+        }
+
+        // Invalidate caches
+        self.invalidate_section_cache(section_id);
+        self.refresh_section_in_memory(section_id);
+
+        Ok(())
     }
 
     /// Delete a section.
