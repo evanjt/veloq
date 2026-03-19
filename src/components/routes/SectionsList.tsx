@@ -16,6 +16,7 @@ import {
   Alert,
   Animated,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
@@ -68,6 +69,8 @@ type HiddenFilters = {
   auto: boolean;
   disabled: boolean;
 };
+
+type SortOption = 'visits' | 'distance' | 'name';
 
 /**
  * Convert batch SectionWithPolyline to FrequentSection for useUnifiedSections.
@@ -152,18 +155,18 @@ const SectionListItem = memo(
           <Animated.View
             style={[
               styles.swipeAction,
-              isDisabled ? styles.showAction : styles.hideAction,
+              isDisabled ? styles.showAction : styles.deleteAction,
               { opacity },
             ]}
           >
             <RectButton style={styles.swipeActionButton} onPress={() => onToggleHide(item)}>
               <MaterialCommunityIcons
-                name={isDisabled ? 'eye' : 'eye-off'}
+                name={isDisabled ? 'undo' : 'delete-outline'}
                 size={24}
                 color={colors.textOnDark}
               />
               <Text style={styles.swipeActionText}>
-                {isDisabled ? t('common.show') : t('common.hide')}
+                {isDisabled ? t('common.restore') : t('common.remove')}
               </Text>
             </RectButton>
           </Animated.View>
@@ -225,6 +228,8 @@ export function SectionsList({
     auto: false,
     disabled: true, // Hidden sections are hidden by default
   });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOption, setSortOption] = useState<SortOption>('visits');
 
   // Convert batch sections to FrequentSection[] for preloading into useUnifiedSections
   const preloadedEngineSections = useMemo(() => {
@@ -281,10 +286,11 @@ export function SectionsList({
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays();
 
-  // Separate regular sections from potential sections and apply filter
+  // Separate regular sections from potential sections, apply filter, search, and sort
   const { regularSections, potentialSections } = useMemo(() => {
     const regular: UnifiedSection[] = [];
     const potential: UnifiedSection[] = [];
+    const query = searchQuery.toLowerCase();
 
     for (const section of unifiedSections) {
       if (section.sectionType === 'potential') {
@@ -302,12 +308,26 @@ export function SectionsList({
         ) {
           continue; // Skip (hide) this section
         }
+
+        // Apply search filter
+        if (query && !section.name?.toLowerCase().includes(query)) {
+          continue;
+        }
+
         regular.push(section);
       }
     }
 
+    // Apply sort
+    if (sortOption === 'distance') {
+      regular.sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
+    } else if (sortOption === 'name') {
+      regular.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+    }
+    // 'visits' is the default order from useUnifiedSections (visitCount DESC)
+
     return { regularSections: regular, potentialSections: potential };
-  }, [unifiedSections, hiddenFilters]);
+  }, [unifiedSections, hiddenFilters, searchQuery, sortOption]);
 
   // Toggle filter - pressing hides/shows that type
   const handleFilterPress = useCallback((filterType: keyof HiddenFilters) => {
@@ -407,6 +427,20 @@ export function SectionsList({
     );
   };
 
+  const sortOptions: SortOption[] = ['visits', 'distance', 'name'];
+  const sortLabelKeys: Record<SortOption, string> = {
+    visits: 'routes.sortMostVisited',
+    distance: 'routes.sortDistance',
+    name: 'routes.sortNameAZ',
+  };
+
+  const handleCycleSort = useCallback(() => {
+    setSortOption((current) => {
+      const idx = sortOptions.indexOf(current);
+      return sortOptions[(idx + 1) % sortOptions.length];
+    });
+  }, []);
+
   const renderHeader = () => (
     <View style={styles.header}>
       <View style={[styles.infoNotice, isDark && styles.infoNoticeDark]}>
@@ -418,6 +452,33 @@ export function SectionsList({
         <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
           {t('routes.frequentSectionsInfo')}
         </Text>
+      </View>
+
+      {/* Search bar */}
+      <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>
+        <MaterialCommunityIcons
+          name="magnify"
+          size={18}
+          color={isDark ? darkColors.textDisabled : colors.textDisabled}
+        />
+        <TextInput
+          style={[styles.searchInput, isDark && styles.searchInputDark]}
+          placeholder={t('routes.searchSections')}
+          placeholderTextColor={isDark ? darkColors.textDisabled : colors.textDisabled}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+          autoCorrect={false}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
+            <MaterialCommunityIcons
+              name="close-circle"
+              size={16}
+              color={isDark ? darkColors.textDisabled : colors.textDisabled}
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Section type counts - clickable to hide/show types */}
@@ -489,7 +550,7 @@ export function SectionsList({
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
-                name={hiddenFilters.disabled ? 'eye' : 'eye-off'}
+                name={hiddenFilters.disabled ? 'delete-restore' : 'delete-outline'}
                 size={12}
                 color={hiddenFilters.disabled ? colors.primary : colors.warning}
               />
@@ -502,12 +563,35 @@ export function SectionsList({
                 ]}
               >
                 {hiddenFilters.disabled
-                  ? t('routes.showHidden', { count: trueDisabledCount })
-                  : `${trueDisabledCount} ${t('sections.disabled')}`}
+                  ? t('routes.showRemoved', { count: trueDisabledCount })
+                  : `${trueDisabledCount} ${t('sections.removed')}`}
               </Text>
             </TouchableOpacity>
           )}
         </View>
+      )}
+
+      {/* Sort control */}
+      {regularSections.length > 1 && (
+        <TouchableOpacity
+          style={[styles.sortControl, isDark && styles.sortControlDark]}
+          onPress={handleCycleSort}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons
+            name="sort"
+            size={14}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <Text style={[styles.sortText, isDark && styles.sortTextDark]}>
+            {t(sortLabelKeys[sortOption] as never)}
+          </Text>
+          <MaterialCommunityIcons
+            name="chevron-down"
+            size={14}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+        </TouchableOpacity>
       )}
 
       {/* Potential section suggestions */}
@@ -538,7 +622,7 @@ export function SectionsList({
     openSwipeableRef.current = id;
   }, []);
 
-  // Handle hide/show action for auto sections
+  // Handle remove/restore action for auto sections
   const handleToggleHide = useCallback(
     async (item: UnifiedSection) => {
       const swipeable = swipeableRefs.current.get(item.id);
@@ -547,10 +631,17 @@ export function SectionsList({
       if (disabledIds.has(item.id)) {
         await enable(item.id);
       } else {
-        await disable(item.id);
+        Alert.alert(t('sections.removeSection'), t('sections.removeSectionConfirm'), [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.remove'),
+            style: 'destructive',
+            onPress: () => disable(item.id),
+          },
+        ]);
       }
     },
-    [disable, enable]
+    [disable, enable, t]
   );
 
   // Handle delete action for custom sections
@@ -773,8 +864,45 @@ const styles = StyleSheet.create({
   deleteAction: {
     backgroundColor: colors.error,
   },
-  hideAction: {
-    backgroundColor: colors.warning,
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: layout.borderRadius,
+    backgroundColor: colors.gray100,
+  },
+  searchContainerDark: {
+    backgroundColor: darkColors.surface,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textPrimary,
+    paddingVertical: 0,
+  },
+  searchInputDark: {
+    color: colors.textOnDark,
+  },
+  sortControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    marginRight: spacing.md,
+  },
+  sortControlDark: {},
+  sortText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  sortTextDark: {
+    color: darkColors.textSecondary,
   },
   showAction: {
     backgroundColor: colors.success,

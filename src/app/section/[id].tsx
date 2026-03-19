@@ -405,20 +405,24 @@ export default function SectionDetailScreen() {
     [id, t, effectiveReferenceId, isCustomId, queryClient]
   );
 
-  // Handle disabling/enabling an auto-detected section
+  // Handle removing/restoring an auto-detected section
   const handleToggleDisable = useCallback(() => {
     if (!id || isCustomId) return;
 
     if (isSectionDisabled) {
-      // Re-enable
+      // Restore
       enable(id);
     } else {
-      // Disable with confirmation
-      Alert.alert(t('sections.disableSection'), t('sections.disableSectionConfirm'), [
+      // Remove with confirmation, navigate back after
+      Alert.alert(t('sections.removeSection'), t('sections.removeSectionConfirm'), [
         { text: t('common.cancel'), style: 'cancel' },
         {
-          text: t('common.disable'),
-          onPress: () => disable(id),
+          text: t('common.remove'),
+          style: 'destructive',
+          onPress: () => {
+            disable(id);
+            router.back();
+          },
         },
       ]);
     }
@@ -784,9 +788,13 @@ export default function SectionDetailScreen() {
                     onPress={handleToggleDisable}
                     activeOpacity={0.8}
                   >
-                    <MaterialCommunityIcons name="eye-off" size={18} color={colors.warning} />
+                    <MaterialCommunityIcons
+                      name="delete-outline"
+                      size={18}
+                      color={colors.warning}
+                    />
                     <Text style={styles.disabledBannerText}>
-                      {t('sections.disabled')} — {t('common.enable')}
+                      {t('sections.removed')} — {t('sections.restoreSection')}
                     </Text>
                   </TouchableOpacity>
                 )}

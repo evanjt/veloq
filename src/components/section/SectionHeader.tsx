@@ -241,9 +241,9 @@ export function SectionHeader({
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons
-                  name={isSectionDisabled ? 'eye' : 'eye-off-outline'}
+                  name={isSectionDisabled ? 'undo' : 'delete-outline'}
                   size={16}
-                  color="rgba(255, 255, 255, 0.7)"
+                  color={isSectionDisabled ? colors.success : 'rgba(255, 255, 255, 0.7)'}
                 />
               </TouchableOpacity>
             )}

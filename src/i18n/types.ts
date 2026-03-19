@@ -183,6 +183,8 @@ export interface TranslationResource {
     activities: string;
     syncing: string;
     undo: string;
+    remove: string;
+    restore: string;
   };
 
   navigation: {
@@ -746,7 +748,12 @@ export interface TranslationResource {
     pr: string;
     routesFound: string;
     sameDirection: string;
+    searchSections: string;
     showHidden: string;
+    showRemoved: string;
+    sortDistance: string;
+    sortMostVisited: string;
+    sortNameAZ: string;
     reverse: string;
     partial: string;
     overlap: string;
@@ -857,6 +864,10 @@ export interface TranslationResource {
     duplicateNameTitle: string;
     disableSectionConfirm: string;
     disabled: string;
+    removeSection: string;
+    removeSectionConfirm: string;
+    removed: string;
+    restoreSection: string;
     forward: string;
     reference: string;
     setAsReference: string;
