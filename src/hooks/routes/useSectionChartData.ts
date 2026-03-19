@@ -128,54 +128,20 @@ export function useSectionChartData({
       sectionDistance: number;
     }
 
-    // Flatten records into per-activity, per-direction best laps
+    // Flatten records into per-lap entries (one data point per traversal)
     const allPerfs: DirPerf[] = [];
     for (const record of performanceRecords) {
-      let fwdBestTime = Infinity;
-      let fwdBestPace = 0;
-      let revBestTime = Infinity;
-      let revBestPace = 0;
-      let hasFwd = false;
-      let hasRev = false;
-
-      for (const lap of record.laps) {
-        if (lap.direction === 'reverse') {
-          hasRev = true;
-          if (lap.time < revBestTime) {
-            revBestTime = lap.time;
-            revBestPace = lap.pace;
-          }
-        } else {
-          hasFwd = true;
-          if (lap.time < fwdBestTime) {
-            fwdBestTime = lap.time;
-            fwdBestPace = lap.pace;
-          }
-        }
-      }
-
       const activityDate = Math.floor(record.activityDate.getTime() / 1000);
 
-      if (hasFwd) {
+      for (const lap of record.laps) {
         allPerfs.push({
           activityId: record.activityId,
           activityName: record.activityName,
           activityDate,
-          bestTime: fwdBestTime,
-          bestPace: fwdBestPace,
-          isReverse: false,
-          sectionDistance: record.sectionDistance,
-        });
-      }
-      if (hasRev) {
-        allPerfs.push({
-          activityId: record.activityId,
-          activityName: record.activityName,
-          activityDate,
-          bestTime: revBestTime,
-          bestPace: revBestPace,
-          isReverse: true,
-          sectionDistance: record.sectionDistance,
+          bestTime: lap.time,
+          bestPace: lap.pace,
+          isReverse: lap.direction === 'reverse',
+          sectionDistance: lap.distance || record.sectionDistance,
         });
       }
     }
@@ -469,25 +435,26 @@ export function useSectionChartData({
       const sectionDistance =
         record?.sectionDistance || portion?.distanceMeters || section.distanceMeters;
 
-      // Use fastest lap only (one entry per activity)
+      // One data point per lap (shows every individual traversal)
       if (record && record.laps && record.laps.length > 0) {
-        const fastestLap = record.laps.reduce((best, lap) => (lap.pace > best.pace ? lap : best));
-        const direction = fastestLap.direction || 'same';
-        if (direction === 'reverse') hasAnyReverse = true;
+        for (const lap of record.laps) {
+          const direction = lap.direction || 'same';
+          if (direction === 'reverse') hasAnyReverse = true;
 
-        dataPoints.push({
-          x: 0,
-          id: activity.id,
-          activityId: activity.id,
-          speed: fastestLap.pace,
-          date: new Date(activity.start_date_local),
-          activityName: activity.name,
-          direction,
-          lapPoints: tracePoints,
-          sectionTime: Math.round(fastestLap.time),
-          sectionDistance,
-          lapCount: record.laps.length,
-        });
+          dataPoints.push({
+            x: 0,
+            id: lap.id,
+            activityId: activity.id,
+            speed: lap.pace,
+            date: new Date(activity.start_date_local),
+            activityName: activity.name,
+            direction,
+            lapPoints: tracePoints,
+            sectionTime: Math.round(lap.time),
+            sectionDistance: lap.distance || sectionDistance,
+            lapCount: 1,
+          });
+        }
       } else {
         const direction = record?.direction || (portion?.direction as 'same' | 'reverse') || 'same';
         if (direction === 'reverse') hasAnyReverse = true;
@@ -574,7 +541,10 @@ export function useSectionChartData({
       const sorted = [...chartData].sort((a, b) => b.speed - a.speed);
       const map = new Map<string, number>();
       sorted.forEach((item, idx) => {
-        map.set(item.activityId, idx + 1);
+        // Keep best (first) rank per activity when multiple laps exist
+        if (!map.has(item.activityId)) {
+          map.set(item.activityId, idx + 1);
+        }
       });
 
       const bestId = sorted.length > 0 ? sorted[0].activityId : null;
