@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
-import { router, type Href } from 'expo-router';
+import { navigateTo } from '@/lib';
 import { useDebugStore, useWhatsNewStore } from '@/providers';
 import { getAllSlides } from '@/components/ui/whatsNew/slides';
 import { colors, darkColors, spacing, layout } from '@/theme';
@@ -126,7 +126,7 @@ export function SupportSection() {
       {debugEnabled && (
         <TouchableOpacity
           style={styles.toggleRow}
-          onPress={() => router.push('/debug' as Href)}
+          onPress={() => navigateTo('/debug')}
           activeOpacity={0.7}
         >
           <View style={styles.toggleInfo}>

@@ -387,9 +387,11 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         const gen = worker.generationRef.current;
         const workerId = worker.id;
 
-        console.log(
-          `[TerrainSnapshot:${workerId}] Processing ${request.activityId} gen=${gen} (style: ${request.mapStyle})`
-        );
+        if (__DEV__) {
+          console.log(
+            `[TerrainSnapshot:${workerId}] Processing ${request.activityId} gen=${gen} (style: ${request.mapStyle})`
+          );
+        }
 
         const isSatellite = request.mapStyle === 'satellite';
         const isDark = request.mapStyle === 'dark' || request.mapStyle === 'satellite';
@@ -904,9 +906,11 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         // Per-worker timeout fallback
         worker.timeoutRef.current = setTimeout(() => {
           if (worker.processingRef.current) {
-            console.warn(
-              `[TerrainSnapshot:${workerId}] Timeout for ${request.activityId} gen=${gen} (${SNAPSHOT_TIMEOUT_MS}ms)`
-            );
+            if (__DEV__) {
+              console.warn(
+                `[TerrainSnapshot:${workerId}] Timeout for ${request.activityId} gen=${gen} (${SNAPSHOT_TIMEOUT_MS}ms)`
+              );
+            }
             worker.processingRef.current = false;
             worker.currentRequestRef.current = null;
             queueCompletedRef.current++;
@@ -928,17 +932,19 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           if (!worker) return;
 
           if (data.type === 'console') {
-            console.log(`[TerrainSnapshot:JS:${data.workerId}] ${data.message}`);
+            if (__DEV__) console.log(`[TerrainSnapshot:JS:${data.workerId}] ${data.message}`);
           } else if (data.type === 'mapReady') {
-            console.log(`[TerrainSnapshot:${data.workerId}] WebView map ready`);
+            if (__DEV__) console.log(`[TerrainSnapshot:${data.workerId}] WebView map ready`);
             worker.mapReadyRef.current = true;
             processNext();
           } else if (data.type === 'snapshot' && data.activityId && data.base64) {
             // Discard stale snapshots from superseded requests
             if (typeof data.gen === 'number' && data.gen !== worker.generationRef.current) {
-              console.warn(
-                `[TerrainSnapshot:${data.workerId}] Discarding stale snapshot for ${data.activityId} (gen=${data.gen}, current=${worker.generationRef.current})`
-              );
+              if (__DEV__) {
+                console.warn(
+                  `[TerrainSnapshot:${data.workerId}] Discarding stale snapshot for ${data.activityId} (gen=${data.gen}, current=${worker.generationRef.current})`
+                );
+              }
               return;
             }
 
@@ -953,19 +959,24 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             updateProgress();
             processNext(); // Start next render immediately
 
-            console.log(
-              `[TerrainSnapshot:${data.workerId}] Captured ${data.activityId} (${Math.round(data.base64.length / 1024)}KB base64${data.tileErrors ? `, ${data.tileErrors} tile errors` : ''})`
-            );
+            if (__DEV__) {
+              console.log(
+                `[TerrainSnapshot:${data.workerId}] Captured ${data.activityId} (${Math.round(data.base64.length / 1024)}KB base64${data.tileErrors ? `, ${data.tileErrors} tile errors` : ''})`
+              );
+            }
             // Save concurrently — card shows loading state until emitSnapshotComplete
             try {
               const uri = await saveTerrainPreview(data.activityId, style, data.base64);
-              console.log(`[TerrainSnapshot:${data.workerId}] Saved ${data.activityId} → ${uri}`);
+              if (__DEV__)
+                console.log(`[TerrainSnapshot:${data.workerId}] Saved ${data.activityId} → ${uri}`);
               emitSnapshotComplete(data.activityId, uri);
             } catch (saveErr) {
-              console.warn(
-                `[TerrainSnapshot:${data.workerId}] Save failed for ${data.activityId}:`,
-                saveErr
-              );
+              if (__DEV__) {
+                console.warn(
+                  `[TerrainSnapshot:${data.workerId}] Save failed for ${data.activityId}:`,
+                  saveErr
+                );
+              }
             }
           } else if (data.type === 'tileCacheStats') {
             emitTileCacheStats({
@@ -980,9 +991,11 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           } else if (data.type === 'snapshotError') {
             // Discard stale errors from superseded requests
             if (typeof data.gen === 'number' && data.gen !== worker.generationRef.current) {
-              console.warn(
-                `[TerrainSnapshot:${data.workerId}] Discarding stale error for ${data.activityId} (gen=${data.gen}, current=${worker.generationRef.current})`
-              );
+              if (__DEV__) {
+                console.warn(
+                  `[TerrainSnapshot:${data.workerId}] Discarding stale error for ${data.activityId} (gen=${data.gen}, current=${worker.generationRef.current})`
+                );
+              }
               return;
             }
 
@@ -996,9 +1009,11 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
 
             if (currentRequest && attempt < MAX_SNAPSHOT_RETRIES) {
               // Retry: push back to front of queue with incremented attempt
-              console.warn(
-                `[TerrainSnapshot:${data.workerId}] Scheduling retry for ${data.activityId} (attempt ${attempt + 1}, error: ${data.error}, tile errors: ${tileErrors})`
-              );
+              if (__DEV__) {
+                console.warn(
+                  `[TerrainSnapshot:${data.workerId}] Scheduling retry for ${data.activityId} (attempt ${attempt + 1}, error: ${data.error}, tile errors: ${tileErrors})`
+                );
+              }
               queueRef.current.unshift({
                 ...currentRequest,
                 _retryAttempt: attempt + 1,
@@ -1007,9 +1022,11 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               setTimeout(() => processNext(), 2000);
             } else {
               // Exhausted retries — save for later re-attempt
-              console.warn(
-                `[TerrainSnapshot:${data.workerId}] Giving up on ${data.activityId} (error: ${data.error}, tile errors: ${tileErrors})`
-              );
+              if (__DEV__) {
+                console.warn(
+                  `[TerrainSnapshot:${data.workerId}] Giving up on ${data.activityId} (error: ${data.error}, tile errors: ${tileErrors})`
+                );
+              }
               if (currentRequest) {
                 failedRequestsRef.current.push({
                   ...currentRequest,
@@ -1149,7 +1166,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         retryFailed: () => {
           const failed = failedRequestsRef.current;
           if (failed.length === 0) return;
-          console.log(`[TerrainSnapshot] Retrying ${failed.length} failed snapshots`);
+          if (__DEV__) console.log(`[TerrainSnapshot] Retrying ${failed.length} failed snapshots`);
           failedRequestsRef.current = [];
           for (const req of failed) {
             if (hasTerrainPreview(req.activityId, req.mapStyle)) continue;

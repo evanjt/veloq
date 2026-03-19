@@ -303,6 +303,9 @@
     },
     "refresh": "Vernieuwen"
   },
+  "engine": {
+    "initFailed": "De route-engine kon niet worden gestart. Routes en secties zijn mogelijk niet beschikbaar."
+  },
   "errorState": {
     "chartLabels": {
       "activityChart": "Activiteitgrafiek",
@@ -399,6 +402,128 @@
   },
   "healthScreen": {
     "title": "Gezondheid"
+  },
+  "insights": {
+    "title": "Inzichten",
+    "noInsights": "Inzichten verschijnen naarmate je traint",
+    "noInsightsHint": "Voltooi meer activiteiten voor gepersonaliseerde inzichten",
+    "sectionPr": "PR op {{name}}",
+    "sectionPrSubtitle": "{{time}} — {{daysAgo}}d geleden",
+    "sectionTrendSummary": "{{improving}} van {{total}} secties stijgend",
+    "sectionTrendSummaryBody": "Verbetering: {{names}}. {{stable}} stabiel, {{declining}} dalend.",
+    "sectionImproving": "{{name}} wordt sneller",
+    "sectionImprovingBody": "Recente mediaan: {{median}}. Beste: {{best}} over {{count}} pogingen.",
+    "ftpIncrease": "FTP +{{delta}}W",
+    "paceImproved": "Tempo verbeterd {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% weekvolume",
+    "weeklyVolumeDown": "{{percent}}% minder deze week",
+    "weeklyLoadUp": "+{{percent}}% trainingsbelasting",
+    "weeklyLoadDown": "{{percent}}% minder belasting",
+    "loadBody": "TSS: {{currentTss}} deze week vs {{previousTss}} vorige week. Duur: {{currentDuration}} vs {{previousDuration}}.",
+    "patternMatch": "{{day}} - meestal {{verb}} ~{{duration}}",
+    "consistencyStreak": "{{count}}-weken reeks",
+    "volumeBody": "Trainingsduur: {{current}} deze week vs {{previous}} vorige week. Dit meet tijd, niet trainingsbelasting (TSS).",
+    "viewDetails": "Details bekijken",
+    "today": "VANDAAG",
+    "tomorrow": "MORGEN",
+    "showMethodology": "Methodologie tonen",
+    "basedOnActivities": "Gebaseerd op {{count}} activiteiten",
+    "confidence": "{{value}}% zeker",
+    "tapToExplore": "Tik om te verkennen",
+    "confident": "zeker",
+    "current": "Huidig",
+    "previous": "Vorige",
+    "change": "Verschil",
+    "restDay": {
+      "hrvTrend": "HRV (7 dagen)",
+      "tomorrowPattern": "Morgen is meestal een {{verb}} dag (~{{duration}})",
+      "tomorrowPatternBody": "Gebaseerd op {{count}} eerdere activiteiten voor deze dag van de week.",
+      "intensityContext": "{{count}} sessions this week",
+      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
+      "sectionTrends": "{{improving}} of {{total}} sections improving"
+    },
+    "methodology": {
+      "banister": "Berekent Training Stress Balance uit het verschil tussen fitheid (CTL) en vermoeidheid (ATL).",
+      "hrv": "Vergelijkt je hartslagvariabiliteit met je 7-daagse basislijn om je herstelstatus te beoordelen.",
+      "kmeans": "Groepeert je activiteiten op dag, duur en sporttype om terugkerende trainingspatronen te identificeren.",
+      "prDetection": "Vergelijkt je laatste sectietijd met alle eerdere pogingen om persoonlijke records te detecteren.",
+      "sectionTrend": "Volgt de mediane prestatie op veelbezochte secties door de tijd.",
+      "periodComparison": "Vergelijkt trainingsmetrieken tussen opeenvolgende weken om progressie te volgen."
+    },
+    "alternatives": {
+      "selected": "Huidige beoordeling",
+      "notSelected": "Niet van toepassing",
+      "yourValue": "Jouw waarde: {{value}}"
+    },
+    "data": {
+      "confidence": "Zekerheid",
+      "basedOn": "Gebaseerd op",
+      "activities": "activiteiten",
+      "bestTime": "Beste tijd",
+      "daysAgo": "Dagen geleden",
+      "days": "dagen",
+      "currentFtp": "Huidige FTP",
+      "previousFtp": "Vorige FTP",
+      "change": "Verschil",
+      "currentPace": "Huidig tempo",
+      "previousPace": "Vorig tempo",
+      "improvement": "Verbetering",
+      "currentCtl": "Huidige CTL",
+      "peakCtl": "Piek-CTL",
+      "thisWeek": "Deze week",
+      "lastWeek": "Vorige week",
+      "activitiesThisWeek": "Activiteiten deze week",
+      "activitiesLastWeek": "Activiteiten vorige week",
+      "avgDuration": "Gem. duur",
+      "tsbRange": "TSB-bereik",
+      "todayHrv": "HRV vandaag",
+      "sevenDayAvg": "7-daags gemiddelde",
+      "hrvSevenDay": "HRV (7 dagen)",
+      "latestHrv": "Latest HRV",
+      "dataPoints": "Data points",
+      "thisWeekTss": "This week",
+      "fourWeekAvgTss": "4-week average"
+    },
+    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
+    "tsbForm": {
+      "title": "Form: {{tsb}} ({{zone}})",
+      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
+      "zones": {
+        "fresh": "Fresh",
+        "detraining": "Transition",
+        "maintenance": "Maintenance",
+        "productive": "Productive training",
+        "deepFatigue": "Deep fatigue"
+      },
+      "zoneDescriptions": {
+        "fresh": "Well-rested, fitness exceeds fatigue",
+        "detraining": "Between training and freshness",
+        "maintenance": "Moderate training load",
+        "productive": "Where most adaptation occurs",
+        "deepFatigue": "Significant accumulated fatigue"
+      }
+    },
+    "hrvTrend": {
+      "trendingUp": "HRV trending up",
+      "trendingDown": "HRV trending down",
+      "stable": "HRV stable",
+      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
+      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
+      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
+    },
+    "weeklyLoad": {
+      "title": "Training load {{percent}}% {{direction}} average",
+      "above": "above",
+      "below": "below",
+      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
+    },
+    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
+    "aboutInsights": "About Insights",
+    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
+    "showMore": "Show {{count}} more",
+    "aboutTitle": "About Insights",
+    "whyThisRecommendation": "Why this recommendation?",
+    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
   },
   "licenses": {
     "footer": "Tik op een licentiebadge om de volledige licentietekst te bekijken. Tik op het linkpictogram om de projectrepository te bezoeken.",
@@ -645,129 +770,9 @@
     "settingsAutoPause": "Auto-pauze",
     "settingsAutoPauseThreshold": "Snelheidsdrempel",
     "settingsDataFields": "Gegevensvelden",
-    "settingsUnits": "Eenheden"
-  },
-  "insights": {
-    "title": "Inzichten",
-    "noInsights": "Inzichten verschijnen naarmate je traint",
-    "noInsightsHint": "Voltooi meer activiteiten voor gepersonaliseerde inzichten",
-    "sectionPr": "PR op {{name}}",
-    "sectionPrSubtitle": "{{time}} — {{daysAgo}}d geleden",
-    "sectionTrendSummary": "{{improving}} van {{total}} secties stijgend",
-    "sectionTrendSummaryBody": "Verbetering: {{names}}. {{stable}} stabiel, {{declining}} dalend.",
-    "sectionImproving": "{{name}} wordt sneller",
-    "sectionImprovingBody": "Recente mediaan: {{median}}. Beste: {{best}} over {{count}} pogingen.",
-    "ftpIncrease": "FTP +{{delta}}W",
-    "paceImproved": "Tempo verbeterd {{delta}}",
-    "weeklyVolumeUp": "+{{percent}}% weekvolume",
-    "weeklyVolumeDown": "{{percent}}% minder deze week",
-    "weeklyLoadUp": "+{{percent}}% trainingsbelasting",
-    "weeklyLoadDown": "{{percent}}% minder belasting",
-    "loadBody": "TSS: {{currentTss}} deze week vs {{previousTss}} vorige week. Duur: {{currentDuration}} vs {{previousDuration}}.",
-    "patternMatch": "{{day}} - meestal {{verb}} ~{{duration}}",
-    "consistencyStreak": "{{count}}-weken reeks",
-    "volumeBody": "Trainingsduur: {{current}} deze week vs {{previous}} vorige week. Dit meet tijd, niet trainingsbelasting (TSS).",
-    "viewDetails": "Details bekijken",
-    "today": "VANDAAG",
-    "tomorrow": "MORGEN",
-    "showMethodology": "Methodologie tonen",
-    "basedOnActivities": "Gebaseerd op {{count}} activiteiten",
-    "confidence": "{{value}}% zeker",
-    "tapToExplore": "Tik om te verkennen",
-    "confident": "zeker",
-    "current": "Huidig",
-    "previous": "Vorige",
-    "change": "Verschil",
-    "restDay": {
-      "hrvTrend": "HRV (7 dagen)",
-      "tomorrowPattern": "Morgen is meestal een {{verb}} dag (~{{duration}})",
-      "tomorrowPatternBody": "Gebaseerd op {{count}} eerdere activiteiten voor deze dag van de week.",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
-      "sectionTrends": "{{improving}} of {{total}} sections improving"
-    },
-    "methodology": {
-      "banister": "Berekent Training Stress Balance uit het verschil tussen fitheid (CTL) en vermoeidheid (ATL).",
-      "hrv": "Vergelijkt je hartslagvariabiliteit met je 7-daagse basislijn om je herstelstatus te beoordelen.",
-      "kmeans": "Groepeert je activiteiten op dag, duur en sporttype om terugkerende trainingspatronen te identificeren.",
-      "prDetection": "Vergelijkt je laatste sectietijd met alle eerdere pogingen om persoonlijke records te detecteren.",
-      "sectionTrend": "Volgt de mediane prestatie op veelbezochte secties door de tijd.",
-      "periodComparison": "Vergelijkt trainingsmetrieken tussen opeenvolgende weken om progressie te volgen."
-    },
-    "alternatives": {
-      "selected": "Huidige beoordeling",
-      "notSelected": "Niet van toepassing",
-      "yourValue": "Jouw waarde: {{value}}"
-    },
-    "data": {
-      "confidence": "Zekerheid",
-      "basedOn": "Gebaseerd op",
-      "activities": "activiteiten",
-      "bestTime": "Beste tijd",
-      "daysAgo": "Dagen geleden",
-      "days": "dagen",
-      "currentFtp": "Huidige FTP",
-      "previousFtp": "Vorige FTP",
-      "change": "Verschil",
-      "currentPace": "Huidig tempo",
-      "previousPace": "Vorig tempo",
-      "improvement": "Verbetering",
-      "currentCtl": "Huidige CTL",
-      "peakCtl": "Piek-CTL",
-      "thisWeek": "Deze week",
-      "lastWeek": "Vorige week",
-      "activitiesThisWeek": "Activiteiten deze week",
-      "activitiesLastWeek": "Activiteiten vorige week",
-      "avgDuration": "Gem. duur",
-      "tsbRange": "TSB-bereik",
-      "todayHrv": "HRV vandaag",
-      "sevenDayAvg": "7-daags gemiddelde",
-      "hrvSevenDay": "HRV (7 dagen)",
-      "latestHrv": "Latest HRV",
-      "dataPoints": "Data points",
-      "thisWeekTss": "This week",
-      "fourWeekAvgTss": "4-week average"
-    },
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "detraining": "Transition",
-        "maintenance": "Maintenance",
-        "productive": "Productive training",
-        "deepFatigue": "Deep fatigue"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "detraining": "Between training and freshness",
-        "maintenance": "Moderate training load",
-        "productive": "Where most adaptation occurs",
-        "deepFatigue": "Significant accumulated fatigue"
-      }
-    },
-    "hrvTrend": {
-      "trendingUp": "HRV trending up",
-      "trendingDown": "HRV trending down",
-      "stable": "HRV stable",
-      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
-      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
-      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
-    },
-    "weeklyLoad": {
-      "title": "Training load {{percent}}% {{direction}} average",
-      "above": "above",
-      "below": "below",
-      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
-    },
-    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
-    "aboutInsights": "About Insights",
-    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "showMore": "Show {{count}} more",
-    "aboutTitle": "About Insights",
-    "whyThisRecommendation": "Why this recommendation?",
-    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
+    "settingsUnits": "Eenheden",
+    "distanceInvalid": "Please enter a valid distance (0-999).",
+    "hrInvalid": "Please enter a valid heart rate (30-250)."
   },
   "routeDetail": {
     "avgTime": "Gem. tijd",
@@ -775,6 +780,10 @@
     "lastActivity": "Laatste activiteit",
     "routeNotFound": "Route niet gevonden",
     "totalActivities": "Totaal"
+  },
+  "routeIntelligence": {
+    "today": "VANDAAG",
+    "tomorrow": "MORGEN"
   },
   "routes": {
     "activities": "activiteiten",
@@ -867,10 +876,6 @@
     "thisSpeed": "Deze snelheid",
     "visits": "bezoeken",
     "waiting": "Wachten..."
-  },
-  "routeIntelligence": {
-    "today": "VANDAAG",
-    "tomorrow": "MORGEN"
   },
   "routesScreen": {
     "analysingRoutes": "Routes analyseren {{current}}/{{total}}",
@@ -1229,6 +1234,10 @@
     "trendHint": "HRV-, slaap- en rusthartslag-trends verschijnen hier wanneer gegevens worden gelogd",
     "weight": "Gewicht"
   },
+  "wellnessScreen": {
+    "title": "Welzijn",
+    "trends": "Welzijnstrends"
+  },
   "whatsNew": {
     "skipButton": "Overslaan",
     "nextButton": "Volgende",
@@ -1248,9 +1257,5 @@
       "fitnessTitle": "Fitnessoverzicht",
       "fitnessBody": "Volg je fitheid, vermoeidheid en vorm met kleurgecodeerde zones. Weet wanneer je fris en klaar bent om te presteren."
     }
-  },
-  "wellnessScreen": {
-    "title": "Welzijn",
-    "trends": "Welzijnstrends"
   }
 }

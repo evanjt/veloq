@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, Href } from 'expo-router';
+import { replaceTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
@@ -35,7 +35,7 @@ export function DemoBanner() {
     exitDemoMode();
 
     // Navigate to login - use replace to prevent going back to demo
-    router.replace('/login' as Href);
+    replaceTo('/login');
   };
 
   return (

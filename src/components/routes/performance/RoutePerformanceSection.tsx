@@ -9,7 +9,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, type Href } from 'expo-router';
+import { navigateTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/hooks';
 import { getActivityColor } from '@/lib';
@@ -148,7 +148,7 @@ export function RoutePerformanceSection({
 
   const handleRoutePress = useCallback(() => {
     if (routeGroup) {
-      router.push(`/route/${routeGroup.id}` as Href);
+      navigateTo(`/route/${routeGroup.id}`);
     }
   }, [routeGroup]);
 

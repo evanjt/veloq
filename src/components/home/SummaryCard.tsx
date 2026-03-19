@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, Href } from 'expo-router';
+import { navigateTo } from '@/lib';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
 import { SummaryCardSparkline, type ScrubValues } from './SummaryCardSparkline';
@@ -283,7 +283,7 @@ export const SummaryCard = React.memo(function SummaryCard({
             {metric.navigationTarget ? (
               <TouchableOpacity
                 style={styles.supportingMetric}
-                onPress={() => router.push(metric.navigationTarget as Href)}
+                onPress={() => navigateTo(metric.navigationTarget as string)}
                 activeOpacity={0.7}
               >
                 <Text style={[styles.metricLabel, isDark && styles.textMuted]}>{metric.label}</Text>

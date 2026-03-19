@@ -465,7 +465,7 @@ export default function ReviewScreen() {
 
           {/* Trim slider overlaid at bottom of map */}
           {canTrim && (
-            <View style={styles.trimOverlay}>
+            <View testID="review-trim" style={styles.trimOverlay}>
               <TrimSlider
                 totalDuration={summary.duration}
                 totalPoints={streams.latlng.length}
@@ -505,6 +505,7 @@ export default function ReviewScreen() {
       >
         {/* Activity Name */}
         <TextInput
+          testID="review-activity-name"
           style={[
             styles.nameInput,
             { color: textPrimary, backgroundColor: surface, borderColor: border },
@@ -559,6 +560,7 @@ export default function ReviewScreen() {
 
         {/* Activity Type (tappable) */}
         <TouchableOpacity
+          testID="review-activity-type"
           style={[styles.typeChip, { backgroundColor: surface, borderColor: border }]}
           onPress={() => !isProcessing && setShowTypeModal(true)}
           activeOpacity={0.7}
@@ -571,7 +573,7 @@ export default function ReviewScreen() {
         </TouchableOpacity>
 
         {/* RPE Slider */}
-        <View style={styles.rpeSection}>
+        <View testID="review-rpe" style={styles.rpeSection}>
           <View style={styles.rpeHeader}>
             <Text style={[styles.label, { color: textSecondary }]}>
               {t('recording.rpe', 'RPE')}
@@ -624,6 +626,7 @@ export default function ReviewScreen() {
 
         {/* Notes */}
         <TextInput
+          testID="review-notes"
           style={[
             styles.notesInput,
             { color: textPrimary, backgroundColor: surface, borderColor: border },
@@ -656,6 +659,7 @@ export default function ReviewScreen() {
         {/* Action Buttons */}
         <View style={styles.actions}>
           <TouchableOpacity
+            testID="review-save-button"
             style={[styles.primaryBtn, { backgroundColor: brand.teal }]}
             onPress={handleSave}
             disabled={isProcessing}
@@ -670,12 +674,13 @@ export default function ReviewScreen() {
 
           {/* Hold-to-discard */}
           <Animated.View
+            testID="review-discard-button"
             style={[
               styles.dangerBtn,
               {
                 borderColor: discardAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: ['rgba(239,68,68,0.3)', '#EF4444'],
+                  outputRange: [`rgba(239,68,68,0.3)`, colors.error],
                 }),
                 borderWidth: 1,
                 overflow: 'hidden' as const,
@@ -691,7 +696,7 @@ export default function ReviewScreen() {
                 left: 0,
                 top: 0,
                 bottom: 0,
-                backgroundColor: '#EF4444',
+                backgroundColor: colors.error,
                 opacity: 0.15,
                 width: discardAnim.interpolate({
                   inputRange: [0, 1],
@@ -948,7 +953,7 @@ const styles = StyleSheet.create({
   },
   errorBannerText: {
     ...typography.caption,
-    color: '#EF4444',
+    color: colors.error,
     textAlign: 'center',
   },
   // Actions
@@ -976,7 +981,7 @@ const styles = StyleSheet.create({
   },
   dangerBtnText: {
     ...typography.bodyBold,
-    color: '#EF4444',
+    color: colors.error,
   },
   // Activity Type Modal
   modalOverlay: {

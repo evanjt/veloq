@@ -303,6 +303,9 @@
     },
     "refresh": "Aktualisieren"
   },
+  "engine": {
+    "initFailed": "Die Routen-Engine konnte nicht gestartet werden. Routen und Abschnitte sind möglicherweise nicht verfügbar."
+  },
   "errorState": {
     "chartLabels": {
       "activityChart": "Aktivitätsdiagramm",
@@ -399,6 +402,128 @@
   },
   "healthScreen": {
     "title": "Gesundheit"
+  },
+  "insights": {
+    "title": "Einblicke",
+    "noInsights": "Einblicke erscheinen mit dem Training",
+    "noInsightsHint": "Absolviere mehr Aktivitäten für personalisierte Einblicke",
+    "sectionPr": "PR auf {{name}}",
+    "sectionPrSubtitle": "{{time}} — vor {{daysAgo}}T",
+    "sectionTrendSummary": "{{improving}} von {{total}} Abschnitten im Aufwärtstrend",
+    "sectionTrendSummaryBody": "Verbessert: {{names}}. {{stable}} stabil, {{declining}} rückläufig.",
+    "sectionImproving": "{{name}} wird schneller",
+    "sectionImprovingBody": "Aktueller Median: {{median}}. Bestzeit: {{best}} aus {{count}} Versuchen.",
+    "ftpIncrease": "FTP +{{delta}}W",
+    "paceImproved": "Tempo verbessert {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% Wochenvolumen",
+    "weeklyVolumeDown": "{{percent}}% weniger diese Woche",
+    "weeklyLoadUp": "+{{percent}}% Trainingsbelastung",
+    "weeklyLoadDown": "{{percent}}% weniger Trainingsbelastung",
+    "loadBody": "TSS: {{currentTss}} diese Woche vs {{previousTss}} letzte Woche. Dauer: {{currentDuration}} vs {{previousDuration}}.",
+    "patternMatch": "{{day}} - meistens {{verb}} ~{{duration}}",
+    "consistencyStreak": "{{count}}-Wochen-Serie",
+    "volumeBody": "Trainingsdauer: {{current}} diese Woche vs {{previous}} letzte Woche. Dies misst die Zeit, nicht die Trainingsbelastung (TSS).",
+    "viewDetails": "Details anzeigen",
+    "today": "HEUTE",
+    "tomorrow": "MORGEN",
+    "showMethodology": "Methodik anzeigen",
+    "basedOnActivities": "Basierend auf {{count}} Aktivitäten",
+    "confidence": "{{value}}% sicher",
+    "tapToExplore": "Tippen zum Erkunden",
+    "confident": "sicher",
+    "current": "Aktuell",
+    "previous": "Vorherig",
+    "change": "Änderung",
+    "restDay": {
+      "hrvTrend": "HRV (7 Tage)",
+      "tomorrowPattern": "Morgen ist normalerweise {{verb}}-Tag (~{{duration}})",
+      "tomorrowPatternBody": "Basierend auf {{count}} vorherigen Aktivitäten für diesen Wochentag.",
+      "intensityContext": "{{count}} sessions this week",
+      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
+      "sectionTrends": "{{improving}} of {{total}} sections improving"
+    },
+    "methodology": {
+      "banister": "Berechnet die Training Stress Balance aus der Differenz zwischen Fitness (CTL) und Ermüdung (ATL).",
+      "hrv": "Vergleicht deinen HRV-Trend mit deiner 7-Tage-Baseline zur Bewertung des Erholungsstatus.",
+      "kmeans": "Gruppiert deine Aktivitäten nach Tag, Dauer und Sportart, um wiederkehrende Trainingsmuster zu identifizieren.",
+      "prDetection": "Vergleicht deine letzte Abschnittszeit mit allen vorherigen Versuchen, um persönliche Rekorde zu erkennen.",
+      "sectionTrend": "Verfolgt die Medianleistung auf häufig besuchten Abschnitten über die Zeit.",
+      "periodComparison": "Vergleicht Trainingsmetriken zwischen aufeinanderfolgenden Wochen, um die Progression zu verfolgen."
+    },
+    "alternatives": {
+      "selected": "Aktuelle Bewertung",
+      "notSelected": "Nicht zutreffend",
+      "yourValue": "Dein Wert: {{value}}"
+    },
+    "data": {
+      "confidence": "Sicherheit",
+      "basedOn": "Basierend auf",
+      "activities": "Aktivitäten",
+      "bestTime": "Bestzeit",
+      "daysAgo": "Tage her",
+      "days": "Tage",
+      "currentFtp": "Aktuelle FTP",
+      "previousFtp": "Vorherige FTP",
+      "change": "Änderung",
+      "currentPace": "Aktuelles Tempo",
+      "previousPace": "Vorheriges Tempo",
+      "improvement": "Verbesserung",
+      "currentCtl": "Aktueller CTL",
+      "peakCtl": "Spitzen-CTL",
+      "thisWeek": "Diese Woche",
+      "lastWeek": "Letzte Woche",
+      "activitiesThisWeek": "Aktivitäten diese Woche",
+      "activitiesLastWeek": "Aktivitäten letzte Woche",
+      "avgDuration": "Ø Dauer",
+      "tsbRange": "TSB-Bereich",
+      "todayHrv": "Heutige HRV",
+      "sevenDayAvg": "7-Tage-Durchschnitt",
+      "hrvSevenDay": "HRV (7 Tage)",
+      "latestHrv": "Latest HRV",
+      "dataPoints": "Data points",
+      "thisWeekTss": "This week",
+      "fourWeekAvgTss": "4-week average"
+    },
+    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
+    "tsbForm": {
+      "title": "Form: {{tsb}} ({{zone}})",
+      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
+      "zones": {
+        "fresh": "Fresh",
+        "detraining": "Transition",
+        "maintenance": "Maintenance",
+        "productive": "Productive training",
+        "deepFatigue": "Deep fatigue"
+      },
+      "zoneDescriptions": {
+        "fresh": "Well-rested, fitness exceeds fatigue",
+        "detraining": "Between training and freshness",
+        "maintenance": "Moderate training load",
+        "productive": "Where most adaptation occurs",
+        "deepFatigue": "Significant accumulated fatigue"
+      }
+    },
+    "hrvTrend": {
+      "trendingUp": "HRV trending up",
+      "trendingDown": "HRV trending down",
+      "stable": "HRV stable",
+      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
+      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
+      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
+    },
+    "weeklyLoad": {
+      "title": "Training load {{percent}}% {{direction}} average",
+      "above": "above",
+      "below": "below",
+      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
+    },
+    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
+    "aboutInsights": "About Insights",
+    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
+    "showMore": "Show {{count}} more",
+    "aboutTitle": "About Insights",
+    "whyThisRecommendation": "Why this recommendation?",
+    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
   },
   "licenses": {
     "footer": "Tippe auf ein Lizenz-Badge um den vollständigen Lizenztext anzuzeigen. Tippe auf das Link-Symbol um das Projekt-Repository zu besuchen.",
@@ -645,129 +770,9 @@
     "settingsAutoPause": "Auto-Pause",
     "settingsAutoPauseThreshold": "Geschwindigkeitsschwelle",
     "settingsDataFields": "Datenfelder",
-    "settingsUnits": "Einheiten"
-  },
-  "insights": {
-    "title": "Einblicke",
-    "noInsights": "Einblicke erscheinen mit dem Training",
-    "noInsightsHint": "Absolviere mehr Aktivitäten für personalisierte Einblicke",
-    "sectionPr": "PR auf {{name}}",
-    "sectionPrSubtitle": "{{time}} — vor {{daysAgo}}T",
-    "sectionTrendSummary": "{{improving}} von {{total}} Abschnitten im Aufwärtstrend",
-    "sectionTrendSummaryBody": "Verbessert: {{names}}. {{stable}} stabil, {{declining}} rückläufig.",
-    "sectionImproving": "{{name}} wird schneller",
-    "sectionImprovingBody": "Aktueller Median: {{median}}. Bestzeit: {{best}} aus {{count}} Versuchen.",
-    "ftpIncrease": "FTP +{{delta}}W",
-    "paceImproved": "Tempo verbessert {{delta}}",
-    "weeklyVolumeUp": "+{{percent}}% Wochenvolumen",
-    "weeklyVolumeDown": "{{percent}}% weniger diese Woche",
-    "weeklyLoadUp": "+{{percent}}% Trainingsbelastung",
-    "weeklyLoadDown": "{{percent}}% weniger Trainingsbelastung",
-    "loadBody": "TSS: {{currentTss}} diese Woche vs {{previousTss}} letzte Woche. Dauer: {{currentDuration}} vs {{previousDuration}}.",
-    "patternMatch": "{{day}} - meistens {{verb}} ~{{duration}}",
-    "consistencyStreak": "{{count}}-Wochen-Serie",
-    "volumeBody": "Trainingsdauer: {{current}} diese Woche vs {{previous}} letzte Woche. Dies misst die Zeit, nicht die Trainingsbelastung (TSS).",
-    "viewDetails": "Details anzeigen",
-    "today": "HEUTE",
-    "tomorrow": "MORGEN",
-    "showMethodology": "Methodik anzeigen",
-    "basedOnActivities": "Basierend auf {{count}} Aktivitäten",
-    "confidence": "{{value}}% sicher",
-    "tapToExplore": "Tippen zum Erkunden",
-    "confident": "sicher",
-    "current": "Aktuell",
-    "previous": "Vorherig",
-    "change": "Änderung",
-    "restDay": {
-      "hrvTrend": "HRV (7 Tage)",
-      "tomorrowPattern": "Morgen ist normalerweise {{verb}}-Tag (~{{duration}})",
-      "tomorrowPatternBody": "Basierend auf {{count}} vorherigen Aktivitäten für diesen Wochentag.",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
-      "sectionTrends": "{{improving}} of {{total}} sections improving"
-    },
-    "methodology": {
-      "banister": "Berechnet die Training Stress Balance aus der Differenz zwischen Fitness (CTL) und Ermüdung (ATL).",
-      "hrv": "Vergleicht deinen HRV-Trend mit deiner 7-Tage-Baseline zur Bewertung des Erholungsstatus.",
-      "kmeans": "Gruppiert deine Aktivitäten nach Tag, Dauer und Sportart, um wiederkehrende Trainingsmuster zu identifizieren.",
-      "prDetection": "Vergleicht deine letzte Abschnittszeit mit allen vorherigen Versuchen, um persönliche Rekorde zu erkennen.",
-      "sectionTrend": "Verfolgt die Medianleistung auf häufig besuchten Abschnitten über die Zeit.",
-      "periodComparison": "Vergleicht Trainingsmetriken zwischen aufeinanderfolgenden Wochen, um die Progression zu verfolgen."
-    },
-    "alternatives": {
-      "selected": "Aktuelle Bewertung",
-      "notSelected": "Nicht zutreffend",
-      "yourValue": "Dein Wert: {{value}}"
-    },
-    "data": {
-      "confidence": "Sicherheit",
-      "basedOn": "Basierend auf",
-      "activities": "Aktivitäten",
-      "bestTime": "Bestzeit",
-      "daysAgo": "Tage her",
-      "days": "Tage",
-      "currentFtp": "Aktuelle FTP",
-      "previousFtp": "Vorherige FTP",
-      "change": "Änderung",
-      "currentPace": "Aktuelles Tempo",
-      "previousPace": "Vorheriges Tempo",
-      "improvement": "Verbesserung",
-      "currentCtl": "Aktueller CTL",
-      "peakCtl": "Spitzen-CTL",
-      "thisWeek": "Diese Woche",
-      "lastWeek": "Letzte Woche",
-      "activitiesThisWeek": "Aktivitäten diese Woche",
-      "activitiesLastWeek": "Aktivitäten letzte Woche",
-      "avgDuration": "Ø Dauer",
-      "tsbRange": "TSB-Bereich",
-      "todayHrv": "Heutige HRV",
-      "sevenDayAvg": "7-Tage-Durchschnitt",
-      "hrvSevenDay": "HRV (7 Tage)",
-      "latestHrv": "Latest HRV",
-      "dataPoints": "Data points",
-      "thisWeekTss": "This week",
-      "fourWeekAvgTss": "4-week average"
-    },
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "detraining": "Transition",
-        "maintenance": "Maintenance",
-        "productive": "Productive training",
-        "deepFatigue": "Deep fatigue"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "detraining": "Between training and freshness",
-        "maintenance": "Moderate training load",
-        "productive": "Where most adaptation occurs",
-        "deepFatigue": "Significant accumulated fatigue"
-      }
-    },
-    "hrvTrend": {
-      "trendingUp": "HRV trending up",
-      "trendingDown": "HRV trending down",
-      "stable": "HRV stable",
-      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
-      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
-      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
-    },
-    "weeklyLoad": {
-      "title": "Training load {{percent}}% {{direction}} average",
-      "above": "above",
-      "below": "below",
-      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
-    },
-    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
-    "aboutInsights": "About Insights",
-    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "showMore": "Show {{count}} more",
-    "aboutTitle": "About Insights",
-    "whyThisRecommendation": "Why this recommendation?",
-    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
+    "settingsUnits": "Einheiten",
+    "distanceInvalid": "Please enter a valid distance (0-999).",
+    "hrInvalid": "Please enter a valid heart rate (30-250)."
   },
   "routeDetail": {
     "avgTime": "Ø Zeit",
@@ -775,6 +780,10 @@
     "lastActivity": "Letzte Aktivität",
     "routeNotFound": "Route nicht gefunden",
     "totalActivities": "Gesamt"
+  },
+  "routeIntelligence": {
+    "today": "HEUTE",
+    "tomorrow": "MORGEN"
   },
   "routes": {
     "activities": "Aktivitäten",
@@ -867,10 +876,6 @@
     "thisSpeed": "Diese Geschwindigkeit",
     "visits": "Besuche",
     "waiting": "Warte..."
-  },
-  "routeIntelligence": {
-    "today": "HEUTE",
-    "tomorrow": "MORGEN"
   },
   "routesScreen": {
     "analysingRoutes": "Analysiere Routen {{current}}/{{total}}",
@@ -1229,6 +1234,10 @@
     "trendHint": "HRV-, Schlaf- und Ruhe-HF-Trends erscheinen hier, wenn Daten protokolliert werden",
     "weight": "Gewicht"
   },
+  "wellnessScreen": {
+    "title": "Wohlbefinden",
+    "trends": "Wohlbefinden-Trends"
+  },
   "whatsNew": {
     "skipButton": "Überspringen",
     "nextButton": "Weiter",
@@ -1248,9 +1257,5 @@
       "fitnessTitle": "Fitness-Übersicht",
       "fitnessBody": "Verfolge Fitness, Ermüdung und Form mit farbcodierten Zonen. Erkenne, wann du frisch und leistungsbereit bist."
     }
-  },
-  "wellnessScreen": {
-    "title": "Wohlbefinden",
-    "trends": "Wohlbefinden-Trends"
   }
 }

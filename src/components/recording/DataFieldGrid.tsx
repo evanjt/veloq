@@ -88,6 +88,7 @@ function DataFieldGridInner({ fields, metrics, isMetric, style }: DataFieldGridP
       {fields.map((field) => (
         <View
           key={field}
+          testID={`data-field-${field}`}
           style={[
             styles.cell,
             {

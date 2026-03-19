@@ -7,6 +7,7 @@ import { useTheme } from '@/hooks';
 import { useActivities, useEngineSubscription } from '@/hooks';
 import { useSyncDateRange } from '@/providers';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { deleteGpsTracks } from '@/lib/storage/gpsStorage';
 import type { PersistentEngineStats } from 'veloqrs';
 
 // ============================================================================
@@ -167,11 +168,19 @@ export function SyncDebugTab() {
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
             setIsRemoving(true);
             let removed = 0;
+            const removedIds: string[] = [];
             for (const id of toRemove) {
-              if (engine.removeActivity(id)) removed++;
+              if (engine.removeActivity(id)) {
+                removed++;
+                removedIds.push(id);
+              }
+            }
+            // Clean up orphaned GPS track files
+            if (removedIds.length > 0) {
+              await deleteGpsTracks(removedIds);
             }
             setIsRemoving(false);
             if (removed === 0 && toRemove.length > 0) {

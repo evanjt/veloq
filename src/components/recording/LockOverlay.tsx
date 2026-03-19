@@ -73,7 +73,7 @@ export function LockOverlay({ visible, elapsed, distance, onUnlock }: LockOverla
   if (!visible) return null;
 
   return (
-    <View style={styles.overlay}>
+    <View testID="lock-overlay" style={styles.overlay}>
       {/* Block all touches except the slider */}
       <View style={styles.touchBlocker} pointerEvents="box-only" />
 
@@ -91,6 +91,7 @@ export function LockOverlay({ visible, elapsed, distance, onUnlock }: LockOverla
 
           {/* Handle */}
           <Animated.View
+            testID="lock-overlay-unlock"
             style={[styles.handle, { transform: [{ translateX }] }]}
             {...panResponder.panHandlers}
           >

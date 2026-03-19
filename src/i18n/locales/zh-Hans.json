@@ -303,6 +303,9 @@
     },
     "refresh": "刷新"
   },
+  "engine": {
+    "initFailed": "路线引擎初始化失败。路线和区间可能不可用。"
+  },
   "errorState": {
     "chartLabels": {
       "activityChart": "活动图表",
@@ -399,6 +402,128 @@
   },
   "healthScreen": {
     "title": "健康"
+  },
+  "insights": {
+    "title": "洞察",
+    "noInsights": "训练后将显示洞察",
+    "noInsightsHint": "完成更多活动以查看个性化洞察",
+    "sectionPr": "{{name}}上的PR",
+    "sectionPrSubtitle": "{{time}} — {{daysAgo}}天前",
+    "sectionTrendSummary": "{{total}}个路段中{{improving}}个呈上升趋势",
+    "sectionTrendSummaryBody": "改善中: {{names}}。{{stable}}个稳定，{{declining}}个下降。",
+    "sectionImproving": "{{name}}正在变快",
+    "sectionImprovingBody": "近期中位数: {{median}}。最佳: {{best}}，共{{count}}次。",
+    "ftpIncrease": "FTP +{{delta}}W",
+    "paceImproved": "配速提升 {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% 周训练量",
+    "weeklyVolumeDown": "{{percent}}% 本周减少",
+    "weeklyLoadUp": "+{{percent}}% 训练负荷",
+    "weeklyLoadDown": "{{percent}}% 负荷减少",
+    "loadBody": "TSS: 本周 {{currentTss}} vs 上周 {{previousTss}}。时长: {{currentDuration}} vs {{previousDuration}}。",
+    "patternMatch": "{{day}} - 通常 {{verb}} ~{{duration}}",
+    "consistencyStreak": "{{count}}周连续",
+    "volumeBody": "训练时长: 本周 {{current}} vs 上周 {{previous}}。这衡量的是时间，不是训练负荷 (TSS)。",
+    "viewDetails": "查看详情",
+    "today": "今天",
+    "tomorrow": "明天",
+    "showMethodology": "显示方法论",
+    "basedOnActivities": "基于 {{count}} 个活动",
+    "confidence": "{{value}}% 置信度",
+    "tapToExplore": "点击探索",
+    "confident": "置信度",
+    "current": "当前",
+    "previous": "上一个",
+    "change": "变化",
+    "restDay": {
+      "hrvTrend": "HRV 本周{{direction}} {{percent}}%",
+      "tomorrowPattern": "明天通常是 {{verb}} 日",
+      "tomorrowPatternBody": "根据 {{count}} 次之前{{day}}的活动，你通常 {{verb}} 约 ~{{duration}}。",
+      "intensityContext": "{{count}} sessions this week",
+      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
+      "sectionTrends": "{{improving}} of {{total}} sections improving"
+    },
+    "methodology": {
+      "banister": "通过体能 (CTL) 与疲劳 (ATL) 的差值计算训练压力平衡。",
+      "hrv": "将你的心率变异性趋势与 7 天基线进行比较，以评估恢复状态。",
+      "kmeans": "按日期、时长和运动类型对你的活动进行分组，以识别反复出现的训练模式。",
+      "prDetection": "将你最近一次路段时间与所有之前的表现进行比较，以检测个人纪录。",
+      "sectionTrend": "跟踪经常访问的路段上的中位表现随时间的变化。",
+      "periodComparison": "比较连续各周的训练指标以跟踪进展。"
+    },
+    "alternatives": {
+      "selected": "当前评估",
+      "notSelected": "不适用",
+      "yourValue": "你的值: {{value}}"
+    },
+    "data": {
+      "confidence": "置信度",
+      "basedOn": "基于",
+      "activities": "个活动",
+      "bestTime": "最佳时间",
+      "daysAgo": "天前",
+      "days": "天",
+      "currentFtp": "当前 FTP",
+      "previousFtp": "之前 FTP",
+      "change": "变化",
+      "currentPace": "当前配速",
+      "previousPace": "之前配速",
+      "improvement": "提升",
+      "currentCtl": "当前 CTL",
+      "peakCtl": "峰值 CTL",
+      "thisWeek": "本周",
+      "lastWeek": "上周",
+      "activitiesThisWeek": "本周活动",
+      "activitiesLastWeek": "上周活动",
+      "avgDuration": "平均时长",
+      "tsbRange": "TSB 范围",
+      "todayHrv": "今日 HRV",
+      "sevenDayAvg": "7 日平均",
+      "hrvSevenDay": "HRV (7 天)",
+      "latestHrv": "Latest HRV",
+      "dataPoints": "Data points",
+      "thisWeekTss": "This week",
+      "fourWeekAvgTss": "4-week average"
+    },
+    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
+    "tsbForm": {
+      "title": "Form: {{tsb}} ({{zone}})",
+      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
+      "zones": {
+        "fresh": "Fresh",
+        "detraining": "Transition",
+        "maintenance": "Maintenance",
+        "productive": "Productive training",
+        "deepFatigue": "Deep fatigue"
+      },
+      "zoneDescriptions": {
+        "fresh": "Well-rested, fitness exceeds fatigue",
+        "detraining": "Between training and freshness",
+        "maintenance": "Moderate training load",
+        "productive": "Where most adaptation occurs",
+        "deepFatigue": "Significant accumulated fatigue"
+      }
+    },
+    "hrvTrend": {
+      "trendingUp": "HRV trending up",
+      "trendingDown": "HRV trending down",
+      "stable": "HRV stable",
+      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
+      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
+      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
+    },
+    "weeklyLoad": {
+      "title": "Training load {{percent}}% {{direction}} average",
+      "above": "above",
+      "below": "below",
+      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
+    },
+    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
+    "aboutInsights": "About Insights",
+    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
+    "showMore": "Show {{count}} more",
+    "aboutTitle": "About Insights",
+    "whyThisRecommendation": "Why this recommendation?",
+    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
   },
   "licenses": {
     "footer": "点击任何许可证徽章查看完整许可证文本。点击链接图标访问项目仓库。",
@@ -645,129 +770,9 @@
     "settingsAutoPause": "自动暂停",
     "settingsAutoPauseThreshold": "速度阈值",
     "settingsDataFields": "数据字段",
-    "settingsUnits": "单位"
-  },
-  "insights": {
-    "title": "洞察",
-    "noInsights": "训练后将显示洞察",
-    "noInsightsHint": "完成更多活动以查看个性化洞察",
-    "sectionPr": "{{name}}上的PR",
-    "sectionPrSubtitle": "{{time}} — {{daysAgo}}天前",
-    "sectionTrendSummary": "{{total}}个路段中{{improving}}个呈上升趋势",
-    "sectionTrendSummaryBody": "改善中: {{names}}。{{stable}}个稳定，{{declining}}个下降。",
-    "sectionImproving": "{{name}}正在变快",
-    "sectionImprovingBody": "近期中位数: {{median}}。最佳: {{best}}，共{{count}}次。",
-    "ftpIncrease": "FTP +{{delta}}W",
-    "paceImproved": "配速提升 {{delta}}",
-    "weeklyVolumeUp": "+{{percent}}% 周训练量",
-    "weeklyVolumeDown": "{{percent}}% 本周减少",
-    "weeklyLoadUp": "+{{percent}}% 训练负荷",
-    "weeklyLoadDown": "{{percent}}% 负荷减少",
-    "loadBody": "TSS: 本周 {{currentTss}} vs 上周 {{previousTss}}。时长: {{currentDuration}} vs {{previousDuration}}。",
-    "patternMatch": "{{day}} - 通常 {{verb}} ~{{duration}}",
-    "consistencyStreak": "{{count}}周连续",
-    "volumeBody": "训练时长: 本周 {{current}} vs 上周 {{previous}}。这衡量的是时间，不是训练负荷 (TSS)。",
-    "viewDetails": "查看详情",
-    "today": "今天",
-    "tomorrow": "明天",
-    "showMethodology": "显示方法论",
-    "basedOnActivities": "基于 {{count}} 个活动",
-    "confidence": "{{value}}% 置信度",
-    "tapToExplore": "点击探索",
-    "confident": "置信度",
-    "current": "当前",
-    "previous": "上一个",
-    "change": "变化",
-    "restDay": {
-      "hrvTrend": "HRV 本周{{direction}} {{percent}}%",
-      "tomorrowPattern": "明天通常是 {{verb}} 日",
-      "tomorrowPatternBody": "根据 {{count}} 次之前{{day}}的活动，你通常 {{verb}} 约 ~{{duration}}。",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
-      "sectionTrends": "{{improving}} of {{total}} sections improving"
-    },
-    "methodology": {
-      "banister": "通过体能 (CTL) 与疲劳 (ATL) 的差值计算训练压力平衡。",
-      "hrv": "将你的心率变异性趋势与 7 天基线进行比较，以评估恢复状态。",
-      "kmeans": "按日期、时长和运动类型对你的活动进行分组，以识别反复出现的训练模式。",
-      "prDetection": "将你最近一次路段时间与所有之前的表现进行比较，以检测个人纪录。",
-      "sectionTrend": "跟踪经常访问的路段上的中位表现随时间的变化。",
-      "periodComparison": "比较连续各周的训练指标以跟踪进展。"
-    },
-    "alternatives": {
-      "selected": "当前评估",
-      "notSelected": "不适用",
-      "yourValue": "你的值: {{value}}"
-    },
-    "data": {
-      "confidence": "置信度",
-      "basedOn": "基于",
-      "activities": "个活动",
-      "bestTime": "最佳时间",
-      "daysAgo": "天前",
-      "days": "天",
-      "currentFtp": "当前 FTP",
-      "previousFtp": "之前 FTP",
-      "change": "变化",
-      "currentPace": "当前配速",
-      "previousPace": "之前配速",
-      "improvement": "提升",
-      "currentCtl": "当前 CTL",
-      "peakCtl": "峰值 CTL",
-      "thisWeek": "本周",
-      "lastWeek": "上周",
-      "activitiesThisWeek": "本周活动",
-      "activitiesLastWeek": "上周活动",
-      "avgDuration": "平均时长",
-      "tsbRange": "TSB 范围",
-      "todayHrv": "今日 HRV",
-      "sevenDayAvg": "7 日平均",
-      "hrvSevenDay": "HRV (7 天)",
-      "latestHrv": "Latest HRV",
-      "dataPoints": "Data points",
-      "thisWeekTss": "This week",
-      "fourWeekAvgTss": "4-week average"
-    },
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "detraining": "Transition",
-        "maintenance": "Maintenance",
-        "productive": "Productive training",
-        "deepFatigue": "Deep fatigue"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "detraining": "Between training and freshness",
-        "maintenance": "Moderate training load",
-        "productive": "Where most adaptation occurs",
-        "deepFatigue": "Significant accumulated fatigue"
-      }
-    },
-    "hrvTrend": {
-      "trendingUp": "HRV trending up",
-      "trendingDown": "HRV trending down",
-      "stable": "HRV stable",
-      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
-      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
-      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
-    },
-    "weeklyLoad": {
-      "title": "Training load {{percent}}% {{direction}} average",
-      "above": "above",
-      "below": "below",
-      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
-    },
-    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
-    "aboutInsights": "About Insights",
-    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "showMore": "Show {{count}} more",
-    "aboutTitle": "About Insights",
-    "whyThisRecommendation": "Why this recommendation?",
-    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
+    "settingsUnits": "单位",
+    "distanceInvalid": "Please enter a valid distance (0-999).",
+    "hrInvalid": "Please enter a valid heart rate (30-250)."
   },
   "routeDetail": {
     "avgTime": "平均时间",
@@ -775,6 +780,10 @@
     "lastActivity": "最近活动",
     "routeNotFound": "未找到路线",
     "totalActivities": "总计"
+  },
+  "routeIntelligence": {
+    "today": "今天",
+    "tomorrow": "明天"
   },
   "routes": {
     "activities": "个活动",
@@ -867,10 +876,6 @@
     "thisSpeed": "此速度",
     "visits": "访问",
     "waiting": "等待中..."
-  },
-  "routeIntelligence": {
-    "today": "今天",
-    "tomorrow": "明天"
   },
   "routesScreen": {
     "analysingRoutes": "正在分析路线 {{current}}/{{total}}",
@@ -1229,6 +1234,10 @@
     "trendHint": "记录数据后，心率变异性、睡眠和静息心率趋势将显示在这里",
     "weight": "体重"
   },
+  "wellnessScreen": {
+    "title": "健康",
+    "trends": "健康趋势"
+  },
   "whatsNew": {
     "skipButton": "跳过",
     "nextButton": "下一步",
@@ -1248,9 +1257,5 @@
       "fitnessTitle": "体能概览",
       "fitnessBody": "通过彩色区域追踪您的体能、疲劳和状态。了解何时状态最佳，准备好发挥最好表现。"
     }
-  },
-  "wellnessScreen": {
-    "title": "健康",
-    "trends": "健康趋势"
   }
 }

@@ -1,4 +1,5 @@
 export { AccountSection } from './AccountSection';
+export { CacheManagementPanel } from './CacheManagementPanel';
 export { DataCacheSection } from './DataCacheSection';
 export { DataSourcesSection } from './DataSourcesSection';
 export { DisplaySettings } from './DisplaySettings';
@@ -6,5 +7,7 @@ export { MapStylePreviewPicker } from './MapStylePreviewPicker';
 export { MapsSection } from './MapsSection';
 export { ProfileSection } from './ProfileSection';
 export { SettingsSection, SectionDivider } from './SettingsSection';
+export { StorageStatsPanel } from './StorageStatsPanel';
 export { SummaryCardSection } from './SummaryCardSection';
 export { SupportSection } from './SupportSection';
+export { TileCachePanel } from './TileCachePanel';

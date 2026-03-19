@@ -3,8 +3,8 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { navigateTo } from '@/lib';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, opacity, shadows } from '@/theme';
 import { DataPointRow } from './DataPointRow';
@@ -83,7 +83,6 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
 }: SupportingDataSectionProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const router = useRouter();
 
   const hasDataPoints = data.dataPoints && data.dataPoints.length > 0;
   const hasSparkline = data.sparklineData && data.sparklineData.length >= 2;
@@ -219,7 +218,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
             <Pressable
               key={section.sectionId}
               style={[styles.sectionCard, isDark && styles.sectionCardDark]}
-              onPress={() => router.push(`/section/${section.sectionId}` as never)}
+              onPress={() => navigateTo(`/section/${section.sectionId}`)}
             >
               <View style={styles.sectionContent}>
                 <Text

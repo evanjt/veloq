@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router, Href } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -385,7 +385,7 @@ export default function RouteDetailScreen() {
     try {
       renameRoute(id, trimmedName);
     } catch (error) {
-      console.error('Failed to save route name:', error);
+      if (__DEV__) console.error('Failed to save route name:', error);
     }
   }, [editName, id, renameRoute, t]);
 
@@ -400,7 +400,12 @@ export default function RouteDetailScreen() {
   const performancesMap = useMemo(() => {
     const map: Record<
       string,
-      { direction: string; matchPercentage: number | undefined; duration: number; speed: number }
+      {
+        direction: string;
+        matchPercentage: number | undefined;
+        duration: number;
+        speed: number;
+      }
     > = {};
     for (const perf of performances) {
       map[perf.activityId] = {
@@ -660,7 +665,10 @@ export default function RouteDetailScreen() {
                 <View
                   style={[
                     styles.mapPlaceholder,
-                    { height: MAP_HEIGHT, backgroundColor: activityColor + '20' },
+                    {
+                      height: MAP_HEIGHT,
+                      backgroundColor: activityColor + '20',
+                    },
                   ]}
                 >
                   <MaterialCommunityIcons name="map-marker-path" size={48} color={activityColor} />
@@ -897,12 +905,21 @@ export default function RouteDetailScreen() {
                   acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
                   return acc;
                 }, {});
-                const warnings: Array<{ level: 'warn' | 'error'; message: string }> = [];
+                const warnings: Array<{
+                  level: 'warn' | 'error';
+                  message: string;
+                }> = [];
                 const actCount = engineGroup.activityIds.length;
                 if (actCount > 500)
-                  warnings.push({ level: 'error', message: `${actCount} activities (>500)` });
+                  warnings.push({
+                    level: 'error',
+                    message: `${actCount} activities (>500)`,
+                  });
                 else if (actCount > 100)
-                  warnings.push({ level: 'warn', message: `${actCount} activities (>100)` });
+                  warnings.push({
+                    level: 'warn',
+                    message: `${actCount} activities (>100)`,
+                  });
                 for (const [name, m] of Object.entries(ffiEntries)) {
                   if (m.maxMs > 200)
                     warnings.push({

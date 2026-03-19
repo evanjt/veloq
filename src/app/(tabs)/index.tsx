@@ -14,7 +14,7 @@ import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/components/ui';
 import { logScreenRender, PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { isNetworkError } from '@/lib/utils/errorHandler';
-import { router, Href } from 'expo-router';
+import { navigateTo } from '@/lib';
 import { useIsFocused } from '@react-navigation/core';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -222,19 +222,19 @@ export default function FeedScreen() {
   );
 
   const navigateToSettings = useCallback(() => {
-    router.push('/settings' as Href);
+    navigateTo('/settings');
   }, []);
 
   const navigateToHeroMetric = useCallback(() => {
     switch (summaryCard.heroMetric) {
       case 'fitness':
-        router.push('/fitness' as Href);
+        navigateTo('/fitness');
         break;
       case 'hrv':
-        router.push('/training' as Href);
+        navigateTo('/training');
         break;
       default:
-        router.push('/fitness' as Href);
+        navigateTo('/fitness');
     }
   }, [summaryCard.heroMetric]);
 

@@ -303,6 +303,9 @@
     },
     "refresh": "Nöi lade"
   },
+  "engine": {
+    "initFailed": "D Route-Engine hät nöd chönne starte. Route und Sektione sind villiicht nöd verfüegbar."
+  },
   "errorState": {
     "chartLabels": {
       "activityChart": "Aktivitätsdiagramm",
@@ -399,6 +402,128 @@
   },
   "healthScreen": {
     "title": "Gsundheit"
+  },
+  "insights": {
+    "title": "S Wichigschte",
+    "noInsights": "Tipps chömed wenn du trainiersch",
+    "noInsightsHint": "Mach meh Aktivitäte für persönlichi Tipps",
+    "sectionPr": "PR uf {{name}}!",
+    "sectionPrSubtitle": "{{time}} — vor {{daysAgo}}T",
+    "sectionTrendSummary": "{{improving}} vo {{total}} Abschnitt im Ufwärtstrend",
+    "sectionTrendSummaryBody": "Am Gas gee: {{names}}. {{stable}} stabil, {{declining}} am nachla.",
+    "sectionImproving": "{{name}} wird schnäller!",
+    "sectionImprovingBody": "Letschte Median: {{median}}. Bestziit: {{best}} us {{count}} Versüech.",
+    "ftpIncrease": "FTP +{{delta}}W, lässig!",
+    "paceImproved": "Tempo besser {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% die Wuche",
+    "weeklyVolumeDown": "{{percent}}% weniger die Wuche",
+    "weeklyLoadUp": "+{{percent}}% Trainingsbelastig",
+    "weeklyLoadDown": "{{percent}}% weniger Belastig",
+    "loadBody": "TSS: {{currentTss}} die Wuche vs {{previousTss}} letschti Wuche. Ziit: {{currentDuration}} vs {{previousDuration}}.",
+    "patternMatch": "{{day}} - meischtens {{verb}} ~{{duration}}",
+    "consistencyStreak": "{{count}}-Wuche-Serie, cheibe guet!",
+    "volumeBody": "Trainingsziit: {{current}} die Wuche vs {{previous}} letscht Wuche. Das misst d Ziit, nöd d Trainingsbelastig (TSS).",
+    "viewDetails": "Details luege",
+    "today": "HÜTT",
+    "tomorrow": "MORN",
+    "whyThisRecommendation": "Wieso die Empfehlig",
+    "showMethodology": "Methodik zeige",
+    "basedOnActivities": "Basiert uf {{count}} Aktivitäte",
+    "confidence": "{{value}}% sicher",
+    "tapToExplore": "Tipp zum Erkunde",
+    "confident": "sicher",
+    "current": "Aktuell",
+    "previous": "Vorher",
+    "change": "Änderig",
+    "restDay": {
+      "hrvTrend": "HRV {{direction}} {{percent}}% die Wuche",
+      "tomorrowPattern": "Morn isch normaaler {{verb}}-Tag",
+      "tomorrowPatternBody": "Basierend uf {{count}} früheri {{day}}-Aktivitäte, machsch normalerwiis {{verb}} für ~{{duration}}.",
+      "intensityContext": "{{count}} sessions this week",
+      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
+      "sectionTrends": "{{improving}} of {{total}} sections improving"
+    },
+    "methodology": {
+      "banister": "Berechnet d Training Stress Balance us em Unterschied zwüsche Fitness (CTL) und Müedigkeit (ATL).",
+      "hrv": "Vergliicht din HRV-Trend mit dim 7-Täg-Grundwert zum din Erholigsstatus z beurteile.",
+      "kmeans": "Gruppiert dini Aktivitäte nach Tag, Duur und Sportart zum wiederkehrendi Trainingsmuster z finde.",
+      "prDetection": "Vergliicht dini letschti Abschnittsziit mit allne früheri Versüech zum persönlichi Rekord z erchenne.",
+      "sectionTrend": "Verfolgt d Median-Leistig uf oft bsuechte Abschnitt über d Ziit.",
+      "periodComparison": "Vergliicht Trainingsmetrike zwüsche ufeinanderfolgende Wuche zum de Fortschritt z verfolge."
+    },
+    "alternatives": {
+      "selected": "Aktuelli Iiischätzig",
+      "notSelected": "Nöd zuträffend",
+      "yourValue": "Din Wert: {{value}}"
+    },
+    "data": {
+      "confidence": "Sicherheit",
+      "basedOn": "Basiert uf",
+      "activities": "Aktivitäte",
+      "bestTime": "Beschti Ziit",
+      "daysAgo": "Täg her",
+      "days": "Täg",
+      "currentFtp": "Aktuelli FTP",
+      "previousFtp": "Vorheri FTP",
+      "change": "Änderig",
+      "currentPace": "Aktuells Tempo",
+      "previousPace": "Vorhers Tempo",
+      "improvement": "Verbesserig",
+      "currentCtl": "Aktuell CTL",
+      "peakCtl": "Spitze CTL",
+      "thisWeek": "Die Wuche",
+      "lastWeek": "Letschti Wuche",
+      "activitiesThisWeek": "Aktivitäte die Wuche",
+      "activitiesLastWeek": "Aktivitäte letschti Wuche",
+      "avgDuration": "Ø Duur",
+      "tsbRange": "TSB-Bereich",
+      "todayHrv": "HRV hüt",
+      "sevenDayAvg": "7-Täg-Schnitt",
+      "hrvSevenDay": "HRV (7 Täg)",
+      "latestHrv": "Latest HRV",
+      "dataPoints": "Data points",
+      "thisWeekTss": "This week",
+      "fourWeekAvgTss": "4-week average"
+    },
+    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
+    "tsbForm": {
+      "title": "Form: {{tsb}} ({{zone}})",
+      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
+      "zones": {
+        "fresh": "Fresh",
+        "detraining": "Transition",
+        "maintenance": "Maintenance",
+        "productive": "Productive training",
+        "deepFatigue": "Deep fatigue"
+      },
+      "zoneDescriptions": {
+        "fresh": "Well-rested, fitness exceeds fatigue",
+        "detraining": "Between training and freshness",
+        "maintenance": "Moderate training load",
+        "productive": "Where most adaptation occurs",
+        "deepFatigue": "Significant accumulated fatigue"
+      }
+    },
+    "hrvTrend": {
+      "trendingUp": "HRV trending up",
+      "trendingDown": "HRV trending down",
+      "stable": "HRV stable",
+      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
+      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
+      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
+    },
+    "weeklyLoad": {
+      "title": "Training load {{percent}}% {{direction}} average",
+      "above": "above",
+      "below": "below",
+      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
+    },
+    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
+    "aboutInsights": "About Insights",
+    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
+    "showMore": "Show {{count}} more",
+    "aboutTitle": "About Insights",
+    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
   },
   "licenses": {
     "footer": "Tipp uf es Lizenz-Badge um de voll Text z gseh. Tipp ufs Link-Symbol um s Projekt-Repository z bsueche.",
@@ -645,129 +770,9 @@
     "settingsAutoPause": "Auto-Pause",
     "settingsAutoPauseThreshold": "Gschwindigkeitsgränze",
     "settingsDataFields": "Datefelder",
-    "settingsUnits": "Einheite"
-  },
-  "insights": {
-    "title": "S Wichigschte",
-    "noInsights": "Tipps chömed wenn du trainiersch",
-    "noInsightsHint": "Mach meh Aktivitäte für persönlichi Tipps",
-    "sectionPr": "PR uf {{name}}!",
-    "sectionPrSubtitle": "{{time}} — vor {{daysAgo}}T",
-    "sectionTrendSummary": "{{improving}} vo {{total}} Abschnitt im Ufwärtstrend",
-    "sectionTrendSummaryBody": "Am Gas gee: {{names}}. {{stable}} stabil, {{declining}} am nachla.",
-    "sectionImproving": "{{name}} wird schnäller!",
-    "sectionImprovingBody": "Letschte Median: {{median}}. Bestziit: {{best}} us {{count}} Versüech.",
-    "ftpIncrease": "FTP +{{delta}}W, lässig!",
-    "paceImproved": "Tempo besser {{delta}}",
-    "weeklyVolumeUp": "+{{percent}}% die Wuche",
-    "weeklyVolumeDown": "{{percent}}% weniger die Wuche",
-    "weeklyLoadUp": "+{{percent}}% Trainingsbelastig",
-    "weeklyLoadDown": "{{percent}}% weniger Belastig",
-    "loadBody": "TSS: {{currentTss}} die Wuche vs {{previousTss}} letschti Wuche. Ziit: {{currentDuration}} vs {{previousDuration}}.",
-    "patternMatch": "{{day}} - meischtens {{verb}} ~{{duration}}",
-    "consistencyStreak": "{{count}}-Wuche-Serie, cheibe guet!",
-    "volumeBody": "Trainingsziit: {{current}} die Wuche vs {{previous}} letscht Wuche. Das misst d Ziit, nöd d Trainingsbelastig (TSS).",
-    "viewDetails": "Details luege",
-    "today": "HÜTT",
-    "tomorrow": "MORN",
-    "whyThisRecommendation": "Wieso die Empfehlig",
-    "showMethodology": "Methodik zeige",
-    "basedOnActivities": "Basiert uf {{count}} Aktivitäte",
-    "confidence": "{{value}}% sicher",
-    "tapToExplore": "Tipp zum Erkunde",
-    "confident": "sicher",
-    "current": "Aktuell",
-    "previous": "Vorher",
-    "change": "Änderig",
-    "restDay": {
-      "hrvTrend": "HRV {{direction}} {{percent}}% die Wuche",
-      "tomorrowPattern": "Morn isch normaaler {{verb}}-Tag",
-      "tomorrowPatternBody": "Basierend uf {{count}} früheri {{day}}-Aktivitäte, machsch normalerwiis {{verb}} für ~{{duration}}.",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
-      "sectionTrends": "{{improving}} of {{total}} sections improving"
-    },
-    "methodology": {
-      "banister": "Berechnet d Training Stress Balance us em Unterschied zwüsche Fitness (CTL) und Müedigkeit (ATL).",
-      "hrv": "Vergliicht din HRV-Trend mit dim 7-Täg-Grundwert zum din Erholigsstatus z beurteile.",
-      "kmeans": "Gruppiert dini Aktivitäte nach Tag, Duur und Sportart zum wiederkehrendi Trainingsmuster z finde.",
-      "prDetection": "Vergliicht dini letschti Abschnittsziit mit allne früheri Versüech zum persönlichi Rekord z erchenne.",
-      "sectionTrend": "Verfolgt d Median-Leistig uf oft bsuechte Abschnitt über d Ziit.",
-      "periodComparison": "Vergliicht Trainingsmetrike zwüsche ufeinanderfolgende Wuche zum de Fortschritt z verfolge."
-    },
-    "alternatives": {
-      "selected": "Aktuelli Iiischätzig",
-      "notSelected": "Nöd zuträffend",
-      "yourValue": "Din Wert: {{value}}"
-    },
-    "data": {
-      "confidence": "Sicherheit",
-      "basedOn": "Basiert uf",
-      "activities": "Aktivitäte",
-      "bestTime": "Beschti Ziit",
-      "daysAgo": "Täg her",
-      "days": "Täg",
-      "currentFtp": "Aktuelli FTP",
-      "previousFtp": "Vorheri FTP",
-      "change": "Änderig",
-      "currentPace": "Aktuells Tempo",
-      "previousPace": "Vorhers Tempo",
-      "improvement": "Verbesserig",
-      "currentCtl": "Aktuell CTL",
-      "peakCtl": "Spitze CTL",
-      "thisWeek": "Die Wuche",
-      "lastWeek": "Letschti Wuche",
-      "activitiesThisWeek": "Aktivitäte die Wuche",
-      "activitiesLastWeek": "Aktivitäte letschti Wuche",
-      "avgDuration": "Ø Duur",
-      "tsbRange": "TSB-Bereich",
-      "todayHrv": "HRV hüt",
-      "sevenDayAvg": "7-Täg-Schnitt",
-      "hrvSevenDay": "HRV (7 Täg)",
-      "latestHrv": "Latest HRV",
-      "dataPoints": "Data points",
-      "thisWeekTss": "This week",
-      "fourWeekAvgTss": "4-week average"
-    },
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "detraining": "Transition",
-        "maintenance": "Maintenance",
-        "productive": "Productive training",
-        "deepFatigue": "Deep fatigue"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "detraining": "Between training and freshness",
-        "maintenance": "Moderate training load",
-        "productive": "Where most adaptation occurs",
-        "deepFatigue": "Significant accumulated fatigue"
-      }
-    },
-    "hrvTrend": {
-      "trendingUp": "HRV trending up",
-      "trendingDown": "HRV trending down",
-      "stable": "HRV stable",
-      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
-      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
-      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
-    },
-    "weeklyLoad": {
-      "title": "Training load {{percent}}% {{direction}} average",
-      "above": "above",
-      "below": "below",
-      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
-    },
-    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
-    "aboutInsights": "About Insights",
-    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "showMore": "Show {{count}} more",
-    "aboutTitle": "About Insights",
-    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
+    "settingsUnits": "Einheite",
+    "distanceInvalid": "Please enter a valid distance (0-999).",
+    "hrInvalid": "Please enter a valid heart rate (30-250)."
   },
   "routeDetail": {
     "avgTime": "Ø Ziit",
@@ -775,6 +780,10 @@
     "lastActivity": "Letschti Aktivität",
     "routeNotFound": "Route nöd gfunde",
     "totalActivities": "Total"
+  },
+  "routeIntelligence": {
+    "today": "HÜTT",
+    "tomorrow": "MORN"
   },
   "routes": {
     "activities": "Aktivitäte",
@@ -867,10 +876,6 @@
     "thisSpeed": "Die Speed",
     "visits": "Bsüech",
     "waiting": "Momäntli..."
-  },
-  "routeIntelligence": {
-    "today": "HÜTT",
-    "tomorrow": "MORN"
   },
   "routesScreen": {
     "analysingRoutes": "Analysiere {{current}}/{{total}}",
@@ -1229,6 +1234,10 @@
     "trendHint": "Trends chömed wenn Date iigeh wärded",
     "weight": "Gwicht"
   },
+  "wellnessScreen": {
+    "title": "Wohlsii",
+    "trends": "Wohlsii-Trends"
+  },
   "whatsNew": {
     "skipButton": "Überspringä",
     "nextButton": "Wiiter",
@@ -1248,9 +1257,5 @@
       "fitnessTitle": "Fitness-Überblick",
       "fitnessBody": "Verfolg Fitness, Ermüedig und Form mit farbcodierte Zone. Wüss, wenn du frisch und ready bisch."
     }
-  },
-  "wellnessScreen": {
-    "title": "Wohlsii",
-    "trends": "Wohlsii-Trends"
   }
 }

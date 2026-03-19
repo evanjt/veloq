@@ -4,7 +4,7 @@ import { Text, Button, TextInput } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenSafeAreaView } from '@/components/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, Href } from 'expo-router';
+import { replaceTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
 import {
   useAuthStore,
@@ -108,7 +108,7 @@ export default function LoginScreen() {
     // Enter demo mode
     enterDemoMode();
     // Navigate to main app
-    router.replace('/' as Href);
+    replaceTo('/');
   };
 
   const handleCreateAccount = () => {
@@ -163,7 +163,7 @@ export default function LoginScreen() {
       await setCredentials(apiKey.trim(), athlete.id);
 
       // Navigate to main app
-      router.replace('/' as Href);
+      replaceTo('/');
     } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response?.status === 401) {
         setError(t('login.invalidApiKey'));
@@ -212,7 +212,7 @@ export default function LoginScreen() {
         );
 
         // Success - navigate to main app
-        router.replace('/' as Href);
+        replaceTo('/');
       } else if (result.type === 'cancel') {
         // User cancelled - no error needed
         setIsLoading(false);

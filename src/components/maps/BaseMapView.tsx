@@ -121,7 +121,9 @@ export function BaseMapView({
   const handleMapLoadError = useCallback(() => {
     if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
       retryCountRef.current += 1;
-      console.log(`[Map] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`);
+      if (__DEV__) {
+        console.log(`[Map] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`);
+      }
       setTimeout(() => {
         setMapKey((k) => k + 1);
       }, RETRY_DELAY_MS * retryCountRef.current); // Exponential backoff
@@ -218,7 +220,10 @@ export function BaseMapView({
   // Handle region change end - track center and zoom for dynamic attribution
   const handleRegionDidChange = useCallback((feature: GeoJSON.Feature) => {
     const properties = feature.properties as
-      | { zoomLevel?: number; visibleBounds?: [[number, number], [number, number]] }
+      | {
+          zoomLevel?: number;
+          visibleBounds?: [[number, number], [number, number]];
+        }
       | undefined;
     const { zoomLevel, visibleBounds } = properties ?? {};
 
@@ -264,7 +269,10 @@ export function BaseMapView({
   // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
   // CRITICAL: Always return valid GeoJSON to avoid iOS MapLibre crash during view reconciliation
   const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    const emptyCollection: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+    const emptyCollection: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [],
+    };
     if (!routeCoordinates || routeCoordinates.length < 2) return emptyCollection;
     // Filter out NaN/Infinity coordinates
     const validCoords = routeCoordinates.filter(

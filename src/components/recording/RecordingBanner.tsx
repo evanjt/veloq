@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router, usePathname } from 'expo-router';
+import { usePathname } from 'expo-router';
+import { navigateTo } from '@/lib';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
@@ -75,7 +76,7 @@ function RecordingBannerInner() {
 
   const handlePress = () => {
     if (activityType) {
-      router.push(`/recording/${activityType}` as never);
+      navigateTo(`/recording/${activityType}`);
     }
   };
 

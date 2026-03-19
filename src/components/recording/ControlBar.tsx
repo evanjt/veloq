@@ -87,6 +87,7 @@ function ControlBarInner({
       <View style={[styles.bar, style]}>
         <Animated.View style={styles.centerGroup}>
           <PrimaryButton
+            testID="control-save"
             label={t('recording.controls.save')}
             icon="content-save"
             color={BRAND_COLOR}
@@ -108,6 +109,7 @@ function ControlBarInner({
       <View style={[styles.bar, style]}>
         <View style={styles.buttonGroup}>
           <PrimaryButton
+            testID="control-resume"
             label={t('recording.controls.resume')}
             icon="play"
             color={RESUME_COLOR}
@@ -115,6 +117,7 @@ function ControlBarInner({
           />
 
           <Animated.View
+            testID="control-stop"
             style={[styles.stopButtonWrap, { borderColor: stopBorderColor }]}
             onTouchStart={handleStopPressIn}
             onTouchEnd={handleStopPressOut}
@@ -152,6 +155,7 @@ function ControlBarInner({
     <View style={[styles.bar, style]}>
       <View style={styles.buttonGroup}>
         <SecondaryButton
+          testID="control-lap"
           label={t('recording.controls.lap')}
           icon="flag-variant"
           backgroundColor={secondaryBg}
@@ -160,6 +164,7 @@ function ControlBarInner({
         />
 
         <PrimaryButton
+          testID="control-pause"
           label={t('recording.controls.pause')}
           icon="pause"
           color={BRAND_COLOR}
@@ -167,6 +172,7 @@ function ControlBarInner({
         />
 
         <SecondaryButton
+          testID="control-stop"
           label={t('recording.controls.stop')}
           icon="stop"
           backgroundColor={secondaryBg}
@@ -184,15 +190,18 @@ function PrimaryButton({
   icon,
   color,
   onPress,
+  testID,
 }: {
   label: string;
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   color: string;
   onPress: () => void;
+  testID?: string;
 }) {
   return (
     <View style={styles.buttonContainer}>
       <TouchableOpacity
+        testID={testID}
         style={[styles.primaryButton, { backgroundColor: color }]}
         onPress={onPress}
         activeOpacity={0.7}
@@ -213,16 +222,19 @@ function SecondaryButton({
   backgroundColor,
   textColor,
   onPress,
+  testID,
 }: {
   label: string;
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   backgroundColor: string;
   textColor: string;
   onPress: () => void;
+  testID?: string;
 }) {
   return (
     <View style={styles.buttonContainer}>
       <TouchableOpacity
+        testID={testID}
         style={[styles.secondaryButton, { backgroundColor }]}
         onPress={onPress}
         activeOpacity={0.7}

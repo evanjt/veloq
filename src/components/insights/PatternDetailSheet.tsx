@@ -2,10 +2,10 @@ import React, { useCallback } from 'react';
 import { Modal, View, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, typography, opacity, shadows } from '@/theme';
+import { navigateTo } from '@/lib';
 import type { Insight } from '@/types';
 
 const SHEET_HEIGHT = Dimensions.get('window').height * 0.85;
@@ -23,21 +23,20 @@ export const PatternDetailSheet = React.memo(function PatternDetailSheet({
 }: PatternDetailSheetProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const router = useRouter();
 
   const handleViewDetails = useCallback(() => {
     if (insight?.navigationTarget) {
       onClose();
-      router.push(insight.navigationTarget as never);
+      navigateTo(insight.navigationTarget);
     }
-  }, [insight?.navigationTarget, onClose, router]);
+  }, [insight?.navigationTarget, onClose]);
 
   const handleSectionPress = useCallback(
     (sectionId: string) => {
       onClose();
-      router.push(`/section/${sectionId}` as never);
+      navigateTo(`/section/${sectionId}`);
     },
-    [onClose, router]
+    [onClose]
   );
 
   if (!insight) return null;

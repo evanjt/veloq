@@ -885,6 +885,10 @@ export interface TranslationResource {
     traversalsSummary: string;
   };
 
+  engine: {
+    initFailed: string;
+  };
+
   errorState: {
     defaultTitle: string;
     defaultMessage: string;

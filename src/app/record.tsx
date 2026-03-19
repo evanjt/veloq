@@ -21,7 +21,7 @@ import {
   clearRecordingBackup,
 } from '@/lib/storage/recordingBackup';
 import { intervalsApi } from '@/api';
-import { formatLocalDate, formatDuration } from '@/lib';
+import { formatLocalDate, formatDuration, navigateTo } from '@/lib';
 import type { ActivityType, CalendarEvent } from '@/types';
 
 const DEFAULT_QUICK_TYPES: ActivityType[] = ['Ride', 'Run', 'Walk'];
@@ -150,7 +150,7 @@ export default function RecordScreen() {
               status: 'paused', // Start paused so user can review before resuming
             });
 
-            router.push(`/recording/${backup.activityType}` as never);
+            navigateTo(`/recording/${backup.activityType}`);
           },
         },
       ]);
@@ -170,7 +170,7 @@ export default function RecordScreen() {
 
   const handleSelectType = useCallback((type: ActivityType, pairedEventId?: number) => {
     const params = pairedEventId ? `?pairedEventId=${pairedEventId}` : '';
-    router.push(`/recording/${type}${params}` as never);
+    navigateTo(`/recording/${type}${params}`);
   }, []);
 
   const toggleCategory = useCallback((key: string) => {
@@ -186,7 +186,11 @@ export default function RecordScreen() {
   return (
     <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          testID="record-back"
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
           <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: textPrimary }]}>
@@ -194,7 +198,8 @@ export default function RecordScreen() {
         </Text>
         <View style={{ flex: 1 }} />
         <TouchableOpacity
-          onPress={() => router.push('/recording-settings' as never)}
+          testID="record-settings"
+          onPress={() => navigateTo('/recording-settings')}
           style={styles.settingsButton}
           activeOpacity={0.7}
         >
@@ -203,7 +208,7 @@ export default function RecordScreen() {
       </View>
 
       {/* GPS Readiness Indicator */}
-      <GpsReadinessBar state={gpsState} isDark={isDark} />
+      <GpsReadinessBar state={gpsState} isDark={isDark} testID="record-gps-status" />
 
       <ScrollView
         contentContainerStyle={[
@@ -224,6 +229,7 @@ export default function RecordScreen() {
             contentContainerStyle={styles.quickStartList}
             renderItem={({ item }) => (
               <TouchableOpacity
+                testID={`record-type-${item}`}
                 style={[styles.quickTypeCard, { backgroundColor: surface, borderColor: border }]}
                 onPress={() => handleSelectType(item)}
                 activeOpacity={0.7}
@@ -250,6 +256,7 @@ export default function RecordScreen() {
             {todayEvents.map((event) => (
               <TouchableOpacity
                 key={event.id}
+                testID={`record-event-${event.id}`}
                 style={[styles.eventCard, { backgroundColor: surface, borderColor: border }]}
                 onPress={() => handleSelectType(event.type as ActivityType, event.id)}
                 activeOpacity={0.7}
@@ -295,6 +302,7 @@ export default function RecordScreen() {
                 {(types as readonly ActivityType[]).map((type) => (
                   <TouchableOpacity
                     key={type}
+                    testID={`record-type-${type}`}
                     style={[styles.typeItem, { borderBottomColor: border }]}
                     onPress={() => handleSelectType(type)}
                     activeOpacity={0.7}
@@ -323,9 +331,11 @@ export default function RecordScreen() {
 function GpsReadinessBar({
   state,
   isDark,
+  testID,
 }: {
   state: 'checking' | 'ready' | 'weak' | 'none';
   isDark: boolean;
+  testID?: string;
 }) {
   const { t } = useTranslation();
 
@@ -345,6 +355,7 @@ function GpsReadinessBar({
 
   return (
     <View
+      testID={testID}
       style={[
         styles.gpsReadinessBar,
         { backgroundColor: isDark ? darkColors.surface : colors.surface },

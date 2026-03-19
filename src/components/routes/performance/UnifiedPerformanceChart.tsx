@@ -21,8 +21,8 @@ import {
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { router, Href } from 'expo-router';
-import { CartesianChart, Line } from 'victory-native';
+import { navigateTo } from '@/lib';
+import { CartesianChart, Line, type PointsArray } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -797,13 +797,12 @@ export function UnifiedPerformanceChart({
               }}
               padding={CHART_PADDING}
             >
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {
-                (({ points }: any) => (
+                (({ points }: { points: { speed: PointsArray } }) => (
                   <>
                     {/* No connecting lines - dots are positioned by date */}
                     {/* Data points */}
-                    {points.speed.map((point: any, idx: number) => {
+                    {points.speed.map((point: PointsArray[number], idx: number) => {
                       if (point.x == null || point.y == null) return null;
                       const isBest = idx === lane.bestIndex;
                       const isCurrent = idx === lane.currentIndex;
@@ -1097,7 +1096,7 @@ export function UnifiedPerformanceChart({
           {selectedPoint ? (
             <TouchableOpacity
               style={[styles.selectedTooltip, isDark && styles.selectedTooltipDark]}
-              onPress={() => router.push(`/activity/${selectedPoint.activityId}` as Href)}
+              onPress={() => navigateTo(`/activity/${selectedPoint.activityId}`)}
               activeOpacity={0.7}
             >
               <View style={styles.tooltipLeft}>
@@ -1438,7 +1437,7 @@ export function UnifiedPerformanceChart({
         {selectedPoint ? (
           <TouchableOpacity
             style={[styles.selectedTooltip, isDark && styles.selectedTooltipDark]}
-            onPress={() => router.push(`/activity/${selectedPoint.activityId}` as Href)}
+            onPress={() => navigateTo(`/activity/${selectedPoint.activityId}`)}
             activeOpacity={0.7}
           >
             <View style={styles.tooltipLeft}>

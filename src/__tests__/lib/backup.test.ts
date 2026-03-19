@@ -51,13 +51,18 @@ jest.mock('@/lib/storage/terrainCameraOverrides', () => ({
   reloadCameraOverrides: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: { expoConfig: { version: '0.3.0' } },
+}));
+
 import { createBackup, restoreBackup } from '@/lib/export/backup';
 
 function makeValidBackup(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
     version: 2,
     exportedAt: '2026-01-01T00:00:00.000Z',
-    appVersion: '0.1.2',
+    appVersion: '0.3.0',
     customSections: [],
     sectionNames: {},
     routeNames: {},
@@ -85,7 +90,7 @@ describe('createBackup', () => {
     const json = await createBackup();
     const backup = JSON.parse(json);
     expect(backup.version).toBe(2);
-    expect(backup.appVersion).toBe('0.1.2');
+    expect(backup.appVersion).toBe('0.3.0');
     expect(backup.exportedAt).toBeDefined();
   });
 

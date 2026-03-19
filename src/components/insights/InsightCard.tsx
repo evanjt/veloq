@@ -2,8 +2,8 @@ import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useTheme } from '@/hooks';
+import { navigateTo } from '@/lib';
 import { colors, darkColors, spacing, shadows } from '@/theme';
 import type { Insight } from '@/types';
 
@@ -32,7 +32,7 @@ export const InsightCard = React.memo(function InsightCard({ insight, onPress }:
     if (onPress) {
       onPress(insight);
     } else if (insight.navigationTarget) {
-      router.push(insight.navigationTarget as never);
+      navigateTo(insight.navigationTarget);
     }
   };
 

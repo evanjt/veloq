@@ -4,11 +4,10 @@ import { Text } from 'react-native-paper';
 import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, type Href } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/providers';
 import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
-import { clearAllAppCaches } from '@/lib';
+import { clearAllAppCaches, navigateTo, replaceTo } from '@/lib';
 import { clearUploadQueue } from '@/lib/storage/uploadQueue';
 import { colors, darkColors, spacing, layout } from '@/theme';
 
@@ -32,7 +31,7 @@ export function AccountSection() {
             await clearAllAppCaches(queryClient);
             await clearUploadQueue();
             resetSyncDateRange();
-            router.replace('/login' as Href);
+            replaceTo('/login');
           } catch {
             Alert.alert(t('alerts.error'), t('alerts.failedToDisconnect'));
           }
@@ -47,7 +46,7 @@ export function AccountSection() {
         {t('settings.account').toUpperCase()}
       </Text>
       <View style={[styles.section, isDark && styles.sectionDark]}>
-        <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/about' as Href)}>
+        <TouchableOpacity style={styles.actionRow} onPress={() => navigateTo('/about')}>
           <MaterialCommunityIcons name="information-outline" size={22} color={colors.primary} />
           <Text style={[styles.actionText, isDark && styles.textLight]}>{t('about.title')}</Text>
           <MaterialCommunityIcons

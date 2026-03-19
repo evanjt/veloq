@@ -50,30 +50,10 @@
  * - Valid coordinates filtered once (NaN checks)
  * - 3D WebView opacity animated (native driver)
  *
- * **Trade-offs:**
- *
- * **Why WebView for 3D?**
- * - Pro: Mapbox GL JS has mature terrain visualization
- * - Pro: Faster to implement than native 3D solution
- * - Con: Additional memory footprint
- * - Con: Slower initial load
- *
- * **Why Animated.Value for 3D opacity?**
- * - Pro: Smooth crossfade (native driver)
- * - Con: Adds complexity to state management
- * - Alternative: CSS transitions (less control)
- *
- * **Why Section Creation State Machine?**
- * - Pro: Clear UX flow (start → end → confirm)
- * - Pro: Prevents invalid states
- * - Con: More complex than simple boolean
- *
- * **Component Size Note:**
- * At 861 lines, this component handles multiple concerns. Future refactoring
- * should consider extracting:
- * - StyleSwitcher component
- * - SectionCreationFlow component
- * - LocationHandler component
+ * **Sub-hooks:**
+ * - useMapCamera: Camera position, bounds, ready state, bearing, location
+ * - useMapLayers: GeoJSON data preparation for all map layers
+ * - useSectionCreation: Section creation state machine
  *
  * @example
  * ```tsx
@@ -137,17 +117,12 @@ import {
   CircleLayer,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import {
-  decodePolyline,
-  LatLng,
-  getActivityColor,
-  getMapLibreBounds,
-  getSectionStyle,
-} from '@/lib';
+import { decodePolyline, LatLng, getActivityColor, getSectionStyle } from '@/lib';
 import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { useSectionCreation } from '@/hooks/maps/useSectionCreation';
+import { useMapCamera } from '@/hooks/maps/useMapCamera';
+import { useMapLayers } from '@/hooks/maps/useMapLayers';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { CompassArrow, ComponentErrorBoundary } from '@/components/ui';
@@ -354,7 +329,6 @@ export const ActivityMapView = memo(function ActivityMapView({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);
   const [is3DReady, setIs3DReady] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(false);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const map3DOpacity = useRef(new Animated.Value(0)).current;
 
@@ -370,111 +344,12 @@ export const ActivityMapView = memo(function ActivityMapView({
   // Track if user manually overrode the style
   const [userOverride, setUserOverride] = useState(false);
 
-  // iOS simulator tile loading retry mechanism
-  const [mapKey, setMapKey] = useState(0);
-  const retryCountRef = useRef(0);
-  const MAX_RETRIES = 3;
-  const RETRY_DELAY_MS = 1000;
-
-  // Track when map is ready to receive camera commands
-  const [mapReady, setMapReady] = useState(false);
+  // Track touch start for iOS tap detection (MapView.onPress doesn't fire on iOS with Fabric)
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   // DEBUG: Track render count
   const renderCountRef = useRef(0);
   renderCountRef.current += 1;
-
-  const handleMapLoadError = useCallback(() => {
-    if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
-      retryCountRef.current += 1;
-      console.log(
-        `[ActivityMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
-      );
-      setMapReady(false); // Reset ready state before retry
-      setTimeout(() => {
-        setMapKey((k) => k + 1);
-      }, RETRY_DELAY_MS * retryCountRef.current);
-    }
-  }, []);
-
-  // Track pending initial bounds to apply on map load
-
-  // Handle map finishing loading - now safe to apply camera commands
-  // Also restore camera position if we saved one before style change
-  const handleMapFinishLoading = useCallback(() => {
-    if (__DEV__) {
-      console.log('[ActivityMapView:Camera] handleMapFinishLoading called', {
-        hasPendingRestore: !!pendingCameraRestoreRef.current,
-        pendingCenter: pendingCameraRestoreRef.current?.center,
-        pendingZoom: pendingCameraRestoreRef.current?.zoom,
-      });
-    }
-    // Restore camera position after style change
-    if (pendingCameraRestoreRef.current) {
-      const { center, zoom } = pendingCameraRestoreRef.current;
-      if (__DEV__) {
-        console.log('[ActivityMapView:Camera] RESTORING position via setCamera', { center, zoom });
-      }
-      cameraRef.current?.setCamera({
-        centerCoordinate: center,
-        zoomLevel: zoom,
-        animationDuration: 0,
-        animationMode: 'moveTo',
-      });
-      pendingCameraRestoreRef.current = null;
-    }
-    // Initial bounds are applied via effect when mapReady becomes true
-    // Small delay to let camera settle before showing map
-    if (__DEV__) {
-      console.log('[ActivityMapView:Camera] Setting mapReady=true in 50ms');
-    }
-    setTimeout(() => setMapReady(true), 50);
-  }, []);
-
-  // Track if we need to restore camera after style change
-  const pendingCameraRestoreRef = useRef<{
-    center: [number, number];
-    zoom: number;
-  } | null>(null);
-
-  // Track if this is the initial mount (used to skip position save on first render)
-  const isInitialMountRef = useRef(true);
-
-  // Reset retry count, map ready state when style changes (map reloads)
-  // Save current camera position to restore after reload (only if we have a position)
-  useEffect(() => {
-    if (__DEV__) {
-      console.log('[ActivityMapView:Camera] Style/Key change effect', {
-        mapStyle,
-        mapKey,
-        isInitialMount: isInitialMountRef.current,
-        currentCenter: currentCenterRef.current,
-        currentZoom: currentZoomRef.current,
-      });
-    }
-    retryCountRef.current = 0;
-
-    // On style change (not initial mount), save current position for restoration
-    // This preserves user's zoom/pan when switching map styles
-    if (!isInitialMountRef.current && currentCenterRef.current && currentZoomRef.current) {
-      pendingCameraRestoreRef.current = {
-        center: currentCenterRef.current,
-        zoom: currentZoomRef.current,
-      };
-      if (__DEV__) {
-        console.log(
-          '[ActivityMapView:Camera] Saved position for restore',
-          pendingCameraRestoreRef.current
-        );
-      }
-    }
-
-    // Mark initial mount as done after first effect run
-    isInitialMountRef.current = false;
-    if (__DEV__) {
-      console.log('[ActivityMapView:Camera] Setting mapReady=false');
-    }
-    setMapReady(false);
-  }, [mapStyle, mapKey]);
 
   // Parse and validate coordinates early so they're available for callbacks
   const coordinates = useMemo(() => {
@@ -491,6 +366,53 @@ export const ActivityMapView = memo(function ActivityMapView({
   const validCoordinates = useMemo(() => {
     return coordinates.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
   }, [coordinates]);
+
+  // ----- Camera management (position, bounds, ready state, bearing, location) -----
+  const {
+    cameraRef,
+    mapRef,
+    mapReady,
+    mapKey,
+    bounds,
+    boundsCenter,
+    currentCenterRef,
+    currentZoomRef,
+    bearingAnim,
+    locationLoading,
+    handleMapFinishLoading,
+    handleMapLoadError,
+    handleRegionIsChanging,
+    handleRegionDidChange: handleCameraRegionDidChange,
+    resetOrientation,
+    handleGetLocation,
+  } = useMapCamera({
+    validCoordinates,
+    mapStyle,
+    is3DMode,
+    is3DReady,
+    map3DRef,
+  });
+
+  // ----- Layer GeoJSON preparation -----
+  const {
+    routeGeoJSON,
+    routeHasData,
+    overlayGeoJSON,
+    overlayHasData,
+    sectionOverlaysGeoJSON,
+    consolidatedSectionsGeoJSON,
+    consolidatedPortionsGeoJSON,
+    sectionMarkerElements,
+    routeCoords,
+    highlightPoint,
+    highlightGeoJSON,
+  } = useMapLayers({
+    validCoordinates,
+    coordinates,
+    routeOverlay,
+    sectionOverlays,
+    highlightIndex,
+  });
 
   // Section creation hook
   const {
@@ -585,35 +507,6 @@ export const ActivityMapView = memo(function ActivityMapView({
     }).start();
   }, [map3DOpacity]);
 
-  // Get user location and refocus camera
-  const handleGetLocation = useCallback(async () => {
-    try {
-      setLocationLoading(true);
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setLocationLoading(false);
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
-      setLocationLoading(false);
-
-      cameraRef.current?.setCamera({
-        centerCoordinate: coords,
-        zoomLevel: 14,
-        animationDuration: 500,
-      });
-    } catch {
-      setLocationLoading(false);
-      // Silently fail
-    }
-  }, []);
-
   const openFullscreen = useCallback(() => {
     if (enableFullscreen) {
       setIsFullscreen(true);
@@ -672,19 +565,15 @@ export const ActivityMapView = memo(function ActivityMapView({
         // Silently fail - tap handling is best effort
       }
     },
-    [handleMapPress]
+    [handleMapPress, mapRef]
   );
-
-  // Compass bearing state
-  const bearingAnim = useRef(new Animated.Value(0)).current;
 
   // Stop in-flight animations on unmount to prevent updates on unmounted component
   useEffect(() => {
     return () => {
       map3DOpacity.stopAnimation();
-      bearingAnim.stopAnimation();
     };
-  }, [map3DOpacity, bearingAnim]);
+  }, [map3DOpacity]);
 
   // Handle 3D map bearing changes (for compass sync)
   const handleBearingChange = useCallback(
@@ -694,396 +583,12 @@ export const ActivityMapView = memo(function ActivityMapView({
     [bearingAnim]
   );
 
-  // Handle map region change to update compass
-  const handleRegionIsChanging = useCallback(
-    (feature: GeoJSON.Feature) => {
-      const properties = feature.properties as { heading?: number } | undefined;
-      if (properties?.heading !== undefined) {
-        bearingAnim.setValue(-properties.heading);
-      }
-    },
-    [bearingAnim]
-  );
-
-  // Camera ref for programmatic control
-  const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
-
-  // Map ref for getCoordinateFromView (iOS tap handling)
-  const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
-
-  // Track touch start for iOS tap detection (MapView.onPress doesn't fire on iOS with Fabric)
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
-
-  // Reset bearing to north
-  const resetOrientation = useCallback(() => {
-    if (is3DMode && is3DReady) {
-      map3DRef.current?.resetOrientation();
-    } else {
-      cameraRef.current?.setCamera({
-        heading: 0,
-        animationDuration: 300,
-      });
-    }
-    Animated.timing(bearingAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [bearingAnim, is3DMode, is3DReady]);
-
-  const bounds = useMemo(() => getMapLibreBounds(validCoordinates), [validCoordinates]);
-
-  // Track if initial camera position has been applied (prevents re-centering on re-renders)
-  // This is the key to preventing the camera from snapping back when entering creation mode
-  const initialCameraAppliedRef = useRef(false);
-
-  // DEBUG: Log render with key state
-  if (__DEV__) {
-    console.log('[ActivityMapView] RENDER #' + renderCountRef.current, {
-      mapReady,
-      creationMode,
-      creationState,
-      startIndex,
-      endIndex,
-      mapKey,
-      mapStyle,
-      coordCount: validCoordinates.length,
-      initialCameraApplied: initialCameraAppliedRef.current,
-    });
-  }
-
-  // Apply initial bounds ONCE via imperative setCamera - no declarative props
-  // This avoids MapLibre's re-render behavior that can reset camera position
-  useEffect(() => {
-    if (__DEV__) {
-      console.log('[ActivityMapView:Camera] Initial bounds effect check', {
-        alreadyApplied: initialCameraAppliedRef.current,
-        mapReady,
-        hasBounds: !!bounds,
-        hasCameraRef: !!cameraRef.current,
-      });
-    }
-    if (initialCameraAppliedRef.current) {
-      if (__DEV__) {
-        console.log('[ActivityMapView:Camera] Skipping - already applied');
-      }
-      return;
-    }
-    if (mapReady && bounds && cameraRef.current) {
-      if (__DEV__) {
-        console.log('[ActivityMapView:Camera] APPLYING initial bounds via setCamera', bounds);
-      }
-      cameraRef.current.setCamera({
-        bounds: { ne: bounds.ne, sw: bounds.sw },
-        padding: {
-          paddingTop: 50,
-          paddingRight: 50,
-          paddingBottom: 50,
-          paddingLeft: 50,
-        },
-        animationDuration: 0,
-        animationMode: 'moveTo',
-      });
-      initialCameraAppliedRef.current = true;
-    }
-  }, [mapReady, bounds]);
-
-  // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
-  // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
-  // CRITICAL: Always return valid GeoJSON to avoid add/remove cycles that crash iOS MapLibre
-  const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    if (validCoordinates.length < 2) {
-      if (__DEV__) {
-        console.warn(
-          `[ActivityMapView] routeGeoJSON: insufficient coordinates (${validCoordinates.length})`
-        );
-      }
-      return { type: 'FeatureCollection' as const, features: [] };
-    }
-    return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: validCoordinates.map((c) => [c.longitude, c.latitude]),
-      },
-    };
-  }, [validCoordinates]);
-
-  const routeHasData =
-    routeGeoJSON.type === 'Feature' ||
-    (routeGeoJSON.type === 'FeatureCollection' && routeGeoJSON.features.length > 0);
-
-  // Route overlay GeoJSON (for showing matched route trace)
-  // CRITICAL: Always return a valid GeoJSON to avoid add/remove cycles that crash iOS MapLibre
-  // When there's no data, return an empty FeatureCollection instead of null
-  const overlayGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    if (!routeOverlay || routeOverlay.length < 2) {
-      return { type: 'FeatureCollection' as const, features: [] };
-    }
-    const validOverlay = routeOverlay.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
-    if (validOverlay.length < 2) {
-      return { type: 'FeatureCollection' as const, features: [] };
-    }
-    return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: validOverlay.map((c) => [c.longitude, c.latitude]),
-      },
-    };
-  }, [routeOverlay]);
-
-  // Helper to check if overlay has data (for logging)
-  const overlayHasData =
-    overlayGeoJSON.type === 'Feature' ||
-    (overlayGeoJSON.type === 'FeatureCollection' && overlayGeoJSON.features.length > 0);
-
-  // Section overlays GeoJSON (for showing all matched sections)
-  // CRITICAL: Returns both sectionOverlaysGeoJSON (for markers) and consolidated GeoJSONs (for rendering)
-  // The consolidated GeoJSONs always have valid geometry to prevent Fabric add/remove crashes
-  const { sectionOverlaysGeoJSON, consolidatedSectionsGeoJSON, consolidatedPortionsGeoJSON } =
-    useMemo(() => {
-      // Minimal valid geometry for when there are no overlays
-      const minimalLine: GeoJSON.FeatureCollection = {
-        type: 'FeatureCollection',
-        features: [
-          {
-            type: 'Feature',
-            properties: { _placeholder: true },
-            geometry: {
-              type: 'LineString',
-              coordinates: [
-                [0, 0],
-                [0, 0.0001],
-              ],
-            },
-          },
-        ],
-      };
-
-      if (!sectionOverlays || sectionOverlays.length === 0) {
-        return {
-          sectionOverlaysGeoJSON: null,
-          consolidatedSectionsGeoJSON: minimalLine,
-          consolidatedPortionsGeoJSON: minimalLine,
-        };
-      }
-
-      let skippedSections = 0;
-      let skippedPortions = 0;
-      const sectionFeatures: GeoJSON.Feature[] = [];
-      const portionFeatures: GeoJSON.Feature[] = [];
-      const overlayData: Array<{
-        id: string;
-        sectionGeo: GeoJSON.Feature | null;
-        portionGeo: GeoJSON.Feature | null;
-      }> = [];
-
-      sectionOverlays.forEach((overlay) => {
-        // Build section polyline GeoJSON - also filter Infinity values
-        const validSectionPoints = overlay.sectionPolyline.filter(
-          (c) =>
-            Number.isFinite(c.latitude) &&
-            Number.isFinite(c.longitude) &&
-            !isNaN(c.latitude) &&
-            !isNaN(c.longitude)
-        );
-
-        let sectionGeo: GeoJSON.Feature | null = null;
-        if (validSectionPoints.length >= 2) {
-          sectionGeo = {
-            type: 'Feature',
-            properties: { id: overlay.id, type: 'section' },
-            geometry: {
-              type: 'LineString',
-              coordinates: validSectionPoints.map((c) => [c.longitude, c.latitude]),
-            },
-          };
-          sectionFeatures.push(sectionGeo);
-        } else if (overlay.sectionPolyline.length > 0) {
-          skippedSections++;
-          if (__DEV__) {
-            console.warn(
-              `[ActivityMapView] INVALID SECTION OVERLAY: id=${overlay.id} originalPoints=${overlay.sectionPolyline.length} validPoints=${validSectionPoints.length}`
-            );
-          }
-        }
-
-        // Build activity portion GeoJSON - also filter Infinity values
-        const validPortionPoints = overlay.activityPortion?.filter(
-          (c) =>
-            Number.isFinite(c.latitude) &&
-            Number.isFinite(c.longitude) &&
-            !isNaN(c.latitude) &&
-            !isNaN(c.longitude)
-        );
-
-        let portionGeo: GeoJSON.Feature | null = null;
-        if (validPortionPoints && validPortionPoints.length >= 2) {
-          portionGeo = {
-            type: 'Feature',
-            properties: { id: overlay.id, type: 'portion' },
-            geometry: {
-              type: 'LineString',
-              coordinates: validPortionPoints.map((c) => [c.longitude, c.latitude]),
-            },
-          };
-          portionFeatures.push(portionGeo);
-        } else if (overlay.activityPortion && overlay.activityPortion.length > 0) {
-          skippedPortions++;
-          if (__DEV__) {
-            console.warn(
-              `[ActivityMapView] INVALID PORTION OVERLAY: id=${overlay.id} originalPoints=${overlay.activityPortion.length} validPoints=${validPortionPoints?.length ?? 0}`
-            );
-          }
-        }
-
-        // iOS CRASH FIX: Always push to maintain stable child count
-        // MapLibre Fabric crashes when child count changes between renders
-        // Rendering handles invalid markers with opacity: 0
-        overlayData.push({ id: overlay.id, sectionGeo, portionGeo });
-      });
-
-      if (__DEV__ && (skippedSections > 0 || skippedPortions > 0)) {
-        console.warn(
-          `[ActivityMapView] sectionOverlaysGeoJSON: skipped ${skippedSections} sections, ${skippedPortions} portions with invalid polylines`
-        );
-      }
-
-      return {
-        sectionOverlaysGeoJSON: overlayData.length > 0 ? overlayData : null,
-        consolidatedSectionsGeoJSON:
-          sectionFeatures.length > 0
-            ? { type: 'FeatureCollection' as const, features: sectionFeatures }
-            : minimalLine,
-        consolidatedPortionsGeoJSON:
-          portionFeatures.length > 0
-            ? { type: 'FeatureCollection' as const, features: portionFeatures }
-            : minimalLine,
-      };
-    }, [sectionOverlays]);
-
-  // IMPORTANT: Memoize section markers so they are completely stable across re-renders.
-  // MapLibre MarkerView has a bug where ANY child re-render (even identical output)
-  // can permanently break the native position binding, snapping markers to screen (0,0).
-  // By memoizing with only sectionOverlaysGeoJSON as dependency, highlight state changes
-  // won't create new element references, so React skips native updates entirely.
-  const sectionMarkerElements = useMemo(() => {
-    if (!sectionOverlaysGeoJSON) return null;
-    return sectionOverlaysGeoJSON.map((overlay, index) => {
-      const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
-      const portionGeom = overlay.portionGeo?.geometry as GeoJSON.LineString | undefined;
-      const coords = sectionGeom?.coordinates || portionGeom?.coordinates;
-      const hasValidCoords = coords && coords.length >= 2;
-
-      let markerLng = 0;
-      let markerLat = 0;
-      let hasValidMarkerPosition = false;
-
-      if (hasValidCoords) {
-        const midIndex = Math.floor(coords.length / 2);
-        const midCoord = coords[midIndex];
-        if (
-          midCoord &&
-          typeof midCoord[0] === 'number' &&
-          typeof midCoord[1] === 'number' &&
-          Number.isFinite(midCoord[0]) &&
-          Number.isFinite(midCoord[1])
-        ) {
-          const prevIndex = Math.max(0, midIndex - 1);
-          const nextIndex = Math.min(coords.length - 1, midIndex + 1);
-          const prevCoord = coords[prevIndex];
-          const nextCoord = coords[nextIndex];
-
-          const dx = nextCoord[0] - prevCoord[0];
-          const dy = nextCoord[1] - prevCoord[1];
-          const len = Math.sqrt(dx * dx + dy * dy);
-
-          const offsetDistance = 0.00035; // ~35 meters at equator
-          const offsetLng = len > 0 ? (-dy / len) * offsetDistance : 0;
-          const offsetLat = len > 0 ? (dx / len) * offsetDistance : 0;
-
-          markerLng = midCoord[0] + offsetLng;
-          markerLat = midCoord[1] + offsetLat;
-          hasValidMarkerPosition = Number.isFinite(markerLng) && Number.isFinite(markerLat);
-        }
-      }
-
-      const sectionStyle = getSectionStyle(index);
-
-      return (
-        <MarkerView
-          key={`sectionMarker-${overlay.id}`}
-          coordinate={[markerLng, markerLat]}
-          anchor={{ x: 0.5, y: 0.5 }}
-        >
-          {hasValidMarkerPosition ? (
-            <View style={[styles.sectionNumberMarker, { borderColor: sectionStyle.color }]}>
-              <Text style={styles.sectionNumberText}>{index + 1}</Text>
-            </View>
-          ) : (
-            <View />
-          )}
-        </MarkerView>
-      );
-    });
-  }, [sectionOverlaysGeoJSON]);
-
-  // Route coordinates for BaseMapView/Map3DWebView [lng, lat] format
-  const routeCoords = useMemo(() => {
-    return validCoordinates.map((c) => [c.longitude, c.latitude] as [number, number]);
-  }, [validCoordinates]);
-
   const activityColor = getActivityColor(activityType);
   const startPoint = validCoordinates[0];
   const endPoint = validCoordinates[validCoordinates.length - 1];
 
-  // Get the highlighted point from elevation chart selection
-  const highlightPoint = useMemo(() => {
-    if (highlightIndex != null && highlightIndex >= 0 && highlightIndex < coordinates.length) {
-      const coord = coordinates[highlightIndex];
-      if (coord && !isNaN(coord.latitude) && !isNaN(coord.longitude)) {
-        return coord;
-      }
-    }
-    return null;
-  }, [highlightIndex, coordinates]);
-
-  // GeoJSON for highlight point — ShapeSource + CircleLayer instead of MarkerView
-  // because MarkerView coordinate updates break the native position binding
-  const highlightGeoJSON = useMemo(
-    (): GeoJSON.Feature<GeoJSON.Point> => ({
-      type: 'Feature',
-      properties: {},
-      geometry: {
-        type: 'Point',
-        coordinates: highlightPoint ? [highlightPoint.longitude, highlightPoint.latitude] : [0, 0],
-      },
-    }),
-    [highlightPoint]
-  );
-
   const mapStyleValue = getMapStyle(mapStyle);
   const isDark = isDarkStyle(mapStyle);
-
-  // Track current map viewport for dynamic attribution using refs to avoid re-renders during gestures
-  // Initialize center from bounds if available (prevents camera jump on first render)
-  const boundsCenter = useMemo((): [number, number] | null => {
-    if (!bounds) return null;
-    const centerLng = (bounds.ne[0] + bounds.sw[0]) / 2;
-    const centerLat = (bounds.ne[1] + bounds.sw[1]) / 2;
-    return [centerLng, centerLat];
-  }, [bounds]);
-
-  const currentCenterRef = useRef<[number, number] | null>(boundsCenter);
-  const currentZoomRef = useRef(14); // Start at reasonable zoom, will be updated by onRegionDidChange
-
-  // Update ref initial value if bounds becomes available after mount
-  if (boundsCenter && !currentCenterRef.current) {
-    currentCenterRef.current = boundsCenter;
-  }
 
   // DEBUG: Log camera ref values
   if (__DEV__) {
@@ -1093,6 +598,8 @@ export const ActivityMapView = memo(function ActivityMapView({
       boundsCenter,
     });
   }
+
+  // ----- Attribution management -----
   const attributionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Ref to update attribution without causing parent re-render
   const attributionRef = useRef<AttributionOverlayRef>(null);
@@ -1122,41 +629,13 @@ export const ActivityMapView = memo(function ActivityMapView({
     }
     const baseAttribution = MAP_ATTRIBUTIONS[style];
     return is3D ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
-  }, []);
+  }, [currentCenterRef, currentZoomRef]);
 
-  // Handle region change end - update refs only, debounce attribution callback
+  // Compose camera region-did-change with attribution debounce
   const handleRegionDidChange = useCallback(
     (feature: GeoJSON.Feature) => {
-      const properties = feature.properties as
-        | {
-            zoomLevel?: number;
-            visibleBounds?: [[number, number], [number, number]];
-          }
-        | undefined;
-      const { zoomLevel, visibleBounds } = properties ?? {};
-
-      if (zoomLevel !== undefined) {
-        currentZoomRef.current = zoomLevel;
-      }
-
-      // v10: center is from feature.geometry.coordinates [lng, lat]
-      // v10: visibleBounds is [[swLng, swLat], [neLng, neLat]]
-      if (feature.geometry?.type === 'Point') {
-        currentCenterRef.current = feature.geometry.coordinates as [number, number];
-      } else if (visibleBounds) {
-        const [[swLng, swLat], [neLng, neLat]] = visibleBounds;
-        const centerLng = (swLng + neLng) / 2;
-        const centerLat = (swLat + neLat) / 2;
-        currentCenterRef.current = [centerLng, centerLat];
-      }
-
-      // DEBUG: Log significant zoom changes (to track camera resets)
-      if (__DEV__ && zoomLevel !== undefined) {
-        console.log('[ActivityMapView:Camera] onRegionDidChange', {
-          zoomLevel: zoomLevel.toFixed(2),
-          center: currentCenterRef.current,
-        });
-      }
+      // Delegate viewport tracking to camera hook
+      handleCameraRegionDidChange(feature);
 
       // Debounce attribution update to avoid interfering with map gestures
       if (attributionTimeoutRef.current) {
@@ -1170,7 +649,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         onAttributionChangeRef.current?.(newAttribution);
       }, 300);
     },
-    [computeAttributionFromRefs]
+    [handleCameraRegionDidChange, computeAttributionFromRefs]
   );
 
   // Update attribution when mapStyle or is3DMode changes (immediate, not debounced)
@@ -1194,6 +673,20 @@ export const ActivityMapView = memo(function ActivityMapView({
       }
     };
   }, []);
+
+  // DEBUG: Log render with key state
+  if (__DEV__) {
+    console.log('[ActivityMapView] RENDER #' + renderCountRef.current, {
+      mapReady,
+      creationMode,
+      creationState,
+      startIndex,
+      endIndex,
+      mapKey,
+      mapStyle,
+      coordCount: validCoordinates.length,
+    });
+  }
 
   if (!bounds || validCoordinates.length === 0) {
     return (

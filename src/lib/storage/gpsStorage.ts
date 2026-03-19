@@ -238,6 +238,61 @@ export async function clearAllGpsTracks(): Promise<void> {
 }
 
 /**
+ * Delete a single GPS track file and remove it from the index.
+ */
+export async function deleteGpsTrack(activityId: string): Promise<void> {
+  try {
+    const path = getGpsPath(activityId);
+    await FileSystem.deleteAsync(path, { idempotent: true });
+    await removeFromGpsIndex([activityId]);
+    log.log(`Deleted GPS track for ${activityId}`);
+  } catch {
+    // Best effort cleanup
+  }
+}
+
+/**
+ * Delete multiple GPS track files and remove them from the index.
+ */
+export async function deleteGpsTracks(activityIds: string[]): Promise<void> {
+  if (activityIds.length === 0) return;
+
+  const results = await Promise.allSettled(
+    activityIds.map((id) => FileSystem.deleteAsync(getGpsPath(id), { idempotent: true }))
+  );
+
+  const failedCount = results.filter((r) => r.status === 'rejected').length;
+  if (failedCount > 0) {
+    log.log(`Warning: ${failedCount}/${activityIds.length} GPS track deletes failed`);
+  }
+
+  await removeFromGpsIndex(activityIds);
+  log.log(`Deleted ${activityIds.length - failedCount} GPS tracks`);
+}
+
+/**
+ * Remove activity IDs from the GPS index
+ */
+async function removeFromGpsIndex(idsToRemove: string[]): Promise<void> {
+  try {
+    const indexInfo = await FileSystem.getInfoAsync(GPS_INDEX_FILE);
+    if (!indexInfo.exists) return;
+
+    const indexStr = await FileSystem.readAsStringAsync(GPS_INDEX_FILE);
+    const defaultIndex: GpsIndex = { activityIds: [], lastUpdated: '' };
+    const index = safeJsonParseWithSchema(indexStr, isGpsIndex, defaultIndex);
+
+    const removeSet = new Set(idsToRemove);
+    index.activityIds = index.activityIds.filter((id) => !removeSet.has(id));
+    index.lastUpdated = new Date().toISOString();
+
+    await FileSystem.writeAsStringAsync(GPS_INDEX_FILE, JSON.stringify(index));
+  } catch {
+    // Index is optional, don't fail on error
+  }
+}
+
+/**
  * Get all cached activity IDs from the GPS index
  */
 export async function getCachedActivityIds(): Promise<string[]> {

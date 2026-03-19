@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, LayoutChangeEvent } from 'react-native';
-import { Switch } from 'react-native-paper';
+import { View, Text, StyleSheet, Alert, LayoutChangeEvent } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, Href } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import {
   useActivityBoundsCache,
@@ -18,8 +15,7 @@ import {
   useImportBackup,
   useBulkExport,
 } from '@/hooks';
-import { TimelineSlider } from '@/components/maps';
-import { formatLocalDate, formatFullDate, formatFileSize } from '@/lib';
+import { formatLocalDate, formatFullDate } from '@/lib';
 import { estimateRoutesDatabaseSize } from '@/lib';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import { useTileCacheStore } from '@/providers/TileCacheStore';
@@ -35,128 +31,13 @@ import {
 } from '@/lib/storage/terrainPreviewCache';
 import * as TileCacheService from '@/lib/maps/tileCacheService';
 import { colors, darkColors, spacing, layout } from '@/theme';
+import { CacheManagementPanel } from './CacheManagementPanel';
+import { StorageStatsPanel } from './StorageStatsPanel';
+import { TileCachePanel } from './TileCachePanel';
 
 function formatDateOrDash(dateStr: string | null): string {
   if (!dateStr) return '-';
   return formatFullDate(dateStr);
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-interface StorageBarSegment {
-  label: string;
-  bytes: number;
-  color: string;
-}
-
-function StorageBreakdownBar({
-  routesSize,
-  nativeSizeEstimate,
-  tileCacheStats,
-  terrainCacheSize,
-  freeStorage,
-  isDark,
-}: {
-  routesSize: number;
-  nativeSizeEstimate: number;
-  tileCacheStats: TileCacheStats | null;
-  terrainCacheSize: number;
-  freeStorage: number | null;
-  isDark: boolean;
-}) {
-  const segments = useMemo<StorageBarSegment[]>(() => {
-    const result: StorageBarSegment[] = [];
-    if (routesSize > 0) {
-      result.push({ label: 'Database', bytes: routesSize, color: colors.primary });
-    }
-    if (nativeSizeEstimate > 0) {
-      result.push({ label: 'Map packs', bytes: nativeSizeEstimate, color: colors.chartBlue });
-    }
-    if (tileCacheStats?.satellite?.totalBytes) {
-      result.push({
-        label: 'Satellite',
-        bytes: tileCacheStats.satellite.totalBytes,
-        color: colors.chartPurple,
-      });
-    }
-    if (tileCacheStats?.terrain?.totalBytes) {
-      result.push({
-        label: 'Terrain',
-        bytes: tileCacheStats.terrain.totalBytes,
-        color: colors.chartGreen,
-      });
-    }
-    if (tileCacheStats?.vector?.totalBytes) {
-      result.push({
-        label: 'Vector',
-        bytes: tileCacheStats.vector.totalBytes,
-        color: colors.chartCyan,
-      });
-    }
-    if (terrainCacheSize > 0) {
-      result.push({ label: '3D previews', bytes: terrainCacheSize, color: colors.chartYellow });
-    }
-    return result;
-  }, [routesSize, nativeSizeEstimate, tileCacheStats, terrainCacheSize]);
-
-  const totalCacheBytes = segments.reduce((sum, s) => sum + s.bytes, 0);
-
-  if (totalCacheBytes === 0) return null;
-
-  const freeColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
-  const totalDevice = freeStorage !== null ? totalCacheBytes + freeStorage : 0;
-  const deviceUsagePct = totalDevice > 0 ? (totalCacheBytes / totalDevice) * 100 : 0;
-
-  return (
-    <View style={styles.storageBarContainer}>
-      <View style={styles.storageBar}>
-        {segments.map((seg) => {
-          const pct = totalCacheBytes > 0 ? (seg.bytes / totalCacheBytes) * 100 : 0;
-          if (pct < 0.5) return null;
-          return (
-            <View
-              key={seg.label}
-              style={[styles.storageBarSegment, { width: `${pct}%`, backgroundColor: seg.color }]}
-            />
-          );
-        })}
-      </View>
-      <View style={styles.storageLegend}>
-        {segments.map((seg) => (
-          <View key={seg.label} style={styles.storageLegendItem}>
-            <View style={[styles.storageLegendDot, { backgroundColor: seg.color }]} />
-            <Text style={[styles.storageLegendText, isDark && styles.textMuted]}>
-              {seg.label} {formatBytes(seg.bytes)}
-            </Text>
-          </View>
-        ))}
-      </View>
-      {freeStorage !== null && (
-        <>
-          <View style={styles.deviceUsageBar}>
-            <View
-              style={[
-                styles.deviceUsageBarFill,
-                {
-                  width: `${Math.max(deviceUsagePct, 2)}%`,
-                  backgroundColor: colors.chartBlue,
-                },
-              ]}
-            />
-            <View style={[styles.deviceUsageBarFree, { backgroundColor: freeColor }]} />
-          </View>
-          <Text style={[styles.storageLegendText, { marginTop: 2 }, isDark && styles.textMuted]}>
-            {formatBytes(totalCacheBytes)} of {formatBytes(totalDevice)} used
-          </Text>
-        </>
-      )}
-    </View>
-  );
 }
 
 interface DataCacheSectionProps {
@@ -180,11 +61,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   const resetSyncDateRange = useSyncDateRange((s) => s.reset);
 
   // Route matching
-  const {
-    isProcessing: isRouteProcessing,
-    clearCache: clearRouteCache,
-    cancel: cancelRouteProcessing,
-  } = useRouteProcessing();
+  const { isProcessing: isRouteProcessing, cancel: cancelRouteProcessing } = useRouteProcessing();
   const { groups: routeGroups, processedCount: routeProcessedCount } = useRouteGroups({
     minActivities: 2,
   });
@@ -204,7 +81,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   } = useBulkExport();
 
   // Map tile cache stats
-  const { nativePackCount, nativeSizeEstimate } = useTileCacheStore();
+  const { nativeSizeEstimate } = useTileCacheStore();
   const [terrainCacheSize, setTerrainCacheSize] = useState(0);
   const [tileCacheStats, setTileCacheStats] = useState<TileCacheStats | null>(null);
   const [freeStorage, setFreeStorage] = useState<number | null>(null);
@@ -233,13 +110,13 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
 
   const totalMapCache = nativeSizeEstimate + terrainCacheSize + (tileCacheStats?.totalBytes ?? 0);
 
-  const handleClearMapCache = async () => {
+  const handleClearMapCache = useCallback(async () => {
     await clearTerrainPreviews();
     await TileCacheService.clearAllPacks();
     emitClearTileCache();
     setTerrainCacheSize(0);
     setTileCacheStats(null);
-  };
+  }, []);
 
   // Memoized date range text for cache stats (prevents Date parsing on every render)
   const dateRangeText = useMemo(() => {
@@ -346,7 +223,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     refreshCacheSizes();
   }, [refreshCacheSizes, cacheStats.totalActivities, routeProcessedCount]);
 
-  const handleClearCache = () => {
+  const handleClearCache = useCallback(() => {
     Alert.alert(t('alerts.clearCacheTitle'), t('alerts.clearCacheMessage'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
@@ -368,7 +245,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
 
             // 4. Clear GPS/bounds cache and route cache BEFORE removing queries
             // This ensures the engine is empty before any new queries start
-            // Note: clearCache() already calls engine.clear(), so don't call clearRouteCache()
+            // Note: clearCache() already calls engine.clear(), so don't call route clearCache
             // as that would emit a second 'syncReset' event and trigger duplicate syncs
             await clearCache();
             await clearTerrainPreviews();
@@ -402,26 +279,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
         },
       },
     ]);
-  };
-
-  const handleClearRouteCache = () => {
-    Alert.alert(t('alerts.clearRouteCacheTitle'), t('alerts.clearRouteCacheMessage'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('alerts.clearReload'),
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await clearRouteCache();
-            // Cache cleared via Rust engine
-            refreshCacheSizes();
-          } catch {
-            Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
-          }
-        },
-      },
-    ]);
-  };
+  }, [t, queryClient, resetSyncDateRange, clearCache, refreshCacheSizes]);
 
   return (
     <>
@@ -432,303 +290,59 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
         </Text>
       </View>
       <View style={[styles.section, isDark && styles.sectionDark]}>
-        {/* Timeline Slider for date range selection - simplified for settings */}
-        {/* fixedEnd: right handle locked at "now", expandOnly: left handle can only move left */}
-        {/* Sync progress is shown via global CacheLoadingBanner at top of screen */}
-        <TimelineSlider
+        <CacheManagementPanel
+          isDark={isDark}
+          isDemoMode={isDemoMode}
           minDate={minDateForSlider}
           maxDate={maxDateForSlider}
           startDate={cachedStartDate}
           endDate={cachedEndDate}
           onRangeChange={handleRangeChange}
-          isLoading={isSyncing}
+          isSyncing={isSyncing}
           activityCount={cacheStats.totalActivities}
-          cachedOldest={null}
-          cachedNewest={null}
-          isDark={isDark}
-          showActivityFilter={false}
-          showCachedRange={false}
-          showLegend={false}
-          showSyncBanner={false}
-          fixedEnd={true}
-          expandOnly={true}
+          routeMatchingEnabled={routeSettings.enabled}
+          isRouteProcessing={isRouteProcessing}
+          onCancelRouteProcessing={cancelRouteProcessing}
+          onClearCache={handleClearCache}
+          onExportBackup={exportBackup}
+          backupExporting={backupExporting}
+          onImportBackup={importBackup}
+          backupImporting={backupImporting}
+          onBulkExport={exportAll}
+          bulkExporting={bulkExporting}
+          bulkPhase={bulkPhase}
+          bulkCurrent={bulkCurrent}
+          bulkTotal={bulkTotal}
+          bulkSizeBytes={bulkSizeBytes}
+          totalActivities={cacheStats.totalActivities}
         />
 
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
-
-        {routeSettings.enabled && isRouteProcessing && (
-          <>
-            <TouchableOpacity style={styles.actionRow} onPress={cancelRouteProcessing}>
-              <MaterialCommunityIcons
-                name="pause-circle-outline"
-                size={22}
-                color={colors.warning}
-              />
-              <Text style={[styles.actionText, isDark && styles.textLight]}>
-                {t('settings.pauseRouteProcessing')}
-              </Text>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={20}
-                color={isDark ? darkColors.textMuted : colors.textSecondary}
-              />
-            </TouchableOpacity>
-            <View style={[styles.divider, isDark && styles.dividerDark]} />
-          </>
-        )}
-
-        <TouchableOpacity
-          testID="settings-clear-cache"
-          style={[styles.actionRow, isDemoMode && styles.actionRowDisabled]}
-          onPress={isDemoMode ? undefined : handleClearCache}
-          disabled={isDemoMode}
-          activeOpacity={isDemoMode ? 1 : 0.2}
-        >
-          <MaterialCommunityIcons
-            name="delete-outline"
-            size={22}
-            color={isDemoMode ? colors.textSecondary : colors.error}
-          />
-          <Text
-            style={[
-              styles.actionText,
-              isDemoMode ? styles.actionTextDisabled : styles.actionTextDanger,
-            ]}
-          >
-            {t('settings.clearAllReload')}
-          </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textSecondary}
-          />
-        </TouchableOpacity>
-
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
-
-        {/* Backup & Restore */}
-        <TouchableOpacity
-          style={styles.actionRow}
-          onPress={exportBackup}
-          disabled={backupExporting}
-          activeOpacity={0.2}
-        >
-          <MaterialCommunityIcons name="cloud-upload-outline" size={22} color={colors.primary} />
-          <Text style={[styles.actionText, isDark && styles.textLight]}>
-            {backupExporting ? t('backup.exporting') : t('backup.exportBackup')}
-          </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textSecondary}
-          />
-        </TouchableOpacity>
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
-        <TouchableOpacity
-          style={styles.actionRow}
-          onPress={importBackup}
-          disabled={backupImporting}
-          activeOpacity={0.2}
-        >
-          <MaterialCommunityIcons name="cloud-download-outline" size={22} color={colors.primary} />
-          <Text style={[styles.actionText, isDark && styles.textLight]}>
-            {backupImporting ? t('backup.importing') : t('backup.importBackup')}
-          </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textSecondary}
-          />
-        </TouchableOpacity>
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
-        <TouchableOpacity
-          style={styles.actionRow}
-          onPress={exportAll}
-          disabled={bulkExporting}
-          activeOpacity={0.2}
-        >
-          <MaterialCommunityIcons name="zip-box-outline" size={22} color={colors.primary} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.actionText, isDark && styles.textLight]}>
-              {bulkExporting
-                ? bulkPhase === 'compressing'
-                  ? t('export.bulkCompressing')
-                  : bulkPhase === 'sharing'
-                    ? t('export.bulkSharing')
-                    : t('export.bulkExporting', { current: bulkCurrent, total: bulkTotal })
-                : t('export.bulkExport', { count: cacheStats.totalActivities })}
-            </Text>
-            {bulkExporting && (
-              <>
-                <View
-                  style={[styles.progressBarContainer, isDark && styles.progressBarContainerDark]}
-                >
-                  <View
-                    style={[
-                      styles.progressBar,
-                      {
-                        width:
-                          bulkTotal > 0 ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%` : '0%',
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={[styles.progressDetail, isDark && styles.textMuted]}>
-                  {bulkTotal > 0 ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%` : '0%'}
-                  {bulkSizeBytes > 0 && ` · ${formatFileSize(bulkSizeBytes)}`}
-                </Text>
-              </>
-            )}
-          </View>
-          {!bulkExporting && (
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={20}
-              color={isDark ? darkColors.textMuted : colors.textSecondary}
-            />
-          )}
-        </TouchableOpacity>
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
-
-        {/* Cache Stats - inline */}
-        <View style={styles.statRow}>
-          <TouchableOpacity
-            style={styles.statItem}
-            onPress={() => router.push('/map' as Href)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.statValue, isDark && styles.textLight]}>
-              {cacheStats.totalActivities}
-            </Text>
-            <Text style={[styles.statLabel, styles.statLabelClickable]}>
-              {t('settings.activities')} ›
-            </Text>
-          </TouchableOpacity>
-          <View style={styles.statDivider} />
-          <TouchableOpacity
-            style={styles.statItem}
-            onPress={() => router.push('/routes' as Href)}
-            disabled={!routeSettings.enabled}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.statValue, isDark && styles.textLight]}>
-              {routeSettings.enabled ? routeGroups.length : '-'}
-            </Text>
-            <Text
-              style={[
-                styles.statLabel,
-                routeSettings.enabled ? styles.statLabelClickable : isDark && styles.textMuted,
-              ]}
-            >
-              {t('settings.routesCount')} ›
-            </Text>
-          </TouchableOpacity>
-          <View style={styles.statDivider} />
-          <TouchableOpacity
-            style={styles.statItem}
-            onPress={() => router.push('/routes?tab=sections' as Href)}
-            disabled={!routeSettings.enabled}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.statValue, isDark && styles.textLight]}>
-              {routeSettings.enabled ? totalSections : '-'}
-            </Text>
-            <Text
-              style={[
-                styles.statLabel,
-                routeSettings.enabled ? styles.statLabelClickable : isDark && styles.textMuted,
-              ]}
-            >
-              {t('settings.sectionsCount')} ›
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-          <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
-            {t('settings.dateRange')}
-          </Text>
-          <Text style={[styles.infoValue, isDark && styles.textLight]}>{dateRangeText}</Text>
-        </View>
-
-        <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-          <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
-            {t('settings.lastSynced')}
-          </Text>
-          <Text style={[styles.infoValue, isDark && styles.textLight]}>
-            {formatDateOrDash(cacheStats.lastSync)}
-          </Text>
-        </View>
-
-        <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-          <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
-            {t('settings.cachedQueries')}
-          </Text>
-          <Text style={[styles.infoValue, isDark && styles.textLight]}>
-            {queryCacheStats.totalQueries}
-          </Text>
-        </View>
-
-        <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-          <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
-            {t('settings.database')}
-          </Text>
-          <Text style={[styles.infoValue, isDark && styles.textLight]}>
-            {formatFileSize(cacheSizes.routes)}
-          </Text>
-        </View>
-
-        {/* Map tiles cache row with clear button */}
-        <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-          <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
-            {t('settings.mapTiles', { defaultValue: 'Map tiles' })}
-          </Text>
-          <View style={styles.infoValueRow}>
-            <Text style={[styles.infoValue, isDark && styles.textLight]}>
-              {totalMapCache > 0 ? formatFileSize(totalMapCache) : '-'}
-            </Text>
-            {totalMapCache > 0 && (
-              <TouchableOpacity onPress={handleClearMapCache} style={styles.clearInlineButton}>
-                <Text style={styles.clearInlineText}>
-                  {t('settings.clearCache', { defaultValue: 'Clear' })}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {/* Storage breakdown bar */}
-        <StorageBreakdownBar
+        <StorageStatsPanel
+          isDark={isDark}
+          totalActivities={cacheStats.totalActivities}
+          routeGroupCount={routeGroups.length}
+          totalSections={totalSections}
+          routeMatchingEnabled={routeSettings.enabled}
+          dateRangeText={dateRangeText}
+          lastSync={cacheStats.lastSync}
+          totalQueries={queryCacheStats.totalQueries}
+          databaseSize={cacheSizes.routes}
+          totalMapCache={totalMapCache}
+          onClearMapCache={handleClearMapCache}
           routesSize={cacheSizes.routes}
           nativeSizeEstimate={nativeSizeEstimate}
           tileCacheStats={tileCacheStats}
           terrainCacheSize={terrainCacheSize}
           freeStorage={freeStorage}
-          isDark={isDark}
         />
 
         <View style={[styles.divider, isDark && styles.dividerDark]} />
 
-        {/* Route Matching Toggle - moved here from separate section */}
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleInfo}>
-            <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
-              {t('settings.enableRouteMatching')}
-            </Text>
-            <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
-              {t('settings.routeMatchingDescription')}
-            </Text>
-          </View>
-          <Switch
-            value={routeSettings.enabled}
-            onValueChange={setRouteMatchingEnabled}
-            color={colors.primary}
-          />
-        </View>
-
-        <Text style={[styles.infoTextInline, isDark && styles.textMuted]}>
-          {t('settings.cacheHint')}
-        </Text>
+        <TileCachePanel
+          isDark={isDark}
+          routeMatchingEnabled={routeSettings.enabled}
+          onRouteMatchingChange={setRouteMatchingEnabled}
+        />
       </View>
     </>
   );
@@ -753,96 +367,6 @@ const styles = StyleSheet.create({
   sectionDark: {
     backgroundColor: darkColors.surfaceCard,
   },
-  statRow: {
-    flexDirection: 'row',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: colors.border,
-  },
-  statLabelClickable: {
-    fontSize: 12,
-    color: colors.primary,
-    marginTop: 2,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  infoRowDark: {
-    borderTopColor: darkColors.border,
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  actionRowDisabled: {
-    opacity: 0.5,
-  },
-  actionText: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  actionTextDisabled: {
-    color: colors.textSecondary,
-  },
-  actionTextDanger: {
-    color: colors.error,
-  },
-  progressBarContainer: {
-    height: 4,
-    backgroundColor: colors.border,
-    borderRadius: 2,
-    marginTop: 6,
-    overflow: 'hidden',
-  },
-  progressBarContainerDark: {
-    backgroundColor: darkColors.border,
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
-  progressDetail: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
   divider: {
     height: 1,
     backgroundColor: colors.border,
@@ -851,102 +375,7 @@ const styles = StyleSheet.create({
   dividerDark: {
     backgroundColor: darkColors.border,
   },
-  infoTextInline: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    lineHeight: 18,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  toggleInfo: {
-    flex: 1,
-    marginRight: spacing.md,
-  },
-  toggleLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  toggleDescription: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
   textMuted: {
     color: darkColors.textSecondary,
-  },
-  infoValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  clearInlineButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  clearInlineText: {
-    fontSize: 13,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  storageBarContainer: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  storageBar: {
-    flexDirection: 'row',
-    height: 10,
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  storageBarSegment: {
-    height: '100%',
-  },
-  deviceUsageBar: {
-    flexDirection: 'row',
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginTop: spacing.sm,
-  },
-  deviceUsageBarFill: {
-    height: '100%',
-  },
-  deviceUsageBarFree: {
-    flex: 1,
-    height: '100%',
-  },
-  storageLegend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  storageLegendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  storageLegendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  storageLegendText: {
-    fontSize: 11,
-    color: colors.textSecondary,
   },
 });

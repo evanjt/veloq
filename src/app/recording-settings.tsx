@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { navigateTo } from '@/lib';
 import { useRecordingPreferences } from '@/providers/RecordingPreferencesStore';
 import type { DataFieldType } from '@/types';
 
@@ -108,6 +109,7 @@ export default function RecordingSettingsScreen() {
                 {t('recording.settingsAutoPause')}
               </Text>
               <Switch
+                testID="settings-auto-pause"
                 value={autoPauseEnabled}
                 onValueChange={handleToggleAutoPause}
                 trackColor={{ false: '#767577', true: brand.teal + '60' }}
@@ -123,12 +125,17 @@ export default function RecordingSettingsScreen() {
                 {SPORT_THRESHOLDS.map((sport) => {
                   const value = autoPauseThresholds[sport.key] ?? sport.defaultKmh;
                   return (
-                    <View key={sport.key} style={[styles.thresholdRow, { borderTopColor: border }]}>
+                    <View
+                      key={sport.key}
+                      testID={`settings-threshold-${sport.key}`}
+                      style={[styles.thresholdRow, { borderTopColor: border }]}
+                    >
                       <Text style={[styles.thresholdLabel, { color: textPrimary }]}>
                         {t(`recording.categories.${sport.key}`, sport.label)}
                       </Text>
                       <View style={styles.thresholdControls}>
                         <TouchableOpacity
+                          testID={`settings-threshold-${sport.key}-minus`}
                           onPress={() => handleAdjustThreshold(sport.key, -0.5)}
                           style={[styles.thresholdBtn, { borderColor: border }]}
                           activeOpacity={0.7}
@@ -139,6 +146,7 @@ export default function RecordingSettingsScreen() {
                           {value.toFixed(1)} km/h
                         </Text>
                         <TouchableOpacity
+                          testID={`settings-threshold-${sport.key}-plus`}
                           onPress={() => handleAdjustThreshold(sport.key, 0.5)}
                           style={[styles.thresholdBtn, { borderColor: border }]}
                           activeOpacity={0.7}
@@ -177,6 +185,7 @@ export default function RecordingSettingsScreen() {
                     return (
                       <TouchableOpacity
                         key={field}
+                        testID={`settings-field-${mode}-${field}`}
                         style={[
                           styles.fieldChip,
                           {
@@ -216,7 +225,7 @@ export default function RecordingSettingsScreen() {
           </Text>
           <TouchableOpacity
             style={[styles.linkCard, { backgroundColor: surface, borderColor: border }]}
-            onPress={() => router.push('/settings' as never)}
+            onPress={() => navigateTo('/settings')}
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="ruler" size={20} color={textSecondary} />

@@ -14,7 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
-import { router, type Href } from 'expo-router';
+import { navigateTab } from '@/lib';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { useWhatsNewStore, useMapPreferences, useAuthStore } from '@/providers';
@@ -136,7 +136,7 @@ export function WhatsNewModal() {
 
     const nextIndex = Math.min(current + 1, slideCount - 1);
     showMe(nextIndex, slide.showMeTip);
-    router.navigate(slide.showMeRoute as Href);
+    navigateTab(slide.showMeRoute);
   }, [activeIndex, slides, slideCount, showMe, setDefaultStyle, setTerrain3DMode]);
 
   const handleModeToggle = useCallback(() => {

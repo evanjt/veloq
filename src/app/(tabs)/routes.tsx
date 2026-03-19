@@ -18,7 +18,7 @@ import {
   useCustomSections,
   useInsights,
 } from '@/hooks';
-import { useRouteSettings, useSyncDateRange, useDebugStore } from '@/providers';
+import { useRouteSettings, useSyncDateRange, useDebugStore, useEngineStatus } from '@/providers';
 import { colors, darkColors, spacing } from '@/theme';
 import type { ActivityType } from '@/types';
 
@@ -43,6 +43,10 @@ export default function RoutesScreen() {
 
   // Debug mode
   const debugEnabled = useDebugStore((s) => s.enabled);
+
+  // Engine init failure banner
+  const engineInitFailed = useEngineStatus((s) => s.initFailed);
+  const [engineBannerDismissed, setEngineBannerDismissed] = useState(false);
 
   const { clearCache: clearRouteCache } = useRouteProcessing();
 
@@ -348,6 +352,30 @@ export default function RoutesScreen() {
           }
         />
 
+        {/* Engine init failure warning */}
+        {engineInitFailed && !engineBannerDismissed && (
+          <View style={[styles.engineBanner, isDark && styles.engineBannerDark]}>
+            <MaterialCommunityIcons
+              name="alert-outline"
+              size={16}
+              color={isDark ? '#FBBF24' : '#92400E'}
+            />
+            <Text
+              style={[styles.engineBannerText, isDark && styles.engineBannerTextDark]}
+              numberOfLines={2}
+            >
+              {t('engine.initFailed')}
+            </Text>
+            <IconButton
+              icon="close"
+              size={16}
+              iconColor={isDark ? '#FBBF24' : '#92400E'}
+              onPress={() => setEngineBannerDismissed(true)}
+              style={styles.engineBannerClose}
+            />
+          </View>
+        )}
+
         {/* Swipeable Insights/Routes/Sections tabs */}
         <SwipeableTabs
           tabs={tabs}
@@ -430,5 +458,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     marginTop: -spacing.sm,
+  },
+  engineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    gap: spacing.sm,
+  },
+  engineBannerDark: {
+    backgroundColor: '#422006',
+  },
+  engineBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#92400E',
+    lineHeight: 18,
+  },
+  engineBannerTextDark: {
+    color: '#FBBF24',
+  },
+  engineBannerClose: {
+    margin: 0,
+    padding: 0,
   },
 });

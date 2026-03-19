@@ -9,7 +9,7 @@ import { useTheme, useMetricSystem } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
-import { router, Href } from 'expo-router';
+import { navigateTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import {
@@ -227,7 +227,7 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
 
   const handlePress = () => {
     if (navigable) {
-      router.push(`/route/${route.id}` as Href);
+      navigateTo(`/route/${route.id}`);
     } else {
       setExpanded(!expanded);
     }

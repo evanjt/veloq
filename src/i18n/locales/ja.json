@@ -303,6 +303,9 @@
     },
     "refresh": "更新"
   },
+  "engine": {
+    "initFailed": "ルートエンジンの初期化に失敗しました。ルートとセクションが利用できない場合があります。"
+  },
   "errorState": {
     "chartLabels": {
       "activityChart": "アクティビティチャート",
@@ -399,6 +402,128 @@
   },
   "healthScreen": {
     "title": "健康"
+  },
+  "insights": {
+    "title": "インサイト",
+    "noInsights": "トレーニングに応じてインサイトが表示されます",
+    "noInsightsHint": "パーソナライズされたインサイトを見るには、より多くのアクティビティを完了してください",
+    "sectionPr": "{{name}}でPR",
+    "sectionPrSubtitle": "{{time}} — {{daysAgo}}日前",
+    "sectionTrendSummary": "{{total}}区間中{{improving}}区間が上昇傾向",
+    "sectionTrendSummaryBody": "改善中: {{names}}。{{stable}}区間安定、{{declining}}区間低下。",
+    "sectionImproving": "{{name}}が速くなっています",
+    "sectionImprovingBody": "最近の中央値: {{median}}。ベスト: {{best}}（{{count}}回の走行）。",
+    "ftpIncrease": "FTP +{{delta}}W",
+    "paceImproved": "ペース改善 {{delta}}",
+    "weeklyVolumeUp": "+{{percent}}% 週間ボリューム",
+    "weeklyVolumeDown": "{{percent}}% 今週減少",
+    "weeklyLoadUp": "+{{percent}}% トレーニング負荷",
+    "weeklyLoadDown": "{{percent}}% 負荷減少",
+    "loadBody": "TSS: 今週 {{currentTss}} vs 先週 {{previousTss}}。時間: {{currentDuration}} vs {{previousDuration}}。",
+    "patternMatch": "{{day}} - 通常 {{verb}} ~{{duration}}",
+    "consistencyStreak": "{{count}}週連続",
+    "volumeBody": "トレーニング時間: 今週 {{current}} vs 先週 {{previous}}。これは時間であり、トレーニング負荷 (TSS) ではありません。",
+    "viewDetails": "詳細を見る",
+    "today": "今日",
+    "tomorrow": "明日",
+    "showMethodology": "手法を表示",
+    "basedOnActivities": "{{count}}件のアクティビティに基づく",
+    "confidence": "{{value}}% の確信度",
+    "tapToExplore": "タップして詳細を見る",
+    "confident": "確信度",
+    "current": "現在",
+    "previous": "前回",
+    "change": "変化",
+    "restDay": {
+      "hrvTrend": "HRV（7日間）",
+      "tomorrowPattern": "明日は通常 {{verb}} の日（~{{duration}}）",
+      "tomorrowPatternBody": "この曜日の過去{{count}}件のアクティビティに基づいています。",
+      "intensityContext": "{{count}} sessions this week",
+      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
+      "sectionTrends": "{{improving}} of {{total}} sections improving"
+    },
+    "methodology": {
+      "banister": "フィットネス (CTL) と疲労 (ATL) の差からトレーニングストレスバランスを算出します。",
+      "hrv": "心拍変動のトレンドを7日間のベースラインと比較して回復状態を評価します。",
+      "kmeans": "アクティビティを曜日、時間、スポーツタイプでグループ化し、繰り返しのトレーニングパターンを特定します。",
+      "prDetection": "最新の区間タイムを過去のすべてのタイムと比較してPRを検出します。",
+      "sectionTrend": "頻繁に訪れる区間での中央値パフォーマンスの推移を追跡します。",
+      "periodComparison": "連続する週間のトレーニング指標を比較して進捗を追跡します。"
+    },
+    "alternatives": {
+      "selected": "現在の評価",
+      "notSelected": "該当なし",
+      "yourValue": "あなたの値: {{value}}"
+    },
+    "data": {
+      "confidence": "確信度",
+      "basedOn": "基づく",
+      "activities": "アクティビティ",
+      "bestTime": "ベストタイム",
+      "daysAgo": "日前",
+      "days": "日",
+      "currentFtp": "現在のFTP",
+      "previousFtp": "以前のFTP",
+      "change": "変化",
+      "currentPace": "現在のペース",
+      "previousPace": "以前のペース",
+      "improvement": "改善",
+      "currentCtl": "現在のCTL",
+      "peakCtl": "ピークCTL",
+      "thisWeek": "今週",
+      "lastWeek": "先週",
+      "activitiesThisWeek": "今週のアクティビティ",
+      "activitiesLastWeek": "先週のアクティビティ",
+      "avgDuration": "平均時間",
+      "tsbRange": "TSB範囲",
+      "todayHrv": "今日のHRV",
+      "sevenDayAvg": "7日平均",
+      "hrvSevenDay": "HRV（7日間）",
+      "latestHrv": "Latest HRV",
+      "dataPoints": "Data points",
+      "thisWeekTss": "This week",
+      "fourWeekAvgTss": "4-week average"
+    },
+    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
+    "tsbForm": {
+      "title": "Form: {{tsb}} ({{zone}})",
+      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
+      "zones": {
+        "fresh": "Fresh",
+        "detraining": "Transition",
+        "maintenance": "Maintenance",
+        "productive": "Productive training",
+        "deepFatigue": "Deep fatigue"
+      },
+      "zoneDescriptions": {
+        "fresh": "Well-rested, fitness exceeds fatigue",
+        "detraining": "Between training and freshness",
+        "maintenance": "Moderate training load",
+        "productive": "Where most adaptation occurs",
+        "deepFatigue": "Significant accumulated fatigue"
+      }
+    },
+    "hrvTrend": {
+      "trendingUp": "HRV trending up",
+      "trendingDown": "HRV trending down",
+      "stable": "HRV stable",
+      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
+      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
+      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
+    },
+    "weeklyLoad": {
+      "title": "Training load {{percent}}% {{direction}} average",
+      "above": "above",
+      "below": "below",
+      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
+    },
+    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
+    "aboutInsights": "About Insights",
+    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
+    "showMore": "Show {{count}} more",
+    "aboutTitle": "About Insights",
+    "whyThisRecommendation": "Why this recommendation?",
+    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
   },
   "licenses": {
     "footer": "ライセンスバッジをタップすると、完全なライセンステキストが表示されます。リンクアイコンをタップすると、プロジェクトリポジトリにアクセスできます。",
@@ -645,129 +770,9 @@
     "settingsAutoPause": "自動一時停止",
     "settingsAutoPauseThreshold": "速度しきい値",
     "settingsDataFields": "データフィールド",
-    "settingsUnits": "単位"
-  },
-  "insights": {
-    "title": "インサイト",
-    "noInsights": "トレーニングに応じてインサイトが表示されます",
-    "noInsightsHint": "パーソナライズされたインサイトを見るには、より多くのアクティビティを完了してください",
-    "sectionPr": "{{name}}でPR",
-    "sectionPrSubtitle": "{{time}} — {{daysAgo}}日前",
-    "sectionTrendSummary": "{{total}}区間中{{improving}}区間が上昇傾向",
-    "sectionTrendSummaryBody": "改善中: {{names}}。{{stable}}区間安定、{{declining}}区間低下。",
-    "sectionImproving": "{{name}}が速くなっています",
-    "sectionImprovingBody": "最近の中央値: {{median}}。ベスト: {{best}}（{{count}}回の走行）。",
-    "ftpIncrease": "FTP +{{delta}}W",
-    "paceImproved": "ペース改善 {{delta}}",
-    "weeklyVolumeUp": "+{{percent}}% 週間ボリューム",
-    "weeklyVolumeDown": "{{percent}}% 今週減少",
-    "weeklyLoadUp": "+{{percent}}% トレーニング負荷",
-    "weeklyLoadDown": "{{percent}}% 負荷減少",
-    "loadBody": "TSS: 今週 {{currentTss}} vs 先週 {{previousTss}}。時間: {{currentDuration}} vs {{previousDuration}}。",
-    "patternMatch": "{{day}} - 通常 {{verb}} ~{{duration}}",
-    "consistencyStreak": "{{count}}週連続",
-    "volumeBody": "トレーニング時間: 今週 {{current}} vs 先週 {{previous}}。これは時間であり、トレーニング負荷 (TSS) ではありません。",
-    "viewDetails": "詳細を見る",
-    "today": "今日",
-    "tomorrow": "明日",
-    "showMethodology": "手法を表示",
-    "basedOnActivities": "{{count}}件のアクティビティに基づく",
-    "confidence": "{{value}}% の確信度",
-    "tapToExplore": "タップして詳細を見る",
-    "confident": "確信度",
-    "current": "現在",
-    "previous": "前回",
-    "change": "変化",
-    "restDay": {
-      "hrvTrend": "HRV（7日間）",
-      "tomorrowPattern": "明日は通常 {{verb}} の日（~{{duration}}）",
-      "tomorrowPatternBody": "この曜日の過去{{count}}件のアクティビティに基づいています。",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
-      "sectionTrends": "{{improving}} of {{total}} sections improving"
-    },
-    "methodology": {
-      "banister": "フィットネス (CTL) と疲労 (ATL) の差からトレーニングストレスバランスを算出します。",
-      "hrv": "心拍変動のトレンドを7日間のベースラインと比較して回復状態を評価します。",
-      "kmeans": "アクティビティを曜日、時間、スポーツタイプでグループ化し、繰り返しのトレーニングパターンを特定します。",
-      "prDetection": "最新の区間タイムを過去のすべてのタイムと比較してPRを検出します。",
-      "sectionTrend": "頻繁に訪れる区間での中央値パフォーマンスの推移を追跡します。",
-      "periodComparison": "連続する週間のトレーニング指標を比較して進捗を追跡します。"
-    },
-    "alternatives": {
-      "selected": "現在の評価",
-      "notSelected": "該当なし",
-      "yourValue": "あなたの値: {{value}}"
-    },
-    "data": {
-      "confidence": "確信度",
-      "basedOn": "基づく",
-      "activities": "アクティビティ",
-      "bestTime": "ベストタイム",
-      "daysAgo": "日前",
-      "days": "日",
-      "currentFtp": "現在のFTP",
-      "previousFtp": "以前のFTP",
-      "change": "変化",
-      "currentPace": "現在のペース",
-      "previousPace": "以前のペース",
-      "improvement": "改善",
-      "currentCtl": "現在のCTL",
-      "peakCtl": "ピークCTL",
-      "thisWeek": "今週",
-      "lastWeek": "先週",
-      "activitiesThisWeek": "今週のアクティビティ",
-      "activitiesLastWeek": "先週のアクティビティ",
-      "avgDuration": "平均時間",
-      "tsbRange": "TSB範囲",
-      "todayHrv": "今日のHRV",
-      "sevenDayAvg": "7日平均",
-      "hrvSevenDay": "HRV（7日間）",
-      "latestHrv": "Latest HRV",
-      "dataPoints": "Data points",
-      "thisWeekTss": "This week",
-      "fourWeekAvgTss": "4-week average"
-    },
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "detraining": "Transition",
-        "maintenance": "Maintenance",
-        "productive": "Productive training",
-        "deepFatigue": "Deep fatigue"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "detraining": "Between training and freshness",
-        "maintenance": "Moderate training load",
-        "productive": "Where most adaptation occurs",
-        "deepFatigue": "Significant accumulated fatigue"
-      }
-    },
-    "hrvTrend": {
-      "trendingUp": "HRV trending up",
-      "trendingDown": "HRV trending down",
-      "stable": "HRV stable",
-      "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
-      "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
-      "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
-    },
-    "weeklyLoad": {
-      "title": "Training load {{percent}}% {{direction}} average",
-      "above": "above",
-      "below": "below",
-      "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
-    },
-    "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
-    "aboutInsights": "About Insights",
-    "aboutInsightsBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "showMore": "Show {{count}} more",
-    "aboutTitle": "About Insights",
-    "whyThisRecommendation": "Why this recommendation?",
-    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
+    "settingsUnits": "単位",
+    "distanceInvalid": "Please enter a valid distance (0-999).",
+    "hrInvalid": "Please enter a valid heart rate (30-250)."
   },
   "routeDetail": {
     "avgTime": "平均時間",
@@ -775,6 +780,10 @@
     "lastActivity": "最終アクティビティ",
     "routeNotFound": "ルートが見つかりません",
     "totalActivities": "合計"
+  },
+  "routeIntelligence": {
+    "today": "今日",
+    "tomorrow": "明日"
   },
   "routes": {
     "activities": "アクティビティ",
@@ -867,10 +876,6 @@
     "thisSpeed": "この速度",
     "visits": "訪問",
     "waiting": "待機中..."
-  },
-  "routeIntelligence": {
-    "today": "今日",
-    "tomorrow": "明日"
   },
   "routesScreen": {
     "analysingRoutes": "ルート分析中 {{current}}/{{total}}",
@@ -1229,6 +1234,10 @@
     "trendHint": "データが記録されると、HRV、睡眠、安静時心拍のトレンドがここに表示されます",
     "weight": "体重"
   },
+  "wellnessScreen": {
+    "title": "ウェルネス",
+    "trends": "ウェルネストレンド"
+  },
   "whatsNew": {
     "skipButton": "スキップ",
     "nextButton": "次へ",
@@ -1248,9 +1257,5 @@
       "fitnessTitle": "フィットネス概要",
       "fitnessBody": "フィットネス、疲労、フォームを色分けされたゾーンで追跡。フレッシュでパフォーマンスの準備ができている時を把握できます。"
     }
-  },
-  "wellnessScreen": {
-    "title": "ウェルネス",
-    "trends": "ウェルネストレンド"
   }
 }

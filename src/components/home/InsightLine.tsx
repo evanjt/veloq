@@ -3,7 +3,7 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import { router, Href } from 'expo-router';
+import { navigateTo } from '@/lib';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, colorWithOpacity } from '@/theme';
 import type { Insight } from '@/types';
@@ -65,7 +65,7 @@ export const InsightLine = React.memo(function InsightLine({ insights }: Insight
 
   const handlePress = useCallback(() => {
     // Always navigate to insights tab — detail navigation happens from there
-    router.push('/(tabs)/routes' as Href);
+    navigateTo('/(tabs)/routes');
   }, []);
 
   if (displayInsights.length === 0) return null;

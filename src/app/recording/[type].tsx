@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { View, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TextInput, ScrollView, TouchableOpacity, Keyboard } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useTheme, useMetricSystem } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { navigateTo } from '@/lib';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { getRecordingMode } from '@/lib/utils/recordingModes';
 import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
@@ -332,7 +333,7 @@ export default function RecordingScreen() {
     useRecordingStore.getState().stopRecording();
     await stopTracking();
     await clearRecordingBackup();
-    router.push('/recording/review' as never);
+    navigateTo('/recording/review');
   }, [stopTracking]);
 
   const handleDiscard = useCallback(async () => {
@@ -365,12 +366,14 @@ export default function RecordingScreen() {
 
       {/* Timer Header */}
       <View style={styles.timerHeader}>
-        <Text style={[styles.timerText, { color: textPrimary }]}>{formattedElapsed}</Text>
-        <View style={styles.statusBadge}>
+        <Text testID="recording-timer" style={[styles.timerText, { color: textPrimary }]}>
+          {formattedElapsed}
+        </Text>
+        <View testID="recording-status" style={styles.statusBadge}>
           <View
             style={[
               styles.statusDot,
-              { backgroundColor: status === 'recording' ? '#EF4444' : '#F59E0B' },
+              { backgroundColor: status === 'recording' ? colors.error : '#F59E0B' },
             ]}
           />
           <Text style={[styles.statusText, { color: textSecondary }]}>
@@ -459,6 +462,7 @@ export default function RecordingScreen() {
       {/* Re-lock button (top-right, only when unlocked) */}
       {!isLocked && (
         <TouchableOpacity
+          testID="control-lock"
           style={[styles.relockButton, { top: insets.top + spacing.sm }]}
           onPress={handleLock}
           activeOpacity={0.7}
@@ -497,26 +501,64 @@ function ManualEntry({
   const [avgHr, setAvgHr] = useState('');
   const [notes, setNotes] = useState('');
   const [durationError, setDurationError] = useState(false);
+  const [distanceError, setDistanceError] = useState(false);
+  const [hrError, setHrError] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
-  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const bg = isDark ? darkColors.background : colors.background;
-  const surface = isDark ? darkColors.surface : colors.surface;
-  const border = isDark ? darkColors.border : colors.border;
+  const themeColors = isDark ? darkColors : colors;
+  const textPrimary = themeColors.textPrimary;
+  const textSecondary = themeColors.textSecondary;
+  const bg = themeColors.background;
+  const surface = themeColors.surface;
+  const border = themeColors.border;
+  const errorColor = themeColors.error;
 
   const handleSave = useCallback(() => {
+    Keyboard.dismiss();
+
+    let hasError = false;
+
     const mins = parseFloat(durationMinutes);
     if (!Number.isFinite(mins) || mins <= 0) {
       setDurationError(true);
-      return;
+      hasError = true;
+    } else {
+      setDurationError(false);
     }
-    setDurationError(false);
+
+    if (distance) {
+      const dist = parseFloat(distance);
+      if (!Number.isFinite(dist) || dist < 0 || dist > 999) {
+        setDistanceError(true);
+        hasError = true;
+      } else {
+        setDistanceError(false);
+      }
+    } else {
+      setDistanceError(false);
+    }
+
+    if (avgHr) {
+      const hr = parseFloat(avgHr);
+      if (!Number.isFinite(hr) || hr < 30 || hr > 250) {
+        setHrError(true);
+        hasError = true;
+      } else {
+        setHrError(false);
+      }
+    } else {
+      setHrError(false);
+    }
+
+    if (hasError) return;
+
+    setIsNavigating(true);
 
     // Initialize recording store with manual data then navigate to review
     useRecordingStore.getState().startRecording(activityType, 'manual', pairedEventId);
 
     // Navigate to review with manual params
-    router.push({
+    navigateTo({
       pathname: '/recording/review',
       params: {
         manual: 'true',
@@ -526,7 +568,7 @@ function ManualEntry({
         avgHr: avgHr || undefined,
         notes: notes || undefined,
       },
-    } as never);
+    });
   }, [activityType, pairedEventId, name, durationMinutes, distance, avgHr, notes, t]);
 
   return (
@@ -554,6 +596,8 @@ function ManualEntry({
           {t('recording.activityName', 'Activity Name')}
         </Text>
         <TextInput
+          testID="manual-entry-name"
+          accessibilityLabel={t('recording.activityName', 'Activity Name')}
           style={[
             styles.input,
             { color: textPrimary, backgroundColor: surface, borderColor: border },
@@ -568,12 +612,14 @@ function ManualEntry({
           {t('recording.duration', 'Duration (minutes)')} *
         </Text>
         <TextInput
+          testID="manual-entry-duration"
+          accessibilityLabel={t('recording.duration', 'Duration (minutes)')}
           style={[
             styles.input,
             {
               color: textPrimary,
               backgroundColor: surface,
-              borderColor: durationError ? '#EF4444' : border,
+              borderColor: durationError ? errorColor : border,
             },
           ]}
           value={durationMinutes}
@@ -586,7 +632,7 @@ function ManualEntry({
           keyboardType="numeric"
         />
         {durationError && (
-          <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 2 }}>
+          <Text style={{ color: errorColor, fontSize: 12, marginTop: 2 }}>
             {t('recording.durationRequired', 'Please enter a valid duration.')}
           </Text>
         )}
@@ -595,36 +641,66 @@ function ManualEntry({
           {t('recording.distance', 'Distance (km)')}
         </Text>
         <TextInput
+          testID="manual-entry-distance"
+          accessibilityLabel={t('recording.distance', 'Distance (km)')}
           style={[
             styles.input,
-            { color: textPrimary, backgroundColor: surface, borderColor: border },
+            {
+              color: textPrimary,
+              backgroundColor: surface,
+              borderColor: distanceError ? errorColor : border,
+            },
           ]}
           value={distance}
-          onChangeText={setDistance}
+          onChangeText={(v) => {
+            setDistance(v);
+            if (distanceError) setDistanceError(false);
+          }}
           placeholder="0"
           placeholderTextColor={textSecondary}
           keyboardType="numeric"
         />
+        {distanceError && (
+          <Text style={{ color: errorColor, fontSize: 12, marginTop: 2 }}>
+            {t('recording.distanceInvalid', 'Please enter a valid distance (0-999).')}
+          </Text>
+        )}
 
         <Text style={[styles.fieldLabel, { color: textSecondary }]}>
           {t('recording.avgHr', 'Average Heart Rate (bpm)')}
         </Text>
         <TextInput
+          testID="manual-entry-hr"
+          accessibilityLabel={t('recording.avgHr', 'Average Heart Rate (bpm)')}
           style={[
             styles.input,
-            { color: textPrimary, backgroundColor: surface, borderColor: border },
+            {
+              color: textPrimary,
+              backgroundColor: surface,
+              borderColor: hrError ? errorColor : border,
+            },
           ]}
           value={avgHr}
-          onChangeText={setAvgHr}
+          onChangeText={(v) => {
+            setAvgHr(v);
+            if (hrError) setHrError(false);
+          }}
           placeholder="0"
           placeholderTextColor={textSecondary}
           keyboardType="numeric"
         />
+        {hrError && (
+          <Text style={{ color: errorColor, fontSize: 12, marginTop: 2 }}>
+            {t('recording.hrInvalid', 'Please enter a valid heart rate (30-250).')}
+          </Text>
+        )}
 
         <Text style={[styles.fieldLabel, { color: textSecondary }]}>
           {t('recording.notes', 'Notes')}
         </Text>
         <TextInput
+          testID="manual-entry-notes"
+          accessibilityLabel={t('recording.notes', 'Notes')}
           style={[
             styles.input,
             styles.notesInput,
@@ -640,9 +716,10 @@ function ManualEntry({
         />
 
         <TouchableButton
+          testID="manual-entry-continue"
           label={t('recording.continue', 'Continue')}
           onPress={handleSave}
-          isDark={isDark}
+          disabled={isNavigating}
         />
       </ScrollView>
     </View>
@@ -653,16 +730,23 @@ function ManualEntry({
 function TouchableButton({
   label,
   onPress,
+  disabled,
+  testID,
 }: {
   label: string;
   onPress: () => void;
-  isDark: boolean;
+  disabled?: boolean;
+  testID?: string;
 }) {
   return (
     <View style={styles.buttonContainer}>
       <TouchableOpacity
+        testID={testID}
+        accessibilityLabel={label}
+        accessibilityRole="button"
         onPress={onPress}
-        style={[styles.primaryButton, { backgroundColor: brand.teal }]}
+        disabled={disabled}
+        style={[styles.primaryButton, { backgroundColor: brand.teal, opacity: disabled ? 0.5 : 1 }]}
         activeOpacity={0.8}
       >
         <Text style={styles.primaryButtonText}>{label}</Text>

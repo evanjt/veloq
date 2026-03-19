@@ -26,13 +26,14 @@ import ReAnimated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, usePathname } from 'expo-router';
+import { usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { brand } from '@/theme';
 import { useInsightsStore } from '@/providers/InsightsStore';
 import { PERF_DEBUG } from '@/lib/debug/renderTimer';
+import { navigateTo, navigateTab } from '@/lib';
 import { useRecordingStore } from '@/providers/RecordingStore';
 import { useRecordingPreferences } from '@/providers/RecordingPreferencesStore';
 import { RecordSwipeTarget } from '@/components/recording/RecordSwipeTarget';
@@ -127,7 +128,7 @@ function BottomTabBarComponent() {
     (route: string, key: string) => {
       // During recording, Map tab navigates to recording screen instead
       if (key === 'map' && isRecording && recordingType) {
-        router.navigate(`/recording/${recordingType}` as never);
+        navigateTab(`/recording/${recordingType}`);
         return;
       }
 
@@ -146,7 +147,7 @@ function BottomTabBarComponent() {
       if (Platform.OS === 'ios') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
-      router.navigate(route as never);
+      navigateTab(route);
     },
     [pathname, isRecording, recordingType]
   );
@@ -155,7 +156,7 @@ function BottomTabBarComponent() {
   const startRecordingWithDefault = useCallback(() => {
     const recentTypes = useRecordingPreferences.getState().recentActivityTypes;
     const defaultType = recentTypes[0] ?? 'Ride';
-    router.push(`/recording/${defaultType}` as never);
+    navigateTo(`/recording/${defaultType}`);
   }, []);
 
   const fireHeavyHaptic = useCallback(() => {

@@ -26,8 +26,9 @@ import {
 } from '@/providers';
 import { reloadCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { reloadMapCameraState } from '@/lib/storage/mapCameraState';
+import Constants from 'expo-constants';
 
-const APP_VERSION = '0.1.2';
+const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
 const BACKUP_VERSION = 2;
 
 /** AsyncStorage keys that contain user preferences */

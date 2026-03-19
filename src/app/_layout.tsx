@@ -37,6 +37,7 @@ import {
   initializeInsightsStore,
   initializeRecordingPreferences,
   useSyncDateRange,
+  useEngineStatus,
 } from '@/providers';
 import { formatLocalDate } from '@/lib';
 import { initializeI18n, i18n } from '@/i18n';
@@ -80,7 +81,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   // Initialize Rust route engine with persistent storage when authenticated
   // Data persists in SQLite - GPS tracks, routes, sections load instantly
-  // TODO: Add user-facing error notification when engine init fails
+  const setEngineInitFailed = useEngineStatus((s) => s.setInitFailed);
   useEffect(() => {
     if (isAuthenticated) {
       const engine = getRouteEngine();
@@ -131,13 +132,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
                 `[RouteEngine] Persistent init failed after ${attempt + 1} attempts for path: ${dbPath}`
               );
             }
+            setEngineInitFailed(true);
           }
         };
 
         tryInit(0);
       }
     }
-  }, [isAuthenticated, expandRange]);
+  }, [isAuthenticated, expandRange, setEngineInitFailed]);
 
   // Reset infinite activities query when the date rolls over while backgrounded.
   // initialPageParam is computed at render time with today's date, but the feed tab

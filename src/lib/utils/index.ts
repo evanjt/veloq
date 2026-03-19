@@ -8,3 +8,4 @@ export * from './validation';
 export * from './smoothing';
 export * from './geometry';
 export * from './skylineDecoder';
+export * from './navigation';

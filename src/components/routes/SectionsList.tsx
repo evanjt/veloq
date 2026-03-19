@@ -23,7 +23,6 @@ import { useTheme, useCacheDays } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { router, Href } from 'expo-router';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
 import { SectionRow } from './SectionRow';
@@ -33,7 +32,7 @@ import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
 import { useDisabledSections } from '@/providers/DisabledSectionsStore';
 import { useSupersededSections } from '@/providers/SupersededSectionsStore';
-import { debug } from '@/lib';
+import { debug, navigateTo } from '@/lib';
 import type { UnifiedSection, FrequentSection } from '@/types';
 import type { SectionWithPolyline } from 'veloqrs';
 import { generateSectionName } from '@/hooks/routes/useUnifiedSections';
@@ -325,7 +324,7 @@ export function SectionsList({
 
   // Navigate to section detail page
   const handleSectionPress = useCallback((id: string) => {
-    router.push(`/section/${id}` as Href);
+    navigateTo(`/section/${id}`);
   }, []);
 
   // Handle promoting a potential section to a custom section

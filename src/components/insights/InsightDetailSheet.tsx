@@ -2,8 +2,8 @@ import React, { useCallback } from 'react';
 import { Modal, View, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { navigateTo } from '@/lib';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, typography, opacity } from '@/theme';
 import { AlternativesCarousel } from './AlternativesCarousel';
@@ -26,14 +26,13 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 }: InsightDetailSheetProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const router = useRouter();
 
   const handleSectionPress = useCallback(
     (sectionId: string) => {
       onClose();
-      router.push(`/section/${sectionId}` as never);
+      navigateTo(`/section/${sectionId}`);
     },
-    [onClose, router]
+    [onClose]
   );
 
   if (!insight) return null;
