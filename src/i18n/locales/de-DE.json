@@ -938,6 +938,7 @@
     "setReferenceError": "Referenz konnte nicht gesetzt werden. Der Abschnitt oder die Aktivität hat sich möglicherweise geändert. Bitte versuchen Sie es erneut.",
     "boundsModified": "Grenzen geändert",
     "editBounds": "Grenzen bearbeiten",
+    "edited": "Bearbeitet",
     "originalDistance": "Original",
     "points": "Punkte",
     "resetBounds": "Auf Original zurücksetzen",
@@ -951,7 +952,8 @@
     "traversalsSummary": "{{count}} Durchfahrten · beste {{time}}",
     "visits": "Besuche",
     "visitsCount": "{{count}} Besuche",
-    "yearPr": "Jahres-PR"
+    "yearPr": "Jahres-PR",
+    "moreActions": "Weitere Aktionen"
   },
   "settings": {
     "account": "Konto",

@@ -938,6 +938,7 @@
     "setReferenceError": "Impossibile impostare il riferimento. La sezione o l'attività potrebbe essere cambiata. Per favore riprova.",
     "boundsModified": "Limiti modificati",
     "editBounds": "Modifica limiti",
+    "edited": "Modificato",
     "originalDistance": "Originale",
     "points": "punti",
     "resetBounds": "Ripristina originale",
@@ -951,7 +952,8 @@
     "traversalsSummary": "{{count}} percorrenze · migliore {{time}}",
     "visits": "visite",
     "visitsCount": "{{count}} passaggi",
-    "yearPr": "PR annuale"
+    "yearPr": "PR annuale",
+    "moreActions": "Altre azioni"
   },
   "settings": {
     "account": "Account",

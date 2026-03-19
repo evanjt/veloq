@@ -938,6 +938,7 @@
     "setReferenceError": "Kunne ikke angive reference. Afsnittet eller aktiviteten kan have ændret sig. Prøv igen.",
     "boundsModified": "Grænser ændret",
     "editBounds": "Rediger grænser",
+    "edited": "Redigeret",
     "originalDistance": "Original",
     "points": "punkter",
     "resetBounds": "Nulstil til original",
@@ -951,7 +952,8 @@
     "traversalsSummary": "{{count}} gennemkørsler · bedste {{time}}",
     "visits": "besøg",
     "visitsCount": "{{count}} besøg",
-    "yearPr": "Års-PR"
+    "yearPr": "Års-PR",
+    "moreActions": "Flere handlinger"
   },
   "settings": {
     "account": "Konto",

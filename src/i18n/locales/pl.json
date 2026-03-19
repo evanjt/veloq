@@ -938,6 +938,7 @@
     "setReferenceError": "Nie udało się ustawić odniesienia. Sekcja lub aktywność mogła się zmienić. Spróbuj ponownie.",
     "boundsModified": "Granice zmienione",
     "editBounds": "Edytuj granice",
+    "edited": "Edytowano",
     "originalDistance": "Oryginał",
     "points": "punktów",
     "resetBounds": "Przywróć oryginał",
@@ -951,7 +952,8 @@
     "traversalsSummary": "{{count}} przejazdów · najlepszy {{time}}",
     "visits": "wizyty",
     "visitsCount": "{{count}} wizyt",
-    "yearPr": "PR roku"
+    "yearPr": "PR roku",
+    "moreActions": "Więcej akcji"
   },
   "settings": {
     "account": "Konto",

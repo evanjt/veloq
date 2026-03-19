@@ -130,9 +130,9 @@ export const InsightLine = React.memo(function InsightLine({ insights }: Insight
 
 const styles = StyleSheet.create({
   wrapper: {
-    maxWidth: '45%',
     alignItems: 'flex-end',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   pill: {
     flexDirection: 'row',
@@ -141,6 +141,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     gap: spacing.xs,
+    maxWidth: '100%',
   },
   title: {
     fontSize: 12,

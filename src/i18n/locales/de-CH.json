@@ -938,6 +938,7 @@
     "setReferenceError": "Referänz hät nöd chöne gsetzt wärde. De Abschnitt oder d Aktivität hät sich villicht gänderet. Probiers nomol!",
     "boundsModified": "Grenzen geändert",
     "editBounds": "Grenzen bearbeiten",
+    "edited": "Bearbeitet",
     "originalDistance": "Original",
     "points": "Punkte",
     "resetBounds": "Auf Original zurücksetzen",
@@ -951,7 +952,8 @@
     "traversalsSummary": "{{count}} Durchfahrte · bescht {{time}}",
     "visits": "Bsüech",
     "visitsCount": "{{count}} Bsüech",
-    "yearPr": "Jahres-PR"
+    "yearPr": "Jahres-PR",
+    "moreActions": "Meh Aktione"
   },
   "settings": {
     "account": "Konto",

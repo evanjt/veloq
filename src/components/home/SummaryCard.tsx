@@ -193,23 +193,22 @@ export const SummaryCard = React.memo(function SummaryCard({
           activeOpacity={onHeroPress ? 0.7 : 1}
         >
           {fitnessSparklineVisible ? (
-            <View style={styles.heroValueRow}>
-              <Text style={[styles.heroValueFixed, { color: '#42A5F5' }]}>{currentFitness}</Text>
-              <Text style={[styles.heroLabel, { color: '#42A5F5' }]}>Fitness</Text>
-              {currentFatigue !== null && (
-                <>
-                  <Text style={[styles.secondaryValueFixed, { color: '#EC407A' }]}>
-                    {currentFatigue}
+            <View>
+              <View style={styles.heroValueRow}>
+                <Text style={[styles.heroValueFixed, { color: '#42A5F5' }]}>{currentFitness}</Text>
+                <Text style={[styles.heroLabel, { color: '#42A5F5' }]}>Fitness</Text>
+              </View>
+              <View style={styles.heroSubLine}>
+                {currentFatigue !== null && (
+                  <Text style={[styles.heroSubText, { color: '#EC407A' }]}>
+                    {currentFatigue} Fatigue
                   </Text>
-                  <Text style={[styles.secondaryLabel, { color: '#EC407A' }]}>Fatigue</Text>
-                </>
-              )}
-              <Text style={[styles.secondaryValueFixed, { color: currentFormColor }]}>
-                {currentForm > 0 ? `+${currentForm}` : currentForm}
-              </Text>
-              <Text style={[styles.secondaryLabel, { color: currentFormColor }]} numberOfLines={1}>
-                {FORM_ZONE_LABELS[currentFormZone]}
-              </Text>
+                )}
+                <Text style={[styles.heroSubText, { color: currentFormColor }]}>
+                  {currentForm > 0 ? `+${currentForm}` : currentForm}{' '}
+                  {FORM_ZONE_LABELS[currentFormZone]}
+                </Text>
+              </View>
             </View>
           ) : hrvSparklineVisible ? (
             <View style={styles.heroValueRow}>
@@ -243,7 +242,7 @@ export const SummaryCard = React.memo(function SummaryCard({
           )}
         </TouchableOpacity>
 
-        {insightLine}
+        {insightLine && <View style={styles.insightSlot}>{insightLine}</View>}
       </View>
 
       {/* Sparkline row — fitness or HRV depending on hero metric */}
@@ -401,13 +400,28 @@ const styles = StyleSheet.create({
 
   // Hero section - inline horizontal
   heroSection: {
-    flex: 1,
     justifyContent: 'center',
   },
   heroValueRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  heroSubLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: 0,
+  },
+  heroSubText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  // Insight slot — fills remaining space in topRow, right-aligned
+  insightSlot: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
   },
   heroValue: {
     fontSize: 24,

@@ -938,6 +938,7 @@
     "setReferenceError": "设置参考失败。路段或活动可能已更改。请重试。",
     "boundsModified": "边界已修改",
     "editBounds": "编辑边界",
+    "edited": "已编辑",
     "originalDistance": "原始",
     "points": "个点",
     "resetBounds": "恢复原始",
@@ -951,7 +952,8 @@
     "traversalsSummary": "{{count}} 次通过 · 最佳 {{time}}",
     "visits": "访问",
     "visitsCount": "{{count}} 次访问",
-    "yearPr": "年度PR"
+    "yearPr": "年度PR",
+    "moreActions": "更多操作"
   },
   "settings": {
     "account": "账户",

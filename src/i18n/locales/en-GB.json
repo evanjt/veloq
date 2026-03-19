@@ -938,6 +938,7 @@
     "setReferenceError": "Failed to set reference. The section or activity may have changed. Please try again.",
     "boundsModified": "Bounds modified",
     "editBounds": "Edit Bounds",
+    "edited": "Edited",
     "originalDistance": "Original",
     "points": "points",
     "resetBounds": "Reset to Original",
@@ -951,7 +952,8 @@
     "traversalsSummary": "{{count}} traversals · best {{time}}",
     "visits": "visits",
     "visitsCount": "{{count}} visits",
-    "yearPr": "Year PR"
+    "yearPr": "Year PR",
+    "moreActions": "More Actions"
   },
   "settings": {
     "account": "Account",

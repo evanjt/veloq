@@ -938,6 +938,7 @@
     "setReferenceError": "リファレンスの設定に失敗しました。セクションまたはアクティビティが変更された可能性があります。もう一度お試しください。",
     "boundsModified": "範囲が変更されました",
     "editBounds": "範囲を編集",
+    "edited": "編集済み",
     "originalDistance": "元の距離",
     "points": "ポイント",
     "resetBounds": "元に戻す",
@@ -951,7 +952,8 @@
     "traversalsSummary": "{{count}}回通過 · ベスト {{time}}",
     "visits": "訪問",
     "visitsCount": "{{count}}回の訪問",
-    "yearPr": "年間PR"
+    "yearPr": "年間PR",
+    "moreActions": "その他のアクション"
   },
   "settings": {
     "account": "アカウント",

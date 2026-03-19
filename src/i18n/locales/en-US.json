@@ -937,6 +937,7 @@
     "setAsReferenceConfirm": "Use this activity as the reference?\n\nThe section will be re-matched against all your activities. This may add or remove activities from this section.",
     "setReferenceError": "Failed to set reference. The section or activity may have changed. Please try again.",
     "editBounds": "Edit Bounds",
+    "edited": "Edited",
     "trimming": "Trimming",
     "resetBounds": "Reset to Original",
     "resetBoundsConfirm": "Reset to the original auto-detected bounds?\n\nThe section will be re-matched against all your activities.",
@@ -951,7 +952,8 @@
     "traversalsSummary": "{{count}} traversals · best {{time}}",
     "visits": "visits",
     "visitsCount": "{{count}} visits",
-    "yearPr": "Year PR"
+    "yearPr": "Year PR",
+    "moreActions": "More Actions"
   },
   "settings": {
     "account": "Account",

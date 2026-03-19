@@ -938,6 +938,7 @@
     "setReferenceError": "No se pudo establecer la referencia. La sección o actividad puede haber cambiado. Por favor, inténtalo de nuevo.",
     "boundsModified": "Límites modificados",
     "editBounds": "Editar límites",
+    "edited": "Editado",
     "originalDistance": "Original",
     "points": "puntos",
     "resetBounds": "Restaurar original",
@@ -951,7 +952,8 @@
     "traversalsSummary": "{{count}} recorridos · mejor {{time}}",
     "visits": "visitas",
     "visitsCount": "{{count}} visitas",
-    "yearPr": "RP del año"
+    "yearPr": "RP del año",
+    "moreActions": "Más acciones"
   },
   "settings": {
     "account": "Cuenta",

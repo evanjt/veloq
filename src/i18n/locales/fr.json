@@ -938,6 +938,7 @@
     "setReferenceError": "Échec de la définition de la référence. La section ou l'activité a peut-être changé. Veuillez réessayer.",
     "boundsModified": "Limites modifiées",
     "editBounds": "Modifier les limites",
+    "edited": "Modifié",
     "originalDistance": "Original",
     "points": "points",
     "resetBounds": "Réinitialiser à l'original",
@@ -951,7 +952,8 @@
     "traversalsSummary": "{{count}} passages · meilleur {{time}}",
     "visits": "visites",
     "visitsCount": "{{count}} passages",
-    "yearPr": "RP de l'année"
+    "yearPr": "RP de l'année",
+    "moreActions": "Plus d'actions"
   },
   "settings": {
     "account": "Compte",

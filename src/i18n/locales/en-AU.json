@@ -938,6 +938,7 @@
     "setReferenceError": "Couldn't set the reference. Something might've changed. Have another crack.",
     "boundsModified": "Bounds modified",
     "editBounds": "Edit Bounds",
+    "edited": "Edited",
     "originalDistance": "Original",
     "points": "points",
     "resetBounds": "Reset to Original",
@@ -951,7 +952,8 @@
     "traversalsSummary": "{{count}} times through · PB {{time}}",
     "visits": "visits",
     "visitsCount": "{{count}} visits",
-    "yearPr": "Year PR"
+    "yearPr": "Year PR",
+    "moreActions": "More Actions"
   },
   "settings": {
     "account": "Your Account",

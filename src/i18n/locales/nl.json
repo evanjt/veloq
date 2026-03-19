@@ -938,6 +938,7 @@
     "setReferenceError": "Referentie instellen mislukt. De sectie of activiteit is mogelijk gewijzigd. Probeer het opnieuw.",
     "boundsModified": "Grenzen gewijzigd",
     "editBounds": "Grenzen bewerken",
+    "edited": "Bewerkt",
     "originalDistance": "Origineel",
     "points": "punten",
     "resetBounds": "Herstellen naar origineel",
@@ -951,7 +952,8 @@
     "traversalsSummary": "{{count}} passages · beste {{time}}",
     "visits": "bezoeken",
     "visitsCount": "{{count}} bezoeken",
-    "yearPr": "Jaar-PR"
+    "yearPr": "Jaar-PR",
+    "moreActions": "Meer acties"
   },
   "settings": {
     "account": "Account",
