@@ -151,15 +151,6 @@ export function SectionHeader({
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
         </TouchableOpacity>
         <View style={styles.headerSpacer} />
-        {!isTrimming && (
-          <TouchableOpacity style={styles.actionButton} onPress={onStartTrim} activeOpacity={0.7}>
-            <MaterialCommunityIcons
-              name="arrow-expand-horizontal"
-              size={24}
-              color={canResetBounds ? colors.primary : colors.textOnDark}
-            />
-          </TouchableOpacity>
-        )}
       </View>
 
       <View style={styles.infoOverlay}>
@@ -304,14 +295,6 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     flex: 1,
-  },
-  actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   infoOverlay: {
     position: 'absolute',
