@@ -103,6 +103,8 @@ interface SectionMapViewProps {
   isScrubbing?: boolean;
   /** Trim range for bounds editing - when set, shows full polyline faded + trimmed portion highlighted */
   trimRange?: { start: number; end: number } | null;
+  /** Extension track for expanding section bounds - shown as faded line beyond the section */
+  extensionTrack?: RoutePoint[] | null;
 }
 
 export const SectionMapView = memo(function SectionMapView({
@@ -116,6 +118,7 @@ export const SectionMapView = memo(function SectionMapView({
   allActivityTraces,
   isScrubbing = false,
   trimRange = null,
+  extensionTrack = null,
 }: SectionMapViewProps) {
   const { t } = useTranslation();
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -307,6 +310,23 @@ export const SectionMapView = memo(function SectionMapView({
     };
   }, [shadowTrack]);
 
+  // Create GeoJSON for the extension track (representative activity's full track)
+  const extensionGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
+    if (!extensionTrack || extensionTrack.length < 2) return emptyCollection;
+    const validCoords = extensionTrack.filter(
+      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
+    );
+    if (validCoords.length < 2) return emptyCollection;
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: validCoords.map((p) => [p.lng, p.lat]),
+      },
+    };
+  }, [extensionTrack]);
+
   // Create FeatureCollection with ALL activity traces for fast scrubbing
   const allTracesFeatureCollection = useMemo((): GeoJSON.FeatureCollection => {
     if (!allActivityTraces || Object.keys(allActivityTraces).length === 0) return emptyCollection;
@@ -459,6 +479,21 @@ export const SectionMapView = memo(function SectionMapView({
             lineWidth: 3,
             lineCap: 'round',
             lineJoin: 'round',
+          }}
+        />
+      </ShapeSource>
+
+      {/* Extension track (representative activity's full route, shown during bounds editing) */}
+      <ShapeSource id="extensionSource" shape={extensionGeoJSON}>
+        <LineLayer
+          id="extensionLine"
+          style={{
+            lineColor: activityColor,
+            lineOpacity: extensionTrack ? 0.25 : 0,
+            lineWidth: 3,
+            lineCap: 'round',
+            lineJoin: 'round',
+            lineDasharray: [2, 3],
           }}
         />
       </ShapeSource>

@@ -180,6 +180,8 @@ export default function SectionDetailScreen() {
     isSaving: isTrimSaving,
     trimmedDistance,
     canReset: canResetBounds,
+    extensionTrack,
+    effectivePointCount,
     startTrim,
     cancelTrim,
     confirmTrim,
@@ -759,6 +761,10 @@ export default function SectionDetailScreen() {
                 trimEnd={trimEnd}
                 isTrimSaving={isTrimSaving}
                 trimmedDistance={trimmedDistance}
+                effectivePointCount={effectivePointCount}
+                sectionStartInTrack={extensionTrack?.sectionStartIdx}
+                sectionEndInTrack={extensionTrack?.sectionEndIdx}
+                extensionTrackPoints={extensionTrack?.points}
                 shadowTrack={shadowTrack}
                 highlightedActivityId={mapHighlightedActivityId}
                 highlightedLapPoints={mapHighlightedLapPoints}

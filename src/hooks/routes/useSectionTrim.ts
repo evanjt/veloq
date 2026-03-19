@@ -1,10 +1,13 @@
 /**
- * Hook for trimming section bounds via a range slider.
+ * Hook for trimming and expanding section bounds via a range slider.
  * Manages trimming state, computes trimmed distance in pure TS (haversine),
  * and calls Rust FFI for save/reset operations.
+ *
+ * Expansion: loads the representative activity's full GPS track so users
+ * can extend the section beyond its current boundaries.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -31,24 +34,37 @@ function polylineDistance(points: RoutePoint[]): number {
   return d;
 }
 
+interface ExtensionTrack {
+  /** Full GPS track of the representative activity as RoutePoints */
+  points: RoutePoint[];
+  /** Where the current section starts in the extension track */
+  sectionStartIdx: number;
+  /** Where the current section ends in the extension track */
+  sectionEndIdx: number;
+}
+
 interface UseSectionTrimResult {
   /** Whether the trim overlay is visible */
   isTrimming: boolean;
-  /** Current start index in the polyline */
+  /** Current start index (in the effective polyline: extension track or section polyline) */
   trimStart: number;
-  /** Current end index in the polyline */
+  /** Current end index (in the effective polyline) */
   trimEnd: number;
   /** Whether a save is in progress */
   isSaving: boolean;
-  /** Distance of the trimmed portion in meters */
+  /** Distance of the trimmed/expanded portion in meters */
   trimmedDistance: number;
   /** Whether the section can be reset to original bounds */
   canReset: boolean;
+  /** Extension track data (null if not loaded or unavailable) */
+  extensionTrack: ExtensionTrack | null;
+  /** Total number of points in the effective slider range */
+  effectivePointCount: number;
   /** Enter trimming mode */
   startTrim: () => void;
   /** Cancel trimming without saving */
   cancelTrim: () => void;
-  /** Save the current trim and re-match activities */
+  /** Save the current trim/expand and re-match activities */
   confirmTrim: () => void;
   /** Reset to original (pre-trim) bounds */
   resetBounds: () => void;
@@ -69,14 +85,62 @@ export function useSectionTrim(
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [extensionTrack, setExtensionTrack] = useState<ExtensionTrack | null>(null);
 
-  // Memoized trimmed distance (pure TS, no FFI)
+  // Load extension track when entering edit mode
+  useEffect(() => {
+    if (!isTrimming || !section?.id) {
+      setExtensionTrack(null);
+      return;
+    }
+
+    const engine = getRouteEngine();
+    if (!engine) return;
+
+    try {
+      const result = engine.getSectionExtensionTrack(section.id);
+      if (result && result.track.length >= 4) {
+        // Convert flat coords [lat, lng, lat, lng, ...] to RoutePoint[]
+        const points: RoutePoint[] = [];
+        for (let i = 0; i < result.track.length - 1; i += 2) {
+          points.push({ lat: result.track[i], lng: result.track[i + 1] });
+        }
+        setExtensionTrack({
+          points,
+          sectionStartIdx: result.sectionStartIdx,
+          sectionEndIdx: result.sectionEndIdx,
+        });
+      }
+    } catch {
+      // Extension track unavailable — trimming still works without it
+    }
+  }, [isTrimming, section?.id]);
+
+  // The effective polyline used for the slider.
+  // When extension track is available, the slider operates on the full activity track.
+  // The section portion is highlighted within it.
+  const effectivePointCount = useMemo(() => {
+    if (extensionTrack) return extensionTrack.points.length;
+    return section?.polyline?.length ?? 0;
+  }, [extensionTrack, section?.polyline?.length]);
+
+  // Memoized trimmed/expanded distance (pure TS, no FFI)
   const trimmedDistance = useMemo(() => {
-    if (!section?.polyline || !isTrimming) return section?.distanceMeters ?? 0;
+    if (!isTrimming) return section?.distanceMeters ?? 0;
+
+    if (extensionTrack) {
+      // Operating on extension track
+      const sliced = extensionTrack.points.slice(trimStart, trimEnd + 1);
+      if (sliced.length < 2) return 0;
+      return polylineDistance(sliced);
+    }
+
+    // Operating on section polyline (trim only)
+    if (!section?.polyline) return 0;
     const sliced = section.polyline.slice(trimStart, trimEnd + 1);
     if (sliced.length < 2) return 0;
     return polylineDistance(sliced);
-  }, [section?.polyline, section?.distanceMeters, isTrimming, trimStart, trimEnd]);
+  }, [section?.polyline, section?.distanceMeters, isTrimming, trimStart, trimEnd, extensionTrack]);
 
   // Check if section has original bounds that can be restored
   const canReset = useMemo(() => {
@@ -88,19 +152,30 @@ export function useSectionTrim(
 
   const startTrim = useCallback(() => {
     if (!section?.polyline) return;
+    // Default: select the full section range
+    // When extension track loads, these will be updated to map to the section portion
     setTrimStart(0);
     setTrimEnd(section.polyline.length - 1);
     setIsTrimming(true);
   }, [section?.polyline]);
 
+  // When extension track loads, remap slider to the section's position within it
+  useEffect(() => {
+    if (extensionTrack && isTrimming) {
+      setTrimStart(extensionTrack.sectionStartIdx);
+      setTrimEnd(extensionTrack.sectionEndIdx);
+    }
+  }, [extensionTrack, isTrimming]);
+
   const cancelTrim = useCallback(() => {
     setIsTrimming(false);
+    setExtensionTrack(null);
   }, []);
 
   const confirmTrim = useCallback(() => {
     if (!section?.id) return;
 
-    // Validate minimum
+    // Validate minimum points
     if (trimEnd - trimStart + 1 < 5) {
       Alert.alert(
         t('common.error'),
@@ -116,17 +191,43 @@ export function useSectionTrim(
       return;
     }
 
-    const success = engine.trimSection(section.id, trimStart, trimEnd);
+    let success = false;
+
+    if (extensionTrack) {
+      // Check if the user expanded beyond the section or shrunk within it
+      const isExpanded =
+        trimStart < extensionTrack.sectionStartIdx || trimEnd > extensionTrack.sectionEndIdx;
+
+      if (isExpanded) {
+        // Expansion: extract the new polyline from the extension track and send to Rust
+        const newPolyline = extensionTrack.points.slice(trimStart, trimEnd + 1).map((p) => ({
+          latitude: p.lat,
+          longitude: p.lng,
+        }));
+        const newPolylineJson = JSON.stringify(newPolyline);
+        success = engine.expandSectionBounds(section.id, newPolylineJson);
+      } else {
+        // User shrunk within the section — map back to section polyline indices
+        const sectionStart = trimStart - extensionTrack.sectionStartIdx;
+        const sectionEnd = trimEnd - extensionTrack.sectionStartIdx;
+        success = engine.trimSection(section.id, sectionStart, sectionEnd);
+      }
+    } else {
+      // No extension track — pure trim on section polyline
+      success = engine.trimSection(section.id, trimStart, trimEnd);
+    }
+
     setIsSaving(false);
 
     if (success) {
       setIsTrimming(false);
+      setExtensionTrack(null);
       queryClient.invalidateQueries({ queryKey: ['sections'] });
       onRefresh();
     } else {
       Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
     }
-  }, [section?.id, trimStart, trimEnd, queryClient, onRefresh, t]);
+  }, [section?.id, trimStart, trimEnd, extensionTrack, queryClient, onRefresh, t]);
 
   const resetBounds = useCallback(() => {
     if (!section?.id) return;
@@ -142,6 +243,7 @@ export function useSectionTrim(
           const success = engine.resetSectionBounds(section.id);
           if (success) {
             setIsTrimming(false);
+            setExtensionTrack(null);
             queryClient.invalidateQueries({ queryKey: ['sections'] });
             onRefresh();
           }
@@ -157,6 +259,8 @@ export function useSectionTrim(
     isSaving,
     trimmedDistance,
     canReset,
+    extensionTrack,
+    effectivePointCount,
     startTrim,
     cancelTrim,
     confirmTrim,

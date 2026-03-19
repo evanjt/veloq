@@ -38,6 +38,10 @@ export interface SectionHeaderProps {
   trimEnd: number;
   isTrimSaving: boolean;
   trimmedDistance: number;
+  effectivePointCount: number;
+  sectionStartInTrack?: number;
+  sectionEndInTrack?: number;
+  extensionTrackPoints?: RoutePoint[] | null;
   shadowTrack?: [number, number][];
   highlightedActivityId: string | null;
   highlightedLapPoints?: RoutePoint[];
@@ -78,6 +82,10 @@ export function SectionHeader({
   trimEnd,
   isTrimSaving,
   trimmedDistance,
+  effectivePointCount,
+  sectionStartInTrack,
+  sectionEndInTrack,
+  extensionTrackPoints,
   shadowTrack,
   highlightedActivityId,
   highlightedLapPoints,
@@ -115,6 +123,7 @@ export function SectionHeader({
             allActivityTraces={allActivityTraces}
             isScrubbing={isScrubbing}
             trimRange={isTrimming ? { start: trimStart, end: trimEnd } : null}
+            extensionTrack={isTrimming ? extensionTrackPoints : null}
           />
         ) : (
           <View style={[styles.mapPlaceholder, { height: MAP_HEIGHT }]}>
@@ -123,7 +132,7 @@ export function SectionHeader({
         )}
         {isTrimming && (
           <SectionTrimOverlay
-            pointCount={section.polyline?.length ?? 0}
+            pointCount={effectivePointCount || section.polyline?.length || 0}
             startIndex={trimStart}
             endIndex={trimEnd}
             trimmedDistance={trimmedDistance}
@@ -131,6 +140,8 @@ export function SectionHeader({
             isSaving={isTrimSaving}
             canReset={canResetBounds}
             initiallyExpanded={!canResetBounds}
+            sectionStartInTrack={sectionStartInTrack}
+            sectionEndInTrack={sectionEndInTrack}
             onStartChange={onTrimStartChange}
             onEndChange={onTrimEndChange}
             onConfirm={onConfirmTrim}

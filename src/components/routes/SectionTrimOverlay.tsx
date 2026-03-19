@@ -28,7 +28,7 @@ const TRACK_HEIGHT = 4;
 const MIN_HANDLE_GAP = 0.05; // Minimum 5% gap between handles
 
 interface SectionTrimOverlayProps {
-  /** Total number of points in the polyline */
+  /** Total number of points in the effective polyline (extension track or section polyline) */
   pointCount: number;
   /** Current start index */
   startIndex: number;
@@ -44,6 +44,10 @@ interface SectionTrimOverlayProps {
   canReset: boolean;
   /** Whether the detail pill should start expanded (first-time trim) */
   initiallyExpanded?: boolean;
+  /** Section start index within extension track (for visual marker) */
+  sectionStartInTrack?: number;
+  /** Section end index within extension track (for visual marker) */
+  sectionEndInTrack?: number;
   /** Called when start index changes */
   onStartChange: (index: number) => void;
   /** Called when end index changes */
@@ -65,6 +69,8 @@ export function SectionTrimOverlay({
   isSaving,
   canReset,
   initiallyExpanded,
+  sectionStartInTrack,
+  sectionEndInTrack,
   onStartChange,
   onEndChange,
   onConfirm,
@@ -82,6 +88,11 @@ export function SectionTrimOverlay({
   // Convert indices to fractions
   const startFraction = maxIndex > 0 ? startIndex / maxIndex : 0;
   const endFraction = maxIndex > 0 ? endIndex / maxIndex : 1;
+
+  // Original section boundaries within extension track (for visual markers)
+  const hasExtension = sectionStartInTrack != null && sectionEndInTrack != null;
+  const sectionStartFraction = hasExtension ? (sectionStartInTrack ?? 0) / maxIndex : 0;
+  const sectionEndFraction = hasExtension ? (sectionEndInTrack ?? maxIndex) / maxIndex : 1;
 
   // Shared values for gesture tracking
   const startX = useSharedValue(0);
@@ -140,10 +151,13 @@ export function SectionTrimOverlay({
     left: endFraction * trackWidth - HANDLE_SIZE / 2,
   }));
 
-  // Percentage of original distance retained
+  // Percentage of original distance retained (can exceed 100% when expanding)
   const percentage =
     originalDistance > 0 ? Math.round((trimmedDistance / originalDistance) * 100) : 100;
-  const isTrimmed = startIndex > 0 || endIndex < maxIndex;
+  // Changed: detect either trimming or expansion relative to the section boundaries
+  const isTrimmed = hasExtension
+    ? startIndex !== sectionStartInTrack || endIndex !== sectionEndInTrack
+    : startIndex > 0 || endIndex < maxIndex;
 
   return (
     <View style={styles.container} pointerEvents="box-none">
@@ -192,6 +206,19 @@ export function SectionTrimOverlay({
           <View style={styles.sliderContainer} onLayout={onTrackLayout}>
             {/* Background track */}
             <View style={styles.trackBackground} />
+
+            {/* Original section boundaries (when extension track is active) */}
+            {trackWidth > 0 && hasExtension && (
+              <View
+                style={[
+                  styles.trackSection,
+                  {
+                    left: sectionStartFraction * trackWidth,
+                    width: (sectionEndFraction - sectionStartFraction) * trackWidth,
+                  },
+                ]}
+              />
+            )}
 
             {/* Active range */}
             {trackWidth > 0 && (
@@ -351,6 +378,12 @@ const styles = StyleSheet.create({
     height: TRACK_HEIGHT,
     borderRadius: TRACK_HEIGHT / 2,
     backgroundColor: colors.border,
+  },
+  trackSection: {
+    position: 'absolute',
+    height: TRACK_HEIGHT,
+    borderRadius: TRACK_HEIGHT / 2,
+    backgroundColor: colors.primary + '30',
   },
   trackActive: {
     position: 'absolute',
