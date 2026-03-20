@@ -10,7 +10,7 @@ import { useRecordingStore } from '@/providers/RecordingStore';
 import { formatDistance, formatDuration } from '@/lib';
 import { colors, darkColors, spacing } from '@/theme';
 
-const BRAND_COLOR = '#FC4C02';
+const BRAND_COLOR = '#EF4444';
 
 function RecordingBannerInner() {
   const { t } = useTranslation();

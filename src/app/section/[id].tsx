@@ -738,9 +738,6 @@ export default function SectionDetailScreen() {
           });
         }
       }
-      if (__DEV__ && points.length > 0) {
-        console.log(`[SectionDetail] excludedChartData: ${points.length} points`);
-      }
       return points;
     } catch (e) {
       if (__DEV__) console.warn('[SectionDetail] getExcludedSectionPerformances failed:', e);

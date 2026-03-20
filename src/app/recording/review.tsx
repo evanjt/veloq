@@ -28,10 +28,12 @@ import { useRecordingStore } from '@/providers/RecordingStore';
 import { generateFitFile } from '@/lib/recording/fitGenerator';
 import { intervalsApi } from '@/api';
 import { enqueueUpload } from '@/lib/storage/uploadQueue';
+import { debug } from '@/lib/utils/debug';
 import { RecordingMap } from '@/components/recording/RecordingMap';
 import { TrimSlider } from '@/components/recording/TrimSlider';
 import type { ActivityType } from '@/types';
 
+const log = debug.create('Upload');
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const MAP_FRACTION = 0.45;
 
@@ -109,6 +111,7 @@ export default function ReviewScreen() {
   const streams = useRecordingStore((s) => s.streams);
   const laps = useRecordingStore((s) => s.laps);
   const startTime = useRecordingStore((s) => s.startTime);
+  const stopTime = useRecordingStore((s) => s.stopTime);
   const pausedDuration = useRecordingStore((s) => s.pausedDuration);
   const pairedEventId = useRecordingStore((s) => s.pairedEventId);
 
@@ -180,7 +183,7 @@ export default function ReviewScreen() {
     const elapsed = startTime
       ? canTrim && s.time.length >= 2
         ? (s.time[s.time.length - 1] - s.time[0]) / 1000
-        : (Date.now() - startTime - pausedDuration) / 1000
+        : ((stopTime ?? Date.now()) - startTime - pausedDuration) / 1000
       : 0;
 
     // Calculate elevation gain
@@ -214,6 +217,7 @@ export default function ReviewScreen() {
     params,
     streams,
     startTime,
+    stopTime,
     pausedDuration,
     canTrim,
     trimStart,
@@ -295,12 +299,31 @@ export default function ReviewScreen() {
         });
 
         try {
+          log.log(`Uploading ${name}.fit...`);
           await intervalsApi.uploadActivity(fitBuffer, `${name}.fit`, {
             name,
             pairedEventId: pairedEventId ?? undefined,
           });
-        } catch {
+          log.log('Upload succeeded');
+        } catch (uploadErr) {
+          const errMsg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+          const isNetworkError =
+            /network\s*(error|request\s*failed)|timeout|ERR_NETWORK|ECONNABORTED/i.test(errMsg);
+
+          if (!isNetworkError) {
+            // API error (auth, validation, server error) — show to user, don't queue
+            log.warn(`Upload API error: ${errMsg}`);
+            setErrorMessage(
+              t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
+                error: errMsg,
+              })
+            );
+            setIsUploading(false);
+            return;
+          }
+
           // Network error → queue the pre-generated FIT for later upload
+          log.log(`Network error, queueing for later: ${errMsg}`);
           try {
             const FileSystem = require('expo-file-system/legacy');
             const dir = `${FileSystem.documentDirectory}pending_uploads/`;
@@ -328,6 +351,7 @@ export default function ReviewScreen() {
               createdAt: Date.now(),
             });
 
+            log.log('Queued successfully');
             // Show queued message briefly then navigate
             setQueuedMessage(
               t(
@@ -343,7 +367,9 @@ export default function ReviewScreen() {
             return;
           } catch {
             // Both upload and queue failed
+            log.warn('Failed to queue upload');
             setErrorMessage(t('recording.saveError', 'Could not save activity. Please try again.'));
+            setIsUploading(false);
             return;
           }
         }
@@ -410,8 +436,10 @@ export default function ReviewScreen() {
     clearDiscardTimer();
   }, [clearDiscardTimer]);
 
-  // RPE slider
+  // RPE slider — use Animated.Value for smooth drag, commit to state on release
   const rpeTrackWidth = useRef(0);
+  const rpeAnimValue = useRef(new Animated.Value(rpe)).current;
+  const rpeRef = useRef(rpe);
   const rpePan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -419,14 +447,19 @@ export default function ReviewScreen() {
       onPanResponderGrant: (e) => {
         if (rpeTrackWidth.current <= 0) return;
         const x = e.nativeEvent.locationX;
-        const val = Math.round((x / rpeTrackWidth.current) * 9) + 1;
-        setRpe(Math.max(1, Math.min(10, val)));
+        const val = Math.max(1, Math.min(10, Math.round((x / rpeTrackWidth.current) * 9) + 1));
+        rpeAnimValue.setValue(val);
+        rpeRef.current = val;
       },
       onPanResponderMove: (e) => {
         if (rpeTrackWidth.current <= 0) return;
         const x = e.nativeEvent.locationX;
-        const val = Math.round((x / rpeTrackWidth.current) * 9) + 1;
-        setRpe(Math.max(1, Math.min(10, val)));
+        const val = Math.max(1, Math.min(10, Math.round((x / rpeTrackWidth.current) * 9) + 1));
+        rpeAnimValue.setValue(val);
+        rpeRef.current = val;
+      },
+      onPanResponderRelease: () => {
+        setRpe(rpeRef.current);
       },
     })
   ).current;
@@ -595,22 +628,28 @@ export default function ReviewScreen() {
             }}
             {...rpePan.panHandlers}
           >
-            {/* Filled portion */}
-            <View
+            {/* Filled portion — driven by Animated.Value for smooth drag */}
+            <Animated.View
               style={[
                 styles.rpeFill,
                 {
-                  width: `${((rpe - 1) / 9) * 100}%` as `${number}%`,
+                  width: rpeAnimValue.interpolate({
+                    inputRange: [1, 10],
+                    outputRange: ['0%', '100%'],
+                  }),
                   backgroundColor: getRpeColor(rpe),
                 },
               ]}
             />
-            {/* Thumb */}
-            <View
+            {/* Thumb — driven by Animated.Value for smooth drag */}
+            <Animated.View
               style={[
                 styles.rpeThumb,
                 {
-                  left: `${((rpe - 1) / 9) * 100}%` as `${number}%`,
+                  left: rpeAnimValue.interpolate({
+                    inputRange: [1, 10],
+                    outputRange: ['0%', '100%'],
+                  }),
                   backgroundColor: getRpeColor(rpe),
                 },
               ]}

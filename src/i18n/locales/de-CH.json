@@ -762,7 +762,7 @@
     "resumePrevious": "Vorhärigi Ufnahm wiiterfahre?",
     "resumePreviousMessage": "E Ufnahm isch unterboche worde. Wotsch si wiiterfahre?",
     "gpsAcquiring": "Warte uf GPS...",
-    "gpsReady": "Ufnahm starte",
+    "gpsReady": "GPS bereit",
     "gpsWeakWarning": "GPS-Signal schwach — Ufnahm chönnt ungenau sii",
     "gpsNone": "Standort verweigeret",
     "gpsAlertTitle": "GPS-Signal nöd gfunde",

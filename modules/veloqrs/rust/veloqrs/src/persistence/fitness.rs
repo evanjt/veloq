@@ -818,7 +818,7 @@ impl PersistentRouteEngine {
     /// Get performance records for excluded activities in a section.
     /// Only uses cached lap_time/lap_pace (no time stream fallback).
     /// Returns just the records — no best/stats computation.
-    pub fn get_excluded_section_performances(&self, section_id: &str) -> Vec<SectionPerformanceRecord> {
+    pub fn get_excluded_section_performances(&mut self, section_id: &str) -> Vec<SectionPerformanceRecord> {
         // Find section sport type
         let sport_type: String = match self.sections.iter().find(|s| s.id == section_id) {
             Some(s) => s.sport_type.clone(),
@@ -858,8 +858,8 @@ impl PersistentRouteEngine {
         struct Portion {
             activity_id: String,
             direction: String,
-            _start_index: u32,
-            _end_index: u32,
+            start_index: u32,
+            end_index: u32,
             distance_meters: f64,
             lap_time: Option<f64>,
             lap_pace: Option<f64>,
@@ -869,8 +869,8 @@ impl PersistentRouteEngine {
             Ok(Portion {
                 activity_id: row.get(0)?,
                 direction: row.get(1)?,
-                _start_index: row.get(2)?,
-                _end_index: row.get(3)?,
+                start_index: row.get(2)?,
+                end_index: row.get(3)?,
                 distance_meters: row.get(4)?,
                 lap_time: row.get(5)?,
                 lap_pace: row.get(6)?,
@@ -887,6 +887,21 @@ impl PersistentRouteEngine {
             by_activity.entry(p.activity_id.clone()).or_default().push(p);
         }
 
+        // Pre-load time streams for activities with cache misses
+        let activity_ids_needing_streams: Vec<String> = by_activity
+            .iter()
+            .filter(|(_, portions)| {
+                portions.iter().any(|p| p.lap_time.is_none() || p.lap_pace.is_none())
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+
+        for activity_id in activity_ids_needing_streams {
+            if !self.time_streams.contains_key(&activity_id) {
+                self.ensure_time_stream_loaded(&activity_id);
+            }
+        }
+
         let mut records: Vec<SectionPerformanceRecord> = by_activity
             .iter()
             .filter_map(|(activity_id, portions)| {
@@ -894,7 +909,25 @@ impl PersistentRouteEngine {
                 let laps: Vec<SectionLap> = portions.iter().enumerate().filter_map(|(i, p)| {
                     let (time, pace) = match (p.lap_time, p.lap_pace) {
                         (Some(t), Some(p)) if t > 0.0 => (t, p),
-                        _ => return None,
+                        _ => {
+                            // Fall back to time-stream calculation if cache miss
+                            if let Some(times) = self.time_streams.get(activity_id) {
+                                let start_idx = p.start_index as usize;
+                                let end_idx = p.end_index as usize;
+                                if start_idx < times.len() && end_idx < times.len() {
+                                    let lap_time = (times[end_idx] as f64 - times[start_idx] as f64).abs();
+                                    if lap_time > 0.0 {
+                                        (lap_time, p.distance_meters / lap_time)
+                                    } else {
+                                        return None;
+                                    }
+                                } else {
+                                    return None;
+                                }
+                            } else {
+                                return None;
+                            }
+                        }
                     };
                     Some(SectionLap {
                         id: format!("{}_lap{}", activity_id, i),
@@ -903,8 +936,8 @@ impl PersistentRouteEngine {
                         pace,
                         distance: p.distance_meters,
                         direction: p.direction.clone(),
-                        start_index: p._start_index,
-                        end_index: p._end_index,
+                        start_index: p.start_index,
+                        end_index: p.end_index,
                     })
                 }).collect();
 

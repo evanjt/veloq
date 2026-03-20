@@ -1226,13 +1226,35 @@ impl PersistentRouteEngine {
                 bounds_max_lng,
             ])?;
 
-            // Populate junction table with full portion details and cached performance metrics
+            // Populate junction table with full portion details and cached performance metrics.
+            // Time streams may not be in memory (e.g., after background detection on a
+            // separate thread), so load from DB on cache miss to guarantee lap_time/lap_pace
+            // are always populated.
+            let mut db_time_streams: HashMap<String, Vec<u32>> = HashMap::new();
             for portion in &section.activity_portions {
-                // Calculate performance metrics if time stream is available
-                let (lap_time, lap_pace) = if let Some(times) = self.time_streams.get(&portion.activity_id) {
+                let times = if let Some(times) = self.time_streams.get(&portion.activity_id) {
+                    Some(times.as_slice())
+                } else {
+                    // Load from DB if not in memory
+                    if !db_time_streams.contains_key(&portion.activity_id) {
+                        if let Ok(stream) = tx.query_row(
+                            "SELECT times FROM time_streams WHERE activity_id = ?",
+                            params![&portion.activity_id],
+                            |row| {
+                                let bytes: Vec<u8> = row.get(0)?;
+                                rmp_serde::from_slice::<Vec<u32>>(&bytes)
+                                    .map_err(|_| rusqlite::Error::InvalidQuery)
+                            },
+                        ) {
+                            db_time_streams.insert(portion.activity_id.clone(), stream);
+                        }
+                    }
+                    db_time_streams.get(&portion.activity_id).map(|v| v.as_slice())
+                };
+
+                let (lap_time, lap_pace) = if let Some(times) = times {
                     let start_idx = portion.start_index as usize;
                     let end_idx = portion.end_index as usize;
-
                     if start_idx < times.len() && end_idx < times.len() {
                         let lap_time = (times[end_idx] as f64 - times[start_idx] as f64).abs();
                         if lap_time > 0.0 {

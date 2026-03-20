@@ -640,7 +640,7 @@
     "resumePrevious": "Resume previous recording?",
     "resumePreviousMessage": "A recording was interrupted. Would you like to resume it?",
     "gpsAcquiring": "Waiting for GPS...",
-    "gpsReady": "Start Recording",
+    "gpsReady": "GPS Ready",
     "gpsWeakWarning": "GPS signal weak — recording may be inaccurate",
     "gpsNone": "Location denied",
     "gpsAlertTitle": "GPS Signal Not Found",

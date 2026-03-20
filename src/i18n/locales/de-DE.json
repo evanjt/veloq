@@ -762,7 +762,7 @@
     "resumePrevious": "Vorherige Aufnahme fortsetzen?",
     "resumePreviousMessage": "Eine Aufnahme wurde unterbrochen. Möchtest du sie fortsetzen?",
     "gpsAcquiring": "Warte auf GPS...",
-    "gpsReady": "Aufnahme starten",
+    "gpsReady": "GPS bereit",
     "gpsWeakWarning": "GPS-Signal schwach — Aufzeichnung kann ungenau sein",
     "gpsNone": "Standort verweigert",
     "gpsAlertTitle": "GPS-Signal nicht gefunden",

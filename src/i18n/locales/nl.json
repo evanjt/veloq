@@ -762,7 +762,7 @@
     "resumePrevious": "Vorige opname hervatten?",
     "resumePreviousMessage": "Een opname werd onderbroken. Wil je deze hervatten?",
     "gpsAcquiring": "Wachten op GPS...",
-    "gpsReady": "Opname starten",
+    "gpsReady": "GPS gereed",
     "gpsWeakWarning": "GPS-signaal zwak — opname kan onnauwkeurig zijn",
     "gpsNone": "Locatie geweigerd",
     "gpsAlertTitle": "GPS-signaal niet gevonden",

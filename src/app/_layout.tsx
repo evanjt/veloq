@@ -52,6 +52,7 @@ import {
   TourReturnPill,
 } from '@/components/ui';
 import { RecordingBanner } from '@/components/recording/RecordingBanner';
+import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
@@ -78,6 +79,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const expandRange = useSyncDateRange((s) => s.expandRange);
+
+  // Process queued uploads on network restore / app foreground
+  useUploadQueueProcessor();
 
   // Initialize Rust route engine with persistent storage when authenticated
   // Data persists in SQLite - GPS tracks, routes, sections load instantly

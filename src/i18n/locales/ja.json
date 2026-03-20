@@ -762,7 +762,7 @@
     "resumePrevious": "前回の記録を再開しますか？",
     "resumePreviousMessage": "記録が中断されました。再開しますか？",
     "gpsAcquiring": "GPSを取得中...",
-    "gpsReady": "記録を開始",
+    "gpsReady": "GPS準備完了",
     "gpsWeakWarning": "GPS信号が弱い — 記録が不正確になる可能性があります",
     "gpsNone": "位置情報が拒否されました",
     "gpsAlertTitle": "GPS信号が見つかりません",

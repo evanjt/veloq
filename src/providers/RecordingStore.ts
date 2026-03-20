@@ -39,6 +39,7 @@ interface RecordingState {
   activityType: ActivityType | null;
   mode: RecordingMode | null;
   startTime: number | null;
+  stopTime: number | null;
   pausedDuration: number;
   streams: RecordingStreams;
   laps: RecordingLap[];
@@ -68,6 +69,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   activityType: null,
   mode: null,
   startTime: null,
+  stopTime: null,
   pausedDuration: 0,
   streams: { ...EMPTY_STREAMS },
   laps: [],
@@ -124,6 +126,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     const additionalPause = status === 'paused' && _pauseStart ? Date.now() - _pauseStart : 0;
     set({
       status: 'stopped',
+      stopTime: Date.now(),
       pausedDuration: pausedDuration + additionalPause,
       _pauseStart: null,
     });
@@ -254,6 +257,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       activityType: null,
       mode: null,
       startTime: null,
+      stopTime: null,
       pausedDuration: 0,
       streams: {
         time: [],

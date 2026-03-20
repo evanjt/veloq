@@ -762,7 +762,7 @@
     "resumePrevious": "Genoptag tidligere optagelse?",
     "resumePreviousMessage": "En optagelse blev afbrudt. Vil du genoptage den?",
     "gpsAcquiring": "Venter på GPS...",
-    "gpsReady": "Start optagelse",
+    "gpsReady": "GPS klar",
     "gpsWeakWarning": "Svagt GPS-signal — optagelsen kan være unøjagtig",
     "gpsNone": "Placering nægtet",
     "gpsAlertTitle": "GPS-signal ikke fundet",

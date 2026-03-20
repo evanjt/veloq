@@ -12,7 +12,8 @@ import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { shadows, spacing } from '@/theme';
 
 const FAB_SIZE = 56;
-const BRAND_COLOR = '#FC4C02';
+const IDLE_COLOR = '#14B8A6';
+const RECORDING_COLOR = '#EF4444';
 
 function RecordFABInner() {
   const { isDark } = useTheme();
@@ -112,7 +113,7 @@ const styles = StyleSheet.create({
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
-    backgroundColor: BRAND_COLOR,
+    backgroundColor: IDLE_COLOR,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
     height: FAB_SIZE,
     paddingHorizontal: spacing.md,
     borderRadius: FAB_SIZE / 2,
-    backgroundColor: BRAND_COLOR,
+    backgroundColor: RECORDING_COLOR,
     zIndex: 999,
   },
   recordingDot: {

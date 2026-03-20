@@ -32,7 +32,14 @@ import { intervalsApi } from '@/api';
 import { formatLocalDate, formatDuration, navigateTo } from '@/lib';
 import type { ActivityType, CalendarEvent } from '@/types';
 
-const DEFAULT_QUICK_TYPES: ActivityType[] = ['Ride', 'Run', 'Walk'];
+const DEFAULT_QUICK_TYPES: ActivityType[] = [
+  'Ride',
+  'Run',
+  'Walk',
+  'Swim',
+  'Hike',
+  'WeightTraining',
+];
 
 const GPS_READINESS_TIMEOUT_MS = 15_000;
 

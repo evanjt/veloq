@@ -762,7 +762,7 @@
     "resumePrevious": "¿Reanudar grabación anterior?",
     "resumePreviousMessage": "Se interrumpió una grabación. ¿Quieres reanudarla?",
     "gpsAcquiring": "Esperando GPS...",
-    "gpsReady": "Iniciar grabación",
+    "gpsReady": "GPS listo",
     "gpsWeakWarning": "Señal GPS débil — la grabación puede ser imprecisa",
     "gpsNone": "Ubicación denegada",
     "gpsAlertTitle": "Señal GPS no encontrada",

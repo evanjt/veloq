@@ -1,10 +1,9 @@
 /**
  * Minimalist bottom navigation tab bar.
  * Gradient fade from content, subtle icons and labels.
- * Map tab (center) shows red dot badge; hold + swipe up to start recording.
  * During recording, Map tab shows pulsing red dot and navigates to recording screen.
  */
-import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   TouchableOpacity,
@@ -13,16 +12,6 @@ import {
   Platform,
   Animated as RNAnimated,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import ReAnimated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  runOnJS,
-  interpolate,
-  Extrapolation,
-} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -33,10 +22,8 @@ import { useTheme } from '@/hooks';
 import { brand } from '@/theme';
 import { useInsightsStore } from '@/providers/InsightsStore';
 import { PERF_DEBUG } from '@/lib/debug/renderTimer';
-import { navigateTo, navigateTab } from '@/lib';
+import { navigateTab } from '@/lib';
 import { useRecordingStore } from '@/providers/RecordingStore';
-import { useRecordingPreferences } from '@/providers/RecordingPreferencesStore';
-import { RecordSwipeTarget } from '@/components/recording/RecordSwipeTarget';
 
 // Menu items with routes and icons (labels come from i18n)
 const MENU_ITEMS = [
@@ -53,7 +40,6 @@ export const GRADIENT_HEIGHT = 20; // Small fade zone above icons
 export const TAB_BAR_SAFE_PADDING = TAB_BAR_HEIGHT + GRADIENT_HEIGHT; // Total padding for content
 const ICON_SIZE = 26;
 const RECORDING_DOT_SIZE = 8;
-const ACTIVATION_THRESHOLD = 80;
 
 // Colors - WCAG AA requires 3:1 for icons, 4.5:1 for text
 const INACTIVE_COLOR_DARK = 'rgba(255, 255, 255, 0.55)'; // Muted but visible
@@ -78,12 +64,6 @@ function BottomTabBarComponent() {
   const recordingStatus = useRecordingStore((s) => s.status);
   const recordingType = useRecordingStore((s) => s.activityType);
   const isRecording = recordingStatus === 'recording' || recordingStatus === 'paused';
-
-  // Swipe-up gesture shared values
-  const overlayVisible = useSharedValue(0);
-  const dragY = useSharedValue(0);
-  const isActivated = useSharedValue(false);
-  const hasTriggeredHaptic = useRef(false);
 
   // Pulsing animation for recording dot
   const pulseAnim = useRef(new RNAnimated.Value(1)).current;
@@ -152,70 +132,10 @@ function BottomTabBarComponent() {
     [pathname, isRecording, recordingType]
   );
 
-  // Start recording with default sport type
-  const startRecordingWithDefault = useCallback(() => {
-    const recentTypes = useRecordingPreferences.getState().recentActivityTypes;
-    const defaultType = recentTypes[0] ?? 'Ride';
-    navigateTo(`/recording/${defaultType}`);
-  }, []);
-
-  const fireHeavyHaptic = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-  }, []);
-
-  const fireMediumHaptic = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  }, []);
-
-  const dismissOverlay = useCallback(() => {
-    overlayVisible.value = withTiming(0, { duration: 150 });
-    dragY.value = withSpring(0);
-    isActivated.value = false;
-    hasTriggeredHaptic.current = false;
-  }, [overlayVisible, dragY, isActivated]);
-
-  // Map tab gestures: quick tap navigates, long hold shows swipe-to-record overlay.
-  // Exclusive gives Tap priority — if finger lifts within 500ms, Tap wins.
-  // Otherwise Pan activates at 500ms for the hold+drag gesture.
-  const mapTapGesture = Gesture.Tap()
-    .maxDuration(500)
-    .onEnd(() => {
-      runOnJS(handlePress)('/map', 'map');
-    });
-
-  const mapHoldPanGesture = Gesture.Pan()
-    .activateAfterLongPress(500)
-    .minDistance(0)
-    .onStart(() => {
-      if (isRecording) return;
-      overlayVisible.value = withTiming(1, { duration: 200 });
-      runOnJS(fireMediumHaptic)();
-    })
-    .onUpdate((e) => {
-      if (overlayVisible.value < 0.5) return;
-      dragY.value = e.translationY;
-
-      if (e.translationY < -ACTIVATION_THRESHOLD && !isActivated.value) {
-        isActivated.value = true;
-        runOnJS(fireHeavyHaptic)();
-      } else if (e.translationY >= -ACTIVATION_THRESHOLD && isActivated.value) {
-        isActivated.value = false;
-      }
-    })
-    .onEnd(() => {
-      if (isActivated.value) {
-        runOnJS(startRecordingWithDefault)();
-      }
-      runOnJS(dismissOverlay)();
-    });
-
-  const mapComposedGesture = Gesture.Exclusive(mapTapGesture, mapHoldPanGesture);
-
   const totalHeight = GRADIENT_HEIGHT + TAB_BAR_HEIGHT + insets.bottom;
 
   return (
     <>
-      <RecordSwipeTarget visible={overlayVisible} dragY={dragY} isActivated={isActivated} />
       <View style={[styles.container, { height: totalHeight }]} pointerEvents="box-none">
         {/* Smooth gradient fade */}
         <LinearGradient
@@ -234,37 +154,6 @@ function BottomTabBarComponent() {
 
             const isMapTab = item.key === 'map';
             const label = t(`navigation.${item.key}`);
-
-            // Map tab uses gesture detector for swipe-up
-            if (isMapTab && !isRecording) {
-              const mapIconColor = isActive ? activeColor : inactiveColor;
-              const sz = isActive ? ICON_SIZE + 2 : ICON_SIZE;
-              return (
-                <GestureDetector key={item.key} gesture={mapComposedGesture}>
-                  <ReAnimated.View
-                    style={styles.tabItem}
-                    accessibilityLabel={label}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected: isActive }}
-                  >
-                    <View style={styles.iconContainer}>
-                      <MaterialCommunityIcons name="map-outline" size={sz} color={mapIconColor} />
-                      <View style={styles.recordDot} />
-                    </View>
-                    <Text
-                      style={[
-                        styles.label,
-                        { color: isActive ? activeColor : inactiveColor },
-                        isActive && styles.labelActive,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {label}
-                    </Text>
-                  </ReAnimated.View>
-                </GestureDetector>
-              );
-            }
 
             return (
               <TouchableOpacity
@@ -298,7 +187,7 @@ function BottomTabBarComponent() {
                     {
                       color:
                         isMapTab && isRecording
-                          ? '#FC4C02'
+                          ? '#EF4444'
                           : isActive
                             ? activeColor
                             : inactiveColor,
@@ -351,7 +240,7 @@ const styles = StyleSheet.create({
     width: RECORDING_DOT_SIZE,
     height: RECORDING_DOT_SIZE,
     borderRadius: RECORDING_DOT_SIZE / 2,
-    backgroundColor: '#FC4C02',
+    backgroundColor: '#EF4444',
   },
   label: {
     fontSize: 11,
@@ -369,14 +258,5 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: '#FC4C02',
-  },
-  recordDot: {
-    position: 'absolute',
-    top: 0,
-    right: -4,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#EF4444',
   },
 });

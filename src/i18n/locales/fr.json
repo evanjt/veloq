@@ -762,7 +762,7 @@
     "resumePrevious": "Reprendre l'enregistrement précédent ?",
     "resumePreviousMessage": "Un enregistrement a été interrompu. Souhaitez-vous le reprendre ?",
     "gpsAcquiring": "En attente du GPS...",
-    "gpsReady": "Démarrer l'enregistrement",
+    "gpsReady": "GPS prêt",
     "gpsWeakWarning": "Signal GPS faible — l'enregistrement peut être imprécis",
     "gpsNone": "Localisation refusée",
     "gpsAlertTitle": "Signal GPS introuvable",
