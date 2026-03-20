@@ -28,9 +28,7 @@ function RecordFABInner() {
   const [elapsed, setElapsed] = React.useState(0);
 
   const isRecording = status === 'recording' || status === 'paused';
-
-  // Hide on recording screens and type picker
-  if (pathname.startsWith('/recording') || pathname === '/record') return null;
+  const isHidden = pathname.startsWith('/recording') || pathname === '/record';
 
   // Update elapsed time when recording
   useEffect(() => {
@@ -61,6 +59,9 @@ function RecordFABInner() {
       pulseAnim.setValue(1);
     }
   }, [status, pulseAnim]);
+
+  // Hide on recording screens and type picker — AFTER all hooks
+  if (isHidden) return null;
 
   const handlePress = () => {
     if (isRecording && activityType) {

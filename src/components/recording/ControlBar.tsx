@@ -177,7 +177,7 @@ function ControlBarInner({
           icon="stop"
           backgroundColor={secondaryBg}
           textColor={STOP_COLOR}
-          onPress={() => handleHapticPress(onDiscard ?? onStop)}
+          onPress={() => handleHapticPress(onStop)}
         />
       </View>
     </View>

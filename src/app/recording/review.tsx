@@ -332,7 +332,7 @@ export default function ReviewScreen() {
             setQueuedMessage(
               t(
                 'recording.savedQueued',
-                'Activity saved. It will upload automatically when you are back online.'
+                'Activity saved. It will upload automatically when connectivity is restored.'
               )
             );
             setIsUploading(false);
