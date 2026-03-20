@@ -95,6 +95,7 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
     scale: s.scale ?? undefined,
     name: s.name ?? undefined,
     createdAt: new Date().toISOString(),
+    sportTypes: 'sportTypes' in s ? (s as any).sportTypes : undefined,
   };
   // Generate display name using same logic as useFrequentSections
   if (!section.name) {

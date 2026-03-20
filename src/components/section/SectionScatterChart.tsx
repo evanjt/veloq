@@ -194,7 +194,11 @@ export function SectionScatterChart({
       const ys = points.map((p) => p.speed);
       const trend = loessSmooth(xs, ys, undefined, Math.min(40, points.length * 2));
       if (trend.length < 2) return null;
-      return trend;
+      // Clamp LOESS output to data range to prevent extrapolation spikes in gaps
+      const yMin = Math.min(...ys);
+      const yMax = Math.max(...ys);
+      const yPad = (yMax - yMin) * 0.1 || 0.5;
+      return trend.map((p) => ({ x: p.x, y: Math.max(yMin - yPad, Math.min(yMax + yPad, p.y)) }));
     };
 
     return {
@@ -229,19 +233,10 @@ export function SectionScatterChart({
       const path = Skia.Path.Make();
       path.moveTo(xScale(trend[0].x), yScale(trend[0].y));
 
-      // Catmull-Rom to cubic Bezier for smooth curve
-      for (let i = 0; i < trend.length - 1; i++) {
-        const p0 = i > 0 ? trend[i - 1] : trend[i];
-        const p1 = trend[i];
-        const p2 = trend[i + 1];
-        const p3 = i < trend.length - 2 ? trend[i + 2] : trend[i + 1];
-
-        const cp1x = xScale(p1.x) + (xScale(p2.x) - xScale(p0.x)) / 6;
-        const cp1y = yScale(p1.y) + (yScale(p2.y) - yScale(p0.y)) / 6;
-        const cp2x = xScale(p2.x) - (xScale(p3.x) - xScale(p1.x)) / 6;
-        const cp2y = yScale(p2.y) - (yScale(p3.y) - yScale(p1.y)) / 6;
-
-        path.cubicTo(cp1x, cp1y, cp2x, cp2y, xScale(p2.x), yScale(p2.y));
+      // LOESS already produces smooth output — connect points directly
+      // (Catmull-Rom cubic splines cause wild overshoots at boundaries)
+      for (let i = 1; i < trend.length; i++) {
+        path.lineTo(xScale(trend[i].x), yScale(trend[i].y));
       }
 
       return path;

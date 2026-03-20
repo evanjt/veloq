@@ -407,6 +407,8 @@ export interface Section {
   activityPortions?: ActivitySectionRecord[];
   /** Activity traces (loaded on-demand for section detail) */
   activityTraces?: Record<string, RoutePoint[]>;
+  /** All sport types present in this section's activities */
+  sportTypes?: string[];
 }
 
 /**
