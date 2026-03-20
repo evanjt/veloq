@@ -1240,6 +1240,14 @@ export interface TranslationResource {
     gpsAcquiring: string;
     gpsReady: string;
     gpsWeakWarning: string;
+    gpsNone: string;
+    gpsAlertTitle: string;
+    gpsAlertMessage: string;
+    gpsAlertContinue: string;
+    gpsAlertSettings: string;
+    gpsAlertStop: string;
+    changeType: string;
+    noWorkoutsPlanned: string;
     splitBanner: string;
     settings: string;
     settingsAutoPause: string;
