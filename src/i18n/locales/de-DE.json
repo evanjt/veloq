@@ -788,7 +788,7 @@
     "permissionExplanation": "Veloq benötigt Ihre Erlaubnis, um Aktivitäten auf intervals.icu hochzuladen",
     "permissionGranted": "Upload-Berechtigung erteilt",
     "writePermissionRequired": "Schreibberechtigung erforderlich",
-    "writePermissionDescription": "Dein API-Schlüssel enthält keine Schreibberechtigung. Erteile OAuth-Zugriff, um Aufzeichnung und Uploads zu aktivieren.",
+    "writePermissionDescription": "Aufzeichnung erfordert Schreibberechtigung. Tippe unten, um Zugriff zu gewähren.",
     "writePermissionActive": "Schreibberechtigung aktiv",
     "writePermissionNotGranted": "Schreibberechtigung nicht erteilt"
   },

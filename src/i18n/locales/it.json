@@ -788,7 +788,7 @@
     "permissionExplanation": "Veloq ha bisogno della tua autorizzazione per caricare le attività su intervals.icu",
     "permissionGranted": "Autorizzazione al caricamento concessa",
     "writePermissionRequired": "Autorizzazione di scrittura richiesta",
-    "writePermissionDescription": "La tua chiave API non include l'autorizzazione di scrittura. Concedi l'accesso OAuth per abilitare la registrazione e i caricamenti.",
+    "writePermissionDescription": "La registrazione richiede l'autorizzazione di scrittura. Tocca sotto per concedere l'accesso.",
     "writePermissionActive": "Autorizzazione di scrittura attiva",
     "writePermissionNotGranted": "Autorizzazione di scrittura non concessa"
   },

@@ -7,17 +7,21 @@ const STORAGE_KEY = 'veloq-upload-permission';
 
 interface PersistedState {
   hasWritePermission: boolean | null;
+  bannerDismissed?: boolean;
 }
 
 interface UploadPermissionState {
   needsUpgrade: boolean;
   /** null = unchecked, true = granted, false = denied */
   hasWritePermission: boolean | null;
+  /** User dismissed the permission banner — don't show again until reset */
+  bannerDismissed: boolean;
   initialize: () => Promise<void>;
   /** Parse OAuth scope string and persist write permission state */
   setFromOAuthScope: (scope: string) => void;
   setNeedsUpgrade: (v: boolean) => void;
   setHasWritePermission: (v: boolean) => void;
+  dismissBanner: () => void;
   reset: () => void;
 }
 
@@ -32,9 +36,10 @@ function scopeIncludesWrite(scope: string): boolean {
     .includes('ACTIVITY:WRITE');
 }
 
-export const useUploadPermissionStore = create<UploadPermissionState>((set) => ({
+export const useUploadPermissionStore = create<UploadPermissionState>((set, get) => ({
   needsUpgrade: false,
   hasWritePermission: null,
+  bannerDismissed: false,
 
   initialize: async () => {
     try {
@@ -45,6 +50,7 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set) => (
           set({
             hasWritePermission: parsed.hasWritePermission,
             needsUpgrade: !parsed.hasWritePermission,
+            bannerDismissed: parsed.bannerDismissed ?? false,
           });
         }
       }
@@ -65,12 +71,25 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set) => (
   setNeedsUpgrade: (v) => set({ needsUpgrade: v }),
 
   setHasWritePermission: (v) => {
+    const { bannerDismissed } = get();
     set({ hasWritePermission: v, needsUpgrade: !v });
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ hasWritePermission: v })).catch(() => {});
+    AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ hasWritePermission: v, bannerDismissed })
+    ).catch(() => {});
+  },
+
+  dismissBanner: () => {
+    const { hasWritePermission } = get();
+    set({ bannerDismissed: true });
+    AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ hasWritePermission, bannerDismissed: true })
+    ).catch(() => {});
   },
 
   reset: () => {
-    set({ needsUpgrade: false, hasWritePermission: null });
+    set({ needsUpgrade: false, hasWritePermission: null, bannerDismissed: false });
     AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
   },
 }));

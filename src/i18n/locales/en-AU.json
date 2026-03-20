@@ -666,7 +666,7 @@
     "permissionExplanation": "Veloq needs your permission to upload activities to intervals.icu",
     "permissionGranted": "Upload permission granted",
     "writePermissionRequired": "Write permission required",
-    "writePermissionDescription": "Your API key doesn't include write permission. Grant OAuth access to enable recording and uploads.",
+    "writePermissionDescription": "Recording requires write permission. Tap below to grant access.",
     "writePermissionActive": "Write permission active",
     "writePermissionNotGranted": "Write permission not granted"
   },

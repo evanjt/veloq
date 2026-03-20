@@ -788,7 +788,7 @@
     "permissionExplanation": "Veloqがintervals.icuにアクティビティをアップロードするには許可が必要です",
     "permissionGranted": "アップロードの許可が付与されました",
     "writePermissionRequired": "書き込み権限が必要です",
-    "writePermissionDescription": "APIキーに書き込み権限がありません。記録とアップロードを有効にするには、OAuthアクセスを許可してください。",
+    "writePermissionDescription": "記録には書き込み権限が必要です。下をタップしてアクセスを許可してください。",
     "writePermissionActive": "書き込み権限が有効です",
     "writePermissionNotGranted": "書き込み権限が付与されていません"
   },

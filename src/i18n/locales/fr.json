@@ -788,7 +788,7 @@
     "permissionExplanation": "Veloq a besoin de votre autorisation pour envoyer des activités sur intervals.icu",
     "permissionGranted": "Autorisation d'envoi accordée",
     "writePermissionRequired": "Autorisation d'écriture requise",
-    "writePermissionDescription": "Votre clé API n'inclut pas l'autorisation d'écriture. Accordez l'accès OAuth pour activer l'enregistrement et les téléversements.",
+    "writePermissionDescription": "L'enregistrement nécessite une autorisation d'écriture. Appuyez ci-dessous pour accorder l'accès.",
     "writePermissionActive": "Autorisation d'écriture active",
     "writePermissionNotGranted": "Autorisation d'écriture non accordée"
   },

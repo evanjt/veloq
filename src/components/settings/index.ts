@@ -9,6 +9,5 @@ export { ProfileSection } from './ProfileSection';
 export { SettingsSection, SectionDivider } from './SettingsSection';
 export { StorageStatsPanel } from './StorageStatsPanel';
 export { SummaryCardSection } from './SummaryCardSection';
-export { RecordingPermissionSection } from './RecordingPermissionSection';
 export { SupportSection } from './SupportSection';
 export { TileCachePanel } from './TileCachePanel';

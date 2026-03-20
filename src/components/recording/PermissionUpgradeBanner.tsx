@@ -17,9 +17,11 @@ function PermissionUpgradeBannerInner() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const needsUpgrade = useUploadPermissionStore((s) => s.needsUpgrade);
+  const bannerDismissed = useUploadPermissionStore((s) => s.bannerDismissed);
+  const dismissBanner = useUploadPermissionStore((s) => s.dismissBanner);
   const { upgradePermissions, isUpgrading, error } = usePermissionUpgrade();
 
-  if (!needsUpgrade) return null;
+  if (!needsUpgrade || bannerDismissed) return null;
 
   return (
     <View
@@ -43,6 +45,13 @@ function PermissionUpgradeBannerInner() {
             ) : (
               <Text style={styles.buttonText}>{t('recording.grantAccess', 'Grant Access')}</Text>
             )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="permission-banner-dismiss"
+            onPress={dismissBanner}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <MaterialCommunityIcons name="close" size={18} color={AMBER_TEXT} />
           </TouchableOpacity>
         </View>
         {error ? (

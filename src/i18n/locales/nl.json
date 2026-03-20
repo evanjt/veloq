@@ -788,7 +788,7 @@
     "permissionExplanation": "Veloq heeft je toestemming nodig om activiteiten naar intervals.icu te uploaden",
     "permissionGranted": "Uploadtoestemming verleend",
     "writePermissionRequired": "Schrijfrechten vereist",
-    "writePermissionDescription": "Je API-sleutel bevat geen schrijfrechten. Verleen OAuth-toegang om opname en uploads in te schakelen.",
+    "writePermissionDescription": "Opname vereist schrijfrechten. Tik hieronder om toegang te verlenen.",
     "writePermissionActive": "Schrijfrechten actief",
     "writePermissionNotGranted": "Schrijfrechten niet verleend"
   },

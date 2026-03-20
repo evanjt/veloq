@@ -1,11 +1,13 @@
 import React, { useState, memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useTheme } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { colors, darkColors, spacing } from '@/theme';
 import { getAthleteId } from '@/api';
-import { useAuthStore } from '@/providers';
+import { useAuthStore, useUploadPermissionStore } from '@/providers';
+import { usePermissionUpgrade } from '@/hooks/recording/usePermissionUpgrade';
+import { useTranslation } from 'react-i18next';
 
 interface Athlete {
   name?: string;
@@ -19,8 +21,11 @@ interface ProfileSectionProps {
 
 function ProfileSectionComponent({ athlete }: ProfileSectionProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   const [profileImageError, setProfileImageError] = useState(false);
   const authMethod = useAuthStore((state) => state.authMethod);
+  const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
+  const { upgradePermissions, isUpgrading, error: upgradeError } = usePermissionUpgrade();
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;
   const hasValidProfileUrl =
@@ -41,22 +46,24 @@ function ProfileSectionComponent({ athlete }: ProfileSectionProps) {
   };
 
   const isDemo = authMethod === 'demo';
+  // Show permission row for OAuth users without confirmed write permission
+  const showPermissionRow = authMethod === 'oauth' && hasWritePermission !== true;
 
   return (
-    <TouchableOpacity
-      style={[styles.section, isDark && styles.sectionDark]}
-      onPress={
-        isDemo
-          ? undefined
-          : () =>
-              WebBrowser.openBrowserAsync(
-                `https://intervals.icu/athlete/${getAthleteId()}/activities`
-              )
-      }
-      activeOpacity={isDemo ? 1 : 0.7}
-      disabled={isDemo}
-    >
-      <View style={styles.profileRow}>
+    <View style={[styles.section, isDark && styles.sectionDark]}>
+      <TouchableOpacity
+        style={styles.profileRow}
+        onPress={
+          isDemo
+            ? undefined
+            : () =>
+                WebBrowser.openBrowserAsync(
+                  `https://intervals.icu/athlete/${getAthleteId()}/activities`
+                )
+        }
+        activeOpacity={isDemo ? 1 : 0.7}
+        disabled={isDemo}
+      >
         <View style={[styles.profilePhoto, isDark && styles.profilePhotoDark]}>
           {hasValidProfileUrl && !profileImageError ? (
             <Image
@@ -84,8 +91,40 @@ function ProfileSectionComponent({ athlete }: ProfileSectionProps) {
             color={isDark ? darkColors.textMuted : colors.textSecondary}
           />
         )}
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+
+      {showPermissionRow && (
+        <>
+          <View style={[styles.divider, isDark && styles.dividerDark]} />
+          <View style={styles.permissionRow}>
+            <MaterialCommunityIcons name="shield-alert-outline" size={20} color="#F59E0B" />
+            <Text style={[styles.permissionText, isDark && styles.textMuted]} numberOfLines={2}>
+              {t('recording.writePermissionNotGranted', 'Write permission not granted')}
+            </Text>
+            <TouchableOpacity
+              testID="settings-grant-access"
+              style={styles.permissionButton}
+              onPress={upgradePermissions}
+              disabled={isUpgrading}
+              activeOpacity={0.7}
+            >
+              {isUpgrading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.permissionButtonText}>
+                  {t('recording.grantAccess', 'Grant Access')}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+          {upgradeError ? (
+            <Text style={styles.upgradeError} numberOfLines={2}>
+              {upgradeError}
+            </Text>
+          ) : null}
+        </>
+      )}
+    </View>
   );
 }
 
@@ -132,6 +171,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.md,
+  },
+  dividerDark: {
+    backgroundColor: darkColors.border,
+  },
+  permissionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    gap: spacing.sm,
+  },
+  permissionText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  permissionButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#F59E0B',
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  permissionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  upgradeError: {
+    fontSize: 12,
+    color: '#DC2626',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    marginLeft: 20 + spacing.sm,
   },
   textLight: {
     color: colors.textOnDark,

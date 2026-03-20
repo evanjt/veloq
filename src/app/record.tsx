@@ -228,7 +228,7 @@ export default function RecordScreen() {
           <Text style={[styles.permissionDescription, { color: textSecondary }]}>
             {t(
               'recording.writePermissionDescription',
-              "Your API key doesn't include write permission. Grant OAuth access to enable recording and uploads."
+              'Recording requires write permission. Tap below to grant access.'
             )}
           </Text>
           <TouchableOpacity

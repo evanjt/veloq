@@ -788,7 +788,7 @@
     "permissionExplanation": "Veloq potrzebuje Twojej zgody na przesyłanie aktywności do intervals.icu",
     "permissionGranted": "Uprawnienia do przesyłania przyznane",
     "writePermissionRequired": "Wymagane uprawnienia do zapisu",
-    "writePermissionDescription": "Twój klucz API nie zawiera uprawnień do zapisu. Przyznaj dostęp OAuth, aby włączyć nagrywanie i przesyłanie.",
+    "writePermissionDescription": "Nagrywanie wymaga uprawnień do zapisu. Dotknij poniżej, aby przyznać dostęp.",
     "writePermissionActive": "Uprawnienia do zapisu aktywne",
     "writePermissionNotGranted": "Uprawnienia do zapisu nie przyznane"
   },

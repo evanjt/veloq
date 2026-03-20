@@ -15,11 +15,11 @@ export function RecordingPermissionSection() {
   const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
   const { upgradePermissions, isUpgrading, error } = usePermissionUpgrade();
 
-  // Only show when write permission is explicitly denied (OAuth without ACTIVITY:WRITE)
+  // Only show for OAuth users without confirmed write permission
   // API key users always have full permissions, demo users don't upload
   if (authMethod === 'demo' || authMethod === 'apiKey') return null;
-  // Don't show if permission state is unknown or granted
-  if (hasWritePermission !== false) return null;
+  // Don't show if write permission is confirmed
+  if (hasWritePermission === true) return null;
 
   const hasPermission = false;
 

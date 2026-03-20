@@ -275,7 +275,6 @@ export default function RootLayout() {
                   <AuthGate>
                     <OfflineBanner />
                     <RecordingBanner />
-                    <PermissionUpgradeBanner />
                     <GlobalDataSync />
                     <DemoBanner />
                     <WhatsNewModal />
@@ -302,6 +301,7 @@ export default function RootLayout() {
                         }}
                       />
                     </Stack>
+                    <PermissionUpgradeBanner />
                     <BottomTabBar />
                   </AuthGate>
                 </PaperProvider>

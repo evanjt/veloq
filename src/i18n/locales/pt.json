@@ -788,7 +788,7 @@
     "permissionExplanation": "O Veloq precisa da sua permissão para carregar atividades no intervals.icu",
     "permissionGranted": "Permissão de carregamento concedida",
     "writePermissionRequired": "Permissão de escrita necessária",
-    "writePermissionDescription": "A sua chave API não inclui permissão de escrita. Conceda acesso OAuth para ativar a gravação e os carregamentos.",
+    "writePermissionDescription": "A gravação requer permissão de escrita. Toque abaixo para conceder acesso.",
     "writePermissionActive": "Permissão de escrita ativa",
     "writePermissionNotGranted": "Permissão de escrita não concedida"
   },
