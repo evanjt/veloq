@@ -783,8 +783,10 @@
     "settingsUnits": "Einheiten",
     "distanceInvalid": "Please enter a valid distance (0-999).",
     "hrInvalid": "Please enter a valid heart rate (30-250).",
-    "uploadPermissionError": "Ihr API-Schlüssel hat keine Schreibrechte. Melden Sie sich bei intervals.icu an, um Uploads zu aktivieren.",
-    "signInToUpload": "Mit intervals.icu anmelden"
+    "permissionNeeded": "Berechtigung zum Hochladen von Aktivitäten erforderlich",
+    "grantAccess": "Zugriff gewähren",
+    "permissionExplanation": "Veloq benötigt Ihre Erlaubnis, um Aktivitäten auf intervals.icu hochzuladen",
+    "permissionGranted": "Upload-Berechtigung erteilt"
   },
   "routeDetail": {
     "avgTime": "Ø Zeit",

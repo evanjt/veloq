@@ -783,8 +783,10 @@
     "settingsUnits": "单位",
     "distanceInvalid": "Please enter a valid distance (0-999).",
     "hrInvalid": "Please enter a valid heart rate (30-250).",
-    "uploadPermissionError": "您的API密钥没有写入权限。请使用intervals.icu登录以启用上传。",
-    "signInToUpload": "使用intervals.icu登录"
+    "permissionNeeded": "上传活动需要授权",
+    "grantAccess": "授予访问权限",
+    "permissionExplanation": "Veloq需要您的授权才能将活动上传到intervals.icu",
+    "permissionGranted": "上传权限已授予"
   },
   "routeDetail": {
     "avgTime": "平均时间",

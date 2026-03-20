@@ -783,8 +783,10 @@
     "settingsUnits": "Unità",
     "distanceInvalid": "Please enter a valid distance (0-999).",
     "hrInvalid": "Please enter a valid heart rate (30-250).",
-    "uploadPermissionError": "La tua chiave API non ha i permessi di scrittura. Accedi con intervals.icu per abilitare i caricamenti.",
-    "signInToUpload": "Accedi con intervals.icu"
+    "permissionNeeded": "Autorizzazione necessaria per caricare le attività",
+    "grantAccess": "Concedi accesso",
+    "permissionExplanation": "Veloq ha bisogno della tua autorizzazione per caricare le attività su intervals.icu",
+    "permissionGranted": "Autorizzazione al caricamento concessa"
   },
   "routeDetail": {
     "avgTime": "Tempo medio",

@@ -661,8 +661,10 @@
     "settingsUnits": "Units",
     "distanceInvalid": "Please enter a valid distance (0-999).",
     "hrInvalid": "Please enter a valid heart rate (30-250).",
-    "uploadPermissionError": "Your API key does not have write permissions. Sign in with intervals.icu to enable uploads.",
-    "signInToUpload": "Sign in with intervals.icu"
+    "permissionNeeded": "Permission needed to upload activities",
+    "grantAccess": "Grant Access",
+    "permissionExplanation": "Veloq needs your permission to upload activities to intervals.icu",
+    "permissionGranted": "Upload permission granted"
   },
   "insights": {
     "title": "Insights",

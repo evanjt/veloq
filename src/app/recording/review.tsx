@@ -32,12 +32,8 @@ import { debug } from '@/lib/utils/debug';
 import { RecordingMap } from '@/components/recording/RecordingMap';
 import { TrimSlider } from '@/components/recording/TrimSlider';
 import { useAuthStore } from '@/providers/AuthStore';
-import {
-  startOAuthFlow,
-  handleOAuthCallback,
-  isOAuthConfigured,
-  getAppRedirectUri,
-} from '@/services/oauth';
+import { isOAuthConfigured } from '@/services/oauth';
+import { usePermissionUpgrade } from '@/hooks/recording/usePermissionUpgrade';
 import type { ActivityType } from '@/types';
 
 const log = debug.create('Upload');
@@ -133,8 +129,8 @@ export default function ReviewScreen() {
   const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showPermissionFix, setShowPermissionFix] = useState(false);
-  const [isOAuthLoading, setIsOAuthLoading] = useState(false);
   const authMethod = useAuthStore((s) => s.authMethod);
+  const { upgradePermissions, isUpgrading: isOAuthLoading } = usePermissionUpgrade();
   const discardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const discardAnim = useRef(new Animated.Value(0)).current;
 
@@ -334,8 +330,8 @@ export default function ReviewScreen() {
               setErrorMessage(
                 isApiKey
                   ? t(
-                      'recording.uploadPermissionError',
-                      'Your API key does not have write permissions. Sign in with intervals.icu to enable uploads.'
+                      'recording.permissionExplanation',
+                      'Veloq needs your permission to upload activities to intervals.icu'
                     )
                   : t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
                       error: errMsg,
@@ -436,43 +432,15 @@ export default function ReviewScreen() {
     authMethod,
   ]);
 
-  // Switch from API key to OAuth (which includes ACTIVITY:WRITE scope), then retry save
   const handleUpgradeToOAuth = useCallback(async () => {
-    setIsOAuthLoading(true);
     setErrorMessage(null);
-    try {
-      const result = await startOAuthFlow();
-      if (result.type === 'success' && result.url) {
-        const expectedPrefix = getAppRedirectUri();
-        if (!result.url.startsWith(expectedPrefix)) {
-          setErrorMessage(
-            t('login.oauthInvalidCallback', { defaultValue: 'Invalid OAuth callback' })
-          );
-          return;
-        }
-        const tokenResponse = handleOAuthCallback(result.url);
-        await useAuthStore
-          .getState()
-          .setOAuthCredentials(
-            tokenResponse.access_token,
-            tokenResponse.athlete_id,
-            tokenResponse.athlete_name
-          );
-        log.log('Upgraded to OAuth, retrying upload...');
-        setShowPermissionFix(false);
-        // Retry save with new OAuth credentials
-        setIsOAuthLoading(false);
-        handleSave();
-        return;
-      }
-      // User cancelled — keep error visible
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'OAuth failed';
-      setErrorMessage(msg);
-    } finally {
-      setIsOAuthLoading(false);
+    const success = await upgradePermissions();
+    if (success) {
+      log.log('Upgraded to OAuth, retrying upload...');
+      setShowPermissionFix(false);
+      handleSave();
     }
-  }, [t, handleSave]);
+  }, [upgradePermissions, handleSave]);
 
   // Hold-to-discard
   const DISCARD_HOLD_MS = 1000;
@@ -775,9 +743,9 @@ export default function ReviewScreen() {
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="login" size={16} color="#FFFFFF" />
+                    <MaterialCommunityIcons name="shield-lock-outline" size={16} color="#FFFFFF" />
                     <Text style={styles.oauthUpgradeBtnText}>
-                      {t('recording.signInToUpload', 'Sign in with intervals.icu')}
+                      {t('recording.grantAccess', 'Grant Access')}
                     </Text>
                   </>
                 )}

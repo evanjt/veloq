@@ -783,8 +783,10 @@
     "settingsUnits": "単位",
     "distanceInvalid": "Please enter a valid distance (0-999).",
     "hrInvalid": "Please enter a valid heart rate (30-250).",
-    "uploadPermissionError": "APIキーに書き込み権限がありません。アップロードを有効にするにはintervals.icuでログインしてください。",
-    "signInToUpload": "intervals.icuでログイン"
+    "permissionNeeded": "アクティビティのアップロードには許可が必要です",
+    "grantAccess": "アクセスを許可",
+    "permissionExplanation": "Veloqがintervals.icuにアクティビティをアップロードするには許可が必要です",
+    "permissionGranted": "アップロードの許可が付与されました"
   },
   "routeDetail": {
     "avgTime": "平均時間",

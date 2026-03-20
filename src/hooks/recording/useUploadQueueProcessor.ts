@@ -2,8 +2,14 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useNetwork } from '@/providers/NetworkContext';
+import { useAuthStore, useUploadPermissionStore } from '@/providers';
 import { intervalsApi } from '@/api';
-import { dequeueUpload, markUploadComplete, markUploadFailed } from '@/lib/storage/uploadQueue';
+import {
+  dequeueUpload,
+  markUploadComplete,
+  markUploadFailed,
+  markUploadPermissionBlocked,
+} from '@/lib/storage/uploadQueue';
 import { debug } from '@/lib/utils/debug';
 
 const log = debug.create('UploadQueue');
@@ -14,6 +20,7 @@ const log = debug.create('UploadQueue');
  */
 export function useUploadQueueProcessor() {
   const { isOnline } = useNetwork();
+  const needsUpgrade = useUploadPermissionStore((s) => s.needsUpgrade);
   const isProcessing = useRef(false);
 
   const processQueue = async () => {
@@ -57,6 +64,15 @@ export function useUploadQueueProcessor() {
             err && typeof err === 'object' && 'response' in err
               ? (err as { response?: { status?: number } }).response?.status
               : undefined;
+
+          // 403 for API key users: mark as permission-blocked instead of deleting
+          if (status === 403 && useAuthStore.getState().authMethod === 'apiKey') {
+            log.warn(`Upload permission-blocked (403): ${entry.name}`);
+            await markUploadPermissionBlocked(entry.id);
+            useUploadPermissionStore.getState().setNeedsUpgrade(true);
+            break; // All subsequent uploads will also fail
+          }
+
           const isNonRetriable =
             status != null && status >= 400 && status < 500 && status !== 408 && status !== 429;
 
@@ -94,4 +110,11 @@ export function useUploadQueueProcessor() {
     });
     return () => sub.remove();
   }, [isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-process queue after successful permission upgrade
+  useEffect(() => {
+    if (!needsUpgrade && isOnline) {
+      processQueue();
+    }
+  }, [needsUpgrade]); // eslint-disable-line react-hooks/exhaustive-deps
 }

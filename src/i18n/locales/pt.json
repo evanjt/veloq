@@ -783,8 +783,10 @@
     "settingsUnits": "Unidades",
     "distanceInvalid": "Please enter a valid distance (0-999).",
     "hrInvalid": "Please enter a valid heart rate (30-250).",
-    "uploadPermissionError": "A sua chave API não tem permissões de escrita. Inicie sessão com intervals.icu para ativar os carregamentos.",
-    "signInToUpload": "Iniciar sessão com intervals.icu"
+    "permissionNeeded": "Permissão necessária para carregar atividades",
+    "grantAccess": "Conceder acesso",
+    "permissionExplanation": "O Veloq precisa da sua permissão para carregar atividades no intervals.icu",
+    "permissionGranted": "Permissão de carregamento concedida"
   },
   "routeDetail": {
     "avgTime": "Tempo médio",

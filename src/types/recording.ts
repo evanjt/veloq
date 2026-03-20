@@ -89,6 +89,7 @@ export interface UploadQueueEntry {
   createdAt: number; // Date.now()
   retryCount: number;
   lastError?: string;
+  permissionBlocked?: boolean;
 }
 
 /** Crash recovery backup */

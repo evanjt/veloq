@@ -45,8 +45,8 @@ export async function enqueueUpload(
 
 export async function dequeueUpload(): Promise<UploadQueueEntry | null> {
   const queue = await loadQueue();
-  if (queue.length === 0) return null;
-  return queue[0];
+  // Skip permission-blocked entries — they wait for OAuth upgrade
+  return queue.find((e) => !e.permissionBlocked) ?? null;
 }
 
 export async function markUploadComplete(id: string): Promise<void> {
@@ -103,6 +103,25 @@ export async function markUploadFailed(id: string, error: string): Promise<void>
 export async function getQueueSize(): Promise<number> {
   const queue = await loadQueue();
   return queue.length;
+}
+
+export async function markUploadPermissionBlocked(id: string): Promise<void> {
+  const queue = await loadQueue();
+  const updated = queue.map((e) => (e.id === id ? { ...e, permissionBlocked: true } : e));
+  await saveQueue(updated);
+  log.log(`Upload permission-blocked: ${id}`);
+}
+
+export async function clearPermissionBlocked(): Promise<void> {
+  const queue = await loadQueue();
+  const updated = queue.map((e) => (e.permissionBlocked ? { ...e, permissionBlocked: false } : e));
+  await saveQueue(updated);
+  log.log('Cleared permission-blocked flag on all entries');
+}
+
+export async function getPermissionBlockedCount(): Promise<number> {
+  const queue = await loadQueue();
+  return queue.filter((e) => e.permissionBlocked).length;
 }
 
 export async function clearUploadQueue(): Promise<void> {

@@ -105,3 +105,4 @@ export {
   useRecordingPreferences,
   initializeRecordingPreferences,
 } from './RecordingPreferencesStore';
+export { useUploadPermissionStore } from './UploadPermissionStore';
