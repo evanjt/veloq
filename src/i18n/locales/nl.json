@@ -782,7 +782,9 @@
     "settingsDataFields": "Gegevensvelden",
     "settingsUnits": "Eenheden",
     "distanceInvalid": "Please enter a valid distance (0-999).",
-    "hrInvalid": "Please enter a valid heart rate (30-250)."
+    "hrInvalid": "Please enter a valid heart rate (30-250).",
+    "uploadPermissionError": "Je API-sleutel heeft geen schrijfrechten. Log in met intervals.icu om uploads in te schakelen.",
+    "signInToUpload": "Inloggen met intervals.icu"
   },
   "routeDetail": {
     "avgTime": "Gem. tijd",

@@ -782,7 +782,9 @@
     "settingsDataFields": "Campos de datos",
     "settingsUnits": "Unidades",
     "distanceInvalid": "Please enter a valid distance (0-999).",
-    "hrInvalid": "Please enter a valid heart rate (30-250)."
+    "hrInvalid": "Please enter a valid heart rate (30-250).",
+    "uploadPermissionError": "Tu clave API no tiene permisos de escritura. Inicia sesión con intervals.icu para habilitar las subidas.",
+    "signInToUpload": "Iniciar sesión con intervals.icu"
   },
   "routeDetail": {
     "avgTime": "Tiempo promedio",

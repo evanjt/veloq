@@ -782,7 +782,9 @@
     "settingsDataFields": "Champs de données",
     "settingsUnits": "Unités",
     "distanceInvalid": "Please enter a valid distance (0-999).",
-    "hrInvalid": "Please enter a valid heart rate (30-250)."
+    "hrInvalid": "Please enter a valid heart rate (30-250).",
+    "uploadPermissionError": "Votre clé API n'a pas les droits d'écriture. Connectez-vous avec intervals.icu pour activer les téléchargements.",
+    "signInToUpload": "Se connecter avec intervals.icu"
   },
   "routeDetail": {
     "avgTime": "Temps moy",

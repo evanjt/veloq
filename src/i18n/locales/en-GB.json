@@ -660,7 +660,9 @@
     "settingsDataFields": "Data Fields",
     "settingsUnits": "Units",
     "distanceInvalid": "Please enter a valid distance (0-999).",
-    "hrInvalid": "Please enter a valid heart rate (30-250)."
+    "hrInvalid": "Please enter a valid heart rate (30-250).",
+    "uploadPermissionError": "Your API key does not have write permissions. Sign in with intervals.icu to enable uploads.",
+    "signInToUpload": "Sign in with intervals.icu"
   },
   "insights": {
     "title": "Insights",

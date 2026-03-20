@@ -782,7 +782,9 @@
     "settingsDataFields": "数据字段",
     "settingsUnits": "单位",
     "distanceInvalid": "Please enter a valid distance (0-999).",
-    "hrInvalid": "Please enter a valid heart rate (30-250)."
+    "hrInvalid": "Please enter a valid heart rate (30-250).",
+    "uploadPermissionError": "您的API密钥没有写入权限。请使用intervals.icu登录以启用上传。",
+    "signInToUpload": "使用intervals.icu登录"
   },
   "routeDetail": {
     "avgTime": "平均时间",

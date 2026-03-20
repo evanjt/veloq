@@ -782,7 +782,9 @@
     "settingsDataFields": "データフィールド",
     "settingsUnits": "単位",
     "distanceInvalid": "Please enter a valid distance (0-999).",
-    "hrInvalid": "Please enter a valid heart rate (30-250)."
+    "hrInvalid": "Please enter a valid heart rate (30-250).",
+    "uploadPermissionError": "APIキーに書き込み権限がありません。アップロードを有効にするにはintervals.icuでログインしてください。",
+    "signInToUpload": "intervals.icuでログイン"
   },
   "routeDetail": {
     "avgTime": "平均時間",
