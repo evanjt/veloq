@@ -50,11 +50,24 @@ export function useUploadQueueProcessor() {
 
           await markUploadComplete(entry.id);
           log.log(`Upload succeeded: ${entry.name}`);
-        } catch (err) {
+        } catch (err: unknown) {
           const errMsg = err instanceof Error ? err.message : String(err);
-          log.warn(`Upload failed: ${entry.name} — ${errMsg}`);
-          await markUploadFailed(entry.id, errMsg);
-          // Stop processing on failure — will retry next trigger
+          // Check if this is a non-retriable HTTP error (4xx except 408/429)
+          const status =
+            err && typeof err === 'object' && 'response' in err
+              ? (err as { response?: { status?: number } }).response?.status
+              : undefined;
+          const isNonRetriable =
+            status != null && status >= 400 && status < 500 && status !== 408 && status !== 429;
+
+          if (isNonRetriable) {
+            log.warn(`Upload permanently failed (${status}): ${entry.name} — ${errMsg}`);
+            await markUploadComplete(entry.id); // Remove from queue, won't succeed on retry
+          } else {
+            log.warn(`Upload failed: ${entry.name} — ${errMsg}`);
+            await markUploadFailed(entry.id, errMsg);
+          }
+          // Stop processing — will retry retriable errors next trigger
           break;
         }
 
