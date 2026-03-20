@@ -135,13 +135,13 @@ export function SectionScatterChart({
 
     for (const p of positioned) {
       if (p.direction === 'reverse') {
-        if (p.speed > revBestSpeed) {
+        if (!p.isExcluded && p.speed > revBestSpeed) {
           revBestSpeed = p.speed;
           revBest = rev.length;
         }
         rev.push(p);
       } else {
-        if (p.speed > fwdBestSpeed) {
+        if (!p.isExcluded && p.speed > fwdBestSpeed) {
           fwdBestSpeed = p.speed;
           fwdBest = fwd.length;
         }

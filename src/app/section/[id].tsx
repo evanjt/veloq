@@ -577,22 +577,13 @@ export default function SectionDetailScreen() {
   const handleExcludeActivity = useCallback(
     (activityId: string) => {
       if (!id) return;
-      Alert.alert(t('sections.excludeActivity'), t('sections.excludeActivityConfirm'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('sections.exclude'),
-          style: 'destructive',
-          onPress: () => {
-            const engine = getRouteEngine();
-            if (!engine) return;
-            engine.excludeActivityFromSection(id, activityId);
-            setExcludedActivityIds((prev) => new Set([...prev, activityId]));
-            setSectionRefreshKey((k) => k + 1);
-          },
-        },
-      ]);
+      const engine = getRouteEngine();
+      if (!engine) return;
+      engine.excludeActivityFromSection(id, activityId);
+      setExcludedActivityIds((prev) => new Set([...prev, activityId]));
+      setSectionRefreshKey((k) => k + 1);
     },
-    [id, t]
+    [id]
   );
 
   const handleIncludeActivity = useCallback(
@@ -703,50 +694,58 @@ export default function SectionDetailScreen() {
   // Build chart data points for excluded activities (shown dimmed on scatter chart)
   const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
     if (!showExcluded || excludedActivityIds.size === 0 || !id) return [];
-    const engine = getRouteEngine();
-    if (!engine) return [];
-    const result = engine.getExcludedSectionPerformances(id);
-    if (!result?.records?.length) return [];
+    try {
+      const engine = getRouteEngine();
+      if (!engine) return [];
+      const result = engine.getExcludedSectionPerformances(id);
+      if (!result?.records?.length) return [];
 
-    const points: (PerformanceDataPoint & { x: number })[] = [];
-    for (const r of result.records) {
-      const date = fromUnixSeconds(r.activityDate);
-      if (!date) continue;
-      if (r.laps?.length) {
-        for (const lap of r.laps) {
-          if (lap.pace > 0) {
-            points.push({
-              x: 0,
-              id: lap.id,
-              activityId: r.activityId,
-              speed: lap.pace,
-              date,
-              activityName: r.activityName,
-              direction: (lap.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
-              sectionTime: Math.round(lap.time),
-              sectionDistance: lap.distance || r.sectionDistance,
-              lapCount: 1,
-              isExcluded: true,
-            });
+      const points: (PerformanceDataPoint & { x: number })[] = [];
+      for (const r of result.records) {
+        const date = fromUnixSeconds(r.activityDate);
+        if (!date) continue;
+        if (r.laps?.length) {
+          for (const lap of r.laps) {
+            if (lap.pace > 0) {
+              points.push({
+                x: 0,
+                id: lap.id,
+                activityId: r.activityId,
+                speed: lap.pace,
+                date,
+                activityName: r.activityName,
+                direction: (lap.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
+                sectionTime: Math.round(lap.time),
+                sectionDistance: lap.distance || r.sectionDistance,
+                lapCount: 1,
+                isExcluded: true,
+              });
+            }
           }
+        } else if (r.bestPace > 0) {
+          points.push({
+            x: 0,
+            id: r.activityId,
+            activityId: r.activityId,
+            speed: r.bestPace,
+            date,
+            activityName: r.activityName,
+            direction: (r.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
+            sectionTime: Math.round(r.bestTime),
+            sectionDistance: r.sectionDistance,
+            lapCount: 1,
+            isExcluded: true,
+          });
         }
-      } else if (r.bestPace > 0) {
-        points.push({
-          x: 0,
-          id: r.activityId,
-          activityId: r.activityId,
-          speed: r.bestPace,
-          date,
-          activityName: r.activityName,
-          direction: (r.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
-          sectionTime: Math.round(r.bestTime),
-          sectionDistance: r.sectionDistance,
-          lapCount: 1,
-          isExcluded: true,
-        });
       }
+      if (__DEV__ && points.length > 0) {
+        console.log(`[SectionDetail] excludedChartData: ${points.length} points`);
+      }
+      return points;
+    } catch (e) {
+      if (__DEV__) console.warn('[SectionDetail] getExcludedSectionPerformances failed:', e);
+      return [];
     }
-    return points;
   }, [showExcluded, excludedActivityIds, id]);
 
   const activityCount = section?.activityIds?.length ?? 0;
@@ -783,7 +782,7 @@ export default function SectionDetailScreen() {
   const keyExtractor = useCallback((item: Activity) => item.id, []);
 
   const renderActivityRow = useCallback(
-    ({ item: activity }: { item: Activity }) => {
+    ({ item: activity, index }: { item: Activity; index: number }) => {
       const portion = portionMap.get(activity.id);
       const record = performanceRecordMap.get(activity.id);
       const isHighlighted = listHighlightedActivityId === activity.id;
@@ -793,28 +792,44 @@ export default function SectionDetailScreen() {
       const isReference = effectiveReferenceId === activity.id;
       const isActivityExcluded = excludedActivityIds.has(activity.id);
 
+      // Show separator before first excluded activity
+      const isFirstExcluded =
+        isActivityExcluded &&
+        (index === 0 || !excludedActivityIds.has(displayActivities[index - 1]?.id));
+
       return (
-        <ActivityRow
-          activity={activity}
-          isDark={isDark}
-          direction={record?.direction || portion?.direction}
-          activityPoints={activityTracePoints}
-          sectionPoints={section?.polyline}
-          isHighlighted={isHighlighted}
-          sectionDistance={record?.sectionDistance || portion?.distanceMeters}
-          lapCount={record?.lapCount}
-          actualSectionTime={record?.bestTime}
-          actualSectionPace={record?.bestPace}
-          isBest={isBest}
-          rank={rank}
-          bestTime={bestTimeValue}
-          bestPace={bestPaceValue}
-          isReference={isReference}
-          isExcluded={isActivityExcluded}
-          onHighlightChange={handleRowHighlightChange}
-          onSetAsReference={handleSetAsReference}
-          onInclude={isActivityExcluded ? handleIncludeActivity : undefined}
-        />
+        <>
+          {isFirstExcluded && (
+            <View style={styles.excludedSeparator}>
+              <View style={[styles.separatorLine, isDark && styles.separatorLineDark]} />
+              <Text style={[styles.excludedLabel, isDark && styles.textMuted]}>
+                {t('sections.excludeActivity')}
+              </Text>
+              <View style={[styles.separatorLine, isDark && styles.separatorLineDark]} />
+            </View>
+          )}
+          <ActivityRow
+            activity={activity}
+            isDark={isDark}
+            direction={record?.direction || portion?.direction}
+            activityPoints={activityTracePoints}
+            sectionPoints={section?.polyline}
+            isHighlighted={isHighlighted}
+            sectionDistance={record?.sectionDistance || portion?.distanceMeters}
+            lapCount={record?.lapCount}
+            actualSectionTime={record?.bestTime}
+            actualSectionPace={record?.bestPace}
+            isBest={isBest}
+            rank={rank}
+            bestTime={bestTimeValue}
+            bestPace={bestPaceValue}
+            isReference={isReference}
+            isExcluded={isActivityExcluded}
+            onHighlightChange={handleRowHighlightChange}
+            onSetAsReference={handleSetAsReference}
+            onInclude={isActivityExcluded ? handleIncludeActivity : undefined}
+          />
+        </>
       );
     },
     [
@@ -833,6 +848,8 @@ export default function SectionDetailScreen() {
       handleSetAsReference,
       excludedActivityIds,
       handleIncludeActivity,
+      displayActivities,
+      t,
     ]
   );
 
@@ -1217,6 +1234,25 @@ const styles = StyleSheet.create({
   contentSection: {
     padding: layout.screenPadding,
     paddingTop: spacing.lg,
+  },
+  excludedSeparator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+  },
+  separatorLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.divider,
+  },
+  separatorLineDark: {
+    backgroundColor: darkColors.border,
+  },
+  excludedLabel: {
+    fontSize: typography.bodySmall.fontSize,
+    color: colors.textSecondary,
   },
   disabledBanner: {
     flexDirection: 'row',
