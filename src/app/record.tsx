@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  Alert,
+  Linking,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { CollapsibleSection } from '@/components/ui';
@@ -416,6 +424,13 @@ function GpsReadinessBar({
       {state === 'ready' && prominent && (
         <MaterialCommunityIcons name="check-circle" size={14} color={config.color} />
       )}
+      {state === 'none' && prominent && (
+        <TouchableOpacity onPress={() => Linking.openSettings()}>
+          <Text style={[styles.gpsSettingsLink, { color: config.color }]}>
+            {t('recording.gpsAlertSettings', 'Open Settings')}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -478,6 +493,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: 'italic',
     paddingVertical: spacing.sm,
+  },
+  gpsSettingsLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   scrollContent: {},
   section: {

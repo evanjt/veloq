@@ -138,7 +138,11 @@ export function LockOverlay({
   return (
     <Animated.View
       testID="lock-overlay"
-      style={[styles.overlay, { opacity: overlayOpacity }]}
+      style={[
+        styles.overlay,
+        isGpsMode ? styles.overlayGps : styles.overlayIndoor,
+        { opacity: overlayOpacity },
+      ]}
       pointerEvents={visible ? 'auto' : 'none'}
     >
       {/* Block all touches except the slider */}
@@ -222,10 +226,15 @@ export function LockOverlay({
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.70)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2000,
+  },
+  overlayGps: {
+    backgroundColor: 'rgba(0, 0, 0, 0.70)',
+  },
+  overlayIndoor: {
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
   },
   touchBlocker: {
     ...StyleSheet.absoluteFillObject,

@@ -10,6 +10,7 @@ import {
   Linking,
   Modal,
   FlatList,
+  Animated,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -79,6 +80,7 @@ export default function RecordingScreen() {
   const gpsAlertRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gpsAlertShownRef = useRef(false);
   const splitBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const statusPulse = useRef(new Animated.Value(1)).current;
   const handleLock = useCallback(() => setIsLocked(true), []);
   const handleUnlock = useCallback(() => setIsLocked(false), []);
 
@@ -131,6 +133,22 @@ export default function RecordingScreen() {
   useEffect(() => {
     if (status === 'recording') setIsLocked(true);
   }, [status]);
+
+  // Pulsing status dot animation
+  useEffect(() => {
+    if (status === 'recording') {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(statusPulse, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+          Animated.timing(statusPulse, { toValue: 1, duration: 800, useNativeDriver: true }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    } else {
+      statusPulse.setValue(1);
+    }
+  }, [status, statusPulse]);
 
   const { formattedElapsed, formattedMoving } = useTimer();
   const metrics = useRecordingMetrics();
@@ -452,10 +470,13 @@ export default function RecordingScreen() {
           </TouchableOpacity>
           {/* Status badge */}
           <View testID="recording-status" style={styles.statusBadge}>
-            <View
+            <Animated.View
               style={[
                 styles.statusDot,
-                { backgroundColor: status === 'recording' ? colors.error : '#F59E0B' },
+                {
+                  backgroundColor: status === 'recording' ? colors.error : '#F59E0B',
+                  opacity: statusPulse,
+                },
               ]}
             />
             <Text style={[styles.statusText, { color: textSecondary }]}>
