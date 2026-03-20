@@ -1,5 +1,16 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { View, StyleSheet, TextInput, ScrollView, TouchableOpacity, Keyboard } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  TextInput,
+  ScrollView,
+  TouchableOpacity,
+  Keyboard,
+  Alert,
+  Linking,
+  Modal,
+  FlatList,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -10,7 +21,7 @@ import { useTheme, useMetricSystem } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { navigateTo } from '@/lib';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
-import { getRecordingMode } from '@/lib/utils/recordingModes';
+import { getRecordingMode, ACTIVITY_CATEGORIES } from '@/lib/utils/recordingModes';
 import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
 import { formatDuration, formatDistance, formatPace, formatSpeed } from '@/lib';
 import { useRecordingStore } from '@/providers/RecordingStore';
@@ -32,8 +43,11 @@ import type { AutoPauseConfig } from '@/lib/recording/autoPause';
 
 const log = debug.create('RecordingScreen');
 
-// How long to wait for first GPS fix before warning
-const GPS_TIMEOUT_MS = 20_000;
+// How long to wait before showing GPS warning banner
+const GPS_WARNING_MS = 20_000;
+
+// How long to wait before showing GPS alert dialog
+const GPS_ALERT_MS = 60_000;
 
 // Crash recovery backup interval (15s to finish before iOS ~30s background limit)
 const BACKUP_INTERVAL_MS = 15_000;
@@ -60,7 +74,10 @@ export default function RecordingScreen() {
   const [gpsWarning, setGpsWarning] = useState<string | null>(null);
   const [autoPaused, setAutoPaused] = useState(false);
   const [splitBanner, setSplitBanner] = useState<string | null>(null);
-  const gpsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showTypePicker, setShowTypePicker] = useState(false);
+  const gpsWarningRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gpsAlertRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gpsAlertShownRef = useRef(false);
   const splitBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleLock = useCallback(() => setIsLocked(true), []);
   const handleUnlock = useCallback(() => setIsLocked(false), []);
@@ -276,14 +293,47 @@ export default function RecordingScreen() {
         }
         await startTracking();
 
-        // Start timeout for first GPS fix
+        // Stage 1: Warning banner after 20s without GPS
         if (!cancelled) {
-          gpsTimeoutRef.current = setTimeout(() => {
+          gpsWarningRef.current = setTimeout(() => {
             const loc = useRecordingStore.getState().streams.latlng;
             if (loc.length === 0) {
               setGpsWarning(t('recording.gpsWaiting'));
             }
-          }, GPS_TIMEOUT_MS);
+          }, GPS_WARNING_MS);
+        }
+
+        // Stage 2: Alert dialog after 60s without GPS
+        if (!cancelled) {
+          gpsAlertRef.current = setTimeout(() => {
+            const loc = useRecordingStore.getState().streams.latlng;
+            if (loc.length === 0 && !gpsAlertShownRef.current) {
+              gpsAlertShownRef.current = true;
+              Alert.alert(
+                t('recording.gpsAlertTitle', 'GPS Signal Not Found'),
+                t(
+                  'recording.gpsAlertMessage',
+                  'Unable to get a GPS fix. Check that location services are enabled and you have a clear view of the sky.'
+                ),
+                [
+                  {
+                    text: t('recording.gpsAlertContinue', 'Continue Without GPS'),
+                    style: 'cancel',
+                    onPress: () => setGpsWarning(null),
+                  },
+                  {
+                    text: t('recording.gpsAlertSettings', 'Open Settings'),
+                    onPress: () => Linking.openSettings(),
+                  },
+                  {
+                    text: t('recording.gpsAlertStop', 'Stop Recording'),
+                    style: 'destructive',
+                    onPress: () => handleDiscard(),
+                  },
+                ]
+              );
+            }
+          }, GPS_ALERT_MS);
         }
       } catch (e) {
         log.error('Failed to start location tracking:', e);
@@ -295,9 +345,13 @@ export default function RecordingScreen() {
 
     return () => {
       cancelled = true;
-      if (gpsTimeoutRef.current) {
-        clearTimeout(gpsTimeoutRef.current);
-        gpsTimeoutRef.current = null;
+      if (gpsWarningRef.current) {
+        clearTimeout(gpsWarningRef.current);
+        gpsWarningRef.current = null;
+      }
+      if (gpsAlertRef.current) {
+        clearTimeout(gpsAlertRef.current);
+        gpsAlertRef.current = null;
       }
       stopTracking();
     };
@@ -343,6 +397,15 @@ export default function RecordingScreen() {
     router.replace('/');
   }, [stopTracking]);
 
+  const handleChangeType = useCallback((newType: ActivityType) => {
+    useRecordingStore.getState().changeActivityType(newType);
+    setShowTypePicker(false);
+  }, []);
+
+  // Read current activity type from store (may change during recording)
+  const currentActivityType = useRecordingStore((s) => s.activityType) ?? activityType;
+  const currentActivityColor = getActivityColor(currentActivityType);
+
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
@@ -369,17 +432,37 @@ export default function RecordingScreen() {
         <Text testID="recording-timer" style={[styles.timerText, { color: textPrimary }]}>
           {formattedElapsed}
         </Text>
-        <View testID="recording-status" style={styles.statusBadge}>
-          <View
-            style={[
-              styles.statusDot,
-              { backgroundColor: status === 'recording' ? colors.error : '#F59E0B' },
-            ]}
-          />
-          <Text style={[styles.statusText, { color: textSecondary }]}>
-            {status === 'recording' ? t('recording.rec', 'REC') : t('recording.paused', 'PAUSED')}
-          </Text>
-          {mode === 'gps' && <GpsSignalIndicator accuracy={accuracy} />}
+        <View style={styles.headerRight}>
+          {/* Activity type badge */}
+          <TouchableOpacity
+            testID="recording-type-badge"
+            style={[styles.typeBadge, { borderColor: border }]}
+            onPress={() => setShowTypePicker(true)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name={getActivityIcon(currentActivityType)}
+              size={16}
+              color={currentActivityColor}
+            />
+            <Text style={[styles.typeBadgeText, { color: textSecondary }]} numberOfLines={1}>
+              {t(`activityTypes.${currentActivityType}`, currentActivityType)}
+            </Text>
+            <MaterialCommunityIcons name="chevron-down" size={14} color={textSecondary} />
+          </TouchableOpacity>
+          {/* Status badge */}
+          <View testID="recording-status" style={styles.statusBadge}>
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: status === 'recording' ? colors.error : '#F59E0B' },
+              ]}
+            />
+            <Text style={[styles.statusText, { color: textSecondary }]}>
+              {status === 'recording' ? t('recording.rec', 'REC') : t('recording.paused', 'PAUSED')}
+            </Text>
+            {mode === 'gps' && <GpsSignalIndicator accuracy={accuracy} />}
+          </View>
         </View>
       </View>
 
@@ -478,10 +561,154 @@ export default function RecordingScreen() {
         elapsed={formattedElapsed}
         distance={formatDistance(metrics.distance ?? 0, isMetric)}
         onUnlock={handleUnlock}
+        mode={mode}
+        status={status === 'recording' || status === 'paused' ? status : 'idle'}
+        accuracy={accuracy}
+        coordinates={streams.latlng}
+        currentLocation={currentLocation}
+        activityType={currentActivityType}
+        speed={metrics.speed > 0 ? formatSpeed(metrics.speed, isMetric) : undefined}
+        heartrate={metrics.heartrate > 0 ? metrics.heartrate : undefined}
+      />
+
+      {/* Activity type picker modal */}
+      <ActivityTypePickerModal
+        visible={showTypePicker}
+        currentType={currentActivityType}
+        onSelect={handleChangeType}
+        onDismiss={() => setShowTypePicker(false)}
+        isDark={isDark}
       />
     </View>
   );
 }
+
+/** Activity type picker modal for changing type during recording */
+function ActivityTypePickerModal({
+  visible,
+  currentType,
+  onSelect,
+  onDismiss,
+  isDark,
+}: {
+  visible: boolean;
+  currentType: ActivityType;
+  onSelect: (type: ActivityType) => void;
+  onDismiss: () => void;
+  isDark: boolean;
+}) {
+  const { t } = useTranslation();
+  const surface = isDark ? darkColors.surface : colors.surface;
+  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
+  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const border = isDark ? darkColors.border : colors.border;
+
+  const allTypes = useMemo(() => {
+    const types: ActivityType[] = [];
+    for (const group of Object.values(ACTIVITY_CATEGORIES)) {
+      for (const type of group) {
+        types.push(type as ActivityType);
+      }
+    }
+    return types;
+  }, []);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
+      <TouchableOpacity style={typePickerStyles.backdrop} activeOpacity={1} onPress={onDismiss}>
+        <View style={[typePickerStyles.sheet, { backgroundColor: surface }]}>
+          <View style={typePickerStyles.header}>
+            <Text style={[typePickerStyles.title, { color: textPrimary }]}>
+              {t('recording.changeType', 'Change Activity Type')}
+            </Text>
+            <TouchableOpacity
+              onPress={onDismiss}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <MaterialCommunityIcons name="close" size={22} color={textSecondary} />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={allTypes}
+            keyExtractor={(item) => item}
+            style={typePickerStyles.list}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  typePickerStyles.typeRow,
+                  { borderBottomColor: border },
+                  item === currentType && typePickerStyles.typeRowSelected,
+                ]}
+                onPress={() => onSelect(item)}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name={getActivityIcon(item)}
+                  size={22}
+                  color={getActivityColor(item)}
+                  style={typePickerStyles.typeIcon}
+                />
+                <Text style={[typePickerStyles.typeLabel, { color: textPrimary }]}>
+                  {t(`activityTypes.${item}`, item)}
+                </Text>
+                {item === currentType && (
+                  <MaterialCommunityIcons name="check" size={18} color={brand.teal} />
+                )}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
+const typePickerStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  sheet: {
+    maxHeight: '60%',
+    borderTopLeftRadius: layout.borderRadius,
+    borderTopRightRadius: layout.borderRadius,
+    paddingBottom: spacing.xl,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  title: {
+    ...typography.sectionTitle,
+  },
+  list: {
+    paddingHorizontal: spacing.sm,
+  },
+  typeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    minHeight: layout.minTapTarget,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  typeRowSelected: {
+    backgroundColor: 'rgba(20, 184, 166, 0.08)',
+  },
+  typeIcon: {
+    marginRight: spacing.sm,
+    width: 28,
+    textAlign: 'center',
+  },
+  typeLabel: {
+    ...typography.body,
+    flex: 1,
+  },
+});
 
 /** Manual activity entry form */
 function ManualEntry({
@@ -768,6 +995,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  headerRight: {
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+  },
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: layout.borderRadiusSm,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  typeBadgeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    maxWidth: 80,
   },
   timerText: {
     ...typography.heroNumber,
