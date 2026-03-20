@@ -19,6 +19,7 @@ import {
 } from '@/hooks';
 import { useRouteSettings, useSyncDateRange } from '@/providers';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { RecordFAB } from '@/components/recording/RecordFAB';
 import { createSharedStyles } from '@/styles';
 import { formatLocalDate } from '@/lib';
 
@@ -225,6 +226,8 @@ export default function MapScreen() {
             isDark={isDark}
           />
         </View>
+
+        <RecordFAB />
       </View>
     </ScreenErrorBoundary>
   );

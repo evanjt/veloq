@@ -23,6 +23,7 @@ import { useInfiniteActivities, useTheme, useSummaryCardData, useInsights } from
 import type { Activity } from '@/types';
 import { useDashboardPreferences, useMapPreferences } from '@/providers';
 import { ActivityCard, notifyMapScroll } from '@/components/activity';
+import { RecordFAB } from '@/components/recording/RecordFAB';
 import {
   ActivityCardSkeleton,
   NetworkErrorState,
@@ -461,6 +462,8 @@ export default function FeedScreen() {
 
         {/* Hidden WebView for generating 3D terrain snapshots */}
         {isAnyTerrain3DEnabled && <TerrainSnapshotWebView ref={snapshotRef} />}
+
+        <RecordFAB />
       </ScreenSafeAreaView>
     </ScreenErrorBoundary>
   );

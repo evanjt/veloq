@@ -24,6 +24,7 @@ import {
 } from '@/components/stats';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { NetworkErrorState, ErrorStatePreset, ScreenErrorBoundary } from '@/components/ui';
+import { RecordFAB } from '@/components/recording/RecordFAB';
 import {
   useWellness,
   useActivities,
@@ -851,6 +852,8 @@ export default function FitnessScreen() {
             </View>
           </View>
         </ScrollView>
+
+        <RecordFAB />
       </ScreenSafeAreaView>
     </ScreenErrorBoundary>
   );
