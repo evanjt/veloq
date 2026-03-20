@@ -396,11 +396,11 @@
     "understandingMetrics": "Understanding the Metrics"
   },
   "formZones": {
-    "detraining": "Detraining",
+    "transition": "Transition",
     "fresh": "Fresh",
-    "maintenance": "Maintenance",
-    "productive": "Productive",
-    "deepFatigue": "Deep Fatigue"
+    "greyZone": "Grey Zone",
+    "optimal": "Optimal",
+    "highRisk": "High Risk"
   },
   "healthScreen": {
     "title": "Health"
@@ -696,17 +696,17 @@
       "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
       "zones": {
         "fresh": "Fresh",
-        "detraining": "Detraining",
-        "maintenance": "Maintenance",
-        "productive": "Productive training",
-        "deepFatigue": "Deep fatigue"
+        "transition": "Transition",
+        "greyZone": "Grey Zone",
+        "optimal": "Optimal training",
+        "highRisk": "High risk"
       },
       "zoneDescriptions": {
         "fresh": "Well-rested, fitness exceeds fatigue",
-        "detraining": "Losing fitness from insufficient stimulus",
-        "maintenance": "Moderate training load",
-        "productive": "Where most adaptation occurs",
-        "deepFatigue": "Significant accumulated fatigue"
+        "transition": "Losing fitness from insufficient stimulus",
+        "greyZone": "Moderate training load",
+        "optimal": "Where most adaptation occurs",
+        "highRisk": "Significant accumulated fatigue"
       }
     },
     "hrvTrend": {

@@ -4056,6 +4056,10 @@ export type FfiSectionWithPolyline = {
    * Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
    */
   polyline: Array</*f64*/ number>;
+  /**
+   * All sport types present in this section's activities
+   */
+  sportTypes: Array<string>;
 };
 
 /**
@@ -4105,6 +4109,7 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
         scale: FfiConverterOptionalString.read(from),
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
         polyline: FfiConverterArrayFloat64.read(from),
+        sportTypes: FfiConverterArrayString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -4118,6 +4123,7 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
       FfiConverterOptionalString.write(value.scale, into);
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
       FfiConverterArrayFloat64.write(value.polyline, into);
+      FfiConverterArrayString.write(value.sportTypes, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -4130,7 +4136,8 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
         FfiConverterFloat64.allocationSize(value.confidence) +
         FfiConverterOptionalString.allocationSize(value.scale) +
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
-        FfiConverterArrayFloat64.allocationSize(value.polyline)
+        FfiConverterArrayFloat64.allocationSize(value.polyline) +
+        FfiConverterArrayString.allocationSize(value.sportTypes)
       );
     }
   }
@@ -4570,6 +4577,10 @@ export type SectionSummary = {
    * ISO timestamp when section was created
    */
   createdAt: string;
+  /**
+   * All sport types present in this section's activities
+   */
+  sportTypes: Array<string>;
 };
 
 /**
@@ -4619,6 +4630,7 @@ const FfiConverterTypeSectionSummary = (() => {
         scale: FfiConverterOptionalString.read(from),
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
         createdAt: FfiConverterString.read(from),
+        sportTypes: FfiConverterArrayString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -4634,6 +4646,7 @@ const FfiConverterTypeSectionSummary = (() => {
       FfiConverterOptionalString.write(value.scale, into);
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
       FfiConverterString.write(value.createdAt, into);
+      FfiConverterArrayString.write(value.sportTypes, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -4650,7 +4663,8 @@ const FfiConverterTypeSectionSummary = (() => {
         FfiConverterFloat64.allocationSize(value.confidence) +
         FfiConverterOptionalString.allocationSize(value.scale) +
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
-        FfiConverterString.allocationSize(value.createdAt)
+        FfiConverterString.allocationSize(value.createdAt) +
+        FfiConverterArrayString.allocationSize(value.sportTypes)
       );
     }
   }
@@ -6433,7 +6447,10 @@ export interface SectionManagerInterface {
     minVisits: /*u32*/ number | undefined,
   ) /*throws*/ : Array<FfiFrequentSection>;
   getForActivity(activityId: string) /*throws*/ : Array<FfiSection>;
-  getPerformances(sectionId: string) /*throws*/ : FfiSectionPerformanceResult;
+  getPerformances(
+    sectionId: string,
+    sportType: string | undefined,
+  ) /*throws*/ : FfiSectionPerformanceResult;
   getPolyline(sectionId: string) /*throws*/ : Array<FfiGpsPoint>;
   getReferenceInfo(sectionId: string) /*throws*/ : FfiSectionReferenceInfo;
   getSummaries(
@@ -6801,6 +6818,7 @@ export class SectionManager
 
   public getPerformances(
     sectionId: string,
+    sportType: string | undefined,
   ): FfiSectionPerformanceResult /*throws*/ {
     return FfiConverterTypeFfiSectionPerformanceResult.lift(
       uniffiCaller.rustCallWithError(
@@ -6811,6 +6829,7 @@ export class SectionManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_performances(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
+            FfiConverterOptionalString.lower(sportType),
             callStatus,
           );
         },
@@ -8382,7 +8401,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances() !==
-    14381
+    53747
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_performances",

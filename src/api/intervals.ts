@@ -401,6 +401,7 @@ export const intervalsApi = {
     } as any);
     if (opts?.name) formData.append('name', opts.name);
     if (opts?.pairedEventId) formData.append('paired_event_id', String(opts.pairedEventId));
+    formData.append('device_name', 'Veloq');
 
     try {
       const response = await apiClient.post(`/athlete/${athleteId}/activities`, formData, {

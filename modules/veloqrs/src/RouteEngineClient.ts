@@ -458,7 +458,7 @@ class RouteEngineClient {
       return EMPTY_SECTION_PERFORMANCE_RESULT;
     }
     return this.timed('getSectionPerformances', () =>
-      this.engine.sections().getPerformances(sectionId, sportType ?? null),
+      this.engine.sections().getPerformances(sectionId, sportType),
     );
   }
 

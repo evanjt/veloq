@@ -133,10 +133,10 @@ const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 // TSB zones per intervals.icu convention (informational only, no prescriptive text)
 const TSB_ZONES = {
   fresh: { min: 25, color: '#81C784', key: 'fresh' },
-  detraining: { min: 5, color: '#64B5F6', key: 'detraining' },
-  maintenance: { min: -10, color: '#9E9E9E', key: 'maintenance' },
-  productive: { min: -30, color: '#66BB6A', key: 'productive' },
-  deepFatigue: { min: -Infinity, color: '#EF5350', key: 'deepFatigue' },
+  transition: { min: 5, color: '#64B5F6', key: 'transition' },
+  greyZone: { min: -10, color: '#9E9E9E', key: 'greyZone' },
+  optimal: { min: -30, color: '#66BB6A', key: 'optimal' },
+  highRisk: { min: -Infinity, color: '#EF5350', key: 'highRisk' },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -483,10 +483,10 @@ function addTsbFormPositionInsight(
 
 function resolveTsbZone(tsb: number): { color: string; key: string } {
   if (tsb > TSB_ZONES.fresh.min) return TSB_ZONES.fresh;
-  if (tsb > TSB_ZONES.detraining.min) return TSB_ZONES.detraining;
-  if (tsb > TSB_ZONES.maintenance.min) return TSB_ZONES.maintenance;
-  if (tsb > TSB_ZONES.productive.min) return TSB_ZONES.productive;
-  return TSB_ZONES.deepFatigue;
+  if (tsb > TSB_ZONES.transition.min) return TSB_ZONES.transition;
+  if (tsb > TSB_ZONES.greyZone.min) return TSB_ZONES.greyZone;
+  if (tsb > TSB_ZONES.optimal.min) return TSB_ZONES.optimal;
+  return TSB_ZONES.highRisk;
 }
 
 // ---------------------------------------------------------------------------

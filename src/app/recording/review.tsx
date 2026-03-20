@@ -315,10 +315,22 @@ export default function ReviewScreen() {
         } catch (uploadErr) {
           const errMsg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
           // Check for HTTP status first — axios errors with response are API errors, not network
-          const httpStatus =
+          const response =
             uploadErr && typeof uploadErr === 'object' && 'response' in uploadErr
-              ? (uploadErr as { response?: { status?: number } }).response?.status
+              ? (uploadErr as { response?: { status?: number; data?: unknown } }).response
               : undefined;
+          const httpStatus = response?.status;
+          // Extract API error detail from response body if available
+          const rd = response?.data;
+          log.warn(`Upload response body: ${typeof rd === 'string' ? rd : JSON.stringify(rd)}`);
+          const apiDetail =
+            rd && typeof rd === 'object' && 'message' in rd
+              ? String((rd as Record<string, unknown>).message)
+              : rd && typeof rd === 'object' && 'error' in rd
+                ? String((rd as Record<string, unknown>).error)
+                : typeof rd === 'string' && rd.length > 0 && rd.length < 500
+                  ? rd
+                  : null;
           // Fallback: detect 403 from error message if response object missing
           const is403 = httpStatus === 403 || (!httpStatus && /status code 403/i.test(errMsg));
           const isNetworkError =
@@ -344,7 +356,7 @@ export default function ReviewScreen() {
             } else {
               setErrorMessage(
                 t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
-                  error: errMsg,
+                  error: apiDetail || errMsg,
                 })
               );
             }
@@ -894,9 +906,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.xs,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
   },
   // Non-GPS header
   header: {

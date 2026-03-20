@@ -281,7 +281,8 @@ RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_filtered(
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_for_activity(
     void *ptr, RustBuffer activity_id, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_performances(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    void *ptr, RustBuffer section_id, RustBuffer sport_type,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_polyline(
     void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_reference_info(
@@ -2903,7 +2904,7 @@ NativeVeloqrs::NativeVeloqrs(
           jsi::PropNameID::forAscii(
               rt,
               "ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_performances"),
-          2,
+          3,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -5960,6 +5961,7 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_performances(
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_performances(
       uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);

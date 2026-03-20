@@ -6,11 +6,11 @@ import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing } from '@/theme';
 
 const FORM_ZONE_COLORS = {
-  deepFatigue: '#EF5350',
-  productive: '#66BB6A',
-  maintenance: '#9E9E9E',
+  highRisk: '#EF5350',
+  optimal: '#66BB6A',
+  greyZone: '#9E9E9E',
   fresh: '#81C784',
-  detraining: '#64B5F6',
+  transition: '#64B5F6',
 };
 
 const HERO_METRICS = [
@@ -20,11 +20,11 @@ const HERO_METRICS = [
 ];
 
 const ZONE_BAR = [
-  { zone: 'deepFatigue', flex: 1, color: FORM_ZONE_COLORS.deepFatigue },
-  { zone: 'productive', flex: 1, color: FORM_ZONE_COLORS.productive },
-  { zone: 'maintenance', flex: 1, color: FORM_ZONE_COLORS.maintenance },
+  { zone: 'highRisk', flex: 1, color: FORM_ZONE_COLORS.highRisk },
+  { zone: 'optimal', flex: 1, color: FORM_ZONE_COLORS.optimal },
+  { zone: 'greyZone', flex: 1, color: FORM_ZONE_COLORS.greyZone },
   { zone: 'fresh', flex: 1, color: FORM_ZONE_COLORS.fresh },
-  { zone: 'detraining', flex: 1, color: FORM_ZONE_COLORS.detraining },
+  { zone: 'transition', flex: 1, color: FORM_ZONE_COLORS.transition },
 ];
 
 export function FitnessHeroSlide() {
@@ -65,7 +65,7 @@ export function FitnessHeroSlide() {
           <Text
             style={[styles.zoneLabel, { color: isDark ? darkColors.textMuted : colors.textMuted }]}
           >
-            {t('formZones.deepFatigue')}
+            {t('formZones.highRisk')}
           </Text>
           <Text
             style={[styles.zoneLabel, { color: isDark ? darkColors.textMuted : colors.textMuted }]}

@@ -192,14 +192,14 @@ describe('generateInsights', () => {
       expect(tsb!.title).not.toContain('consider');
     });
 
-    // TSB zone boundaries (intervals.icu): fresh > 25, detraining > 5, maintenance > -10, productive > -30
+    // TSB zone boundaries (intervals.icu): fresh > 25, transition > 5, greyZone > -10, optimal > -30
     it.each([
       [30, 'fresh'],
-      [10, 'detraining'],
-      [0, 'maintenance'],
-      [-5, 'maintenance'],
-      [-15, 'productive'],
-      [-35, 'deepFatigue'],
+      [10, 'transition'],
+      [0, 'greyZone'],
+      [-5, 'greyZone'],
+      [-15, 'optimal'],
+      [-35, 'highRisk'],
     ])('formTsb=%i maps to %s zone', (tsb, zone) => {
       const result = generateInsights(
         { ...EMPTY_INPUT, formTsb: tsb, formCtl: 50, formAtl: 50 },
@@ -210,13 +210,13 @@ describe('generateInsights', () => {
       expect(form!.title).toContain(zone);
     });
 
-    it('formTsb at exactly 25 maps to detraining zone (boundary)', () => {
+    it('formTsb at exactly 25 maps to transition zone (boundary)', () => {
       const result = generateInsights(
         { ...EMPTY_INPUT, formTsb: 25, formCtl: 50, formAtl: 50 },
         mockT
       );
       const tsb = result.find((i) => i.id === 'tsb_form-position');
-      expect(tsb!.title).toContain('detraining');
+      expect(tsb!.title).toContain('transition');
     });
 
     it('formTsb at 25.01 maps to fresh zone', () => {

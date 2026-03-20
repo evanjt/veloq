@@ -53,7 +53,6 @@ import {
   TourReturnPill,
 } from '@/components/ui';
 import { RecordingBanner } from '@/components/recording/RecordingBanner';
-import { PermissionUpgradeBanner } from '@/components/recording/PermissionUpgradeBanner';
 import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 
@@ -301,7 +300,6 @@ export default function RootLayout() {
                         }}
                       />
                     </Stack>
-                    <PermissionUpgradeBanner />
                     <BottomTabBar />
                   </AuthGate>
                 </PaperProvider>

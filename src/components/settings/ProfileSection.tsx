@@ -25,6 +25,7 @@ function ProfileSectionComponent({ athlete }: ProfileSectionProps) {
   const [profileImageError, setProfileImageError] = useState(false);
   const authMethod = useAuthStore((state) => state.authMethod);
   const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
+  const grantedScopes = useUploadPermissionStore((s) => s.grantedScopes);
   const { upgradePermissions, isUpgrading, error: upgradeError } = usePermissionUpgrade();
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;
@@ -45,9 +46,46 @@ function ProfileSectionComponent({ athlete }: ProfileSectionProps) {
     }
   };
 
+  /**
+   * Parse OAuth scope string into display-friendly permission summary.
+   * Input:  "ACTIVITY:WRITE,WELLNESS:READ,CALENDAR:READ,SETTINGS:READ"
+   * Output: [{ label: "Activities", level: "read & write" }, { label: "Wellness", level: "read" }, ...]
+   */
+  const parseScopes = (
+    scopes: string
+  ): { label: string; level: 'read' | 'write' | 'read & write' }[] => {
+    const categoryNames: Record<string, string> = {
+      ACTIVITY: t('settings.activities', 'Activities'),
+      WELLNESS: t('navigation.wellness', 'Wellness'),
+      CALENDAR: t('navigation.training', 'Calendar'),
+      SETTINGS: t('settings.title', 'Settings'),
+      CHATS: 'Chats',
+      LIBRARY: 'Library',
+    };
+    const map = new Map<string, Set<string>>();
+    for (const s of scopes.split(',')) {
+      const [cat, perm] = s.trim().split(':');
+      if (!cat || !perm) continue;
+      if (!map.has(cat)) map.set(cat, new Set());
+      map.get(cat)!.add(perm.toUpperCase());
+    }
+    const result: { label: string; level: 'read' | 'write' | 'read & write' }[] = [];
+    for (const [cat, perms] of map) {
+      const label = categoryNames[cat] ?? cat.charAt(0) + cat.slice(1).toLowerCase();
+      // WRITE implies READ per intervals.icu spec
+      const hasWrite = perms.has('WRITE');
+      const hasRead = perms.has('READ');
+      const level = hasWrite ? 'read & write' : hasRead ? 'read' : 'read';
+      result.push({ label, level });
+    }
+    return result;
+  };
+
   const isDemo = authMethod === 'demo';
+  const isOAuth = authMethod === 'oauth';
+  const parsedScopes = isOAuth && grantedScopes ? parseScopes(grantedScopes) : [];
   // Show permission row for OAuth users without confirmed write permission
-  const showPermissionRow = authMethod === 'oauth' && hasWritePermission !== true;
+  const showPermissionRow = isOAuth && hasWritePermission !== true;
 
   return (
     <View style={[styles.section, isDark && styles.sectionDark]}>
@@ -83,6 +121,20 @@ function ProfileSectionComponent({ athlete }: ProfileSectionProps) {
           <Text style={[styles.profileEmail, isDark && styles.textMuted]}>
             {authMethod === 'demo' ? getAuthBadge() : `intervals.icu · ${getAuthBadge()}`}
           </Text>
+          {isOAuth && parsedScopes.length > 0 && (
+            <View style={styles.scopeRow}>
+              {parsedScopes.map((s) => (
+                <View key={s.label} style={styles.scopeBadge}>
+                  <MaterialCommunityIcons
+                    name={s.level === 'read & write' ? 'pencil-outline' : 'eye-outline'}
+                    size={10}
+                    color={isDark ? '#999' : '#888'}
+                  />
+                  <Text style={[styles.scopeBadgeText, isDark && styles.textMuted]}>{s.label}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
         {!isDemo && (
           <MaterialCommunityIcons
@@ -171,6 +223,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  scopeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 4,
+  },
+  scopeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(150, 150, 150, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  scopeBadgeText: {
+    fontSize: 11,
+    color: colors.textSecondary,
   },
   divider: {
     height: 1,

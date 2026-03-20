@@ -32,6 +32,7 @@ import {
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
 import { SummaryCard, InsightLine } from '@/components/home';
+import { PermissionUpgradeBanner } from '@/components/recording/PermissionUpgradeBanner';
 import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
@@ -423,6 +424,8 @@ export default function FeedScreen() {
           supportingMetrics={supportingMetrics}
           insightLine={<InsightLine insights={insights} />}
         />
+
+        <PermissionUpgradeBanner />
 
         <FlatList
           ref={listRef}

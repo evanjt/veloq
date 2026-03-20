@@ -8,6 +8,7 @@ const STORAGE_KEY = 'veloq-upload-permission';
 interface PersistedState {
   hasWritePermission: boolean | null;
   bannerDismissed?: boolean;
+  grantedScopes?: string;
 }
 
 interface UploadPermissionState {
@@ -16,6 +17,8 @@ interface UploadPermissionState {
   hasWritePermission: boolean | null;
   /** User dismissed the permission banner — don't show again until reset */
   bannerDismissed: boolean;
+  /** Raw OAuth scope string, e.g. "ACTIVITY:WRITE,WELLNESS:READ" */
+  grantedScopes: string | null;
   initialize: () => Promise<void>;
   /** Parse OAuth scope string and persist write permission state */
   setFromOAuthScope: (scope: string) => void;
@@ -40,6 +43,7 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
   needsUpgrade: false,
   hasWritePermission: null,
   bannerDismissed: false,
+  grantedScopes: null,
 
   initialize: async () => {
     try {
@@ -51,6 +55,7 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
             hasWritePermission: parsed.hasWritePermission,
             needsUpgrade: !parsed.hasWritePermission,
             bannerDismissed: parsed.bannerDismissed ?? false,
+            grantedScopes: parsed.grantedScopes ?? null,
           });
         }
       }
@@ -62,10 +67,12 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
   setFromOAuthScope: (scope: string) => {
     const hasWrite = scopeIncludesWrite(scope);
     log.log(`OAuth scope check: ${hasWrite ? 'has' : 'missing'} ACTIVITY:WRITE (scope: ${scope})`);
-    set({ hasWritePermission: hasWrite, needsUpgrade: !hasWrite });
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ hasWritePermission: hasWrite })).catch(
-      () => {}
-    );
+    const { bannerDismissed } = get();
+    set({ hasWritePermission: hasWrite, needsUpgrade: !hasWrite, grantedScopes: scope });
+    AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ hasWritePermission: hasWrite, bannerDismissed, grantedScopes: scope })
+    ).catch(() => {});
   },
 
   setNeedsUpgrade: (v) => set({ needsUpgrade: v }),

@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
-import { useUploadPermissionStore } from '@/providers';
+import { useAuthStore, useUploadPermissionStore } from '@/providers';
 import { usePermissionUpgrade } from '@/hooks/recording/usePermissionUpgrade';
 import { spacing } from '@/theme';
 
@@ -16,12 +16,14 @@ const AMBER_ACCENT = '#F59E0B';
 function PermissionUpgradeBannerInner() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const needsUpgrade = useUploadPermissionStore((s) => s.needsUpgrade);
+  const authMethod = useAuthStore((s) => s.authMethod);
+  const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
   const bannerDismissed = useUploadPermissionStore((s) => s.bannerDismissed);
   const dismissBanner = useUploadPermissionStore((s) => s.dismissBanner);
   const { upgradePermissions, isUpgrading, error } = usePermissionUpgrade();
 
-  if (!needsUpgrade || bannerDismissed) return null;
+  // Only show for OAuth users without confirmed write permission, and not dismissed
+  if (authMethod !== 'oauth' || hasWritePermission === true || bannerDismissed) return null;
 
   return (
     <View
@@ -68,6 +70,9 @@ export const PermissionUpgradeBanner = React.memo(PermissionUpgradeBannerInner);
 
 const styles = StyleSheet.create({
   container: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderRadius: 10,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },

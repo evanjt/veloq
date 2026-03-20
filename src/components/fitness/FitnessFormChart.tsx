@@ -30,23 +30,23 @@ const COLORS = {
 
 // Form zone backgrounds (matching intervals.icu)
 const FORM_ZONES = {
-  deepFatigue: {
+  highRisk: {
     min: -Infinity,
     max: -30,
     color: 'rgba(239, 83, 80, 0.25)',
-    label: 'Deep Fatigue',
+    label: 'High Risk',
   },
-  productive: {
+  optimal: {
     min: -30,
     max: -10,
     color: 'rgba(76, 175, 80, 0.25)',
-    label: 'Productive',
+    label: 'Optimal',
   },
-  maintenance: {
+  greyZone: {
     min: -10,
     max: 5,
     color: 'rgba(158, 158, 158, 0.15)',
-    label: 'Maintenance',
+    label: 'Grey Zone',
   },
   fresh: {
     min: 5,
@@ -54,19 +54,19 @@ const FORM_ZONES = {
     color: 'rgba(129, 199, 132, 0.25)',
     label: 'Fresh',
   },
-  detraining: {
+  transition: {
     min: 25,
     max: Infinity,
     color: 'rgba(100, 181, 246, 0.2)',
-    label: 'Detraining',
+    label: 'Transition',
   },
 };
 
 // Get form line color based on current value
 function getFormLineColor(form: number): string {
-  if (form < -30) return '#EF5350'; // Deep Fatigue - Red
-  if (form < -10) return '#66BB6A'; // Productive - Green
-  if (form < 5) return '#9E9E9E'; // Maintenance - Grey
+  if (form < -30) return '#EF5350'; // High Risk - Red
+  if (form < -10) return '#66BB6A'; // Optimal - Green
+  if (form < 5) return '#9E9E9E'; // Grey Zone - Grey
   if (form < 25) return '#81C784'; // Fresh - Light Green
   return '#64B5F6'; // Detraining - Blue
 }
@@ -477,29 +477,29 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                   return (
                     <>
                       {/* Zone backgrounds */}
-                      {/* Deep Fatigue zone (< -30) */}
+                      {/* High Risk zone (< -30) */}
                       <Rect
                         x={chartBounds.left}
                         y={getY(-30)}
                         width={chartBounds.right - chartBounds.left}
                         height={chartBounds.bottom - getY(-30)}
-                        color={FORM_ZONES.deepFatigue.color}
+                        color={FORM_ZONES.highRisk.color}
                       />
-                      {/* Productive zone (-30 to -10) */}
+                      {/* Optimal zone (-30 to -10) */}
                       <Rect
                         x={chartBounds.left}
                         y={getY(-10)}
                         width={chartBounds.right - chartBounds.left}
                         height={getY(-10) - getY(-30) > 0 ? getY(-30) - getY(-10) : 0}
-                        color={FORM_ZONES.productive.color}
+                        color={FORM_ZONES.optimal.color}
                       />
-                      {/* Maintenance zone (-10 to 5) */}
+                      {/* Grey Zone (-10 to 5) */}
                       <Rect
                         x={chartBounds.left}
                         y={getY(5)}
                         width={chartBounds.right - chartBounds.left}
                         height={getY(-10) - getY(5)}
-                        color={FORM_ZONES.maintenance.color}
+                        color={FORM_ZONES.greyZone.color}
                       />
                       {/* Fresh zone (5 to 25) */}
                       <Rect
@@ -509,13 +509,13 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                         height={getY(5) - getY(25)}
                         color={FORM_ZONES.fresh.color}
                       />
-                      {/* Detraining zone (> 25) */}
+                      {/* Transition zone (> 25) */}
                       <Rect
                         x={chartBounds.left}
                         y={chartBounds.top}
                         width={chartBounds.right - chartBounds.left}
                         height={getY(25) - chartBounds.top}
-                        color={FORM_ZONES.detraining.color}
+                        color={FORM_ZONES.transition.color}
                       />
 
                       {/* Zero line */}
@@ -551,19 +551,19 @@ export const FitnessFormChart = memo(function FitnessFormChart({
               {/* Form zone labels on right */}
               <View style={styles.zoneLabels} pointerEvents="none">
                 <Text style={[styles.zoneLabelText, { color: '#64B5F6' }]}>
-                  {t('formZones.detraining')}
+                  {t('formZones.transition')}
                 </Text>
                 <Text style={[styles.zoneLabelText, { color: '#81C784' }]}>
                   {t('formZones.fresh')}
                 </Text>
                 <Text style={[styles.zoneLabelText, { color: '#9E9E9E' }]}>
-                  {t('formZones.maintenance')}
+                  {t('formZones.greyZone')}
                 </Text>
                 <Text style={[styles.zoneLabelText, { color: '#66BB6A' }]}>
-                  {t('formZones.productive')}
+                  {t('formZones.optimal')}
                 </Text>
                 <Text style={[styles.zoneLabelText, { color: '#EF5350' }]}>
-                  {t('formZones.deepFatigue')}
+                  {t('formZones.highRisk')}
                 </Text>
               </View>
             </View>

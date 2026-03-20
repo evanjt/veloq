@@ -35,8 +35,8 @@ describe('generateFitFile', () => {
       expect(bytes[0]).toBe(14);
       // Protocol version = 0x20 (2.0)
       expect(bytes[1]).toBe(0x20);
-      // Profile version (21 * 100 + 60 = 2160 = 0x0870)
-      expect(view.getUint16(2, true)).toBe(2160);
+      // Profile version (21 * 100 + 133 = 2233)
+      expect(view.getUint16(2, true)).toBe(2233);
       // .FIT signature at offset 8-11
       expect(String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11])).toBe('.FIT');
       // Header CRC at bytes 12-13 (non-zero for valid header)

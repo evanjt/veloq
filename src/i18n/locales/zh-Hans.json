@@ -396,11 +396,11 @@
     "understandingMetrics": "了解指标"
   },
   "formZones": {
-    "detraining": "过渡期",
+    "transition": "过渡期",
     "fresh": "恢复期",
-    "maintenance": "灰色区间",
-    "productive": "最佳区间",
-    "deepFatigue": "高风险"
+    "greyZone": "灰色区间",
+    "optimal": "最佳区间",
+    "highRisk": "高风险"
   },
   "healthScreen": {
     "title": "健康"
@@ -492,17 +492,17 @@
       "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
       "zones": {
         "fresh": "Fresh",
-        "detraining": "Transition",
-        "maintenance": "Maintenance",
-        "productive": "Productive training",
-        "deepFatigue": "Deep fatigue"
+        "transition": "Transition",
+        "greyZone": "Maintenance",
+        "optimal": "Productive training",
+        "highRisk": "Deep fatigue"
       },
       "zoneDescriptions": {
         "fresh": "Well-rested, fitness exceeds fatigue",
-        "detraining": "Between training and freshness",
-        "maintenance": "Moderate training load",
-        "productive": "Where most adaptation occurs",
-        "deepFatigue": "Significant accumulated fatigue"
+        "transition": "Between training and freshness",
+        "greyZone": "Moderate training load",
+        "optimal": "Where most adaptation occurs",
+        "highRisk": "Significant accumulated fatigue"
       }
     },
     "hrvTrend": {

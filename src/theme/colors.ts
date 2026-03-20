@@ -144,7 +144,7 @@ export const colors = {
   consensusRoute: brand.gold, // Gold for main route
 
   // Form zone colors (matching intervals.icu)
-  formTransition: '#64B5F6', // Light blue - detraining risk
+  formTransition: '#64B5F6', // Light blue - transition zone
   formFresh: '#81C784', // Light green - ready for events
   formGreyZone: '#9E9E9E', // Grey - neutral zone
   formOptimal: '#66BB6A', // Green - peak training zone
