@@ -664,7 +664,11 @@
     "permissionNeeded": "Permission needed to upload activities",
     "grantAccess": "Grant Access",
     "permissionExplanation": "Veloq needs your permission to upload activities to intervals.icu",
-    "permissionGranted": "Upload permission granted"
+    "permissionGranted": "Upload permission granted",
+    "writePermissionRequired": "Write permission required",
+    "writePermissionDescription": "Your API key doesn't include write permission. Grant OAuth access to enable recording and uploads.",
+    "writePermissionActive": "Write permission active",
+    "writePermissionNotGranted": "Write permission not granted"
   },
   "insights": {
     "title": "Insights",
@@ -1094,7 +1098,8 @@
     "unitsMetricHint": "Distances in kays, height in metres, temp in Celsius",
     "version": "Version",
     "viewRoutes": "Check out Routes",
-    "mapTiles": "Map tiles"
+    "mapTiles": "Map tiles",
+    "recording": "Recording"
   },
   "stats": {
     "activities": "Activities",

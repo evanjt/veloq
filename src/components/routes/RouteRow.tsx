@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import {
   getActivityColor,
+  getActivityIcon,
   formatPace,
   formatSpeed,
   formatDistance,
@@ -258,9 +259,24 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
 
         {/* Route info */}
         <View style={styles.infoContainer}>
-          <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
-            {displayName}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
+              {displayName}
+            </Text>
+            {/* Show sport type icons when route has multiple sport types */}
+            {isRouteGroup(route) && route.sportTypes && route.sportTypes.length > 1 && (
+              <View style={styles.sportTypeIcons}>
+                {route.sportTypes.map((st) => (
+                  <MaterialCommunityIcons
+                    key={st}
+                    name={getActivityIcon(toActivityType(st))}
+                    size={14}
+                    color={getActivityColor(toActivityType(st))}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
           <View style={styles.metaRow}>
             {distance && distance > 0 && (
               <Text style={[styles.metaText, isDark && styles.textMuted]}>
@@ -317,11 +333,16 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
 
 // Memoize - only re-render if route data changes
 export const RouteRow = memo(RouteRowComponent, (prevProps, nextProps) => {
+  const prevSportTypes =
+    'sportTypes' in prevProps.route ? (prevProps.route as RouteGroup).sportTypes : undefined;
+  const nextSportTypes =
+    'sportTypes' in nextProps.route ? (nextProps.route as RouteGroup).sportTypes : undefined;
   return (
     prevProps.route.id === nextProps.route.id &&
     prevProps.route.name === nextProps.route.name &&
     prevProps.route.activityCount === nextProps.route.activityCount &&
-    prevProps.navigable === nextProps.navigable
+    prevProps.navigable === nextProps.navigable &&
+    prevSportTypes?.length === nextSportTypes?.length
   );
 });
 
@@ -367,10 +388,21 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
     marginRight: spacing.xs,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   routeName: {
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  sportTypeIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   metaRow: {
     flexDirection: 'row',

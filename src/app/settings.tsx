@@ -30,6 +30,7 @@ import {
   MapsSection,
   SummaryCardSection,
   DataCacheSection,
+  RecordingPermissionSection,
   AccountSection,
   DataSourcesSection,
   SupportSection,
@@ -167,6 +168,8 @@ export default function SettingsScreen() {
           <MapsSection />
 
           <DataCacheSection onLayout={handleDataCacheSectionLayout} />
+
+          <RecordingPermissionSection />
 
           <AccountSection />
 

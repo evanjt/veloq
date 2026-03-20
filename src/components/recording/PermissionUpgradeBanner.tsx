@@ -17,7 +17,7 @@ function PermissionUpgradeBannerInner() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const needsUpgrade = useUploadPermissionStore((s) => s.needsUpgrade);
-  const { upgradePermissions, isUpgrading } = usePermissionUpgrade();
+  const { upgradePermissions, isUpgrading, error } = usePermissionUpgrade();
 
   if (!needsUpgrade) return null;
 
@@ -26,22 +26,31 @@ function PermissionUpgradeBannerInner() {
       testID="permission-upgrade-banner"
       style={[styles.container, { backgroundColor: isDark ? AMBER_BG_DARK : AMBER_BG }]}
     >
-      <MaterialCommunityIcons name="shield-lock-outline" size={18} color={AMBER_ACCENT} />
-      <Text style={[styles.text, { color: AMBER_TEXT }]} numberOfLines={2}>
-        {t('recording.permissionNeeded', 'Permission needed to upload activities')}
-      </Text>
-      <TouchableOpacity
-        style={styles.button}
-        onPress={upgradePermissions}
-        disabled={isUpgrading}
-        activeOpacity={0.7}
-      >
-        {isUpgrading ? (
-          <ActivityIndicator size="small" color={AMBER_ACCENT} />
-        ) : (
-          <Text style={styles.buttonText}>{t('recording.grantAccess', 'Grant Access')}</Text>
-        )}
-      </TouchableOpacity>
+      <View style={styles.content}>
+        <View style={styles.row}>
+          <MaterialCommunityIcons name="shield-lock-outline" size={18} color={AMBER_ACCENT} />
+          <Text style={[styles.text, { color: AMBER_TEXT }]} numberOfLines={2}>
+            {t('recording.permissionNeeded', 'Permission needed to upload activities')}
+          </Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={upgradePermissions}
+            disabled={isUpgrading}
+            activeOpacity={0.7}
+          >
+            {isUpgrading ? (
+              <ActivityIndicator size="small" color={AMBER_ACCENT} />
+            ) : (
+              <Text style={styles.buttonText}>{t('recording.grantAccess', 'Grant Access')}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+        {error ? (
+          <Text style={styles.errorText} numberOfLines={2}>
+            {error}
+          </Text>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -50,16 +59,26 @@ export const PermissionUpgradeBanner = React.memo(PermissionUpgradeBannerInner);
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  content: {
+    gap: 4,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   text: {
     flex: 1,
     fontSize: 13,
     fontWeight: '500',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#DC2626',
+    marginLeft: 18 + spacing.sm,
   },
   button: {
     paddingHorizontal: spacing.sm,

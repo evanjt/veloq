@@ -1194,6 +1194,7 @@ impl PersistentRouteEngine {
         &self,
         route_group_id: &str,
         current_activity_id: Option<&str>,
+        sport_type_filter: Option<&str>,
     ) -> RoutePerformanceResult {
         // Find the group
         let group = match self.groups.iter().find(|g| g.group_id == route_group_id) {
@@ -1238,6 +1239,13 @@ impl PersistentRouteEngine {
                 continue;
             }
             if let Some(metrics) = self.activity_metrics.get(id) {
+                // Filter by sport type if specified
+                if let Some(filter) = sport_type_filter {
+                    if metrics.sport_type != filter {
+                        continue;
+                    }
+                }
+
                 let speed = if metrics.moving_time > 0 {
                     metrics.distance / metrics.moving_time as f64
                 } else {
@@ -1377,6 +1385,7 @@ impl PersistentRouteEngine {
     pub fn get_excluded_route_performances(
         &self,
         route_group_id: &str,
+        sport_type_filter: Option<&str>,
     ) -> RoutePerformanceResult {
         let group = match self.groups.iter().find(|g| g.group_id == route_group_id) {
             Some(g) => g,
@@ -1417,6 +1426,13 @@ impl PersistentRouteEngine {
                 continue;
             }
             if let Some(metrics) = self.activity_metrics.get(id) {
+                // Filter by sport type if specified
+                if let Some(filter) = sport_type_filter {
+                    if metrics.sport_type != filter {
+                        continue;
+                    }
+                }
+
                 let speed = if metrics.moving_time > 0 {
                     metrics.distance / metrics.moving_time as f64
                 } else {

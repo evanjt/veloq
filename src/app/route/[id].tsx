@@ -113,6 +113,9 @@ export default function RouteDetailScreen() {
   // Get route group from engine using lightweight on-demand query (with LRU caching)
   const { group: engineGroup } = useGroupDetail(id || null);
 
+  // Sport type selector state
+  const [selectedSportType, setSelectedSportType] = useState<string | undefined>(undefined);
+
   // Rename function - calls engine directly (no need to load all groups)
   const renameRoute = useCallback((routeId: string, name: string) => {
     const engine = getRouteEngine();
@@ -123,8 +126,29 @@ export default function RouteDetailScreen() {
     // Engine fires 'groups' event which triggers subscribers to refresh
   }, []);
 
-  // Get performance data from engine metrics (no API call needed)
+  // Get unfiltered metrics to derive available sport types
+  const { activityMetrics: allMetrics } = useRoutePerformances(id, engineGroup?.groupId);
+
+  // Compute available sport types from all activity metrics
+  const availableSportTypes = useMemo(() => {
+    const types = new Set<string>();
+    for (const m of allMetrics.values()) {
+      if (m.sportType) types.add(m.sportType);
+    }
+    const sorted = Array.from(types).sort();
+    return sorted;
+  }, [allMetrics]);
+
+  // Auto-select the group's primary sport type when sport types are available
+  useEffect(() => {
+    if (availableSportTypes.length > 1 && selectedSportType === undefined && engineGroup) {
+      setSelectedSportType(engineGroup.sportType || availableSportTypes[0]);
+    }
+  }, [availableSportTypes, selectedSportType, engineGroup]);
+
+  // Get performance data filtered by selected sport type (no API call needed)
   // Activity metrics are cached in Rust engine's in-memory HashMap
+  const sportFilter = availableSportTypes.length > 1 ? selectedSportType : undefined;
   const {
     performances,
     best: bestPerformance,
@@ -133,7 +157,7 @@ export default function RouteDetailScreen() {
     forwardStats,
     reverseStats,
     currentRank,
-  } = useRoutePerformances(id, engineGroup?.groupId);
+  } = useRoutePerformances(id, engineGroup?.groupId, sportFilter);
 
   // Get consensus route points from Rust engine
   const { points: consensusPoints } = useConsensusRoute(id);
@@ -390,7 +414,7 @@ export default function RouteDetailScreen() {
     try {
       const engine = getRouteEngine();
       if (!engine) return [];
-      const result = engine.getExcludedRoutePerformances(id);
+      const result = engine.getExcludedRoutePerformances(id, sportFilter);
       if (!result?.performances?.length) return [];
 
       return result.performances
@@ -411,7 +435,7 @@ export default function RouteDetailScreen() {
       if (__DEV__) console.warn('[RouteDetail] getExcludedRoutePerformances failed:', e);
       return [];
     }
-  }, [showExcluded, excludedActivityIds, id]);
+  }, [showExcluded, excludedActivityIds, id, sportFilter]);
 
   // Merge excluded points into chart data when showing excluded
   const combinedChartData = useMemo(() => {
@@ -463,8 +487,10 @@ export default function RouteDetailScreen() {
     );
   }
 
-  const activityColor = getActivityColor(routeGroup.type);
-  const iconName = getActivityIcon(routeGroup.type);
+  // Use selected sport type for color/icon when filtering
+  const displayType = sportFilter ? toActivityType(sportFilter) : routeGroup.type;
+  const activityColor = getActivityColor(displayType);
+  const iconName = getActivityIcon(displayType);
   // Map data check - have activities if we have performances
   const hasMapData = performances.length > 0;
 
@@ -585,6 +611,52 @@ export default function RouteDetailScreen() {
             </View>
           </View>
 
+          {/* Sport type selector — shown when route has multiple sport types */}
+          {availableSportTypes.length > 1 && (
+            <View style={styles.sportTypeSelector}>
+              {availableSportTypes.map((st) => {
+                const isSelected = st === selectedSportType;
+                const sportColor = getActivityColor(toActivityType(st));
+                return (
+                  <TouchableOpacity
+                    key={st}
+                    style={[
+                      styles.sportTypePill,
+                      isDark && styles.sportTypePillDark,
+                      isSelected && { backgroundColor: sportColor },
+                    ]}
+                    onPress={() => setSelectedSportType(st)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name={getActivityIcon(toActivityType(st))}
+                      size={16}
+                      color={
+                        isSelected
+                          ? colors.textOnDark
+                          : isDark
+                            ? darkColors.textSecondary
+                            : colors.textSecondary
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.sportTypePillText,
+                        isSelected
+                          ? { color: colors.textOnDark }
+                          : isDark
+                            ? { color: darkColors.textSecondary }
+                            : { color: colors.textSecondary },
+                      ]}
+                    >
+                      {st}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
           {/* Content below hero */}
           <View style={styles.contentSection}>
             {/* Performance scatter chart with eye toggle */}
@@ -592,7 +664,7 @@ export default function RouteDetailScreen() {
               <View style={styles.chartSection}>
                 <SectionScatterChart
                   chartData={combinedChartData}
-                  activityType={routeGroup.type}
+                  activityType={displayType}
                   isDark={isDark}
                   bestForwardRecord={bestForwardRecord}
                   bestReverseRecord={bestReverseRecord}
@@ -880,6 +952,34 @@ const styles = StyleSheet.create({
     color: colors.textOnPrimary,
     fontSize: 15,
     fontWeight: '600' as const,
+  },
+  // Sport type selector
+  sportTypeSelector: {
+    flexDirection: 'row',
+    paddingHorizontal: layout.screenPadding,
+    paddingTop: spacing.md,
+    gap: spacing.sm,
+  },
+  sportTypePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  sportTypePillDark: {
+    backgroundColor: darkColors.surface,
+  },
+  sportTypePillText: {
+    fontSize: typography.label.fontSize,
+    fontWeight: '600',
   },
   // Content section below hero
   contentSection: {

@@ -53,7 +53,15 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
 
         // Clear permission-blocked entries so they retry
         await clearPermissionBlocked();
-        useUploadPermissionStore.getState().setNeedsUpgrade(false);
+
+        // Update permission state from the new OAuth scope
+        if (tokenResponse.scope) {
+          useUploadPermissionStore.getState().setFromOAuthScope(tokenResponse.scope);
+        } else {
+          // No scope info — assume write permission was granted since the upgrade flow
+          // requests ACTIVITY:WRITE
+          useUploadPermissionStore.getState().setHasWritePermission(true);
+        }
 
         log.log('Successfully upgraded to OAuth');
         return true;

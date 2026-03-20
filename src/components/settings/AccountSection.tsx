@@ -5,7 +5,7 @@ import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '@/providers';
+import { useAuthStore, useUploadPermissionStore } from '@/providers';
 import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import { clearAllAppCaches, navigateTo, replaceTo } from '@/lib';
 import { clearUploadQueue } from '@/lib/storage/uploadQueue';
@@ -31,6 +31,7 @@ export function AccountSection() {
             await clearAllAppCaches(queryClient);
             await clearUploadQueue();
             resetSyncDateRange();
+            useUploadPermissionStore.getState().reset();
             replaceTo('/login');
           } catch {
             Alert.alert(t('alerts.error'), t('alerts.failedToDisconnect'));

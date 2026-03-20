@@ -786,7 +786,11 @@
     "permissionNeeded": "Autorisation requise pour envoyer des activités",
     "grantAccess": "Autoriser l'accès",
     "permissionExplanation": "Veloq a besoin de votre autorisation pour envoyer des activités sur intervals.icu",
-    "permissionGranted": "Autorisation d'envoi accordée"
+    "permissionGranted": "Autorisation d'envoi accordée",
+    "writePermissionRequired": "Autorisation d'écriture requise",
+    "writePermissionDescription": "Votre clé API n'inclut pas l'autorisation d'écriture. Accordez l'accès OAuth pour activer l'enregistrement et les téléversements.",
+    "writePermissionActive": "Autorisation d'écriture active",
+    "writePermissionNotGranted": "Autorisation d'écriture non accordée"
   },
   "routeDetail": {
     "avgTime": "Temps moy",
@@ -1094,7 +1098,8 @@
     "unitsMetricHint": "Distances en kilomètres, altitude en mètres, température en Celsius",
     "version": "Version",
     "viewRoutes": "Voir les parcours",
-    "mapTiles": "Tuiles de carte"
+    "mapTiles": "Tuiles de carte",
+    "recording": "Enregistrement"
   },
   "stats": {
     "activities": "Activités",

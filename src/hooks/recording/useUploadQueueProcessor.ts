@@ -65,11 +65,11 @@ export function useUploadQueueProcessor() {
               ? (err as { response?: { status?: number } }).response?.status
               : undefined;
 
-          // 403 for API key users: mark as permission-blocked instead of deleting
-          if (status === 403 && useAuthStore.getState().authMethod === 'apiKey') {
+          // 403: mark as permission-blocked — user needs to re-auth with ACTIVITY:WRITE
+          if (status === 403) {
             log.warn(`Upload permission-blocked (403): ${entry.name}`);
             await markUploadPermissionBlocked(entry.id);
-            useUploadPermissionStore.getState().setNeedsUpgrade(true);
+            useUploadPermissionStore.getState().setHasWritePermission(false);
             break; // All subsequent uploads will also fail
           }
 

@@ -786,7 +786,11 @@
     "permissionNeeded": "Permissão necessária para enviar atividades",
     "grantAccess": "Conceder acesso",
     "permissionExplanation": "O Veloq precisa da sua permissão para enviar atividades ao intervals.icu",
-    "permissionGranted": "Permissão de envio concedida"
+    "permissionGranted": "Permissão de envio concedida",
+    "writePermissionRequired": "Permissão de escrita necessária",
+    "writePermissionDescription": "Sua chave de API não inclui permissão de escrita. Conceda acesso OAuth para ativar a gravação e os envios.",
+    "writePermissionActive": "Permissão de escrita ativa",
+    "writePermissionNotGranted": "Permissão de escrita não concedida"
   },
   "routeDetail": {
     "avgTime": "Tempo médio",
@@ -1094,7 +1098,8 @@
     "unitsMetricHint": "Distâncias em quilômetros, elevação em metros, temperatura em Celsius",
     "version": "Versao",
     "viewRoutes": "Ver rotas",
-    "mapTiles": "Blocos do mapa"
+    "mapTiles": "Blocos do mapa",
+    "recording": "Gravação"
   },
   "stats": {
     "activities": "Atividades",

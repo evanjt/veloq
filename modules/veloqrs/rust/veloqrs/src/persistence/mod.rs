@@ -123,6 +123,8 @@ pub struct GroupSummary {
     pub custom_name: Option<String>,
     /// Bounding box for map display
     pub bounds: Option<crate::FfiBounds>,
+    /// All sport types present in this group's activities
+    pub sport_types: Vec<String>,
 }
 
 /// Complete activity data for map display.
@@ -690,6 +692,7 @@ impl PersistentRouteEngine {
                     bounds: g.bounds,
                     distance_meters,
                     consensus_polyline,
+                    sport_types: g.sport_types,
                 }
             })
             .collect();

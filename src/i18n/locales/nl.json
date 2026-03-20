@@ -786,7 +786,11 @@
     "permissionNeeded": "Toestemming nodig om activiteiten te uploaden",
     "grantAccess": "Toegang verlenen",
     "permissionExplanation": "Veloq heeft je toestemming nodig om activiteiten naar intervals.icu te uploaden",
-    "permissionGranted": "Uploadtoestemming verleend"
+    "permissionGranted": "Uploadtoestemming verleend",
+    "writePermissionRequired": "Schrijfrechten vereist",
+    "writePermissionDescription": "Je API-sleutel bevat geen schrijfrechten. Verleen OAuth-toegang om opname en uploads in te schakelen.",
+    "writePermissionActive": "Schrijfrechten actief",
+    "writePermissionNotGranted": "Schrijfrechten niet verleend"
   },
   "routeDetail": {
     "avgTime": "Gem. tijd",
@@ -1094,7 +1098,8 @@
     "unitsMetricHint": "Afstanden in kilometers, hoogte in meters, temperatuur in Celsius",
     "version": "Versie",
     "viewRoutes": "Routes bekijken",
-    "mapTiles": "Kaarttegels"
+    "mapTiles": "Kaarttegels",
+    "recording": "Opname"
   },
   "stats": {
     "activities": "Activiteiten",

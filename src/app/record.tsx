@@ -7,6 +7,7 @@ import {
   FlatList,
   Alert,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
@@ -23,6 +24,8 @@ import type { MaterialIconName } from '@/lib/utils/activityUtils';
 import { ACTIVITY_CATEGORIES, getRecordingMode } from '@/lib/utils/recordingModes';
 import { useRecordingPreferences } from '@/providers/RecordingPreferencesStore';
 import { useRecordingStore } from '@/providers/RecordingStore';
+import { useCanRecord } from '@/hooks/recording/useCanRecord';
+import { usePermissionUpgrade } from '@/hooks/recording/usePermissionUpgrade';
 import {
   hasRecordingBackup,
   loadRecordingBackup,
@@ -69,6 +72,8 @@ export default function RecordScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { canRecord, reason } = useCanRecord();
+  const { upgradePermissions, isUpgrading, error: upgradeError } = usePermissionUpgrade();
   const recentTypes = useRecordingPreferences((s) => s.recentActivityTypes);
   const isLoaded = useRecordingPreferences((s) => s.isLoaded);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
@@ -197,6 +202,59 @@ export default function RecordScreen() {
   const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
+
+  // Permission gate: show upgrade screen instead of activity picker
+  if (!canRecord && reason === 'no_permission') {
+    return (
+      <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            testID="record-back"
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: textPrimary }]}>
+            {t('recording.startActivity', 'Start Activity')}
+          </Text>
+          <View style={{ flex: 1 }} />
+        </View>
+        <View style={styles.permissionGate}>
+          <MaterialCommunityIcons name="shield-lock-outline" size={48} color="#F59E0B" />
+          <Text style={[styles.permissionTitle, { color: textPrimary }]}>
+            {t('recording.writePermissionRequired', 'Write permission required')}
+          </Text>
+          <Text style={[styles.permissionDescription, { color: textSecondary }]}>
+            {t(
+              'recording.writePermissionDescription',
+              "Your API key doesn't include write permission. Grant OAuth access to enable recording and uploads."
+            )}
+          </Text>
+          <TouchableOpacity
+            testID="record-grant-access"
+            style={styles.permissionButton}
+            onPress={upgradePermissions}
+            disabled={isUpgrading}
+            activeOpacity={0.7}
+          >
+            {isUpgrading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.permissionButtonText}>
+                {t('recording.grantAccess', 'Grant Access')}
+              </Text>
+            )}
+          </TouchableOpacity>
+          {upgradeError ? (
+            <Text style={styles.permissionError} numberOfLines={2}>
+              {upgradeError}
+            </Text>
+          ) : null}
+        </View>
+      </ScreenSafeAreaView>
+    );
+  }
 
   return (
     <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
@@ -577,5 +635,42 @@ const styles = StyleSheet.create({
   },
   typeLabel: {
     ...typography.body,
+  },
+  permissionGate: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    gap: spacing.md,
+  },
+  permissionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  permissionDescription: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  permissionButton: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: 8,
+    backgroundColor: '#F59E0B',
+    minWidth: 140,
+    alignItems: 'center',
+  },
+  permissionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  permissionError: {
+    fontSize: 13,
+    color: '#DC2626',
+    textAlign: 'center',
   },
 });

@@ -786,7 +786,11 @@
     "permissionNeeded": "アクティビティのアップロードには許可が必要です",
     "grantAccess": "アクセスを許可",
     "permissionExplanation": "Veloqがintervals.icuにアクティビティをアップロードするには許可が必要です",
-    "permissionGranted": "アップロードの許可が付与されました"
+    "permissionGranted": "アップロードの許可が付与されました",
+    "writePermissionRequired": "書き込み権限が必要です",
+    "writePermissionDescription": "APIキーに書き込み権限がありません。記録とアップロードを有効にするには、OAuthアクセスを許可してください。",
+    "writePermissionActive": "書き込み権限が有効です",
+    "writePermissionNotGranted": "書き込み権限が付与されていません"
   },
   "routeDetail": {
     "avgTime": "平均時間",
@@ -1094,7 +1098,8 @@
     "unitsMetricHint": "距離はキロメートル、標高はメートル、温度は摂氏",
     "version": "バージョン",
     "viewRoutes": "ルートを表示",
-    "mapTiles": "マップタイル"
+    "mapTiles": "マップタイル",
+    "recording": "記録"
   },
   "stats": {
     "activities": "アクティビティ",

@@ -50,11 +50,16 @@ impl RouteManager {
         &self,
         group_id: String,
         current_activity_id: Option<String>,
+        sport_type: Option<String>,
     ) -> Result<crate::FfiRoutePerformanceResult, VeloqError> {
         with_engine(|e| {
             let _ = e.get_groups();
             crate::FfiRoutePerformanceResult::from(
-                e.get_route_performances(&group_id, current_activity_id.as_deref()),
+                e.get_route_performances(
+                    &group_id,
+                    current_activity_id.as_deref(),
+                    sport_type.as_deref(),
+                ),
             )
         })
     }
@@ -110,10 +115,10 @@ impl RouteManager {
         with_engine(|e| e.get_excluded_route_activity_ids(&route_id))
     }
 
-    fn get_excluded_performances(&self, route_id: String) -> Result<crate::FfiRoutePerformanceResult, VeloqError> {
+    fn get_excluded_performances(&self, route_id: String, sport_type: Option<String>) -> Result<crate::FfiRoutePerformanceResult, VeloqError> {
         with_engine(|e| {
             crate::FfiRoutePerformanceResult::from(
-                e.get_excluded_route_performances(&route_id),
+                e.get_excluded_route_performances(&route_id, sport_type.as_deref()),
             )
         })
     }

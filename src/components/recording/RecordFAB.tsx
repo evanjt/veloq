@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { navigateTo } from '@/lib';
 import { useRecordingStore } from '@/providers/RecordingStore';
 import { useTheme } from '@/hooks';
+import { useCanRecord } from '@/hooks/recording/useCanRecord';
 import { formatDuration } from '@/lib';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { shadows, spacing } from '@/theme';
@@ -17,6 +18,7 @@ const RECORDING_COLOR = '#EF4444';
 
 function RecordFABInner() {
   const { isDark } = useTheme();
+  const { canRecord } = useCanRecord();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const status = useRecordingStore((s) => s.status);
@@ -63,6 +65,9 @@ function RecordFABInner() {
 
   // Hide on recording screens and type picker — AFTER all hooks
   if (isHidden) return null;
+
+  // Hide when user lacks write permission (but keep visible if recording is active)
+  if (!canRecord && !isRecording) return null;
 
   const handlePress = () => {
     if (isRecording && activityType) {

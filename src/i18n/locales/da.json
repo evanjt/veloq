@@ -786,7 +786,11 @@
     "permissionNeeded": "Tilladelse kræves for at uploade aktiviteter",
     "grantAccess": "Giv adgang",
     "permissionExplanation": "Veloq har brug for din tilladelse til at uploade aktiviteter til intervals.icu",
-    "permissionGranted": "Upload-tilladelse givet"
+    "permissionGranted": "Upload-tilladelse givet",
+    "writePermissionRequired": "Skrivetilladelse påkrævet",
+    "writePermissionDescription": "Din API-nøgle inkluderer ikke skrivetilladelse. Giv OAuth-adgang for at aktivere optagelse og uploads.",
+    "writePermissionActive": "Skrivetilladelse aktiv",
+    "writePermissionNotGranted": "Skrivetilladelse ikke givet"
   },
   "routeDetail": {
     "avgTime": "Gns. tid",
@@ -1094,7 +1098,8 @@
     "unitsMetricHint": "Afstande i kilometer, højde i meter, temperatur i Celsius",
     "version": "Version",
     "viewRoutes": "Vis ruter",
-    "mapTiles": "Korttegn"
+    "mapTiles": "Korttegn",
+    "recording": "Optagelse"
   },
   "stats": {
     "activities": "Aktiviteter",

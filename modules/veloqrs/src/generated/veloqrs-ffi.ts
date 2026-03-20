@@ -232,6 +232,12 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_constructor_routemanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_exclude_activity(
+    ptr: bigint,
+    routeId: Uint8Array,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_all(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -250,10 +256,22 @@ interface NativeModuleInterface {
     groupId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_get_excluded_activities(
+    ptr: bigint,
+    routeId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_get_excluded_performances(
+    ptr: bigint,
+    routeId: Uint8Array,
+    sportType: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_performances(
     ptr: bigint,
     groupId: Uint8Array,
     currentActivityId: Uint8Array,
+    sportType: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_screen_data(
@@ -273,6 +291,12 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_include_activity(
+    ptr: bigint,
+    routeId: Uint8Array,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_routemanager_set_name(
     ptr: bigint,
     routeId: Uint8Array,
@@ -598,14 +622,18 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_bounds_for_range(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_filtered(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_query_viewport(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_exclude_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all_names(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_by_id(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_consensus_route(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_get_excluded_activities(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_get_excluded_performances(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_performances(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_screen_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries_with_count(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_include_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_set_name(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_create(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_delete(): number;

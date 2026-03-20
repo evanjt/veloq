@@ -1884,6 +1884,10 @@ export type FfiGroupWithPolyline = {
    * Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
    */
   consensusPolyline: Array</*f64*/ number>;
+  /**
+   * All sport types present in this group's activities
+   */
+  sportTypes: Array<string>;
 };
 
 /**
@@ -1930,6 +1934,7 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
         distanceMeters: FfiConverterFloat64.read(from),
         consensusPolyline: FfiConverterArrayFloat64.read(from),
+        sportTypes: FfiConverterArrayString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -1941,6 +1946,7 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
       FfiConverterFloat64.write(value.distanceMeters, into);
       FfiConverterArrayFloat64.write(value.consensusPolyline, into);
+      FfiConverterArrayString.write(value.sportTypes, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -1951,7 +1957,8 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
         FfiConverterOptionalString.allocationSize(value.customName) +
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
-        FfiConverterArrayFloat64.allocationSize(value.consensusPolyline)
+        FfiConverterArrayFloat64.allocationSize(value.consensusPolyline) +
+        FfiConverterArrayString.allocationSize(value.sportTypes)
       );
     }
   }
@@ -4233,6 +4240,10 @@ export type GroupSummary = {
    * Bounding box for map display
    */
   bounds: FfiBounds | undefined;
+  /**
+   * All sport types present in this group's activities
+   */
+  sportTypes: Array<string>;
 };
 
 /**
@@ -4276,6 +4287,7 @@ const FfiConverterTypeGroupSummary = (() => {
         activityCount: FfiConverterUInt32.read(from),
         customName: FfiConverterOptionalString.read(from),
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
+        sportTypes: FfiConverterArrayString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -4285,6 +4297,7 @@ const FfiConverterTypeGroupSummary = (() => {
       FfiConverterUInt32.write(value.activityCount, into);
       FfiConverterOptionalString.write(value.customName, into);
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
+      FfiConverterArrayString.write(value.sportTypes, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -4293,7 +4306,8 @@ const FfiConverterTypeGroupSummary = (() => {
         FfiConverterString.allocationSize(value.sportType) +
         FfiConverterUInt32.allocationSize(value.activityCount) +
         FfiConverterOptionalString.allocationSize(value.customName) +
-        FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds)
+        FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
+        FfiConverterArrayString.allocationSize(value.sportTypes)
       );
     }
   }
@@ -5997,13 +6011,20 @@ const FfiConverterTypeMapManager = new FfiConverterObject(
 );
 
 export interface RouteManagerInterface {
+  excludeActivity(routeId: string, activityId: string) /*throws*/ : void;
   getAll() /*throws*/ : Array<FfiRouteGroup>;
   getAllNames() /*throws*/ : Map<string, string>;
   getById(groupId: string) /*throws*/ : FfiRouteGroup | undefined;
   getConsensusRoute(groupId: string) /*throws*/ : Array<FfiGpsPoint>;
+  getExcludedActivities(routeId: string) /*throws*/ : Array<string>;
+  getExcludedPerformances(
+    routeId: string,
+    sportType: string | undefined,
+  ) /*throws*/ : FfiRoutePerformanceResult;
   getPerformances(
     groupId: string,
     currentActivityId: string | undefined,
+    sportType: string | undefined,
   ) /*throws*/ : FfiRoutePerformanceResult;
   getScreenData(
     groupLimit: /*u32*/ number,
@@ -6014,6 +6035,7 @@ export interface RouteManagerInterface {
   ) /*throws*/ : FfiRoutesScreenData;
   getSummaries() /*throws*/ : Array<GroupSummary>;
   getSummariesWithCount() /*throws*/ : FfiGroupSummariesResult;
+  includeActivity(routeId: string, activityId: string) /*throws*/ : void;
   setName(routeId: string, name: string) /*throws*/ : void;
 }
 
@@ -6037,6 +6059,23 @@ export class RouteManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeRouteManagerObjectFactory.bless(pointer);
+  }
+
+  public excludeActivity(routeId: string, activityId: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_exclude_activity(
+          uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(routeId),
+          FfiConverterString.lower(activityId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
   }
 
   public getAll(): Array<FfiRouteGroup> /*throws*/ {
@@ -6109,9 +6148,50 @@ export class RouteManager
     );
   }
 
+  public getExcludedActivities(routeId: string): Array<string> /*throws*/ {
+    return FfiConverterArrayString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_excluded_activities(
+            uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(routeId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  public getExcludedPerformances(
+    routeId: string,
+    sportType: string | undefined,
+  ): FfiRoutePerformanceResult /*throws*/ {
+    return FfiConverterTypeFfiRoutePerformanceResult.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_excluded_performances(
+            uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(routeId),
+            FfiConverterOptionalString.lower(sportType),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   public getPerformances(
     groupId: string,
     currentActivityId: string | undefined,
+    sportType: string | undefined,
   ): FfiRoutePerformanceResult /*throws*/ {
     return FfiConverterTypeFfiRoutePerformanceResult.lift(
       uniffiCaller.rustCallWithError(
@@ -6123,6 +6203,7 @@ export class RouteManager
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(groupId),
             FfiConverterOptionalString.lower(currentActivityId),
+            FfiConverterOptionalString.lower(sportType),
             callStatus,
           );
         },
@@ -6190,6 +6271,23 @@ export class RouteManager
         },
         /*liftString:*/ FfiConverterString.lift,
       ),
+    );
+  }
+
+  public includeActivity(routeId: string, activityId: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_include_activity(
+          uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(routeId),
+          FfiConverterString.lower(activityId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
     );
   }
 
@@ -8051,6 +8149,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_exclude_activity() !==
+    34481
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routemanager_exclude_activity",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all() !==
     2386
   ) {
@@ -8083,8 +8189,24 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_excluded_activities() !==
+    62351
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routemanager_get_excluded_activities",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_excluded_performances() !==
+    1019
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routemanager_get_excluded_performances",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_performances() !==
-    22952
+    38652
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_routemanager_get_performances",
@@ -8112,6 +8234,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_routemanager_get_summaries_with_count",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_include_activity() !==
+    35286
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routemanager_include_activity",
     );
   }
   if (

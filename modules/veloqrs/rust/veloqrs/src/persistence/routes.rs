@@ -614,7 +614,7 @@ impl PersistentRouteEngine {
         // Load custom names
         let custom_names = self.get_all_route_names();
 
-        let results: Vec<GroupSummary> = stmt
+        let raw_results: Vec<(GroupSummary, Vec<String>)> = stmt
             .query_map([], |row| {
                 let group_id: String = row.get(0)?;
                 let representative_id: String = row.get(1)?;
@@ -651,18 +651,40 @@ impl PersistentRouteEngine {
                 // Look up custom name
                 let custom_name = custom_names.get(&group_id).cloned();
 
-                Ok(GroupSummary {
+                // Parse activity_ids for sport type lookup
+                let activity_ids_json: String = row.get(3)?;
+                let activity_ids: Vec<String> = serde_json::from_str(&activity_ids_json).unwrap_or_default();
+
+                Ok((GroupSummary {
                     group_id,
                     representative_id,
                     sport_type,
                     activity_count,
                     custom_name,
                     bounds,
-                })
+                    sport_types: vec![], // populated below
+                }, activity_ids))
             })
             .ok()
-            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            .map(|iter| iter.filter_map(|r| r.ok()).collect::<Vec<_>>())
             .unwrap_or_default();
+
+        // Populate sport_types from activity_metrics lookup
+        let results: Vec<GroupSummary> = raw_results
+            .into_iter()
+            .map(|(mut summary, activity_ids)| {
+                let mut types: std::collections::HashSet<String> = std::collections::HashSet::new();
+                for id in &activity_ids {
+                    if let Some(m) = self.activity_metrics.get(id) {
+                        types.insert(m.sport_type.clone());
+                    }
+                }
+                let mut sport_types: Vec<String> = types.into_iter().collect();
+                sport_types.sort();
+                summary.sport_types = sport_types;
+                summary
+            })
+            .collect();
 
         log::info!(
             "tracematch: [PersistentEngine] get_group_summaries returned {} summaries",

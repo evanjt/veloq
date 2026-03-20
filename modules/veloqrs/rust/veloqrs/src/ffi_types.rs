@@ -958,6 +958,8 @@ pub struct FfiGroupWithPolyline {
     pub distance_meters: f64,
     /// Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
     pub consensus_polyline: Vec<f64>,
+    /// All sport types present in this group's activities
+    pub sport_types: Vec<String>,
 }
 
 /// Section summary with embedded polyline for the Routes screen.

@@ -32,7 +32,7 @@ const VELOQ_URLS = {
 };
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection';
 import { clearAllAppCaches } from '@/lib/storage';
-import { useSyncDateRange } from '@/providers';
+import { useSyncDateRange, useUploadPermissionStore } from '@/providers';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -210,6 +210,11 @@ export default function LoginScreen() {
           tokenResponse.athlete_id,
           tokenResponse.athlete_name
         );
+
+        // Check granted scopes for write permission
+        if (tokenResponse.scope) {
+          useUploadPermissionStore.getState().setFromOAuthScope(tokenResponse.scope);
+        }
 
         // Success - navigate to main app
         replaceTo('/');

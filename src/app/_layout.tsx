@@ -36,6 +36,7 @@ import {
   initializeWhatsNewStore,
   initializeInsightsStore,
   initializeRecordingPreferences,
+  initializeUploadPermission,
   useSyncDateRange,
   useEngineStatus,
 } from '@/providers';
@@ -234,6 +235,7 @@ export default function RootLayout() {
         initializeWhatsNewStore(),
         initializeInsightsStore(),
         initializeRecordingPreferences(),
+        initializeUploadPermission(),
       ]);
     }
     initialize().finally(() => setAppReady(true));

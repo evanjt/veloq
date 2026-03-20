@@ -32,6 +32,7 @@ import { debug } from '@/lib/utils/debug';
 import { RecordingMap } from '@/components/recording/RecordingMap';
 import { TrimSlider } from '@/components/recording/TrimSlider';
 import { useAuthStore } from '@/providers/AuthStore';
+import { useUploadPermissionStore } from '@/providers/UploadPermissionStore';
 import { isOAuthConfigured } from '@/services/oauth';
 import { usePermissionUpgrade } from '@/hooks/recording/usePermissionUpgrade';
 import type { ActivityType } from '@/types';
@@ -318,26 +319,26 @@ export default function ReviewScreen() {
             uploadErr && typeof uploadErr === 'object' && 'response' in uploadErr
               ? (uploadErr as { response?: { status?: number } }).response?.status
               : undefined;
+          // Fallback: detect 403 from error message if response object missing
+          const is403 = httpStatus === 403 || (!httpStatus && /status code 403/i.test(errMsg));
           const isNetworkError =
             !httpStatus &&
+            !is403 &&
             /network\s*(error|request\s*failed)|timeout|ERR_NETWORK|ECONNABORTED/i.test(errMsg);
 
           if (!isNetworkError) {
             // API error (auth, validation, server error) — show to user, don't queue
-            log.warn(`Upload API error: ${errMsg}`);
-            if (httpStatus === 403) {
-              const isApiKey = authMethod === 'apiKey';
+            log.warn(`Upload API error: ${errMsg} (status: ${httpStatus}, is403: ${is403})`);
+            if (is403) {
+              // Update permission store so FAB hides and settings reflect state
+              useUploadPermissionStore.getState().setHasWritePermission(false);
               setErrorMessage(
-                isApiKey
-                  ? t(
-                      'recording.permissionExplanation',
-                      'Veloq needs your permission to upload activities to intervals.icu'
-                    )
-                  : t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
-                      error: errMsg,
-                    })
+                t(
+                  'recording.permissionExplanation',
+                  'Veloq needs your permission to upload activities to intervals.icu'
+                )
               );
-              if (isApiKey && isOAuthConfigured()) {
+              if (isOAuthConfigured()) {
                 setShowPermissionFix(true);
               }
             } else {

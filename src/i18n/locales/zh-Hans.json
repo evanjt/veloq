@@ -786,7 +786,11 @@
     "permissionNeeded": "上传活动需要授权",
     "grantAccess": "授予访问权限",
     "permissionExplanation": "Veloq需要您的授权才能将活动上传到intervals.icu",
-    "permissionGranted": "上传权限已授予"
+    "permissionGranted": "上传权限已授予",
+    "writePermissionRequired": "需要写入权限",
+    "writePermissionDescription": "您的API密钥不包含写入权限。请授予OAuth访问权限以启用录制和上传。",
+    "writePermissionActive": "写入权限已激活",
+    "writePermissionNotGranted": "写入权限未授予"
   },
   "routeDetail": {
     "avgTime": "平均时间",
@@ -1094,7 +1098,8 @@
     "unitsMetricHint": "距离用公里，海拔用米，温度用摄氏度",
     "version": "版本",
     "viewRoutes": "查看路线",
-    "mapTiles": "地图瓦片"
+    "mapTiles": "地图瓦片",
+    "recording": "录制"
   },
   "stats": {
     "activities": "活动",

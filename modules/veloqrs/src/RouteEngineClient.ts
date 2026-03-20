@@ -407,6 +407,7 @@ class RouteEngineClient {
   getRoutePerformances(
     routeGroupId: string,
     currentActivityId: string,
+    sportType?: string,
   ): FfiRoutePerformanceResult {
     if (!this.ready) {
       return EMPTY_ROUTE_PERFORMANCE_RESULT;
@@ -416,7 +417,7 @@ class RouteEngineClient {
       validateId(currentActivityId, 'activity ID');
     }
     return this.timed('getRoutePerformances', () =>
-      this.engine.routes().getPerformances(routeGroupId, currentActivityId || undefined),
+      this.engine.routes().getPerformances(routeGroupId, currentActivityId || undefined, sportType),
     );
   }
 
@@ -443,12 +444,12 @@ class RouteEngineClient {
     );
   }
 
-  getExcludedRoutePerformances(routeId: string): FfiRoutePerformanceResult {
+  getExcludedRoutePerformances(routeId: string, sportType?: string): FfiRoutePerformanceResult {
     if (!this.ready) {
       return EMPTY_ROUTE_PERFORMANCE_RESULT;
     }
     return this.timed('getExcludedRoutePerformances', () =>
-      this.engine.routes().getExcludedPerformances(routeId),
+      this.engine.routes().getExcludedPerformances(routeId, sportType),
     );
   }
 

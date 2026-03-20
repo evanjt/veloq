@@ -77,7 +77,8 @@ interface UseRoutePerformancesResult {
 
 export function useRoutePerformances(
   activityId: string | undefined,
-  routeGroupId?: string
+  routeGroupId?: string,
+  sportType?: string
 ): UseRoutePerformancesResult {
   const { groups } = useEngineGroups({ minActivities: 1 });
 
@@ -144,7 +145,8 @@ export function useRoutePerformances(
       // Get typed performance data directly from Rust engine (now includes metrics)
       const result: RoutePerformanceResult = engine.getRoutePerformances(
         engineGroup.groupId,
-        activityId || ''
+        activityId || '',
+        sportType
       );
       const performances = result.performances || [];
 
@@ -176,7 +178,7 @@ export function useRoutePerformances(
     } catch {
       return emptyResult;
     }
-  }, [engineGroup, activityId]);
+  }, [engineGroup, activityId, sportType]);
 
   const {
     matchInfoMap,

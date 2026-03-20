@@ -148,6 +148,8 @@ export interface RouteGroup {
   lastDate?: string;
   /** Activity type (Ride, Run, etc.) */
   type: ActivityType;
+  /** All sport types present in this group's activities */
+  sportTypes?: string[];
   /** Distance in meters (from representative activity) */
   distance?: number;
   /** Average match quality for grouped activities (0-100) - optional for engine groups */
