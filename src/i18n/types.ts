@@ -868,6 +868,9 @@ export interface TranslationResource {
     removeSectionConfirm: string;
     removed: string;
     restoreSection: string;
+    excludeActivity: string;
+    excludeActivityConfirm: string;
+    exclude: string;
     forward: string;
     reference: string;
     setAsReference: string;

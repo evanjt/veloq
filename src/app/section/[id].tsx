@@ -577,13 +577,22 @@ export default function SectionDetailScreen() {
   const handleExcludeActivity = useCallback(
     (activityId: string) => {
       if (!id) return;
-      const engine = getRouteEngine();
-      if (!engine) return;
-      engine.excludeActivityFromSection(id, activityId);
-      setExcludedActivityIds((prev) => new Set([...prev, activityId]));
-      setSectionRefreshKey((k) => k + 1);
+      Alert.alert(t('sections.excludeActivity'), t('sections.excludeActivityConfirm'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('sections.exclude'),
+          style: 'destructive',
+          onPress: () => {
+            const engine = getRouteEngine();
+            if (!engine) return;
+            engine.excludeActivityFromSection(id, activityId);
+            setExcludedActivityIds((prev) => new Set([...prev, activityId]));
+            setSectionRefreshKey((k) => k + 1);
+          },
+        },
+      ]);
     },
-    [id]
+    [id, t]
   );
 
   const handleIncludeActivity = useCallback(
