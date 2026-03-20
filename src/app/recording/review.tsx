@@ -317,17 +317,19 @@ export default function ReviewScreen() {
           log.log('Upload succeeded');
         } catch (uploadErr) {
           const errMsg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+          // Check for HTTP status first — axios errors with response are API errors, not network
+          const httpStatus =
+            uploadErr && typeof uploadErr === 'object' && 'response' in uploadErr
+              ? (uploadErr as { response?: { status?: number } }).response?.status
+              : undefined;
           const isNetworkError =
+            !httpStatus &&
             /network\s*(error|request\s*failed)|timeout|ERR_NETWORK|ECONNABORTED/i.test(errMsg);
 
           if (!isNetworkError) {
             // API error (auth, validation, server error) — show to user, don't queue
             log.warn(`Upload API error: ${errMsg}`);
-            const status =
-              uploadErr && typeof uploadErr === 'object' && 'response' in uploadErr
-                ? (uploadErr as { response?: { status?: number } }).response?.status
-                : undefined;
-            if (status === 403) {
+            if (httpStatus === 403) {
               const isApiKey = authMethod === 'apiKey';
               setErrorMessage(
                 isApiKey
