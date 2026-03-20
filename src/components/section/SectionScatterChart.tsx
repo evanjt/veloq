@@ -26,6 +26,7 @@ import {
   isRunningActivity,
   getActivityColor,
   formatShortDate as formatShortDateLib,
+  formatPerformanceDelta,
 } from '@/lib';
 import { CHART_CONFIG } from '@/constants';
 import { loessSmooth } from '@/lib/utils/smoothing';
@@ -64,6 +65,9 @@ export interface SectionScatterChartProps {
   onScrubChange?: (scrubbing: boolean) => void;
   onExcludeActivity?: (activityId: string) => void;
   onIncludeActivity?: (activityId: string) => void;
+  showExcluded?: boolean;
+  hasExcluded?: boolean;
+  onToggleShowExcluded?: () => void;
 }
 
 export function SectionScatterChart({
@@ -78,6 +82,9 @@ export function SectionScatterChart({
   onScrubChange,
   onExcludeActivity,
   onIncludeActivity,
+  showExcluded,
+  hasExcluded,
+  onToggleShowExcluded,
 }: SectionScatterChartProps) {
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
@@ -431,6 +438,22 @@ export function SectionScatterChart({
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
+      {/* Eye toggle for excluded activities */}
+      {hasExcluded && onToggleShowExcluded && (
+        <View style={styles.eyeToggleRow}>
+          <TouchableOpacity
+            onPress={onToggleShowExcluded}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.eyeToggle}
+          >
+            <MaterialCommunityIcons
+              name={showExcluded ? 'eye' : 'eye-off'}
+              size={16}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+      )}
       {/* Forward stats row above chart */}
       {hasForward &&
         renderStatsRow(
@@ -627,9 +650,24 @@ export function SectionScatterChart({
             activeOpacity={0.7}
           >
             <View style={styles.tooltipLeft}>
-              <Text style={[styles.tooltipName, isDark && styles.textLight]} numberOfLines={1}>
-                {selectedPoint.activityName}
-              </Text>
+              <View style={styles.tooltipNameRow}>
+                {selectedPoint.isBest && (
+                  <MaterialCommunityIcons
+                    name="trophy"
+                    size={13}
+                    color={colors.chartGold}
+                    style={{ marginRight: 3 }}
+                  />
+                )}
+                <Text style={[styles.tooltipName, isDark && styles.textLight]} numberOfLines={1}>
+                  {selectedPoint.activityName}
+                </Text>
+                {(selectedPoint.lapCount ?? 0) > 1 && (
+                  <View style={styles.lapBadge}>
+                    <Text style={styles.lapBadgeText}>{selectedPoint.lapCount}x</Text>
+                  </View>
+                )}
+              </View>
               <View style={styles.tooltipMeta}>
                 <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
                   {formatShortDate(selectedPoint.date)}
@@ -640,6 +678,32 @@ export function SectionScatterChart({
                     {formatDuration(selectedPoint.sectionTime)}
                   </Text>
                 )}
+                {(() => {
+                  const delta = formatPerformanceDelta({
+                    isBest: selectedPoint.isBest === true,
+                    showPace: showPace,
+                    currentSpeed: selectedPoint.speed,
+                    bestSpeed: selectedPoint.bestSpeed,
+                    timeDelta:
+                      selectedPoint.sectionTime != null && selectedPoint.bestTime != null
+                        ? selectedPoint.sectionTime - selectedPoint.bestTime
+                        : undefined,
+                  });
+                  if (delta.deltaDisplay) {
+                    return (
+                      <Text
+                        style={[
+                          styles.tooltipDelta,
+                          { color: delta.isFaster ? colors.success : colors.error },
+                        ]}
+                      >
+                        {' \u00b7 '}
+                        {delta.deltaDisplay}
+                      </Text>
+                    );
+                  }
+                  return null;
+                })()}
                 {selectedPoint.direction === 'reverse' && (
                   <View style={styles.reverseBadge}>
                     <MaterialCommunityIcons
@@ -724,6 +788,15 @@ const styles = StyleSheet.create({
   },
   containerDark: {
     backgroundColor: darkColors.surfaceCard,
+  },
+  eyeToggleRow: {
+    position: 'absolute',
+    top: 4,
+    right: 8,
+    zIndex: 10,
+  },
+  eyeToggle: {
+    padding: 4,
   },
   statsRow: {
     flexDirection: 'row',
@@ -846,11 +919,32 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
+  tooltipNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   tooltipName: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: 1,
+    flex: 1,
+  },
+  lapBadge: {
+    backgroundColor: colors.textMuted + '20',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginLeft: 4,
+  },
+  lapBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  tooltipDelta: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   tooltipMeta: {
     flexDirection: 'row',

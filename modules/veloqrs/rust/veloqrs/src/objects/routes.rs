@@ -91,4 +91,30 @@ impl RouteManager {
     fn get_all_names(&self) -> Result<std::collections::HashMap<String, String>, VeloqError> {
         with_engine(|e| e.get_all_route_names())
     }
+
+    fn exclude_activity(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.exclude_activity_from_route(&route_id, &activity_id)
+                .map_err(|e| VeloqError::Database { msg: e })
+        })?
+    }
+
+    fn include_activity(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.include_activity_in_route(&route_id, &activity_id)
+                .map_err(|e| VeloqError::Database { msg: e })
+        })?
+    }
+
+    fn get_excluded_activities(&self, route_id: String) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| e.get_excluded_route_activity_ids(&route_id))
+    }
+
+    fn get_excluded_performances(&self, route_id: String) -> Result<crate::FfiRoutePerformanceResult, VeloqError> {
+        with_engine(|e| {
+            crate::FfiRoutePerformanceResult::from(
+                e.get_excluded_route_performances(&route_id),
+            )
+        })
+    }
 }

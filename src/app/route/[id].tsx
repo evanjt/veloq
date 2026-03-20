@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  Pressable,
   Dimensions,
   StatusBar,
   TouchableOpacity,
@@ -11,7 +10,7 @@ import {
   Keyboard,
   Alert,
 } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { logScreenRender } from '@/lib/debug/renderTimer';
@@ -28,223 +27,33 @@ import {
 } from '@/hooks';
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { useGroupDetail } from '@/hooks/routes/useRouteEngine';
-import { getAllRouteDisplayNames, getRouteDisplayName } from '@/hooks/routes/useRouteGroups';
-import { createSharedStyles } from '@/styles';
+import { getAllRouteDisplayNames } from '@/hooks/routes/useRouteGroups';
 import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/components/ui';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 
 import {
   RouteMapView,
-  MiniTraceView,
   DataRangeFooter,
   DebugInfoPanel,
   DebugWarningBanner,
 } from '@/components/routes';
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
-import {
-  UnifiedPerformanceChart,
-  type DirectionSummaryStats,
-} from '@/components/routes/performance';
+import { SectionScatterChart } from '@/components/section';
 import {
   formatDistance,
   formatRelativeDate,
   getActivityIcon,
   getActivityColor,
   formatDuration,
-  formatPace,
-  formatSpeed,
   isRunningActivity,
-  formatPerformanceDelta,
 } from '@/lib';
-import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
-import type { Activity, ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import { toActivityType } from '@/types/routes';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45); // 45% of screen for hero map
-
-// Direction colors - using theme for consistency
-const REVERSE_COLOR = colors.reverseDirection; // Pink
-const SAME_COLOR_DEFAULT = colors.sameDirection; // Blue (same direction)
-const CONSENSUS_COLOR = colors.consensusRoute; // Orange for the consensus/main route
-
-interface ActivityRowProps {
-  activity: Activity;
-  isDark: boolean;
-  isMetric: boolean;
-  matchPercentage?: number;
-  direction?: string;
-  /** Route points for this activity's GPS trace */
-  activityPoints?: RoutePoint[];
-  /** Representative route points (full route for comparison) */
-  routePoints?: RoutePoint[];
-  /** Whether this row is currently highlighted */
-  isHighlighted?: boolean;
-  /** Total distance of the route in meters (for context) */
-  routeDistance?: number;
-  /** Is this the best performance (PR)? */
-  isBest?: boolean;
-  /** Rank of this performance (1 = best) */
-  rank?: number;
-  /** Time delta vs PR in seconds (positive = slower, negative = faster) */
-  deltaFromPR?: number;
-  /** Speed/pace for this route effort (m/s) */
-  speed?: number;
-  /** Duration for this route effort (seconds) */
-  duration?: number;
-  /** Best speed (PR) for pace delta calculation */
-  bestSpeed?: number;
-}
-
-const ActivityRow = React.memo(function ActivityRow({
-  activity,
-  isDark,
-  isMetric,
-  matchPercentage,
-  direction,
-  activityPoints,
-  routePoints,
-  isHighlighted,
-  routeDistance,
-  isBest = false,
-  rank,
-  deltaFromPR,
-  speed,
-  duration,
-  bestSpeed,
-}: ActivityRowProps) {
-  const { t } = useTranslation();
-  const handlePress = () => {
-    router.push(`/activity/${activity.id}`);
-  };
-
-  // Determine trace color based on direction
-  const isReverse = direction === 'reverse';
-  // Activity trace: cyan for highlighted, purple for reverse, blue for same
-  const traceColor = isHighlighted
-    ? colors.chartCyan
-    : isReverse
-      ? REVERSE_COLOR
-      : colors.sameDirection;
-  const badgeColor = isReverse ? REVERSE_COLOR : colors.success;
-
-  // Use route-specific speed/duration if available, otherwise fall back to activity averages
-  const displaySpeed =
-    speed ?? (activity.moving_time > 0 ? activity.distance / activity.moving_time : 0);
-  const displayDuration = duration ?? activity.moving_time;
-  const showPace = isRunningActivity(activity.type);
-
-  // Format delta from PR for display
-  const { deltaDisplay, deltaColor } = useMemo(() => {
-    const result = formatPerformanceDelta({
-      isBest,
-      showPace,
-      currentSpeed: displaySpeed,
-      bestSpeed,
-      timeDelta: deltaFromPR,
-    });
-    return {
-      deltaDisplay: result.deltaDisplay,
-      deltaColor: result.deltaDisplay
-        ? result.isFaster
-          ? colors.success
-          : colors.error
-        : colors.textSecondary,
-    };
-  }, [isBest, showPace, displaySpeed, bestSpeed, deltaFromPR]);
-
-  return (
-    <Pressable
-      onPress={handlePress}
-      style={({ pressed }) => [
-        styles.activityRow,
-        isDark && styles.activityRowDark,
-        isHighlighted && styles.activityRowHighlighted,
-        pressed && styles.activityRowPressed,
-        isBest && styles.activityRowBest,
-      ]}
-    >
-      {/* Mini trace showing route reference (gold) vs activity trace */}
-      {activityPoints && activityPoints.length > 1 ? (
-        <MiniTraceView
-          primaryPoints={activityPoints}
-          referencePoints={routePoints}
-          primaryColor={traceColor}
-          referenceColor={CONSENSUS_COLOR}
-          isHighlighted={isHighlighted}
-          isDark={isDark}
-          width={56}
-          height={40}
-        />
-      ) : (
-        <View
-          style={[
-            styles.activityIcon,
-            { backgroundColor: traceColor + '20', width: 56, height: 40 },
-          ]}
-        >
-          <MaterialCommunityIcons
-            name={getActivityIcon(activity.type)}
-            size={18}
-            color={traceColor}
-          />
-        </View>
-      )}
-      <View style={styles.activityInfo}>
-        <View style={styles.activityNameRow}>
-          <Text style={[styles.activityName, isDark && styles.textLight]} numberOfLines={1}>
-            {activity.name}
-          </Text>
-          {/* PR indicator - small trophy icon (gold) */}
-          {isBest && (
-            <MaterialCommunityIcons
-              name="trophy"
-              size={14}
-              color={colors.chartGold}
-              style={{ marginLeft: 4 }}
-            />
-          )}
-          {/* Match percentage badge with direction-based color */}
-          {matchPercentage !== undefined && (
-            <View style={[styles.matchBadge, { backgroundColor: badgeColor + '15' }]}>
-              <Text style={[styles.matchText, { color: badgeColor }]}>
-                {Math.round(matchPercentage)}%
-              </Text>
-              {isReverse && (
-                <MaterialCommunityIcons name="swap-horizontal" size={10} color={badgeColor} />
-              )}
-            </View>
-          )}
-        </View>
-        <View style={styles.activityMetaRow}>
-          <Text style={[styles.activityDate, isDark && styles.textMuted]}>
-            {formatRelativeDate(activity.start_date_local)}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.activityStats}>
-        {/* Pace/speed prominently */}
-        <Text style={[styles.activityDistance, isDark && styles.textLight]}>
-          {showPace ? formatPace(displaySpeed) : formatSpeed(displaySpeed)}
-        </Text>
-        {/* Duration more subtle */}
-        <Text style={[styles.activityTime, isDark && styles.textMuted]}>
-          {formatDuration(displayDuration)}
-        </Text>
-        {/* Delta from PR */}
-        {deltaDisplay && (
-          <Text style={[styles.deltaText, { color: deltaColor }]}>{deltaDisplay}</Text>
-        )}
-      </View>
-      <MaterialCommunityIcons
-        name="chevron-right"
-        size={20}
-        color={isDark ? darkColors.textMuted : colors.divider}
-      />
-    </Pressable>
-  );
-});
 
 export default function RouteDetailScreen() {
   // Performance timing
@@ -256,9 +65,8 @@ export default function RouteDetailScreen() {
 
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { isDark, colors: themeColors } = useTheme();
+  const { isDark } = useTheme();
   const isMetric = useMetricSystem();
-  const shared = createSharedStyles(isDark);
   const insets = useSafeAreaInsets();
 
   // Get cached date range from sync store (consolidated calculation)
@@ -267,11 +75,15 @@ export default function RouteDetailScreen() {
   const { getPageMetrics } = useFFITimer();
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
-  // State for highlighted activity
+  // State for highlighted activity (chart scrubbing → map)
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
     RoutePoint[] | undefined
   >(undefined);
+
+  // Excluded activities state
+  const [showExcluded, setShowExcluded] = useState(false);
+  const [excludedActivityIds, setExcludedActivityIds] = useState<Set<string>>(new Set());
 
   // State for route renaming
   const [isEditing, setIsEditing] = useState(false);
@@ -321,7 +133,6 @@ export default function RouteDetailScreen() {
     forwardStats,
     reverseStats,
     currentRank,
-    activityMetrics,
   } = useRoutePerformances(id, engineGroup?.groupId);
 
   // Get consensus route points from Rust engine
@@ -396,28 +207,6 @@ export default function RouteDetailScreen() {
     Keyboard.dismiss();
   }, []);
 
-  // Build match data from performances array
-  const performancesMap = useMemo(() => {
-    const map: Record<
-      string,
-      {
-        direction: string;
-        matchPercentage: number | undefined;
-        duration: number;
-        speed: number;
-      }
-    > = {};
-    for (const perf of performances) {
-      map[perf.activityId] = {
-        direction: perf.direction,
-        matchPercentage: perf.matchPercentage,
-        duration: perf.duration,
-        speed: perf.speed,
-      };
-    }
-    return map;
-  }, [performances]);
-
   // Load simplified GPS signatures for mini trace preview (single batch FFI call)
   const signatures = useMemo(() => {
     if (!engineGroup?.activityIds?.length) return {};
@@ -443,48 +232,7 @@ export default function RouteDetailScreen() {
     }
   }, [engineGroup?.activityIds]);
 
-  // Build activity list from inlined metrics (from useRoutePerformances), sorted by fastest pace
-  const routeActivities = React.useMemo(() => {
-    if (!routeGroupBase || activityMetrics.size === 0) return [];
-
-    // Convert engine metrics to Activity-compatible objects
-    const activities: Activity[] = Array.from(activityMetrics.values()).map(
-      (m): Activity => ({
-        id: m.activityId,
-        name: m.name,
-        type: m.sportType as ActivityType,
-        start_date_local: fromUnixSeconds(m.date)?.toISOString() ?? '',
-        distance: m.distance,
-        moving_time: m.movingTime,
-        elapsed_time: m.elapsedTime,
-        total_elevation_gain: m.elevationGain,
-        average_speed: m.movingTime > 0 ? m.distance / m.movingTime : 0,
-        max_speed: 0,
-        average_heartrate: m.avgHr ?? undefined,
-      })
-    );
-
-    // Build speed/pace lookup from performances
-    const speedMap = new Map<string, number>();
-    for (const perf of performances) {
-      if (Number.isFinite(perf.speed)) {
-        speedMap.set(perf.activityId, perf.speed);
-      }
-    }
-
-    // Sort by fastest pace (highest speed first = PR at top)
-    return activities.sort((a, b) => {
-      const speedA = speedMap.get(a.id);
-      const speedB = speedMap.get(b.id);
-      if (speedA === undefined && speedB === undefined) return 0;
-      if (speedA === undefined) return 1;
-      if (speedB === undefined) return -1;
-      return speedB - speedA;
-    });
-  }, [routeGroupBase, activityMetrics, performances]);
-
-  // Prepare chart data for UnifiedPerformanceChart using Rust engine performance data
-  // This provides precise segment times instead of approximate activity averages
+  // Prepare chart data using Rust engine performance data
   const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
     if (performances.length === 0) {
       return {
@@ -513,8 +261,7 @@ export default function RouteDetailScreen() {
           activityName: perf.name,
           direction: perf.direction as 'same' | 'reverse',
           matchPercentage: perf.matchPercentage,
-          lapNumber: 1,
-          totalLaps: validPerformances.length,
+          sectionTime: Math.round(perf.duration),
           lapPoints: activityPoints,
         };
       }
@@ -550,43 +297,127 @@ export default function RouteDetailScreen() {
     };
   }, [performances, bestPerformance, signatures]);
 
-  // Compute stats from activities since signature data isn't available
-  // Must be called before any early return to maintain hooks order
+  // Compute stats from performances
   const routeStats = useMemo(() => {
-    if (routeActivities.length === 0) return { distance: 0, lastDate: '' };
-    const distances = routeActivities.map((a) => a.distance || 0);
+    if (performances.length === 0) return { distance: 0, lastDate: '' };
+    const distances = performances.map((p) => p.distance || 0);
     const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
-    const dates = routeActivities.map((a) => new Date(a.start_date_local).getTime());
+    const dates = performances.map((p) => p.date.getTime());
     const lastDate = new Date(Math.max(...dates)).toISOString();
     return { distance: avgDistance, lastDate };
-  }, [routeActivities]);
+  }, [performances]);
 
-  // Compute summary stats for the stats card
-  const summaryStats = useMemo(() => {
-    if (performances.length === 0) {
-      return {
-        bestTime: null,
-        avgTime: null,
-        totalActivities: 0,
-        lastActivity: null,
-      };
+  // Load excluded activity IDs for this route
+  useEffect(() => {
+    if (!id) return;
+    const engine = getRouteEngine();
+    if (!engine) return;
+    const ids = engine.getExcludedRouteActivityIds(id);
+    setExcludedActivityIds(new Set(ids));
+  }, [id]);
+
+  const handleExcludeActivity = useCallback(
+    (activityId: string) => {
+      if (!id) return;
+      const engine = getRouteEngine();
+      if (!engine) return;
+      engine.excludeActivityFromRoute(id, activityId);
+      setExcludedActivityIds((prev) => new Set([...prev, activityId]));
+    },
+    [id]
+  );
+
+  const handleIncludeActivity = useCallback(
+    (activityId: string) => {
+      if (!id) return;
+      const engine = getRouteEngine();
+      if (!engine) return;
+      engine.includeActivityInRoute(id, activityId);
+      setExcludedActivityIds((prev) => {
+        const next = new Set(prev);
+        next.delete(activityId);
+        return next;
+      });
+    },
+    [id]
+  );
+
+  const handleToggleShowExcluded = useCallback(() => {
+    setShowExcluded((v) => !v);
+  }, []);
+
+  // Enrich chart data with PR info for tooltip display
+  const enrichedChartData = useMemo(() => {
+    if (chartData.length === 0) return chartData;
+
+    let fwdBestTime: number | undefined;
+    let fwdBestSpeed: number | undefined;
+    let revBestTime: number | undefined;
+    let revBestSpeed: number | undefined;
+
+    for (const p of chartData) {
+      if (p.direction === 'reverse') {
+        if (revBestSpeed === undefined || p.speed > revBestSpeed) {
+          revBestSpeed = p.speed;
+          revBestTime = p.sectionTime;
+        }
+      } else {
+        if (fwdBestSpeed === undefined || p.speed > fwdBestSpeed) {
+          fwdBestSpeed = p.speed;
+          fwdBestTime = p.sectionTime;
+        }
+      }
     }
-    // Filter out invalid durations (NaN, undefined, non-finite)
-    const validDurations = performances.map((p) => p.duration).filter((d) => Number.isFinite(d));
-    const avgDuration =
-      validDurations.length > 0
-        ? validDurations.reduce((a, b) => a + b, 0) / validDurations.length
-        : null;
-    const dates = performances.map((p) => p.date.getTime());
-    const lastActivityDate = new Date(Math.max(...dates));
-    const bestTime = bestPerformance?.duration;
-    return {
-      bestTime: bestTime !== undefined && Number.isFinite(bestTime) ? bestTime : null,
-      avgTime: avgDuration,
-      totalActivities: performances.length,
-      lastActivity: lastActivityDate,
-    };
-  }, [performances, bestPerformance]);
+
+    return chartData.map((p) => {
+      const isReverse = p.direction === 'reverse';
+      const dirBestTime = isReverse ? revBestTime : fwdBestTime;
+      const dirBestSpeed = isReverse ? revBestSpeed : fwdBestSpeed;
+      const isBest = dirBestSpeed !== undefined && p.speed === dirBestSpeed;
+      return {
+        ...p,
+        bestTime: dirBestTime,
+        bestSpeed: dirBestSpeed,
+        isBest,
+        sectionTime: Math.round(p.sectionTime ?? 0) || undefined,
+      };
+    });
+  }, [chartData]);
+
+  // Build chart data points for excluded activities
+  const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
+    if (!showExcluded || excludedActivityIds.size === 0 || !id) return [];
+    try {
+      const engine = getRouteEngine();
+      if (!engine) return [];
+      const result = engine.getExcludedRoutePerformances(id);
+      if (!result?.performances?.length) return [];
+
+      return result.performances
+        .filter((p: any) => Number.isFinite(p.speed))
+        .map((p: any) => ({
+          x: 0,
+          id: p.activityId,
+          activityId: p.activityId,
+          speed: p.speed,
+          date: p.date,
+          activityName: p.name,
+          direction: (p.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
+          sectionTime: Math.round(p.duration),
+          matchPercentage: p.matchPercentage,
+          isExcluded: true,
+        }));
+    } catch (e) {
+      if (__DEV__) console.warn('[RouteDetail] getExcludedRoutePerformances failed:', e);
+      return [];
+    }
+  }, [showExcluded, excludedActivityIds, id]);
+
+  // Merge excluded points into chart data when showing excluded
+  const combinedChartData = useMemo(() => {
+    if (excludedChartData.length === 0) return enrichedChartData;
+    return [...enrichedChartData, ...excludedChartData];
+  }, [enrichedChartData, excludedChartData]);
 
   // Final routeGroup with signature populated from consensus points
   const routeGroup = useMemo(() => {
@@ -634,8 +465,8 @@ export default function RouteDetailScreen() {
 
   const activityColor = getActivityColor(routeGroup.type);
   const iconName = getActivityIcon(routeGroup.type);
-  // Map data check - without signatures, assume we have map data if we have activities
-  const hasMapData = routeActivities.length > 0;
+  // Map data check - have activities if we have performances
+  const hasMapData = performances.length > 0;
 
   return (
     <ScreenErrorBoundary screenName="Route Detail">
@@ -756,109 +587,26 @@ export default function RouteDetailScreen() {
 
           {/* Content below hero */}
           <View style={styles.contentSection}>
-            {/* Performance progression chart - scrubbing highlights map */}
-            {chartData.length >= 2 && (
+            {/* Performance scatter chart with eye toggle */}
+            {combinedChartData.length >= 1 && (
               <View style={styles.chartSection}>
-                <UnifiedPerformanceChart
-                  chartData={chartData}
+                <SectionScatterChart
+                  chartData={combinedChartData}
                   activityType={routeGroup.type}
                   isDark={isDark}
-                  minSpeed={minSpeed}
-                  maxSpeed={maxSpeed}
-                  bestIndex={bestIndex}
-                  hasReverseRuns={hasReverseRuns}
-                  tooltipBadgeType="match"
-                  onActivitySelect={handleActivitySelect}
-                  summaryStats={summaryStats}
-                  selectedActivityId={highlightedActivityId}
                   bestForwardRecord={bestForwardRecord}
                   bestReverseRecord={bestReverseRecord}
                   forwardStats={forwardStats}
                   reverseStats={reverseStats}
+                  onActivitySelect={handleActivitySelect}
+                  onExcludeActivity={handleExcludeActivity}
+                  onIncludeActivity={handleIncludeActivity}
+                  showExcluded={showExcluded}
+                  hasExcluded={excludedActivityIds.size > 0}
+                  onToggleShowExcluded={handleToggleShowExcluded}
                 />
               </View>
             )}
-
-            {/* Activities list */}
-            <View style={styles.activitiesSection}>
-              <View style={styles.activitiesHeader}>
-                <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-                  {t('settings.activities')}
-                </Text>
-                {/* Legend */}
-                <View style={styles.legend}>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendIndicator, { backgroundColor: colors.chartGold }]} />
-                    <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
-                    <Text style={[styles.legendText, isDark && styles.textMuted]}>
-                      {t('routes.pr')}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {routeActivities.length === 0 ? (
-                <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
-                  {t('feed.noActivities')}
-                </Text>
-              ) : (
-                <View style={[styles.activitiesCard, isDark && styles.activitiesCardDark]}>
-                  {routeActivities.map((activity, index) => {
-                    const perfData = performancesMap[activity.id];
-                    // Get match data from performances array
-                    const matchPercentage = perfData?.matchPercentage;
-                    const direction = perfData?.direction;
-                    const routeDistance = routeGroup?.signature?.distance;
-                    // Get route points from signature for this activity
-                    const activityPoints = signatures[activity.id]?.points;
-                    // Get representative route points (full route, not truncated consensus)
-                    const routePoints = routeGroup?.signature?.points;
-                    const isHighlighted = highlightedActivityId === activity.id;
-                    // Determine if this is the best performance (PR)
-                    const isBest = bestPerformance?.activityId === activity.id;
-                    // Get rank from performances array (returns undefined if not found)
-                    const rankIdx = performances.findIndex((p) => p.activityId === activity.id);
-                    const rank = rankIdx >= 0 ? rankIdx + 1 : undefined;
-                    // Calculate delta from PR (time difference in seconds)
-                    const activityDuration = perfData?.duration;
-                    const bestDuration = bestPerformance?.duration;
-                    const deltaFromPR =
-                      activityDuration !== undefined &&
-                      bestDuration !== undefined &&
-                      Number.isFinite(activityDuration) &&
-                      Number.isFinite(bestDuration)
-                        ? activityDuration - bestDuration
-                        : undefined;
-                    return (
-                      <React.Fragment key={activity.id}>
-                        <Pressable
-                          onPressIn={() => setHighlightedActivityId(activity.id)}
-                          onPressOut={() => setHighlightedActivityId(null)}
-                        >
-                          <ActivityRow
-                            activity={activity}
-                            isDark={isDark}
-                            isMetric={isMetric}
-                            matchPercentage={matchPercentage}
-                            direction={direction}
-                            activityPoints={activityPoints}
-                            routePoints={routePoints}
-                            isHighlighted={isHighlighted}
-                            routeDistance={routeDistance}
-                            isBest={isBest}
-                            rank={rank}
-                            deltaFromPR={deltaFromPR}
-                            speed={perfData?.speed}
-                            duration={perfData?.duration}
-                            bestSpeed={bestPerformance?.speed}
-                          />
-                        </Pressable>
-                      </React.Fragment>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
 
             {/* Export GPX button */}
             {consensusPoints && consensusPoints.length > 0 && (
@@ -1178,176 +926,5 @@ const styles = StyleSheet.create({
   },
   chartSection: {
     marginBottom: spacing.lg,
-  },
-  activitiesSection: {
-    marginBottom: spacing.xl,
-  },
-  sectionTitle: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  activitiesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  legend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  legendIndicator: {
-    width: 3,
-    height: 12,
-    borderRadius: 1.5,
-  },
-  legendText: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-  },
-  loadingContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  emptyActivities: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingVertical: spacing.lg,
-  },
-  activitiesCard: {
-    // Individual rows now have their own card styling
-  },
-  activitiesCardDark: {
-    // Individual rows now have their own card styling
-  },
-  activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.sm,
-    gap: spacing.sm,
-    backgroundColor: colors.surface,
-    marginBottom: spacing.xs,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  activityRowDark: {
-    backgroundColor: darkColors.surface,
-  },
-  activityRowHighlighted: {
-    backgroundColor: 'rgba(0, 188, 212, 0.1)',
-  },
-  activityRowPressed: {
-    opacity: 0.7,
-  },
-  activityRowBest: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.chartGold,
-  },
-  activityIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  activityInfo: {
-    flex: 1,
-  },
-  activityNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  activityName: {
-    fontSize: typography.bodySmall.fontSize + 1,
-    fontWeight: '500',
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  matchBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: layout.borderRadiusSm,
-    gap: 2,
-  },
-  matchText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
-  },
-  prBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: layout.borderRadiusSm,
-    gap: 2,
-  },
-  prText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '700',
-    color: colors.textOnDark,
-  },
-  rankBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: layout.borderRadiusSm,
-  },
-  rankText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  activityDate: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-  },
-  activityMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 1,
-  },
-  overlapText: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    opacity: 0.7,
-  },
-  activityStats: {
-    alignItems: 'flex-end',
-  },
-  activityDistance: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  activityTime: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-  },
-  deltaText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: opacity.overlay.light,
-    marginLeft: 36 + spacing.md + spacing.md,
-  },
-  dividerDark: {
-    backgroundColor: opacity.overlayDark.light,
   },
 });

@@ -509,6 +509,9 @@ export interface PerformanceDataPoint {
   sectionDistance?: number;
   lapCount?: number;
   isExcluded?: boolean;
+  bestTime?: number;
+  bestSpeed?: number;
+  isBest?: boolean;
 }
 
 /**

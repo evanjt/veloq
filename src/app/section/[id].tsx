@@ -6,7 +6,7 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import {
   View,
-  FlatList,
+  ScrollView,
   StyleSheet,
   StatusBar,
   TouchableOpacity,
@@ -15,7 +15,7 @@ import {
   Alert,
   InteractionManager,
 } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -38,13 +38,7 @@ import { DataRangeFooter, DebugInfoPanel, DebugWarningBanner } from '@/component
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
 import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/components/ui';
-import {
-  SectionHeader,
-  SectionPerformanceSection,
-  SectionStatsCards,
-  ActivityRow,
-  TraversalListHeader,
-} from '@/components/section';
+import { SectionHeader, SectionPerformanceSection, SectionStatsCards } from '@/components/section';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { formatRelativeDate, getActivityIcon, getActivityColor, isRunningActivity } from '@/lib';
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
@@ -89,19 +83,8 @@ export default function SectionDetailScreen() {
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
     RoutePoint[] | undefined
   >(undefined);
-  // Ref to track current highlighted activity (avoids stale closure in callbacks)
-  const highlightedActivityIdRef = useRef<string | null>(null);
-  // Track if user is actively scrubbing - used to defer expensive shadow track updates
+  // Track if user is actively scrubbing - used to defer expensive map updates
   const [isScrubbing, setIsScrubbing] = useState(false);
-  // Committed activity ID - only updates when scrubbing stops (for shadow track)
-  const [committedActivityId, setCommittedActivityId] = useState<string | null>(null);
-  // Pre-cached GPS tracks for fast scrubbing (loaded in background when section loads)
-  const gpsTrackCacheRef = useRef<Map<string, [number, number][]>>(new Map());
-  const [cacheReady, setCacheReady] = useState(false);
-  // Activity traces computed from GPS tracks (for custom sections)
-  const [computedActivityTraces, setComputedActivityTraces] = useState<
-    Record<string, RoutePoint[]>
-  >({});
   // Defer map loading until after first paint for faster perceived load
   const [mapReady, setMapReady] = useState(false);
 
@@ -199,67 +182,6 @@ export default function SectionDetailScreen() {
     setTrimStart,
     setTrimEnd,
   } = useSectionTrim(section, handleTrimRefresh);
-
-  // Merge computed activity traces into the section
-  // Always use computedActivityTraces when available, as they use extractSectionTrace
-  // which correctly extracts points near the section polyline (avoiding straight-line artifacts)
-  const sectionWithTraces = useMemo(() => {
-    if (!section) return null;
-
-    // Cast to access optional activityTraces property (may not exist on all section types)
-    const sectionAny = section as unknown as {
-      activityTraces?: Record<string, RoutePoint[]>;
-    };
-
-    // Always prefer computed traces (from extractSectionTrace) over pre-computed ones
-    // Pre-computed activityTraces from Rust may use simple index slicing which creates
-    // straight lines when the activity takes a different path between section entry/exit
-    if (Object.keys(computedActivityTraces).length > 0) {
-      return {
-        ...section,
-        activityTraces: computedActivityTraces,
-      };
-    }
-
-    // Fall back to engine's activityTraces if we haven't computed our own yet
-    if (sectionAny.activityTraces && Object.keys(sectionAny.activityTraces).length > 0) {
-      return {
-        ...section,
-        activityTraces: sectionAny.activityTraces,
-      };
-    }
-
-    return section;
-  }, [section, computedActivityTraces]);
-
-  // Compute activity traces using batch FFI call (single R-tree build, sequential track loading).
-  // Replaces N individual extractSectionTrace calls with 1 batch call.
-  // Correctly handles cases where activities take different paths between entry/exit points.
-  useEffect(() => {
-    if (!section || !section.activityIds.length || !section.polyline?.length) {
-      return;
-    }
-
-    const engine = getRouteEngine();
-    if (!engine) {
-      return;
-    }
-
-    // Convert polyline to JSON string for Rust engine (done once)
-    const polylineJson = JSON.stringify(
-      section.polyline.map((p: { lat: number; lng: number }) => ({
-        latitude: p.lat,
-        longitude: p.lng,
-      }))
-    );
-
-    // Single batch FFI call — builds R-tree once, loads tracks sequentially
-    const traces = engine.extractSectionTracesBatch(section.activityIds, polylineJson);
-
-    if (Object.keys(traces).length > 0) {
-      setComputedActivityTraces(traces);
-    }
-  }, [section]);
 
   // Load custom section name from section data on mount
   // Section names are now stored directly in the section.name field
@@ -440,129 +362,16 @@ export default function SectionDetailScreen() {
     }
   }, [id, isCustomId, isSectionDisabled, enable, disable, t]);
 
-  // GPS tracks are loaded on-demand when user selects an activity (via shadowTrack).
-  // No eager loading — prevents 237+ FFI calls and ~12-19MB heap spike on section open.
-  // Clear cache when section changes to avoid stale data.
-  useEffect(() => {
-    gpsTrackCacheRef.current.clear();
-    setCacheReady(true); // Always "ready" — tracks load on demand
-    return () => {
-      gpsTrackCacheRef.current.clear();
-    };
-  }, [section?.activityIds]);
-
-  // Douglas-Peucker line simplification for fast map rendering
-  // Reduces point count while preserving shape (tolerance ~5m at equator)
-  const simplifyTrack = useCallback(
-    (points: [number, number][], tolerance = 0.00005): [number, number][] => {
-      if (points.length <= 2) return points;
-
-      // Find the point with the maximum distance from the line between first and last
-      let maxDist = 0;
-      let maxIndex = 0;
-      const [startLat, startLng] = points[0];
-      const [endLat, endLng] = points[points.length - 1];
-
-      for (let i = 1; i < points.length - 1; i++) {
-        const [lat, lng] = points[i];
-        // Perpendicular distance from point to line
-        const dist =
-          Math.abs(
-            (endLng - startLng) * (startLat - lat) - (startLng - lng) * (endLat - startLat)
-          ) / Math.sqrt((endLng - startLng) ** 2 + (endLat - startLat) ** 2);
-
-        if (dist > maxDist) {
-          maxDist = dist;
-          maxIndex = i;
-        }
-      }
-
-      // If max distance is greater than tolerance, recursively simplify
-      if (maxDist > tolerance) {
-        const left = simplifyTrack(points.slice(0, maxIndex + 1), tolerance);
-        const right = simplifyTrack(points.slice(maxIndex), tolerance);
-        return [...left.slice(0, -1), ...right];
-      }
-
-      // Otherwise, return just the endpoints
-      return [points[0], points[points.length - 1]];
-    },
-    []
-  );
-
-  // Cache for simplified tracks (separate from full tracks)
-  const simplifiedTrackCacheRef = useRef<Map<string, [number, number][]>>(new Map());
-
-  // Compute shadow track directly from cache (no useEffect, no extra render)
-  // Uses simplified geometry for fast MapLibre rendering
-  const shadowTrack = useMemo(() => {
-    if (!highlightedActivityId) return undefined;
-
-    // Check simplified cache first
-    const simplifiedCached = simplifiedTrackCacheRef.current.get(highlightedActivityId);
-    if (simplifiedCached) {
-      return simplifiedCached;
-    }
-
-    // Get full track from cache
-    const cachedTrack = gpsTrackCacheRef.current.get(highlightedActivityId);
-    if (cachedTrack) {
-      const simplified = simplifyTrack(cachedTrack);
-      simplifiedTrackCacheRef.current.set(highlightedActivityId, simplified);
-      return simplified;
-    }
-
-    // Fallback: fetch from Rust if not cached yet
-    const engine = getRouteEngine();
-    if (!engine) return undefined;
-
-    const gpsPoints = engine.getGpsTrack(highlightedActivityId);
-    if (gpsPoints && gpsPoints.length > 0) {
-      const track: [number, number][] = gpsPoints.map((p) => [p.latitude, p.longitude]);
-      gpsTrackCacheRef.current.set(highlightedActivityId, track);
-      const simplified = simplifyTrack(track);
-      simplifiedTrackCacheRef.current.set(highlightedActivityId, simplified);
-      return simplified;
-    }
-
-    return undefined;
-  }, [highlightedActivityId, simplifyTrack]);
-
-  // Track scrubbing state in ref for use in callbacks (avoids stale closure)
-  const isScrubbingRef = useRef(false);
-
   const handleActivitySelect = useCallback(
     (activityId: string | null, activityPoints?: RoutePoint[]) => {
-      highlightedActivityIdRef.current = activityId;
       setHighlightedActivityId(activityId);
       setHighlightedActivityPoints(activityPoints);
     },
     []
   );
 
-  // Handle scrubbing state changes
   const handleScrubChange = useCallback((scrubbing: boolean) => {
-    isScrubbingRef.current = scrubbing;
     setIsScrubbing(scrubbing);
-    if (!scrubbing) {
-      // Scrubbing stopped - commit the activity for the activities list highlight
-      setCommittedActivityId(highlightedActivityIdRef.current);
-    }
-  }, []);
-
-  // Map props for section trace - updates during scrubbing (fast, small polyline)
-  // Shadow track still uses committedActivityId (stable during scrubbing) to avoid expensive updates
-  const mapHighlightedActivityId = highlightedActivityId;
-  const mapHighlightedLapPoints = highlightedActivityPoints;
-
-  // Use highlightedActivityId directly for immediate row highlighting during scrubbing
-  // (like route detail page does)
-  const listHighlightedActivityId = highlightedActivityId;
-
-  // Stable callback for ActivityRow highlight changes
-  // This callback is memoized and won't change between renders, so it doesn't break ActivityRow's memo
-  const handleRowHighlightChange = useCallback((activityId: string | null) => {
-    setHighlightedActivityId(activityId);
   }, []);
 
   // Load excluded activity IDs for this section
@@ -608,7 +417,6 @@ export default function SectionDetailScreen() {
 
   // Get section activities from engine metrics (no API call needed).
   // Activities are already cached in the Rust engine's in-memory HashMap.
-  const isLoading = false; // Engine lookup is synchronous
   const sectionActivitiesUnsorted = useMemo(() => {
     if (!section?.activityIds?.length) return [];
     const engine = getRouteEngine();
@@ -634,62 +442,20 @@ export default function SectionDetailScreen() {
   // This loads in the background - we show estimated times first, then update when ready
   const {
     records: performanceRecords,
-    isLoading: isLoadingRecords,
     bestForwardRecord,
     bestReverseRecord,
     forwardStats,
     reverseStats,
   } = useSectionPerformances(section);
 
-  // Show loading indicator while fetching performance data (but don't block the UI)
-  const hasPerformanceData = performanceRecords && performanceRecords.length > 0;
-
-  const {
-    portionMap,
-    performanceRecordMap,
-    sectionActivities,
-    chartData,
-    rankMap,
-    bestActivityId,
-    bestTimeValue,
-    bestPaceValue,
-  } = useSectionChartData({
+  const { chartData } = useSectionChartData({
     section,
     performanceRecords,
     sectionActivitiesUnsorted,
-    sectionWithTraces,
+    sectionWithTraces: null,
     sectionTimeRange,
     bucketType,
   });
-
-  // Load excluded activities when toggle is on
-  const excludedActivities = useMemo(() => {
-    if (!showExcluded || excludedActivityIds.size === 0) return [];
-    const engine = getRouteEngine();
-    if (!engine) return [];
-    const ids = Array.from(excludedActivityIds);
-    return engine.getActivityMetricsForIds(ids).map(
-      (m): Activity => ({
-        id: m.activityId,
-        name: m.name,
-        type: m.sportType as ActivityType,
-        start_date_local: fromUnixSeconds(m.date)?.toISOString() ?? '',
-        distance: m.distance,
-        moving_time: m.movingTime,
-        elapsed_time: m.elapsedTime,
-        total_elevation_gain: m.elevationGain,
-        average_speed: m.movingTime > 0 ? m.distance / m.movingTime : 0,
-        max_speed: 0,
-        average_heartrate: m.avgHr ?? undefined,
-      })
-    );
-  }, [showExcluded, excludedActivityIds]);
-
-  // Combined list: normal activities + excluded (at the end)
-  const displayActivities = useMemo(() => {
-    if (!showExcluded || excludedActivities.length === 0) return sectionActivities;
-    return [...sectionActivities, ...excludedActivities];
-  }, [sectionActivities, showExcluded, excludedActivities]);
 
   // Build chart data points for excluded activities (shown dimmed on scatter chart)
   const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
@@ -770,85 +536,44 @@ export default function SectionDetailScreen() {
   const computedBestForward = bestForwardRecord ?? null;
   const computedBestReverse = bestReverseRecord ?? null;
 
+  // Enrich chart data with PR info for tooltip display
+  const enrichedChartData = useMemo(() => {
+    if (chartData.length === 0) return chartData;
+
+    // Find best time/speed per direction from non-excluded points
+    let fwdBestTime: number | undefined;
+    let fwdBestSpeed: number | undefined;
+    let revBestTime: number | undefined;
+    let revBestSpeed: number | undefined;
+
+    for (const p of chartData) {
+      if (p.direction === 'reverse') {
+        if (revBestSpeed === undefined || p.speed > revBestSpeed) {
+          revBestSpeed = p.speed;
+          revBestTime = p.sectionTime;
+        }
+      } else {
+        if (fwdBestSpeed === undefined || p.speed > fwdBestSpeed) {
+          fwdBestSpeed = p.speed;
+          fwdBestTime = p.sectionTime;
+        }
+      }
+    }
+
+    return chartData.map((p) => {
+      const isReverse = p.direction === 'reverse';
+      const dirBestTime = isReverse ? revBestTime : fwdBestTime;
+      const dirBestSpeed = isReverse ? revBestSpeed : fwdBestSpeed;
+      const isBest = dirBestSpeed !== undefined && p.speed === dirBestSpeed;
+      return { ...p, bestTime: dirBestTime, bestSpeed: dirBestSpeed, isBest };
+    });
+  }, [chartData]);
+
   // Merge excluded points into chart data when showing excluded
   const combinedChartData = useMemo(() => {
-    if (excludedChartData.length === 0) return chartData;
-    return [...chartData, ...excludedChartData];
-  }, [chartData, excludedChartData]);
-
-  const keyExtractor = useCallback((item: Activity) => item.id, []);
-
-  const renderActivityRow = useCallback(
-    ({ item: activity, index }: { item: Activity; index: number }) => {
-      const portion = portionMap.get(activity.id);
-      const record = performanceRecordMap.get(activity.id);
-      const isHighlighted = listHighlightedActivityId === activity.id;
-      const isBest = bestActivityId === activity.id;
-      const rank = rankMap.get(activity.id);
-      const activityTracePoints = sectionWithTraces?.activityTraces?.[activity.id];
-      const isReference = effectiveReferenceId === activity.id;
-      const isActivityExcluded = excludedActivityIds.has(activity.id);
-
-      // Show separator before first excluded activity
-      const isFirstExcluded =
-        isActivityExcluded &&
-        (index === 0 || !excludedActivityIds.has(displayActivities[index - 1]?.id));
-
-      return (
-        <>
-          {isFirstExcluded && (
-            <View style={styles.excludedSeparator}>
-              <View style={[styles.separatorLine, isDark && styles.separatorLineDark]} />
-              <Text style={[styles.excludedLabel, isDark && styles.textMuted]}>
-                {t('sections.excludeActivity')}
-              </Text>
-              <View style={[styles.separatorLine, isDark && styles.separatorLineDark]} />
-            </View>
-          )}
-          <ActivityRow
-            activity={activity}
-            isDark={isDark}
-            direction={record?.direction || portion?.direction}
-            activityPoints={activityTracePoints}
-            sectionPoints={section?.polyline}
-            isHighlighted={isHighlighted}
-            sectionDistance={record?.sectionDistance || portion?.distanceMeters}
-            lapCount={record?.lapCount}
-            actualSectionTime={record?.bestTime}
-            actualSectionPace={record?.bestPace}
-            isBest={isBest}
-            rank={rank}
-            bestTime={bestTimeValue}
-            bestPace={bestPaceValue}
-            isReference={isReference}
-            isExcluded={isActivityExcluded}
-            onHighlightChange={handleRowHighlightChange}
-            onSetAsReference={handleSetAsReference}
-            onInclude={isActivityExcluded ? handleIncludeActivity : undefined}
-          />
-        </>
-      );
-    },
-    [
-      portionMap,
-      performanceRecordMap,
-      listHighlightedActivityId,
-      bestActivityId,
-      rankMap,
-      sectionWithTraces?.activityTraces,
-      effectiveReferenceId,
-      isDark,
-      section?.polyline,
-      bestTimeValue,
-      bestPaceValue,
-      handleRowHighlightChange,
-      handleSetAsReference,
-      excludedActivityIds,
-      handleIncludeActivity,
-      displayActivities,
-      t,
-    ]
-  );
+    if (excludedChartData.length === 0) return enrichedChartData;
+    return [...enrichedChartData, ...excludedChartData];
+  }, [enrichedChartData, excludedChartData]);
 
   if (!section) {
     return (
@@ -890,273 +615,243 @@ export default function SectionDetailScreen() {
         style={[styles.container, isDark && styles.containerDark]}
       >
         <StatusBar barStyle="light-content" />
-        <FlatList
-          data={isLoading ? [] : displayActivities}
-          keyExtractor={keyExtractor}
-          renderItem={renderActivityRow}
+        <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.flatListContent}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          initialNumToRender={10}
-          maxToRenderPerBatch={10}
-          windowSize={5}
-          ListHeaderComponent={
-            <>
-              {/* Hero Map Section */}
-              <SectionHeader
-                section={section}
+        >
+          {/* Hero Map Section */}
+          <SectionHeader
+            section={section}
+            isDark={isDark}
+            insetTop={insets.top}
+            activityColor={activityColor}
+            iconName={iconName}
+            activityCount={activityCount}
+            mapReady={mapReady}
+            isCustomId={!!isCustomId}
+            isSectionDisabled={isSectionDisabled}
+            isEditing={isEditing}
+            editName={editName}
+            customName={customName}
+            nameInputRef={nameInputRef}
+            canResetBounds={canResetBounds}
+            isTrimming={isTrimming}
+            trimStart={trimStart}
+            trimEnd={trimEnd}
+            isTrimSaving={isTrimSaving}
+            trimmedDistance={trimmedDistance}
+            effectivePointCount={effectivePointCount}
+            sectionStartInTrack={extensionTrack?.sectionStartIdx}
+            sectionEndInTrack={extensionTrack?.sectionEndIdx}
+            extensionTrackPoints={extensionTrack?.points}
+            shadowTrack={undefined}
+            highlightedActivityId={highlightedActivityId}
+            highlightedLapPoints={highlightedActivityPoints}
+            allActivityTraces={undefined}
+            isScrubbing={isScrubbing}
+            onBack={() => router.back()}
+            onStartTrim={startTrim}
+            onDeleteSection={handleDeleteSection}
+            onToggleDisable={handleToggleDisable}
+            onStartEditing={handleStartEditing}
+            onSaveName={handleSaveName}
+            onCancelEdit={handleCancelEdit}
+            onEditNameChange={setEditName}
+            onTrimStartChange={setTrimStart}
+            onTrimEndChange={setTrimEnd}
+            onConfirmTrim={confirmTrim}
+            onCancelTrim={cancelTrim}
+            onResetBounds={resetBounds}
+          />
+
+          {/* Content below hero */}
+          <View style={styles.contentSection}>
+            {/* Disabled banner */}
+            {isSectionDisabled && (
+              <TouchableOpacity
+                style={[styles.disabledBanner, isDark && styles.disabledBannerDark]}
+                onPress={handleToggleDisable}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="delete-outline" size={18} color={colors.warning} />
+                <Text style={styles.disabledBannerText}>
+                  {t('sections.removed')} — {t('sections.restoreSection')}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Performance chart with eye toggle */}
+            <SectionPerformanceSection
+              isDark={isDark}
+              section={section}
+              chartData={combinedChartData}
+              forwardStats={computedForwardStats}
+              reverseStats={computedReverseStats}
+              bestForwardRecord={computedBestForward}
+              bestReverseRecord={computedBestReverse}
+              onActivitySelect={handleActivitySelect}
+              onScrubChange={handleScrubChange}
+              onExcludeActivity={handleExcludeActivity}
+              onIncludeActivity={handleIncludeActivity}
+              showExcluded={showExcluded}
+              hasExcluded={excludedActivityIds.size > 0}
+              onToggleShowExcluded={handleToggleShowExcluded}
+            />
+
+            {/* Calendar performance history */}
+            {calendarSummary && (
+              <SectionStatsCards
+                calendarSummary={calendarSummary}
                 isDark={isDark}
-                insetTop={insets.top}
+                isRunning={isRunning}
                 activityColor={activityColor}
-                iconName={iconName}
-                activityCount={activityCount}
-                mapReady={mapReady}
-                isCustomId={!!isCustomId}
-                isSectionDisabled={isSectionDisabled}
-                isEditing={isEditing}
-                editName={editName}
-                customName={customName}
-                nameInputRef={nameInputRef}
-                canResetBounds={canResetBounds}
-                isTrimming={isTrimming}
-                trimStart={trimStart}
-                trimEnd={trimEnd}
-                isTrimSaving={isTrimSaving}
-                trimmedDistance={trimmedDistance}
-                effectivePointCount={effectivePointCount}
-                sectionStartInTrack={extensionTrack?.sectionStartIdx}
-                sectionEndInTrack={extensionTrack?.sectionEndIdx}
-                extensionTrackPoints={extensionTrack?.points}
-                shadowTrack={shadowTrack}
-                highlightedActivityId={mapHighlightedActivityId}
-                highlightedLapPoints={mapHighlightedLapPoints}
-                allActivityTraces={sectionWithTraces?.activityTraces}
-                isScrubbing={isScrubbing}
-                onBack={() => router.back()}
-                onStartTrim={startTrim}
-                onDeleteSection={handleDeleteSection}
-                onToggleDisable={handleToggleDisable}
-                onStartEditing={handleStartEditing}
-                onSaveName={handleSaveName}
-                onCancelEdit={handleCancelEdit}
-                onEditNameChange={setEditName}
-                onTrimStartChange={setTrimStart}
-                onTrimEndChange={setTrimEnd}
-                onConfirmTrim={confirmTrim}
-                onCancelTrim={cancelTrim}
-                onResetBounds={resetBounds}
               />
+            )}
+          </View>
 
-              {/* Content below hero */}
-              <View style={styles.contentSection}>
-                {/* Disabled banner */}
-                {isSectionDisabled && (
-                  <TouchableOpacity
-                    style={[styles.disabledBanner, isDark && styles.disabledBannerDark]}
-                    onPress={handleToggleDisable}
-                    activeOpacity={0.8}
-                  >
-                    <MaterialCommunityIcons
-                      name="delete-outline"
-                      size={18}
-                      color={colors.warning}
-                    />
-                    <Text style={styles.disabledBannerText}>
-                      {t('sections.removed')} — {t('sections.restoreSection')}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                {/* Performance chart */}
-                <SectionPerformanceSection
-                  isDark={isDark}
-                  section={section}
-                  chartData={combinedChartData}
-                  forwardStats={computedForwardStats}
-                  reverseStats={computedReverseStats}
-                  bestForwardRecord={computedBestForward}
-                  bestReverseRecord={computedBestReverse}
-                  onActivitySelect={handleActivitySelect}
-                  onScrubChange={handleScrubChange}
-                  onExcludeActivity={handleExcludeActivity}
-                  onIncludeActivity={handleIncludeActivity}
+          <View style={styles.listFooterContainer}>
+            {section?.polyline?.length > 0 && (
+              <TouchableOpacity
+                testID="section-export-gpx"
+                style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
+                onPress={() =>
+                  exportGpx({
+                    name: section.name || 'Section',
+                    points: section.polyline.map((p: RoutePoint) => ({
+                      latitude: p.lat,
+                      longitude: p.lng,
+                    })),
+                    sport: section.sportType,
+                  })
+                }
+                disabled={gpxExporting}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name={gpxExporting ? 'progress-download' : 'download'}
+                  size={20}
+                  color={colors.textOnPrimary}
                 />
-
-                {/* Calendar performance history */}
-                {calendarSummary && (
-                  <SectionStatsCards
-                    calendarSummary={calendarSummary}
-                    isDark={isDark}
-                    isRunning={isRunning}
-                    activityColor={activityColor}
-                  />
-                )}
-
-                {/* Activities header */}
-                <TraversalListHeader
-                  isDark={isDark}
-                  showExcluded={showExcluded}
-                  hasExcluded={excludedActivityIds.size > 0}
-                  onToggleShowExcluded={handleToggleShowExcluded}
-                />
-              </View>
-            </>
-          }
-          ListEmptyComponent={
-            isLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            ) : (
-              <Text style={[styles.emptyActivities, isDark && styles.textMuted]}>
-                {t('sections.noActivitiesFound')}
-              </Text>
-            )
-          }
-          ListFooterComponent={
-            <View style={styles.listFooterContainer}>
-              {section?.polyline?.length > 0 && (
-                <TouchableOpacity
-                  testID="section-export-gpx"
-                  style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
-                  onPress={() =>
-                    exportGpx({
-                      name: section.name || 'Section',
-                      points: section.polyline.map((p: RoutePoint) => ({
-                        latitude: p.lat,
-                        longitude: p.lng,
-                      })),
-                      sport: section.sportType,
-                    })
-                  }
-                  disabled={gpxExporting}
-                  activeOpacity={0.7}
-                >
-                  <MaterialCommunityIcons
-                    name={gpxExporting ? 'progress-download' : 'download'}
-                    size={20}
-                    color={colors.textOnPrimary}
-                  />
-                  <Text style={styles.exportGpxButtonText}>
-                    {gpxExporting ? t('export.exporting') : t('export.gpx')}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              <DataRangeFooter days={cacheDays} isDark={isDark} />
-              {debugEnabled &&
-                section &&
-                (() => {
-                  const pageMetrics = getPageMetrics();
-                  const ffiEntries = pageMetrics.reduce<
-                    Record<string, { calls: number; totalMs: number; maxMs: number }>
-                  >((acc, m) => {
-                    if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
-                    acc[m.name].calls++;
-                    acc[m.name].totalMs += m.durationMs;
-                    acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
-                    return acc;
-                  }, {});
-                  const warnings: Array<{
-                    level: 'warn' | 'error';
-                    message: string;
-                  }> = [];
-                  const actCount = section.activityIds.length;
-                  if (actCount > 500)
+                <Text style={styles.exportGpxButtonText}>
+                  {gpxExporting ? t('export.exporting') : t('export.gpx')}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <DataRangeFooter days={cacheDays} isDark={isDark} />
+            {debugEnabled &&
+              section &&
+              (() => {
+                const pageMetrics = getPageMetrics();
+                const ffiEntries = pageMetrics.reduce<
+                  Record<string, { calls: number; totalMs: number; maxMs: number }>
+                >((acc, m) => {
+                  if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
+                  acc[m.name].calls++;
+                  acc[m.name].totalMs += m.durationMs;
+                  acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
+                  return acc;
+                }, {});
+                const warnings: Array<{
+                  level: 'warn' | 'error';
+                  message: string;
+                }> = [];
+                const actCount = section.activityIds.length;
+                if (actCount > 500)
+                  warnings.push({
+                    level: 'error',
+                    message: `${actCount} activities (>500)`,
+                  });
+                else if (actCount > 100)
+                  warnings.push({
+                    level: 'warn',
+                    message: `${actCount} activities (>100)`,
+                  });
+                if (section.polyline.length > 2000)
+                  warnings.push({
+                    level: 'warn',
+                    message: `${section.polyline.length} polyline points (>2000)`,
+                  });
+                for (const [name, m] of Object.entries(ffiEntries)) {
+                  if (m.maxMs > 200)
                     warnings.push({
                       level: 'error',
-                      message: `${actCount} activities (>500)`,
+                      message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
                     });
-                  else if (actCount > 100)
-                    warnings.push({
-                      level: 'warn',
-                      message: `${actCount} activities (>100)`,
-                    });
-                  if (section.polyline.length > 2000)
-                    warnings.push({
-                      level: 'warn',
-                      message: `${section.polyline.length} polyline points (>2000)`,
-                    });
-                  for (const [name, m] of Object.entries(ffiEntries)) {
-                    if (m.maxMs > 200)
-                      warnings.push({
-                        level: 'error',
-                        message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
-                      });
-                  }
-                  return (
-                    <>
-                      {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
-                      <DebugInfoPanel
-                        isDark={isDark}
-                        entries={[
-                          {
-                            label: 'ID',
-                            value:
-                              section.id.length > 20 ? section.id.slice(0, 20) + '...' : section.id,
-                          },
-                          { label: 'Type', value: section.sectionType },
-                          {
-                            label: 'Stability',
-                            value: section.stability != null ? section.stability.toFixed(3) : '-',
-                          },
-                          {
-                            label: 'Version',
-                            value: section.version != null ? String(section.version) : '-',
-                          },
-                          {
-                            label: 'Updated',
-                            value: section.updatedAt ? formatRelativeDate(section.updatedAt) : '-',
-                          },
-                          {
-                            label: 'Created',
-                            value: section.createdAt ? formatRelativeDate(section.createdAt) : '-',
-                          },
-                          {
-                            label: 'Confidence',
-                            value: section.confidence != null ? section.confidence.toFixed(2) : '-',
-                          },
-                          {
-                            label: 'Observations',
-                            value:
-                              section.observationCount != null
-                                ? String(section.observationCount)
-                                : '-',
-                          },
-                          {
-                            label: 'Avg Spread',
-                            value:
-                              section.averageSpread != null
-                                ? section.averageSpread.toFixed(1) + 'm'
-                                : '-',
-                          },
-                          {
-                            label: 'Reference',
-                            value: section.representativeActivityId
-                              ? section.representativeActivityId.slice(0, 20) + '...'
+                }
+                return (
+                  <>
+                    {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
+                    <DebugInfoPanel
+                      isDark={isDark}
+                      entries={[
+                        {
+                          label: 'ID',
+                          value:
+                            section.id.length > 20 ? section.id.slice(0, 20) + '...' : section.id,
+                        },
+                        { label: 'Type', value: section.sectionType },
+                        {
+                          label: 'Stability',
+                          value: section.stability != null ? section.stability.toFixed(3) : '-',
+                        },
+                        {
+                          label: 'Version',
+                          value: section.version != null ? String(section.version) : '-',
+                        },
+                        {
+                          label: 'Updated',
+                          value: section.updatedAt ? formatRelativeDate(section.updatedAt) : '-',
+                        },
+                        {
+                          label: 'Created',
+                          value: section.createdAt ? formatRelativeDate(section.createdAt) : '-',
+                        },
+                        {
+                          label: 'Confidence',
+                          value: section.confidence != null ? section.confidence.toFixed(2) : '-',
+                        },
+                        {
+                          label: 'Observations',
+                          value:
+                            section.observationCount != null
+                              ? String(section.observationCount)
                               : '-',
-                          },
-                          {
-                            label: 'User Defined',
-                            value: section.isUserDefined ? 'Yes' : 'No',
-                          },
-                          { label: 'Activities', value: String(actCount) },
-                          {
-                            label: 'Points',
-                            value: String(section.polyline.length),
-                          },
-                          ...Object.entries(ffiEntries).map(([name, m]) => ({
-                            label: name,
-                            value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
-                          })),
-                        ]}
-                      />
-                    </>
-                  );
-                })()}
-            </View>
-          }
-        />
+                        },
+                        {
+                          label: 'Avg Spread',
+                          value:
+                            section.averageSpread != null
+                              ? section.averageSpread.toFixed(1) + 'm'
+                              : '-',
+                        },
+                        {
+                          label: 'Reference',
+                          value: section.representativeActivityId
+                            ? section.representativeActivityId.slice(0, 20) + '...'
+                            : '-',
+                        },
+                        {
+                          label: 'User Defined',
+                          value: section.isUserDefined ? 'Yes' : 'No',
+                        },
+                        { label: 'Activities', value: String(actCount) },
+                        {
+                          label: 'Points',
+                          value: String(section.polyline.length),
+                        },
+                        ...Object.entries(ffiEntries).map(([name, m]) => ({
+                          label: name,
+                          value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
+                        })),
+                      ]}
+                    />
+                  </>
+                );
+              })()}
+          </View>
+        </ScrollView>
       </View>
     </ScreenErrorBoundary>
   );
@@ -1179,7 +874,7 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  flatListContent: {
+  scrollContent: {
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   listFooterContainer: {
@@ -1232,25 +927,6 @@ const styles = StyleSheet.create({
     padding: layout.screenPadding,
     paddingTop: spacing.lg,
   },
-  excludedSeparator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xs,
-  },
-  separatorLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.divider,
-  },
-  separatorLineDark: {
-    backgroundColor: darkColors.border,
-  },
-  excludedLabel: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-  },
   disabledBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1281,15 +957,5 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     color: colors.textPrimary,
     marginTop: spacing.md,
-  },
-  loadingContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  emptyActivities: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingVertical: spacing.lg,
   },
 });

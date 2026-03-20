@@ -961,4 +961,45 @@ impl PersistentRouteEngine {
         }
         result
     }
+
+    // ========================================================================
+    // Route Activity Exclusion
+    // ========================================================================
+
+    /// Exclude an activity from a route's analysis.
+    /// Sets the `excluded` flag to 1 on the activity_matches row.
+    pub fn exclude_activity_from_route(&mut self, route_id: &str, activity_id: &str) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE activity_matches SET excluded = 1 WHERE route_id = ? AND activity_id = ?",
+                params![route_id, activity_id],
+            )
+            .map_err(|e| format!("Failed to exclude activity from route: {}", e))?;
+        Ok(())
+    }
+
+    /// Re-include a previously excluded activity in a route's analysis.
+    /// Sets the `excluded` flag back to 0 on the activity_matches row.
+    pub fn include_activity_in_route(&mut self, route_id: &str, activity_id: &str) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE activity_matches SET excluded = 0 WHERE route_id = ? AND activity_id = ?",
+                params![route_id, activity_id],
+            )
+            .map_err(|e| format!("Failed to include activity in route: {}", e))?;
+        Ok(())
+    }
+
+    /// Get activity IDs that are excluded from a route.
+    pub fn get_excluded_route_activity_ids(&self, route_id: &str) -> Vec<String> {
+        let mut stmt = match self.db.prepare(
+            "SELECT DISTINCT activity_id FROM activity_matches WHERE route_id = ? AND excluded = 1"
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+        stmt.query_map(params![route_id], |row| row.get(0))
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
+    }
 }

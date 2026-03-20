@@ -29,6 +29,9 @@ export interface SectionPerformanceSectionProps {
   onScrubChange?: (scrubbing: boolean) => void;
   onExcludeActivity?: (activityId: string) => void;
   onIncludeActivity?: (activityId: string) => void;
+  showExcluded?: boolean;
+  hasExcluded?: boolean;
+  onToggleShowExcluded?: () => void;
 }
 
 export function SectionPerformanceSection({
@@ -43,6 +46,9 @@ export function SectionPerformanceSection({
   onScrubChange,
   onExcludeActivity,
   onIncludeActivity,
+  showExcluded,
+  hasExcluded,
+  onToggleShowExcluded,
 }: SectionPerformanceSectionProps) {
   if (chartData.length < 1) return null;
 
@@ -60,6 +66,9 @@ export function SectionPerformanceSection({
         onScrubChange={onScrubChange}
         onExcludeActivity={onExcludeActivity}
         onIncludeActivity={onIncludeActivity}
+        showExcluded={showExcluded}
+        hasExcluded={hasExcluded}
+        onToggleShowExcluded={onToggleShowExcluded}
       />
     </View>
   );

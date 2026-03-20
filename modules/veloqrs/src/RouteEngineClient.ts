@@ -420,6 +420,38 @@ class RouteEngineClient {
     );
   }
 
+  excludeActivityFromRoute(routeId: string, activityId: string): void {
+    if (!this.ready) return;
+    this.timed('excludeActivityFromRoute', () =>
+      this.engine.routes().excludeActivity(routeId, activityId),
+    );
+    this.notify('groups');
+  }
+
+  includeActivityInRoute(routeId: string, activityId: string): void {
+    if (!this.ready) return;
+    this.timed('includeActivityInRoute', () =>
+      this.engine.routes().includeActivity(routeId, activityId),
+    );
+    this.notify('groups');
+  }
+
+  getExcludedRouteActivityIds(routeId: string): string[] {
+    if (!this.ready) return [];
+    return this.timed('getExcludedRouteActivityIds', () =>
+      this.engine.routes().getExcludedActivities(routeId),
+    );
+  }
+
+  getExcludedRoutePerformances(routeId: string): FfiRoutePerformanceResult {
+    if (!this.ready) {
+      return EMPTY_ROUTE_PERFORMANCE_RESULT;
+    }
+    return this.timed('getExcludedRoutePerformances', () =>
+      this.engine.routes().getExcludedPerformances(routeId),
+    );
+  }
+
   getSectionPerformances(sectionId: string): FfiSectionPerformanceResult {
     if (!this.ready) {
       return EMPTY_SECTION_PERFORMANCE_RESULT;

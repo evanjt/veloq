@@ -1225,11 +1225,18 @@ impl PersistentRouteEngine {
             match_info.map(|m| m.len()).unwrap_or(0)
         );
 
+        // Get excluded activity IDs for this route
+        let excluded_ids = self.get_excluded_route_activity_ids(route_group_id);
+
         // Build performances from metrics + collect metrics for inline return
         let mut performances: Vec<RoutePerformance> = Vec::new();
         let mut metrics_list: Vec<ActivityMetrics> = Vec::new();
 
         for id in &group.activity_ids {
+            // Skip excluded activities
+            if excluded_ids.contains(id) {
+                continue;
+            }
             if let Some(metrics) = self.activity_metrics.get(id) {
                 let speed = if metrics.moving_time > 0 {
                     metrics.distance / metrics.moving_time as f64
@@ -1365,5 +1372,94 @@ impl PersistentRouteEngine {
         }
     }
 
+    /// Get route performances for excluded activities only.
+    /// Returns a RoutePerformanceResult with only the excluded activities.
+    pub fn get_excluded_route_performances(
+        &self,
+        route_group_id: &str,
+    ) -> RoutePerformanceResult {
+        let group = match self.groups.iter().find(|g| g.group_id == route_group_id) {
+            Some(g) => g,
+            None => {
+                return RoutePerformanceResult {
+                    performances: vec![],
+                    activity_metrics: vec![],
+                    best: None,
+                    best_forward: None,
+                    best_reverse: None,
+                    forward_stats: None,
+                    reverse_stats: None,
+                    current_rank: None,
+                };
+            }
+        };
 
+        let excluded_ids = self.get_excluded_route_activity_ids(route_group_id);
+        if excluded_ids.is_empty() {
+            return RoutePerformanceResult {
+                performances: vec![],
+                activity_metrics: vec![],
+                best: None,
+                best_forward: None,
+                best_reverse: None,
+                forward_stats: None,
+                reverse_stats: None,
+                current_rank: None,
+            };
+        }
+
+        let match_info = self.activity_matches.get(route_group_id);
+        let mut performances: Vec<RoutePerformance> = Vec::new();
+        let mut metrics_list: Vec<ActivityMetrics> = Vec::new();
+
+        for id in &group.activity_ids {
+            if !excluded_ids.contains(id) {
+                continue;
+            }
+            if let Some(metrics) = self.activity_metrics.get(id) {
+                let speed = if metrics.moving_time > 0 {
+                    metrics.distance / metrics.moving_time as f64
+                } else {
+                    0.0
+                };
+
+                let match_data =
+                    match_info.and_then(|matches| matches.iter().find(|m| m.activity_id == *id));
+                let match_percentage = match_data.map(|m| m.match_percentage);
+                let direction = match_data
+                    .map(|m| m.direction.clone())
+                    .unwrap_or(Direction::Same);
+
+                performances.push(RoutePerformance {
+                    activity_id: id.clone(),
+                    name: metrics.name.clone(),
+                    date: metrics.date,
+                    speed,
+                    duration: metrics.elapsed_time,
+                    moving_time: metrics.moving_time,
+                    distance: metrics.distance,
+                    elevation_gain: metrics.elevation_gain,
+                    avg_hr: metrics.avg_hr,
+                    avg_power: metrics.avg_power,
+                    is_current: false,
+                    direction: direction.to_string(),
+                    match_percentage,
+                });
+                metrics_list.push(metrics.clone());
+            }
+        }
+
+        performances.sort_by_key(|p| p.date);
+
+        RoutePerformanceResult {
+            performances,
+            activity_metrics: metrics_list,
+            best: None,
+            best_forward: None,
+            best_reverse: None,
+            forward_stats: None,
+            reverse_stats: None,
+            current_rank: None,
+        }
+    }
 }
