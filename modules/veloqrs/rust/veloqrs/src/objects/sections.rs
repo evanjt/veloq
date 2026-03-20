@@ -97,9 +97,11 @@ impl SectionManager {
         })
     }
 
-    fn get_performances(&self, section_id: String) -> Result<crate::FfiSectionPerformanceResult, VeloqError> {
+    fn get_performances(&self, section_id: String, sport_type: Option<String>) -> Result<crate::FfiSectionPerformanceResult, VeloqError> {
         with_engine(|e| {
-            crate::FfiSectionPerformanceResult::from(e.get_section_performances(&section_id))
+            crate::FfiSectionPerformanceResult::from(
+                e.get_section_performances_filtered(&section_id, sport_type.as_deref())
+            )
         })
     }
 

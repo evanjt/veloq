@@ -107,6 +107,9 @@ export default function SectionDetailScreen() {
   const [showExcluded, setShowExcluded] = useState(false);
   const [excludedActivityIds, setExcludedActivityIds] = useState<Set<string>>(new Set());
 
+  // Sport type filter for cross-sport sections
+  const [selectedSportType, setSelectedSportType] = useState<string | undefined>(undefined);
+
   // Custom section IDs start with "custom_" (e.g., "custom_1767268142052_qyfoos8")
   const isCustomId = id?.startsWith('custom_');
 
@@ -438,6 +441,23 @@ export default function SectionDetailScreen() {
     );
   }, [section?.activityIds]);
 
+  // Compute available sport types for cross-sport sections
+  const availableSportTypes = useMemo(() => {
+    if (!section?.activityIds?.length) return [];
+    const engine = getRouteEngine();
+    if (!engine) return [];
+    try {
+      const metrics = engine.getActivityMetricsForIds(section.activityIds);
+      const types = new Set<string>();
+      for (const m of metrics) {
+        if (m.sportType) types.add(m.sportType);
+      }
+      return Array.from(types).sort();
+    } catch {
+      return [section.sportType];
+    }
+  }, [section?.id, section?.sportType, section?.activityIds]);
+
   // Fetch actual section performance times from activity streams
   // This loads in the background - we show estimated times first, then update when ready
   const {
@@ -446,7 +466,7 @@ export default function SectionDetailScreen() {
     bestReverseRecord,
     forwardStats,
     reverseStats,
-  } = useSectionPerformances(section);
+  } = useSectionPerformances(section, selectedSportType);
 
   const { chartData } = useSectionChartData({
     section,
@@ -666,6 +686,51 @@ export default function SectionDetailScreen() {
             onResetBounds={resetBounds}
           />
 
+          {/* Sport type pills for cross-sport sections */}
+          {availableSportTypes.length > 1 && (
+            <View style={styles.sportTypePills}>
+              {availableSportTypes.map((st) => {
+                const isSelected =
+                  selectedSportType === st || (!selectedSportType && st === section?.sportType);
+                const sportColor = getActivityColor(st as ActivityType);
+                return (
+                  <TouchableOpacity
+                    key={st}
+                    onPress={() =>
+                      setSelectedSportType(isSelected && selectedSportType ? undefined : st)
+                    }
+                    style={[
+                      styles.sportPill,
+                      isSelected && { backgroundColor: sportColor + '20', borderColor: sportColor },
+                      isDark && styles.sportPillDark,
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name={getActivityIcon(st as ActivityType)}
+                      size={14}
+                      color={
+                        isSelected
+                          ? sportColor
+                          : isDark
+                            ? darkColors.textSecondary
+                            : colors.textSecondary
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.sportPillText,
+                        isSelected && { color: sportColor },
+                        isDark && styles.sportPillTextDark,
+                      ]}
+                    >
+                      {t(`activityTypes.${st}`, st)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
           {/* Content below hero */}
           <View style={styles.contentSection}>
             {/* Disabled banner */}
@@ -869,6 +934,33 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
   },
   textMuted: {
+    color: darkColors.textSecondary,
+  },
+  sportTypePills: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    gap: spacing.xs,
+  },
+  sportPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 4,
+  },
+  sportPillDark: {
+    borderColor: darkColors.border,
+  },
+  sportPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  sportPillTextDark: {
     color: darkColors.textSecondary,
   },
   scrollView: {

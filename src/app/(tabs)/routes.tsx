@@ -18,6 +18,7 @@ import {
   useCustomSections,
   useInsights,
 } from '@/hooks';
+import { useRouteNameGeocoding } from '@/hooks/routes/useRouteNameGeocoding';
 import { useRouteSettings, useSyncDateRange, useDebugStore, useEngineStatus } from '@/providers';
 import { colors, darkColors, spacing } from '@/theme';
 import type { ActivityType } from '@/types';
@@ -40,6 +41,9 @@ export default function RoutesScreen() {
   // Check if route matching is enabled
   const routeSettings = useRouteSettings((s) => s.settings);
   const isRouteMatchingEnabled = routeSettings.enabled;
+
+  // Background geocoding for generic "Route N" / "Section N" names
+  useRouteNameGeocoding(isRouteMatchingEnabled);
 
   // Debug mode
   const debugEnabled = useDebugStore((s) => s.enabled);

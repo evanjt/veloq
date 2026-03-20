@@ -42,6 +42,8 @@ interface SectionRowData {
   polyline?: RoutePoint[];
   /** Section type (auto, custom, potential) */
   sectionType?: string;
+  /** All sport types present in this section's activities */
+  sportTypes?: string[];
 }
 
 interface SectionRowProps {
@@ -79,6 +81,7 @@ function normalizeSectionData(
       polyline: section.polyline,
       sectionType:
         'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
+      sportTypes: 'sportTypes' in section ? (section as any).sportTypes : undefined,
     };
   }
   // Check if it's a SectionSummary (has activityCount number)
@@ -93,6 +96,7 @@ function normalizeSectionData(
       polyline: undefined, // Will be lazy-loaded
       sectionType:
         'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
+      sportTypes: 'sportTypes' in section ? (section as any).sportTypes : undefined,
     };
   }
   // Already normalized
@@ -360,9 +364,24 @@ export const SectionRow = memo(function SectionRow({
 
       {/* Section info */}
       <View style={styles.infoContainer}>
-        <Text style={[styles.sectionName, isDark && styles.textLight]} numberOfLines={1}>
-          {section.name || `${section.sportType} Section`}
-        </Text>
+        <View style={styles.nameRow}>
+          <Text style={[styles.sectionName, isDark && styles.textLight]} numberOfLines={1}>
+            {section.name || t('sections.defaultName')}
+          </Text>
+          {section.sportTypes && section.sportTypes.length > 1 && (
+            <View style={styles.sportIconsRow}>
+              {section.sportTypes.map((st) => (
+                <MaterialCommunityIcons
+                  key={st}
+                  name={sportIcons[st] || 'help-circle-outline'}
+                  size={12}
+                  color={getActivityColor(st as ActivityType)}
+                  style={{ marginLeft: 2 }}
+                />
+              ))}
+            </View>
+          )}
+        </View>
         <View style={styles.metaRow}>
           <Text style={[styles.metaText, isDark && styles.textMuted]}>
             {formatDistance(section.distanceMeters, isMetric)}
@@ -438,7 +457,17 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
     marginRight: spacing.xs,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sportIconsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
   sectionName: {
+    flexShrink: 1,
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,

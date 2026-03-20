@@ -144,14 +144,22 @@ impl PersistentRouteEngine {
 
             let route_word = get_route_word();
 
-            // Collect which numbers are already taken for each sport type
-            let mut taken_numbers: HashMap<String, std::collections::HashSet<u32>> = HashMap::new();
+            // Collect which numbers are already taken (check both old and new patterns)
+            let mut taken_numbers: std::collections::HashSet<u32> = std::collections::HashSet::new();
             for name in names.values() {
+                // New pattern: "Route N"
+                let prefix = format!("{} ", route_word);
+                if name.starts_with(&prefix) {
+                    if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                        taken_numbers.insert(num);
+                    }
+                }
+                // Old pattern: "{Sport} Route N" — still recognize for numbering
                 for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
-                    let prefix = format!("{} {} ", sport, route_word);
-                    if name.starts_with(&prefix) {
-                        if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                            taken_numbers.entry(sport.to_string()).or_default().insert(num);
+                    let old_prefix = format!("{} {} ", sport, route_word);
+                    if name.starts_with(&old_prefix) {
+                        if let Ok(num) = name[old_prefix.len()..].parse::<u32>() {
+                            taken_numbers.insert(num);
                         }
                     }
                 }
@@ -162,25 +170,98 @@ impl PersistentRouteEngine {
                 .db
                 .prepare("INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)")?;
 
-            // Track next available number for each sport type
-            let mut sport_counters: HashMap<String, u32> = HashMap::new();
+            // Track next available number (no longer per-sport)
+            let mut counter: u32 = 0;
 
-            for (group_id, sport_type) in groups_without_names {
-                let taken = taken_numbers.entry(sport_type.clone()).or_default();
-                let counter = sport_counters.entry(sport_type.clone()).or_insert(0);
-
+            for (group_id, _sport_type) in groups_without_names {
                 // Find next available number (skip taken numbers)
                 loop {
-                    *counter += 1;
-                    if !taken.contains(counter) {
+                    counter += 1;
+                    if !taken_numbers.contains(&counter) {
                         break;
                     }
                 }
 
-                let new_name = format!("{} {} {}", sport_type, route_word, counter);
+                let new_name = format!("{} {}", route_word, counter);
                 insert_stmt.execute(params![&group_id, &new_name])?;
                 names.insert(group_id, new_name.clone());
-                taken.insert(*counter); // Mark this number as taken
+                taken_numbers.insert(counter); // Mark this number as taken
+            }
+        }
+
+        // Migration: Strip sport type prefixes from auto-generated route names
+        // "Walk Route 1" → "Route 1", with conflict resolution
+        {
+            let route_word = get_route_word();
+            let sports = ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"];
+            let mut renames: Vec<(String, u32)> = Vec::new(); // (route_id, number)
+            for (id, name) in &names {
+                for sport in &sports {
+                    let prefix = format!("{} {} ", sport, route_word);
+                    if name.starts_with(&prefix) {
+                        if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                            renames.push((id.clone(), num));
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if !renames.is_empty() {
+                let mut used: std::collections::HashSet<u32> = std::collections::HashSet::new();
+                for name in names.values() {
+                    let pfx = format!("{} ", route_word);
+                    if name.starts_with(&pfx) {
+                        if let Ok(num) = name[pfx.len()..].parse::<u32>() {
+                            used.insert(num);
+                        }
+                    }
+                }
+
+                let mut next = renames.iter().map(|(_, n)| *n).max().unwrap_or(0);
+                let mut update_stmt = self.db.prepare(
+                    "UPDATE route_names SET custom_name = ? WHERE route_id = ?"
+                )?;
+
+                // Group by number to resolve conflicts
+                let mut by_num: HashMap<u32, Vec<String>> = HashMap::new();
+                for (id, num) in &renames {
+                    by_num.entry(*num).or_default().push(id.clone());
+                }
+
+                for (num, ids) in &by_num {
+                    // Sort by activity count (prefer group with more activities)
+                    let mut sorted_ids: Vec<(&str, usize)> = ids.iter().map(|id| {
+                        let count = self.groups.iter()
+                            .find(|g| &g.group_id == id)
+                            .map(|g| g.activity_ids.len())
+                            .unwrap_or(0);
+                        (id.as_str(), count)
+                    }).collect();
+                    sorted_ids.sort_by(|a, b| b.1.cmp(&a.1));
+
+                    for (i, (id, _)) in sorted_ids.iter().enumerate() {
+                        let final_num = if i == 0 && !used.contains(num) {
+                            used.insert(*num);
+                            *num
+                        } else {
+                            loop {
+                                next += 1;
+                                if !used.contains(&next) { break; }
+                            }
+                            used.insert(next);
+                            next
+                        };
+                        let new_name = format!("{} {}", route_word, final_num);
+                        update_stmt.execute(params![&new_name, id])?;
+                        names.insert(id.to_string(), new_name);
+                    }
+                }
+
+                log::info!(
+                    "tracematch: [PersistentEngine] Stripped sport prefixes from {} route names",
+                    renames.len()
+                );
             }
         }
 

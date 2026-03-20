@@ -453,12 +453,12 @@ class RouteEngineClient {
     );
   }
 
-  getSectionPerformances(sectionId: string): FfiSectionPerformanceResult {
+  getSectionPerformances(sectionId: string, sportType?: string): FfiSectionPerformanceResult {
     if (!this.ready) {
       return EMPTY_SECTION_PERFORMANCE_RESULT;
     }
     return this.timed('getSectionPerformances', () =>
-      this.engine.sections().getPerformances(sectionId),
+      this.engine.sections().getPerformances(sectionId, sportType ?? null),
     );
   }
 

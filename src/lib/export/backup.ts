@@ -54,6 +54,8 @@ const PREFERENCE_KEYS = [
   'veloq-whats-new-seen',
   'veloq-insights-fingerprint',
   'veloq-recording-preferences',
+  'veloq-geocoded-route-ids',
+  'veloq-geocoded-section-ids',
 ] as const;
 
 interface BackupCustomSection {

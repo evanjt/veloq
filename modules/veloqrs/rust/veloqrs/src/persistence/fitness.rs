@@ -473,12 +473,27 @@ impl PersistentRouteEngine {
     /// Uses time streams to calculate actual traversal times.
     /// Auto-loads time streams from SQLite if not in memory.
     pub fn get_section_performances(&mut self, section_id: &str) -> SectionPerformanceResult {
+        self.get_section_performances_filtered(section_id, None)
+    }
+
+    /// Get section performances filtered by sport type.
+    /// When `sport_type_filter` is None, returns all activities.
+    /// When set, only returns activities matching that sport type.
+    pub fn get_section_performances_filtered(
+        &mut self,
+        section_id: &str,
+        sport_type_filter: Option<&str>,
+    ) -> SectionPerformanceResult {
         let start = std::time::Instant::now();
 
-        // Return cached result if same section (buckets + calendar both call this)
-        if self.perf_cache_section_id.as_deref() == Some(section_id) {
+        // Return cached result if same section + filter
+        let cache_key = match sport_type_filter {
+            Some(st) => format!("{}:{}", section_id, st),
+            None => section_id.to_string(),
+        };
+        if self.perf_cache_section_id.as_deref() == Some(&cache_key) {
             if let Some(ref cached) = self.perf_cache_result {
-                log::info!("[PERF] get_section_performances({}) -> cached in {:?}", section_id, start.elapsed());
+                log::info!("[PERF] get_section_performances({}) -> cached in {:?}", cache_key, start.elapsed());
                 return cached.clone();
             }
         }
@@ -508,16 +523,27 @@ impl PersistentRouteEngine {
         );
 
         // Load portions WITH cached performance metrics from database
-        // JOIN activity_metrics to filter by sport type — prevents cross-sport contamination
-        // (e.g., cycling activities appearing in running sections)
-        let mut stmt = match self.db.prepare(
-            "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
-                    sa.distance_meters, sa.lap_time, sa.lap_pace
-             FROM section_activities sa
-             JOIN activity_metrics am ON sa.activity_id = am.activity_id
-             WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 0
-             ORDER BY sa.activity_id, sa.start_index"
-        ) {
+        // Optional sport type filter for cross-sport merged sections
+        let (query, query_params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match sport_type_filter {
+            Some(st) => (
+                "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
+                        sa.distance_meters, sa.lap_time, sa.lap_pace
+                 FROM section_activities sa
+                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
+                 WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 0
+                 ORDER BY sa.activity_id, sa.start_index".to_string(),
+                vec![Box::new(section_id.to_string()) as Box<dyn rusqlite::types::ToSql>, Box::new(st.to_string())],
+            ),
+            None => (
+                "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
+                        sa.distance_meters, sa.lap_time, sa.lap_pace
+                 FROM section_activities sa
+                 WHERE sa.section_id = ? AND sa.excluded = 0
+                 ORDER BY sa.activity_id, sa.start_index".to_string(),
+                vec![Box::new(section_id.to_string()) as Box<dyn rusqlite::types::ToSql>],
+            ),
+        };
+        let mut stmt = match self.db.prepare(&query) {
             Ok(s) => s,
             Err(e) => {
                 log::error!("[DEBUG] Failed to prepare portion query: {}", e);
@@ -542,8 +568,9 @@ impl PersistentRouteEngine {
             lap_pace: Option<f64>,
         }
 
+        let params_refs: Vec<&dyn rusqlite::types::ToSql> = query_params.iter().map(|p| p.as_ref()).collect();
         let portions: Vec<CachedPortion> = match stmt
-            .query_map(params![section_id, &section.sport_type], |row| {
+            .query_map(params_refs.as_slice(), |row| {
                 Ok(CachedPortion {
                     activity_id: row.get(0)?,
                     direction: row.get(1)?,
@@ -808,8 +835,8 @@ impl PersistentRouteEngine {
 
         log::info!("[PERF] get_section_performances({}) -> {} records in {:?}", section_id, result.records.len(), start.elapsed());
 
-        // Cache for reuse by buckets/calendar
-        self.perf_cache_section_id = Some(section_id.to_string());
+        // Cache for reuse by buckets/calendar (includes sport type filter in key)
+        self.perf_cache_section_id = Some(cache_key);
         self.perf_cache_result = Some(result.clone());
 
         result

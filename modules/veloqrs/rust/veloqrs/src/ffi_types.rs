@@ -977,6 +977,8 @@ pub struct FfiSectionWithPolyline {
     pub bounds: Option<FfiBounds>,
     /// Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
     pub polyline: Vec<f64>,
+    /// All sport types present in this section's activities
+    pub sport_types: Vec<String>,
 }
 
 /// All data needed by the Routes screen in a single FFI call.

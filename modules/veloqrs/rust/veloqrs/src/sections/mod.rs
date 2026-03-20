@@ -121,4 +121,6 @@ pub struct SectionSummary {
     pub bounds: Option<crate::FfiBounds>,
     /// ISO timestamp when section was created
     pub created_at: String,
+    /// All sport types present in this section's activities
+    pub sport_types: Vec<String>,
 }

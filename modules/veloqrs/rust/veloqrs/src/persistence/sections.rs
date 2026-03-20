@@ -12,6 +12,16 @@ use crate::{
 
 use super::{get_section_word, load_groups_from_db, SectionDetectionHandle, SectionDetectionProgress, SectionSummary, PersistentRouteEngine};
 
+/// Haversine distance between two lat/lng points in meters.
+fn haversine_distance(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
+    let r = 6_371_000.0; // Earth radius in meters
+    let d_lat = (lat2 - lat1).to_radians();
+    let d_lng = (lng2 - lng1).to_radians();
+    let a = (d_lat / 2.0).sin().powi(2)
+        + lat1.to_radians().cos() * lat2.to_radians().cos() * (d_lng / 2.0).sin().powi(2);
+    r * 2.0 * a.sqrt().asin()
+}
+
 impl PersistentRouteEngine {
     /// Load sections from database.
     pub(super) fn load_sections(&mut self) -> SqlResult<()> {
@@ -28,14 +38,12 @@ impl PersistentRouteEngine {
         );
 
         // Load full activity portions from junction table (includes direction, indices, distance)
-        // JOIN activity_metrics + sections to filter by sport type — prevents cross-sport contamination
+        // After cross-sport merge, sections can have activities from multiple sport types
         let section_portions: HashMap<String, Vec<SectionPortion>> = {
             let mut stmt = self.db.prepare(
                 "SELECT sa.section_id, sa.activity_id, sa.direction, sa.start_index, sa.end_index, sa.distance_meters
                  FROM section_activities sa
-                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                 JOIN sections s ON sa.section_id = s.id
-                 WHERE am.sport_type = s.sport_type AND sa.excluded = 0
+                 WHERE sa.excluded = 0
                  ORDER BY sa.section_id, sa.start_index"
             )?;
             let mut map: HashMap<String, Vec<SectionPortion>> = HashMap::new();
@@ -139,6 +147,9 @@ impl PersistentRouteEngine {
         // Migration: Generate names for sections that don't have names yet
         self.migrate_section_names()?;
 
+        // Migration: Strip sport prefixes from auto-generated names ("Walk Section 1" → "Section 1")
+        self.migrate_strip_sport_prefixes()?;
+
         self.sections_dirty = false;
         Ok(())
     }
@@ -198,15 +209,23 @@ impl PersistentRouteEngine {
 
         let section_word = get_section_word();
 
-        // Collect which numbers are already taken for each sport type
-        let mut taken_numbers: HashMap<String, std::collections::HashSet<u32>> = HashMap::new();
+        // Collect which numbers are already taken (check both old "{Sport} Section N" and new "Section N" patterns)
+        let mut taken_numbers: std::collections::HashSet<u32> = std::collections::HashSet::new();
         for section in &self.sections {
             if let Some(ref name) = section.name {
+                // New pattern: "Section N"
+                let prefix = format!("{} ", section_word);
+                if name.starts_with(&prefix) {
+                    if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                        taken_numbers.insert(num);
+                    }
+                }
+                // Old pattern: "{Sport} Section N" — still recognize for numbering
                 for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
-                    let prefix = format!("{} {} ", sport, section_word);
-                    if name.starts_with(&prefix) {
-                        if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                            taken_numbers.entry(sport.to_string()).or_default().insert(num);
+                    let old_prefix = format!("{} {} ", sport, section_word);
+                    if name.starts_with(&old_prefix) {
+                        if let Ok(num) = name[old_prefix.len()..].parse::<u32>() {
+                            taken_numbers.insert(num);
                         }
                     }
                 }
@@ -218,24 +237,21 @@ impl PersistentRouteEngine {
             .db
             .prepare("UPDATE sections SET name = ? WHERE id = ?")?;
 
-        // Track next available number for each sport type
-        let mut sport_counters: HashMap<String, u32> = HashMap::new();
+        // Track next available number (no longer per-sport)
+        let mut counter: u32 = 0;
 
-        for (section_id, sport_type) in &sections_without_names {
-            let taken = taken_numbers.entry(sport_type.clone()).or_default();
-            let counter = sport_counters.entry(sport_type.clone()).or_insert(0);
-
+        for (section_id, _sport_type) in &sections_without_names {
             // Find next available number (skip taken numbers)
             loop {
-                *counter += 1;
-                if !taken.contains(counter) {
+                counter += 1;
+                if !taken_numbers.contains(&counter) {
                     break;
                 }
             }
 
-            let new_name = format!("{} {} {}", sport_type, section_word, counter);
+            let new_name = format!("{} {}", section_word, counter);
             update_stmt.execute(params![&new_name, section_id])?;
-            taken.insert(*counter); // Mark this number as taken
+            taken_numbers.insert(counter); // Mark this number as taken
 
             // Update in-memory section
             if let Some(section) = self.sections.iter_mut().find(|s| &s.id == section_id) {
@@ -246,6 +262,98 @@ impl PersistentRouteEngine {
         log::info!(
             "tracematch: [PersistentEngine] Generated names for {} sections",
             sections_without_names.len()
+        );
+
+        Ok(())
+    }
+
+    /// Migration: Strip sport type prefixes from auto-generated section names.
+    /// "Walk Section 1" → "Section 1", with conflict resolution.
+    fn migrate_strip_sport_prefixes(&mut self) -> SqlResult<()> {
+        let section_word = get_section_word();
+        let sports = ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"];
+
+        // Find sections with old-style "{Sport} {Word} N" names
+        let mut renames: Vec<(String, String, u32)> = Vec::new(); // (section_id, new_name, number)
+        for section in &self.sections {
+            if let Some(ref name) = section.name {
+                for sport in &sports {
+                    let prefix = format!("{} {} ", sport, section_word);
+                    if name.starts_with(&prefix) {
+                        if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                            let new_name = format!("{} {}", section_word, num);
+                            renames.push((section.id.clone(), new_name, num));
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        if renames.is_empty() {
+            return Ok(());
+        }
+
+        // Collect new-style names already in use to detect conflicts
+        let mut used_numbers: std::collections::HashSet<u32> = std::collections::HashSet::new();
+        for section in &self.sections {
+            if let Some(ref name) = section.name {
+                let prefix = format!("{} ", section_word);
+                if name.starts_with(&prefix) {
+                    if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                        used_numbers.insert(num);
+                    }
+                }
+            }
+        }
+
+        // Resolve conflicts: if two old names map to same number, renumber the one with fewer activities
+        let mut number_to_sections: HashMap<u32, Vec<(String, u32)>> = HashMap::new();
+        for (id, _, num) in &renames {
+            let activity_count = self.sections.iter()
+                .find(|s| &s.id == id)
+                .map(|s| s.activity_ids.len() as u32)
+                .unwrap_or(0);
+            number_to_sections.entry(*num).or_default().push((id.clone(), activity_count));
+        }
+
+        let mut update_stmt = self.db.prepare("UPDATE sections SET name = ? WHERE id = ?")?;
+        let mut next_counter = renames.iter().map(|(_, _, n)| *n).max().unwrap_or(0);
+
+        for (num, mut section_ids) in number_to_sections {
+            // Sort by activity count DESC — keep the one with most activities at this number
+            section_ids.sort_by(|a, b| b.1.cmp(&a.1));
+
+            for (i, (section_id, _)) in section_ids.iter().enumerate() {
+                let final_num = if i == 0 && !used_numbers.contains(&num) {
+                    // First (most activities) gets the original number if available
+                    used_numbers.insert(num);
+                    num
+                } else {
+                    // Conflict: find next available number
+                    loop {
+                        next_counter += 1;
+                        if !used_numbers.contains(&next_counter) {
+                            break;
+                        }
+                    }
+                    used_numbers.insert(next_counter);
+                    next_counter
+                };
+
+                let new_name = format!("{} {}", section_word, final_num);
+                update_stmt.execute(params![&new_name, section_id])?;
+
+                // Update in-memory
+                if let Some(section) = self.sections.iter_mut().find(|s| &s.id == section_id) {
+                    section.name = Some(new_name);
+                }
+            }
+        }
+
+        log::info!(
+            "tracematch: [PersistentEngine] Stripped sport prefixes from {} section names",
+            renames.len()
         );
 
         Ok(())
@@ -340,17 +448,16 @@ impl PersistentRouteEngine {
             return;
         }
 
-        // Get activity IDs from junction table (deduplicated, sport-type filtered)
+        // Get activity IDs from junction table (deduplicated)
         let activity_ids: Vec<String> = {
             let mut stmt = match self.db.prepare(
                 "SELECT DISTINCT sa.activity_id FROM section_activities sa
-                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                 WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 0"
+                 WHERE sa.section_id = ? AND sa.excluded = 0"
             ) {
                 Ok(s) => s,
                 Err(_) => return,
             };
-            stmt.query_map(params![section_id, &sport_type], |row| row.get(0))
+            stmt.query_map(params![section_id], |row| row.get(0))
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
                 .unwrap_or_default()
         };
@@ -361,13 +468,12 @@ impl PersistentRouteEngine {
             .and_then(|j| serde_json::from_str(&j).ok())
             .unwrap_or_default();
 
-        // Count total traversals (laps), not unique activities (sport-type filtered)
+        // Count total traversals (laps), not unique activities
         let visit_count: u32 = self.db
             .query_row(
                 "SELECT COUNT(*) FROM section_activities sa
-                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                 WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 0",
-                params![section_id, &sport_type],
+                 WHERE sa.section_id = ? AND sa.excluded = 0",
+                params![section_id],
                 |row| row.get(0),
             )
             .unwrap_or(activity_ids.len() as u32);
@@ -437,19 +543,39 @@ impl PersistentRouteEngine {
     /// Queries SQLite and extracts only summary fields, skipping heavy data like
     /// polylines, activityTraces, and pointDensity.
     pub fn get_section_summaries(&self) -> Vec<SectionSummary> {
-        // Get activity counts per section from junction table (sport-type filtered)
+        // Get activity counts per section from junction table
         let activity_counts: HashMap<String, u32> = {
             let mut stmt = match self.db.prepare(
                 "SELECT sa.section_id, COUNT(*) FROM section_activities sa
-                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                 JOIN sections s ON sa.section_id = s.id
-                 WHERE am.sport_type = s.sport_type AND sa.excluded = 0
+                 WHERE sa.excluded = 0
                  GROUP BY sa.section_id"
             ) {
                 Ok(s) => s,
                 Err(_) => return Vec::new(),
             };
             stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, u32>(1)?)))
+                .ok()
+                .map(|iter| iter.filter_map(|r| r.ok()).collect())
+                .unwrap_or_default()
+        };
+
+        // Get distinct sport types per section from activities
+        let section_sport_types: HashMap<String, Vec<String>> = {
+            let mut stmt = match self.db.prepare(
+                "SELECT sa.section_id, GROUP_CONCAT(DISTINCT am.sport_type) FROM section_activities sa
+                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
+                 WHERE sa.excluded = 0
+                 GROUP BY sa.section_id"
+            ) {
+                Ok(s) => s,
+                Err(_) => return Vec::new(),
+            };
+            stmt.query_map([], |row| {
+                let id: String = row.get(0)?;
+                let types_csv: String = row.get::<_, Option<String>>(1)?.unwrap_or_default();
+                let types: Vec<String> = types_csv.split(',').filter(|s| !s.is_empty()).map(|s| s.to_string()).collect();
+                Ok((id, types))
+            })
                 .ok()
                 .map(|iter| iter.filter_map(|r| r.ok()).collect())
                 .unwrap_or_default()
@@ -489,6 +615,7 @@ impl PersistentRouteEngine {
                 };
 
                 let activity_count = activity_counts.get(&id).copied().unwrap_or(0);
+                let sport_types = section_sport_types.get(&id).cloned().unwrap_or_default();
 
                 Ok(SectionSummary {
                     id,
@@ -503,6 +630,7 @@ impl PersistentRouteEngine {
                     scale: row.get(5)?,
                     bounds,
                     created_at: row.get::<_, Option<String>>(12)?.unwrap_or_default(),
+                    sport_types,
                 })
             })
             .ok()
@@ -611,14 +739,11 @@ impl PersistentRouteEngine {
     }
 
     /// Load activity portions for a section from the junction table.
-    /// JOIN activity_metrics to filter by sport type — prevents cross-sport contamination.
     fn get_section_portions(&self, section_id: &str) -> Vec<SectionPortion> {
         let mut stmt = match self.db.prepare(
             "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index, sa.distance_meters
              FROM section_activities sa
-             JOIN activity_metrics am ON sa.activity_id = am.activity_id
-             JOIN sections s ON sa.section_id = s.id
-             WHERE sa.section_id = ? AND am.sport_type = s.sport_type AND sa.excluded = 0
+             WHERE sa.section_id = ? AND sa.excluded = 0
              ORDER BY sa.start_index"
         ) {
             Ok(s) => s,
@@ -1092,6 +1217,12 @@ impl PersistentRouteEngine {
                 // Invalidate section LRU cache since sections changed
                 self.section_cache.clear();
                 self.invalidate_perf_cache();
+
+                // Merge sections that overlap geographically across different sport types
+                if let Err(e) = self.merge_cross_sport_sections() {
+                    log::warn!("tracematch: [apply_sections] Cross-sport merge failed: {}", e);
+                }
+
                 Ok(())
             }
             Err(e) => {
@@ -1100,6 +1231,193 @@ impl PersistentRouteEngine {
                 Err(e)
             }
         }
+    }
+
+    /// Merge sections that overlap geographically across different sport types.
+    /// Two sections are candidates for merge if:
+    /// - They are both auto-detected (not user-created)
+    /// - They have different sport types
+    /// - Their bounds centers are within 200m (Haversine)
+    /// - Their distances are within 25% of each other
+    ///
+    /// The primary section (most activities) absorbs the secondary's activities.
+    pub fn merge_cross_sport_sections(&mut self) -> SqlResult<()> {
+        // Load all auto sections with bounds
+        let sections: Vec<(String, String, f64, f64, f64, u32)> = {
+            let mut stmt = self.db.prepare(
+                "SELECT s.id, s.sport_type, s.distance_meters,
+                        (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0,
+                        (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0,
+                        (SELECT COUNT(*) FROM section_activities sa WHERE sa.section_id = s.id AND sa.excluded = 0)
+                 FROM sections s
+                 WHERE s.section_type = 'auto' AND s.original_polyline_json IS NULL
+                   AND s.bounds_min_lat IS NOT NULL"
+            )?;
+            stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,   // id
+                    row.get::<_, String>(1)?,   // sport_type
+                    row.get::<_, f64>(2)?,      // distance_meters
+                    row.get::<_, f64>(3)?,      // center_lat
+                    row.get::<_, f64>(4)?,      // center_lng
+                    row.get::<_, u32>(5)?,      // activity_count
+                ))
+            })?
+            .filter_map(|r| r.ok())
+            .collect()
+        };
+
+        if sections.len() < 2 {
+            return Ok(());
+        }
+
+        // Find merge candidates: different sport types, close centers, similar distances
+        let mut merge_pairs: Vec<(usize, usize)> = Vec::new();
+        for i in 0..sections.len() {
+            for j in (i + 1)..sections.len() {
+                let (_, ref sport_i, dist_i, lat_i, lng_i, _) = sections[i];
+                let (_, ref sport_j, dist_j, lat_j, lng_j, _) = sections[j];
+
+                // Skip same sport type
+                if sport_i == sport_j {
+                    continue;
+                }
+
+                // Check distance similarity (within 25%)
+                let max_dist = dist_i.max(dist_j);
+                let min_dist = dist_i.min(dist_j);
+                if max_dist > 0.0 && (max_dist - min_dist) / max_dist > 0.25 {
+                    continue;
+                }
+
+                // Haversine distance between centers
+                let center_distance = haversine_distance(lat_i, lng_i, lat_j, lng_j);
+                if center_distance > 200.0 {
+                    continue;
+                }
+
+                merge_pairs.push((i, j));
+            }
+        }
+
+        if merge_pairs.is_empty() {
+            return Ok(());
+        }
+
+        log::info!(
+            "tracematch: [merge_cross_sport] Found {} cross-sport merge candidates",
+            merge_pairs.len()
+        );
+
+        // Build merge groups using union-find
+        let mut parent: Vec<usize> = (0..sections.len()).collect();
+        fn find(parent: &mut [usize], i: usize) -> usize {
+            if parent[i] != i {
+                parent[i] = find(parent, parent[i]);
+            }
+            parent[i]
+        }
+        for &(i, j) in &merge_pairs {
+            let pi = find(&mut parent, i);
+            let pj = find(&mut parent, j);
+            if pi != pj {
+                // Merge into the one with more activities
+                if sections[pi].5 >= sections[pj].5 {
+                    parent[pj] = pi;
+                } else {
+                    parent[pi] = pj;
+                }
+            }
+        }
+
+        // Group sections by their root
+        let mut groups: HashMap<usize, Vec<usize>> = HashMap::new();
+        for i in 0..sections.len() {
+            let root = find(&mut parent, i);
+            groups.entry(root).or_default().push(i);
+        }
+
+        let tx = self.db.unchecked_transaction()?;
+
+        for (_, members) in &groups {
+            if members.len() < 2 {
+                continue;
+            }
+
+            // Primary = member with most activities
+            let primary_idx = *members.iter()
+                .max_by_key(|&&idx| sections[idx].5)
+                .unwrap();
+            let primary_id = &sections[primary_idx].0;
+
+            // Check if primary has a user-set name (non-auto-generated)
+            let primary_name: Option<String> = tx.query_row(
+                "SELECT name FROM sections WHERE id = ?",
+                params![primary_id],
+                |row| row.get(0),
+            ).ok().flatten();
+
+            for &idx in members {
+                if idx == primary_idx {
+                    continue;
+                }
+                let secondary_id = &sections[idx].0;
+
+                // If secondary has a user-set name and primary doesn't, preserve it
+                if primary_name.is_none() {
+                    if let Ok(Some(sec_name)) = tx.query_row(
+                        "SELECT name FROM sections WHERE id = ?",
+                        params![secondary_id],
+                        |row| row.get::<_, Option<String>>(0),
+                    ) {
+                        let section_word = get_section_word();
+                        // Check if it's NOT auto-generated (doesn't match "{Sport} {Word} {N}" pattern)
+                        let is_auto = ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"]
+                            .iter()
+                            .any(|sport| {
+                                let prefix = format!("{} {} ", sport, section_word);
+                                sec_name.starts_with(&prefix) && sec_name[prefix.len()..].parse::<u32>().is_ok()
+                            });
+                        if !is_auto {
+                            tx.execute(
+                                "UPDATE sections SET name = ? WHERE id = ?",
+                                params![&sec_name, primary_id],
+                            )?;
+                        }
+                    }
+                }
+
+                // Move secondary's activities to primary
+                tx.execute(
+                    "UPDATE OR IGNORE section_activities SET section_id = ? WHERE section_id = ?",
+                    params![primary_id, secondary_id],
+                )?;
+                // Delete any that couldn't be moved (duplicate activity_id + section_id)
+                tx.execute(
+                    "DELETE FROM section_activities WHERE section_id = ?",
+                    params![secondary_id],
+                )?;
+                // Delete secondary section
+                tx.execute(
+                    "DELETE FROM sections WHERE id = ?",
+                    params![secondary_id],
+                )?;
+
+                log::info!(
+                    "tracematch: [merge_cross_sport] Merged {} ({}) into {} ({})",
+                    secondary_id, sections[idx].1, primary_id, sections[primary_idx].1
+                );
+            }
+        }
+
+        tx.commit()?;
+
+        // Reload sections into memory
+        self.section_cache.clear();
+        self.invalidate_perf_cache();
+        self.load_sections()?;
+
+        Ok(())
     }
 
     fn save_sections(&self) -> SqlResult<()> {
@@ -1119,14 +1437,22 @@ impl PersistentRouteEngine {
 
         let section_word = get_section_word();
 
-        // Collect which numbers are already taken for each sport type (from custom/user-renamed sections)
-        let mut taken_numbers: HashMap<String, std::collections::HashSet<u32>> = HashMap::new();
+        // Collect which numbers are already taken (check both old and new patterns)
+        let mut taken_numbers: std::collections::HashSet<u32> = std::collections::HashSet::new();
         for name in existing_names.values() {
+            // New pattern: "Section N"
+            let prefix = format!("{} ", section_word);
+            if name.starts_with(&prefix) {
+                if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                    taken_numbers.insert(num);
+                }
+            }
+            // Old pattern: "{Sport} Section N" — still recognize for numbering
             for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
-                let prefix = format!("{} {} ", sport, section_word);
-                if name.starts_with(&prefix) {
-                    if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                        taken_numbers.entry(sport.to_string()).or_default().insert(num);
+                let old_prefix = format!("{} {} ", sport, section_word);
+                if name.starts_with(&old_prefix) {
+                    if let Ok(num) = name[old_prefix.len()..].parse::<u32>() {
+                        taken_numbers.insert(num);
                     }
                 }
             }
@@ -1173,20 +1499,19 @@ impl PersistentRouteEngine {
                 // Section already has a name (e.g., from detection)
                 section.name.clone()
             } else {
-                // Generate unique sequential name
-                let taken = taken_numbers.entry(section.sport_type.clone()).or_default();
-                let counter = sport_counters.entry(section.sport_type.clone()).or_insert(0);
+                // Generate unique sequential name (no sport prefix)
+                let counter = sport_counters.entry("_global".to_string()).or_insert(0);
 
                 // Find next available number (skip taken numbers)
                 loop {
                     *counter += 1;
-                    if !taken.contains(counter) {
+                    if !taken_numbers.contains(counter) {
                         break;
                     }
                 }
 
-                let new_name = format!("{} {} {}", section.sport_type, section_word, counter);
-                taken.insert(*counter); // Mark this number as taken
+                let new_name = format!("{} {}", section_word, counter);
+                taken_numbers.insert(*counter); // Mark this number as taken
                 Some(new_name)
             };
 

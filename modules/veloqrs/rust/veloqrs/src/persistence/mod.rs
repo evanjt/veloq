@@ -723,7 +723,7 @@ impl PersistentRouteEngine {
                 crate::FfiSectionWithPolyline {
                     id: s.id,
                     name: s.name,
-                    sport_type: s.sport_type,
+                    sport_type: s.sport_type.clone(),
                     visit_count: s.visit_count,
                     distance_meters: s.distance_meters,
                     activity_count: s.activity_count,
@@ -731,6 +731,7 @@ impl PersistentRouteEngine {
                     scale: s.scale,
                     bounds: s.bounds,
                     polyline,
+                    sport_types: s.sport_types,
                 }
             })
             .collect();

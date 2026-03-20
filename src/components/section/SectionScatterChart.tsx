@@ -122,7 +122,21 @@ export function SectionScatterChart({
       };
     }
 
-    const sorted = [...chartData].sort((a, b) => a.date.getTime() - b.date.getTime());
+    // Guard against non-Date values (e.g., raw bigint timestamps from FFI)
+    const validData = chartData.filter((p) => p.date instanceof Date && !isNaN(p.date.getTime()));
+    if (validData.length === 0) {
+      return {
+        forwardPoints: [] as (PerformanceDataPoint & { x: number })[],
+        reversePoints: [] as (PerformanceDataPoint & { x: number })[],
+        allPoints: [] as (PerformanceDataPoint & { x: number })[],
+        forwardBestIdx: -1,
+        reverseBestIdx: -1,
+        minSpeed: 0,
+        maxSpeed: 1,
+      };
+    }
+
+    const sorted = [...validData].sort((a, b) => a.date.getTime() - b.date.getTime());
     const firstTime = sorted[0].date.getTime();
     const lastTime = sorted[sorted.length - 1].date.getTime();
     const timeRange = lastTime - firstTime || 1;
@@ -790,10 +804,10 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surfaceCard,
   },
   eyeToggleRow: {
-    position: 'absolute',
-    top: 4,
-    right: 8,
-    zIndex: 10,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 12,
+    paddingBottom: 4,
   },
   eyeToggle: {
     padding: 4,

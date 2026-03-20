@@ -285,11 +285,12 @@ impl PersistentRouteEngine {
                 _ => None,
             };
 
+            let sport_type: String = row.get(3)?;
             Ok(SectionSummary {
                 id,
                 section_type: row.get::<_, Option<String>>(1)?.unwrap_or_else(|| "auto".to_string()),
                 name: row.get(2)?,
-                sport_type: row.get(3)?,
+                sport_type: sport_type.clone(),
                 distance_meters: row.get(4)?,
                 visit_count,
                 activity_count: visit_count,
@@ -298,6 +299,7 @@ impl PersistentRouteEngine {
                 scale: row.get(8)?,
                 bounds,
                 created_at: row.get::<_, Option<String>>(6)?.unwrap_or_default(),
+                sport_types: vec![sport_type],
             })
         });
 

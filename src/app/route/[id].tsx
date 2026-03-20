@@ -424,7 +424,7 @@ export default function RouteDetailScreen() {
           id: p.activityId,
           activityId: p.activityId,
           speed: p.speed,
-          date: p.date,
+          date: fromUnixSeconds(p.date) ?? new Date(),
           activityName: p.name,
           direction: (p.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
           sectionTime: Math.round(p.duration),
