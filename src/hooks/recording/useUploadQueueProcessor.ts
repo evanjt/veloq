@@ -21,15 +21,16 @@ export function useUploadQueueProcessor() {
     isProcessing.current = true;
 
     try {
-      let entry = await dequeueUpload();
-      while (entry) {
+      let next = await dequeueUpload();
+      while (next) {
+        const entry = next;
         log.log(`Processing queued upload: ${entry.name} (${entry.id})`);
         try {
           const fileInfo = await FileSystem.getInfoAsync(entry.filePath);
           if (!fileInfo.exists) {
             log.warn(`File not found, removing from queue: ${entry.filePath}`);
             await markUploadComplete(entry.id);
-            entry = await dequeueUpload();
+            next = await dequeueUpload();
             continue;
           }
 
@@ -57,7 +58,7 @@ export function useUploadQueueProcessor() {
           break;
         }
 
-        entry = await dequeueUpload();
+        next = await dequeueUpload();
       }
     } finally {
       isProcessing.current = false;
