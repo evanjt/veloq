@@ -313,11 +313,24 @@ export default function ReviewScreen() {
           if (!isNetworkError) {
             // API error (auth, validation, server error) — show to user, don't queue
             log.warn(`Upload API error: ${errMsg}`);
-            setErrorMessage(
-              t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
-                error: errMsg,
-              })
-            );
+            const status =
+              uploadErr && typeof uploadErr === 'object' && 'response' in uploadErr
+                ? (uploadErr as { response?: { status?: number } }).response?.status
+                : undefined;
+            if (status === 403) {
+              setErrorMessage(
+                t(
+                  'recording.uploadPermissionError',
+                  'Your API key does not have write permissions. Go to intervals.icu Settings → Developer to generate a new key with write access.'
+                )
+              );
+            } else {
+              setErrorMessage(
+                t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
+                  error: errMsg,
+                })
+              );
+            }
             setIsUploading(false);
             return;
           }
