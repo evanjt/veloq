@@ -207,8 +207,8 @@ export default function RecordScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* GPS Readiness Indicator */}
-      <GpsReadinessBar state={gpsState} isDark={isDark} testID="record-gps-status" />
+      {/* GPS Readiness Indicator — full-width prominent bar */}
+      <GpsReadinessBar state={gpsState} isDark={isDark} testID="record-gps-status" prominent />
 
       <ScrollView
         contentContainerStyle={[
@@ -248,12 +248,12 @@ export default function RecordScreen() {
         </View>
 
         {/* Today's Workouts */}
-        {todayEvents.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: textSecondary }]}>
-              {t('recording.todaysWorkouts', "Today's Workouts")}
-            </Text>
-            {todayEvents.map((event) => (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
+            {t('recording.todaysWorkouts', "Today's Workouts")}
+          </Text>
+          {todayEvents.length > 0 ? (
+            todayEvents.map((event) => (
               <TouchableOpacity
                 key={event.id}
                 testID={`record-event-${event.id}`}
@@ -279,9 +279,13 @@ export default function RecordScreen() {
                 </View>
                 <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
               </TouchableOpacity>
-            ))}
-          </View>
-        )}
+            ))
+          ) : (
+            <Text style={[styles.noWorkoutsText, { color: textSecondary }]}>
+              {t('recording.noWorkoutsPlanned', 'No workouts planned for today')}
+            </Text>
+          )}
+        </View>
 
         {/* All Activities */}
         <View style={styles.section}>
@@ -332,25 +336,51 @@ function GpsReadinessBar({
   state,
   isDark,
   testID,
+  prominent,
 }: {
   state: 'checking' | 'ready' | 'weak' | 'none';
   isDark: boolean;
   testID?: string;
+  prominent?: boolean;
 }) {
   const { t } = useTranslation();
 
-  if (state === 'none') return null;
-
-  const config = {
+  const configs: Record<
+    string,
+    {
+      icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+      color: string;
+      text: string;
+      bgColor: string;
+    }
+  > = {
     checking: {
-      icon: 'crosshairs-question' as const,
+      icon: 'crosshairs-question',
       color: '#9CA3AF',
       text: t('recording.gpsAcquiring'),
+      bgColor: 'rgba(156, 163, 175, 0.1)',
     },
-    ready: { icon: 'crosshairs-gps' as const, color: '#22C55E', text: t('recording.gpsReady') },
-    weak: { icon: 'crosshairs' as const, color: '#F59E0B', text: t('recording.gpsWeakWarning') },
-  }[state];
+    ready: {
+      icon: 'crosshairs-gps',
+      color: '#22C55E',
+      text: t('recording.gpsReady'),
+      bgColor: 'rgba(34, 197, 94, 0.1)',
+    },
+    weak: {
+      icon: 'crosshairs',
+      color: '#F59E0B',
+      text: t('recording.gpsWeakWarning'),
+      bgColor: 'rgba(245, 158, 11, 0.1)',
+    },
+    none: {
+      icon: 'crosshairs-off',
+      color: '#EF4444',
+      text: t('recording.gpsNone', 'Location denied'),
+      bgColor: 'rgba(239, 68, 68, 0.1)',
+    },
+  };
 
+  const config = configs[state];
   if (!config) return null;
 
   return (
@@ -358,11 +388,34 @@ function GpsReadinessBar({
       testID={testID}
       style={[
         styles.gpsReadinessBar,
-        { backgroundColor: isDark ? darkColors.surface : colors.surface },
+        prominent && styles.gpsReadinessBarProminent,
+        {
+          backgroundColor: prominent
+            ? config.bgColor
+            : isDark
+              ? darkColors.surface
+              : colors.surface,
+        },
       ]}
     >
-      <MaterialCommunityIcons name={config.icon} size={16} color={config.color} />
-      <Text style={[styles.gpsReadinessText, { color: config.color }]}>{config.text}</Text>
+      <MaterialCommunityIcons name={config.icon} size={prominent ? 18 : 16} color={config.color} />
+      <Text
+        style={[
+          styles.gpsReadinessText,
+          prominent && styles.gpsReadinessTextProminent,
+          { color: config.color },
+        ]}
+      >
+        {config.text}
+      </Text>
+      {state === 'checking' && prominent && (
+        <View style={styles.gpsSpinner}>
+          <MaterialCommunityIcons name="loading" size={14} color={config.color} />
+        </View>
+      )}
+      {state === 'ready' && prominent && (
+        <MaterialCommunityIcons name="check-circle" size={14} color={config.color} />
+      )}
     </View>
   );
 }
@@ -403,9 +456,28 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
     borderRadius: layout.borderRadiusSm,
   },
+  gpsReadinessBarProminent: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderRadius: layout.borderRadius,
+  },
   gpsReadinessText: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  gpsReadinessTextProminent: {
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  gpsSpinner: {
+    marginLeft: spacing.xs,
+  },
+  noWorkoutsText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    paddingVertical: spacing.sm,
   },
   scrollContent: {},
   section: {
