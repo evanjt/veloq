@@ -28,6 +28,7 @@ export interface SectionPerformanceSectionProps {
   onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
   onScrubChange?: (scrubbing: boolean) => void;
   onExcludeActivity?: (activityId: string) => void;
+  onIncludeActivity?: (activityId: string) => void;
 }
 
 export function SectionPerformanceSection({
@@ -41,6 +42,7 @@ export function SectionPerformanceSection({
   onActivitySelect,
   onScrubChange,
   onExcludeActivity,
+  onIncludeActivity,
 }: SectionPerformanceSectionProps) {
   if (chartData.length < 1) return null;
 
@@ -57,6 +59,7 @@ export function SectionPerformanceSection({
         onActivitySelect={onActivitySelect}
         onScrubChange={onScrubChange}
         onExcludeActivity={onExcludeActivity}
+        onIncludeActivity={onIncludeActivity}
       />
     </View>
   );

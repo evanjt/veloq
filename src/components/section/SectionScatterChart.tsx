@@ -63,6 +63,7 @@ export interface SectionScatterChartProps {
   onActivitySelect?: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
   onScrubChange?: (scrubbing: boolean) => void;
   onExcludeActivity?: (activityId: string) => void;
+  onIncludeActivity?: (activityId: string) => void;
 }
 
 export function SectionScatterChart({
@@ -76,6 +77,7 @@ export function SectionScatterChart({
   onActivitySelect,
   onScrubChange,
   onExcludeActivity,
+  onIncludeActivity,
 }: SectionScatterChartProps) {
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
@@ -500,15 +502,18 @@ export function SectionScatterChart({
 
                       const isReverse = dataPoint.direction === 'reverse';
                       const dotColor = isReverse ? colors.reverseDirection : activityColor;
+                      const isPointExcluded = dataPoint.isExcluded === true;
 
                       // Determine if this is the best in its direction
                       let isBest = false;
-                      if (isReverse) {
-                        if (revIdx === reverseBestIdx) isBest = true;
-                        revIdx++;
-                      } else {
-                        if (fwdIdx === forwardBestIdx) isBest = true;
-                        fwdIdx++;
+                      if (!isPointExcluded) {
+                        if (isReverse) {
+                          if (revIdx === reverseBestIdx) isBest = true;
+                          revIdx++;
+                        } else {
+                          if (fwdIdx === forwardBestIdx) isBest = true;
+                          fwdIdx++;
+                        }
                       }
 
                       const isSelected =
@@ -521,6 +526,19 @@ export function SectionScatterChart({
                             <Circle cx={point.x} cy={point.y} r={7} color={colors.chartCyan} />
                             <Circle cx={point.x} cy={point.y} r={4} color={dotColor} />
                           </React.Fragment>
+                        );
+                      }
+
+                      if (isPointExcluded) {
+                        return (
+                          <Circle
+                            key={`pt-${idx}`}
+                            cx={point.x}
+                            cy={point.y}
+                            r={3}
+                            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                            opacity={0.25}
+                          />
                         );
                       }
 
@@ -647,22 +665,37 @@ export function SectionScatterChart({
               >
                 {formatSpeedValue(selectedPoint.speed)}
               </Text>
-              {onExcludeActivity && (
+              {selectedPoint.isExcluded && onIncludeActivity ? (
                 <TouchableOpacity
                   onPress={() => {
-                    onExcludeActivity(selectedPoint.activityId);
+                    onIncludeActivity(selectedPoint.activityId);
                     setSelectedPoint(null);
                     onActivitySelect?.(null);
                   }}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={styles.excludeButton}
                 >
-                  <MaterialCommunityIcons
-                    name="close-circle-outline"
-                    size={16}
-                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                  />
+                  <MaterialCommunityIcons name="undo" size={16} color={colors.primary} />
                 </TouchableOpacity>
+              ) : (
+                onExcludeActivity &&
+                !selectedPoint.isExcluded && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      onExcludeActivity(selectedPoint.activityId);
+                      setSelectedPoint(null);
+                      onActivitySelect?.(null);
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.excludeButton}
+                  >
+                    <MaterialCommunityIcons
+                      name="close-circle-outline"
+                      size={16}
+                      color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )
               )}
               <MaterialCommunityIcons
                 name="chevron-right"

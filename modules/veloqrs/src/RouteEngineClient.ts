@@ -452,6 +452,15 @@ class RouteEngineClient {
     );
   }
 
+  getExcludedSectionPerformances(sectionId: string): FfiSectionPerformanceResult {
+    if (!this.ready) {
+      return EMPTY_SECTION_PERFORMANCE_RESULT;
+    }
+    return this.timed('getExcludedSectionPerformances', () =>
+      this.engine.sections().getExcludedPerformances(sectionId),
+    );
+  }
+
   getSectionCalendarSummary(sectionId: string): FfiCalendarSummary | null {
     if (!this.ready) return null;
     return (

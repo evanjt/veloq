@@ -815,6 +815,128 @@ impl PersistentRouteEngine {
         result
     }
 
+    /// Get performance records for excluded activities in a section.
+    /// Only uses cached lap_time/lap_pace (no time stream fallback).
+    /// Returns just the records — no best/stats computation.
+    pub fn get_excluded_section_performances(&self, section_id: &str) -> Vec<SectionPerformanceRecord> {
+        // Find section sport type
+        let sport_type: String = match self.sections.iter().find(|s| s.id == section_id) {
+            Some(s) => s.sport_type.clone(),
+            None => match self.db.query_row(
+                "SELECT sport_type FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            ) {
+                Ok(st) => st,
+                Err(_) => return Vec::new(),
+            },
+        };
+
+        let section_distance: f64 = self.sections.iter()
+            .find(|s| s.id == section_id)
+            .map(|s| s.distance_meters)
+            .unwrap_or_else(|| {
+                self.db.query_row(
+                    "SELECT distance_meters FROM sections WHERE id = ?",
+                    params![section_id],
+                    |row| row.get(0),
+                ).unwrap_or(0.0)
+            });
+
+        let mut stmt = match self.db.prepare(
+            "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
+                    sa.distance_meters, sa.lap_time, sa.lap_pace
+             FROM section_activities sa
+             JOIN activity_metrics am ON sa.activity_id = am.activity_id
+             WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 1
+             ORDER BY sa.activity_id, sa.start_index"
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        struct Portion {
+            activity_id: String,
+            direction: String,
+            _start_index: u32,
+            _end_index: u32,
+            distance_meters: f64,
+            lap_time: Option<f64>,
+            lap_pace: Option<f64>,
+        }
+
+        let portions: Vec<Portion> = match stmt.query_map(params![section_id, &sport_type], |row| {
+            Ok(Portion {
+                activity_id: row.get(0)?,
+                direction: row.get(1)?,
+                _start_index: row.get(2)?,
+                _end_index: row.get(3)?,
+                distance_meters: row.get(4)?,
+                lap_time: row.get(5)?,
+                lap_pace: row.get(6)?,
+            })
+        }) {
+            Ok(iter) => iter.collect::<Result<Vec<_>, _>>().unwrap_or_default(),
+            Err(_) => return Vec::new(),
+        };
+        drop(stmt);
+
+        // Group by activity
+        let mut by_activity: HashMap<String, Vec<Portion>> = HashMap::new();
+        for p in portions {
+            by_activity.entry(p.activity_id.clone()).or_default().push(p);
+        }
+
+        let mut records: Vec<SectionPerformanceRecord> = by_activity
+            .iter()
+            .filter_map(|(activity_id, portions)| {
+                let metrics = self.activity_metrics.get(activity_id)?;
+                let laps: Vec<SectionLap> = portions.iter().enumerate().filter_map(|(i, p)| {
+                    let (time, pace) = match (p.lap_time, p.lap_pace) {
+                        (Some(t), Some(p)) if t > 0.0 => (t, p),
+                        _ => return None,
+                    };
+                    Some(SectionLap {
+                        id: format!("{}_lap{}", activity_id, i),
+                        activity_id: activity_id.to_string(),
+                        time,
+                        pace,
+                        distance: p.distance_meters,
+                        direction: p.direction.clone(),
+                        start_index: p._start_index,
+                        end_index: p._end_index,
+                    })
+                }).collect();
+
+                if laps.is_empty() { return None; }
+
+                let lap_count = laps.len() as u32;
+                let best_lap = laps.iter().min_by(|a, b| a.time.partial_cmp(&b.time).unwrap_or(std::cmp::Ordering::Equal));
+                let (best_time, best_pace) = best_lap.map(|l| (l.time, l.pace)).unwrap_or((0.0, 0.0));
+                let avg_time = laps.iter().map(|l| l.time).sum::<f64>() / lap_count as f64;
+                let avg_pace = laps.iter().map(|l| l.pace).sum::<f64>() / lap_count as f64;
+                let direction = laps.first().map(|l| l.direction.clone()).unwrap_or_else(|| "same".to_string());
+
+                Some(SectionPerformanceRecord {
+                    activity_id: activity_id.to_string(),
+                    activity_name: metrics.name.clone(),
+                    activity_date: metrics.date,
+                    laps,
+                    lap_count,
+                    best_time,
+                    best_pace,
+                    avg_time,
+                    avg_pace,
+                    direction,
+                    section_distance,
+                })
+            })
+            .collect();
+
+        records.sort_by_key(|r| r.activity_date);
+        records
+    }
+
     /// Get a calendar-aligned Year > Month performance summary for a section.
     /// Returns full history (no date range filter).
     pub fn get_section_calendar_summary(

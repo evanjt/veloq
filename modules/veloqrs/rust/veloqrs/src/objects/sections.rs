@@ -103,6 +103,20 @@ impl SectionManager {
         })
     }
 
+    fn get_excluded_performances(&self, section_id: String) -> Result<crate::FfiSectionPerformanceResult, VeloqError> {
+        with_engine(|e| {
+            let records = e.get_excluded_section_performances(&section_id);
+            crate::FfiSectionPerformanceResult::from(crate::SectionPerformanceResult {
+                records,
+                best_record: None,
+                best_forward_record: None,
+                best_reverse_record: None,
+                forward_stats: None,
+                reverse_stats: None,
+            })
+        })
+    }
+
     fn get_calendar_summary(&self, section_id: String) -> Result<Option<crate::FfiCalendarSummary>, VeloqError> {
         with_engine(|e| {
             e.get_section_calendar_summary(&section_id)

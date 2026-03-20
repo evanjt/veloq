@@ -50,7 +50,13 @@ import { formatRelativeDate, getActivityIcon, getActivityColor, isRunningActivit
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { SectionTimeRange, BucketType } from '@/constants';
-import type { Activity, ActivityType, RoutePoint, FrequentSection } from '@/types';
+import type {
+  Activity,
+  ActivityType,
+  RoutePoint,
+  FrequentSection,
+  PerformanceDataPoint,
+} from '@/types';
 
 export default function SectionDetailScreen() {
   // Performance timing
@@ -685,6 +691,55 @@ export default function SectionDetailScreen() {
     return [...sectionActivities, ...excludedActivities];
   }, [sectionActivities, showExcluded, excludedActivities]);
 
+  // Build chart data points for excluded activities (shown dimmed on scatter chart)
+  const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
+    if (!showExcluded || excludedActivityIds.size === 0 || !id) return [];
+    const engine = getRouteEngine();
+    if (!engine) return [];
+    const result = engine.getExcludedSectionPerformances(id);
+    if (!result?.records?.length) return [];
+
+    const points: (PerformanceDataPoint & { x: number })[] = [];
+    for (const r of result.records) {
+      const date = fromUnixSeconds(r.activityDate);
+      if (!date) continue;
+      if (r.laps?.length) {
+        for (const lap of r.laps) {
+          if (lap.pace > 0) {
+            points.push({
+              x: 0,
+              id: lap.id,
+              activityId: r.activityId,
+              speed: lap.pace,
+              date,
+              activityName: r.activityName,
+              direction: (lap.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
+              sectionTime: Math.round(lap.time),
+              sectionDistance: lap.distance || r.sectionDistance,
+              lapCount: 1,
+              isExcluded: true,
+            });
+          }
+        }
+      } else if (r.bestPace > 0) {
+        points.push({
+          x: 0,
+          id: r.activityId,
+          activityId: r.activityId,
+          speed: r.bestPace,
+          date,
+          activityName: r.activityName,
+          direction: (r.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
+          sectionTime: Math.round(r.bestTime),
+          sectionDistance: r.sectionDistance,
+          lapCount: 1,
+          isExcluded: true,
+        });
+      }
+    }
+    return points;
+  }, [showExcluded, excludedActivityIds, id]);
+
   const activityCount = section?.activityIds?.length ?? 0;
 
   // Calendar summary: Year > Month performance history
@@ -709,6 +764,12 @@ export default function SectionDetailScreen() {
   const computedReverseStats = reverseStats;
   const computedBestForward = bestForwardRecord ?? null;
   const computedBestReverse = bestReverseRecord ?? null;
+
+  // Merge excluded points into chart data when showing excluded
+  const combinedChartData = useMemo(() => {
+    if (excludedChartData.length === 0) return chartData;
+    return [...chartData, ...excludedChartData];
+  }, [chartData, excludedChartData]);
 
   const keyExtractor = useCallback((item: Activity) => item.id, []);
 
@@ -888,7 +949,7 @@ export default function SectionDetailScreen() {
                 <SectionPerformanceSection
                   isDark={isDark}
                   section={section}
-                  chartData={chartData}
+                  chartData={combinedChartData}
                   forwardStats={computedForwardStats}
                   reverseStats={computedReverseStats}
                   bestForwardRecord={computedBestForward}
@@ -896,6 +957,7 @@ export default function SectionDetailScreen() {
                   onActivitySelect={handleActivitySelect}
                   onScrubChange={handleScrubChange}
                   onExcludeActivity={handleExcludeActivity}
+                  onIncludeActivity={handleIncludeActivity}
                 />
 
                 {/* Calendar performance history */}
