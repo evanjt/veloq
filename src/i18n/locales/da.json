@@ -886,6 +886,7 @@
     "selected": "Valgt",
     "shareDetailsWithDeveloper": "Kopiér detaljer og del med udvikleren, hvis du rapporterer et problem",
     "searchSections": "Søg i sektioner...",
+    "searchRoutes": "Search routes...",
     "showHidden": "Vis {{count}} skjulte",
     "showRemoved": "Vis fjernede ({{count}})",
     "sortDistance": "Afstand",

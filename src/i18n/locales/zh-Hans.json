@@ -886,6 +886,7 @@
     "selected": "已选择",
     "shareDetailsWithDeveloper": "复制详情并分享给开发者以报告问题",
     "searchSections": "搜索区段...",
+    "searchRoutes": "Search routes...",
     "showHidden": "显示 {{count}} 个隐藏",
     "showRemoved": "显示已移除 ({{count}})",
     "sortDistance": "距离",

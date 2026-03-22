@@ -749,6 +749,7 @@ export interface TranslationResource {
     routesFound: string;
     sameDirection: string;
     searchSections: string;
+    searchRoutes: string;
     showHidden: string;
     showRemoved: string;
     sortDistance: string;

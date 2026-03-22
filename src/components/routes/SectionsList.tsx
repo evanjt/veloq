@@ -33,7 +33,7 @@ import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
 import { useDisabledSections } from '@/providers/DisabledSectionsStore';
 import { useSupersededSections } from '@/providers/SupersededSectionsStore';
-import { debug, navigateTo } from '@/lib';
+import { debug, navigateTo, getActivityIcon, getActivityColor } from '@/lib';
 import type { UnifiedSection, FrequentSection } from '@/types';
 import type { SectionWithPolyline } from 'veloqrs';
 import { generateSectionName } from '@/hooks/routes/useUnifiedSections';
@@ -231,6 +231,7 @@ export function SectionsList({
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('visits');
+  const [selectedSportFilter, setSelectedSportFilter] = useState<string | null>(null);
 
   // Convert batch sections to FrequentSection[] for preloading into useUnifiedSections
   const preloadedEngineSections = useMemo(() => {
@@ -259,6 +260,19 @@ export function SectionsList({
     disabledCount,
     isLoading,
   } = data;
+
+  // Collect unique sport types across all sections for filter chips
+  const availableSportTypes = useMemo(() => {
+    const types = new Set<string>();
+    for (const s of unifiedSections) {
+      if (s.sportTypes) {
+        for (const st of s.sportTypes) types.add(st);
+      } else if (s.sportType) {
+        types.add(s.sportType);
+      }
+    }
+    return Array.from(types).sort();
+  }, [unifiedSections]);
 
   const { createSection, removeSection } = useCustomSections();
   const disabledIds = useDisabledSections((s) => s.disabledIds);
@@ -315,6 +329,14 @@ export function SectionsList({
           continue;
         }
 
+        // Apply sport type filter
+        if (selectedSportFilter) {
+          const sectionSports = section.sportTypes ?? [section.sportType];
+          if (!sectionSports.includes(selectedSportFilter)) {
+            continue;
+          }
+        }
+
         regular.push(section);
       }
     }
@@ -328,7 +350,7 @@ export function SectionsList({
     // 'visits' is the default order from useUnifiedSections (visitCount DESC)
 
     return { regularSections: regular, potentialSections: potential };
-  }, [unifiedSections, hiddenFilters, searchQuery, sortOption]);
+  }, [unifiedSections, hiddenFilters, searchQuery, sortOption, selectedSportFilter]);
 
   // Toggle filter - pressing hides/shows that type
   const handleFilterPress = useCallback((filterType: keyof HiddenFilters) => {
@@ -481,6 +503,44 @@ export function SectionsList({
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Sport type filter chips */}
+      {availableSportTypes.length > 1 && (
+        <View style={styles.sportFilterRow}>
+          {availableSportTypes.map((st) => {
+            const isActive = selectedSportFilter === st;
+            const sportColor = getActivityColor(st as any);
+            return (
+              <TouchableOpacity
+                key={st}
+                style={[
+                  styles.sportFilterChip,
+                  isDark && styles.sportFilterChipDark,
+                  isActive && { backgroundColor: sportColor + '20', borderColor: sportColor },
+                ]}
+                onPress={() => setSelectedSportFilter(isActive ? null : st)}
+              >
+                <MaterialCommunityIcons
+                  name={getActivityIcon(st)}
+                  size={14}
+                  color={
+                    isActive ? sportColor : isDark ? darkColors.textSecondary : colors.textSecondary
+                  }
+                />
+                <Text
+                  style={[
+                    styles.sportFilterLabel,
+                    isDark && styles.textMuted,
+                    isActive && { color: sportColor },
+                  ]}
+                >
+                  {st}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
       {/* Section type counts - clickable to hide/show types */}
       {(customCount > 0 || trueAutoCount > 0 || trueDisabledCount > 0) && (
@@ -788,6 +848,30 @@ const styles = StyleSheet.create({
   },
   infoTextDark: {
     color: darkColors.textDisabled,
+  },
+  sportFilterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
+  sportFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sportFilterChipDark: {
+    borderColor: darkColors.border,
+  },
+  sportFilterLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   sectionCounts: {
     flexDirection: 'row',

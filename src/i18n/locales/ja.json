@@ -886,6 +886,7 @@
     "selected": "選択中",
     "shareDetailsWithDeveloper": "問題を報告する場合は、詳細をコピーして開発者に共有してください",
     "searchSections": "セクションを検索...",
+    "searchRoutes": "Search routes...",
     "showHidden": "非表示の{{count}}件を表示",
     "showRemoved": "削除済みを表示 ({{count}})",
     "sortDistance": "距離",

@@ -882,6 +882,7 @@
     "selected": "Picked",
     "shareDetailsWithDeveloper": "Copy the details and flick them to the dev if you're reporting a drama",
     "searchSections": "Search sections...",
+    "searchRoutes": "Search routes...",
     "showHidden": "Show {{count}} hidden",
     "showRemoved": "Show removed ({{count}})",
     "sortDistance": "Distance",

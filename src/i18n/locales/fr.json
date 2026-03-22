@@ -886,6 +886,7 @@
     "selected": "Sélectionné",
     "shareDetailsWithDeveloper": "Copier les details et partager avec le developpeur en cas de probleme",
     "searchSections": "Rechercher des sections...",
+    "searchRoutes": "Search routes...",
     "showHidden": "Afficher {{count}} masques",
     "showRemoved": "Afficher supprimées ({{count}})",
     "sortDistance": "Distance",

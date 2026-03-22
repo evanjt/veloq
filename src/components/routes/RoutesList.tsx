@@ -6,7 +6,7 @@
  * Full group data is only loaded on detail page.
  */
 
-import React, { useEffect, useRef, memo, useMemo } from 'react';
+import React, { useEffect, useRef, memo, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,6 +15,8 @@ import {
   LayoutAnimation,
   Platform,
   ActivityIndicator,
+  TouchableOpacity,
+  TextInput,
 } from 'react-native';
 import { useTheme, useRouteProcessing, useCacheDays } from '@/hooks';
 import type { GroupWithPolyline } from 'veloqrs';
@@ -23,6 +25,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { UI } from '@/lib/utils/constants';
+import { getActivityIcon, getActivityColor } from '@/lib';
 import { CacheScopeNotice } from './CacheScopeNotice';
 import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
@@ -147,16 +150,47 @@ export function RoutesList({
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const [selectedSportFilter, setSelectedSportFilter] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Convert batch groups to RouteGroup format for RouteRow
-  const groups = useMemo(() => {
+  const allGroups = useMemo(() => {
     return batchGroups.map((g, i) => batchGroupToRouteGroup(g, i));
   }, [batchGroups]);
 
+  // Collect unique sport types across all routes
+  const availableSportTypes = useMemo(() => {
+    const types = new Set<string>();
+    for (const g of allGroups) {
+      if (g.sportTypes) {
+        for (const st of g.sportTypes) types.add(st);
+      } else if (g.type) {
+        types.add(g.type);
+      }
+    }
+    return Array.from(types).sort();
+  }, [allGroups]);
+
+  // Filter groups by sport type and search query
+  const groups = useMemo(() => {
+    let filtered = allGroups;
+    if (selectedSportFilter) {
+      filtered = filtered.filter((g) => {
+        const sports = g.sportTypes ?? [g.type];
+        return sports.includes(selectedSportFilter);
+      });
+    }
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((g) => g.name?.toLowerCase().includes(query));
+    }
+    return filtered;
+  }, [allGroups, selectedSportFilter, searchQuery]);
+
   // Calculate processed count
   const processedCount = useMemo(
-    () => groups.reduce((sum, g) => sum + g.activityCount, 0),
-    [groups]
+    () => allGroups.reduce((sum, g) => sum + g.activityCount, 0),
+    [allGroups]
   );
 
   const isReady = true; // Summaries are always ready (query on demand)
@@ -213,6 +247,73 @@ export function RoutesList({
           processedCount={processedCount}
           groupCount={groups.length} // Only show groups with 2+ activities (actual routes)
         />
+      )}
+
+      {/* Search bar */}
+      {!showProcessing && groups.length > 0 && (
+        <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>
+          <MaterialCommunityIcons
+            name="magnify"
+            size={18}
+            color={isDark ? darkColors.textDisabled : colors.textDisabled}
+          />
+          <TextInput
+            style={[styles.searchInput, isDark && styles.searchInputDark]}
+            placeholder={t('routes.searchRoutes' as never) as string}
+            placeholderTextColor={isDark ? darkColors.textDisabled : colors.textDisabled}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
+              <MaterialCommunityIcons
+                name="close-circle"
+                size={16}
+                color={isDark ? darkColors.textDisabled : colors.textDisabled}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* Sport type filter chips */}
+      {availableSportTypes.length > 1 && (
+        <View style={styles.sportFilterRow}>
+          {availableSportTypes.map((st) => {
+            const isActive = selectedSportFilter === st;
+            const sportColor = getActivityColor(st as any);
+            return (
+              <TouchableOpacity
+                key={st}
+                style={[
+                  styles.sportFilterChip,
+                  isDark && styles.sportFilterChipDark,
+                  isActive && { backgroundColor: sportColor + '20', borderColor: sportColor },
+                ]}
+                onPress={() => setSelectedSportFilter(isActive ? null : st)}
+              >
+                <MaterialCommunityIcons
+                  name={getActivityIcon(st)}
+                  size={14}
+                  color={
+                    isActive ? sportColor : isDark ? darkColors.textSecondary : colors.textSecondary
+                  }
+                />
+                <Text
+                  style={[
+                    styles.sportFilterLabel,
+                    isDark && styles.textMuted,
+                    isActive && { color: sportColor },
+                  ]}
+                >
+                  {st}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       )}
 
       {/* Timeline info notice - show when idle and no processing */}
@@ -349,6 +450,53 @@ const styles = StyleSheet.create({
   list: {
     paddingTop: spacing.md,
     paddingBottom: spacing.xxl,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.gray100,
+    borderRadius: 10,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: Platform.OS === 'ios' ? 8 : 2,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  searchContainerDark: {
+    backgroundColor: darkColors.surface,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textPrimary,
+    paddingVertical: 0,
+  },
+  searchInputDark: {
+    color: darkColors.textPrimary,
+  },
+  sportFilterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
+  sportFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sportFilterChipDark: {
+    borderColor: darkColors.border,
+  },
+  sportFilterLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   emptyList: {
     flexGrow: 1,

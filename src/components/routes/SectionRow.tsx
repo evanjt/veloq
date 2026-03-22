@@ -15,7 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { formatDistance, getBoundsFromPoints, getActivityColor } from '@/lib';
+import { formatDistance, getBoundsFromPoints, getActivityColor, getActivityIcon } from '@/lib';
 import type { ActivityType, FrequentSection, RoutePoint } from '@/types';
 import type { SectionSummary } from 'veloqrs';
 
@@ -102,17 +102,6 @@ function normalizeSectionData(
   // Already normalized
   return section as SectionRowData;
 }
-
-// Sport type to icon mapping
-const sportIcons: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
-  Run: 'run',
-  Ride: 'bike',
-  Swim: 'swim',
-  Walk: 'walk',
-  Hike: 'hiking',
-  VirtualRide: 'bike',
-  VirtualRun: 'run',
-};
 
 // Activity trace colors - muted versions of the primary color
 const TRACE_COLORS = [
@@ -218,7 +207,7 @@ export const SectionRow = memo(function SectionRow({
 
   const hasTraces = normalizedTraces.length > 0;
   const hasSectionPolyline = sectionPolylineString.length > 0;
-  const icon = sportIcons[section.sportType] || 'map-marker-path';
+  const icon = getActivityIcon(section.sportType);
 
   // Get activity color for the sport type
   const activityColor = getActivityColor(section.sportType as ActivityType);
@@ -373,7 +362,7 @@ export const SectionRow = memo(function SectionRow({
               {section.sportTypes.map((st) => (
                 <MaterialCommunityIcons
                   key={st}
-                  name={sportIcons[st] || 'help-circle-outline'}
+                  name={getActivityIcon(st)}
                   size={12}
                   color={getActivityColor(st as ActivityType)}
                   style={{ marginLeft: 2 }}
