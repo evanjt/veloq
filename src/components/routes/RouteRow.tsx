@@ -174,7 +174,7 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
 
   // Get activity color for the route type
   // RouteGroup.type is ActivityType, DiscoveredRouteInfo.type is string
-  const activityColor = getActivityColor(toActivityType(route.type));
+  const activityColor = colors.primary;
 
   // Get preview points - use lazy-loaded consensus for RouteGroup
   const previewPoints = useMemo(() => {

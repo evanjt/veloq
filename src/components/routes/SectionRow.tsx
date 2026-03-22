@@ -210,7 +210,7 @@ export const SectionRow = memo(function SectionRow({
   const icon = getActivityIcon(section.sportType);
 
   // Get activity color for the sport type
-  const activityColor = getActivityColor(section.sportType as ActivityType);
+  const activityColor = colors.primary;
 
   // Background colors for map-like appearance
   const bgColor = isDark ? '#1a2a1a' : '#e8f4e8';
