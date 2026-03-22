@@ -167,7 +167,16 @@ export function RoutesList({
   const { isDark } = useTheme();
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortOption, setSortOption] = useState<SortOption>('activities');
+  const [sortOption, setSortOption] = useState<SortOption>(userLocation ? 'nearby' : 'activities');
+  const sortInitRef = useRef(false);
+
+  // Switch to 'nearby' sort once location first becomes available
+  useEffect(() => {
+    if (userLocation && !sortInitRef.current) {
+      sortInitRef.current = true;
+      setSortOption('nearby');
+    }
+  }, [userLocation]);
 
   // Convert batch groups to RouteGroup format for RouteRow
   const allGroups = useMemo(() => {
@@ -213,6 +222,18 @@ export function RoutesList({
     // 'activities' is the default order from engine (activityCount DESC)
     return filtered;
   }, [allGroups, selectedSportFilter, searchQuery, sortOption, userLocation]);
+
+  // Pre-compute distance from user for each route (used for display on every row)
+  const distanceMap = useMemo(() => {
+    if (!userLocation) return null;
+    const map = new Map<string, number>();
+    for (const g of groups) {
+      if (g.center) {
+        map.set(g.id, haversineDistance(userLocation, g.center));
+      }
+    }
+    return map;
+  }, [groups, userLocation]);
 
   // Calculate processed count
   const processedCount = useMemo(
@@ -484,7 +505,13 @@ export function RoutesList({
         testID="routes-list"
         data={groups}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <RouteRow route={item as unknown as RouteGroup} navigable />}
+        renderItem={({ item }) => (
+          <RouteRow
+            route={item as unknown as RouteGroup}
+            navigable
+            distanceFromUser={distanceMap?.get(item.id)}
+          />
+        )}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
         ListFooterComponent={renderFooter}

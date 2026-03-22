@@ -29,6 +29,8 @@ interface RouteRowProps {
   route: DiscoveredRouteInfo | RouteGroup;
   /** If true, tapping navigates to route detail. If false/undefined, just expands. */
   navigable?: boolean;
+  /** Distance from user's current location in meters */
+  distanceFromUser?: number;
 }
 
 /** Check if route is a RouteGroup (has signature property) */
@@ -151,7 +153,7 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
   );
 });
 
-function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
+function RouteRowComponent({ route, navigable = false, distanceFromUser }: RouteRowProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
@@ -283,6 +285,18 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
                 {formatDistance(distance, isMetric)}
               </Text>
             )}
+            {distanceFromUser != null && Number.isFinite(distanceFromUser) && (
+              <View style={styles.proximityTag}>
+                <MaterialCommunityIcons
+                  name="map-marker-distance"
+                  size={10}
+                  color={isDark ? darkColors.textDisabled : colors.textDisabled}
+                />
+                <Text style={[styles.proximityText, isDark && styles.proximityTextDark]}>
+                  {formatDistance(distanceFromUser, isMetric)}
+                </Text>
+              </View>
+            )}
             {formattedPace && (
               <Text style={[styles.paceText, { color: colors.primary }]}>{formattedPace}</Text>
             )}
@@ -342,6 +356,7 @@ export const RouteRow = memo(RouteRowComponent, (prevProps, nextProps) => {
     prevProps.route.name === nextProps.route.name &&
     prevProps.route.activityCount === nextProps.route.activityCount &&
     prevProps.navigable === nextProps.navigable &&
+    prevProps.distanceFromUser === nextProps.distanceFromUser &&
     prevSportTypes?.length === nextSportTypes?.length
   );
 });
@@ -413,6 +428,18 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
+  },
+  proximityTag: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 2,
+  },
+  proximityText: {
+    fontSize: 10,
+    color: colors.textDisabled,
+  },
+  proximityTextDark: {
+    color: darkColors.textDisabled,
   },
   paceText: {
     fontSize: typography.label.fontSize,

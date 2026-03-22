@@ -53,6 +53,8 @@ interface SectionRowProps {
   activityTraces?: ActivityTrace[];
   /** Whether this section is disabled/hidden */
   isDisabled?: boolean;
+  /** Distance from user's current location in meters */
+  distanceFromUser?: number;
   onPress?: (id: string) => void;
 }
 
@@ -119,6 +121,7 @@ export const SectionRow = memo(function SectionRow({
   section: rawSection,
   activityTraces,
   isDisabled,
+  distanceFromUser,
   onPress,
 }: SectionRowProps) {
   const { t } = useTranslation();
@@ -375,6 +378,18 @@ export const SectionRow = memo(function SectionRow({
           <Text style={[styles.metaText, isDark && styles.textMuted]}>
             {formatDistance(section.distanceMeters, isMetric)}
           </Text>
+          {distanceFromUser != null && Number.isFinite(distanceFromUser) && (
+            <View style={styles.proximityTag}>
+              <MaterialCommunityIcons
+                name="map-marker-distance"
+                size={10}
+                color={isDark ? darkColors.textDisabled : colors.textDisabled}
+              />
+              <Text style={[styles.proximityText, isDark && styles.proximityTextDark]}>
+                {formatDistance(distanceFromUser, isMetric)}
+              </Text>
+            </View>
+          )}
           {section.sectionType === 'custom' && (
             <View style={[styles.customTag, isDark && styles.customTagDark]}>
               <Text style={[styles.customTagText, isDark && styles.customTagTextDark]}>
@@ -490,6 +505,18 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: darkColors.textSecondary,
+  },
+  proximityTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  proximityText: {
+    fontSize: 10,
+    color: colors.textDisabled,
+  },
+  proximityTextDark: {
+    color: darkColors.textDisabled,
   },
   customTag: {
     backgroundColor: 'rgba(168, 85, 247, 0.12)',

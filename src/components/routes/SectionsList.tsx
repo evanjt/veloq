@@ -120,6 +120,7 @@ interface SectionListItemProps {
   item: UnifiedSection;
   isDark: boolean;
   isDisabled: boolean;
+  distanceFromUser?: number;
   onPress: (id: string) => void;
   onSwipeableOpen: (id: string) => void;
   onDelete: (item: UnifiedSection) => void;
@@ -133,6 +134,7 @@ const SectionListItem = memo(
     item,
     isDark,
     isDisabled,
+    distanceFromUser,
     onPress,
     onSwipeableOpen,
     onDelete,
@@ -205,7 +207,12 @@ const SectionListItem = memo(
             isDisabled && styles.disabledSection,
           ]}
         >
-          <SectionRow section={item} isDisabled={isDisabled} onPress={onPress} />
+          <SectionRow
+            section={item}
+            isDisabled={isDisabled}
+            distanceFromUser={distanceFromUser}
+            onPress={onPress}
+          />
         </View>
       </Swipeable>
     );
@@ -222,7 +229,11 @@ const SectionListItem = memo(
       )
         return false;
     }
-    return prev.isDisabled === next.isDisabled && prev.isDark === next.isDark;
+    return (
+      prev.isDisabled === next.isDisabled &&
+      prev.isDark === next.isDark &&
+      prev.distanceFromUser === next.distanceFromUser
+    );
   }
 );
 
@@ -243,8 +254,17 @@ export function SectionsList({
     disabled: true, // Hidden sections are hidden by default
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortOption, setSortOption] = useState<SortOption>('visits');
+  const [sortOption, setSortOption] = useState<SortOption>(userLocation ? 'nearby' : 'visits');
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | null>(null);
+  const sortInitRef = useRef(false);
+
+  // Switch to 'nearby' sort once location first becomes available
+  React.useEffect(() => {
+    if (userLocation && !sortInitRef.current) {
+      sortInitRef.current = true;
+      setSortOption('nearby');
+    }
+  }, [userLocation]);
 
   // Convert batch sections to FrequentSection[] for preloading into useUnifiedSections
   const preloadedEngineSections = useMemo(() => {
@@ -370,6 +390,18 @@ export function SectionsList({
 
     return { regularSections: regular, potentialSections: potential };
   }, [unifiedSections, hiddenFilters, searchQuery, sortOption, selectedSportFilter, userLocation]);
+
+  // Pre-compute distance from user for each section (used for display on every row)
+  const distanceMap = useMemo(() => {
+    if (!userLocation) return null;
+    const map = new Map<string, number>();
+    for (const s of regularSections) {
+      if (s.center) {
+        map.set(s.id, haversineDistance(userLocation, s.center));
+      }
+    }
+    return map;
+  }, [regularSections, userLocation]);
 
   // Toggle filter - pressing hides/shows that type
   const handleFilterPress = useCallback((filterType: keyof HiddenFilters) => {
@@ -684,6 +716,7 @@ export function SectionsList({
         item={item}
         isDark={isDark}
         isDisabled={disabledIds.has(item.id)}
+        distanceFromUser={distanceMap?.get(item.id)}
         onPress={handleSectionPress}
         onSwipeableOpen={handleSwipeableOpen}
         onDelete={handleDelete}
@@ -695,6 +728,7 @@ export function SectionsList({
     [
       isDark,
       disabledIds,
+      distanceMap,
       handleSectionPress,
       handleSwipeableOpen,
       handleDelete,
