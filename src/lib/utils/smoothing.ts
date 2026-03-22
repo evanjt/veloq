@@ -106,7 +106,8 @@ export function loessSmooth(
       { x: xs[1], y: ys[1] },
     ];
 
-  const effectiveSpan = span ?? Math.max(0.25, Math.min(0.5, 15 / n));
+  const effectiveSpan =
+    span ?? (n <= 6 ? 1.0 : n <= 10 ? 0.8 : Math.max(0.25, Math.min(0.5, 15 / n)));
   const k = Math.max(2, Math.ceil(effectiveSpan * n));
 
   const xMin = Math.min(...xs);
@@ -155,6 +156,97 @@ export function loessSmooth(
       y0 = a + b * x0;
     }
 
+    result.push({ x: x0, y: y0 });
+  }
+
+  return result;
+}
+
+/**
+ * Weighted quadratic polynomial trend line.
+ * Fits y = a + b*x + c*x² via weighted least squares.
+ * Produces a single smooth curve — ideal for showing global performance trends.
+ *
+ * @param xs - X values (typically time-normalized 0-1)
+ * @param ys - Y values (e.g., speed in m/s)
+ * @param outputCount - Number of evenly-spaced output points (default: 80)
+ * @returns Array of {x, y} points for the smooth curve
+ */
+export function quadraticTrend(
+  xs: number[],
+  ys: number[],
+  outputCount: number = 80
+): { x: number; y: number }[] {
+  const n = xs.length;
+  if (n < 2 || n !== ys.length) return [];
+  if (n === 2)
+    return [
+      { x: xs[0], y: ys[0] },
+      { x: xs[1], y: ys[1] },
+    ];
+
+  const xMin = Math.min(...xs);
+  const xMax = Math.max(...xs);
+  if (xMin === xMax) {
+    const meanY = ys.reduce((a, b) => a + b, 0) / n;
+    return [{ x: xMin, y: meanY }];
+  }
+
+  // Normalize xs to [0, 1] for numerical stability
+  const range = xMax - xMin;
+  const xn = xs.map((x) => (x - xMin) / range);
+
+  // Recency weight: 0.5 at start → 1.0 at end (subtle bias toward recent data)
+  const ws = xn.map((x) => 0.5 + 0.5 * x);
+
+  // Build weighted normal equations for y = a + b*t + c*t²
+  // [S0   S1   S2 ] [a]   [Sy0]
+  // [S1   S2   S3 ] [b] = [Sy1]
+  // [S2   S3   S4 ] [c]   [Sy2]
+  let s0 = 0,
+    s1 = 0,
+    s2 = 0,
+    s3 = 0,
+    s4 = 0;
+  let sy0 = 0,
+    sy1 = 0,
+    sy2 = 0;
+  for (let i = 0; i < n; i++) {
+    const w = ws[i];
+    const t = xn[i];
+    const t2 = t * t;
+    s0 += w;
+    s1 += w * t;
+    s2 += w * t2;
+    s3 += w * t * t2;
+    s4 += w * t2 * t2;
+    sy0 += w * ys[i];
+    sy1 += w * t * ys[i];
+    sy2 += w * t2 * ys[i];
+  }
+
+  // Solve 3x3 system via Cramer's rule
+  const det = s0 * (s2 * s4 - s3 * s3) - s1 * (s1 * s4 - s3 * s2) + s2 * (s1 * s3 - s2 * s2);
+
+  let a: number, b: number, c: number;
+  if (Math.abs(det) < 1e-12) {
+    // Degenerate — fall back to weighted mean
+    const meanY = sy0 / s0;
+    a = meanY;
+    b = 0;
+    c = 0;
+  } else {
+    a = (sy0 * (s2 * s4 - s3 * s3) - s1 * (sy1 * s4 - sy2 * s3) + s2 * (sy1 * s3 - sy2 * s2)) / det;
+    b = (s0 * (sy1 * s4 - sy2 * s3) - sy0 * (s1 * s4 - s3 * s2) + s2 * (s1 * sy2 - sy1 * s2)) / det;
+    c = (s0 * (s2 * sy2 - s3 * sy1) - s1 * (s1 * sy2 - sy1 * s2) + sy0 * (s1 * s3 - s2 * s2)) / det;
+  }
+
+  // Evaluate polynomial at evenly-spaced output points
+  const result: { x: number; y: number }[] = [];
+  for (let i = 0; i < outputCount; i++) {
+    const t = i / (outputCount - 1); // 0 to 1
+    const x0 = xMin + t * range;
+    const y0 = a + b * t + c * t * t;
     result.push({ x: x0, y: y0 });
   }
 

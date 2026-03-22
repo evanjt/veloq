@@ -4,7 +4,7 @@
  * Forward and reverse directions share a single Y axis.
  */
 
-import React, { useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,12 +24,11 @@ import {
   formatSpeed,
   formatDuration,
   isRunningActivity,
-  getActivityColor,
   formatShortDate as formatShortDateLib,
   formatPerformanceDelta,
 } from '@/lib';
 import { CHART_CONFIG } from '@/constants';
-import { loessSmooth } from '@/lib/utils/smoothing';
+import { quadraticTrend, loessSmooth } from '@/lib/utils/smoothing';
 import { colors, darkColors } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type { DirectionBestRecord, DirectionSummaryStats } from '@/components/routes/performance';
@@ -88,12 +87,17 @@ export function SectionScatterChart({
 }: SectionScatterChartProps) {
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
-  const activityColor = getActivityColor(activityType);
+  const activityColor = colors.primary;
   const sectionDistance = chartData[0]?.sectionDistance || 0;
 
   const [selectedPoint, setSelectedPoint] = useState<(PerformanceDataPoint & { x: number }) | null>(
     null
   );
+
+  // Clear selection when chart data changes (e.g., sport type filter switch)
+  useEffect(() => {
+    setSelectedPoint(null);
+  }, [chartData]);
 
   const formatSpeedValue = useCallback(
     (speed: number) => (showPace ? formatPace(speed) : formatSpeed(speed)),
@@ -186,19 +190,36 @@ export function SectionScatterChart({
     };
   }, [chartData]);
 
-  // Compute LOESS trend lines
+  // Compute trend lines: quadratic for sparse data, LOESS for dense data
+  // Quadratic: clean global arc for few points (can't capture seasons)
+  // LOESS with high span: captures seasonal variation without local wobble
   const { forwardTrendPath, reverseTrendPath } = useMemo(() => {
     const buildTrendPath = (points: (PerformanceDataPoint & { x: number })[]) => {
       if (points.length < 3) return null;
       const xs = points.map((p) => p.x);
       const ys = points.map((p) => p.speed);
-      const trend = loessSmooth(xs, ys, undefined, Math.min(40, points.length * 2));
+
+      let trend: { x: number; y: number }[];
+      if (points.length < 15) {
+        // Sparse: quadratic polynomial — smooth global arc
+        trend = quadraticTrend(xs, ys, Math.min(100, Math.max(40, points.length * 3)));
+      } else {
+        // Dense: LOESS with high span — captures seasons without wobble
+        // Span floor 0.5 = at least half the data contributes to each point
+        const span = Math.max(0.5, Math.min(0.75, 20 / points.length));
+        trend = loessSmooth(xs, ys, span, Math.min(200, Math.max(60, points.length * 3)));
+      }
       if (trend.length < 2) return null;
-      // Clamp LOESS output to data range to prevent extrapolation spikes in gaps
+
+      // Clamp to data range to prevent edge extrapolation
       const yMin = Math.min(...ys);
       const yMax = Math.max(...ys);
-      const yPad = (yMax - yMin) * 0.1 || 0.5;
-      return trend.map((p) => ({ x: p.x, y: Math.max(yMin - yPad, Math.min(yMax + yPad, p.y)) }));
+      const yPad = (yMax - yMin) * 0.15 || 0.5;
+      const clamped = trend.map((p) => ({
+        x: p.x,
+        y: Math.max(yMin - yPad, Math.min(yMax + yPad, p.y)),
+      }));
+      return [clamped];
     };
 
     return {
@@ -216,13 +237,13 @@ export function SectionScatterChart({
     return [firstDate, midDate, lastDate];
   }, [allPoints]);
 
-  // Build Skia path from LOESS data (mapped through chart coordinates)
+  // Build Skia path from LOESS segments (mapped through chart coordinates)
   const buildSkiaPath = useCallback(
     (
-      trend: { x: number; y: number }[],
+      segments: { x: number; y: number }[][],
       chartBounds: { left: number; right: number; top: number; bottom: number }
     ) => {
-      if (!trend || trend.length < 2) return null;
+      if (!segments || segments.length === 0) return null;
 
       const xScale = (x: number) =>
         chartBounds.left + ((x - 0) / (1 - 0)) * (chartBounds.right - chartBounds.left);
@@ -231,12 +252,13 @@ export function SectionScatterChart({
         ((maxSpeed - y) / (maxSpeed - minSpeed)) * (chartBounds.bottom - chartBounds.top);
 
       const path = Skia.Path.Make();
-      path.moveTo(xScale(trend[0].x), yScale(trend[0].y));
 
-      // LOESS already produces smooth output — connect points directly
-      // (Catmull-Rom cubic splines cause wild overshoots at boundaries)
-      for (let i = 1; i < trend.length; i++) {
-        path.lineTo(xScale(trend[i].x), yScale(trend[i].y));
+      for (const seg of segments) {
+        if (seg.length < 2) continue;
+        path.moveTo(xScale(seg[0].x), yScale(seg[0].y));
+        for (let i = 1; i < seg.length; i++) {
+          path.lineTo(xScale(seg[i].x), yScale(seg[i].y));
+        }
       }
 
       return path;
@@ -577,8 +599,15 @@ export function SectionScatterChart({
                       if (isBest) {
                         return (
                           <React.Fragment key={`pt-${idx}`}>
-                            <Circle cx={point.x} cy={point.y} r={7} color={colors.chartGold} />
                             <Circle cx={point.x} cy={point.y} r={4} color={dotColor} />
+                            <Circle
+                              cx={point.x}
+                              cy={point.y}
+                              r={6}
+                              color={colors.chartGold}
+                              style="stroke"
+                              strokeWidth={1.5}
+                            />
                           </React.Fragment>
                         );
                       }

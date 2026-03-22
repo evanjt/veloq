@@ -40,7 +40,13 @@ import { useFFITimer } from '@/hooks/debug/useFFITimer';
 import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/components/ui';
 import { SectionHeader, SectionPerformanceSection, SectionStatsCards } from '@/components/section';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import { formatRelativeDate, getActivityIcon, getActivityColor, isRunningActivity } from '@/lib';
+import {
+  formatRelativeDate,
+  getActivityIcon,
+  getActivityColor,
+  isRunningActivity,
+  type MaterialIconName,
+} from '@/lib';
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { SectionTimeRange, BucketType } from '@/constants';
@@ -458,6 +464,15 @@ export default function SectionDetailScreen() {
     }
   }, [section?.id, section?.sportType, section?.activityIds]);
 
+  // Effective sport type: matches the visually-selected pill.
+  // When selectedSportType is undefined (initial state), default to section's own sport type
+  // so the chart data matches the highlighted pill.
+  const effectiveSportType = useMemo(() => {
+    if (selectedSportType) return selectedSportType;
+    if (availableSportTypes.length > 1 && section?.sportType) return section.sportType;
+    return undefined;
+  }, [selectedSportType, availableSportTypes.length, section?.sportType]);
+
   // Fetch actual section performance times from activity streams
   // This loads in the background - we show estimated times first, then update when ready
   const {
@@ -466,12 +481,18 @@ export default function SectionDetailScreen() {
     bestReverseRecord,
     forwardStats,
     reverseStats,
-  } = useSectionPerformances(section, selectedSportType);
+  } = useSectionPerformances(section, effectiveSportType);
+
+  // Filter activities by selected sport type for chart data
+  const filteredActivities = useMemo(() => {
+    if (!effectiveSportType) return sectionActivitiesUnsorted;
+    return sectionActivitiesUnsorted.filter((a) => a.type === effectiveSportType);
+  }, [sectionActivitiesUnsorted, effectiveSportType]);
 
   const { chartData } = useSectionChartData({
     section,
     performanceRecords,
-    sectionActivitiesUnsorted,
+    sectionActivitiesUnsorted: filteredActivities,
     sectionWithTraces: null,
     sectionTimeRange,
     bucketType,
@@ -531,7 +552,7 @@ export default function SectionDetailScreen() {
     }
   }, [showExcluded, excludedActivityIds, id]);
 
-  const activityCount = section?.activityIds?.length ?? 0;
+  const activityCount = section?.visitCount ?? 0;
 
   // Calendar summary: Year > Month performance history
   const calendarSummary = useMemo(() => {
@@ -549,7 +570,11 @@ export default function SectionDetailScreen() {
     }
   }, [section?.id]);
 
-  const isRunning = section ? isRunningActivity(section.sportType as ActivityType) : false;
+  const isRunning = effectiveSportType
+    ? isRunningActivity(effectiveSportType as ActivityType)
+    : section
+      ? isRunningActivity(section.sportType as ActivityType)
+      : false;
 
   const computedForwardStats = forwardStats;
   const computedReverseStats = reverseStats;
@@ -625,8 +650,8 @@ export default function SectionDetailScreen() {
     );
   }
 
-  const activityColor = getActivityColor(section.sportType as ActivityType);
-  const iconName = getActivityIcon(section.sportType as ActivityType);
+  const activityColor = colors.primary;
+  const iconName: MaterialIconName = 'road-variant';
 
   return (
     <ScreenErrorBoundary screenName="Section Detail">

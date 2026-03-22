@@ -183,44 +183,24 @@ impl PersistentRouteEngine {
 
     /// Get activity IDs for a section from the junction table (deduplicated).
     fn get_section_activity_ids(&self, section_id: &str) -> Vec<String> {
-        // JOIN activity_metrics to filter by sport type — prevents cross-sport contamination
-        let sport_type: Option<String> = self.db.query_row(
-            "SELECT sport_type FROM sections WHERE id = ?",
-            params![section_id],
-            |row| row.get(0),
-        ).ok();
-
-        let query = match &sport_type {
-            Some(_) => "SELECT DISTINCT sa.activity_id FROM section_activities sa
-                         JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                         WHERE sa.section_id = ?1 AND am.sport_type = ?2 AND sa.excluded = 0",
-            None => "SELECT DISTINCT activity_id FROM section_activities WHERE section_id = ?1 AND excluded = 0",
-        };
-
-        let mut stmt = match self.db.prepare(query) {
+        let mut stmt = match self.db.prepare(
+            "SELECT DISTINCT activity_id FROM section_activities WHERE section_id = ?1 AND excluded = 0",
+        ) {
             Ok(s) => s,
             Err(_) => return Vec::new(),
         };
 
-        match &sport_type {
-            Some(st) => stmt.query_map(params![section_id, st], |row| row.get(0))
-                .map(|rows| rows.filter_map(|r| r.ok()).collect())
-                .unwrap_or_default(),
-            None => stmt.query_map(params![section_id], |row| row.get(0))
-                .map(|rows| rows.filter_map(|r| r.ok()).collect())
-                .unwrap_or_default(),
-        }
+        stmt.query_map(params![section_id], |row| row.get(0))
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
     }
 
     /// Get total visit count (number of traversals/laps) for a section.
     fn get_section_visit_count(&self, section_id: &str) -> u32 {
-        // JOIN activity_metrics to filter by sport type — prevents cross-sport contamination
         self.db
             .query_row(
                 "SELECT COUNT(*) FROM section_activities sa
-                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                 JOIN sections s ON sa.section_id = s.id
-                 WHERE sa.section_id = ? AND am.sport_type = s.sport_type AND sa.excluded = 0",
+                 WHERE sa.section_id = ? AND sa.excluded = 0",
                 params![section_id],
                 |row| row.get(0),
             )
@@ -309,14 +289,12 @@ impl PersistentRouteEngine {
         }
     }
 
-    /// Get activity count for a section (sport-type filtered).
+    /// Get distinct activity count for a section.
     fn get_section_activity_count(&self, section_id: &str) -> u32 {
         self.db
             .query_row(
-                "SELECT COUNT(*) FROM section_activities sa
-                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                 JOIN sections s ON sa.section_id = s.id
-                 WHERE sa.section_id = ? AND am.sport_type = s.sport_type AND sa.excluded = 0",
+                "SELECT COUNT(DISTINCT activity_id) FROM section_activities
+                 WHERE section_id = ? AND excluded = 0",
                 params![section_id],
                 |row| row.get(0),
             )

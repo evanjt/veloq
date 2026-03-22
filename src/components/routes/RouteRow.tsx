@@ -263,8 +263,8 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
             <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
               {displayName}
             </Text>
-            {/* Show sport type icons when route has multiple sport types */}
-            {isRouteGroup(route) && route.sportTypes && route.sportTypes.length > 1 && (
+            {/* Show sport type icons for all activity types in this route */}
+            {isRouteGroup(route) && route.sportTypes && route.sportTypes.length > 0 && (
               <View style={styles.sportTypeIcons}>
                 {route.sportTypes.map((st) => (
                   <MaterialCommunityIcons

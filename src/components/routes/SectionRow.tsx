@@ -368,7 +368,7 @@ export const SectionRow = memo(function SectionRow({
           <Text style={[styles.sectionName, isDark && styles.textLight]} numberOfLines={1}>
             {section.name || t('sections.defaultName')}
           </Text>
-          {section.sportTypes && section.sportTypes.length > 1 && (
+          {section.sportTypes && section.sportTypes.length > 0 && (
             <View style={styles.sportIconsRow}>
               {section.sportTypes.map((st) => (
                 <MaterialCommunityIcons
