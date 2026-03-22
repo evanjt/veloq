@@ -199,7 +199,7 @@ export function SectionScatterChart({
       const n = points.length;
 
       const span = n <= 4 ? 1.0 : n <= 10 ? 0.8 : Math.max(0.4, Math.min(0.7, 15 / n));
-      const trend = loessSmooth(xs, ys, span, Math.max(40, n * 8));
+      const trend = loessSmooth(xs, ys, span, 200);
       if (trend.length < 2) return null;
 
       // Clamp to data range to prevent edge extrapolation

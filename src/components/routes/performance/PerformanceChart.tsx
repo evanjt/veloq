@@ -94,7 +94,7 @@ export function PerformanceChart({
 
     // High span for few points (smooth), lower span as density grows
     const span = n <= 4 ? 1.0 : n <= 10 ? 0.8 : Math.max(0.4, Math.min(0.7, 15 / n));
-    return loessSmooth(xs, ys, span, Math.max(40, n * 8));
+    return loessSmooth(xs, ys, span, 200);
   }, [chartData]);
 
   // Calculate chart width
