@@ -21,7 +21,7 @@ import Animated, {
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { ChartCrosshair } from '@/components/charts/base';
 import { CHART_CONFIG } from '@/constants';
-import { quadraticTrend, loessSmooth } from '@/lib/utils/smoothing';
+import { loessSmooth } from '@/lib/utils/smoothing';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
 import { formatShortDate } from '@/lib';
 
@@ -85,21 +85,16 @@ export function PerformanceChart({
     }));
   }, [performances, bestActivityId]);
 
-  // Compute smooth trend line: quadratic for sparse, LOESS for dense
+  // Compute LOESS smooth trend line for any number of points
   const trendPoints = useMemo(() => {
     if (chartData.length < 2) return [];
     const xs = chartData.map((d) => d.x);
     const ys = chartData.map((d) => d.speed);
     const n = chartData.length;
 
-    let trend: { x: number; y: number }[];
-    if (n < 15) {
-      trend = quadraticTrend(xs, ys, Math.max(40, n * 8));
-    } else {
-      const span = Math.max(0.5, Math.min(0.75, 20 / n));
-      trend = loessSmooth(xs, ys, span, Math.min(200, Math.max(60, n * 3)));
-    }
-    return trend;
+    // High span for few points (smooth), lower span as density grows
+    const span = n <= 4 ? 1.0 : n <= 10 ? 0.8 : Math.max(0.4, Math.min(0.7, 15 / n));
+    return loessSmooth(xs, ys, span, Math.max(40, n * 8));
   }, [chartData]);
 
   // Calculate chart width
