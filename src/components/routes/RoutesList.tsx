@@ -27,7 +27,6 @@ import { colors, darkColors, opacity, spacing, layout, typography } from '@/them
 import { UI } from '@/lib/utils/constants';
 import { getActivityIcon, getActivityColor } from '@/lib';
 import { computeCenter, haversineDistance, type LatLng } from '@/lib/geo/distance';
-import { CacheScopeNotice } from './CacheScopeNotice';
 import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
@@ -300,25 +299,6 @@ export function RoutesList({
             isDark={isDark}
             t={((key: string) => t(key as never) as string) as (key: string) => string}
           />
-        </View>
-      )}
-
-      {/* Cache scope notice */}
-      {!showProcessing && isReady && processedCount > 0 && (
-        <CacheScopeNotice processedCount={processedCount} groupCount={groups.length} />
-      )}
-
-      {/* Timeline info notice */}
-      {!showProcessing && isReady && (
-        <View style={[styles.infoNotice, isDark && styles.infoNoticeDark]}>
-          <MaterialCommunityIcons
-            name="timeline-clock-outline"
-            size={14}
-            color={isDark ? darkColors.textDisabled : colors.textDisabled}
-          />
-          <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-            {t('routes.expandTimeline')}
-          </Text>
         </View>
       )}
     </View>
@@ -679,25 +659,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.sm,
-  },
-  infoNotice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  infoNoticeDark: {},
-  infoText: {
-    flex: 1,
-    fontSize: typography.caption.fontSize,
-    color: colors.textDisabled,
-    lineHeight: typography.caption.lineHeight,
-  },
-  infoTextDark: {
-    color: darkColors.textSecondary,
   },
   loadingMore: {
     paddingVertical: spacing.md,
