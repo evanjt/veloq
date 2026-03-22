@@ -6,8 +6,8 @@
 import React, { useMemo, useRef, useCallback } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
-import { CartesianChart, Line } from 'victory-native';
-import { Circle } from '@shopify/react-native-skia';
+import { CartesianChart } from 'victory-native';
+import { Circle, Path, Skia } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -21,6 +21,7 @@ import Animated, {
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { ChartCrosshair } from '@/components/charts/base';
 import { CHART_CONFIG } from '@/constants';
+import { quadraticTrend, loessSmooth } from '@/lib/utils/smoothing';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
 import { formatShortDate } from '@/lib';
 
@@ -83,6 +84,23 @@ export function PerformanceChart({
       direction: p.direction,
     }));
   }, [performances, bestActivityId]);
+
+  // Compute smooth trend line: quadratic for sparse, LOESS for dense
+  const trendPoints = useMemo(() => {
+    if (chartData.length < 2) return [];
+    const xs = chartData.map((d) => d.x);
+    const ys = chartData.map((d) => d.speed);
+    const n = chartData.length;
+
+    let trend: { x: number; y: number }[];
+    if (n < 15) {
+      trend = quadraticTrend(xs, ys, Math.max(40, n * 8));
+    } else {
+      const span = Math.max(0.5, Math.min(0.75, 20 / n));
+      trend = loessSmooth(xs, ys, span, Math.min(200, Math.max(60, n * 3)));
+    }
+    return trend;
+  }, [chartData]);
 
   // Calculate chart width
   const chartWidth = useMemo(() => {
@@ -275,20 +293,49 @@ export function PerformanceChart({
                   pointXCoordsShared.value = newCoords;
                 }
 
+                // Build LOESS trend path mapped to chart coordinates
+                const trendPath = (() => {
+                  if (trendPoints.length < 2) return null;
+                  const xMin = 0;
+                  const xMax = chartData.length - 1;
+                  const xRange = xMax - xMin || 1;
+                  const yRange = maxSpeed - minSpeed || 1;
+                  const chartW = chartBounds.right - chartBounds.left;
+                  const chartH = chartBounds.bottom - chartBounds.top;
+
+                  const path = Skia.Path.Make();
+                  for (let i = 0; i < trendPoints.length; i++) {
+                    const px = chartBounds.left + ((trendPoints[i].x - xMin) / xRange) * chartW;
+                    const py = chartBounds.top + ((maxSpeed - trendPoints[i].y) / yRange) * chartH;
+                    if (i === 0) path.moveTo(px, py);
+                    else path.lineTo(px, py);
+                  }
+                  return path;
+                })();
+
                 return (
                   <>
-                    <Line
-                      points={points.speed}
-                      color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
-                      strokeWidth={2}
-                      curveType="monotoneX"
-                    />
-                    <Line
-                      points={points.speed}
-                      color={isDark ? '#444' : '#DDD'}
-                      strokeWidth={1}
-                      curveType="monotoneX"
-                    />
+                    {trendPath && (
+                      <>
+                        <Path
+                          path={trendPath}
+                          color={isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.12)'}
+                          strokeWidth={3}
+                          style="stroke"
+                          strokeCap="round"
+                          strokeJoin="round"
+                        />
+                        <Path
+                          path={trendPath}
+                          color={isDark ? colors.primary : colors.primary}
+                          strokeWidth={2}
+                          style="stroke"
+                          strokeCap="round"
+                          strokeJoin="round"
+                          opacity={0.6}
+                        />
+                      </>
+                    )}
                     {points.speed.map((point, idx) => {
                       if (point.x == null || point.y == null) return null;
                       const d = chartData[idx];
