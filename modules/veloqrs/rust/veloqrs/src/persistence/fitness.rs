@@ -469,6 +469,85 @@ impl PersistentRouteEngine {
         self.invalidate_perf_cache();
     }
 
+    /// Backfill NULL lap_time/lap_pace in section_activities from available time streams.
+    /// Called after sync when new time streams may have been loaded.
+    /// This fixes orphaned rows from migration or activities that were synced after section detection.
+    pub fn backfill_section_performance_cache(&mut self) {
+        let null_portions: Vec<(String, String, u32, u32, f64)> = match self.db.prepare(
+            "SELECT section_id, activity_id, start_index, end_index, distance_meters
+             FROM section_activities
+             WHERE lap_time IS NULL AND excluded = 0"
+        ) {
+            Ok(mut stmt) => stmt
+                .query_map([], |row| {
+                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+                })
+                .ok()
+                .map(|rows| rows.filter_map(|r| r.ok()).collect())
+                .unwrap_or_default(),
+            Err(_) => return,
+        };
+
+        if null_portions.is_empty() {
+            return;
+        }
+
+        log::info!(
+            "tracematch: [Backfill] Found {} section_activities with NULL lap_time, attempting backfill",
+            null_portions.len()
+        );
+
+        // Load time streams from DB for activities that need backfill
+        let activity_ids: std::collections::HashSet<String> = null_portions
+            .iter()
+            .map(|(_, aid, _, _, _)| aid.clone())
+            .collect();
+
+        let mut db_time_streams: HashMap<String, Vec<u32>> = HashMap::new();
+        for activity_id in &activity_ids {
+            if let Some(ts) = self.time_streams.get(activity_id) {
+                db_time_streams.insert(activity_id.clone(), ts.clone());
+            } else if let Ok(stream) = self.db.query_row(
+                "SELECT times FROM time_streams WHERE activity_id = ?",
+                params![activity_id],
+                |row| {
+                    let bytes: Vec<u8> = row.get(0)?;
+                    rmp_serde::from_slice::<Vec<u32>>(&bytes)
+                        .map_err(|_| rusqlite::Error::InvalidQuery)
+                },
+            ) {
+                db_time_streams.insert(activity_id.clone(), stream);
+            }
+        }
+
+        let mut populated = 0u32;
+        for (section_id, activity_id, start_idx, end_idx, distance) in &null_portions {
+            if let Some(times) = db_time_streams.get(activity_id) {
+                let si = *start_idx as usize;
+                let ei = *end_idx as usize;
+                if si < times.len() && ei < times.len() {
+                    let lap_time = (times[ei] as f64 - times[si] as f64).abs();
+                    if lap_time > 0.0 {
+                        let lap_pace = distance / lap_time;
+                        let _ = self.db.execute(
+                            "UPDATE section_activities SET lap_time = ?, lap_pace = ?
+                             WHERE section_id = ? AND activity_id = ? AND start_index = ?",
+                            params![lap_time, lap_pace, section_id, activity_id, start_idx],
+                        );
+                        populated += 1;
+                    }
+                }
+            }
+        }
+
+        if populated > 0 {
+            log::info!(
+                "tracematch: [Backfill] Populated {}/{} NULL lap_time entries",
+                populated, null_portions.len()
+            );
+        }
+    }
+
     /// Get section performances with accurate time calculations.
     /// Uses time streams to calculate actual traversal times.
     /// Auto-loads time streams from SQLite if not in memory.
@@ -624,11 +703,33 @@ impl PersistentRouteEngine {
             }
         }
 
+        // Pre-load activity metadata from DB for activities not in memory
+        // This handles activities outside the current sync range that still have section_activities rows
+        let mut db_metrics: HashMap<String, (String, i64)> = HashMap::new();
+        for activity_id in portions_by_activity.keys() {
+            if !self.activity_metrics.contains_key(activity_id) {
+                if let Ok((name, date)) = self.db.query_row(
+                    "SELECT name, date FROM activity_metrics WHERE activity_id = ?",
+                    params![activity_id],
+                    |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+                ) {
+                    db_metrics.insert(activity_id.clone(), (name, date));
+                }
+            }
+        }
+
         // Build performance records
         let mut records: Vec<SectionPerformanceRecord> = portions_by_activity
             .iter()
             .filter_map(|(activity_id, portions)| {
-                let metrics = self.activity_metrics.get(activity_id)?;
+                // Get activity name and date from in-memory cache or DB fallback
+                let (activity_name, activity_date) = if let Some(m) = self.activity_metrics.get(activity_id) {
+                    (m.name.clone(), m.date)
+                } else if let Some((name, date)) = db_metrics.get(activity_id) {
+                    (name.clone(), *date)
+                } else {
+                    return None;
+                };
 
                 let laps: Vec<SectionLap> = portions
                     .iter()
@@ -706,8 +807,8 @@ impl PersistentRouteEngine {
 
                 Some(SectionPerformanceRecord {
                     activity_id: activity_id.to_string(),
-                    activity_name: metrics.name.clone(),
-                    activity_date: metrics.date,
+                    activity_name: activity_name.clone(),
+                    activity_date,
                     laps,
                     lap_count,
                     best_time,

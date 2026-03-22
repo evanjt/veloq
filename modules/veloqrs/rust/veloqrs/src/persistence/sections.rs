@@ -39,14 +39,16 @@ impl PersistentRouteEngine {
 
         // Load full activity portions from junction table (includes direction, indices, distance)
         // After cross-sport merge, sections can have activities from multiple sport types
-        let section_portions: HashMap<String, Vec<SectionPortion>> = {
+        // Also track which portions have valid performance data for accurate visit counts
+        let (section_portions, section_valid_counts): (HashMap<String, Vec<SectionPortion>>, HashMap<String, u32>) = {
             let mut stmt = self.db.prepare(
-                "SELECT sa.section_id, sa.activity_id, sa.direction, sa.start_index, sa.end_index, sa.distance_meters
+                "SELECT sa.section_id, sa.activity_id, sa.direction, sa.start_index, sa.end_index, sa.distance_meters, sa.lap_time
                  FROM section_activities sa
                  WHERE sa.excluded = 0
                  ORDER BY sa.section_id, sa.start_index"
             )?;
             let mut map: HashMap<String, Vec<SectionPortion>> = HashMap::new();
+            let mut valid_counts: HashMap<String, u32> = HashMap::new();
             let rows = stmt.query_map([], |row| {
                 Ok((
                     row.get::<_, String>(0)?,  // section_id
@@ -56,13 +58,18 @@ impl PersistentRouteEngine {
                         start_index: row.get(3)?,
                         end_index: row.get(4)?,
                         distance_meters: row.get(5)?,
-                    }
+                    },
+                    row.get::<_, Option<f64>>(6)?,  // lap_time
                 ))
             })?;
             for row in rows.flatten() {
-                map.entry(row.0).or_default().push(row.1);
+                let has_valid_perf = row.2.is_some();
+                map.entry(row.0.clone()).or_default().push(row.1);
+                if has_valid_perf {
+                    *valid_counts.entry(row.0).or_insert(0) += 1;
+                }
             }
-            map
+            (map, valid_counts)
         };
 
         // Scope the statement to release the borrow before migrate_section_names
@@ -97,7 +104,8 @@ impl PersistentRouteEngine {
                         .collect::<std::collections::HashSet<_>>()
                         .into_iter()
                         .collect();
-                    let visit_count = portions.len() as u32;
+                    let visit_count = section_valid_counts.get(&id).copied()
+                        .unwrap_or(portions.len() as u32);
 
                     Ok(FrequentSection {
                         id,
@@ -149,6 +157,10 @@ impl PersistentRouteEngine {
 
         // Migration: Strip sport prefixes from auto-generated names ("Walk Section 1" → "Section 1")
         self.migrate_strip_sport_prefixes()?;
+
+        // Backfill any NULL lap_time/lap_pace from available time streams
+        // Handles migration edge cases and activities synced after section detection
+        self.backfill_section_performance_cache();
 
         self.sections_dirty = false;
         Ok(())
@@ -468,11 +480,11 @@ impl PersistentRouteEngine {
             .and_then(|j| serde_json::from_str(&j).ok())
             .unwrap_or_default();
 
-        // Count total traversals (laps), not unique activities
+        // Count total traversals (laps) with valid performance data
         let visit_count: u32 = self.db
             .query_row(
                 "SELECT COUNT(*) FROM section_activities sa
-                 WHERE sa.section_id = ? AND sa.excluded = 0",
+                 WHERE sa.section_id = ? AND sa.excluded = 0 AND sa.lap_time IS NOT NULL",
                 params![section_id],
                 |row| row.get(0),
             )
