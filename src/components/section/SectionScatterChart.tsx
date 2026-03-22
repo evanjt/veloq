@@ -28,7 +28,7 @@ import {
   formatPerformanceDelta,
 } from '@/lib';
 import { CHART_CONFIG } from '@/constants';
-import { quadraticTrend, loessSmooth } from '@/lib/utils/smoothing';
+import { loessSmooth } from '@/lib/utils/smoothing';
 import { colors, darkColors } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type { DirectionBestRecord, DirectionSummaryStats } from '@/components/routes/performance';
@@ -190,25 +190,16 @@ export function SectionScatterChart({
     };
   }, [chartData]);
 
-  // Compute trend lines: quadratic for sparse data, LOESS for dense data
-  // Quadratic: clean global arc for few points (can't capture seasons)
-  // LOESS with high span: captures seasonal variation without local wobble
+  // Compute LOESS trend lines for any number of points (≥2)
   const { forwardTrendPath, reverseTrendPath } = useMemo(() => {
     const buildTrendPath = (points: (PerformanceDataPoint & { x: number })[]) => {
-      if (points.length < 3) return null;
+      if (points.length < 2) return null;
       const xs = points.map((p) => p.x);
       const ys = points.map((p) => p.speed);
+      const n = points.length;
 
-      let trend: { x: number; y: number }[];
-      if (points.length < 15) {
-        // Sparse: quadratic polynomial — smooth global arc
-        trend = quadraticTrend(xs, ys, Math.min(100, Math.max(40, points.length * 3)));
-      } else {
-        // Dense: LOESS with high span — captures seasons without wobble
-        // Span floor 0.5 = at least half the data contributes to each point
-        const span = Math.max(0.5, Math.min(0.75, 20 / points.length));
-        trend = loessSmooth(xs, ys, span, Math.min(200, Math.max(60, points.length * 3)));
-      }
+      const span = n <= 4 ? 1.0 : n <= 10 ? 0.8 : Math.max(0.4, Math.min(0.7, 15 / n));
+      const trend = loessSmooth(xs, ys, span, Math.max(40, n * 8));
       if (trend.length < 2) return null;
 
       // Clamp to data range to prevent edge extrapolation
@@ -619,7 +610,7 @@ export function SectionScatterChart({
                           cy={point.y}
                           r={4}
                           color={dotColor}
-                          opacity={0.4}
+                          opacity={0.7}
                         />
                       );
                     })}
