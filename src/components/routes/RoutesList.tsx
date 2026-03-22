@@ -214,10 +214,9 @@ export function RoutesList({
 
   const renderHeader = () => (
     <View>
-      {/* Discovered routes during processing - show current activity being checked */}
+      {/* Discovered routes during processing */}
       {showActivityList && (
         <View style={styles.discoveredSection}>
-          {/* Current activity - fixed height to prevent jumps */}
           <View style={[styles.currentActivity, isDark && styles.currentActivityDark]}>
             <MaterialCommunityIcons name="magnify" size={14} color={colors.primary} />
             <Text
@@ -225,14 +224,10 @@ export function RoutesList({
               numberOfLines={1}
             >
               {progress.message
-                ? (t('routes.checking' as never, {
-                    name: progress.message,
-                  }) as string)
+                ? (t('routes.checking' as never, { name: progress.message }) as string)
                 : (t('routes.waiting' as never) as string)}
             </Text>
           </View>
-
-          {/* Discovered routes list */}
           <DiscoveredRoutesList
             routes={routes}
             isDark={isDark}
@@ -241,82 +236,12 @@ export function RoutesList({
         </View>
       )}
 
-      {/* Cache scope notice - show when idle */}
+      {/* Cache scope notice */}
       {!showProcessing && isReady && processedCount > 0 && (
-        <CacheScopeNotice
-          processedCount={processedCount}
-          groupCount={groups.length} // Only show groups with 2+ activities (actual routes)
-        />
+        <CacheScopeNotice processedCount={processedCount} groupCount={groups.length} />
       )}
 
-      {/* Search bar */}
-      {!showProcessing && groups.length > 0 && (
-        <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>
-          <MaterialCommunityIcons
-            name="magnify"
-            size={18}
-            color={isDark ? darkColors.textDisabled : colors.textDisabled}
-          />
-          <TextInput
-            style={[styles.searchInput, isDark && styles.searchInputDark]}
-            placeholder={t('routes.searchRoutes' as never) as string}
-            placeholderTextColor={isDark ? darkColors.textDisabled : colors.textDisabled}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-            autoCorrect={false}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
-              <MaterialCommunityIcons
-                name="close-circle"
-                size={16}
-                color={isDark ? darkColors.textDisabled : colors.textDisabled}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {/* Sport type filter chips */}
-      {availableSportTypes.length > 1 && (
-        <View style={styles.sportFilterRow}>
-          {availableSportTypes.map((st) => {
-            const isActive = selectedSportFilter === st;
-            const sportColor = getActivityColor(st as any);
-            return (
-              <TouchableOpacity
-                key={st}
-                style={[
-                  styles.sportFilterChip,
-                  isDark && styles.sportFilterChipDark,
-                  isActive && { backgroundColor: sportColor + '20', borderColor: sportColor },
-                ]}
-                onPress={() => setSelectedSportFilter(isActive ? null : st)}
-              >
-                <MaterialCommunityIcons
-                  name={getActivityIcon(st)}
-                  size={14}
-                  color={
-                    isActive ? sportColor : isDark ? darkColors.textSecondary : colors.textSecondary
-                  }
-                />
-                <Text
-                  style={[
-                    styles.sportFilterLabel,
-                    isDark && styles.textMuted,
-                    isActive && { color: sportColor },
-                  ]}
-                >
-                  {st}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
-
-      {/* Timeline info notice - show when idle and no processing */}
+      {/* Timeline info notice */}
       {!showProcessing && isReady && (
         <View style={[styles.infoNotice, isDark && styles.infoNoticeDark]}>
           <MaterialCommunityIcons
@@ -416,37 +341,115 @@ export function RoutesList({
   };
 
   return (
-    <FlatList
-      testID="routes-list"
-      data={groups}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <RouteRow route={item as unknown as RouteGroup} navigable />}
-      ListHeaderComponent={renderHeader}
-      ListEmptyComponent={renderEmpty}
-      ListFooterComponent={renderFooter}
-      contentContainerStyle={groups.length === 0 ? styles.emptyList : styles.list}
-      showsVerticalScrollIndicator={false}
-      onEndReached={hasMore ? onLoadMore : undefined}
-      onEndReachedThreshold={0.5}
-      // Performance optimizations
-      removeClippedSubviews={Platform.OS === 'ios'}
-      maxToRenderPerBatch={10}
-      windowSize={5}
-      initialNumToRender={8}
-      refreshControl={
-        onRefresh ? (
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        ) : undefined
-      }
-    />
+    <View style={styles.outerContainer}>
+      {/* Search and sport filters — outside FlatList to prevent keyboard dismissal */}
+      {!showProcessing && allGroups.length > 0 && (
+        <View style={styles.filterHeader}>
+          <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>
+            <MaterialCommunityIcons
+              name="magnify"
+              size={18}
+              color={isDark ? darkColors.textDisabled : colors.textDisabled}
+            />
+            <TextInput
+              style={[styles.searchInput, isDark && styles.searchInputDark]}
+              placeholder={t('routes.searchRoutes' as never) as string}
+              placeholderTextColor={isDark ? darkColors.textDisabled : colors.textDisabled}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+              autoCorrect={false}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
+                <MaterialCommunityIcons
+                  name="close-circle"
+                  size={16}
+                  color={isDark ? darkColors.textDisabled : colors.textDisabled}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+          {availableSportTypes.length > 1 && (
+            <View style={styles.sportFilterRow}>
+              {availableSportTypes.map((st) => {
+                const isActive = selectedSportFilter === st;
+                const sportColor = getActivityColor(st as any);
+                return (
+                  <TouchableOpacity
+                    key={st}
+                    style={[
+                      styles.sportFilterChip,
+                      isDark && styles.sportFilterChipDark,
+                      isActive && { backgroundColor: sportColor + '20', borderColor: sportColor },
+                    ]}
+                    onPress={() => setSelectedSportFilter(isActive ? null : st)}
+                  >
+                    <MaterialCommunityIcons
+                      name={getActivityIcon(st)}
+                      size={14}
+                      color={
+                        isActive
+                          ? sportColor
+                          : isDark
+                            ? darkColors.textSecondary
+                            : colors.textSecondary
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.sportFilterLabel,
+                        isDark && styles.textMuted,
+                        isActive && { color: sportColor },
+                      ]}
+                    >
+                      {st}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      )}
+      <FlatList
+        testID="routes-list"
+        data={groups}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <RouteRow route={item as unknown as RouteGroup} navigable />}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
+        contentContainerStyle={groups.length === 0 ? styles.emptyList : styles.list}
+        showsVerticalScrollIndicator={false}
+        onEndReached={hasMore ? onLoadMore : undefined}
+        onEndReachedThreshold={0.5}
+        // Performance optimizations
+        removeClippedSubviews={Platform.OS === 'ios'}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        initialNumToRender={8}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          ) : undefined
+        }
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
+  filterHeader: {
+    marginBottom: spacing.sm,
+  },
   list: {
     paddingTop: spacing.md,
     paddingBottom: spacing.xxl,

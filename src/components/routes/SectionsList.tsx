@@ -466,82 +466,6 @@ export function SectionsList({
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <View style={[styles.infoNotice, isDark && styles.infoNoticeDark]}>
-        <MaterialCommunityIcons
-          name="information-outline"
-          size={14}
-          color={isDark ? darkColors.textDisabled : colors.textDisabled}
-        />
-        <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-          {t('routes.frequentSectionsInfo')}
-        </Text>
-      </View>
-
-      {/* Search bar */}
-      <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>
-        <MaterialCommunityIcons
-          name="magnify"
-          size={18}
-          color={isDark ? darkColors.textDisabled : colors.textDisabled}
-        />
-        <TextInput
-          style={[styles.searchInput, isDark && styles.searchInputDark]}
-          placeholder={t('routes.searchSections')}
-          placeholderTextColor={isDark ? darkColors.textDisabled : colors.textDisabled}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          returnKeyType="search"
-          autoCorrect={false}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
-            <MaterialCommunityIcons
-              name="close-circle"
-              size={16}
-              color={isDark ? darkColors.textDisabled : colors.textDisabled}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Sport type filter chips */}
-      {availableSportTypes.length > 1 && (
-        <View style={styles.sportFilterRow}>
-          {availableSportTypes.map((st) => {
-            const isActive = selectedSportFilter === st;
-            const sportColor = getActivityColor(st as any);
-            return (
-              <TouchableOpacity
-                key={st}
-                style={[
-                  styles.sportFilterChip,
-                  isDark && styles.sportFilterChipDark,
-                  isActive && { backgroundColor: sportColor + '20', borderColor: sportColor },
-                ]}
-                onPress={() => setSelectedSportFilter(isActive ? null : st)}
-              >
-                <MaterialCommunityIcons
-                  name={getActivityIcon(st)}
-                  size={14}
-                  color={
-                    isActive ? sportColor : isDark ? darkColors.textSecondary : colors.textSecondary
-                  }
-                />
-                <Text
-                  style={[
-                    styles.sportFilterLabel,
-                    isDark && styles.textMuted,
-                    isActive && { color: sportColor },
-                  ]}
-                >
-                  {st}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
-
       {/* Section type counts - clickable to hide/show types */}
       {(customCount > 0 || trueAutoCount > 0 || trueDisabledCount > 0) && (
         <View style={styles.sectionCounts}>
@@ -769,36 +693,117 @@ export function SectionsList({
   };
 
   return (
-    <FlatList
-      testID="sections-list"
-      data={regularSections}
-      keyExtractor={(item) => item.id}
-      renderItem={renderItem}
-      ListHeaderComponent={renderHeader}
-      ListEmptyComponent={renderEmpty}
-      ListFooterComponent={renderFooter}
-      contentContainerStyle={regularSections.length === 0 ? styles.emptyList : styles.list}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      onEndReached={hasMore ? onLoadMore : undefined}
-      onEndReachedThreshold={0.5}
-      // Performance optimizations
-      removeClippedSubviews={Platform.OS === 'ios'}
-      maxToRenderPerBatch={10}
-      windowSize={5}
-      initialNumToRender={8}
-    />
+    <View style={styles.outerContainer}>
+      {/* Search and sport filters — outside FlatList to prevent keyboard dismissal */}
+      <View style={styles.header}>
+        <View style={[styles.infoNotice, isDark && styles.infoNoticeDark]}>
+          <MaterialCommunityIcons
+            name="information-outline"
+            size={14}
+            color={isDark ? darkColors.textDisabled : colors.textDisabled}
+          />
+          <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+            {t('routes.frequentSectionsInfo')}
+          </Text>
+        </View>
+        <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>
+          <MaterialCommunityIcons
+            name="magnify"
+            size={18}
+            color={isDark ? darkColors.textDisabled : colors.textDisabled}
+          />
+          <TextInput
+            style={[styles.searchInput, isDark && styles.searchInputDark]}
+            placeholder={t('routes.searchSections')}
+            placeholderTextColor={isDark ? darkColors.textDisabled : colors.textDisabled}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
+              <MaterialCommunityIcons
+                name="close-circle"
+                size={16}
+                color={isDark ? darkColors.textDisabled : colors.textDisabled}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+        {availableSportTypes.length > 1 && (
+          <View style={styles.sportFilterRow}>
+            {availableSportTypes.map((st) => {
+              const isActive = selectedSportFilter === st;
+              const sportColor = getActivityColor(st as any);
+              return (
+                <TouchableOpacity
+                  key={st}
+                  style={[
+                    styles.sportFilterChip,
+                    isDark && styles.sportFilterChipDark,
+                    isActive && { backgroundColor: sportColor + '20', borderColor: sportColor },
+                  ]}
+                  onPress={() => setSelectedSportFilter(isActive ? null : st)}
+                >
+                  <MaterialCommunityIcons
+                    name={getActivityIcon(st)}
+                    size={14}
+                    color={
+                      isActive
+                        ? sportColor
+                        : isDark
+                          ? darkColors.textSecondary
+                          : colors.textSecondary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.sportFilterLabel,
+                      isDark && styles.textMuted,
+                      isActive && { color: sportColor },
+                    ]}
+                  >
+                    {st}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      <FlatList
+        testID="sections-list"
+        data={regularSections}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
+        contentContainerStyle={regularSections.length === 0 ? styles.emptyList : styles.list}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        onEndReached={hasMore ? onLoadMore : undefined}
+        onEndReachedThreshold={0.5}
+        removeClippedSubviews={Platform.OS === 'ios'}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        initialNumToRender={8}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
   list: {
-    paddingTop: spacing.md,
     paddingBottom: spacing.xxl,
   },
   emptyList: {
     flexGrow: 1,
-    paddingTop: spacing.md,
   },
   header: {
     marginBottom: spacing.sm,

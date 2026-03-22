@@ -447,22 +447,26 @@ export default function SectionDetailScreen() {
     );
   }, [section?.activityIds]);
 
-  // Compute available sport types for cross-sport sections
-  const availableSportTypes = useMemo(() => {
+  // Compute available sport types with activity counts for cross-sport sections
+  const sportTypeCounts = useMemo(() => {
     if (!section?.activityIds?.length) return [];
     const engine = getRouteEngine();
     if (!engine) return [];
     try {
       const metrics = engine.getActivityMetricsForIds(section.activityIds);
-      const types = new Set<string>();
+      const counts = new Map<string, number>();
       for (const m of metrics) {
-        if (m.sportType) types.add(m.sportType);
+        if (m.sportType) counts.set(m.sportType, (counts.get(m.sportType) ?? 0) + 1);
       }
-      return Array.from(types).sort();
+      return Array.from(counts.entries())
+        .map(([type, count]) => ({ type, count }))
+        .sort((a, b) => b.count - a.count);
     } catch {
-      return [section.sportType];
+      return [{ type: section.sportType, count: section.activityIds?.length ?? 0 }];
     }
   }, [section?.id, section?.sportType, section?.activityIds]);
+
+  const availableSportTypes = useMemo(() => sportTypeCounts.map((s) => s.type), [sportTypeCounts]);
 
   // Effective sport type: matches the visually-selected pill.
   // When selectedSportType is undefined (initial state), default to section's own sport type
@@ -712,9 +716,9 @@ export default function SectionDetailScreen() {
           />
 
           {/* Sport type pills for cross-sport sections */}
-          {availableSportTypes.length > 1 && (
+          {sportTypeCounts.length > 1 && (
             <View style={styles.sportTypePills}>
-              {availableSportTypes.map((st) => {
+              {sportTypeCounts.map(({ type: st, count }) => {
                 const isSelected =
                   selectedSportType === st || (!selectedSportType && st === section?.sportType);
                 const sportColor = getActivityColor(st as ActivityType);
@@ -748,7 +752,7 @@ export default function SectionDetailScreen() {
                         isDark && styles.sportPillTextDark,
                       ]}
                     >
-                      {t(`activityTypes.${st}`, st)}
+                      {t(`activityTypes.${st}`, st)} {count}
                     </Text>
                   </TouchableOpacity>
                 );
