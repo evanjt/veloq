@@ -190,7 +190,8 @@ export function SectionScatterChart({
     };
   }, [chartData]);
 
-  // Compute LOESS trend lines for any number of points (≥2)
+  // Compute trend lines: raw points for sparse data (Catmull-Rom handles smoothing),
+  // LOESS for dense data where statistical smoothing matters
   const { forwardTrendPath, reverseTrendPath } = useMemo(() => {
     const buildTrendPath = (points: (PerformanceDataPoint & { x: number })[]) => {
       if (points.length < 2) return null;
@@ -198,7 +199,13 @@ export function SectionScatterChart({
       const ys = points.map((p) => p.speed);
       const n = points.length;
 
-      const span = n <= 4 ? 1.0 : n <= 10 ? 0.8 : Math.max(0.4, Math.min(0.7, 15 / n));
+      // For sparse data, pass raw points — Catmull-Rom cubic path handles visual smoothing
+      if (n < 15) {
+        return [xs.map((x, i) => ({ x, y: ys[i] }))];
+      }
+
+      // Dense data: LOESS for statistical smoothing
+      const span = Math.max(0.4, Math.min(0.7, 15 / n));
       const trend = loessSmooth(xs, ys, span, 200);
       if (trend.length < 2) return null;
 
