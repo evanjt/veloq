@@ -17,6 +17,7 @@ import {
   useRoutesScreenData,
   useCustomSections,
   useInsights,
+  useUserLocation,
 } from '@/hooks';
 import { useRouteNameGeocoding } from '@/hooks/routes/useRouteNameGeocoding';
 import { useRouteSettings, useSyncDateRange, useDebugStore, useEngineStatus } from '@/providers';
@@ -37,6 +38,7 @@ export default function RoutesScreen() {
   const { isDark } = useTheme();
   const { tab } = useLocalSearchParams<{ tab?: string }>();
   const { insights, markAsSeen } = useInsights();
+  const { location: userLocation } = useUserLocation();
 
   // Check if route matching is enabled
   const routeSettings = useRouteSettings((s) => s.settings);
@@ -395,12 +397,14 @@ export default function RoutesScreen() {
             batchGroups={routesData?.groups ?? []}
             onLoadMore={loadMoreGroups}
             hasMore={hasMoreGroups}
+            userLocation={userLocation}
           />
           <SectionsList
             batchSections={routesData?.sections}
             onLoadMore={loadMoreSections}
             hasMore={hasMoreSections}
             totalSectionCount={totalSections}
+            userLocation={userLocation}
           />
           {debugEnabled ? <SyncDebugTab /> : null}
         </SwipeableTabs>

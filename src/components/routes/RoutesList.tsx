@@ -6,7 +6,7 @@
  * Full group data is only loaded on detail page.
  */
 
-import React, { useEffect, useRef, memo, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useRef, memo, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -26,11 +26,14 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { UI } from '@/lib/utils/constants';
 import { getActivityIcon, getActivityColor } from '@/lib';
+import { computeCenter, haversineDistance, type LatLng } from '@/lib/geo/distance';
 import { CacheScopeNotice } from './CacheScopeNotice';
 import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 import { toActivityType } from '@/types/routes';
+
+type SortOption = 'activities' | 'name' | 'nearby';
 
 interface RoutesListProps {
   /** Callback when list is pulled to refresh */
@@ -47,6 +50,8 @@ interface RoutesListProps {
   onLoadMore?: () => void;
   /** Whether more groups are available to load */
   hasMore?: boolean;
+  /** User's current location for "Nearby" sort */
+  userLocation?: LatLng | null;
 }
 
 // Memoized routes list - only updates when route count changes
@@ -126,6 +131,14 @@ function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteG
       lng: group.consensusPolyline[i + 1],
     });
   }
+  const center = group.bounds
+    ? computeCenter({
+        minLat: group.bounds.minLat,
+        maxLat: group.bounds.maxLat,
+        minLng: group.bounds.minLng,
+        maxLng: group.bounds.maxLng,
+      })
+    : undefined;
   return {
     id: group.groupId,
     name: group.customName || `${sportType} Route ${index + 1}`,
@@ -136,6 +149,7 @@ function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteG
     consensusPoints,
     distance: group.distanceMeters > 0 ? group.distanceMeters : undefined,
     sportTypes: (group as any).sportTypes ?? [sportType],
+    center,
   };
 }
 
@@ -147,11 +161,13 @@ export function RoutesList({
   batchGroups,
   onLoadMore,
   hasMore = false,
+  userLocation,
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortOption, setSortOption] = useState<SortOption>('activities');
 
   // Convert batch groups to RouteGroup format for RouteRow
   const allGroups = useMemo(() => {
@@ -171,9 +187,9 @@ export function RoutesList({
     return Array.from(types).sort();
   }, [allGroups]);
 
-  // Filter groups by sport type and search query
+  // Filter groups by sport type and search query, then sort
   const groups = useMemo(() => {
-    let filtered = allGroups;
+    let filtered = [...allGroups];
     if (selectedSportFilter) {
       filtered = filtered.filter((g) => {
         const sports = g.sportTypes ?? [g.type];
@@ -184,8 +200,19 @@ export function RoutesList({
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((g) => g.name?.toLowerCase().includes(query));
     }
+    // Apply sort
+    if (sortOption === 'name') {
+      filtered.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+    } else if (sortOption === 'nearby' && userLocation) {
+      filtered.sort((a, b) => {
+        const distA = a.center ? haversineDistance(userLocation, a.center) : Infinity;
+        const distB = b.center ? haversineDistance(userLocation, b.center) : Infinity;
+        return distA - distB;
+      });
+    }
+    // 'activities' is the default order from engine (activityCount DESC)
     return filtered;
-  }, [allGroups, selectedSportFilter, searchQuery]);
+  }, [allGroups, selectedSportFilter, searchQuery, sortOption, userLocation]);
 
   // Calculate processed count
   const processedCount = useMemo(
@@ -211,6 +238,25 @@ export function RoutesList({
   const routes = useMemo(() => {
     return [] as DiscoveredRouteInfo[];
   }, []);
+
+  const sortOptions: SortOption[] = useMemo(() => {
+    const opts: SortOption[] = ['activities', 'name'];
+    if (userLocation) opts.push('nearby');
+    return opts;
+  }, [userLocation]);
+
+  const sortLabelKeys: Record<SortOption, string> = {
+    activities: 'routes.sortActivities',
+    name: 'routes.sortNameAZ',
+    nearby: 'routes.sortNearby',
+  };
+
+  const handleCycleSort = useCallback(() => {
+    setSortOption((current) => {
+      const idx = sortOptions.indexOf(current);
+      return sortOptions[(idx + 1) % sortOptions.length];
+    });
+  }, [sortOptions]);
 
   const renderHeader = () => (
     <View>
@@ -410,6 +456,28 @@ export function RoutesList({
               })}
             </View>
           )}
+          {/* Sort control */}
+          {groups.length > 1 && (
+            <TouchableOpacity
+              style={[styles.sortControl, isDark && styles.sortControlDark]}
+              onPress={handleCycleSort}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="sort"
+                size={14}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
+              <Text style={[styles.sortText, isDark && styles.sortTextDark]}>
+                {t(sortLabelKeys[sortOption] as never)}
+              </Text>
+              <MaterialCommunityIcons
+                name="chevron-down"
+                size={14}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
         </View>
       )}
       <FlatList
@@ -500,6 +568,23 @@ const styles = StyleSheet.create({
   sportFilterLabel: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  sortControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    marginRight: spacing.md,
+  },
+  sortControlDark: {},
+  sortText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  sortTextDark: {
+    color: darkColors.textSecondary,
   },
   emptyList: {
     flexGrow: 1,

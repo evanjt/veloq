@@ -120,6 +120,9 @@ export { useActivityPatterns } from './home';
 // Insights hooks
 export { useInsights } from './insights';
 
+// Location hooks
+export { useUserLocation } from './useUserLocation';
+
 // Export hooks
 export { useGpxExport } from './export';
 export { useExportBackup, useImportBackup } from './export';

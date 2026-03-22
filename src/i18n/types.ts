@@ -752,9 +752,11 @@ export interface TranslationResource {
     searchRoutes: string;
     showHidden: string;
     showRemoved: string;
+    sortActivities: string;
     sortDistance: string;
     sortMostVisited: string;
     sortNameAZ: string;
+    sortNearby: string;
     reverse: string;
     partial: string;
     overlap: string;

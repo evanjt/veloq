@@ -37,6 +37,7 @@ import { debug, navigateTo, getActivityIcon, getActivityColor } from '@/lib';
 import type { UnifiedSection, FrequentSection } from '@/types';
 import type { SectionWithPolyline } from 'veloqrs';
 import { generateSectionName } from '@/hooks/routes/useUnifiedSections';
+import { computeCenter, haversineDistance, type LatLng } from '@/lib/geo/distance';
 
 const log = debug.create('SectionsList');
 
@@ -62,6 +63,8 @@ interface SectionsListProps {
   hasMore?: boolean;
   /** Total section count from engine (for accurate filter badge counts) */
   totalSectionCount?: number;
+  /** User's current location for "Nearby" sort */
+  userLocation?: LatLng | null;
 }
 
 type HiddenFilters = {
@@ -70,7 +73,7 @@ type HiddenFilters = {
   disabled: boolean;
 };
 
-type SortOption = 'visits' | 'distance' | 'name';
+type SortOption = 'visits' | 'distance' | 'name' | 'nearby';
 
 /**
  * Convert batch SectionWithPolyline to FrequentSection for useUnifiedSections.
@@ -82,6 +85,14 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
   for (let i = 0; i < s.polyline.length - 1; i += 2) {
     polyline.push({ lat: s.polyline[i], lng: s.polyline[i + 1] });
   }
+  const center = s.bounds
+    ? computeCenter({
+        minLat: s.bounds.minLat,
+        maxLat: s.bounds.maxLat,
+        minLng: s.bounds.minLng,
+        maxLng: s.bounds.maxLng,
+      })
+    : undefined;
   const section: FrequentSection = {
     id: s.id,
     sectionType: s.id.startsWith('custom_') ? 'custom' : 'auto',
@@ -96,6 +107,7 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
     name: s.name ?? undefined,
     createdAt: new Date().toISOString(),
     sportTypes: 'sportTypes' in s ? (s as any).sportTypes : undefined,
+    center,
   };
   // Generate display name using same logic as useFrequentSections
   if (!section.name) {
@@ -221,6 +233,7 @@ export function SectionsList({
   onLoadMore,
   hasMore = false,
   totalSectionCount,
+  userLocation,
 }: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -346,11 +359,17 @@ export function SectionsList({
       regular.sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
     } else if (sortOption === 'name') {
       regular.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+    } else if (sortOption === 'nearby' && userLocation) {
+      regular.sort((a, b) => {
+        const distA = a.center ? haversineDistance(userLocation, a.center) : Infinity;
+        const distB = b.center ? haversineDistance(userLocation, b.center) : Infinity;
+        return distA - distB;
+      });
     }
     // 'visits' is the default order from useUnifiedSections (visitCount DESC)
 
     return { regularSections: regular, potentialSections: potential };
-  }, [unifiedSections, hiddenFilters, searchQuery, sortOption, selectedSportFilter]);
+  }, [unifiedSections, hiddenFilters, searchQuery, sortOption, selectedSportFilter, userLocation]);
 
   // Toggle filter - pressing hides/shows that type
   const handleFilterPress = useCallback((filterType: keyof HiddenFilters) => {
@@ -450,11 +469,17 @@ export function SectionsList({
     );
   };
 
-  const sortOptions: SortOption[] = ['visits', 'distance', 'name'];
+  const sortOptions: SortOption[] = useMemo(() => {
+    const opts: SortOption[] = ['visits', 'distance', 'name'];
+    if (userLocation) opts.push('nearby');
+    return opts;
+  }, [userLocation]);
+
   const sortLabelKeys: Record<SortOption, string> = {
     visits: 'routes.sortMostVisited',
     distance: 'routes.sortDistance',
     name: 'routes.sortNameAZ',
+    nearby: 'routes.sortNearby',
   };
 
   const handleCycleSort = useCallback(() => {
@@ -462,7 +487,7 @@ export function SectionsList({
       const idx = sortOptions.indexOf(current);
       return sortOptions[(idx + 1) % sortOptions.length];
     });
-  }, []);
+  }, [sortOptions]);
 
   const renderHeader = () => (
     <View style={styles.header}>

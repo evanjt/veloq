@@ -152,6 +152,8 @@ export interface RouteGroup {
   sportTypes?: string[];
   /** Distance in meters (from representative activity) */
   distance?: number;
+  /** Pre-computed center point for proximity sorting */
+  center?: { lat: number; lng: number };
   /** Average match quality for grouped activities (0-100) - optional for engine groups */
   averageMatchQuality?: number;
   /** Best moving time in seconds (fastest completion) */
@@ -409,6 +411,8 @@ export interface Section {
   activityTraces?: Record<string, RoutePoint[]>;
   /** All sport types present in this section's activities */
   sportTypes?: string[];
+  /** Pre-computed center point for proximity sorting */
+  center?: { lat: number; lng: number };
 }
 
 /**
