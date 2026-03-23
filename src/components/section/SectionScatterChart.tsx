@@ -28,7 +28,7 @@ import {
   formatPerformanceDelta,
 } from '@/lib';
 import { CHART_CONFIG } from '@/constants';
-import { loessSmooth } from '@/lib/utils/smoothing';
+import { gaussianSmooth } from '@/lib/utils/smoothing';
 import { colors, darkColors } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type { DirectionBestRecord, DirectionSummaryStats } from '@/components/routes/performance';
@@ -190,16 +190,14 @@ export function SectionScatterChart({
     };
   }, [chartData]);
 
-  // Compute LOESS trend lines for all point counts (≥2)
+  // Compute Gaussian kernel trend lines for all point counts (≥2)
   const { forwardTrendPath, reverseTrendPath } = useMemo(() => {
     const buildTrendPath = (points: (PerformanceDataPoint & { x: number })[]) => {
       if (points.length < 2) return null;
       const xs = points.map((p) => p.x);
       const ys = points.map((p) => p.speed);
-      const n = points.length;
 
-      const span = n <= 4 ? 1.0 : n <= 10 ? 0.8 : Math.max(0.4, Math.min(0.7, 15 / n));
-      const trend = loessSmooth(xs, ys, span, 200);
+      const trend = gaussianSmooth(xs, ys, 200);
       if (trend.length < 2) return null;
 
       // Clamp to data range to prevent edge extrapolation

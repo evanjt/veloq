@@ -21,7 +21,7 @@ import Animated, {
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { ChartCrosshair } from '@/components/charts/base';
 import { CHART_CONFIG } from '@/constants';
-import { loessSmooth } from '@/lib/utils/smoothing';
+import { gaussianSmooth } from '@/lib/utils/smoothing';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
 import { formatShortDate } from '@/lib';
 
@@ -85,15 +85,12 @@ export function PerformanceChart({
     }));
   }, [performances, bestActivityId]);
 
-  // Compute LOESS trend line for all point counts
+  // Compute Gaussian kernel trend line for all point counts
   const trendPoints = useMemo(() => {
     if (chartData.length < 2) return [];
     const xs = chartData.map((d) => d.x);
     const ys = chartData.map((d) => d.speed);
-    const n = chartData.length;
-
-    const span = n <= 4 ? 1.0 : n <= 10 ? 0.8 : Math.max(0.4, Math.min(0.7, 15 / n));
-    return loessSmooth(xs, ys, span, 200);
+    return gaussianSmooth(xs, ys, 200);
   }, [chartData]);
 
   // Calculate chart width

@@ -254,6 +254,86 @@ export function quadraticTrend(
 }
 
 /**
+ * Gaussian kernel smoother with local-linear boundary correction.
+ * Produces a smooth trend line for any number of points (≥2), handling
+ * irregular time spacing naturally. No parameter tuning needed.
+ *
+ * Unlike LOESS (tricube kernel with hard cutoffs), Gaussian tails never
+ * reach zero — every observation always contributes, preventing flat
+ * regions and sudden transitions with sparse data.
+ *
+ * Bandwidth adapts automatically: h = timeSpan / sqrt(n).
+ * Local-linear fit at each evaluation point corrects boundary bias
+ * so the recent trend isn't pulled toward the historical mean.
+ *
+ * @param xs - X values (e.g., normalized time positions)
+ * @param ys - Y values (e.g., speed in m/s)
+ * @param outputCount - Number of evenly-spaced output points (default: 200)
+ * @returns Array of {x, y} points for the smooth curve
+ */
+export function gaussianSmooth(
+  xs: number[],
+  ys: number[],
+  outputCount: number = 200
+): { x: number; y: number }[] {
+  const n = xs.length;
+  if (n < 2 || n !== ys.length) return [];
+  if (n === 2)
+    return [
+      { x: xs[0], y: ys[0] },
+      { x: xs[1], y: ys[1] },
+    ];
+
+  const xMin = Math.min(...xs);
+  const xMax = Math.max(...xs);
+  const span = xMax - xMin;
+  if (span === 0) {
+    const meanY = ys.reduce((a, b) => a + b, 0) / n;
+    return [{ x: xMin, y: meanY }];
+  }
+
+  // Adaptive bandwidth: wider for sparse data, narrower for dense
+  const h = span / Math.max(3, Math.sqrt(n));
+
+  const result: { x: number; y: number }[] = [];
+
+  for (let i = 0; i < outputCount; i++) {
+    const x0 = xMin + (i / (outputCount - 1)) * span;
+
+    // Gaussian weights for all observations
+    let sumW = 0,
+      sumWx = 0,
+      sumWy = 0,
+      sumWxx = 0,
+      sumWxy = 0;
+    for (let j = 0; j < n; j++) {
+      const dx = (xs[j] - x0) / h;
+      const w = Math.exp(-0.5 * dx * dx);
+      sumW += w;
+      sumWx += w * xs[j];
+      sumWy += w * ys[j];
+      sumWxx += w * xs[j] * xs[j];
+      sumWxy += w * xs[j] * ys[j];
+    }
+
+    // Local-linear fit: y = a + b*x (corrects boundary bias)
+    const denom = sumW * sumWxx - sumWx * sumWx;
+    let y0: number;
+    if (Math.abs(denom) < 1e-12) {
+      y0 = sumW > 0 ? sumWy / sumW : 0;
+    } else {
+      const b = (sumW * sumWxy - sumWx * sumWy) / denom;
+      const a = (sumWy - b * sumWx) / sumW;
+      y0 = a + b * x0;
+    }
+
+    result.push({ x: x0, y: y0 });
+  }
+
+  return result;
+}
+
+/**
  * Get a human-readable description of the smoothing window
  */
 export function getSmoothingDescription(preference: SmoothingWindow, timeRange: TimeRange): string {
