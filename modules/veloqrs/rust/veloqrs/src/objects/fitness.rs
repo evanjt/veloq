@@ -77,4 +77,86 @@ impl FitnessManager {
             crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics)
         })
     }
+
+    /// Batch insights data: combines period stats, trends, patterns, and recent PRs
+    /// in a single engine lock. Reduces Insights hook FFI calls from 13-16 to 1.
+    fn get_insights_data(
+        &self,
+        current_start: i64,
+        current_end: i64,
+        prev_start: i64,
+        prev_end: i64,
+        chronic_start: i64,
+        today_start: i64,
+    ) -> Result<crate::FfiInsightsData, VeloqError> {
+        with_engine(|e| {
+            let now_ts = current_end;
+
+            // Period stats (4 queries, all in one engine lock)
+            let current_week = e.get_period_stats(current_start, current_end);
+            let previous_week = e.get_period_stats(prev_start, prev_end);
+            let chronic_period = e.get_period_stats(chronic_start, prev_start);
+            let today_period = e.get_period_stats(today_start, now_ts);
+
+            // Trends
+            let ftp_trend = e.get_ftp_trend();
+            let run_pace_trend = e.get_pace_trend("Run");
+
+            // Activity patterns
+            let all_patterns =
+                crate::patterns::compute_activity_patterns(&e.db, &e.activity_metrics);
+            let today_pattern =
+                crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics);
+
+            // Recent PRs — loop stays in Rust, never crosses FFI
+            let seven_days_ago = now_ts - 7 * 86400;
+            let mut recent_prs = Vec::new();
+            let ride_summaries = e.get_section_summaries_for_sport("Ride");
+            let run_summaries = e.get_section_summaries_for_sport("Run");
+            let mut all_summaries: Vec<_> = ride_summaries
+                .into_iter()
+                .chain(run_summaries)
+                .filter(|s| s.visit_count >= 3)
+                .collect();
+            all_summaries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
+
+            for s in all_summaries.iter().take(10) {
+                if recent_prs.len() >= 3 {
+                    break;
+                }
+                let perf = e.get_section_performances_filtered(&s.id, None);
+                let best = perf
+                    .best_record
+                    .as_ref()
+                    .or(perf.best_forward_record.as_ref());
+                if let Some(record) = best {
+                    if record.activity_date >= seven_days_ago {
+                        let days_ago =
+                            ((now_ts - record.activity_date) / 86400).max(0) as u32;
+                        recent_prs.push(crate::FfiRecentPR {
+                            section_id: s.id.clone(),
+                            section_name: s
+                                .name
+                                .clone()
+                                .unwrap_or_else(|| "Section".to_string()),
+                            best_time: record.best_time,
+                            days_ago,
+                        });
+                    }
+                }
+            }
+
+            crate::FfiInsightsData {
+                current_week,
+                previous_week,
+                chronic_period,
+                today_period,
+                ftp_trend,
+                run_pace_trend,
+                all_patterns,
+                today_pattern,
+                recent_prs,
+            }
+        })
+    }
 }

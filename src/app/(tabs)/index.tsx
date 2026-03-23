@@ -22,7 +22,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useInfiniteActivities, useTheme, useSummaryCardData, useInsights } from '@/hooks';
 import type { Activity } from '@/types';
 import { useDashboardPreferences, useMapPreferences } from '@/providers';
-import { ActivityCard, notifyMapScroll } from '@/components/activity';
+import { ActivityCard } from '@/components/activity';
 import { RecordFAB } from '@/components/recording/RecordFAB';
 import {
   ActivityCardSkeleton,
@@ -203,24 +203,6 @@ export default function FeedScreen() {
       />
     ),
     [isFeedFocused]
-  );
-
-  // Notify map previews when items become visible for lazy loading
-  const handleViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
-      const maxIndex = Math.max(...viewableItems.map((item) => item.index ?? 0));
-      if (maxIndex >= 0) {
-        notifyMapScroll(maxIndex);
-      }
-    },
-    []
-  );
-
-  const viewabilityConfig = useMemo(
-    () => ({
-      itemVisiblePercentThreshold: 20,
-    }),
-    []
   );
 
   const navigateToSettings = useCallback(() => {
@@ -459,8 +441,6 @@ export default function FeedScreen() {
           maxToRenderPerBatch={Platform.OS === 'ios' ? 15 : 10}
           windowSize={Platform.OS === 'ios' ? 21 : 11}
           initialNumToRender={5}
-          onViewableItemsChanged={handleViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
         />
 
         {/* Hidden WebView for generating 3D terrain snapshots */}

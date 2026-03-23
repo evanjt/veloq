@@ -25,6 +25,8 @@ import type {
   FfiPeriodStats,
   FfiFtpTrend,
   FfiPaceTrend,
+  FfiInsightsData,
+  FfiRecentPr,
   FfiRoutesScreenData,
   FfiPotentialSection,
   DownloadProgressResult,
@@ -603,6 +605,29 @@ class RouteEngineClient {
       this.engine
         .fitness()
         .getSummaryCardData(BigInt(currentStart), BigInt(currentEnd), BigInt(prevStart), BigInt(prevEnd)),
+    );
+  }
+
+  getInsightsData(
+    currentStart: number,
+    currentEnd: number,
+    prevStart: number,
+    prevEnd: number,
+    chronicStart: number,
+    todayStart: number,
+  ): FfiInsightsData | undefined {
+    if (!this.ready) return undefined;
+    return this.timed('getInsightsData', () =>
+      this.engine
+        .fitness()
+        .getInsightsData(
+          BigInt(currentStart),
+          BigInt(currentEnd),
+          BigInt(prevStart),
+          BigInt(prevEnd),
+          BigInt(chronicStart),
+          BigInt(todayStart),
+        ),
     );
   }
 

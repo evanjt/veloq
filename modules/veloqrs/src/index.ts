@@ -59,6 +59,8 @@ import {
   type FfiPeriodStats,
   type FfiFtpTrend,
   type FfiPaceTrend,
+  type FfiInsightsData,
+  type FfiRecentPr,
   type FfiRoutesScreenData,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
@@ -91,6 +93,9 @@ export type {
 export type PeriodStats = FfiPeriodStats;
 export type FtpTrend = FfiFtpTrend;
 export type PaceTrend = FfiPaceTrend;
+// Insights batch types
+export type InsightsData = FfiInsightsData;
+export type RecentPR = FfiRecentPr;
 // Routes screen batch types
 export type RoutesScreenData = FfiRoutesScreenData;
 export type GroupWithPolyline = FfiGroupWithPolyline;

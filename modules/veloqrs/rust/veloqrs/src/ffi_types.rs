@@ -1171,6 +1171,43 @@ pub struct FfiPatternSection {
 }
 
 // ============================================================================
+// Insights Batch Types
+// ============================================================================
+
+/// A recent section PR detected in the last 7 days.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiRecentPR {
+    pub section_id: String,
+    pub section_name: String,
+    pub best_time: f64,
+    pub days_ago: u32,
+}
+
+/// Batch insights data: combines period stats, trends, patterns, and recent PRs.
+/// Reduces Insights hook FFI calls from 13-16 to 1.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiInsightsData {
+    /// Current week stats
+    pub current_week: FfiPeriodStats,
+    /// Previous week stats
+    pub previous_week: FfiPeriodStats,
+    /// 4-week chronic period stats (raw total, not averaged)
+    pub chronic_period: FfiPeriodStats,
+    /// Today's stats (for rest day detection)
+    pub today_period: FfiPeriodStats,
+    /// FTP trend
+    pub ftp_trend: FfiFtpTrend,
+    /// Running pace trend
+    pub run_pace_trend: FfiPaceTrend,
+    /// All activity patterns from k-means clustering
+    pub all_patterns: Vec<FfiActivityPattern>,
+    /// Today's matching pattern (if any, confidence >= 0.6)
+    pub today_pattern: Option<FfiActivityPattern>,
+    /// Up to 3 recent section PRs (best times set in last 7 days)
+    pub recent_prs: Vec<FfiRecentPR>,
+}
+
+// ============================================================================
 // Helper functions
 // ============================================================================
 

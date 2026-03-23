@@ -1,10 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { View, Image, StyleSheet, ActivityIndicator, Platform } from 'react-native';
-
-// Exported for compatibility but no longer used for scroll tracking
-export function notifyMapScroll(_visibleIndex: number) {
-  // No-op - using simple staggered loading instead
-}
 import {
   MapView,
   Camera,
@@ -13,12 +8,12 @@ import {
   MarkerView,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { convertLatLngTuples, getActivityColor, getMapLibreBounds } from '@/lib';
+import { getActivityColor, getMapLibreBounds } from '@/lib';
 import { colors } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { getMapStyle } from '@/components/maps';
 import { StaticCompassArrow } from '@/components/ui';
-import { useActivityStreams } from '@/hooks';
+import { useMapPreviewCoordinates } from '@/hooks/activities/useMapPreviewCoordinates';
 import {
   hasTerrainPreview,
   getTerrainPreviewUri,
@@ -42,7 +37,7 @@ interface ActivityMapPreviewProps {
   screenFocused?: boolean;
 }
 
-export function ActivityMapPreview({
+export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   activity,
   height = 160,
   index = 0,
@@ -99,8 +94,8 @@ export function ActivityMapPreview({
   const [showMapContent, setShowMapContent] = useState(false);
 
   useEffect(() => {
-    // First map gets 100ms grace period, subsequent maps get index * 150ms stagger
-    const delay = index === 0 ? 100 : index * 150;
+    // Short stagger to prevent tile request floods; capped at 250ms for all cards
+    const delay = Math.min(index * 50, 250);
     const timeout = setTimeout(() => setShowMapContent(true), delay);
     return () => clearTimeout(timeout);
   }, [index]);
@@ -133,20 +128,12 @@ export function ActivityMapPreview({
   // Check if activity has GPS data available
   const hasGpsData = activity.stream_types?.includes('latlng');
 
-  // Only fetch streams if GPS data is available
-  const { data: streams, isLoading } = useActivityStreams(hasGpsData ? activity.id : '');
-
-  const coordinates = useMemo(() => {
-    if (streams?.latlng && streams.latlng.length > 0) {
-      return convertLatLngTuples(streams.latlng);
-    }
-    return [];
-  }, [streams?.latlng]);
-
-  // Filter valid coordinates for bounds and route display
-  const validCoordinates = useMemo(() => {
-    return coordinates.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
-  }, [coordinates]);
+  // Engine-first GPS coordinates (instant for synced activities, API fallback for unsynced)
+  const {
+    coordinates: validCoordinates,
+    altitude,
+    isLoading,
+  } = useMapPreviewCoordinates(activity.id, !!hasGpsData);
 
   const bounds = useMemo(() => getMapLibreBounds(validCoordinates), [validCoordinates]);
 
@@ -239,14 +226,36 @@ export function ActivityMapPreview({
   const startPoint = validCoordinates[0];
   const endPoint = validCoordinates[validCoordinates.length - 1];
 
+  // Memoize LineLayer styles to avoid re-creating objects on every render
+  const casingStyle = useMemo(
+    () => ({
+      lineColor: '#FFFFFF',
+      lineOpacity: hasRouteData ? 1 : 0,
+      lineWidth: 4,
+      lineCap: 'round' as const,
+      lineJoin: 'round' as const,
+    }),
+    [hasRouteData]
+  );
+  const routeLineStyle = useMemo(
+    () => ({
+      lineColor: activityColor,
+      lineOpacity: hasRouteData ? 1 : 0,
+      lineWidth: 3,
+      lineCap: 'round' as const,
+      lineJoin: 'round' as const,
+    }),
+    [hasRouteData, activityColor]
+  );
+
   // Memoize terrain camera: use user override if saved, else auto-calculate
   const terrainCameraResult = useMemo(() => {
     if (!maybeShow3D || validCoordinates.length < 2) return null;
     const override = getCameraOverride(activity.id);
     if (override) return { camera: override, hasInterestingTerrain: true } as const;
     const lngLatCoords: [number, number][] = validCoordinates.map((c) => [c.longitude, c.latitude]);
-    return calculateTerrainCamera(lngLatCoords, streams?.altitude);
-  }, [maybeShow3D, validCoordinates, streams?.altitude, activity.id]);
+    return calculateTerrainCamera(lngLatCoords, altitude);
+  }, [maybeShow3D, validCoordinates, altitude, activity.id]);
 
   // Final decision: should we render 3D?
   const show3D =
@@ -368,26 +377,8 @@ export function ActivityMapPreview({
 
         {/* Route line - iOS crash fix: always render ShapeSource */}
         <ShapeSource id="routeSource" shape={routeGeoJSON}>
-          <LineLayer
-            id="routeLineCasing"
-            style={{
-              lineColor: '#FFFFFF',
-              lineOpacity: hasRouteData ? 1 : 0,
-              lineWidth: 4,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
-          <LineLayer
-            id="routeLine"
-            style={{
-              lineColor: activityColor,
-              lineOpacity: hasRouteData ? 1 : 0,
-              lineWidth: 3,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
+          <LineLayer id="routeLineCasing" style={casingStyle} />
+          <LineLayer id="routeLine" style={routeLineStyle} />
         </ShapeSource>
 
         {/* Start marker */}
@@ -422,7 +413,7 @@ export function ActivityMapPreview({
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
