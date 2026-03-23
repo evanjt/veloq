@@ -271,31 +271,40 @@ export function quadraticTrend(
  * @param outputCount - Number of evenly-spaced output points (default: 200)
  * @returns Array of {x, y} points for the smooth curve
  */
+export interface SmoothedPoint {
+  x: number;
+  y: number;
+  /** Local weighted standard deviation (for confidence bands) */
+  std: number;
+}
+
 export function gaussianSmooth(
   xs: number[],
   ys: number[],
   outputCount: number = 200
-): { x: number; y: number }[] {
+): SmoothedPoint[] {
   const n = xs.length;
   if (n < 2 || n !== ys.length) return [];
-  if (n === 2)
+  if (n === 2) {
+    const std2 = Math.abs(ys[1] - ys[0]) / 2;
     return [
-      { x: xs[0], y: ys[0] },
-      { x: xs[1], y: ys[1] },
+      { x: xs[0], y: ys[0], std: std2 },
+      { x: xs[1], y: ys[1], std: std2 },
     ];
+  }
 
   const xMin = Math.min(...xs);
   const xMax = Math.max(...xs);
   const span = xMax - xMin;
   if (span === 0) {
     const meanY = ys.reduce((a, b) => a + b, 0) / n;
-    return [{ x: xMin, y: meanY }];
+    return [{ x: xMin, y: meanY, std: 0 }];
   }
 
   // Adaptive bandwidth: wider for sparse data, narrower for dense
   const h = span / Math.max(3, Math.sqrt(n));
 
-  const result: { x: number; y: number }[] = [];
+  const result: SmoothedPoint[] = [];
 
   for (let i = 0; i < outputCount; i++) {
     const x0 = xMin + (i / (outputCount - 1)) * span;
@@ -327,7 +336,17 @@ export function gaussianSmooth(
       y0 = a + b * x0;
     }
 
-    result.push({ x: x0, y: y0 });
+    // Weighted standard deviation for confidence band
+    let sumWyy = 0;
+    for (let j = 0; j < n; j++) {
+      const dx = (xs[j] - x0) / h;
+      const w = Math.exp(-0.5 * dx * dx);
+      const dy = ys[j] - y0;
+      sumWyy += w * dy * dy;
+    }
+    const std = sumW > 0 ? Math.sqrt(sumWyy / sumW) : 0;
+
+    result.push({ x: x0, y: y0, std });
   }
 
   return result;

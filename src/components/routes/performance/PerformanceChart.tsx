@@ -294,14 +294,36 @@ export function PerformanceChart({
                   const chartW = chartBounds.right - chartBounds.left;
                   const chartH = chartBounds.bottom - chartBounds.top;
 
-                  const path = Skia.Path.Make();
-                  for (let i = 0; i < trendPoints.length; i++) {
-                    const px = chartBounds.left + ((trendPoints[i].x - xMin) / xRange) * chartW;
-                    const py = chartBounds.top + ((maxSpeed - trendPoints[i].y) / yRange) * chartH;
-                    if (i === 0) path.moveTo(px, py);
-                    else path.lineTo(px, py);
+                  const toX = (x: number) => chartBounds.left + ((x - xMin) / xRange) * chartW;
+                  const toY = (y: number) => chartBounds.top + ((maxSpeed - y) / yRange) * chartH;
+
+                  const linePath = Skia.Path.Make();
+                  linePath.moveTo(toX(trendPoints[0].x), toY(trendPoints[0].y));
+                  for (let i = 1; i < trendPoints.length; i++) {
+                    linePath.lineTo(toX(trendPoints[i].x), toY(trendPoints[i].y));
                   }
-                  return path;
+
+                  // Confidence band: upper forward, lower backward
+                  const bandPath = Skia.Path.Make();
+                  bandPath.moveTo(
+                    toX(trendPoints[0].x),
+                    toY(trendPoints[0].y + trendPoints[0].std)
+                  );
+                  for (let i = 1; i < trendPoints.length; i++) {
+                    bandPath.lineTo(
+                      toX(trendPoints[i].x),
+                      toY(trendPoints[i].y + trendPoints[i].std)
+                    );
+                  }
+                  for (let i = trendPoints.length - 1; i >= 0; i--) {
+                    bandPath.lineTo(
+                      toX(trendPoints[i].x),
+                      toY(trendPoints[i].y - trendPoints[i].std)
+                    );
+                  }
+                  bandPath.close();
+
+                  return { line: linePath, band: bandPath };
                 })();
 
                 return (
@@ -309,7 +331,13 @@ export function PerformanceChart({
                     {trendPath && (
                       <>
                         <Path
-                          path={trendPath}
+                          path={trendPath.band}
+                          color={colors.primary}
+                          style="fill"
+                          opacity={0.08}
+                        />
+                        <Path
+                          path={trendPath.line}
                           color={isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.12)'}
                           strokeWidth={3}
                           style="stroke"
@@ -317,8 +345,8 @@ export function PerformanceChart({
                           strokeJoin="round"
                         />
                         <Path
-                          path={trendPath}
-                          color={isDark ? colors.primary : colors.primary}
+                          path={trendPath.line}
+                          color={colors.primary}
                           strokeWidth={2}
                           style="stroke"
                           strokeCap="round"

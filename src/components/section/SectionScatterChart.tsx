@@ -190,9 +190,9 @@ export function SectionScatterChart({
     };
   }, [chartData]);
 
-  // Compute Gaussian kernel trend lines for all point counts (≥2)
-  const { forwardTrendPath, reverseTrendPath } = useMemo(() => {
-    const buildTrendPath = (points: (PerformanceDataPoint & { x: number })[]) => {
+  // Compute Gaussian kernel trend lines with confidence bands for all point counts (≥2)
+  const { forwardTrend, reverseTrend } = useMemo(() => {
+    const buildTrend = (points: (PerformanceDataPoint & { x: number })[]) => {
       if (points.length < 2) return null;
       const xs = points.map((p) => p.x);
       const ys = points.map((p) => p.speed);
@@ -200,20 +200,21 @@ export function SectionScatterChart({
       const trend = gaussianSmooth(xs, ys, 200);
       if (trend.length < 2) return null;
 
-      // Clamp to data range to prevent edge extrapolation
       const yMin = Math.min(...ys);
       const yMax = Math.max(...ys);
       const yPad = (yMax - yMin) * 0.15 || 0.5;
-      const clamped = trend.map((p) => ({
+
+      return trend.map((p) => ({
         x: p.x,
         y: Math.max(yMin - yPad, Math.min(yMax + yPad, p.y)),
+        upper: Math.min(yMax + yPad, p.y + p.std),
+        lower: Math.max(yMin - yPad, p.y - p.std),
       }));
-      return [clamped];
     };
 
     return {
-      forwardTrendPath: buildTrendPath(forwardPoints),
-      reverseTrendPath: buildTrendPath(reversePoints),
+      forwardTrend: buildTrend(forwardPoints),
+      reverseTrend: buildTrend(reversePoints),
     };
   }, [forwardPoints, reversePoints]);
 
@@ -225,35 +226,6 @@ export function SectionScatterChart({
     const midDate = new Date((firstDate.getTime() + lastDate.getTime()) / 2);
     return [firstDate, midDate, lastDate];
   }, [allPoints]);
-
-  // Build Skia path from LOESS segments (mapped through chart coordinates)
-  const buildSkiaPath = useCallback(
-    (
-      segments: { x: number; y: number }[][],
-      chartBounds: { left: number; right: number; top: number; bottom: number }
-    ) => {
-      if (!segments || segments.length === 0) return null;
-
-      const xScale = (x: number) =>
-        chartBounds.left + ((x - 0) / (1 - 0)) * (chartBounds.right - chartBounds.left);
-      const yScale = (y: number) =>
-        chartBounds.top +
-        ((maxSpeed - y) / (maxSpeed - minSpeed)) * (chartBounds.bottom - chartBounds.top);
-
-      const path = Skia.Path.Make();
-
-      for (const seg of segments) {
-        if (seg.length < 2) continue;
-        path.moveTo(xScale(seg[0].x), yScale(seg[0].y));
-        for (let i = 1; i < seg.length; i++) {
-          path.lineTo(xScale(seg[i].x), yScale(seg[i].y));
-        }
-      }
-
-      return path;
-    },
-    [minSpeed, maxSpeed]
-  );
 
   const handlePointPress = useCallback(
     (point: PerformanceDataPoint & { x: number }) => {
@@ -502,13 +474,37 @@ export function SectionScatterChart({
                 points: { speed: PointsArray };
                 chartBounds: { left: number; right: number; top: number; bottom: number };
               }) => {
-                // Build trend paths using chart coordinate system
-                const fwdPath = forwardTrendPath
-                  ? buildSkiaPath(forwardTrendPath, chartBounds)
-                  : null;
-                const revPath = reverseTrendPath
-                  ? buildSkiaPath(reverseTrendPath, chartBounds)
-                  : null;
+                // Build trend + band paths using chart coordinate system
+                const xScale = (x: number) =>
+                  chartBounds.left + (x / 1) * (chartBounds.right - chartBounds.left);
+                const yScale = (y: number) =>
+                  chartBounds.top +
+                  ((maxSpeed - y) / (maxSpeed - minSpeed)) * (chartBounds.bottom - chartBounds.top);
+
+                const buildPaths = (
+                  trend: { x: number; y: number; upper: number; lower: number }[] | null
+                ) => {
+                  if (!trend || trend.length < 2) return { line: null, band: null };
+                  const line = Skia.Path.Make();
+                  line.moveTo(xScale(trend[0].x), yScale(trend[0].y));
+                  for (let i = 1; i < trend.length; i++) {
+                    line.lineTo(xScale(trend[i].x), yScale(trend[i].y));
+                  }
+                  // Band: upper edge forward, then lower edge backward (closed shape)
+                  const band = Skia.Path.Make();
+                  band.moveTo(xScale(trend[0].x), yScale(trend[0].upper));
+                  for (let i = 1; i < trend.length; i++) {
+                    band.lineTo(xScale(trend[i].x), yScale(trend[i].upper));
+                  }
+                  for (let i = trend.length - 1; i >= 0; i--) {
+                    band.lineTo(xScale(trend[i].x), yScale(trend[i].lower));
+                  }
+                  band.close();
+                  return { line, band };
+                };
+
+                const fwd = buildPaths(forwardTrend);
+                const rev = buildPaths(reverseTrend);
 
                 // Track which allPoints index maps to forward/reverse
                 let fwdIdx = 0;
@@ -516,19 +512,31 @@ export function SectionScatterChart({
 
                 return (
                   <>
-                    {/* LOESS trend lines */}
-                    {fwdPath && (
+                    {/* Confidence bands (drawn first, behind everything) */}
+                    {fwd.band && (
+                      <Path path={fwd.band} color={activityColor} style="fill" opacity={0.08} />
+                    )}
+                    {rev.band && (
                       <Path
-                        path={fwdPath}
+                        path={rev.band}
+                        color={colors.reverseDirection}
+                        style="fill"
+                        opacity={0.08}
+                      />
+                    )}
+                    {/* Trend lines */}
+                    {fwd.line && (
+                      <Path
+                        path={fwd.line}
                         color={activityColor}
                         style="stroke"
                         strokeWidth={2}
                         opacity={0.6}
                       />
                     )}
-                    {revPath && (
+                    {rev.line && (
                       <Path
-                        path={revPath}
+                        path={rev.line}
                         color={colors.reverseDirection}
                         style="stroke"
                         strokeWidth={2}
