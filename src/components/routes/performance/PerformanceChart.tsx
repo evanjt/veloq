@@ -85,20 +85,14 @@ export function PerformanceChart({
     }));
   }, [performances, bestActivityId]);
 
-  // Compute trend line: raw points for sparse (Catmull-Rom smooths), LOESS for dense
+  // Compute LOESS trend line for all point counts
   const trendPoints = useMemo(() => {
     if (chartData.length < 2) return [];
     const xs = chartData.map((d) => d.x);
     const ys = chartData.map((d) => d.speed);
     const n = chartData.length;
 
-    // Sparse: pass raw points — cubic path interpolation handles visual smoothing
-    if (n < 15) {
-      return xs.map((x, i) => ({ x, y: ys[i] }));
-    }
-
-    // Dense: LOESS for statistical smoothing
-    const span = Math.max(0.4, Math.min(0.7, 15 / n));
+    const span = n <= 4 ? 1.0 : n <= 10 ? 0.8 : Math.max(0.4, Math.min(0.7, 15 / n));
     return loessSmooth(xs, ys, span, 200);
   }, [chartData]);
 
