@@ -297,23 +297,12 @@ export function PerformanceChart({
                   const chartW = chartBounds.right - chartBounds.left;
                   const chartH = chartBounds.bottom - chartBounds.top;
 
-                  const pts = trendPoints.map((tp) => ({
-                    x: chartBounds.left + ((tp.x - xMin) / xRange) * chartW,
-                    y: chartBounds.top + ((maxSpeed - tp.y) / yRange) * chartH,
-                  }));
                   const path = Skia.Path.Make();
-                  path.moveTo(pts[0].x, pts[0].y);
-                  for (let i = 0; i < pts.length - 1; i++) {
-                    const p0 = pts[Math.max(0, i - 1)];
-                    const p1 = pts[i];
-                    const p2 = pts[i + 1];
-                    const p3 = pts[Math.min(pts.length - 1, i + 2)];
-                    const tension = 6;
-                    const cp1x = p1.x + (p2.x - p0.x) / tension;
-                    const cp1y = p1.y + (p2.y - p0.y) / tension;
-                    const cp2x = p2.x - (p3.x - p1.x) / tension;
-                    const cp2y = p2.y - (p3.y - p1.y) / tension;
-                    path.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+                  for (let i = 0; i < trendPoints.length; i++) {
+                    const px = chartBounds.left + ((trendPoints[i].x - xMin) / xRange) * chartW;
+                    const py = chartBounds.top + ((maxSpeed - trendPoints[i].y) / yRange) * chartH;
+                    if (i === 0) path.moveTo(px, py);
+                    else path.lineTo(px, py);
                   }
                   return path;
                 })();
