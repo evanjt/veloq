@@ -27,6 +27,8 @@ import type {
   FfiPaceTrend,
   FfiInsightsData,
   FfiRecentPr,
+  FfiStartupData,
+  FfiPreviewTrack,
   FfiRoutesScreenData,
   FfiPotentialSection,
   DownloadProgressResult,
@@ -211,6 +213,11 @@ class RouteEngineClient {
   getActivityIds(): string[] {
     if (!this.ready) return [];
     return this.timed('getActivityIds', () => this.engine.activities().getIds());
+  }
+
+  getActivityMetricIds(): string[] {
+    if (!this.ready) return [];
+    return this.timed('getActivityMetricIds', () => this.engine.fitness().getActivityMetricIds());
   }
 
   getActivityCount(): number {
@@ -627,6 +634,31 @@ class RouteEngineClient {
           BigInt(prevEnd),
           BigInt(chronicStart),
           BigInt(todayStart),
+        ),
+    );
+  }
+
+  getStartupData(
+    currentStart: number,
+    currentEnd: number,
+    prevStart: number,
+    prevEnd: number,
+    chronicStart: number,
+    todayStart: number,
+    previewActivityIds: string[],
+  ): FfiStartupData | undefined {
+    if (!this.ready) return undefined;
+    return this.timed('getStartupData', () =>
+      this.engine
+        .fitness()
+        .getStartupData(
+          BigInt(currentStart),
+          BigInt(currentEnd),
+          BigInt(prevStart),
+          BigInt(prevEnd),
+          BigInt(chronicStart),
+          BigInt(todayStart),
+          previewActivityIds,
         ),
     );
   }

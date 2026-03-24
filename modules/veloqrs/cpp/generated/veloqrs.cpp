@@ -153,6 +153,8 @@ void *uniffi_veloqrs_fn_constructor_fitnessmanager_new(
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap(
     void *ptr, RustBuffer start_date, RustBuffer end_date,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_activity_metric_ids(
+    void *ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_activity_patterns(
     void *ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_available_sport_types(
@@ -170,6 +172,10 @@ RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_pattern_for_today(
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats(
     void *ptr, int64_t start_ts, int64_t end_ts,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
+    void *ptr, int64_t current_start, int64_t current_end, int64_t prev_start,
+    int64_t prev_end, int64_t chronic_start, int64_t today_start,
+    RustBuffer preview_activity_ids, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_summary_card_data(
     void *ptr, int64_t current_start, int64_t current_end, int64_t prev_start,
     int64_t prev_end, RustCallStatus *uniffi_out_err);
@@ -526,6 +532,8 @@ uint16_t uniffi_veloqrs_checksum_method_detectionmanager_get_progress();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_poll();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_start();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap();
+uint16_t
+uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_metric_ids();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns();
 uint16_t
 uniffi_veloqrs_checksum_method_fitnessmanager_get_available_sport_types();
@@ -534,6 +542,7 @@ uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_trend();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_pattern_for_today();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats();
+uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot();
@@ -2298,6 +2307,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_metric_"
+        "ids"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                    "fitnessmanager_get_activity_metric_ids"),
+      1,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_metric_ids(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_patterns"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2383,6 +2404,19 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data"),
+          8,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_summary_card_data"] =
@@ -3619,6 +3653,18 @@ NativeVeloqrs::NativeVeloqrs(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_"
+        "metric_ids"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "fitnessmanager_get_activity_metric_ids"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_metric_ids(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_"
         "patterns"] = jsi::Function::createFromHostFunction(
       rt,
       jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
@@ -3700,6 +3746,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "fitnessmanager_get_startup_data"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_"
@@ -5241,6 +5299,19 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap(
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_metric_ids(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_activity_metric_ids(
+      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_patterns(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -5338,6 +5409,27 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats(
       uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
+      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]),
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[3]),
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[4]),
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[5]),
+      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[6]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[7]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -6713,6 +6805,15 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_metric_ids(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_metric_ids();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -6769,6 +6870,14 @@ jsi::Value NativeVeloqrs::
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
   auto value = uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

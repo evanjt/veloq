@@ -26,6 +26,7 @@ import { subscribeSnapshot } from '@/lib/events/terrainSnapshotEvents';
 import { calculateTerrainCamera, isLikelyInterestingTerrain } from '@/lib/utils/cameraAngle';
 import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
 import type { Activity } from '@/types';
+import type { PreviewTrack } from '@/hooks/home/useStartupData';
 
 interface ActivityMapPreviewProps {
   activity: Activity;
@@ -35,6 +36,8 @@ interface ActivityMapPreviewProps {
   snapshotRef?: React.RefObject<TerrainSnapshotWebViewRef | null>;
   /** Whether the parent screen is focused — defers snapshot requests when false */
   screenFocused?: boolean;
+  /** Pre-fetched GPS track from startup data (avoids individual FFI/API calls) */
+  startupTrack?: PreviewTrack;
 }
 
 export const ActivityMapPreview = React.memo(function ActivityMapPreview({
@@ -43,6 +46,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   index = 0,
   snapshotRef,
   screenFocused = true,
+  startupTrack,
 }: ActivityMapPreviewProps) {
   const { getStyleForActivity, getTerrain3DMode } = useMapPreferences();
   const mapStyle = getStyleForActivity(activity.type, activity.id, activity.country);
@@ -128,12 +132,12 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // Check if activity has GPS data available
   const hasGpsData = activity.stream_types?.includes('latlng');
 
-  // Engine-first GPS coordinates (instant for synced activities, API fallback for unsynced)
+  // Engine-first GPS coordinates (startup pre-fetched → engine SQLite → API fallback)
   const {
     coordinates: validCoordinates,
     altitude,
     isLoading,
-  } = useMapPreviewCoordinates(activity.id, !!hasGpsData);
+  } = useMapPreviewCoordinates(activity.id, !!hasGpsData, startupTrack);
 
   const bounds = useMemo(() => getMapLibreBounds(validCoordinates), [validCoordinates]);
 

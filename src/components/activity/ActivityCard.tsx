@@ -24,6 +24,7 @@ import { colors, darkColors, typography, spacing, shadows } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { useMapPreferences } from '@/providers';
 import { ActivityMapPreview } from './ActivityMapPreview';
+import type { PreviewTrack } from '@/hooks/home/useStartupData';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
 import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
@@ -43,6 +44,8 @@ interface ActivityCardProps {
   snapshotRef?: React.RefObject<TerrainSnapshotWebViewRef | null>;
   /** Whether the feed screen is focused — defers snapshot requests when false */
   screenFocused?: boolean;
+  /** Pre-fetched GPS track from startup data */
+  startupTrack?: PreviewTrack;
 }
 
 // White text theme (used on any dark/satellite map, or dark theme + light map)
@@ -104,6 +107,7 @@ export const ActivityCard = React.memo(function ActivityCard({
   index,
   snapshotRef,
   screenFocused,
+  startupTrack,
 }: ActivityCardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -321,6 +325,7 @@ export const ActivityCard = React.memo(function ActivityCard({
             index={index}
             snapshotRef={snapshotRef}
             screenFocused={screenFocused}
+            startupTrack={startupTrack}
           />
 
           {/* Pressable overlay for tap/long-press */}

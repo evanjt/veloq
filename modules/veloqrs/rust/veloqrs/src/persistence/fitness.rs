@@ -16,6 +16,11 @@ impl PersistentRouteEngine {
     // Activity Metrics & Route Performances
     // ========================================================================
 
+    /// Get all activity IDs that have metrics stored (GPS and non-GPS).
+    pub fn get_activity_metric_ids(&self) -> Vec<String> {
+        self.activity_metrics.keys().cloned().collect()
+    }
+
     /// Set activity metrics for performance calculations.
     /// This persists the metrics to the database and keeps them in memory.
     pub fn set_activity_metrics(&mut self, metrics: Vec<ActivityMetrics>) -> SqlResult<()> {

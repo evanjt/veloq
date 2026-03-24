@@ -134,6 +134,10 @@ interface NativeModuleInterface {
     endDate: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_metric_ids(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_patterns(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -169,6 +173,17 @@ interface NativeModuleInterface {
     ptr: bigint,
     startTs: bigint,
     endTs: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
+    ptr: bigint,
+    currentStart: bigint,
+    currentEnd: bigint,
+    prevStart: bigint,
+    prevEnd: bigint,
+    chronicStart: bigint,
+    todayStart: bigint,
+    previewActivityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_summary_card_data(
@@ -620,6 +635,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_poll(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_start(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_metric_ids(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_available_sport_types(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_ftp_trend(): number;
@@ -627,6 +643,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_trend(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pattern_for_today(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot(): number;

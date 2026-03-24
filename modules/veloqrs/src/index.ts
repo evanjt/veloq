@@ -61,6 +61,8 @@ import {
   type FfiPaceTrend,
   type FfiInsightsData,
   type FfiRecentPr,
+  type FfiStartupData,
+  type FfiPreviewTrack,
   type FfiRoutesScreenData,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
@@ -96,6 +98,9 @@ export type PaceTrend = FfiPaceTrend;
 // Insights batch types
 export type InsightsData = FfiInsightsData;
 export type RecentPR = FfiRecentPr;
+// Startup batch types
+export type StartupData = FfiStartupData;
+export type PreviewTrack = FfiPreviewTrack;
 // Routes screen batch types
 export type RoutesScreenData = FfiRoutesScreenData;
 export type GroupWithPolyline = FfiGroupWithPolyline;

@@ -213,9 +213,15 @@ export function useRouteDataSync(
         }
 
         // Sync metrics only for activities not already in the engine.
-        // On warm startup (0 new), this is skipped entirely — engine already has
-        // all metrics from the previous session. Saves ~4s on 1000+ activities.
-        const newActivities = activitiesToSync.filter((a) => !engineActivityIds.has(a.id));
+        // Uses metric IDs (all activities) not GPS activity IDs (GPS-only) to avoid
+        // re-writing indoor/non-GPS activities on every startup.
+        const cachedMetricIds = new Set(nativeModule.routeEngine.getActivityMetricIds());
+        const newActivities = activitiesToSync.filter((a) => !cachedMetricIds.has(a.id));
+        if (__DEV__) {
+          console.log(
+            `[RouteDataSync] Metrics: ${cachedMetricIds.size} cached, ${newActivities.length} new`
+          );
+        }
         if (newActivities.length > 0) {
           const newMetrics = newActivities
             .filter((a) => a.start_date_local && a.moving_time)

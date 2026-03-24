@@ -2662,6 +2662,67 @@ const FfiConverterTypeFfiPotentialSection = (() => {
 })();
 
 /**
+ * GPS track for a single activity (for feed map previews).
+ */
+export type FfiPreviewTrack = {
+  activityId: string;
+  points: Array<FfiGpsPoint>;
+};
+
+/**
+ * Generated factory for {@link FfiPreviewTrack} record objects.
+ */
+export const FfiPreviewTrack = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiPreviewTrack, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiPreviewTrack}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiPreviewTrack}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiPreviewTrack>,
+  });
+})();
+
+const FfiConverterTypeFfiPreviewTrack = (() => {
+  type TypeName = FfiPreviewTrack;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityId: FfiConverterString.read(from),
+        points: FfiConverterArrayTypeFfiGpsPoint.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.activityId, into);
+      FfiConverterArrayTypeFfiGpsPoint.write(value.points, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.points)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A recent section PR detected in the last 7 days.
  */
 export type FfiRecentPr = {
@@ -4338,6 +4399,90 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
 })();
 
 /**
+ * All data needed for the feed screen on startup in one call.
+ * Reduces 20+ FFI calls to 1.
+ */
+export type FfiStartupData = {
+  /**
+   * Insights data (replaces getInsightsData)
+   */
+  insights: FfiInsightsData;
+  /**
+   * Summary card data (replaces getSummaryCardData)
+   */
+  summaryCard: FfiSummaryCardData;
+  /**
+   * GPS tracks for initial visible activities (replaces N × getGpsTrack)
+   */
+  previewTracks: Array<FfiPreviewTrack>;
+  /**
+   * Activity IDs with cached metrics (for sync skip check)
+   */
+  cachedMetricIds: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiStartupData} record objects.
+ */
+export const FfiStartupData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiStartupData, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiStartupData}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiStartupData}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiStartupData>,
+  });
+})();
+
+const FfiConverterTypeFfiStartupData = (() => {
+  type TypeName = FfiStartupData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        insights: FfiConverterTypeFfiInsightsData.read(from),
+        summaryCard: FfiConverterTypeFfiSummaryCardData.read(from),
+        previewTracks: FfiConverterArrayTypeFfiPreviewTrack.read(from),
+        cachedMetricIds: FfiConverterArrayString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterTypeFfiInsightsData.write(value.insights, into);
+      FfiConverterTypeFfiSummaryCardData.write(value.summaryCard, into);
+      FfiConverterArrayTypeFfiPreviewTrack.write(value.previewTracks, into);
+      FfiConverterArrayString.write(value.cachedMetricIds, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiInsightsData.allocationSize(value.insights) +
+        FfiConverterTypeFfiSummaryCardData.allocationSize(value.summaryCard) +
+        FfiConverterArrayTypeFfiPreviewTrack.allocationSize(
+          value.previewTracks,
+        ) +
+        FfiConverterArrayString.allocationSize(value.cachedMetricIds)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Summary card batch data: combines period stats, FTP trend, and pace trends.
  * Reduces Home screen FFI calls from 5 to 1.
  */
@@ -5656,6 +5801,10 @@ export interface FitnessManagerInterface {
     startDate: string,
     endDate: string,
   ) /*throws*/ : Array<FfiHeatmapDay>;
+  /**
+   * Get all activity IDs that have metrics stored (GPS and non-GPS).
+   */
+  getActivityMetricIds() /*throws*/ : Array<string>;
   getActivityPatterns() /*throws*/ : Array<FfiActivityPattern>;
   getAvailableSportTypes() /*throws*/ : Array<string>;
   getFtpTrend() /*throws*/ : FfiFtpTrend;
@@ -5677,6 +5826,20 @@ export interface FitnessManagerInterface {
     startTs: /*i64*/ bigint,
     endTs: /*i64*/ bigint,
   ) /*throws*/ : FfiPeriodStats;
+  /**
+   * All data the feed screen needs in a single engine lock.
+   * Combines insights + summary card + GPS preview tracks + cached metric IDs.
+   * Reduces 20+ FFI calls to 1.
+   */
+  getStartupData(
+    currentStart: /*i64*/ bigint,
+    currentEnd: /*i64*/ bigint,
+    prevStart: /*i64*/ bigint,
+    prevEnd: /*i64*/ bigint,
+    chronicStart: /*i64*/ bigint,
+    todayStart: /*i64*/ bigint,
+    previewActivityIds: Array<string>,
+  ) /*throws*/ : FfiStartupData;
   getSummaryCardData(
     currentStart: /*i64*/ bigint,
     currentEnd: /*i64*/ bigint,
@@ -5732,6 +5895,26 @@ export class FitnessManager
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(startDate),
             FfiConverterString.lower(endDate),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get all activity IDs that have metrics stored (GPS and non-GPS).
+   */
+  public getActivityMetricIds(): Array<string> /*throws*/ {
+    return FfiConverterArrayString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_metric_ids(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -5874,6 +6057,43 @@ export class FitnessManager
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterInt64.lower(startTs),
             FfiConverterInt64.lower(endTs),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * All data the feed screen needs in a single engine lock.
+   * Combines insights + summary card + GPS preview tracks + cached metric IDs.
+   * Reduces 20+ FFI calls to 1.
+   */
+  public getStartupData(
+    currentStart: /*i64*/ bigint,
+    currentEnd: /*i64*/ bigint,
+    prevStart: /*i64*/ bigint,
+    prevEnd: /*i64*/ bigint,
+    chronicStart: /*i64*/ bigint,
+    todayStart: /*i64*/ bigint,
+    previewActivityIds: Array<string>,
+  ): FfiStartupData /*throws*/ {
+    return FfiConverterTypeFfiStartupData.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterInt64.lower(currentStart),
+            FfiConverterInt64.lower(currentEnd),
+            FfiConverterInt64.lower(prevStart),
+            FfiConverterInt64.lower(prevEnd),
+            FfiConverterInt64.lower(chronicStart),
+            FfiConverterInt64.lower(todayStart),
+            FfiConverterArrayString.lower(previewActivityIds),
             callStatus,
           );
         },
@@ -8057,6 +8277,11 @@ const FfiConverterArrayTypeFfiPotentialSection = new FfiConverterArray(
   FfiConverterTypeFfiPotentialSection,
 );
 
+// FfiConverter for Array<FfiPreviewTrack>
+const FfiConverterArrayTypeFfiPreviewTrack = new FfiConverterArray(
+  FfiConverterTypeFfiPreviewTrack,
+);
+
 // FfiConverter for Array<FfiRecentPr>
 const FfiConverterArrayTypeFfiRecentPR = new FfiConverterArray(
   FfiConverterTypeFfiRecentPR,
@@ -8308,6 +8533,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_metric_ids() !==
+    25339
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_metric_ids",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns() !==
     30508
   ) {
@@ -8361,6 +8594,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data() !==
+    11750
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data",
     );
   }
   if (
@@ -8998,6 +9239,7 @@ export default Object.freeze({
     FfiConverterTypeFfiPatternSection,
     FfiConverterTypeFfiPeriodStats,
     FfiConverterTypeFfiPotentialSection,
+    FfiConverterTypeFfiPreviewTrack,
     FfiConverterTypeFfiRecentPR,
     FfiConverterTypeFfiRouteGroup,
     FfiConverterTypeFfiRoutePerformance,
@@ -9015,6 +9257,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionReferenceInfo,
     FfiConverterTypeFfiSectionSummariesResult,
     FfiConverterTypeFfiSectionWithPolyline,
+    FfiConverterTypeFfiStartupData,
     FfiConverterTypeFfiSummaryCardData,
     FfiConverterTypeFitnessManager,
     FfiConverterTypeGroupSummary,

@@ -1208,6 +1208,31 @@ pub struct FfiInsightsData {
 }
 
 // ============================================================================
+// Startup Batch Types
+// ============================================================================
+
+/// GPS track for a single activity (for feed map previews).
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiPreviewTrack {
+    pub activity_id: String,
+    pub points: Vec<FfiGpsPoint>,
+}
+
+/// All data needed for the feed screen on startup in one call.
+/// Reduces 20+ FFI calls to 1.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiStartupData {
+    /// Insights data (replaces getInsightsData)
+    pub insights: FfiInsightsData,
+    /// Summary card data (replaces getSummaryCardData)
+    pub summary_card: FfiSummaryCardData,
+    /// GPS tracks for initial visible activities (replaces N × getGpsTrack)
+    pub preview_tracks: Vec<FfiPreviewTrack>,
+    /// Activity IDs with cached metrics (for sync skip check)
+    pub cached_metric_ids: Vec<String>,
+}
+
+// ============================================================================
 // Helper functions
 // ============================================================================
 

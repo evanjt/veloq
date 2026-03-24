@@ -31,6 +31,7 @@ import {
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
 import { SummaryCard, InsightLine } from '@/components/home';
+import { useStartupData } from '@/hooks/home/useStartupData';
 import { PermissionUpgradeBanner } from '@/components/recording/PermissionUpgradeBanner';
 import {
   TerrainSnapshotWebView,
@@ -138,6 +139,17 @@ export default function FeedScreen() {
     return data.pages.flat();
   }, [data?.pages]);
 
+  // Single FFI call for all startup data (insights + summary card + GPS tracks)
+  const previewIds = useMemo(
+    () =>
+      allActivities
+        .filter((a) => a.stream_types?.includes('latlng'))
+        .slice(0, 5)
+        .map((a) => a.id),
+    [allActivities]
+  );
+  const { data: startupData } = useStartupData(previewIds);
+
   // Filter activities by search query and type
   const filteredActivities = useMemo(() => {
     let filtered = allActivities;
@@ -199,9 +211,10 @@ export default function FeedScreen() {
         index={index}
         snapshotRef={snapshotRef}
         screenFocused={isFeedFocused}
+        startupTrack={startupData?.previewTracks.get(item.id)}
       />
     ),
-    [isFeedFocused]
+    [isFeedFocused, startupData]
   );
 
   const navigateToSettings = useCallback(() => {
