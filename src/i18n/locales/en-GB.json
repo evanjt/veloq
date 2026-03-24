@@ -723,6 +723,16 @@
       "below": "below",
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
+    "stalePr": {
+      "title": "{{section}}: PR might be beatable",
+      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
+      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
+      "currentFtp": "Current FTP",
+      "prFtp": "FTP at PR",
+      "ftpGain": "FTP gain",
+      "prTime": "PR time",
+      "methodology": "Compares FTP at PR time vs current FTP. Higher FTP suggests untapped potential on power-dependent sections."
+    },
     "viewDetails": "View details",
     "today": "TODAY",
     "tomorrow": "TOMORROW",
