@@ -73,24 +73,30 @@ export const PatternDetailSheet = React.memo(function PatternDetailSheet({
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          {/* Hero banner */}
-          <View style={[styles.hero, { backgroundColor: insight.iconColor }]}>
-            <MaterialCommunityIcons name={insight.icon as never} size={40} color="#FFFFFF" />
+          {/* Header row */}
+          <View style={styles.headerRow}>
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: `${insight.iconColor}1F` },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={insight.icon as never}
+                size={16}
+                color={insight.iconColor}
+              />
+            </View>
+            <Text style={[styles.title, isDark && styles.titleDark]} numberOfLines={2}>
+              {insight.title}
+            </Text>
             <Pressable style={styles.closeButton} onPress={onClose} hitSlop={12}>
-              <MaterialCommunityIcons name="close" size={22} color="#FFFFFF" />
+              <MaterialCommunityIcons
+                name="close"
+                size={20}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
             </Pressable>
-          </View>
-
-          {/* Title + confidence */}
-          <View style={styles.titleSection}>
-            <Text style={[styles.title, isDark && styles.titleDark]}>{insight.title}</Text>
-            {insight.confidence != null ? (
-              <View style={[styles.confidenceBadge, isDark && styles.confidenceBadgeDark]}>
-                <Text style={[styles.confidenceText, isDark && styles.confidenceTextDark]}>
-                  {Math.round(insight.confidence * 100)}% {t('insights.confident', 'confident')}
-                </Text>
-              </View>
-            ) : null}
           </View>
 
           {/* Pattern summary */}
@@ -272,51 +278,31 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.xxl,
   },
-  // Hero
-  hero: {
-    height: 80,
-    justifyContent: 'center',
+  // Header
+  headerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    position: 'relative',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  iconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeButton: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
     padding: spacing.xs,
-    zIndex: 1,
-  },
-  // Title
-  titleSection: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    alignItems: 'center',
   },
   title: {
     ...typography.cardTitle,
+    flex: 1,
     color: colors.textPrimary,
-    textAlign: 'center',
   },
   titleDark: {
     color: darkColors.textPrimary,
-  },
-  confidenceBadge: {
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
-    backgroundColor: opacity.overlay.subtle,
-  },
-  confidenceBadgeDark: {
-    backgroundColor: opacity.overlayDark.light,
-  },
-  confidenceText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  confidenceTextDark: {
-    color: darkColors.textSecondary,
   },
   // Pattern summary
   patternSummary: {

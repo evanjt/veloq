@@ -32,7 +32,6 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 
   if (!insight) return null;
 
-  const hasMethodology = insight.methodology != null;
   // Content components for these categories already have embedded navigation
   const contentHandlesNav = insight.category === 'section_pr' || insight.category === 'tsb_form';
   const hasNavTarget = !!insight.navigationTarget && !contentHandlesNav;
@@ -80,17 +79,6 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
             </Pressable>
           </View>
 
-          {/* Confidence badge */}
-          {insight.confidence != null ? (
-            <View style={styles.badgeRow}>
-              <View style={[styles.confidenceBadge, isDark && styles.confidenceBadgeDark]}>
-                <Text style={[styles.confidenceText, isDark && styles.confidenceTextDark]}>
-                  {Math.round(insight.confidence * 100)}% confident
-                </Text>
-              </View>
-            </View>
-          ) : null}
-
           {/* Subtitle */}
           {insight.subtitle ? (
             <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>{insight.subtitle}</Text>
@@ -105,13 +93,6 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
           <View style={styles.contentSection}>
             <InsightDetailContent insight={insight} onClose={onClose} />
           </View>
-
-          {/* Methodology credit */}
-          {hasMethodology ? (
-            <Text style={[styles.methodologyCredit, isDark && styles.methodologyCreditDark]}>
-              Based on {insight.methodology!.name}
-            </Text>
-          ) : null}
 
           {/* Navigation link */}
           {hasNavTarget ? (
@@ -201,29 +182,6 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: spacing.xs,
   },
-  // Badge
-  badgeRow: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xs,
-  },
-  confidenceBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
-    backgroundColor: opacity.overlay.subtle,
-  },
-  confidenceBadgeDark: {
-    backgroundColor: opacity.overlayDark.light,
-  },
-  confidenceText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  confidenceTextDark: {
-    color: darkColors.textSecondary,
-  },
   // Text
   subtitle: {
     fontSize: 14,
@@ -248,16 +206,6 @@ const styles = StyleSheet.create({
   contentSection: {
     paddingHorizontal: spacing.lg,
     marginTop: spacing.xs,
-  },
-  // Methodology
-  methodologyCredit: {
-    fontSize: 11,
-    color: colors.textMuted,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.md,
-  },
-  methodologyCreditDark: {
-    color: darkColors.textMuted,
   },
   // Navigation
   navLink: {
