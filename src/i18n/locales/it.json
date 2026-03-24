@@ -1317,5 +1317,8 @@
       "fitnessTitle": "Panoramica fitness",
       "fitnessBody": "Monitora forma fisica, fatica e stato di forma con zone colorate. Scopri quando sei fresco e pronto a dare il massimo."
     }
+  },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} PR di tratto questa settimana"
   }
 }

@@ -922,6 +922,9 @@
     "today": "TODAY",
     "tomorrow": "TOMORROW"
   },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} section PRs this week"
+  },
   "routesScreen": {
     "analysingRoutes": "Analysing routes {{current}}/{{total}}",
     "computingRoutes": "Computing routes...",

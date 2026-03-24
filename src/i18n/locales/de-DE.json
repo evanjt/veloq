@@ -1317,5 +1317,8 @@
       "fitnessTitle": "Fitness-Übersicht",
       "fitnessBody": "Verfolge Fitness, Ermüdung und Form mit farbcodierten Zonen. Erkenne, wann du frisch und leistungsbereit bist."
     }
+  },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} Abschnitts-PRs diese Woche"
   }
 }

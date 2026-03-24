@@ -1317,5 +1317,8 @@
       "fitnessTitle": "Przegląd formy",
       "fitnessBody": "Śledź kondycję, zmęczenie i formę z kolorowymi strefami. Dowiedz się, kiedy jesteś wypoczęty i gotowy do wysiłku."
     }
+  },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} rekordow sekcji w tym tygodniu"
   }
 }

@@ -1317,5 +1317,8 @@
       "fitnessTitle": "Aperçu fitness",
       "fitnessBody": "Suivez votre condition physique, fatigue et forme avec des zones colorées. Sachez quand vous êtes frais et prêt à performer."
     }
+  },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} records de troncon cette semaine"
   }
 }

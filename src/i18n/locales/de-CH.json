@@ -1317,5 +1317,8 @@
       "fitnessTitle": "Fitness-Überblick",
       "fitnessBody": "Verfolg Fitness, Ermüedig und Form mit farbcodierte Zone. Wüss, wenn du frisch und ready bisch."
     }
+  },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} Abschnitts-PRs diese Woche"
   }
 }

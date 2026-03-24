@@ -1317,5 +1317,8 @@
       "fitnessTitle": "Resumo de fitness",
       "fitnessBody": "Acompanhe seu condicionamento, fadiga e forma com zonas codificadas por cores. Saiba quando você está descansado e pronto para render."
     }
+  },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} PRs de trecho esta semana"
   }
 }

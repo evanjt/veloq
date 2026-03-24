@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
@@ -16,10 +17,12 @@ import {
   formatDurationHuman,
 } from '@/lib';
 import { WorkoutStepBar } from './WorkoutStepBar';
-import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, shadows, typography, brand } from '@/theme';
 import type { CalendarEvent } from '@/types';
 import type { WorkoutSection } from '@/hooks/home/useWorkoutSections';
 import type { ActivityPattern } from '@/types';
+
+const PR_RECENCY_DAYS = 7;
 
 const DAY_NAMES_PLURAL = [
   'Mondays',
@@ -160,10 +163,29 @@ const SectionHighlights = React.memo(function SectionHighlights({
   sections: WorkoutSection[];
   isDark: boolean;
 }) {
+  const { t } = useTranslation();
+  const displayed = sections.slice(0, 3);
+  const recentPRCount = displayed.filter(
+    (s) => s.prTimeSecs != null && s.prDaysAgo != null && s.prDaysAgo <= PR_RECENCY_DAYS
+  ).length;
+
   return (
     <View style={styles.sectionsContainer}>
-      {sections.slice(0, 3).map((section) => {
+      {recentPRCount > 0 && (
+        <View style={styles.prSummaryRow}>
+          <MaterialCommunityIcons name="trophy-outline" size={14} color={brand.gold} />
+          <Text style={styles.prSummaryText}>
+            {t('todayBanner.prCountThisWeek', {
+              count: recentPRCount,
+              defaultValue: '{{count}} section PRs this week',
+            })}
+          </Text>
+        </View>
+      )}
+      {displayed.map((section) => {
         const hasPR = section.prTimeSecs != null;
+        const isRecentPR =
+          hasPR && section.prDaysAgo != null && section.prDaysAgo <= PR_RECENCY_DAYS;
         const delta =
           hasPR && section.previousBestTimeSecs != null
             ? section.previousBestTimeSecs - section.prTimeSecs!
@@ -176,11 +198,29 @@ const SectionHighlights = React.memo(function SectionHighlights({
             style={styles.sectionRow}
             onPress={() => router.push(`/section/${section.id}`)}
           >
-            <Text style={[styles.sectionName, isDark && styles.textLight]} numberOfLines={1}>
+            <Text
+              style={[
+                styles.sectionName,
+                isDark && styles.textLight,
+                isRecentPR && styles.sectionNamePR,
+              ]}
+              numberOfLines={1}
+            >
               {section.name}
             </Text>
             <View style={styles.sectionMeta}>
-              {hasPR && (
+              {hasPR && isRecentPR && (
+                <View style={styles.prCelebration}>
+                  <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
+                  <Text style={styles.prTextCelebration}>
+                    PR {formatDuration(section.prTimeSecs!)}
+                  </Text>
+                  {showDelta && (
+                    <Text style={styles.prDelta}>{` \u2212${formatDuration(delta!)}`}</Text>
+                  )}
+                </View>
+              )}
+              {hasPR && !isRecentPR && (
                 <Text style={styles.prBadgeAccent}>
                   PR {formatDuration(section.prTimeSecs!)}
                   {showDelta ? ` (\u2212${formatDuration(delta!)})` : ''}
@@ -282,6 +322,18 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     paddingTop: spacing.sm,
   },
+  prSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  prSummaryText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: brand.gold,
+    fontVariant: ['tabular-nums'],
+  },
   sectionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -294,9 +346,29 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: spacing.sm,
   },
+  sectionNamePR: {
+    fontWeight: '600',
+  },
   sectionMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  prCelebration: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  prTextCelebration: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: brand.gold,
+    fontVariant: ['tabular-nums'],
+  },
+  prDelta: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FC4C02',
+    fontVariant: ['tabular-nums'],
   },
   prBadge: {
     fontSize: 12,

@@ -11,6 +11,8 @@ export interface WorkoutSection {
   previousBestTimeSecs: number | null;
   lastTimeSecs: number | null;
   daysSinceLast: number | null;
+  /** Days since PR was set (based on the activity date of the best record) */
+  prDaysAgo: number | null;
   trend: 'improving' | 'stable' | 'declining' | null;
 }
 
@@ -51,6 +53,11 @@ export function useWorkoutSections(sportType: string | undefined): {
 
       const bestRecord = perf.bestRecord ?? perf.bestForwardRecord;
       const prTimeSecs = bestRecord?.bestTime ?? null;
+
+      // Days since the PR was set (activity date of best record)
+      const prDaysAgo = bestRecord?.activityDate
+        ? Math.floor((now - Number(bestRecord.activityDate) * 1000) / 86400000)
+        : null;
 
       // Find second-best time (previous PR) by scanning all records
       let previousBestTimeSecs: number | null = null;
@@ -95,6 +102,7 @@ export function useWorkoutSections(sportType: string | undefined): {
         previousBestTimeSecs,
         lastTimeSecs,
         daysSinceLast,
+        prDaysAgo,
         trend,
       });
     }

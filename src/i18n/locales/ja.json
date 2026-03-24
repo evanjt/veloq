@@ -1317,5 +1317,8 @@
       "fitnessTitle": "フィットネス概要",
       "fitnessBody": "フィットネス、疲労、フォームを色分けされたゾーンで追跡。フレッシュでパフォーマンスの準備ができている時を把握できます。"
     }
+  },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} セクションPR（今週）"
   }
 }

@@ -1317,5 +1317,8 @@
       "fitnessTitle": "Fitnessoverzicht",
       "fitnessBody": "Volg je fitheid, vermoeidheid en vorm met kleurgecodeerde zones. Weet wanneer je fris en klaar bent om te presteren."
     }
+  },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} sectie-PRs deze week"
   }
 }

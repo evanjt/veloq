@@ -1317,5 +1317,8 @@
       "fitnessTitle": "体能概览",
       "fitnessBody": "通过彩色区域追踪您的体能、疲劳和状态。了解何时状态最佳，准备好发挥最好表现。"
     }
+  },
+  "todayBanner": {
+    "prCountThisWeek": "本周 {{count}} 个区间最佳成绩"
   }
 }

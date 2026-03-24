@@ -1317,5 +1317,8 @@
       "fitnessTitle": "Resumen de fitness",
       "fitnessBody": "Sigue tu forma física, fatiga y estado de forma con zonas codificadas por colores. Descubre cuándo estás fresco y listo para rendir."
     }
+  },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} PRs de tramo esta semana"
   }
 }

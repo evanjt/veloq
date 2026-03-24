@@ -1317,5 +1317,8 @@
       "fitnessTitle": "Fitnessoversigt",
       "fitnessBody": "Følg din kondition, træthed og form med farvekodede zoner. Vid hvornår du er frisk og klar til at præstere."
     }
+  },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} sektion-PR denne uge"
   }
 }
