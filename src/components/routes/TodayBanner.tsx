@@ -162,33 +162,43 @@ const SectionHighlights = React.memo(function SectionHighlights({
 }) {
   return (
     <View style={styles.sectionsContainer}>
-      {sections.slice(0, 3).map((section) => (
-        <TouchableOpacity
-          key={section.id}
-          style={styles.sectionRow}
-          onPress={() => router.push(`/section/${section.id}`)}
-        >
-          <Text style={[styles.sectionName, isDark && styles.textLight]} numberOfLines={1}>
-            {section.name}
-          </Text>
-          <View style={styles.sectionMeta}>
-            {section.prTimeSecs != null && (
-              <Text style={[styles.prBadge, isDark && styles.textMuted]}>
-                PR {formatDuration(section.prTimeSecs)}
-              </Text>
-            )}
-            {section.trend && (
-              <Text style={[styles.trendArrow, getTrendStyle(section.trend)]}>
-                {section.trend === 'improving'
-                  ? ' \u2191'
-                  : section.trend === 'declining'
-                    ? ' \u2193'
-                    : ' \u2192'}
-              </Text>
-            )}
-          </View>
-        </TouchableOpacity>
-      ))}
+      {sections.slice(0, 3).map((section) => {
+        const hasPR = section.prTimeSecs != null;
+        const delta =
+          hasPR && section.previousBestTimeSecs != null
+            ? section.previousBestTimeSecs - section.prTimeSecs!
+            : null;
+        const showDelta = delta != null && delta > 0;
+
+        return (
+          <TouchableOpacity
+            key={section.id}
+            style={styles.sectionRow}
+            onPress={() => router.push(`/section/${section.id}`)}
+          >
+            <Text style={[styles.sectionName, isDark && styles.textLight]} numberOfLines={1}>
+              {section.name}
+            </Text>
+            <View style={styles.sectionMeta}>
+              {hasPR && (
+                <Text style={styles.prBadgeAccent}>
+                  PR {formatDuration(section.prTimeSecs!)}
+                  {showDelta ? ` (\u2212${formatDuration(delta!)})` : ''}
+                </Text>
+              )}
+              {section.trend && (
+                <Text style={[styles.trendArrow, getTrendStyle(section.trend)]}>
+                  {section.trend === 'improving'
+                    ? ' \u2191'
+                    : section.trend === 'declining'
+                      ? ' \u2193'
+                      : ' \u2192'}
+                </Text>
+              )}
+            </View>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 });
@@ -291,6 +301,12 @@ const styles = StyleSheet.create({
   prBadge: {
     fontSize: 12,
     color: colors.textSecondary,
+    fontVariant: ['tabular-nums'],
+  },
+  prBadgeAccent: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FC4C02',
     fontVariant: ['tabular-nums'],
   },
   trendArrow: {

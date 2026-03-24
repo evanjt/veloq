@@ -7,6 +7,8 @@ export interface WorkoutSection {
   id: string;
   name: string;
   prTimeSecs: number | null;
+  /** Second-best time (previous PR before current best) */
+  previousBestTimeSecs: number | null;
   lastTimeSecs: number | null;
   daysSinceLast: number | null;
   trend: 'improving' | 'stable' | 'declining' | null;
@@ -50,6 +52,17 @@ export function useWorkoutSections(sportType: string | undefined): {
       const bestRecord = perf.bestRecord ?? perf.bestForwardRecord;
       const prTimeSecs = bestRecord?.bestTime ?? null;
 
+      // Find second-best time (previous PR) by scanning all records
+      let previousBestTimeSecs: number | null = null;
+      if (bestRecord && perf.records.length >= 2) {
+        for (const r of perf.records) {
+          if (r.activityId === bestRecord.activityId) continue;
+          if (previousBestTimeSecs === null || r.bestTime < previousBestTimeSecs) {
+            previousBestTimeSecs = r.bestTime;
+          }
+        }
+      }
+
       // Sort records by date (newest first) — activityDate is bigint from FFI
       const sorted = [...perf.records].sort((a, b) =>
         a.activityDate > b.activityDate ? -1 : a.activityDate < b.activityDate ? 1 : 0
@@ -79,6 +92,7 @@ export function useWorkoutSections(sportType: string | undefined): {
         id: summary.id,
         name: summary.name || generateSectionName(summary),
         prTimeSecs,
+        previousBestTimeSecs,
         lastTimeSecs,
         daysSinceLast,
         trend,
