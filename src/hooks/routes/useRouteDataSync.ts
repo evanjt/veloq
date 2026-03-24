@@ -212,15 +212,18 @@ export function useRouteDataSync(
           );
         }
 
-        // Populate activity metrics early so weekly stats appear immediately.
-        // Metrics only need activity metadata (date, duration, type) which is
-        // available from the activity list API response — no GPS needed.
-        const allMetrics = activitiesToSync
-          .filter((a) => a.start_date_local && a.moving_time)
-          .map(toActivityMetrics);
-        if (allMetrics.length > 0) {
-          nativeModule.routeEngine.setActivityMetrics(allMetrics);
-          routeEngine.triggerRefresh('activities');
+        // Sync metrics only for activities not already in the engine.
+        // On warm startup (0 new), this is skipped entirely — engine already has
+        // all metrics from the previous session. Saves ~4s on 1000+ activities.
+        const newActivities = activitiesToSync.filter((a) => !engineActivityIds.has(a.id));
+        if (newActivities.length > 0) {
+          const newMetrics = newActivities
+            .filter((a) => a.start_date_local && a.moving_time)
+            .map(toActivityMetrics);
+          if (newMetrics.length > 0) {
+            nativeModule.routeEngine.setActivityMetrics(newMetrics);
+            routeEngine.triggerRefresh('activities');
+          }
         }
 
         if (withGps.length === 0) {
