@@ -111,7 +111,8 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
     // Stale-while-revalidate: show cached data immediately, refetch in background
     staleTime: 1000 * 60 * 5, // 5 minutes - data appears instantly from cache
     gcTime: 1000 * 60 * 60, // 1 hour - keep in memory for navigation
-    refetchOnMount: true, // Override global false — pick up new activities on app open
+    // refetchOnMount: false (inherits global default) — persisted cache shows instantly,
+    // refetchOnWindowFocus handles picking up new activities when app foregrounds
     refetchOnWindowFocus: true, // Pick up new activities on foreground
     maxPages: 10, // Evict old pages to prevent memory growth
   });
