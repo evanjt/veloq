@@ -1,7 +1,9 @@
 export { InsightDetailContent } from './InsightDetailContent';
 export { MiniPerformanceSparkline } from './MiniPerformanceSparkline';
 export { SectionPRContent } from './SectionPRContent';
+export { StalePRContent } from './StalePRContent';
 export { SectionTrendContent } from './SectionTrendContent';
+export { SectionClusterContent } from './SectionClusterContent';
 export { SectionInsightMap } from './SectionInsightMap';
 export { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 export { RecentEffortsList } from './RecentEffortsList';

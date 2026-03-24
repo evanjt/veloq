@@ -7,6 +7,8 @@ import type {
   InsightSupportingData,
 } from '@/types';
 import { formatDuration } from '@/lib';
+import { detectStalePROpportunities, stalePROpportunityToInsight } from './stalePrDetection';
+import { generateSectionClusterInsights } from './sectionClusterInsights';
 
 /**
  * Insight priority ranking (1 = highest):
@@ -181,6 +183,14 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
 
   // Priority 4: Activity Patterns
   addActivityPatternInsights(insights, data.todayPattern, data.allPatterns ?? [], now, t);
+
+  // Priority 2: Stale PR / Opportunity Detection
+  // Cross-references FTP trend against section PRs to find beatable records
+  addStalePRInsights(insights, data, now, t);
+
+  // Priority 3: Section Cluster Insights
+  // Groups sections by trend direction (improving/declining) for aggregate view
+  addSectionClusterInsights(insights, data, now, t);
 
   insights.sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
 
@@ -1229,6 +1239,62 @@ function addActivityPatternInsights(
       },
     })
   );
+}
+
+// ---------------------------------------------------------------------------
+// Priority 2: Stale PR / Opportunity Detection
+// Cross-references FTP trend dates against section PR dates
+// ---------------------------------------------------------------------------
+
+function addStalePRInsights(
+  insights: Insight[],
+  data: InsightInputData,
+  now: number,
+  t: TFunc
+): void {
+  if (!data.ftpTrend || !data.sectionTrends || data.sectionTrends.length === 0) return;
+
+  // Build section data for stale PR detection from available section trends
+  const sections = data.sectionTrends.map((s) => ({
+    sectionId: s.sectionId,
+    sectionName: s.sectionName,
+    bestTimeSecs: s.bestTimeSecs,
+    traversalCount: s.traversalCount,
+    // lastTraversalTs is not available from sectionTrends, so detection
+    // relies on recentPRs absence to infer staleness
+  }));
+
+  const opportunities = detectStalePROpportunities({
+    sections,
+    ftpTrend: data.ftpTrend,
+    recentPRs: data.recentPRs,
+  });
+
+  for (const opp of opportunities) {
+    // Avoid duplicating if we already have a PR insight for this section
+    if (insights.some((i) => i.id === `section_pr-${opp.sectionId}`)) continue;
+    insights.push(stalePROpportunityToInsight(opp, t, now));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Priority 3: Section Cluster Insights
+// Groups sections by trend similarity for aggregate observations
+// ---------------------------------------------------------------------------
+
+function addSectionClusterInsights(
+  insights: Insight[],
+  data: InsightInputData,
+  now: number,
+  t: TFunc
+): void {
+  const trends = data.allSectionTrends ?? data.sectionTrends;
+  if (!trends || trends.length === 0) return;
+
+  const clusterInsights = generateSectionClusterInsights(trends, now, t);
+  for (const ci of clusterInsights) {
+    insights.push(ci);
+  }
 }
 
 // ---------------------------------------------------------------------------

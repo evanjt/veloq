@@ -2,6 +2,8 @@ import React from 'react';
 import type { Insight } from '@/types';
 import { SectionPRContent } from './SectionPRContent';
 import { SectionTrendContent } from './SectionTrendContent';
+import { StalePRContent } from './StalePRContent';
+import { SectionClusterContent } from './SectionClusterContent';
 import { TsbFormContent } from './TsbFormContent';
 import { HrvTrendContent } from './HrvTrendContent';
 import { PeriodComparisonContent } from './PeriodComparisonContent';
@@ -40,6 +42,10 @@ export const InsightDetailContent = React.memo(function InsightDetailContent({
       return <FitnessMilestoneContent insight={insight} />;
     case 'training_consistency':
       return <ConsistencyContent insight={insight} />;
+    case 'stale_pr':
+      return <StalePRContent insight={insight} onClose={onClose} />;
+    case 'section_cluster':
+      return <SectionClusterContent insight={insight} onClose={onClose} />;
     default:
       // Fallback: render existing SupportingDataSection for unhandled categories
       if (insight.supportingData) {
