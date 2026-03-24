@@ -429,6 +429,8 @@
     "today": "I DAG",
     "tomorrow": "I MORGEN",
     "showMethodology": "Vis metode",
+    "howCalculated": "Hvordan blev dette beregnet?",
+    "sourceActivities": "Kildeaktiviteter",
     "basedOnActivities": "Baseret på {{count}} aktiviteter",
     "confidence": "{{value}}% sikker",
     "tapToExplore": "Tryk for at udforske",

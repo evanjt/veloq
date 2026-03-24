@@ -430,6 +430,8 @@
     "tomorrow": "MORN",
     "whyThisRecommendation": "Wieso die Empfehlig",
     "showMethodology": "Methodik zeige",
+    "howCalculated": "Wie isch das berechnet worde?",
+    "sourceActivities": "Quellaktivitäte",
     "basedOnActivities": "Basiert uf {{count}} Aktivitäte",
     "confidence": "{{value}}% sicher",
     "tapToExplore": "Tipp zum Erkunde",

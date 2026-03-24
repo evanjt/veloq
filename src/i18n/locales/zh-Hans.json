@@ -429,6 +429,8 @@
     "today": "今天",
     "tomorrow": "明天",
     "showMethodology": "显示方法论",
+    "howCalculated": "这是如何计算的？",
+    "sourceActivities": "来源活动",
     "basedOnActivities": "基于 {{count}} 个活动",
     "confidence": "{{value}}% 置信度",
     "tapToExplore": "点击探索",

@@ -429,6 +429,8 @@
     "today": "HOJE",
     "tomorrow": "AMANHÃ",
     "showMethodology": "Mostrar metodologia",
+    "howCalculated": "Como foi isto calculado?",
+    "sourceActivities": "Atividades de origem",
     "basedOnActivities": "Baseado em {{count}} atividades",
     "confidence": "{{value}}% de confiança",
     "tapToExplore": "Toque para explorar",

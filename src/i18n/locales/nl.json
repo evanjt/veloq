@@ -429,6 +429,8 @@
     "today": "VANDAAG",
     "tomorrow": "MORGEN",
     "showMethodology": "Methodologie tonen",
+    "howCalculated": "Hoe is dit berekend?",
+    "sourceActivities": "Bronactiviteiten",
     "basedOnActivities": "Gebaseerd op {{count}} activiteiten",
     "confidence": "{{value}}% zeker",
     "tapToExplore": "Tik om te verkennen",

@@ -6,6 +6,7 @@ import { navigateTo } from '@/lib';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, typography, opacity, colorWithOpacity } from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
+import { MethodologySection } from './MethodologySection';
 import type { Insight } from '@/types';
 
 const SHEET_HEIGHT = Dimensions.get('window').height * 0.85;
@@ -94,6 +95,15 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
           <View style={styles.contentSection}>
             <InsightDetailContent insight={insight} onClose={onClose} />
           </View>
+
+          {/* Methodology transparency */}
+          {insight.methodology ||
+          insight.supportingData?.formula ||
+          insight.supportingData?.algorithmDescription ? (
+            <View style={styles.methodologySection}>
+              <MethodologySection insight={insight} />
+            </View>
+          ) : null}
 
           {/* Navigation link */}
           {hasNavTarget ? (
@@ -208,6 +218,10 @@ const styles = StyleSheet.create({
   contentSection: {
     paddingHorizontal: spacing.lg,
     marginTop: spacing.xs,
+  },
+  // Methodology
+  methodologySection: {
+    paddingHorizontal: spacing.lg,
   },
   // Navigation
   navLink: {

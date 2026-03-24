@@ -68,6 +68,8 @@ export interface InsightSupportingData {
     previous: DataPoint;
     change: DataPoint;
   };
+  formula?: string;
+  algorithmDescription?: string;
 }
 
 export interface Insight {
