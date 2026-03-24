@@ -80,7 +80,7 @@ export default function FeedScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isDark, colors: themeColors } = useTheme();
-  const shared = createSharedStyles(isDark);
+  const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
 
@@ -177,6 +177,9 @@ export default function FeedScreen() {
     const hookTime = performance.now() - renderStart;
     if (hookTime > 50) console.log(`  ⏱ Total hooks: ${hookTime.toFixed(1)}ms`);
   }
+
+  // Memoize InsightLine to prevent SummaryCard re-renders from new JSX element references
+  const insightLine = useMemo(() => <InsightLine insights={insights} />, [insights]);
 
   // Filter activities by search query and type
   const filteredActivities = useMemo(() => {
@@ -426,7 +429,7 @@ export default function FeedScreen() {
           rhrData={rhrData}
           showSparkline={showSparkline}
           supportingMetrics={supportingMetrics}
-          insightLine={<InsightLine insights={insights} />}
+          insightLine={insightLine}
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={colors.primary} />
@@ -457,7 +460,7 @@ export default function FeedScreen() {
           rhrData={rhrData}
           showSparkline={showSparkline}
           supportingMetrics={supportingMetrics}
-          insightLine={<InsightLine insights={insights} />}
+          insightLine={insightLine}
         />
 
         <FlatList

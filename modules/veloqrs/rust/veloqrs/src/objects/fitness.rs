@@ -253,17 +253,19 @@ impl FitnessManager {
                 swim_pace_trend,
             };
 
-            // === GPS preview tracks ===
+            // === GPS preview tracks (simplified ~100 points via Douglas-Peucker) ===
+            // Uses route signatures instead of full GPS tracks (4000+ → ~100 points)
             let preview_tracks: Vec<crate::FfiPreviewTrack> = preview_activity_ids
                 .iter()
                 .filter_map(|id| {
-                    let points = e.get_gps_track(id)?;
-                    if points.is_empty() {
+                    let sig = e.get_signature(id)?;
+                    if sig.points.is_empty() {
                         return None;
                     }
                     Some(crate::FfiPreviewTrack {
                         activity_id: id.clone(),
-                        points: points
+                        points: sig
+                            .points
                             .into_iter()
                             .map(crate::FfiGpsPoint::from)
                             .collect(),
