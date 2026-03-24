@@ -434,6 +434,8 @@ export default function FeedScreen() {
     insLen: 0,
     focused: false,
     refetching: false,
+    dataRef: null as unknown,
+    filteredRef: null as unknown,
   });
   if (PERF_DEBUG) {
     const prev = prevRenderState.current;
@@ -445,11 +447,15 @@ export default function FeedScreen() {
     if (prev.focused !== isFeedFocused) changes.push(`focused:${prev.focused}→${isFeedFocused}`);
     if (prev.refetching !== isRefetching)
       changes.push(`refetching:${prev.refetching}→${isRefetching}`);
+    if (prev.dataRef !== data) changes.push('data:newRef');
+    if (prev.filteredRef !== filteredActivities) changes.push('filtered:newRef');
     prev.isLoading = isLoading;
     prev.actLen = allActivities.length;
     prev.insLen = insights.length;
     prev.focused = isFeedFocused;
     prev.refetching = isRefetching;
+    prev.dataRef = data;
+    prev.filteredRef = filteredActivities;
 
     const jsxStart = performance.now() - renderStart;
     if (jsxStart > 30)
