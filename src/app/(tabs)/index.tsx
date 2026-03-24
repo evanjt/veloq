@@ -407,37 +407,7 @@ export default function FeedScreen() {
       );
   }
 
-  if (isLoading && !allActivities.length) {
-    return (
-      <ScreenSafeAreaView style={shared.container}>
-        {/* Show real SummaryCard immediately — its data is persisted and available */}
-        <SummaryCard
-          profileUrl={profileUrl}
-          onProfilePress={navigateToSettings}
-          heroMetric={heroMetric}
-          heroValue={heroValue}
-          heroLabel={heroLabel}
-          heroColor={heroColor}
-          heroZoneLabel={heroZoneLabel}
-          heroZoneColor={heroZoneColor}
-          heroTrend={heroTrend}
-          onHeroPress={navigateToHeroMetric}
-          fitnessData={fitnessData}
-          fatigueData={fatigueData}
-          formData={formData}
-          hrvData={hrvData}
-          rhrData={rhrData}
-          showSparkline={showSparkline}
-          supportingMetrics={supportingMetrics}
-          insightLine={insightLine}
-        />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={colors.primary} />
-        </View>
-      </ScreenSafeAreaView>
-    );
-  }
-
+  // Single layout path — no separate loading tree to avoid component tree swap and layout bounce
   return (
     <ScreenErrorBoundary screenName="Feed">
       <ScreenSafeAreaView style={shared.container} testID="home-screen">
@@ -591,11 +561,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   loadingText: {
     ...typography.body,
