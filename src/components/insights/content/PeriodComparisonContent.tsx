@@ -1,13 +1,25 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
+import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import type { Insight } from '@/types';
 
+const CHART_HEIGHT = 140;
+const CHART_PADDING = { top: 12, bottom: 28, left: 8, right: 8 };
+const CHART_WIDTH = Dimensions.get('window').width - spacing.lg * 4;
+
 interface PeriodComparisonContentProps {
   insight: Insight;
+}
+
+interface WeekBar {
+  label: string;
+  value: number;
+  unit?: string;
+  isCurrent: boolean;
 }
 
 export const PeriodComparisonContent = React.memo(function PeriodComparisonContent({
@@ -21,66 +33,120 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
 
   const currentVal = typeof comparison.current.value === 'number' ? comparison.current.value : 0;
   const previousVal = typeof comparison.previous.value === 'number' ? comparison.previous.value : 0;
-  const maxVal = Math.max(currentVal, previousVal, 1);
 
   const changeStr = String(comparison.change.value);
   const isPositive = changeStr.startsWith('+');
   const changeColor = isPositive ? colors.success : colors.warning;
   const changeIcon = isPositive ? 'arrow-up' : 'arrow-down';
 
+  const bars = useMemo(
+    (): WeekBar[] => [
+      {
+        label: String(comparison.previous.label),
+        value: previousVal,
+        unit: comparison.previous.unit,
+        isCurrent: false,
+      },
+      {
+        label: String(comparison.current.label),
+        value: currentVal,
+        unit: comparison.current.unit,
+        isCurrent: true,
+      },
+    ],
+    [comparison, currentVal, previousVal]
+  );
+
+  const maxVal = Math.max(...bars.map((b) => b.value), 1);
+
+  const barChart = useMemo(() => {
+    const drawW = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right;
+    const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
+    const barCount = bars.length;
+    const totalBarSpace = drawW * 0.7;
+    const barWidth = Math.min(totalBarSpace / barCount, 60);
+    const totalWidth = barWidth * barCount + spacing.sm * (barCount - 1);
+    const startX = CHART_PADDING.left + (drawW - totalWidth) / 2;
+
+    return bars.map((bar, i) => {
+      const barHeight = maxVal > 0 ? (bar.value / maxVal) * drawH : 0;
+      const x = startX + i * (barWidth + spacing.sm);
+      const y = CHART_PADDING.top + drawH - barHeight;
+
+      return {
+        x,
+        y,
+        width: barWidth,
+        height: Math.max(barHeight, 2),
+        label: bar.label,
+        value: bar.value,
+        unit: bar.unit,
+        isCurrent: bar.isCurrent,
+        labelY: CHART_PADDING.top + drawH + 4,
+      };
+    });
+  }, [bars, maxVal]);
+
+  const barColor = isPositive ? colors.success : '#42A5F5';
+  const mutedBarColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)';
+
   return (
     <View style={styles.container}>
-      {/* Visual bars */}
-      <View style={[styles.barsCard, isDark && styles.barsCardDark]}>
-        {/* Current period bar */}
-        <View style={styles.barRow}>
-          <Text style={[styles.barLabel, isDark && styles.barLabelDark]}>
-            {comparison.current.label}
-          </Text>
-          <View style={styles.barTrack}>
-            <View
-              style={[
-                styles.barFill,
-                {
-                  width: `${(currentVal / maxVal) * 100}%`,
-                  backgroundColor: isPositive ? colors.success : colors.warning,
-                },
-              ]}
-            />
-          </View>
-          <Text style={[styles.barValue, isDark && styles.barValueDark]}>
-            {String(comparison.current.value)}
-            {comparison.current.unit ? ` ${comparison.current.unit}` : ''}
-          </Text>
-        </View>
+      {/* Bar chart */}
+      <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
+        <View style={styles.chartWrapper}>
+          <Canvas style={{ width: CHART_WIDTH, height: CHART_HEIGHT }}>
+            {barChart.map((bar, i) => (
+              <RoundedRect
+                key={`bar-${i}`}
+                x={bar.x}
+                y={bar.y}
+                width={bar.width}
+                height={bar.height}
+                r={4}
+                color={bar.isCurrent ? barColor : mutedBarColor}
+              />
+            ))}
+          </Canvas>
 
-        {/* Previous period bar */}
-        <View style={styles.barRow}>
-          <Text style={[styles.barLabel, isDark && styles.barLabelDark]}>
-            {comparison.previous.label}
-          </Text>
-          <View style={styles.barTrack}>
+          {/* Bar labels below */}
+          {barChart.map((bar, i) => (
             <View
-              style={[
-                styles.barFill,
-                {
-                  width: `${(previousVal / maxVal) * 100}%`,
-                  backgroundColor: isDark ? darkColors.textMuted : colors.textMuted,
-                },
-              ]}
-            />
-          </View>
-          <Text style={[styles.barValue, isDark && styles.barValueDark]}>
-            {String(comparison.previous.value)}
-            {comparison.previous.unit ? ` ${comparison.previous.unit}` : ''}
-          </Text>
-        </View>
+              key={`label-${i}`}
+              style={[styles.barLabelContainer, { left: bar.x, width: bar.width, top: bar.labelY }]}
+            >
+              <Text style={[styles.barLabelText, isDark && styles.barLabelTextDark]}>
+                {bar.label}
+              </Text>
+            </View>
+          ))}
 
-        {/* Change badge */}
-        <View style={styles.changeRow}>
-          <MaterialCommunityIcons name={changeIcon as never} size={16} color={changeColor} />
-          <Text style={[styles.changeText, { color: changeColor }]}>{changeStr}</Text>
+          {/* Value labels above bars */}
+          {barChart.map((bar, i) => (
+            <View
+              key={`value-${i}`}
+              style={[styles.barValueContainer, { left: bar.x, width: bar.width, top: bar.y - 18 }]}
+            >
+              <Text
+                style={[
+                  styles.barValueText,
+                  isDark && styles.barValueTextDark,
+                  bar.isCurrent && { fontWeight: '700' },
+                ]}
+              >
+                {typeof bar.value === 'number' && bar.unit
+                  ? `${bar.value} ${bar.unit}`
+                  : String(comparison[bar.isCurrent ? 'current' : 'previous'].value)}
+              </Text>
+            </View>
+          ))}
         </View>
+      </View>
+
+      {/* Change badge */}
+      <View style={styles.changeRow}>
+        <MaterialCommunityIcons name={changeIcon as never} size={16} color={changeColor} />
+        <Text style={[styles.changeText, { color: changeColor }]}>{changeStr}</Text>
       </View>
 
       {/* Activity counts */}
@@ -104,47 +170,42 @@ const styles = StyleSheet.create({
   container: {
     gap: spacing.sm,
   },
-  barsCard: {
+  chartCard: {
     backgroundColor: opacity.overlay.subtle,
     borderRadius: 10,
-    padding: spacing.md,
-    gap: spacing.sm,
+    padding: spacing.sm,
   },
-  barsCardDark: {
+  chartCardDark: {
     backgroundColor: opacity.overlayDark.light,
   },
-  barRow: {
-    flexDirection: 'row',
+  chartWrapper: {
+    position: 'relative',
+    width: CHART_WIDTH,
+    height: CHART_HEIGHT,
+  },
+  barLabelContainer: {
+    position: 'absolute',
     alignItems: 'center',
-    gap: spacing.sm,
   },
-  barLabel: {
-    fontSize: 12,
+  barLabelText: {
+    fontSize: 11,
     color: colors.textSecondary,
-    width: 70,
+    textAlign: 'center',
   },
-  barLabelDark: {
+  barLabelTextDark: {
     color: darkColors.textSecondary,
   },
-  barTrack: {
-    flex: 1,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: 'rgba(0,0,0,0.06)',
-    overflow: 'hidden',
+  barValueContainer: {
+    position: 'absolute',
+    alignItems: 'center',
   },
-  barFill: {
-    height: '100%',
-    borderRadius: 6,
-  },
-  barValue: {
-    fontSize: 13,
-    fontWeight: '600',
+  barValueText: {
+    fontSize: 12,
+    fontWeight: '500',
     color: colors.textPrimary,
-    minWidth: 50,
-    textAlign: 'right',
+    textAlign: 'center',
   },
-  barValueDark: {
+  barValueTextDark: {
     color: darkColors.textPrimary,
   },
   changeRow: {
@@ -152,7 +213,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    paddingTop: spacing.xs,
   },
   changeText: {
     fontSize: 15,

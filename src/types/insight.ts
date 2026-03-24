@@ -8,7 +8,8 @@ export type InsightCategory =
   | 'hrv_trend'
   | 'tsb_form'
   | 'weekly_load'
-  | 'intensity_context';
+  | 'intensity_context'
+  | 'section_cluster';
 
 export type InsightPriority = 1 | 2 | 3 | 4 | 5;
 

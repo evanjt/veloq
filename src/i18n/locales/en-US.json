@@ -802,7 +802,14 @@
     "showMore": "Show {{count}} more",
     "aboutTitle": "About Insights",
     "whyThisRecommendation": "Why this recommendation?",
-    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice."
+    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
+    "sectionCluster": {
+      "improvingTitle": "{{count}} sections improving",
+      "decliningTitle": "{{count}} sections to revisit",
+      "improvingBody": "{{names}} trending faster across {{count}} sections.",
+      "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
+      "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced."
+    }
   },
   "routeDetail": {
     "avgTime": "Avg Time",
@@ -914,6 +921,9 @@
   "routeIntelligence": {
     "today": "TODAY",
     "tomorrow": "TOMORROW"
+  },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} section PRs this week"
   },
   "routesScreen": {
     "analysingRoutes": "Analyzing routes {{current}}/{{total}}",

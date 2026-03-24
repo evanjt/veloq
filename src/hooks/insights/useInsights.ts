@@ -250,6 +250,13 @@ export function useInsights(
                   activityCount: tomorrowPattern.activityCount,
                 }
               : null,
+            allPatterns: allPatterns.map((p) => ({
+              sportType: p.sportType,
+              primaryDay: p.primaryDay,
+              avgDurationSecs: p.avgDurationSecs,
+              confidence: p.confidence,
+              activityCount: p.activityCount,
+            })),
           },
           t as (key: string, params?: Record<string, string | number>) => string
         );

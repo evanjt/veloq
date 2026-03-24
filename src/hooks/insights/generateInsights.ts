@@ -115,6 +115,8 @@ export interface InsightInputData {
   allSectionTrends?: SectionTrendData[];
   // Tomorrow's pattern prediction
   tomorrowPattern?: ActivityPattern | null;
+  // All detected activity patterns (for weekly heatmap in pattern detail)
+  allPatterns?: ActivityPattern[];
 }
 
 // Translation function type
@@ -178,7 +180,7 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   addConsistencyInsights(insights, data, now, t);
 
   // Priority 4: Activity Patterns
-  addActivityPatternInsights(insights, data.todayPattern, now, t);
+  addActivityPatternInsights(insights, data.todayPattern, data.allPatterns ?? [], now, t);
 
   insights.sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
 
@@ -293,6 +295,14 @@ function addRestDayInsights(
     const verb = tomorrow.sportType === 'Run' ? 'run' : 'ride';
     const duration = formatDurationCompact(tomorrow.avgDurationSecs);
 
+    // Build weekly sparkline from all patterns
+    const weeklySparkline = [0, 0, 0, 0, 0, 0, 0];
+    for (const p of data.allPatterns ?? []) {
+      if (p.primaryDay >= 0 && p.primaryDay <= 6 && p.confidence >= 0.3) {
+        weeklySparkline[p.primaryDay] += p.activityCount;
+      }
+    }
+
     insights.push(
       makeInsight({
         id: 'rest_day-tomorrow-pattern',
@@ -320,6 +330,8 @@ function addRestDayInsights(
               unit: t('insights.data.activities'),
             },
           ],
+          sparklineData: weeklySparkline,
+          sparklineLabel: 'typical_week',
         },
         methodology: {
           name: 'K-means clustering',
@@ -1148,6 +1160,7 @@ function addConsistencyInsights(
 function addActivityPatternInsights(
   insights: Insight[],
   todayPattern: ActivityPattern | null,
+  allPatterns: ActivityPattern[],
   now: number,
   t: TFunc
 ): void {
@@ -1159,6 +1172,14 @@ function addActivityPatternInsights(
   const day = DAY_NAMES[todayPattern.primaryDay];
   const verb = todayPattern.sportType === 'Run' ? 'run' : 'ride';
   const duration = formatDurationCompact(todayPattern.avgDurationSecs);
+
+  // Build weekly pattern sparkline: activity count per day of week (0=Mon..6=Sun)
+  const weeklySparkline = [0, 0, 0, 0, 0, 0, 0];
+  for (const p of allPatterns) {
+    if (p.primaryDay >= 0 && p.primaryDay <= 6 && p.confidence >= 0.3) {
+      weeklySparkline[p.primaryDay] += p.activityCount;
+    }
+  }
 
   insights.push(
     makeInsight({
@@ -1187,6 +1208,8 @@ function addActivityPatternInsights(
             value: duration,
           },
         ],
+        sparklineData: weeklySparkline,
+        sparklineLabel: 'typical_week',
       },
       methodology: {
         name: 'K-means clustering',

@@ -8,7 +8,139 @@ import { colors, darkColors, spacing, typography, opacity, shadows } from '@/the
 import { navigateTo } from '@/lib';
 import type { Insight } from '@/types';
 
+const WEEK_DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+const MIN_BUBBLE_SIZE = 8;
+const MAX_BUBBLE_SIZE = 36;
+
 const SHEET_HEIGHT = Dimensions.get('window').height * 0.85;
+
+// "Your typical week" sub-component: 7 columns with proportionally-sized bubbles
+const TypicalWeekChart = React.memo(function TypicalWeekChart({
+  sparklineData,
+  sparklineLabel,
+  highlightDay,
+  isDark,
+}: {
+  sparklineData?: number[];
+  sparklineLabel?: string;
+  highlightDay: number;
+  isDark: boolean;
+}) {
+  if (!sparklineData || sparklineLabel !== 'typical_week' || sparklineData.length !== 7) {
+    return null;
+  }
+
+  const maxCount = Math.max(...sparklineData, 1);
+  const hasData = sparklineData.some((v) => v > 0);
+  if (!hasData) return null;
+
+  const bubbleColor = '#AB47BC';
+  const emptyColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+
+  return (
+    <View style={[typicalWeekStyles.container, isDark && typicalWeekStyles.containerDark]}>
+      <Text style={[typicalWeekStyles.heading, isDark && typicalWeekStyles.headingDark]}>
+        Your typical week
+      </Text>
+      <View style={typicalWeekStyles.columns}>
+        {WEEK_DAY_LABELS.map((label, i) => {
+          const count = sparklineData[i];
+          const isHighlight = i === highlightDay;
+          const size =
+            count > 0
+              ? MIN_BUBBLE_SIZE + (count / maxCount) * (MAX_BUBBLE_SIZE - MIN_BUBBLE_SIZE)
+              : MIN_BUBBLE_SIZE;
+
+          return (
+            <View key={label} style={typicalWeekStyles.column}>
+              <View style={typicalWeekStyles.bubbleWrapper}>
+                <View
+                  style={{
+                    width: size,
+                    height: size,
+                    borderRadius: size / 2,
+                    backgroundColor: count > 0 ? bubbleColor : emptyColor,
+                    opacity: count > 0 ? 0.4 + 0.6 * (count / maxCount) : 1,
+                    borderWidth: isHighlight ? 2 : 0,
+                    borderColor: isHighlight ? bubbleColor : 'transparent',
+                  }}
+                />
+              </View>
+              {count > 0 ? (
+                <Text
+                  style={[typicalWeekStyles.countLabel, isDark && typicalWeekStyles.countLabelDark]}
+                >
+                  {count}
+                </Text>
+              ) : null}
+              <Text
+                style={[
+                  typicalWeekStyles.dayLabel,
+                  isDark && typicalWeekStyles.dayLabelDark,
+                  isHighlight && { fontWeight: '700', color: bubbleColor },
+                ]}
+              >
+                {label}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+});
+
+const typicalWeekStyles = StyleSheet.create({
+  container: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: 12,
+    backgroundColor: opacity.overlay.subtle,
+  },
+  containerDark: {
+    backgroundColor: opacity.overlayDark.light,
+  },
+  heading: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  headingDark: {
+    color: darkColors.textSecondary,
+  },
+  columns: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+  },
+  column: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  bubbleWrapper: {
+    width: MAX_BUBBLE_SIZE,
+    height: MAX_BUBBLE_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  countLabelDark: {
+    color: darkColors.textSecondary,
+  },
+  dayLabel: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  dayLabelDark: {
+    color: darkColors.textMuted,
+  },
+});
 
 interface PatternDetailSheetProps {
   insight: Insight | null;
@@ -144,6 +276,20 @@ export const PatternDetailSheet = React.memo(function PatternDetailSheet({
               </View>
             ) : null}
           </View>
+
+          {/* Your typical week — bubble chart */}
+          <TypicalWeekChart
+            sparklineData={insight.supportingData?.sparklineData}
+            sparklineLabel={insight.supportingData?.sparklineLabel}
+            highlightDay={
+              dayPoint
+                ? WEEK_DAY_LABELS.findIndex((d) =>
+                    String(dayPoint.value).toLowerCase().startsWith(d.toLowerCase().slice(0, 3))
+                  )
+                : -1
+            }
+            isDark={isDark}
+          />
 
           {/* Activity count header */}
           {activityCount != null && activityCount > 0 ? (

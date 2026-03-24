@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/hooks';
@@ -6,6 +6,10 @@ import { colors, darkColors, spacing, opacity } from '@/theme';
 import type { Insight } from '@/types';
 
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
+
+const MIN_DOT_SIZE = 8;
+const MAX_DOT_SIZE = 24;
+const EMPTY_DOT_SIZE = 8;
 
 interface ConsistencyContentProps {
   insight: Insight;
@@ -23,22 +27,48 @@ export const ConsistencyContent = React.memo(function ConsistencyContent({
   const thisWeek = typeof thisWeekCount === 'number' ? thisWeekCount : 0;
   const lastWeek = typeof lastWeekCount === 'number' ? lastWeekCount : 0;
 
-  const dotColor = '#FF7043';
+  const activeColor = '#FF7043';
   const emptyColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
 
-  // Generate dot patterns: fill from Monday for thisWeek/lastWeek count
-  // Since we don't have per-day data, show filled count from left
+  const maxWeekCount = Math.max(thisWeek, lastWeek, 1);
+
+  const getDotSize = useMemo(() => {
+    return (count: number, dayIndex: number) => {
+      if (dayIndex >= count) return EMPTY_DOT_SIZE;
+      const scale = count / maxWeekCount;
+      return MIN_DOT_SIZE + (MAX_DOT_SIZE - MIN_DOT_SIZE) * scale;
+    };
+  }, [maxWeekCount]);
+
   const renderDotRow = (label: string, count: number) => (
     <View style={styles.dotRow}>
       <Text style={[styles.rowLabel, isDark && styles.rowLabelDark]}>{label}</Text>
       <View style={styles.dots}>
-        {DAY_LABELS.map((dayLabel, i) => (
-          <View key={i} style={styles.dotColumn}>
-            <View style={[styles.dot, { backgroundColor: i < count ? dotColor : emptyColor }]} />
-            <Text style={[styles.dayLabel, isDark && styles.dayLabelDark]}>{dayLabel}</Text>
-          </View>
-        ))}
+        {DAY_LABELS.map((dayLabel, i) => {
+          const isActive = i < count;
+          const size = getDotSize(count, i);
+          return (
+            <View key={i} style={styles.dotColumn}>
+              <View style={styles.dotWrapper}>
+                <View
+                  style={[
+                    styles.dot,
+                    {
+                      width: size,
+                      height: size,
+                      borderRadius: size / 2,
+                      backgroundColor: isActive ? activeColor : emptyColor,
+                      opacity: isActive ? 0.6 + 0.4 * (count / maxWeekCount) : 1,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={[styles.dayLabel, isDark && styles.dayLabelDark]}>{dayLabel}</Text>
+            </View>
+          );
+        })}
       </View>
+      <Text style={[styles.countText, isDark && styles.countTextDark]}>{count}</Text>
     </View>
   );
 
@@ -99,17 +129,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  dot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+  dotWrapper: {
+    width: MAX_DOT_SIZE,
+    height: MAX_DOT_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  dot: {},
   dayLabel: {
     fontSize: 9,
     color: colors.textMuted,
   },
   dayLabelDark: {
     color: darkColors.textMuted,
+  },
+  countText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    minWidth: 20,
+    textAlign: 'right',
+  },
+  countTextDark: {
+    color: darkColors.textPrimary,
   },
   totalRow: {
     flexDirection: 'row',
