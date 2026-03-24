@@ -119,8 +119,6 @@ export default function FeedScreen() {
     refetch: refetchSummary,
   } = useSummaryCardData();
 
-  const { insights } = useInsights();
-
   const {
     data,
     isLoading,
@@ -149,6 +147,9 @@ export default function FeedScreen() {
     [allActivities]
   );
   const { data: startupData } = useStartupData(previewIds);
+
+  // useInsights uses pre-computed data from startup when available, else its own FFI call
+  const { insights } = useInsights(startupData?.insightsData);
 
   // Filter activities by search query and type
   const filteredActivities = useMemo(() => {

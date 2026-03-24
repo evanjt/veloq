@@ -13,14 +13,16 @@ import { generateInsights } from './generateInsights';
 import type { Insight } from '@/types';
 
 /**
- * Compute ranked insights from a single batch FFI call (getInsightsData).
- * All heavy computation (period stats, section summaries, PR detection)
- * happens in Rust within one engine lock. Deferred via InteractionManager
- * so it never blocks feed rendering.
+ * Compute ranked insights from FFI data.
  *
- * Performance: ~30-50ms deferred (was ~860ms synchronous with 13-16 FFI calls).
+ * When `preComputedInsightsData` is provided (from getStartupData), skips the
+ * separate getInsightsData FFI call entirely. Falls back to its own deferred
+ * FFI call when no pre-computed data is available (e.g., on routes tab).
  */
-export function useInsights(): {
+export function useInsights(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  preComputedInsightsData?: any
+): {
   insights: Insight[];
   topInsight: Insight | null;
   hasNewInsights: boolean;
@@ -55,15 +57,17 @@ export function useInsights(): {
 
   useEffect(() => {
     const handle = InteractionManager.runAfterInteractions(() => {
-      const engine = getRouteEngine();
-      if (!engine || !isMountedRef.current) return;
+      if (!isMountedRef.current) return;
 
-      try {
-        // Compute timestamps for period ranges
-        const now = new Date();
+      // Use pre-computed data from getStartupData when available (skips FFI call)
+      const now = new Date();
+      let data = preComputedInsightsData;
+      if (!data) {
+        const engine = getRouteEngine();
+        if (!engine) return;
         const startOfWeek = new Date(now);
         const day = startOfWeek.getDay();
-        startOfWeek.setDate(startOfWeek.getDate() - day + (day === 0 ? -6 : 1)); // Monday start
+        startOfWeek.setDate(startOfWeek.getDate() - day + (day === 0 ? -6 : 1));
         startOfWeek.setHours(0, 0, 0, 0);
 
         const startOfLastWeek = new Date(startOfWeek);
@@ -77,8 +81,7 @@ export function useInsights(): {
 
         const toTs = (d: Date) => Math.floor(d.getTime() / 1000);
 
-        // Single batch FFI call — all computation in Rust, one engine lock
-        const data = engine.getInsightsData(
+        data = engine.getInsightsData(
           toTs(startOfWeek),
           toTs(now),
           toTs(startOfLastWeek),
@@ -86,9 +89,11 @@ export function useInsights(): {
           toTs(fourWeeksAgo),
           toTs(todayStart)
         );
+      }
 
-        if (!data || !isMountedRef.current) return;
+      if (!data || !isMountedRef.current) return;
 
+      try {
         // Convert FFI bigint fields to number for generateInsights
         const toPeriod = (p: {
           count: number;
@@ -242,7 +247,7 @@ export function useInsights(): {
 
     return () => handle.cancel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trigger, wellnessData, tsb, ctl, atl, latestWellness, t]);
+  }, [trigger, preComputedInsightsData, wellnessData, tsb, ctl, atl, latestWellness, t]);
 
   // Stabilise reference -- only update when insight IDs actually change
   const prevInsightsRef = useRef<Insight[]>([]);
