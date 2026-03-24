@@ -19,6 +19,8 @@ import type {
   FfiSectionPerformanceResult,
   FfiCalendarSummary,
   FfiRoutePerformanceResult,
+  FfiRankedSection,
+  FfiEfficiencyTrend,
   SectionSummary,
   GroupSummary,
   MapActivityComplete,
@@ -301,6 +303,13 @@ class RouteEngineClient {
     );
   }
 
+  getRankedSections(sportType: string, limit: number): FfiRankedSection[] {
+    if (!this.ready) return [];
+    return this.timed('getRankedSections', () =>
+      this.engine.sections().getRanked(sportType, limit),
+    );
+  }
+
   getGroupSummaries(): { totalCount: number; summaries: GroupSummary[] } {
     if (!this.ready) return { totalCount: 0, summaries: [] };
     return this.timed('getGroupSummaries', () =>
@@ -468,6 +477,15 @@ class RouteEngineClient {
     }
     return this.timed('getSectionPerformances', () =>
       this.engine.sections().getPerformances(sectionId, sportType),
+    );
+  }
+
+  getSectionEfficiencyTrend(sectionId: string): FfiEfficiencyTrend | null {
+    if (!this.ready) {
+      return null;
+    }
+    return this.timed('getSectionEfficiencyTrend', () =>
+      this.engine.sections().getEfficiencyTrend(sectionId) ?? null,
     );
   }
 

@@ -1001,6 +1001,29 @@ pub struct FfiRoutesScreenData {
 }
 
 // ============================================================================
+// Ranked Section Types (ML-driven relevance scoring)
+// ============================================================================
+
+/// A section ranked by composite relevance score combining recency, improvement,
+/// anomaly detection, and engagement signals.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiRankedSection {
+    pub section_id: String,
+    pub section_name: String,
+    pub relevance_score: f64,
+    pub recency_score: f64,
+    pub improvement_score: f64,
+    pub anomaly_score: f64,
+    pub engagement_score: f64,
+    pub traversal_count: u32,
+    pub best_time_secs: f64,
+    pub median_recent_secs: f64,
+    pub days_since_last: u32,
+    /// -1 = declining, 0 = stable, 1 = improving
+    pub trend: i32,
+}
+
+// ============================================================================
 // Calendar Summary Types
 // ============================================================================
 
@@ -1242,6 +1265,48 @@ pub fn default_scale_presets() -> Vec<FfiScalePreset> {
         .into_iter()
         .map(FfiScalePreset::from)
         .collect()
+}
+
+// ============================================================================
+// Aerobic Efficiency Types
+// ============================================================================
+
+/// A single data point for aerobic efficiency tracking.
+/// Represents one section traversal with pace and heart rate data.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiEfficiencyPoint {
+    /// Unix timestamp of the activity
+    pub date: i64,
+    /// Pace in seconds per km
+    pub pace_secs_per_km: f64,
+    /// Average heart rate during this traversal
+    pub avg_hr: f64,
+    /// HR/pace ratio: avg_hr / pace_secs_per_km — lower = more efficient
+    pub hr_pace_ratio: f64,
+}
+
+/// Aerobic efficiency trend for a section.
+/// Tracks how HR/pace ratio changes over time across matched section efforts.
+/// A declining ratio indicates improving aerobic efficiency
+/// (Coyle et al., J Appl Physiol, 1991; Jones & Carter, Sports Med, 2000).
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiEfficiencyTrend {
+    /// Section ID
+    pub section_id: String,
+    /// Section name
+    pub section_name: String,
+    /// Individual data points sorted by date (oldest first)
+    pub points: Vec<FfiEfficiencyPoint>,
+    /// Linear regression slope of hr_pace_ratio over time (negative = improving)
+    pub trend_slope: f64,
+    /// True if slope is significantly negative (improving aerobic efficiency)
+    pub is_improving: bool,
+    /// Estimated HR change in bpm at the same pace over the observed time range
+    pub hr_change_bpm: f64,
+    /// Number of efforts with both pace and HR data
+    pub effort_count: u32,
 }
 
 // ============================================================================

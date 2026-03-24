@@ -67,6 +67,10 @@ impl SectionManager {
         })
     }
 
+    fn get_ranked(&self, sport_type: String, limit: u32) -> Result<Vec<crate::FfiRankedSection>, VeloqError> {
+        with_engine(|e| e.get_ranked_sections(&sport_type, limit))
+    }
+
     fn get_summaries_with_count(
         &self,
         sport_type: Option<String>,
@@ -309,6 +313,13 @@ impl SectionManager {
             e.expand_section_bounds(&section_id, &new_polyline_json)
                 .map_err(|e| VeloqError::Database { msg: e })
         })?
+    }
+
+    fn get_efficiency_trend(
+        &self,
+        section_id: String,
+    ) -> Result<Option<crate::FfiEfficiencyTrend>, VeloqError> {
+        with_engine(|e| e.get_section_efficiency_trend(&section_id))
     }
 
     fn extract_traces_batch(

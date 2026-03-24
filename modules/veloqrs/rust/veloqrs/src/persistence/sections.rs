@@ -683,6 +683,244 @@ impl PersistentRouteEngine {
             .collect()
     }
 
+    /// Get sections ranked by ML-driven composite relevance score.
+    ///
+    /// For each section matching the sport type, computes a weighted score from:
+    /// - Recency (0.35): exp(-days_since_last / 14.0), 2-week half-life
+    /// - Improvement signal (0.30): median of last 3 vs previous 3 efforts
+    /// - Anomaly detection (0.20): z-score of most recent effort
+    /// - Engagement (0.15): ln(traversal_count) / ln(max_traversal_count)
+    ///
+    /// Returns top `limit` sections sorted by relevance_score descending.
+    pub fn get_ranked_sections(&self, sport_type: &str, limit: u32) -> Vec<crate::FfiRankedSection> {
+        let start = std::time::Instant::now();
+
+        // Query all sections for this sport type with their traversal data
+        // Join section_activities with activity_metrics to get dates and lap times
+        struct TraversalRow {
+            section_id: String,
+            section_name: String,
+            lap_time: f64,
+            activity_date: i64,
+        }
+
+        let rows: Vec<TraversalRow> = {
+            let mut stmt = match self.db.prepare(
+                "SELECT s.id, s.name, sa.lap_time, am.date
+                 FROM sections s
+                 JOIN section_activities sa ON s.id = sa.section_id
+                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
+                 WHERE s.sport_type = ? AND sa.excluded = 0 AND sa.lap_time IS NOT NULL
+                 ORDER BY s.id, am.date ASC"
+            ) {
+                Ok(s) => s,
+                Err(e) => {
+                    log::error!("tracematch: [RankedSections] Failed to prepare query: {}", e);
+                    return Vec::new();
+                }
+            };
+
+            match stmt.query_map(rusqlite::params![sport_type], |row| {
+                Ok(TraversalRow {
+                    section_id: row.get(0)?,
+                    section_name: row.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                    lap_time: row.get(2)?,
+                    activity_date: row.get(3)?,
+                })
+            }) {
+                Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
+                Err(e) => {
+                    log::error!("tracematch: [RankedSections] Query failed: {}", e);
+                    return Vec::new();
+                }
+            }
+        };
+
+        if rows.is_empty() {
+            log::info!("tracematch: [RankedSections] No traversals found for sport_type={}", sport_type);
+            return Vec::new();
+        }
+
+        // Group traversals by section
+        struct SectionData {
+            name: String,
+            times: Vec<f64>,     // lap times in seconds, ordered by date ascending
+            dates: Vec<i64>,     // activity dates (unix timestamps), ascending
+        }
+
+        let mut sections: HashMap<String, SectionData> = HashMap::new();
+        for row in &rows {
+            let entry = sections.entry(row.section_id.clone()).or_insert_with(|| SectionData {
+                name: row.section_name.clone(),
+                times: Vec::new(),
+                dates: Vec::new(),
+            });
+            entry.times.push(row.lap_time);
+            entry.dates.push(row.activity_date);
+        }
+
+        let now_secs = Utc::now().timestamp();
+
+        // Find max traversal count for engagement normalization
+        let max_traversal_count = sections.values()
+            .map(|s| s.times.len())
+            .max()
+            .unwrap_or(1)
+            .max(2); // Ensure ln(max) > 0
+
+        let mut ranked: Vec<crate::FfiRankedSection> = sections
+            .iter()
+            .map(|(section_id, data)| {
+                let traversal_count = data.times.len() as u32;
+                let last_date = *data.dates.last().unwrap_or(&now_secs);
+                let days_since_last = ((now_secs - last_date) as f64 / 86400.0).max(0.0) as u32;
+
+                // --- Recency score (weight 0.35) ---
+                // exp(-days / 14): half-life of ~2 weeks
+                let recency_score = (-1.0 * days_since_last as f64 / 14.0).exp();
+
+                // --- Improvement signal (weight 0.30) ---
+                // Compare median of last 3 efforts to median of previous 3
+                let improvement_score = if data.times.len() >= 6 {
+                    let n = data.times.len();
+                    let mut recent: Vec<f64> = data.times[n - 3..].to_vec();
+                    let mut previous: Vec<f64> = data.times[n - 6..n - 3].to_vec();
+                    recent.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                    previous.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                    let median_recent = recent[1];
+                    let median_previous = previous[1];
+                    if median_previous > 0.0 {
+                        // Negative change = faster = improving (for time-based metrics)
+                        // Normalize: cap at +/- 100% change, then map to 0..1
+                        let pct_change = (median_previous - median_recent) / median_previous;
+                        (pct_change.clamp(-1.0, 1.0) + 1.0) / 2.0
+                    } else {
+                        0.5 // neutral
+                    }
+                } else if data.times.len() >= 3 {
+                    // Fewer than 6: compare last effort to first effort
+                    let first = data.times[0];
+                    let last = *data.times.last().unwrap();
+                    if first > 0.0 {
+                        let pct_change = (first - last) / first;
+                        (pct_change.clamp(-1.0, 1.0) + 1.0) / 2.0
+                    } else {
+                        0.5
+                    }
+                } else {
+                    0.5 // not enough data, neutral
+                };
+
+                // --- Anomaly detection (weight 0.20) ---
+                // Z-score of most recent effort against all efforts
+                let anomaly_score = if data.times.len() >= 3 {
+                    let mean = data.times.iter().sum::<f64>() / data.times.len() as f64;
+                    let variance = data.times.iter()
+                        .map(|t| (t - mean).powi(2))
+                        .sum::<f64>() / data.times.len() as f64;
+                    let std_dev = variance.sqrt();
+                    if std_dev > 0.0 {
+                        let latest = *data.times.last().unwrap();
+                        let z = ((latest - mean) / std_dev).abs();
+                        // Normalize: z of 0 = 0, z of 3+ = 1.0
+                        (z / 3.0).min(1.0)
+                    } else {
+                        0.0
+                    }
+                } else {
+                    0.0 // not enough data for anomaly detection
+                };
+
+                // --- Engagement score (weight 0.15) ---
+                // ln(traversal_count) / ln(max_traversal_count)
+                let engagement_score = if traversal_count >= 2 && max_traversal_count >= 2 {
+                    (traversal_count as f64).ln() / (max_traversal_count as f64).ln()
+                } else if traversal_count >= 1 {
+                    // Single traversal: small engagement score
+                    0.1
+                } else {
+                    0.0
+                };
+
+                // --- Composite relevance score ---
+                let relevance_score = 0.35 * recency_score
+                    + 0.30 * improvement_score
+                    + 0.20 * anomaly_score
+                    + 0.15 * engagement_score;
+
+                // --- Best time ---
+                let best_time_secs = data.times.iter().cloned().fold(f64::INFINITY, f64::min);
+
+                // --- Median of recent efforts ---
+                let median_recent_secs = if data.times.len() >= 3 {
+                    let n = data.times.len();
+                    let mut recent: Vec<f64> = data.times[n.saturating_sub(3)..].to_vec();
+                    recent.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                    recent[recent.len() / 2]
+                } else if !data.times.is_empty() {
+                    let mut all = data.times.clone();
+                    all.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                    all[all.len() / 2]
+                } else {
+                    0.0
+                };
+
+                // --- Trend ---
+                let trend = if data.times.len() >= 6 {
+                    let n = data.times.len();
+                    let mut recent: Vec<f64> = data.times[n - 3..].to_vec();
+                    let mut previous: Vec<f64> = data.times[n - 6..n - 3].to_vec();
+                    recent.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                    previous.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                    let median_recent = recent[1];
+                    let median_previous = previous[1];
+                    let pct = if median_previous > 0.0 {
+                        (median_previous - median_recent) / median_previous
+                    } else {
+                        0.0
+                    };
+                    if pct > 0.02 { 1 }       // >2% faster = improving
+                    else if pct < -0.02 { -1 } // >2% slower = declining
+                    else { 0 }                 // within 2% = stable
+                } else if data.times.len() >= 2 {
+                    let first = data.times[0];
+                    let last = *data.times.last().unwrap();
+                    let pct = if first > 0.0 { (first - last) / first } else { 0.0 };
+                    if pct > 0.02 { 1 } else if pct < -0.02 { -1 } else { 0 }
+                } else {
+                    0
+                };
+
+                crate::FfiRankedSection {
+                    section_id: section_id.clone(),
+                    section_name: data.name.clone(),
+                    relevance_score,
+                    recency_score,
+                    improvement_score,
+                    anomaly_score,
+                    engagement_score,
+                    traversal_count,
+                    best_time_secs: if best_time_secs.is_finite() { best_time_secs } else { 0.0 },
+                    median_recent_secs,
+                    days_since_last,
+                    trend,
+                }
+            })
+            .collect();
+
+        // Sort by relevance_score descending
+        ranked.sort_by(|a, b| b.relevance_score.partial_cmp(&a.relevance_score).unwrap_or(std::cmp::Ordering::Equal));
+
+        // Limit results
+        ranked.truncate(limit as usize);
+
+        log::info!(
+            "tracematch: [RankedSections] Ranked {} sections for sport_type={} in {:?} (returning top {})",
+            sections.len(), sport_type, start.elapsed(), ranked.len()
+        );
+
+        ranked
+    }
 
     /// Get a single section by ID with LRU caching.
     /// Returns the full FrequentSection with polyline data.

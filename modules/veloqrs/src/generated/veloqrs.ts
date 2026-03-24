@@ -1513,6 +1513,193 @@ const FfiConverterTypeFfiDirectionStats = (() => {
 })();
 
 /**
+ * A single data point for aerobic efficiency tracking.
+ * Represents one section traversal with pace and heart rate data.
+ */
+export type FfiEfficiencyPoint = {
+  /**
+   * Unix timestamp of the activity
+   */
+  date: /*i64*/ bigint;
+  /**
+   * Pace in seconds per km
+   */
+  paceSecsPerKm: /*f64*/ number;
+  /**
+   * Average heart rate during this traversal
+   */
+  avgHr: /*f64*/ number;
+  /**
+   * HR/pace ratio: avg_hr / pace_secs_per_km — lower = more efficient
+   */
+  hrPaceRatio: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiEfficiencyPoint} record objects.
+ */
+export const FfiEfficiencyPoint = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiEfficiencyPoint, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiEfficiencyPoint}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiEfficiencyPoint}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiEfficiencyPoint>,
+  });
+})();
+
+const FfiConverterTypeFfiEfficiencyPoint = (() => {
+  type TypeName = FfiEfficiencyPoint;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        date: FfiConverterInt64.read(from),
+        paceSecsPerKm: FfiConverterFloat64.read(from),
+        avgHr: FfiConverterFloat64.read(from),
+        hrPaceRatio: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterInt64.write(value.date, into);
+      FfiConverterFloat64.write(value.paceSecsPerKm, into);
+      FfiConverterFloat64.write(value.avgHr, into);
+      FfiConverterFloat64.write(value.hrPaceRatio, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterInt64.allocationSize(value.date) +
+        FfiConverterFloat64.allocationSize(value.paceSecsPerKm) +
+        FfiConverterFloat64.allocationSize(value.avgHr) +
+        FfiConverterFloat64.allocationSize(value.hrPaceRatio)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Aerobic efficiency trend for a section.
+ * Tracks how HR/pace ratio changes over time across matched section efforts.
+ * A declining ratio indicates improving aerobic efficiency
+ * (Coyle et al., J Appl Physiol, 1991; Jones & Carter, Sports Med, 2000).
+ */
+export type FfiEfficiencyTrend = {
+  /**
+   * Section ID
+   */
+  sectionId: string;
+  /**
+   * Section name
+   */
+  sectionName: string;
+  /**
+   * Individual data points sorted by date (oldest first)
+   */
+  points: Array<FfiEfficiencyPoint>;
+  /**
+   * Linear regression slope of hr_pace_ratio over time (negative = improving)
+   */
+  trendSlope: /*f64*/ number;
+  /**
+   * True if slope is significantly negative (improving aerobic efficiency)
+   */
+  isImproving: boolean;
+  /**
+   * Estimated HR change in bpm at the same pace over the observed time range
+   */
+  hrChangeBpm: /*f64*/ number;
+  /**
+   * Number of efforts with both pace and HR data
+   */
+  effortCount: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiEfficiencyTrend} record objects.
+ */
+export const FfiEfficiencyTrend = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiEfficiencyTrend, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiEfficiencyTrend}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiEfficiencyTrend}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiEfficiencyTrend>,
+  });
+})();
+
+const FfiConverterTypeFfiEfficiencyTrend = (() => {
+  type TypeName = FfiEfficiencyTrend;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionId: FfiConverterString.read(from),
+        sectionName: FfiConverterString.read(from),
+        points: FfiConverterArrayTypeFfiEfficiencyPoint.read(from),
+        trendSlope: FfiConverterFloat64.read(from),
+        isImproving: FfiConverterBool.read(from),
+        hrChangeBpm: FfiConverterFloat64.read(from),
+        effortCount: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.sectionId, into);
+      FfiConverterString.write(value.sectionName, into);
+      FfiConverterArrayTypeFfiEfficiencyPoint.write(value.points, into);
+      FfiConverterFloat64.write(value.trendSlope, into);
+      FfiConverterBool.write(value.isImproving, into);
+      FfiConverterFloat64.write(value.hrChangeBpm, into);
+      FfiConverterUInt32.write(value.effortCount, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterString.allocationSize(value.sectionName) +
+        FfiConverterArrayTypeFfiEfficiencyPoint.allocationSize(value.points) +
+        FfiConverterFloat64.allocationSize(value.trendSlope) +
+        FfiConverterBool.allocationSize(value.isImproving) +
+        FfiConverterFloat64.allocationSize(value.hrChangeBpm) +
+        FfiConverterUInt32.allocationSize(value.effortCount)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Frequent section for FFI
  */
 export type FfiFrequentSection = {
@@ -2716,6 +2903,111 @@ const FfiConverterTypeFfiPreviewTrack = (() => {
       return (
         FfiConverterString.allocationSize(value.activityId) +
         FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.points)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A section ranked by composite relevance score combining recency, improvement,
+ * anomaly detection, and engagement signals.
+ */
+export type FfiRankedSection = {
+  sectionId: string;
+  sectionName: string;
+  relevanceScore: /*f64*/ number;
+  recencyScore: /*f64*/ number;
+  improvementScore: /*f64*/ number;
+  anomalyScore: /*f64*/ number;
+  engagementScore: /*f64*/ number;
+  traversalCount: /*u32*/ number;
+  bestTimeSecs: /*f64*/ number;
+  medianRecentSecs: /*f64*/ number;
+  daysSinceLast: /*u32*/ number;
+  /**
+   * -1 = declining, 0 = stable, 1 = improving
+   */
+  trend: /*i32*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiRankedSection} record objects.
+ */
+export const FfiRankedSection = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRankedSection, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiRankedSection}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiRankedSection}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRankedSection>,
+  });
+})();
+
+const FfiConverterTypeFfiRankedSection = (() => {
+  type TypeName = FfiRankedSection;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionId: FfiConverterString.read(from),
+        sectionName: FfiConverterString.read(from),
+        relevanceScore: FfiConverterFloat64.read(from),
+        recencyScore: FfiConverterFloat64.read(from),
+        improvementScore: FfiConverterFloat64.read(from),
+        anomalyScore: FfiConverterFloat64.read(from),
+        engagementScore: FfiConverterFloat64.read(from),
+        traversalCount: FfiConverterUInt32.read(from),
+        bestTimeSecs: FfiConverterFloat64.read(from),
+        medianRecentSecs: FfiConverterFloat64.read(from),
+        daysSinceLast: FfiConverterUInt32.read(from),
+        trend: FfiConverterInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.sectionId, into);
+      FfiConverterString.write(value.sectionName, into);
+      FfiConverterFloat64.write(value.relevanceScore, into);
+      FfiConverterFloat64.write(value.recencyScore, into);
+      FfiConverterFloat64.write(value.improvementScore, into);
+      FfiConverterFloat64.write(value.anomalyScore, into);
+      FfiConverterFloat64.write(value.engagementScore, into);
+      FfiConverterUInt32.write(value.traversalCount, into);
+      FfiConverterFloat64.write(value.bestTimeSecs, into);
+      FfiConverterFloat64.write(value.medianRecentSecs, into);
+      FfiConverterUInt32.write(value.daysSinceLast, into);
+      FfiConverterInt32.write(value.trend, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterString.allocationSize(value.sectionName) +
+        FfiConverterFloat64.allocationSize(value.relevanceScore) +
+        FfiConverterFloat64.allocationSize(value.recencyScore) +
+        FfiConverterFloat64.allocationSize(value.improvementScore) +
+        FfiConverterFloat64.allocationSize(value.anomalyScore) +
+        FfiConverterFloat64.allocationSize(value.engagementScore) +
+        FfiConverterUInt32.allocationSize(value.traversalCount) +
+        FfiConverterFloat64.allocationSize(value.bestTimeSecs) +
+        FfiConverterFloat64.allocationSize(value.medianRecentSecs) +
+        FfiConverterUInt32.allocationSize(value.daysSinceLast) +
+        FfiConverterInt32.allocationSize(value.trend)
       );
     }
   }
@@ -6896,6 +7188,9 @@ export interface SectionManagerInterface {
   getCalendarSummary(
     sectionId: string,
   ) /*throws*/ : FfiCalendarSummary | undefined;
+  getEfficiencyTrend(
+    sectionId: string,
+  ) /*throws*/ : FfiEfficiencyTrend | undefined;
   getExcludedActivities(sectionId: string) /*throws*/ : Array<string>;
   getExcludedPerformances(
     sectionId: string,
@@ -6911,6 +7206,10 @@ export interface SectionManagerInterface {
     sportType: string | undefined,
   ) /*throws*/ : FfiSectionPerformanceResult;
   getPolyline(sectionId: string) /*throws*/ : Array<FfiGpsPoint>;
+  getRanked(
+    sportType: string,
+    limit: /*u32*/ number,
+  ) /*throws*/ : Array<FfiRankedSection>;
   getReferenceInfo(sectionId: string) /*throws*/ : FfiSectionReferenceInfo;
   getSummaries(
     sportType: string | undefined,
@@ -7177,6 +7476,26 @@ export class SectionManager
     );
   }
 
+  public getEfficiencyTrend(
+    sectionId: string,
+  ): FfiEfficiencyTrend | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiEfficiencyTrend.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_efficiency_trend(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sectionId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   public getExcludedActivities(sectionId: string): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
@@ -7307,6 +7626,28 @@ export class SectionManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_polyline(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  public getRanked(
+    sportType: string,
+    limit: /*u32*/ number,
+  ): Array<FfiRankedSection> /*throws*/ {
+    return FfiConverterArrayTypeFfiRankedSection.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_ranked(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sportType),
+            FfiConverterUInt32.lower(limit),
             callStatus,
           );
         },
@@ -8181,6 +8522,11 @@ const FfiConverterOptionalTypeFfiDirectionStats = new FfiConverterOptional(
   FfiConverterTypeFfiDirectionStats,
 );
 
+// FfiConverter for FfiEfficiencyTrend | undefined
+const FfiConverterOptionalTypeFfiEfficiencyTrend = new FfiConverterOptional(
+  FfiConverterTypeFfiEfficiencyTrend,
+);
+
 // FfiConverter for FfiFrequentSection | undefined
 const FfiConverterOptionalTypeFfiFrequentSection = new FfiConverterOptional(
   FfiConverterTypeFfiFrequentSection,
@@ -8242,6 +8588,11 @@ const FfiConverterArrayTypeFfiCalendarYearSummary = new FfiConverterArray(
   FfiConverterTypeFfiCalendarYearSummary,
 );
 
+// FfiConverter for Array<FfiEfficiencyPoint>
+const FfiConverterArrayTypeFfiEfficiencyPoint = new FfiConverterArray(
+  FfiConverterTypeFfiEfficiencyPoint,
+);
+
 // FfiConverter for Array<FfiFrequentSection>
 const FfiConverterArrayTypeFfiFrequentSection = new FfiConverterArray(
   FfiConverterTypeFfiFrequentSection,
@@ -8280,6 +8631,11 @@ const FfiConverterArrayTypeFfiPotentialSection = new FfiConverterArray(
 // FfiConverter for Array<FfiPreviewTrack>
 const FfiConverterArrayTypeFfiPreviewTrack = new FfiConverterArray(
   FfiConverterTypeFfiPreviewTrack,
+);
+
+// FfiConverter for Array<FfiRankedSection>
+const FfiConverterArrayTypeFfiRankedSection = new FfiConverterArray(
+  FfiConverterTypeFfiRankedSection,
 );
 
 // FfiConverter for Array<FfiRecentPr>
@@ -8853,6 +9209,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_efficiency_trend() !==
+    17288
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_efficiency_trend",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_activities() !==
     1078
   ) {
@@ -8906,6 +9270,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_polyline",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_ranked() !==
+    29680
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_ranked",
     );
   }
   if (
@@ -9226,6 +9598,8 @@ export default Object.freeze({
     FfiConverterTypeFfiDetectionProgress,
     FfiConverterTypeFfiDetectionStats,
     FfiConverterTypeFfiDirectionStats,
+    FfiConverterTypeFfiEfficiencyPoint,
+    FfiConverterTypeFfiEfficiencyTrend,
     FfiConverterTypeFfiFrequentSection,
     FfiConverterTypeFfiFtpTrend,
     FfiConverterTypeFfiGpsPoint,
@@ -9240,6 +9614,7 @@ export default Object.freeze({
     FfiConverterTypeFfiPeriodStats,
     FfiConverterTypeFfiPotentialSection,
     FfiConverterTypeFfiPreviewTrack,
+    FfiConverterTypeFfiRankedSection,
     FfiConverterTypeFfiRecentPR,
     FfiConverterTypeFfiRouteGroup,
     FfiConverterTypeFfiRoutePerformance,
