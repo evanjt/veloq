@@ -324,10 +324,9 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
           ? 'loading'
           : 'none';
     const render3d = show3D && terrainImageUri ? '3D-cached' : show3D ? '3D-pending' : '2D';
-    if (hookTime > 5)
-      console.log(
-        `    🗺️ MapPreview[${index}] hooks: ${hookTime.toFixed(0)}ms | coords: ${validCoordinates.length} | source: ${source} | ${render3d}`
-      );
+    console.log(
+      `    🗺️ MapPreview[${index}] hooks: ${hookTime.toFixed(0)}ms | coords: ${validCoordinates.length} | source: ${source} | ${render3d}`
+    );
   }
 
   // No GPS data available for this activity (stream_types doesn't include latlng)
