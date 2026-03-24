@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { InteractionManager } from 'react-native';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
 import type { LatLng } from '@/lib/geo/polyline';
@@ -29,20 +28,71 @@ export interface StartupResult {
   cachedMetricIds: Set<string>;
 }
 
+// Compute timestamps once per session (they don't change within a single app open)
+function computeTimestamps() {
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  const day = startOfWeek.getDay();
+  startOfWeek.setDate(startOfWeek.getDate() - day + (day === 0 ? -6 : 1));
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const startOfLastWeek = new Date(startOfWeek);
+  startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+
+  const fourWeeksAgo = new Date(startOfWeek);
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+
+  const toTs = (d: Date) => Math.floor(d.getTime() / 1000);
+
+  return {
+    currentStart: toTs(startOfWeek),
+    currentEnd: toTs(now),
+    prevStart: toTs(startOfLastWeek),
+    prevEnd: toTs(startOfWeek),
+    chronicStart: toTs(fourWeeksAgo),
+    todayStart: toTs(todayStart),
+  };
+}
+
+function buildPreviewTracks(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rawTracks: any[]
+): Map<string, PreviewTrack> {
+  const tracks = new Map<string, PreviewTrack>();
+  for (const track of rawTracks) {
+    const coords = (track.points ?? []).filter(
+      (p: { latitude: number; longitude: number }) => !isNaN(p.latitude) && !isNaN(p.longitude)
+    );
+    if (coords.length > 0) {
+      const elevations = (track.points ?? [])
+        .map((p: { elevation?: number | null }) => p.elevation)
+        .filter((e: number | null | undefined): e is number => e != null);
+      tracks.set(track.activityId, {
+        activityId: track.activityId,
+        coordinates: coords,
+        altitude: elevations.length > 0 ? elevations : undefined,
+      });
+    }
+  }
+  return tracks;
+}
+
 /**
  * Single FFI call on mount that fetches ALL data the feed screen needs:
  * insights, summary card, GPS preview tracks, and cached metric IDs.
  *
- * Replaces 20+ individual FFI calls with 1 mutex acquisition.
+ * Called synchronously in useMemo (not deferred) so data is available
+ * on the very first render — eliminates duplicate getInsightsData calls.
  */
 export function useStartupData(previewActivityIds: string[]): {
   data: StartupResult | null;
   refresh: () => void;
 } {
   const trigger = useEngineSubscription(['activities', 'sections']);
-  const [data, setData] = useState<StartupResult | null>(null);
   const isMountedRef = useRef(true);
-  const prevIdsRef = useRef('');
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -51,83 +101,74 @@ export function useStartupData(previewActivityIds: string[]): {
     };
   }, []);
 
-  const fetchStartupData = useCallback(() => {
+  // Synchronous initial call — provides insights/summary immediately
+  const initialData = useMemo((): StartupResult | null => {
+    const engine = getRouteEngine();
+    if (!engine) return null;
+
+    try {
+      const ts = computeTimestamps();
+      const result = engine.getStartupData(
+        ts.currentStart,
+        ts.currentEnd,
+        ts.prevStart,
+        ts.prevEnd,
+        ts.chronicStart,
+        ts.todayStart,
+        previewActivityIds
+      );
+      if (!result) return null;
+
+      return {
+        insightsData: result.insights,
+        summaryCardData: result.summaryCard,
+        previewTracks: buildPreviewTracks(result.previewTracks ?? []),
+        cachedMetricIds: new Set(result.cachedMetricIds ?? []),
+      };
+    } catch {
+      return null;
+    }
+    // Only re-run when engine data changes or preview IDs change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trigger, previewActivityIds.length > 0 ? previewActivityIds.join(',') : '']);
+
+  // Track latest data (initial sync, updated when trigger changes)
+  const [data, setData] = useState<StartupResult | null>(initialData);
+
+  // Update state when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      setData(initialData);
+    }
+  }, [initialData]);
+
+  const refresh = useCallback(() => {
     const engine = getRouteEngine();
     if (!engine || !isMountedRef.current) return;
 
-    // Compute timestamps for period ranges
-    const now = new Date();
-    const startOfWeek = new Date(now);
-    const day = startOfWeek.getDay();
-    startOfWeek.setDate(startOfWeek.getDate() - day + (day === 0 ? -6 : 1));
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const startOfLastWeek = new Date(startOfWeek);
-    startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
-
-    const fourWeeksAgo = new Date(startOfWeek);
-    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-
-    const toTs = (d: Date) => Math.floor(d.getTime() / 1000);
-
     try {
+      const ts = computeTimestamps();
       const result = engine.getStartupData(
-        toTs(startOfWeek),
-        toTs(now),
-        toTs(startOfLastWeek),
-        toTs(startOfWeek),
-        toTs(fourWeeksAgo),
-        toTs(todayStart),
+        ts.currentStart,
+        ts.currentEnd,
+        ts.prevStart,
+        ts.prevEnd,
+        ts.chronicStart,
+        ts.todayStart,
         previewActivityIds
       );
-
       if (!result || !isMountedRef.current) return;
 
-      // Build preview tracks map
-      const tracks = new Map<string, PreviewTrack>();
-      for (const track of result.previewTracks ?? []) {
-        const coords = (track.points ?? []).filter(
-          (p: { latitude: number; longitude: number }) => !isNaN(p.latitude) && !isNaN(p.longitude)
-        );
-        if (coords.length > 0) {
-          const elevations = (track.points ?? [])
-            .map((p: { elevation?: number | null }) => p.elevation)
-            .filter((e: number | null | undefined): e is number => e != null);
-          tracks.set(track.activityId, {
-            activityId: track.activityId,
-            coordinates: coords,
-            altitude: elevations.length > 0 ? elevations : undefined,
-          });
-        }
-      }
-
-      if (isMountedRef.current) {
-        setData({
-          insightsData: result.insights,
-          summaryCardData: result.summaryCard,
-          previewTracks: tracks,
-          cachedMetricIds: new Set(result.cachedMetricIds ?? []),
-        });
-      }
+      setData({
+        insightsData: result.insights,
+        summaryCardData: result.summaryCard,
+        previewTracks: buildPreviewTracks(result.previewTracks ?? []),
+        cachedMetricIds: new Set(result.cachedMetricIds ?? []),
+      });
     } catch {
-      // Startup data is best-effort — individual hooks will fall back
+      // best-effort
     }
   }, [previewActivityIds]);
 
-  // Fetch on mount and when engine data changes
-  useEffect(() => {
-    // Skip if preview IDs haven't changed (prevents duplicate calls)
-    const idsKey = previewActivityIds.join(',');
-    if (idsKey === prevIdsRef.current && data) return;
-    prevIdsRef.current = idsKey;
-
-    const handle = InteractionManager.runAfterInteractions(fetchStartupData);
-    return () => handle.cancel();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trigger, fetchStartupData]);
-
-  return { data, refresh: fetchStartupData };
+  return { data: data ?? initialData, refresh };
 }
