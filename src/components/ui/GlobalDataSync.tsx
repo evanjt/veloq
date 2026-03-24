@@ -19,10 +19,12 @@ import Animated, {
   withRepeat,
   useSharedValue,
   cancelAnimation,
+  FadeIn,
+  FadeOut,
 } from 'react-native-reanimated';
 import { useQueryClient } from '@tanstack/react-query';
 import { useActivities, useRouteDataSync, useActivityBoundsCache } from '@/hooks';
-import { useAuthStore, useRouteSettings, useSyncDateRange, useTopSafeArea } from '@/providers';
+import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,
@@ -129,13 +131,6 @@ export function GlobalDataSync() {
   // Show banner when there's something to display and not on screens with own indicator.
   const shouldShowBanner = displayInfo !== null && !isOnMapScreen && !isOnRoutesScreen;
 
-  // Register sync banner with TopSafeAreaContext so screens exclude top safe area
-  const { setSyncBannerVisible } = useTopSafeArea();
-  useEffect(() => {
-    setSyncBannerVisible(shouldShowBanner);
-    return () => setSyncBannerVisible(false);
-  }, [shouldShowBanner, setSyncBannerVisible]);
-
   // Shared values for Reanimated animations
   const indeterminateOffset = useSharedValue(0);
 
@@ -167,37 +162,56 @@ export function GlobalDataSync() {
     router.push('/settings');
   };
 
+  // Overlay: floats above content without shifting layout
   return (
-    <TouchableOpacity activeOpacity={0.8} onPress={handlePress}>
-      <View style={[styles.container, { paddingTop: topPadding }]}>
-        <View style={styles.content}>
-          <MaterialCommunityIcons
-            name={displayInfo.icon as keyof typeof MaterialCommunityIcons.glyphMap}
-            size={16}
-            color={colors.textOnDark}
-          />
-          <Text style={styles.text}>
-            {displayInfo.text}
-            {displayInfo.percent > 0 ? `... ${displayInfo.percent}%` : '...'}
-          </Text>
-          {displayInfo.countText && <Text style={styles.countText}>{displayInfo.countText}</Text>}
-          <MaterialCommunityIcons name="chevron-right" size={16} color="rgba(255, 255, 255, 0.7)" />
-        </View>
-        <View style={styles.progressTrack}>
-          {displayInfo.indeterminate ? (
-            <Animated.View
-              style={[styles.progressFill, styles.indeterminateFill, indeterminateStyle]}
+    <Animated.View
+      entering={FadeIn.duration(200)}
+      exiting={FadeOut.duration(200)}
+      style={styles.overlay}
+      pointerEvents="box-none"
+    >
+      <TouchableOpacity activeOpacity={0.8} onPress={handlePress}>
+        <View style={[styles.container, { paddingTop: topPadding }]}>
+          <View style={styles.content}>
+            <MaterialCommunityIcons
+              name={displayInfo.icon as keyof typeof MaterialCommunityIcons.glyphMap}
+              size={16}
+              color={colors.textOnDark}
             />
-          ) : (
-            <View style={[styles.progressFill, { width: `${displayInfo.percent}%` }]} />
-          )}
+            <Text style={styles.text}>
+              {displayInfo.text}
+              {displayInfo.percent > 0 ? `... ${displayInfo.percent}%` : '...'}
+            </Text>
+            {displayInfo.countText && <Text style={styles.countText}>{displayInfo.countText}</Text>}
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={16}
+              color="rgba(255, 255, 255, 0.7)"
+            />
+          </View>
+          <View style={styles.progressTrack}>
+            {displayInfo.indeterminate ? (
+              <Animated.View
+                style={[styles.progressFill, styles.indeterminateFill, indeterminateStyle]}
+              />
+            ) : (
+              <View style={[styles.progressFill, { width: `${displayInfo.percent}%` }]} />
+            )}
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
   container: {
     backgroundColor: colors.primary,
     overflow: 'hidden',

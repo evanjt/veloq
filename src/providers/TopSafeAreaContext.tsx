@@ -9,9 +9,24 @@
  * and provides a hook for screens to get the appropriate SafeAreaView edges.
  */
 
-import React, { createContext, useContext, useMemo, useState, useCallback, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  ReactNode,
+} from 'react';
+import { LayoutAnimation, Platform, UIManager } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Edge } from 'react-native-safe-area-context';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { useAuthStore } from './AuthStore';
 import { useNetwork } from './NetworkContext';
 
@@ -54,7 +69,8 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
       activeBanner = 'demo';
     }
 
-    const hasTopBanner = activeBanner !== null || syncBannerVisible;
+    // Sync banner is now an overlay — doesn't affect layout or safe area
+    const hasTopBanner = activeBanner !== null;
 
     // When a banner is showing, screens should exclude top edge
     const screenEdges: Edge[] = hasTopBanner
@@ -68,15 +84,16 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
       screenEdges,
       setSyncBannerVisible,
     };
-  }, [
-    isDemoMode,
-    hideDemoBanner,
-    isAuthenticated,
-    isOnline,
-    insets.top,
-    syncBannerVisible,
-    setSyncBannerVisible,
-  ]);
+  }, [isDemoMode, hideDemoBanner, isAuthenticated, isOnline, insets.top, setSyncBannerVisible]);
+
+  // Smoothly animate layout when banner state changes (safe area edge toggle)
+  const prevHasTopBanner = useRef(value.hasTopBanner);
+  useEffect(() => {
+    if (prevHasTopBanner.current !== value.hasTopBanner) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      prevHasTopBanner.current = value.hasTopBanner;
+    }
+  }, [value.hasTopBanner]);
 
   return <TopSafeAreaContext.Provider value={value}>{children}</TopSafeAreaContext.Provider>;
 }

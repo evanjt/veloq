@@ -25,7 +25,6 @@ import { useDashboardPreferences, useMapPreferences } from '@/providers';
 import { ActivityCard } from '@/components/activity';
 import { RecordFAB } from '@/components/recording/RecordFAB';
 import {
-  ActivityCardSkeleton,
   NetworkErrorState,
   ErrorStatePreset,
   ScreenErrorBoundary,
@@ -380,11 +379,8 @@ export default function FeedScreen() {
           supportingMetrics={supportingMetrics}
           insightLine={<InsightLine insights={insights} />}
         />
-        <View style={styles.skeletonContainer}>
-          {/* Activity card skeletons */}
-          <ActivityCardSkeleton />
-          <ActivityCardSkeleton />
-          <ActivityCardSkeleton />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
         </View>
       </ScreenSafeAreaView>
     );
@@ -553,10 +549,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textSecondary,
     marginTop: spacing.md,
-  },
-  skeletonContainer: {
-    flex: 1,
-    paddingHorizontal: layout.screenPadding,
   },
   emptyContainer: {
     flex: 1,

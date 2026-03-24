@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
+import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { replaceTo } from '@/lib';
@@ -39,30 +40,37 @@ export function DemoBanner() {
   };
 
   return (
-    <Pressable
-      testID="demo-mode-banner"
-      onPress={handlePress}
-      style={({ pressed }) => [
-        styles.container,
-        isDark && styles.containerDark,
-        pressed && styles.pressed,
-        { paddingTop: insets.top > 0 ? insets.top : 8 },
-      ]}
-    >
-      <View style={styles.content}>
-        <MaterialCommunityIcons name="information" size={18} color="#FFFFFF" style={styles.icon} />
-        <Text style={styles.text}>{t('demo.banner', { defaultValue: 'Demo Mode' })}</Text>
-        <Text style={styles.subtext}>
-          {t('demo.tapToSignIn', { defaultValue: 'Tap to sign in' })}
-        </Text>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={18}
-          color="#FFFFFF"
-          style={styles.chevron}
-        />
-      </View>
-    </Pressable>
+    <Animated.View entering={SlideInUp.duration(250)} exiting={SlideOutUp.duration(200)}>
+      <Pressable
+        testID="demo-mode-banner"
+        onPress={handlePress}
+        style={({ pressed }) => [
+          styles.container,
+          isDark && styles.containerDark,
+          pressed && styles.pressed,
+          { paddingTop: insets.top > 0 ? insets.top : 8 },
+        ]}
+      >
+        <View style={styles.content}>
+          <MaterialCommunityIcons
+            name="information"
+            size={18}
+            color="#FFFFFF"
+            style={styles.icon}
+          />
+          <Text style={styles.text}>{t('demo.banner', { defaultValue: 'Demo Mode' })}</Text>
+          <Text style={styles.subtext}>
+            {t('demo.tapToSignIn', { defaultValue: 'Tap to sign in' })}
+          </Text>
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={18}
+            color="#FFFFFF"
+            style={styles.chevron}
+          />
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 

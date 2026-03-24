@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import ReAnimated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
 import { usePathname } from 'expo-router';
 import { navigateTo } from '@/lib';
@@ -81,31 +82,33 @@ function RecordingBannerInner() {
   };
 
   return (
-    <TouchableOpacity
-      style={[
-        styles.banner,
-        { backgroundColor: isDark ? darkColors.surface : colors.surface, paddingTop: insets.top },
-        isDark && styles.bannerDark,
-      ]}
-      onPress={handlePress}
-      activeOpacity={0.7}
-      accessibilityLabel={t('recording.banner.returnToRecording')}
-      accessibilityRole="button"
-    >
-      <View style={styles.topRow}>
-        <Animated.View style={[styles.dot, { opacity: pulseAnim }]} />
-        <Text style={[styles.timer, { color: themeColors.text }]}>{formatDuration(elapsed)}</Text>
-        <Text style={[styles.statusText, { color: themeColors.textSecondary }]}>
-          {status === 'paused' ? t('recording.status.paused') : t('recording.status.recording')}
-        </Text>
-      </View>
-      <View style={styles.bottomRow}>
-        <Text style={[styles.detailText, { color: themeColors.textMuted }]}>
-          {typeLabel}
-          {distance > 0 ? ` \u00B7 ${formatDistance(distance)}` : ''}
-        </Text>
-      </View>
-    </TouchableOpacity>
+    <ReAnimated.View entering={SlideInUp.duration(250)} exiting={SlideOutUp.duration(200)}>
+      <TouchableOpacity
+        style={[
+          styles.banner,
+          { backgroundColor: isDark ? darkColors.surface : colors.surface, paddingTop: insets.top },
+          isDark && styles.bannerDark,
+        ]}
+        onPress={handlePress}
+        activeOpacity={0.7}
+        accessibilityLabel={t('recording.banner.returnToRecording')}
+        accessibilityRole="button"
+      >
+        <View style={styles.topRow}>
+          <Animated.View style={[styles.dot, { opacity: pulseAnim }]} />
+          <Text style={[styles.timer, { color: themeColors.text }]}>{formatDuration(elapsed)}</Text>
+          <Text style={[styles.statusText, { color: themeColors.textSecondary }]}>
+            {status === 'paused' ? t('recording.status.paused') : t('recording.status.recording')}
+          </Text>
+        </View>
+        <View style={styles.bottomRow}>
+          <Text style={[styles.detailText, { color: themeColors.textMuted }]}>
+            {typeLabel}
+            {distance > 0 ? ` \u00B7 ${formatDistance(distance)}` : ''}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    </ReAnimated.View>
   );
 }
 
