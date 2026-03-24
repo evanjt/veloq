@@ -80,10 +80,18 @@ export default function FeedScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
 
-  // 3D terrain snapshot WebView — only request snapshots when feed is focused
+  // 3D terrain snapshot WebView — deferred mount to avoid initializing 2 WebViews
+  // during the critical startup path when cached snapshots already exist
   const { isAnyTerrain3DEnabled } = useMapPreferences();
   const snapshotRef = useRef<TerrainSnapshotWebViewRef | null>(null);
   const isFeedFocused = useIsFocused();
+  const [snapshotWebViewReady, setSnapshotWebViewReady] = useState(false);
+  useEffect(() => {
+    if (!isAnyTerrain3DEnabled) return;
+    // Defer WebView mount until after initial renders settle (~500ms)
+    const timeout = setTimeout(() => setSnapshotWebViewReady(true), 500);
+    return () => clearTimeout(timeout);
+  }, [isAnyTerrain3DEnabled]);
 
   // FlatList ref for scroll-to-reveal search
   const listRef = useRef<FlatList>(null);
@@ -458,8 +466,8 @@ export default function FeedScreen() {
           initialNumToRender={2}
         />
 
-        {/* Hidden WebView for generating 3D terrain snapshots */}
-        {isAnyTerrain3DEnabled && <TerrainSnapshotWebView ref={snapshotRef} />}
+        {/* Hidden WebView for generating 3D terrain snapshots — deferred to avoid startup cost */}
+        {snapshotWebViewReady && <TerrainSnapshotWebView ref={snapshotRef} />}
 
         <RecordFAB />
       </ScreenSafeAreaView>
