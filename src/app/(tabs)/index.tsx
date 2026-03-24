@@ -235,6 +235,12 @@ export default function FeedScreen() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  // Stabilize preview tracks reference to prevent FlatList re-renders when startupData refreshes
+  const previewTracksRef = useRef(startupData?.previewTracks);
+  if (startupData?.previewTracks) {
+    previewTracksRef.current = startupData.previewTracks;
+  }
+
   const renderActivity = useCallback(
     ({ item, index }: { item: Activity; index: number }) => (
       <ActivityCard
@@ -242,10 +248,10 @@ export default function FeedScreen() {
         index={index}
         snapshotRef={snapshotRef}
         screenFocused={isFeedFocused}
-        startupTrack={startupData?.previewTracks.get(item.id)}
+        startupTrack={previewTracksRef.current?.get(item.id)}
       />
     ),
-    [isFeedFocused, startupData]
+    [isFeedFocused]
   );
 
   const navigateToSettings = useCallback(() => {
