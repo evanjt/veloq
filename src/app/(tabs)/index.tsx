@@ -148,8 +148,8 @@ export default function FeedScreen() {
   );
   const { data: startupData } = useStartupData(previewIds);
 
-  // useInsights uses pre-computed data from startup when available, else its own FFI call
-  const { insights } = useInsights(startupData?.insightsData);
+  // useInsights uses pre-computed data from startup — never makes its own FFI call on feed
+  const { insights } = useInsights(startupData?.insightsData, true);
 
   // Filter activities by search query and type
   const filteredActivities = useMemo(() => {

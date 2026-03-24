@@ -21,7 +21,9 @@ import type { Insight } from '@/types';
  */
 export function useInsights(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  preComputedInsightsData?: any
+  preComputedInsightsData?: any,
+  /** When true, never make own getInsightsData FFI call — wait for preComputedInsightsData */
+  skipOwnFfiCall = false
 ): {
   insights: Insight[];
   topInsight: Insight | null;
@@ -59,10 +61,12 @@ export function useInsights(
     const handle = InteractionManager.runAfterInteractions(() => {
       if (!isMountedRef.current) return;
 
-      // Use pre-computed data from getStartupData when available (skips FFI call)
+      // Use pre-computed data from getStartupData when available
       const now = new Date();
       let data = preComputedInsightsData;
       if (!data) {
+        // When skipOwnFfiCall is set, wait for pre-computed data instead of calling FFI
+        if (skipOwnFfiCall) return;
         const engine = getRouteEngine();
         if (!engine) return;
         const startOfWeek = new Date(now);
