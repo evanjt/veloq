@@ -239,3 +239,32 @@ export async function getTerrainPreviewCacheSize(): Promise<number> {
 export function getTerrainPreviewCount(): number {
   return cachedKeys.length;
 }
+
+// ============================================================================
+// Demand-driven snapshot worker mounting
+// ============================================================================
+
+type SnapshotNeededListener = () => void;
+let snapshotNeededListener: SnapshotNeededListener | null = null;
+
+/**
+ * Register a listener that fires when any card needs a terrain snapshot.
+ * The feed screen uses this to mount WebView workers only on demand.
+ * Returns an unsubscribe function.
+ */
+export function registerSnapshotNeededListener(listener: SnapshotNeededListener): () => void {
+  snapshotNeededListener = listener;
+  return () => {
+    if (snapshotNeededListener === listener) {
+      snapshotNeededListener = null;
+    }
+  };
+}
+
+/**
+ * Signal that a terrain snapshot is needed (cache miss or dirty).
+ * Triggers the listener so the feed screen can mount WebView workers.
+ */
+export function signalSnapshotNeeded(): void {
+  snapshotNeededListener?.();
+}

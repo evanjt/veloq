@@ -20,6 +20,7 @@ import {
   isTerrainPreviewDirty,
   clearTerrainPreviewDirty,
   deleteTerrainPreviewsForActivity,
+  signalSnapshotNeeded,
 } from '@/lib/storage/terrainPreviewCache';
 import { getCameraOverride } from '@/lib/storage/terrainCameraOverrides';
 import { subscribeSnapshot } from '@/lib/events/terrainSnapshotEvents';
@@ -271,7 +272,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // Deferred until the feed screen is focused — avoids competing with the detail view's Map3DWebView
   useEffect(() => {
     if (!screenFocused) return;
-    if (!show3D || !snapshotRef?.current || !terrainCameraResult) return;
+    if (!show3D || !terrainCameraResult) return;
     if (index >= 10) return; // Don't queue snapshots for far-off cards
 
     // If dirty (style/3D changed in detail view), delete old preview first
@@ -284,6 +285,12 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle));
       return;
     }
+
+    // Signal that a snapshot is needed — this triggers WebView worker mount if not yet mounted
+    signalSnapshotNeeded();
+
+    // If WebView workers aren't available yet, they'll mount and this effect re-runs
+    if (!snapshotRef?.current) return;
 
     const lngLatCoords: [number, number][] = validCoordinates.map((c) => [c.longitude, c.latitude]);
 

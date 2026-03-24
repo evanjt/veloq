@@ -37,7 +37,10 @@ import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
 } from '@/components/maps/TerrainSnapshotWebView';
-import { initTerrainPreviewCache } from '@/lib/storage/terrainPreviewCache';
+import {
+  initTerrainPreviewCache,
+  registerSnapshotNeededListener,
+} from '@/lib/storage/terrainPreviewCache';
 import { initCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
@@ -80,17 +83,15 @@ export default function FeedScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
 
-  // 3D terrain snapshot WebView — deferred mount to avoid initializing 2 WebViews
-  // during the critical startup path when cached snapshots already exist
+  // 3D terrain snapshot WebView — only mount when a card actually needs a snapshot
   const { isAnyTerrain3DEnabled } = useMapPreferences();
   const snapshotRef = useRef<TerrainSnapshotWebViewRef | null>(null);
   const isFeedFocused = useIsFocused();
   const [snapshotWebViewReady, setSnapshotWebViewReady] = useState(false);
   useEffect(() => {
     if (!isAnyTerrain3DEnabled) return;
-    // Defer WebView mount until after initial renders settle (~500ms)
-    const timeout = setTimeout(() => setSnapshotWebViewReady(true), 500);
-    return () => clearTimeout(timeout);
+    // Mount WebView workers on demand — only when a card signals a cache miss
+    return registerSnapshotNeededListener(() => setSnapshotWebViewReady(true));
   }, [isAnyTerrain3DEnabled]);
 
   // FlatList ref for scroll-to-reveal search
