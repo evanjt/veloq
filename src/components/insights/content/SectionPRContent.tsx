@@ -7,7 +7,9 @@ import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionPerformances } from '@/hooks/routes/useSectionPerformances';
 import { navigateTo } from '@/lib';
 import { Shimmer } from '@/components/ui/Shimmer';
-import { MiniPerformanceSparkline } from './MiniPerformanceSparkline';
+import { SectionInsightMap } from './SectionInsightMap';
+import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
+import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/lib';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import type { Insight } from '@/types';
@@ -47,17 +49,13 @@ export const SectionPRContent = React.memo(function SectionPRContent({
       })
     : undefined;
 
-  // Build chart data from performance records
-  const chartData = records.map((r) => ({
-    date: r.activityDate,
-    time: r.bestTime,
-  }));
-  const bestIndex = bestRecord
-    ? records.findIndex((r) => r.activityId === bestRecord.activityId)
-    : undefined;
-
   return (
     <View style={styles.container}>
+      {/* Section map */}
+      {section?.polyline && section.polyline.length >= 2 ? (
+        <SectionInsightMap polyline={section.polyline} lineColor="#FC4C02" />
+      ) : null}
+
       {/* PR stat */}
       {bestTimeFormatted ? (
         <View style={[styles.statCard, isDark && styles.statCardDark]}>
@@ -80,18 +78,18 @@ export const SectionPRContent = React.memo(function SectionPRContent({
         </View>
       ) : null}
 
-      {/* Performance chart */}
+      {/* Performance timeline chart */}
       {isLoading ? (
-        <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-          <Shimmer width="100%" height={100} borderRadius={8} />
+        <View style={[styles.shimmerCard, isDark && styles.shimmerCardDark]}>
+          <Shimmer width="100%" height={160} borderRadius={8} />
         </View>
-      ) : chartData.length >= 2 ? (
-        <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-          <Text style={[styles.chartLabel, isDark && styles.chartLabelDark]}>
-            All efforts ({records.length})
-          </Text>
-          <MiniPerformanceSparkline data={chartData} bestIndex={bestIndex} color="#FC4C02" />
-        </View>
+      ) : records.length >= 2 ? (
+        <SectionPerformanceTimeline records={records} bestRecord={bestRecord} lineColor="#FC4C02" />
+      ) : null}
+
+      {/* Recent efforts list */}
+      {!isLoading && records.length > 0 ? (
+        <RecentEffortsList records={records} bestRecord={bestRecord} onClose={onClose} />
       ) : null}
 
       {/* Section link */}
@@ -162,21 +160,13 @@ const styles = StyleSheet.create({
   statSubtextDark: {
     color: darkColors.textSecondary,
   },
-  chartCard: {
+  shimmerCard: {
     backgroundColor: opacity.overlay.subtle,
     borderRadius: 10,
     padding: spacing.sm,
   },
-  chartCardDark: {
+  shimmerCardDark: {
     backgroundColor: opacity.overlayDark.light,
-  },
-  chartLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  chartLabelDark: {
-    color: darkColors.textSecondary,
   },
   sectionLink: {
     flexDirection: 'row',
