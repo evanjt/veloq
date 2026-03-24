@@ -37,10 +37,7 @@ import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
 } from '@/components/maps/TerrainSnapshotWebView';
-import {
-  initTerrainPreviewCache,
-  registerSnapshotNeededListener,
-} from '@/lib/storage/terrainPreviewCache';
+import { initTerrainPreviewCache } from '@/lib/storage/terrainPreviewCache';
 import { initCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
@@ -84,15 +81,16 @@ export default function FeedScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
 
-  // 3D terrain snapshot WebView — only mount when a card actually needs a snapshot
+  // 3D terrain snapshot WebView — deferred mount to avoid startup cost
   const { isAnyTerrain3DEnabled } = useMapPreferences();
   const snapshotRef = useRef<TerrainSnapshotWebViewRef | null>(null);
   const isFeedFocused = useIsFocused();
   const [snapshotWebViewReady, setSnapshotWebViewReady] = useState(false);
   useEffect(() => {
     if (!isAnyTerrain3DEnabled) return;
-    // Mount WebView workers on demand — only when a card signals a cache miss
-    return registerSnapshotNeededListener(() => setSnapshotWebViewReady(true));
+    // Mount workers after initial renders settle — cards check cache first anyway
+    const timeout = setTimeout(() => setSnapshotWebViewReady(true), 500);
+    return () => clearTimeout(timeout);
   }, [isAnyTerrain3DEnabled]);
 
   // FlatList ref for scroll-to-reveal search
@@ -272,7 +270,6 @@ export default function FeedScreen() {
   if (startupData?.previewTracks) {
     previewTracksRef.current = startupData.previewTracks;
   }
-
   const renderActivity = useCallback(
     ({ item, index }: { item: Activity; index: number }) => (
       <ActivityCard
@@ -281,9 +278,10 @@ export default function FeedScreen() {
         snapshotRef={snapshotRef}
         screenFocused={isFeedFocused}
         startupTrack={previewTracksRef.current?.get(item.id)}
+        snapshotReady={snapshotWebViewReady}
       />
     ),
-    [isFeedFocused]
+    [isFeedFocused, snapshotWebViewReady]
   );
 
   const navigateToSettings = useCallback(() => {

@@ -20,7 +20,6 @@ import {
   isTerrainPreviewDirty,
   clearTerrainPreviewDirty,
   deleteTerrainPreviewsForActivity,
-  signalSnapshotNeeded,
 } from '@/lib/storage/terrainPreviewCache';
 import { getCameraOverride } from '@/lib/storage/terrainCameraOverrides';
 import { subscribeSnapshot } from '@/lib/events/terrainSnapshotEvents';
@@ -39,6 +38,8 @@ interface ActivityMapPreviewProps {
   screenFocused?: boolean;
   /** Pre-fetched GPS track from startup data (avoids individual FFI/API calls) */
   startupTrack?: PreviewTrack;
+  /** Whether the snapshot WebView workers are mounted and ready */
+  snapshotReady?: boolean;
 }
 
 export const ActivityMapPreview = React.memo(function ActivityMapPreview({
@@ -47,6 +48,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   index = 0,
   snapshotRef,
   screenFocused = true,
+  snapshotReady = false,
   startupTrack,
 }: ActivityMapPreviewProps) {
   const mapPreviewStart = __DEV__ && index < 3 ? performance.now() : 0;
@@ -287,10 +289,8 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       return;
     }
 
-    // Signal that a snapshot is needed — this triggers WebView worker mount if not yet mounted
-    signalSnapshotNeeded();
-
-    // If WebView workers aren't available yet, they'll mount and this effect re-runs
+    // If WebView workers aren't available yet, skip — they'll mount shortly (500ms deferred)
+    // and the effect re-runs when snapshotReady changes
     if (!snapshotRef?.current) return;
 
     const lngLatCoords: [number, number][] = validCoordinates.map((c) => [c.longitude, c.latitude]);
@@ -312,6 +312,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     mapStyle,
     activityColor,
     snapshotRef,
+    snapshotReady,
   ]);
 
   if (__DEV__ && mapPreviewStart && index < 3) {

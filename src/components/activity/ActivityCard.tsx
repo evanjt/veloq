@@ -46,6 +46,8 @@ interface ActivityCardProps {
   screenFocused?: boolean;
   /** Pre-fetched GPS track from startup data */
   startupTrack?: PreviewTrack;
+  /** Whether snapshot WebView workers are ready */
+  snapshotReady?: boolean;
 }
 
 // White text theme (used on any dark/satellite map, or dark theme + light map)
@@ -109,6 +111,7 @@ export const ActivityCard = React.memo(
     snapshotRef,
     screenFocused,
     startupTrack,
+    snapshotReady,
   }: ActivityCardProps) {
     // Log actual function body execution (not useEffect which is deferred)
     if (__DEV__ && (index ?? 0) < 3) {
@@ -333,6 +336,7 @@ export const ActivityCard = React.memo(
               index={index}
               snapshotRef={snapshotRef}
               screenFocused={screenFocused}
+              snapshotReady={snapshotReady}
               startupTrack={startupTrack}
             />
 
