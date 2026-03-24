@@ -208,7 +208,7 @@ export default function FeedScreen() {
   }, [allActivities, searchQuery, selectedTypeGroup]);
 
   // Comprehensive refresh: resets feed, triggers route engine sync, refreshes all data
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     await Promise.all([
       queryClient.resetQueries({ queryKey: ['activities-infinite'] }),
       queryClient.invalidateQueries({ queryKey: ['activities'] }),
@@ -226,7 +226,7 @@ export default function FeedScreen() {
         listRef.current?.scrollToOffset({ offset: SEARCH_SECTION_HEIGHT, animated: true });
       }, 100);
     }
-  };
+  }, [queryClient, refetchSummary, searchQuery, selectedTypeGroup]);
 
   // Load more when scrolling to the end
   const handleEndReached = useCallback(() => {
@@ -234,6 +234,27 @@ export default function FeedScreen() {
       fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const refreshControl = useMemo(
+    () => (
+      <RefreshControl
+        refreshing={isRefetching}
+        onRefresh={handleRefresh}
+        colors={[colors.primary]}
+        tintColor={colors.primary}
+        progressBackgroundColor={isDark ? darkColors.surface : colors.surface}
+        title={Platform.OS === 'ios' ? t('common.pullToRefresh') : undefined}
+        titleColor={
+          Platform.OS === 'ios'
+            ? isDark
+              ? darkColors.textSecondary
+              : colors.textSecondary
+            : undefined
+        }
+      />
+    ),
+    [isRefetching, handleRefresh, isDark, t]
+  );
 
   // Stabilize preview tracks reference to prevent FlatList re-renders when startupData refreshes
   const previewTracksRef = useRef(startupData?.previewTracks);
@@ -362,7 +383,8 @@ export default function FeedScreen() {
       selectedTypeGroup,
       filteredActivities.length,
       t,
-      themeColors,
+      themeColors.textSecondary,
+      themeColors.textMuted,
       selectTypeGroup,
     ]
   );
@@ -452,17 +474,7 @@ export default function FeedScreen() {
           contentOffset={initialContentOffset}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={handleRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-              progressBackgroundColor={isDark ? darkColors.surface : colors.surface}
-              title={Platform.OS === 'ios' ? t('common.pullToRefresh') : undefined}
-              titleColor={Platform.OS === 'ios' ? themeColors.textSecondary : undefined}
-            />
-          }
+          refreshControl={refreshControl}
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.5}
           showsVerticalScrollIndicator={false}
