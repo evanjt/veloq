@@ -110,14 +110,9 @@ export const ActivityCard = React.memo(
     screenFocused,
     startupTrack,
   }: ActivityCardProps) {
+    // Log actual function body execution (not useEffect which is deferred)
     if (__DEV__ && (index ?? 0) < 3) {
-      const start = performance.now();
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      React.useEffect(() => {
-        console.log(
-          `  🃏 ActivityCard[${index}] render: ${(performance.now() - start).toFixed(0)}ms (${activity.type})`
-        );
-      });
+      console.log(`  🃏 ActivityCard[${index}] BODY executing (${activity.type})`);
     }
     const { t } = useTranslation();
     const { isDark } = useTheme();
