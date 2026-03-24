@@ -1611,4 +1611,163 @@ impl PersistentRouteEngine {
             current_rank: None,
         }
     }
+
+    /// Get aerobic efficiency trend for a section.
+    ///
+    /// Queries section_activities for traversals that have both lap_time and avg_hr,
+    /// computes HR/pace ratio for each, and performs linear regression to detect
+    /// improving aerobic efficiency (declining HR at the same pace).
+    ///
+    /// Returns None if fewer than 3 data points have both pace and HR data.
+    pub fn get_section_efficiency_trend(
+        &mut self,
+        section_id: &str,
+    ) -> Option<crate::FfiEfficiencyTrend> {
+        // Get section info for name and distance
+        let section = self
+            .sections
+            .iter()
+            .find(|s| s.id == section_id)
+            .or_else(|| {
+                // Fallback to DB lookup for custom sections
+                None
+            })?;
+
+        let section_name = section
+            .name
+            .clone()
+            .unwrap_or_else(|| "Section".to_string());
+        let section_distance_km = section.distance_meters / 1000.0;
+
+        if section_distance_km <= 0.0 {
+            return None;
+        }
+
+        // Query section_activities joined with activity_metrics for date,
+        // filtering to rows with both lap_time and avg_hr
+        let mut stmt = self
+            .db
+            .prepare(
+                "SELECT sa.lap_time, sa.avg_hr, sa.distance_meters, am.date
+                 FROM section_activities sa
+                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
+                 WHERE sa.section_id = ?1
+                   AND sa.excluded = 0
+                   AND sa.lap_time IS NOT NULL
+                   AND sa.avg_hr IS NOT NULL
+                   AND sa.lap_time > 0
+                   AND sa.avg_hr > 0
+                 ORDER BY am.date ASC",
+            )
+            .ok()?;
+
+        struct EffortRow {
+            lap_time: f64,
+            avg_hr: f64,
+            distance_meters: f64,
+            date: i64,
+        }
+
+        let rows: Vec<EffortRow> = stmt
+            .query_map(rusqlite::params![section_id], |row| {
+                Ok(EffortRow {
+                    lap_time: row.get(0)?,
+                    avg_hr: row.get(1)?,
+                    distance_meters: row.get(2)?,
+                    date: row.get(3)?,
+                })
+            })
+            .ok()?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        // Need at least 3 data points for a meaningful trend
+        if rows.len() < 3 {
+            return None;
+        }
+
+        // Build efficiency points
+        let points: Vec<crate::FfiEfficiencyPoint> = rows
+            .iter()
+            .filter_map(|row| {
+                // Use actual traversal distance for pace calculation
+                let distance_km = row.distance_meters / 1000.0;
+                if distance_km <= 0.0 {
+                    return None;
+                }
+                let pace_secs_per_km = row.lap_time / distance_km;
+                // Sanity check: pace should be reasonable (1 min/km to 30 min/km)
+                if pace_secs_per_km < 60.0 || pace_secs_per_km > 1800.0 {
+                    return None;
+                }
+                let hr_pace_ratio = row.avg_hr / pace_secs_per_km;
+                Some(crate::FfiEfficiencyPoint {
+                    date: row.date,
+                    pace_secs_per_km,
+                    avg_hr: row.avg_hr,
+                    hr_pace_ratio,
+                })
+            })
+            .collect();
+
+        if points.len() < 3 {
+            return None;
+        }
+
+        // Linear regression on hr_pace_ratio over time
+        // x = days since first effort, y = hr_pace_ratio
+        let first_date = points[0].date as f64;
+        let regression_points: Vec<(f64, f64)> = points
+            .iter()
+            .map(|p| {
+                let days = (p.date as f64 - first_date) / 86400.0;
+                (days, p.hr_pace_ratio)
+            })
+            .collect();
+
+        let (slope, _intercept) = linear_regression(&regression_points);
+
+        // Time range in days
+        let time_range_days = regression_points.last().map(|(x, _)| *x).unwrap_or(0.0);
+
+        // Estimate HR change: slope represents change in hr_pace_ratio per day.
+        // At the mean pace, HR change ≈ slope * mean_pace * time_range_days
+        let mean_pace: f64 =
+            points.iter().map(|p| p.pace_secs_per_km).sum::<f64>() / points.len() as f64;
+        let hr_change_bpm = slope * mean_pace * time_range_days;
+
+        // Mark as improving if slope is negative enough (threshold: -0.001 per day)
+        // This corresponds to roughly -0.03 per month in HR/pace ratio
+        let is_improving = slope < -0.001 && points.len() >= 5;
+
+        Some(crate::FfiEfficiencyTrend {
+            section_id: section_id.to_string(),
+            section_name,
+            points,
+            trend_slope: slope,
+            is_improving,
+            hr_change_bpm,
+            effort_count: rows.len() as u32,
+        })
+    }
+}
+
+/// Simple least-squares linear regression.
+/// Returns (slope, intercept) for the best-fit line y = slope*x + intercept.
+fn linear_regression(points: &[(f64, f64)]) -> (f64, f64) {
+    let n = points.len() as f64;
+    if n < 2.0 {
+        return (0.0, 0.0);
+    }
+    let sum_x: f64 = points.iter().map(|(x, _)| x).sum();
+    let sum_y: f64 = points.iter().map(|(_, y)| y).sum();
+    let sum_xy: f64 = points.iter().map(|(x, y)| x * y).sum();
+    let sum_x2: f64 = points.iter().map(|(x, _)| x * x).sum();
+    let denom = n * sum_x2 - sum_x * sum_x;
+    if denom.abs() < f64::EPSILON {
+        return (0.0, sum_y / n);
+    }
+    let slope = (n * sum_xy - sum_x * sum_y) / denom;
+    let intercept = (sum_y - slope * sum_x) / n;
+    (slope, intercept)
 }
