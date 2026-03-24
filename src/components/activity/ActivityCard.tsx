@@ -102,242 +102,147 @@ function getGradientTheme(isDark: boolean, mapStyle: string) {
   return isMapDark ? GRADIENT.lightDark : GRADIENT.lightLight;
 }
 
-export const ActivityCard = React.memo(function ActivityCard({
-  activity,
-  index,
-  snapshotRef,
-  screenFocused,
-  startupTrack,
-}: ActivityCardProps) {
-  if (__DEV__ && (index ?? 0) < 3) {
-    const start = performance.now();
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    React.useEffect(() => {
-      console.log(
-        `  🃏 ActivityCard[${index}] render: ${(performance.now() - start).toFixed(0)}ms (${activity.type})`
-      );
-    });
-  }
-  const { t } = useTranslation();
-  const { isDark } = useTheme();
-  const isMetric = useMetricSystem();
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [isPressed, setIsPressed] = useState(false);
-  const handlePressIn = useCallback(() => setIsPressed(true), []);
-  const handlePressOut = useCallback(() => setIsPressed(false), []);
-
-  const handlePress = () => {
-    router.push(`/activity/${activity.id}`);
-  };
-
-  const handleLongPress = useCallback(() => {
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+export const ActivityCard = React.memo(
+  function ActivityCard({
+    activity,
+    index,
+    snapshotRef,
+    screenFocused,
+    startupTrack,
+  }: ActivityCardProps) {
+    if (__DEV__ && (index ?? 0) < 3) {
+      const start = performance.now();
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      React.useEffect(() => {
+        console.log(
+          `  🃏 ActivityCard[${index}] render: ${(performance.now() - start).toFixed(0)}ms (${activity.type})`
+        );
+      });
     }
-    setMenuVisible(true);
-  }, []);
+    const { t } = useTranslation();
+    const { isDark } = useTheme();
+    const isMetric = useMetricSystem();
+    const [menuVisible, setMenuVisible] = useState(false);
+    const [isPressed, setIsPressed] = useState(false);
+    const handlePressIn = useCallback(() => setIsPressed(true), []);
+    const handlePressOut = useCallback(() => setIsPressed(false), []);
 
-  const scrollRef = useRef<ScrollView>(null);
-  const hasFlashed = useRef(false);
+    const handlePress = () => {
+      router.push(`/activity/${activity.id}`);
+    };
 
-  const handleContentSizeChange = useCallback((contentWidth: number, _contentHeight: number) => {
-    if (!hasFlashed.current && scrollRef.current) {
-      hasFlashed.current = true;
-      setTimeout(() => scrollRef.current?.flashScrollIndicators(), 400);
-    }
-  }, []);
+    const handleLongPress = useCallback(() => {
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+      setMenuVisible(true);
+    }, []);
 
-  const { getStyleForActivity } = useMapPreferences();
-  const activityColor = getActivityColor(activity.type);
-  const iconName = getActivityIcon(activity.type);
-  const location = formatLocation(activity);
-  const mapStyle = getStyleForActivity(activity.type, activity.id, activity.country);
-  const theme = getGradientTheme(isDark, mapStyle);
-  const hasGpsData = activity.stream_types?.includes('latlng');
+    const scrollRef = useRef<ScrollView>(null);
+    const hasFlashed = useRef(false);
 
-  const compactTextColor = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const compactMutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const compactDotColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)';
-  const compactDividerColor = isDark ? darkColors.border : 'rgba(0,0,0,0.1)';
+    const handleContentSizeChange = useCallback((contentWidth: number, _contentHeight: number) => {
+      if (!hasFlashed.current && scrollRef.current) {
+        hasFlashed.current = true;
+        setTimeout(() => scrollRef.current?.flashScrollIndicators(), 400);
+      }
+    }, []);
 
-  // Shared secondary stats row used by both compact and full card
-  const secondaryStatsRow = (textColor: string) => (
-    <ScrollView
-      ref={scrollRef}
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      onContentSizeChange={handleContentSizeChange}
-      style={styles.secondaryScroll}
-    >
-      <Pressable onPress={handlePress} style={styles.secondaryStats}>
-        {!!activity.icu_training_load && (
-          <View
-            style={styles.secondaryStat}
-            accessibilityLabel={`${t('activity.stats.trainingLoad')}: ${formatTSS(activity.icu_training_load)}`}
-          >
-            <MaterialCommunityIcons name="fire" size={14} color={colors.primary} />
-            <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
-              {formatTSS(activity.icu_training_load)}
-            </RNText>
-          </View>
-        )}
-        {!!(activity.average_heartrate || activity.icu_average_hr) && (
-          <View
-            style={styles.secondaryStat}
-            accessibilityLabel={`${t('activity.heartRate')}: ${formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)} ${t('units.bpm')}`}
-          >
-            <MaterialCommunityIcons name="heart-pulse" size={14} color={colors.error} />
-            <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
-              {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
-            </RNText>
-          </View>
-        )}
-        {!!(activity.average_watts || activity.icu_average_watts) && (
-          <View
-            style={styles.secondaryStat}
-            accessibilityLabel={`${t('activity.power')}: ${formatPower(activity.average_watts || activity.icu_average_watts!)} ${t('units.watts')}`}
-          >
-            <MaterialCommunityIcons name="lightning-bolt" size={14} color={colors.warning} />
-            <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
-              {formatPower(activity.average_watts || activity.icu_average_watts!)}
-            </RNText>
-          </View>
-        )}
-        {!!activity.calories && (
-          <View
-            style={styles.secondaryStat}
-            accessibilityLabel={`${t('activity.calories')}: ${formatCalories(activity.calories)} ${t('units.kcal')}`}
-          >
-            <MaterialCommunityIcons name="food-apple" size={14} color={colors.success} />
-            <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
-              {formatCalories(activity.calories)}
-            </RNText>
-          </View>
-        )}
-        {activity.has_weather && activity.average_weather_temp != null && (
-          <View
-            style={styles.secondaryStat}
-            accessibilityLabel={`${t('activity.stats.temperature')}: ${formatTemperature(activity.average_weather_temp, isMetric)}`}
-          >
-            <MaterialCommunityIcons name="weather-partly-cloudy" size={14} color={colors.info} />
-            <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
-              {formatTemperature(activity.average_weather_temp, isMetric)}
-            </RNText>
-          </View>
-        )}
-      </Pressable>
-    </ScrollView>
-  );
+    const { getStyleForActivity } = useMapPreferences();
+    const activityColor = getActivityColor(activity.type);
+    const iconName = getActivityIcon(activity.type);
+    const location = formatLocation(activity);
+    const mapStyle = getStyleForActivity(activity.type, activity.id, activity.country);
+    const theme = getGradientTheme(isDark, mapStyle);
+    const hasGpsData = activity.stream_types?.includes('latlng');
 
-  // Context menu (shared between compact and full card)
-  const contextMenu = (
-    <ActivityCardContextMenu
-      visible={menuVisible}
-      onDismiss={() => setMenuVisible(false)}
-      activity={activity}
-    />
-  );
+    const compactTextColor = isDark ? darkColors.textPrimary : colors.textPrimary;
+    const compactMutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+    const compactDotColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)';
+    const compactDividerColor = isDark ? darkColors.border : 'rgba(0,0,0,0.1)';
 
-  // Compact card for activities without GPS data
-  if (!hasGpsData) {
-    return (
-      <View style={styles.cardWrapper}>
-        <Pressable
-          testID={`activity-card-${activity.id}`}
-          onPress={handlePress}
-          onLongPress={handleLongPress}
-          delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          accessibilityRole="button"
-          accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
-        >
-          <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
-            <View style={styles.compactContent}>
-              {/* Header: icon + name + no-map indicator + date */}
-              <View style={styles.compactHeader}>
-                <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-                  <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
-                </View>
-                <RNText style={[styles.compactName, { color: compactTextColor }]} numberOfLines={1}>
-                  {activity.name}
-                </RNText>
-                <MaterialCommunityIcons
-                  name="map-marker-off"
-                  size={14}
-                  color={activityColor}
-                  style={styles.compactNoMapIcon}
-                />
-                <RNText
-                  style={[styles.compactDate, { color: compactMutedColor }]}
-                  numberOfLines={1}
-                >
-                  {formatRelativeDate(activity.start_date_local)}
-                </RNText>
-              </View>
-
-              {/* Primary stats + location */}
-              <View style={styles.compactPrimaryRow}>
-                <View style={styles.primaryStats}>
-                  <RNText
-                    testID={`activity-card-${activity.id}-distance`}
-                    style={[styles.compactStatValue, { color: compactTextColor }]}
-                  >
-                    {formatDistance(activity.distance, isMetric)}
-                  </RNText>
-                  <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
-                  <RNText
-                    testID={`activity-card-${activity.id}-duration`}
-                    style={[styles.compactStatValue, { color: compactTextColor }]}
-                  >
-                    {formatDuration(activity.moving_time)}
-                  </RNText>
-                  <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
-                  <RNText
-                    testID={`activity-card-${activity.id}-elevation`}
-                    style={[styles.compactStatValue, { color: compactTextColor }]}
-                  >
-                    {formatElevation(activity.total_elevation_gain, isMetric)}
-                  </RNText>
-                </View>
-                {location && (
-                  <RNText style={[styles.compactLocation, { color: compactMutedColor }]}>
-                    {location}
-                  </RNText>
-                )}
-              </View>
-
-              {/* Skyline bar or divider */}
-              {activity.skyline_chart_bytes ? (
-                <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
-              ) : (
-                <View style={[styles.dividerLine, { backgroundColor: compactDividerColor }]} />
-              )}
-
-              {/* Secondary stats */}
-              {secondaryStatsRow(compactMutedColor)}
+    // Shared secondary stats row used by both compact and full card
+    const secondaryStatsRow = (textColor: string) => (
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        onContentSizeChange={handleContentSizeChange}
+        style={styles.secondaryScroll}
+      >
+        <Pressable onPress={handlePress} style={styles.secondaryStats}>
+          {!!activity.icu_training_load && (
+            <View
+              style={styles.secondaryStat}
+              accessibilityLabel={`${t('activity.stats.trainingLoad')}: ${formatTSS(activity.icu_training_load)}`}
+            >
+              <MaterialCommunityIcons name="fire" size={14} color={colors.primary} />
+              <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+                {formatTSS(activity.icu_training_load)}
+              </RNText>
             </View>
-          </View>
+          )}
+          {!!(activity.average_heartrate || activity.icu_average_hr) && (
+            <View
+              style={styles.secondaryStat}
+              accessibilityLabel={`${t('activity.heartRate')}: ${formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)} ${t('units.bpm')}`}
+            >
+              <MaterialCommunityIcons name="heart-pulse" size={14} color={colors.error} />
+              <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+                {formatHeartRate(activity.average_heartrate || activity.icu_average_hr!)}
+              </RNText>
+            </View>
+          )}
+          {!!(activity.average_watts || activity.icu_average_watts) && (
+            <View
+              style={styles.secondaryStat}
+              accessibilityLabel={`${t('activity.power')}: ${formatPower(activity.average_watts || activity.icu_average_watts!)} ${t('units.watts')}`}
+            >
+              <MaterialCommunityIcons name="lightning-bolt" size={14} color={colors.warning} />
+              <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+                {formatPower(activity.average_watts || activity.icu_average_watts!)}
+              </RNText>
+            </View>
+          )}
+          {!!activity.calories && (
+            <View
+              style={styles.secondaryStat}
+              accessibilityLabel={`${t('activity.calories')}: ${formatCalories(activity.calories)} ${t('units.kcal')}`}
+            >
+              <MaterialCommunityIcons name="food-apple" size={14} color={colors.success} />
+              <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+                {formatCalories(activity.calories)}
+              </RNText>
+            </View>
+          )}
+          {activity.has_weather && activity.average_weather_temp != null && (
+            <View
+              style={styles.secondaryStat}
+              accessibilityLabel={`${t('activity.stats.temperature')}: ${formatTemperature(activity.average_weather_temp, isMetric)}`}
+            >
+              <MaterialCommunityIcons name="weather-partly-cloudy" size={14} color={colors.info} />
+              <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+                {formatTemperature(activity.average_weather_temp, isMetric)}
+              </RNText>
+            </View>
+          )}
         </Pressable>
-        {contextMenu}
-      </View>
+      </ScrollView>
     );
-  }
 
-  return (
-    <View style={styles.cardWrapper}>
-      <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
-        <View style={styles.mapContainer}>
-          <ActivityMapPreview
-            activity={activity}
-            height={240}
-            index={index}
-            snapshotRef={snapshotRef}
-            screenFocused={screenFocused}
-            startupTrack={startupTrack}
-          />
+    // Context menu (shared between compact and full card)
+    const contextMenu = (
+      <ActivityCardContextMenu
+        visible={menuVisible}
+        onDismiss={() => setMenuVisible(false)}
+        activity={activity}
+      />
+    );
 
-          {/* Pressable overlay for tap/long-press */}
+    // Compact card for activities without GPS data
+    if (!hasGpsData) {
+      return (
+        <View style={styles.cardWrapper}>
           <Pressable
             testID={`activity-card-${activity.id}`}
             onPress={handlePress}
@@ -345,106 +250,218 @@ export const ActivityCard = React.memo(function ActivityCard({
             delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
-            style={styles.pressableOverlay}
             accessibilityRole="button"
             accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
-          />
-
-          {/* Top gradient: sport icon + name + date */}
-          <LinearGradient
-            colors={theme.top as [string, string, string]}
-            style={styles.topOverlay}
-            pointerEvents="none"
           >
-            <View style={styles.overlayHeader}>
-              <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-                <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
-              </View>
-              <RNText
-                style={[styles.overlayName, { color: theme.text, textShadowColor: theme.shadow }]}
-                numberOfLines={1}
-              >
-                {activity.name}
-              </RNText>
-              <RNText
-                style={[
-                  styles.overlayDate,
-                  { color: theme.textMuted, textShadowColor: theme.shadow },
-                ]}
-                numberOfLines={1}
-              >
-                {formatRelativeDate(activity.start_date_local)}
-              </RNText>
-            </View>
-          </LinearGradient>
+            <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
+              <View style={styles.compactContent}>
+                {/* Header: icon + name + no-map indicator + date */}
+                <View style={styles.compactHeader}>
+                  <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
+                    <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
+                  </View>
+                  <RNText
+                    style={[styles.compactName, { color: compactTextColor }]}
+                    numberOfLines={1}
+                  >
+                    {activity.name}
+                  </RNText>
+                  <MaterialCommunityIcons
+                    name="map-marker-off"
+                    size={14}
+                    color={activityColor}
+                    style={styles.compactNoMapIcon}
+                  />
+                  <RNText
+                    style={[styles.compactDate, { color: compactMutedColor }]}
+                    numberOfLines={1}
+                  >
+                    {formatRelativeDate(activity.start_date_local)}
+                  </RNText>
+                </View>
 
-          {/* Bottom: all stats unified */}
-          <View style={styles.bottomSection}>
-            <LinearGradient
-              colors={theme.bottom as [string, string, string]}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-            {/* Primary stats + location */}
-            <Pressable onPress={handlePress} style={styles.primaryRow}>
-              <View style={styles.primaryStats}>
-                <RNText
-                  testID={`activity-card-${activity.id}-distance`}
-                  style={[
-                    styles.primaryStatValue,
-                    { color: theme.text, textShadowColor: theme.shadow },
-                  ]}
-                >
-                  {formatDistance(activity.distance, isMetric)}
-                </RNText>
-                <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
-                <RNText
-                  testID={`activity-card-${activity.id}-duration`}
-                  style={[
-                    styles.primaryStatValue,
-                    { color: theme.text, textShadowColor: theme.shadow },
-                  ]}
-                >
-                  {formatDuration(activity.moving_time)}
-                </RNText>
-                <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
-                <RNText
-                  testID={`activity-card-${activity.id}-elevation`}
-                  style={[
-                    styles.primaryStatValue,
-                    { color: theme.text, textShadowColor: theme.shadow },
-                  ]}
-                >
-                  {formatElevation(activity.total_elevation_gain, isMetric)}
-                </RNText>
+                {/* Primary stats + location */}
+                <View style={styles.compactPrimaryRow}>
+                  <View style={styles.primaryStats}>
+                    <RNText
+                      testID={`activity-card-${activity.id}-distance`}
+                      style={[styles.compactStatValue, { color: compactTextColor }]}
+                    >
+                      {formatDistance(activity.distance, isMetric)}
+                    </RNText>
+                    <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
+                    <RNText
+                      testID={`activity-card-${activity.id}-duration`}
+                      style={[styles.compactStatValue, { color: compactTextColor }]}
+                    >
+                      {formatDuration(activity.moving_time)}
+                    </RNText>
+                    <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
+                    <RNText
+                      testID={`activity-card-${activity.id}-elevation`}
+                      style={[styles.compactStatValue, { color: compactTextColor }]}
+                    >
+                      {formatElevation(activity.total_elevation_gain, isMetric)}
+                    </RNText>
+                  </View>
+                  {location && (
+                    <RNText style={[styles.compactLocation, { color: compactMutedColor }]}>
+                      {location}
+                    </RNText>
+                  )}
+                </View>
+
+                {/* Skyline bar or divider */}
+                {activity.skyline_chart_bytes ? (
+                  <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
+                ) : (
+                  <View style={[styles.dividerLine, { backgroundColor: compactDividerColor }]} />
+                )}
+
+                {/* Secondary stats */}
+                {secondaryStatsRow(compactMutedColor)}
               </View>
-              {location && (
+            </View>
+          </Pressable>
+          {contextMenu}
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.cardWrapper}>
+        <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
+          <View style={styles.mapContainer}>
+            <ActivityMapPreview
+              activity={activity}
+              height={240}
+              index={index}
+              snapshotRef={snapshotRef}
+              screenFocused={screenFocused}
+              startupTrack={startupTrack}
+            />
+
+            {/* Pressable overlay for tap/long-press */}
+            <Pressable
+              testID={`activity-card-${activity.id}`}
+              onPress={handlePress}
+              onLongPress={handleLongPress}
+              delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
+              onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
+              style={styles.pressableOverlay}
+              accessibilityRole="button"
+              accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
+            />
+
+            {/* Top gradient: sport icon + name + date */}
+            <LinearGradient
+              colors={theme.top as [string, string, string]}
+              style={styles.topOverlay}
+              pointerEvents="none"
+            >
+              <View style={styles.overlayHeader}>
+                <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
+                  <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
+                </View>
+                <RNText
+                  style={[styles.overlayName, { color: theme.text, textShadowColor: theme.shadow }]}
+                  numberOfLines={1}
+                >
+                  {activity.name}
+                </RNText>
                 <RNText
                   style={[
-                    styles.overlayLocation,
+                    styles.overlayDate,
                     { color: theme.textMuted, textShadowColor: theme.shadow },
                   ]}
+                  numberOfLines={1}
                 >
-                  {location}
+                  {formatRelativeDate(activity.start_date_local)}
                 </RNText>
+              </View>
+            </LinearGradient>
+
+            {/* Bottom: all stats unified */}
+            <View style={styles.bottomSection}>
+              <LinearGradient
+                colors={theme.bottom as [string, string, string]}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
+              {/* Primary stats + location */}
+              <Pressable onPress={handlePress} style={styles.primaryRow}>
+                <View style={styles.primaryStats}>
+                  <RNText
+                    testID={`activity-card-${activity.id}-distance`}
+                    style={[
+                      styles.primaryStatValue,
+                      { color: theme.text, textShadowColor: theme.shadow },
+                    ]}
+                  >
+                    {formatDistance(activity.distance, isMetric)}
+                  </RNText>
+                  <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
+                  <RNText
+                    testID={`activity-card-${activity.id}-duration`}
+                    style={[
+                      styles.primaryStatValue,
+                      { color: theme.text, textShadowColor: theme.shadow },
+                    ]}
+                  >
+                    {formatDuration(activity.moving_time)}
+                  </RNText>
+                  <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
+                  <RNText
+                    testID={`activity-card-${activity.id}-elevation`}
+                    style={[
+                      styles.primaryStatValue,
+                      { color: theme.text, textShadowColor: theme.shadow },
+                    ]}
+                  >
+                    {formatElevation(activity.total_elevation_gain, isMetric)}
+                  </RNText>
+                </View>
+                {location && (
+                  <RNText
+                    style={[
+                      styles.overlayLocation,
+                      { color: theme.textMuted, textShadowColor: theme.shadow },
+                    ]}
+                  >
+                    {location}
+                  </RNText>
+                )}
+              </Pressable>
+              {activity.skyline_chart_bytes ? (
+                <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
+              ) : (
+                <View style={[styles.dividerLine, { backgroundColor: theme.divider }]} />
               )}
-            </Pressable>
-            {activity.skyline_chart_bytes ? (
-              <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
-            ) : (
-              <View style={[styles.dividerLine, { backgroundColor: theme.divider }]} />
-            )}
-            {/* Secondary stats */}
-            {secondaryStatsRow(theme.secondaryText)}
+              {/* Secondary stats */}
+              {secondaryStatsRow(theme.secondaryText)}
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Context menu for long press */}
-      {contextMenu}
-    </View>
-  );
-});
+        {/* Context menu for long press */}
+        {contextMenu}
+      </View>
+    );
+  },
+  (prev, next) => {
+    // Custom comparator: skip re-render when activity content hasn't changed.
+    // Default shallow compare fails because TanStack Query returns new object references
+    // on refetch even when data is identical.
+    return (
+      prev.activity.id === next.activity.id &&
+      prev.activity.name === next.activity.name &&
+      prev.index === next.index &&
+      prev.screenFocused === next.screenFocused &&
+      prev.startupTrack === next.startupTrack
+    );
+  }
+);
 
 const styles = StyleSheet.create({
   cardWrapper: {
