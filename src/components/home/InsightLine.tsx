@@ -6,11 +6,18 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-na
 import { navigateTo } from '@/lib';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, colorWithOpacity } from '@/theme';
-import type { Insight } from '@/types';
+import type { Insight, InsightCategory } from '@/types';
 
 const ROTATION_INTERVAL = 8000;
 const FADE_DURATION = 300;
 const MAX_DISPLAY = 5;
+
+/** Categories worth showing in a single-line home screen context */
+const HOME_CATEGORIES: Set<InsightCategory> = new Set([
+  'section_pr',
+  'activity_pattern',
+  'fitness_milestone',
+]);
 
 const CATEGORY_COLORS: Record<string, string> = {
   section_pr: '#FFD700',
@@ -34,9 +41,10 @@ export const InsightLine = React.memo(function InsightLine({ insights }: Insight
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [currentIndex, setCurrentIndex] = React.useState(0);
 
-  // Filter consecutive identical titles
+  // Only show PRs, patterns, and milestones; filter consecutive identical titles
   const displayInsights = useMemo(() => {
-    const sliced = insights.slice(0, MAX_DISPLAY);
+    const relevant = insights.filter((i) => HOME_CATEGORIES.has(i.category));
+    const sliced = relevant.slice(0, MAX_DISPLAY);
     return sliced.filter((insight, i) => i === 0 || insight.title !== sliced[i - 1].title);
   }, [insights]);
 

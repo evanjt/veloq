@@ -72,15 +72,11 @@ export const PatternDetailSheet = React.memo(function PatternDetailSheet({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           bounces={false}
+          nestedScrollEnabled={true}
         >
           {/* Header row */}
           <View style={styles.headerRow}>
-            <View
-              style={[
-                styles.iconCircle,
-                { backgroundColor: `${insight.iconColor}1F` },
-              ]}
-            >
+            <View style={[styles.iconCircle, { backgroundColor: `${insight.iconColor}1F` }]}>
               <MaterialCommunityIcons
                 name={insight.icon as never}
                 size={16}
@@ -276,6 +272,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingBottom: spacing.xxl,
   },
   // Header

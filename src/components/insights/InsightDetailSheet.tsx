@@ -52,6 +52,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           bounces={false}
+          nestedScrollEnabled={true}
         >
           {/* Compact header row */}
           <View style={styles.headerRow}>
@@ -154,6 +155,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingBottom: spacing.xxl,
   },
   // Compact header
