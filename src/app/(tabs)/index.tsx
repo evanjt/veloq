@@ -39,7 +39,7 @@ import {
 } from '@/components/maps/TerrainSnapshotWebView';
 import { initTerrainPreviewCache } from '@/lib/storage/terrainPreviewCache';
 import { initCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
-import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
 // Activity type categories for filtering
@@ -356,23 +356,28 @@ export default function FeedScreen() {
   if (isLoading && !allActivities.length) {
     return (
       <ScreenSafeAreaView style={shared.container}>
+        {/* Show real SummaryCard immediately — its data is persisted and available */}
+        <SummaryCard
+          profileUrl={profileUrl}
+          onProfilePress={navigateToSettings}
+          heroMetric={heroMetric}
+          heroValue={heroValue}
+          heroLabel={heroLabel}
+          heroColor={heroColor}
+          heroZoneLabel={heroZoneLabel}
+          heroZoneColor={heroZoneColor}
+          heroTrend={heroTrend}
+          onHeroPress={navigateToHeroMetric}
+          fitnessData={fitnessData}
+          fatigueData={fatigueData}
+          formData={formData}
+          hrvData={hrvData}
+          rhrData={rhrData}
+          showSparkline={showSparkline}
+          supportingMetrics={supportingMetrics}
+          insightLine={<InsightLine insights={insights} />}
+        />
         <View style={styles.skeletonContainer}>
-          {/* Summary card skeleton */}
-          <View style={[styles.summaryCardSkeleton, isDark && styles.summaryCardSkeletonDark]}>
-            <View style={styles.skeletonRow}>
-              <View style={[styles.skeletonCircle, isDark && styles.skeletonElementDark]} />
-              <View style={styles.skeletonSpacer} />
-            </View>
-            <View style={styles.skeletonHero}>
-              <View style={[styles.skeletonHeroValue, isDark && styles.skeletonElementDark]} />
-              <View style={[styles.skeletonHeroLabel, isDark && styles.skeletonElementDark]} />
-            </View>
-            <View style={styles.skeletonMetrics}>
-              <View style={[styles.skeletonMetric, isDark && styles.skeletonElementDark]} />
-              <View style={[styles.skeletonMetric, isDark && styles.skeletonElementDark]} />
-              <View style={[styles.skeletonMetric, isDark && styles.skeletonElementDark]} />
-            </View>
-          </View>
           {/* Activity card skeletons */}
           <ActivityCardSkeleton />
           <ActivityCardSkeleton />
@@ -453,71 +458,6 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  // Summary card skeleton styles
-  summaryCardSkeleton: {
-    borderRadius: layout.borderRadius,
-    padding: layout.cardPadding,
-    marginHorizontal: layout.screenPadding,
-    marginBottom: spacing.md,
-    backgroundColor: colors.surface,
-    ...shadows.card,
-  },
-  summaryCardSkeletonDark: {
-    backgroundColor: darkColors.surface,
-    ...shadows.none,
-    borderWidth: 1,
-    borderColor: darkColors.border,
-  },
-  skeletonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.md,
-  },
-  skeletonCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.divider,
-  },
-  skeletonSpacer: {
-    flex: 1,
-  },
-  skeletonHero: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-  },
-  skeletonHeroValue: {
-    width: 60,
-    height: 32,
-    borderRadius: 4,
-    backgroundColor: colors.divider,
-    marginBottom: spacing.xs,
-  },
-  skeletonHeroLabel: {
-    width: 40,
-    height: 14,
-    borderRadius: 4,
-    backgroundColor: colors.divider,
-  },
-  skeletonMetrics: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-    gap: spacing.lg,
-  },
-  skeletonMetric: {
-    width: 50,
-    height: 14,
-    borderRadius: 4,
-    backgroundColor: colors.divider,
-  },
-  skeletonElementDark: {
-    backgroundColor: darkColors.border,
-  },
   textLight: {
     color: colors.textOnDark,
   },

@@ -61,10 +61,9 @@ const PAGE_SIZE_DAYS = 30;
 /**
  * Infinite scroll for activity feed.
  *
- * Thin client approach:
- * - Always fetch fresh data (staleTime: 0)
- * - Refetch on focus/mount to ensure data is current
- * - Simple pull-to-refresh using standard refetch
+ * Stale-while-revalidate: cached activities show instantly on app open,
+ * background refetch picks up new activities. Persisted to AsyncStorage
+ * so the feed renders immediately on subsequent opens.
  */
 export function useInfiniteActivities(options: { includeStats?: boolean } = {}) {
   const { includeStats = false } = options;
@@ -112,6 +111,7 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
     // Stale-while-revalidate: show cached data immediately, refetch in background
     staleTime: 1000 * 60 * 5, // 5 minutes - data appears instantly from cache
     gcTime: 1000 * 60 * 60, // 1 hour - keep in memory for navigation
+    refetchOnMount: true, // Override global false — pick up new activities on app open
     refetchOnWindowFocus: true, // Pick up new activities on foreground
     maxPages: 10, // Evict old pages to prevent memory growth
   });
