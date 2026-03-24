@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,6 +19,8 @@ export const InsightsPanel = React.memo(function InsightsPanel({ insights }: Ins
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const [selectedInsight, setSelectedInsight] = useState<Insight | null>(null);
+  const handleInsightPress = useCallback((i: Insight) => setSelectedInsight(i), []);
+  const handleCloseSheet = useCallback(() => setSelectedInsight(null), []);
 
   return (
     <View style={styles.container}>
@@ -27,11 +29,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({ insights }: Ins
         {insights.length > 0 ? (
           <View style={styles.cardList}>
             {insights.map((insight) => (
-              <InsightListCard
-                key={insight.id}
-                insight={insight}
-                onPress={(i) => setSelectedInsight(i)}
-              />
+              <InsightListCard key={insight.id} insight={insight} onPress={handleInsightPress} />
             ))}
             <Text style={[styles.disclaimer, isDark && styles.disclaimerDark]}>
               {t(
@@ -63,13 +61,13 @@ export const InsightsPanel = React.memo(function InsightsPanel({ insights }: Ins
         <PatternDetailSheet
           insight={selectedInsight}
           visible={!!selectedInsight}
-          onClose={() => setSelectedInsight(null)}
+          onClose={handleCloseSheet}
         />
       ) : (
         <InsightDetailSheet
           insight={selectedInsight}
           visible={!!selectedInsight}
-          onClose={() => setSelectedInsight(null)}
+          onClose={handleCloseSheet}
         />
       )}
     </View>

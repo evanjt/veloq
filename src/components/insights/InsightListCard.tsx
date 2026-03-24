@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Canvas, Path, Circle } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, shadows, colorWithOpacity } from '@/theme';
+import { ChartErrorBoundary } from '@/components/ui';
 import type { Insight } from '@/types';
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -18,6 +19,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   weekly_load: '#FFA726',
   intensity_context: '#FFA726',
   stale_pr: '#FF9800',
+  section_cluster: '#66BB6A',
 };
 
 interface InsightListCardProps {
@@ -137,10 +139,12 @@ const MiniSparkline = React.memo(function MiniSparkline({
   if (!pathStr) return null;
 
   return (
-    <Canvas style={{ width: SPARK_W, height: SPARK_H }}>
-      <Path path={pathStr} style="stroke" strokeWidth={1.5} color={`${color}80`} />
-      {lastDot ? <Circle cx={lastDot.x} cy={lastDot.y} r={2.5} color={color} /> : null}
-    </Canvas>
+    <ChartErrorBoundary height={SPARK_H}>
+      <Canvas style={{ width: SPARK_W, height: SPARK_H }}>
+        <Path path={pathStr} style="stroke" strokeWidth={1.5} color={`${color}80`} />
+        {lastDot ? <Circle cx={lastDot.x} cy={lastDot.y} r={2.5} color={color} /> : null}
+      </Canvas>
+    </ChartErrorBoundary>
   );
 });
 
@@ -155,10 +159,12 @@ export const InsightListCard = React.memo(function InsightListCard({
 
   const contextColor = metric?.context?.startsWith('+') ? colors.success : colors.warning;
 
+  const handlePress = useCallback(() => onPress(insight), [onPress, insight]);
+
   return (
     <TouchableOpacity
       style={[styles.card, isDark && styles.cardDark]}
-      onPress={() => onPress(insight)}
+      onPress={handlePress}
       activeOpacity={0.7}
     >
       <View style={[styles.colorBar, { backgroundColor: categoryColor }]} />
@@ -214,7 +220,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 8,
     marginHorizontal: spacing.md,
     marginBottom: 2,

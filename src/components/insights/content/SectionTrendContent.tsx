@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   sectionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 10,
     padding: spacing.sm,
     borderWidth: 1,

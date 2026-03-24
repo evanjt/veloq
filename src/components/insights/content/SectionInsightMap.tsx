@@ -3,6 +3,7 @@ import { View, StyleSheet, Dimensions } from 'react-native';
 import { Canvas, Path, Circle } from '@shopify/react-native-skia';
 import { useTheme } from '@/hooks';
 import { colors, spacing, opacity } from '@/theme';
+import { ChartErrorBoundary } from '@/components/ui';
 import type { RoutePoint } from '@/types';
 
 const MAP_HEIGHT = 150;
@@ -104,42 +105,44 @@ export const SectionInsightMap = React.memo(function SectionInsightMap({
   const bgColor = isDark ? opacity.overlayDark.light : opacity.overlay.subtle;
 
   return (
-    <View style={[styles.container, { backgroundColor: bgColor }]}>
-      <Canvas style={{ width: MAP_WIDTH, height: MAP_HEIGHT }}>
-        {/* Route line shadow */}
-        <Path
-          path={linePath}
-          style="stroke"
-          strokeWidth={5}
-          color={isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.12)'}
-          strokeCap="round"
-          strokeJoin="round"
-        />
-        {/* Route line */}
-        <Path
-          path={linePath}
-          style="stroke"
-          strokeWidth={3}
-          color={lineColor}
-          strokeCap="round"
-          strokeJoin="round"
-        />
-        {/* Start point */}
-        {startPoint && (
-          <>
-            <Circle cx={startPoint.x} cy={startPoint.y} r={5} color={lineColor} />
-            <Circle cx={startPoint.x} cy={startPoint.y} r={3} color="#FFFFFF" />
-          </>
-        )}
-        {/* End point */}
-        {endPoint && (
-          <>
-            <Circle cx={endPoint.x} cy={endPoint.y} r={5} color={lineColor} />
-            <Circle cx={endPoint.x} cy={endPoint.y} r={2} color="#FFFFFF" />
-          </>
-        )}
-      </Canvas>
-    </View>
+    <ChartErrorBoundary height={MAP_HEIGHT}>
+      <View style={[styles.container, { backgroundColor: bgColor }]}>
+        <Canvas style={{ width: MAP_WIDTH, height: MAP_HEIGHT }}>
+          {/* Route line shadow */}
+          <Path
+            path={linePath}
+            style="stroke"
+            strokeWidth={5}
+            color={isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.12)'}
+            strokeCap="round"
+            strokeJoin="round"
+          />
+          {/* Route line */}
+          <Path
+            path={linePath}
+            style="stroke"
+            strokeWidth={3}
+            color={lineColor}
+            strokeCap="round"
+            strokeJoin="round"
+          />
+          {/* Start point */}
+          {startPoint && (
+            <>
+              <Circle cx={startPoint.x} cy={startPoint.y} r={5} color={lineColor} />
+              <Circle cx={startPoint.x} cy={startPoint.y} r={3} color="#FFFFFF" />
+            </>
+          )}
+          {/* End point */}
+          {endPoint && (
+            <>
+              <Circle cx={endPoint.x} cy={endPoint.y} r={5} color={lineColor} />
+              <Circle cx={endPoint.x} cy={endPoint.y} r={2} color="#FFFFFF" />
+            </>
+          )}
+        </Canvas>
+      </View>
+    </ChartErrorBoundary>
   );
 });
 

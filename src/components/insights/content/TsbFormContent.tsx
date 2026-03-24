@@ -15,6 +15,7 @@ import { useWellness } from '@/hooks/fitness/useWellness';
 import { navigateTo } from '@/lib';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_BOUNDARIES } from '@/lib/algorithms/fitness';
 import { colors, darkColors, spacing, opacity } from '@/theme';
+import { ChartErrorBoundary } from '@/components/ui';
 import type { Insight } from '@/types';
 
 const CHART_HEIGHT = 160;
@@ -160,93 +161,98 @@ export const TsbFormContent = React.memo(function TsbFormContent({
 
       {/* TSB chart with zone bands and axis labels */}
       {chartPaths ? (
-        <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-          <Text style={[styles.chartLabel, isDark && styles.chartLabelDark]}>
-            30-day form (TSB)
-          </Text>
-          <View style={styles.chartWrapper}>
-            <Canvas style={{ width: CHART_WIDTH, height: CHART_HEIGHT }}>
-              {/* Zone background bands */}
-              {chartPaths.zones.map((z, i) => (
-                <Rect
-                  key={`zone-${i}`}
-                  x={CHART_PADDING.left}
-                  y={z.y}
-                  width={CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right}
-                  height={z.height}
-                  color={z.color}
+        <ChartErrorBoundary height={CHART_HEIGHT}>
+          <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
+            <Text style={[styles.chartLabel, isDark && styles.chartLabelDark]}>
+              30-day form (TSB)
+            </Text>
+            <View style={styles.chartWrapper}>
+              <Canvas style={{ width: CHART_WIDTH, height: CHART_HEIGHT }}>
+                {/* Zone background bands */}
+                {chartPaths.zones.map((z, i) => (
+                  <Rect
+                    key={`zone-${i}`}
+                    x={CHART_PADDING.left}
+                    y={z.y}
+                    width={CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right}
+                    height={z.height}
+                    color={z.color}
+                  />
+                ))}
+                {/* Horizontal grid lines */}
+                {chartPaths.ticks.map((tick, i) => {
+                  const y = chartPaths.toY(tick);
+                  return (
+                    <SkiaLine
+                      key={`grid-${i}`}
+                      p1={vec(CHART_PADDING.left, y)}
+                      p2={vec(CHART_WIDTH - CHART_PADDING.right, y)}
+                      color={gridColor}
+                      strokeWidth={1}
+                    />
+                  );
+                })}
+                {/* Zero line */}
+                <SkiaLine
+                  p1={vec(CHART_PADDING.left, chartPaths.zeroY)}
+                  p2={vec(CHART_WIDTH - CHART_PADDING.right, chartPaths.zeroY)}
+                  color={isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'}
+                  strokeWidth={1}
                 />
-              ))}
-              {/* Horizontal grid lines */}
+                {/* TSB area fill */}
+                <Path path={chartPaths.areaPath} style="fill">
+                  <LinearGradient
+                    start={vec(0, CHART_PADDING.top)}
+                    end={vec(0, CHART_HEIGHT - CHART_PADDING.bottom)}
+                    colors={[`${zoneColor}25`, `${zoneColor}05`]}
+                  />
+                </Path>
+                {/* TSB line */}
+                <Path path={chartPaths.tsbPath} style="stroke" strokeWidth={2} color={zoneColor} />
+              </Canvas>
+
+              {/* Y-axis labels */}
               {chartPaths.ticks.map((tick, i) => {
                 const y = chartPaths.toY(tick);
                 return (
-                  <SkiaLine
-                    key={`grid-${i}`}
-                    p1={vec(CHART_PADDING.left, y)}
-                    p2={vec(CHART_WIDTH - CHART_PADDING.right, y)}
-                    color={gridColor}
-                    strokeWidth={1}
-                  />
+                  <Text
+                    key={`y-${i}`}
+                    style={[
+                      styles.axisLabel,
+                      {
+                        position: 'absolute',
+                        left: 0,
+                        top: y - 6,
+                        width: CHART_PADDING.left - 4,
+                        textAlign: 'right',
+                        color: textMuted,
+                      },
+                    ]}
+                  >
+                    {tick}
+                  </Text>
                 );
               })}
-              {/* Zero line */}
-              <SkiaLine
-                p1={vec(CHART_PADDING.left, chartPaths.zeroY)}
-                p2={vec(CHART_WIDTH - CHART_PADDING.right, chartPaths.zeroY)}
-                color={isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'}
-                strokeWidth={1}
-              />
-              {/* TSB area fill */}
-              <Path path={chartPaths.areaPath} style="fill">
-                <LinearGradient
-                  start={vec(0, CHART_PADDING.top)}
-                  end={vec(0, CHART_HEIGHT - CHART_PADDING.bottom)}
-                  colors={[`${zoneColor}25`, `${zoneColor}05`]}
-                />
-              </Path>
-              {/* TSB line */}
-              <Path path={chartPaths.tsbPath} style="stroke" strokeWidth={2} color={zoneColor} />
-            </Canvas>
 
-            {/* Y-axis labels */}
-            {chartPaths.ticks.map((tick, i) => {
-              const y = chartPaths.toY(tick);
-              return (
-                <Text
-                  key={`y-${i}`}
+              {/* X-axis date labels */}
+              {dates.length >= 2 ? (
+                <View
                   style={[
-                    styles.axisLabel,
-                    {
-                      position: 'absolute',
-                      left: 0,
-                      top: y - 6,
-                      width: CHART_PADDING.left - 4,
-                      textAlign: 'right',
-                      color: textMuted,
-                    },
+                    styles.xAxisRow,
+                    { left: CHART_PADDING.left, right: CHART_PADDING.right },
                   ]}
                 >
-                  {tick}
-                </Text>
-              );
-            })}
-
-            {/* X-axis date labels */}
-            {dates.length >= 2 ? (
-              <View
-                style={[styles.xAxisRow, { left: CHART_PADDING.left, right: CHART_PADDING.right }]}
-              >
-                <Text style={[styles.axisLabel, { color: textMuted }]}>
-                  {formatDateLabel(dates[0])}
-                </Text>
-                <Text style={[styles.axisLabel, { color: textMuted }]}>
-                  {formatDateLabel(dates[dates.length - 1])}
-                </Text>
-              </View>
-            ) : null}
+                  <Text style={[styles.axisLabel, { color: textMuted }]}>
+                    {formatDateLabel(dates[0])}
+                  </Text>
+                  <Text style={[styles.axisLabel, { color: textMuted }]}>
+                    {formatDateLabel(dates[dates.length - 1])}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
-        </View>
+        </ChartErrorBoundary>
       ) : null}
 
       {/* View fitness link */}

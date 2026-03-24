@@ -170,7 +170,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
   ).length;
 
   return (
-    <View style={styles.sectionsContainer}>
+    <View style={[styles.sectionsContainer, isDark && styles.sectionsContainerDark]}>
       {recentPRCount > 0 && (
         <View style={styles.prSummaryRow}>
           <MaterialCommunityIcons name="trophy-outline" size={14} color={brand.gold} />
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     padding: spacing.md,
     borderRadius: layout.borderRadius,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     ...shadows.card,
   },
   containerDark: {
@@ -321,6 +321,9 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
     paddingTop: spacing.sm,
+  },
+  sectionsContainerDark: {
+    borderTopColor: darkColors.border,
   },
   prSummaryRow: {
     flexDirection: 'row',

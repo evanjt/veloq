@@ -39,9 +39,11 @@ export function useInsights(
 
   // Get wellness data for form/TSB (from TanStack Query, not FFI)
   const { data: wellnessData } = useWellness('1m');
-  const latestWellness = wellnessData
-    ? [...wellnessData].sort((a, b) => b.id.localeCompare(a.id))[0]
-    : null;
+  const latestWellness = useMemo(
+    () =>
+      wellnessData ? ([...wellnessData].sort((a, b) => b.id.localeCompare(a.id))[0] ?? null) : null,
+    [wellnessData]
+  );
   const ctl = latestWellness?.ctl ?? latestWellness?.ctlLoad ?? 0;
   const atl = latestWellness?.atl ?? latestWellness?.atlLoad ?? 0;
   const tsb = ctl - atl;

@@ -87,7 +87,7 @@ export function useWorkoutSections(sportType: string | undefined): {
         if (previousTimes.length >= 5) {
           const recentMedian = median(recentTimes);
           const previousMedian = median(previousTimes);
-          const change = (previousMedian - recentMedian) / previousMedian;
+          const change = previousMedian > 0 ? (previousMedian - recentMedian) / previousMedian : 0;
           // Lower time = better, so positive change = improving
           if (change >= 0.03) trend = 'improving';
           else if (change <= -0.03) trend = 'declining';

@@ -29,6 +29,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   tsb_form: '#42A5F5',
   weekly_load: '#FFA726',
   intensity_context: '#FFA726',
+  stale_pr: '#FF9800',
+  section_cluster: '#66BB6A',
 };
 
 interface InsightLineProps {
@@ -47,6 +49,11 @@ export const InsightLine = React.memo(function InsightLine({ insights }: Insight
     const sliced = relevant.slice(0, MAX_DISPLAY);
     return sliced.filter((insight, i) => i === 0 || insight.title !== sliced[i - 1].title);
   }, [insights]);
+
+  // Reset index when the number of display insights changes to prevent out-of-bounds
+  useEffect(() => {
+    setCurrentIndex((prev) => (prev >= displayInsights.length ? 0 : prev));
+  }, [displayInsights.length]);
 
   useEffect(() => {
     if (displayInsights.length <= 1) return;

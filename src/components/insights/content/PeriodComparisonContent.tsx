@@ -5,6 +5,7 @@ import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, opacity } from '@/theme';
+import { ChartErrorBoundary } from '@/components/ui';
 import type { Insight } from '@/types';
 
 const CHART_HEIGHT = 140;
@@ -93,55 +94,63 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
   return (
     <View style={styles.container}>
       {/* Bar chart */}
-      <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-        <View style={styles.chartWrapper}>
-          <Canvas style={{ width: CHART_WIDTH, height: CHART_HEIGHT }}>
+      <ChartErrorBoundary height={CHART_HEIGHT}>
+        <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
+          <View style={styles.chartWrapper}>
+            <Canvas style={{ width: CHART_WIDTH, height: CHART_HEIGHT }}>
+              {barChart.map((bar, i) => (
+                <RoundedRect
+                  key={`bar-${i}`}
+                  x={bar.x}
+                  y={bar.y}
+                  width={bar.width}
+                  height={bar.height}
+                  r={4}
+                  color={bar.isCurrent ? barColor : mutedBarColor}
+                />
+              ))}
+            </Canvas>
+
+            {/* Bar labels below */}
             {barChart.map((bar, i) => (
-              <RoundedRect
-                key={`bar-${i}`}
-                x={bar.x}
-                y={bar.y}
-                width={bar.width}
-                height={bar.height}
-                r={4}
-                color={bar.isCurrent ? barColor : mutedBarColor}
-              />
-            ))}
-          </Canvas>
-
-          {/* Bar labels below */}
-          {barChart.map((bar, i) => (
-            <View
-              key={`label-${i}`}
-              style={[styles.barLabelContainer, { left: bar.x, width: bar.width, top: bar.labelY }]}
-            >
-              <Text style={[styles.barLabelText, isDark && styles.barLabelTextDark]}>
-                {bar.label}
-              </Text>
-            </View>
-          ))}
-
-          {/* Value labels above bars */}
-          {barChart.map((bar, i) => (
-            <View
-              key={`value-${i}`}
-              style={[styles.barValueContainer, { left: bar.x, width: bar.width, top: bar.y - 18 }]}
-            >
-              <Text
+              <View
+                key={`label-${i}`}
                 style={[
-                  styles.barValueText,
-                  isDark && styles.barValueTextDark,
-                  bar.isCurrent && { fontWeight: '700' },
+                  styles.barLabelContainer,
+                  { left: bar.x, width: bar.width, top: bar.labelY },
                 ]}
               >
-                {typeof bar.value === 'number' && bar.unit
-                  ? `${bar.value} ${bar.unit}`
-                  : String(comparison[bar.isCurrent ? 'current' : 'previous'].value)}
-              </Text>
-            </View>
-          ))}
+                <Text style={[styles.barLabelText, isDark && styles.barLabelTextDark]}>
+                  {bar.label}
+                </Text>
+              </View>
+            ))}
+
+            {/* Value labels above bars */}
+            {barChart.map((bar, i) => (
+              <View
+                key={`value-${i}`}
+                style={[
+                  styles.barValueContainer,
+                  { left: bar.x, width: bar.width, top: bar.y - 18 },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.barValueText,
+                    isDark && styles.barValueTextDark,
+                    bar.isCurrent && { fontWeight: '700' },
+                  ]}
+                >
+                  {typeof bar.value === 'number' && bar.unit
+                    ? `${bar.value} ${bar.unit}`
+                    : String(comparison[bar.isCurrent ? 'current' : 'previous'].value)}
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
+      </ChartErrorBoundary>
 
       {/* Change badge */}
       <View style={styles.changeRow}>

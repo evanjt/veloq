@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 import { Canvas, RoundedRect, Line as SkiaLine, vec } from '@shopify/react-native-skia';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, opacity } from '@/theme';
+import { ChartErrorBoundary } from '@/components/ui';
 import type { Insight } from '@/types';
 
 const CHART_HEIGHT = 120;
@@ -58,61 +59,65 @@ export const WeeklyLoadContent = React.memo(function WeeklyLoadContent({
 
   return (
     <View style={styles.container}>
-      <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-        <View style={styles.chartWrapper}>
-          <Canvas style={{ width: CHART_WIDTH, height: CHART_HEIGHT }}>
-            <RoundedRect
-              x={chartData.barX}
-              y={chartData.barY}
-              width={chartData.barWidth}
-              height={chartData.barHeight}
-              r={4}
-              color={barColor}
-            />
-            <SkiaLine
-              p1={vec(CHART_PADDING.left + 20, chartData.avgY)}
-              p2={vec(CHART_WIDTH - CHART_PADDING.right - 20, chartData.avgY)}
-              color={avgLineColor}
-              strokeWidth={1.5}
-              style="stroke"
-            />
-          </Canvas>
+      <ChartErrorBoundary height={CHART_HEIGHT}>
+        <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
+          <View style={styles.chartWrapper}>
+            <Canvas style={{ width: CHART_WIDTH, height: CHART_HEIGHT }}>
+              <RoundedRect
+                x={chartData.barX}
+                y={chartData.barY}
+                width={chartData.barWidth}
+                height={chartData.barHeight}
+                r={4}
+                color={barColor}
+              />
+              <SkiaLine
+                p1={vec(CHART_PADDING.left + 20, chartData.avgY)}
+                p2={vec(CHART_WIDTH - CHART_PADDING.right - 20, chartData.avgY)}
+                color={avgLineColor}
+                strokeWidth={1.5}
+                style="stroke"
+              />
+            </Canvas>
 
-          <View
-            style={[
-              styles.barLabelContainer,
-              { left: chartData.barX, width: chartData.barWidth, top: chartData.labelY },
-            ]}
-          >
-            <Text style={[styles.barLabelText, isDark && styles.barLabelTextDark]}>This week</Text>
-          </View>
+            <View
+              style={[
+                styles.barLabelContainer,
+                { left: chartData.barX, width: chartData.barWidth, top: chartData.labelY },
+              ]}
+            >
+              <Text style={[styles.barLabelText, isDark && styles.barLabelTextDark]}>
+                This week
+              </Text>
+            </View>
 
-          <View
-            style={[
-              styles.barValueContainer,
-              { left: chartData.barX, width: chartData.barWidth, top: chartData.barY - 18 },
-            ]}
-          >
-            <Text style={[styles.barValueText, isDark && styles.barValueTextDark]}>
-              {thisWeekVal} {thisWeekPoint.unit ?? 'TSS'}
-            </Text>
-          </View>
+            <View
+              style={[
+                styles.barValueContainer,
+                { left: chartData.barX, width: chartData.barWidth, top: chartData.barY - 18 },
+              ]}
+            >
+              <Text style={[styles.barValueText, isDark && styles.barValueTextDark]}>
+                {thisWeekVal} {thisWeekPoint.unit ?? 'TSS'}
+              </Text>
+            </View>
 
-          <View
-            style={[
-              styles.avgLabelContainer,
-              {
-                top: chartData.avgY - 8,
-                right: CHART_PADDING.right + 4,
-              },
-            ]}
-          >
-            <Text style={[styles.avgLabelText, isDark && styles.avgLabelTextDark]}>
-              4-wk avg: {avgVal} {avgPoint.unit ?? 'TSS'}
-            </Text>
+            <View
+              style={[
+                styles.avgLabelContainer,
+                {
+                  top: chartData.avgY - 8,
+                  right: CHART_PADDING.right + 4,
+                },
+              ]}
+            >
+              <Text style={[styles.avgLabelText, isDark && styles.avgLabelTextDark]}>
+                4-wk avg: {avgVal} {avgPoint.unit ?? 'TSS'}
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
+      </ChartErrorBoundary>
 
       {changeStr ? (
         <View style={[styles.changeBadge, { backgroundColor: `${barColor}18` }]}>

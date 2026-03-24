@@ -5,6 +5,7 @@ import { Canvas, Path, LinearGradient, vec, Line as SkiaLine } from '@shopify/re
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, opacity } from '@/theme';
+import { ChartErrorBoundary } from '@/components/ui';
 import type { Insight } from '@/types';
 
 const CHART_HEIGHT = 140;
@@ -130,79 +131,84 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
 
       {/* Chart with axis labels */}
       {linePath ? (
-        <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-          {insight.supportingData?.sparklineLabel ? (
-            <Text style={[styles.chartLabel, isDark && styles.chartLabelDark]}>
-              {insight.supportingData.sparklineLabel}
-            </Text>
-          ) : null}
-          <View style={styles.chartWrapper}>
-            <Canvas style={{ width: CHART_WIDTH, height: CHART_HEIGHT }}>
-              {/* Horizontal grid lines */}
+        <ChartErrorBoundary height={CHART_HEIGHT}>
+          <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
+            {insight.supportingData?.sparklineLabel ? (
+              <Text style={[styles.chartLabel, isDark && styles.chartLabelDark]}>
+                {insight.supportingData.sparklineLabel}
+              </Text>
+            ) : null}
+            <View style={styles.chartWrapper}>
+              <Canvas style={{ width: CHART_WIDTH, height: CHART_HEIGHT }}>
+                {/* Horizontal grid lines */}
+                {yTicks.map((tick, i) => {
+                  const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
+                  const yRange = yMax - yMin || 1;
+                  const y = CHART_PADDING.top + drawH - ((tick - yMin) / yRange) * drawH;
+                  return (
+                    <SkiaLine
+                      key={`grid-${i}`}
+                      p1={vec(CHART_PADDING.left, y)}
+                      p2={vec(CHART_WIDTH - CHART_PADDING.right, y)}
+                      color={gridColor}
+                      strokeWidth={1}
+                    />
+                  );
+                })}
+                {/* Area fill */}
+                <Path path={areaPath} style="fill">
+                  <LinearGradient
+                    start={vec(0, CHART_PADDING.top)}
+                    end={vec(0, CHART_HEIGHT - CHART_PADDING.bottom)}
+                    colors={[`${trendColor}30`, `${trendColor}05`]}
+                  />
+                </Path>
+                {/* Line */}
+                <Path path={linePath} style="stroke" strokeWidth={2} color={trendColor} />
+              </Canvas>
+
+              {/* Y-axis labels */}
               {yTicks.map((tick, i) => {
                 const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
                 const yRange = yMax - yMin || 1;
                 const y = CHART_PADDING.top + drawH - ((tick - yMin) / yRange) * drawH;
                 return (
-                  <SkiaLine
-                    key={`grid-${i}`}
-                    p1={vec(CHART_PADDING.left, y)}
-                    p2={vec(CHART_WIDTH - CHART_PADDING.right, y)}
-                    color={gridColor}
-                    strokeWidth={1}
-                  />
+                  <Text
+                    key={`y-${i}`}
+                    style={[
+                      styles.axisLabel,
+                      {
+                        position: 'absolute',
+                        left: 0,
+                        top: y - 6,
+                        width: CHART_PADDING.left - 4,
+                        textAlign: 'right',
+                      },
+                      { color: textMuted },
+                    ]}
+                  >
+                    {tick}
+                  </Text>
                 );
               })}
-              {/* Area fill */}
-              <Path path={areaPath} style="fill">
-                <LinearGradient
-                  start={vec(0, CHART_PADDING.top)}
-                  end={vec(0, CHART_HEIGHT - CHART_PADDING.bottom)}
-                  colors={[`${trendColor}30`, `${trendColor}05`]}
-                />
-              </Path>
-              {/* Line */}
-              <Path path={linePath} style="stroke" strokeWidth={2} color={trendColor} />
-            </Canvas>
 
-            {/* Y-axis labels */}
-            {yTicks.map((tick, i) => {
-              const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
-              const yRange = yMax - yMin || 1;
-              const y = CHART_PADDING.top + drawH - ((tick - yMin) / yRange) * drawH;
-              return (
-                <Text
-                  key={`y-${i}`}
+              {/* X-axis date labels */}
+              {sparklineData && sparklineData.length >= 2 ? (
+                <View
                   style={[
-                    styles.axisLabel,
-                    {
-                      position: 'absolute',
-                      left: 0,
-                      top: y - 6,
-                      width: CHART_PADDING.left - 4,
-                      textAlign: 'right',
-                    },
-                    { color: textMuted },
+                    styles.xAxisRow,
+                    { left: CHART_PADDING.left, right: CHART_PADDING.right },
                   ]}
                 >
-                  {tick}
-                </Text>
-              );
-            })}
-
-            {/* X-axis date labels */}
-            {sparklineData && sparklineData.length >= 2 ? (
-              <View
-                style={[styles.xAxisRow, { left: CHART_PADDING.left, right: CHART_PADDING.right }]}
-              >
-                <Text style={[styles.axisLabel, { color: textMuted }]}>
-                  {formatDaysAgo(sparklineData.length - 1)}
-                </Text>
-                <Text style={[styles.axisLabel, { color: textMuted }]}>Today</Text>
-              </View>
-            ) : null}
+                  <Text style={[styles.axisLabel, { color: textMuted }]}>
+                    {formatDaysAgo(sparklineData.length - 1)}
+                  </Text>
+                  <Text style={[styles.axisLabel, { color: textMuted }]}>Today</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
-        </View>
+        </ChartErrorBoundary>
       ) : null}
     </View>
   );

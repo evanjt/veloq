@@ -34,7 +34,10 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   if (!insight) return null;
 
   // Content components for these categories already have embedded navigation
-  const contentHandlesNav = insight.category === 'section_pr' || insight.category === 'tsb_form';
+  const contentHandlesNav =
+    insight.category === 'section_pr' ||
+    insight.category === 'tsb_form' ||
+    insight.category === 'stale_pr';
   const hasNavTarget = !!insight.navigationTarget && !contentHandlesNav;
 
   return (
@@ -140,7 +143,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: 'hidden',
