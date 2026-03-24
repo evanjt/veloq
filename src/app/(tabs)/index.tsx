@@ -427,12 +427,36 @@ export default function FeedScreen() {
     );
   }, [isFetchingNextPage, isDark, t]);
 
+  // Track what changes between renders to identify unnecessary re-renders
+  const prevRenderState = useRef({
+    isLoading: false,
+    actLen: 0,
+    insLen: 0,
+    focused: false,
+    refetching: false,
+  });
   if (PERF_DEBUG) {
+    const prev = prevRenderState.current;
+    const changes: string[] = [];
+    if (prev.isLoading !== isLoading) changes.push(`isLoading:${prev.isLoading}→${isLoading}`);
+    if (prev.actLen !== allActivities.length)
+      changes.push(`activities:${prev.actLen}→${allActivities.length}`);
+    if (prev.insLen !== insights.length) changes.push(`insights:${prev.insLen}→${insights.length}`);
+    if (prev.focused !== isFeedFocused) changes.push(`focused:${prev.focused}→${isFeedFocused}`);
+    if (prev.refetching !== isRefetching)
+      changes.push(`refetching:${prev.refetching}→${isRefetching}`);
+    prev.isLoading = isLoading;
+    prev.actLen = allActivities.length;
+    prev.insLen = insights.length;
+    prev.focused = isFeedFocused;
+    prev.refetching = isRefetching;
+
     const jsxStart = performance.now() - renderStart;
     if (jsxStart > 30)
       console.log(
         `  ⏱ Hooks→JSX: ${jsxStart.toFixed(0)}ms | activities: ${allActivities.length} | startup: ${startupData ? 'ready' : 'pending'} | insights: ${insights.length}`
       );
+    if (changes.length > 0) console.log(`  🔄 State changes: ${changes.join(', ')}`);
   }
 
   // Single layout path — no separate loading tree to avoid component tree swap and layout bounce
