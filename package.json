@@ -13,6 +13,7 @@
     "ios": "npx expo run:ios",
     "ios:prod": "APP_VARIANT=production npx expo run:ios",
     "clean:rust": "npm run clean --prefix modules/veloqrs",
+    "clean:rust:full": "npm run clean:full --prefix modules/veloqrs",
     "rebuild:android": "npm run clean:rust && npx expo run:android",
     "rebuild:android:prod": "npm run clean:rust && APP_VARIANT=production npx expo run:android",
     "rebuild:ios": "npm run clean:rust && npx expo run:ios",

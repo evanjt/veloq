@@ -7,7 +7,7 @@ import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionPerformances } from '@/hooks/routes/useSectionPerformances';
 import { navigateTo } from '@/lib';
 import { MiniPerformanceSparkline } from './MiniPerformanceSparkline';
-import { formatDurationCompact } from '@/hooks/insights/generateInsights';
+import { formatDuration } from '@/lib';
 import { colors, darkColors, spacing, opacity, shadows } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 
@@ -95,7 +95,7 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
             <View style={styles.sectionMeta}>
               {section.bestTime != null ? (
                 <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>
-                  {formatDurationCompact(section.bestTime)}
+                  {formatDuration(section.bestTime)}
                 </Text>
               ) : null}
               {section.traversalCount != null ? (

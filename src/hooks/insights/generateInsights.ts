@@ -6,6 +6,7 @@ import type {
   InsightReference,
   InsightSupportingData,
 } from '@/types';
+import { formatDuration } from '@/lib';
 
 /**
  * Insight priority ranking (1 = highest):
@@ -365,7 +366,7 @@ function addSectionPRInsights(
         iconColor: '#FC4C02',
         title: t('insights.sectionPr', { name: pr.sectionName }),
         subtitle: t('insights.sectionPrSubtitle', {
-          time: formatDurationCompact(pr.bestTime),
+          time: formatDuration(pr.bestTime),
           daysAgo: pr.daysAgo,
         }),
         navigationTarget: `/section/${pr.sectionId}`,
@@ -381,7 +382,7 @@ function addSectionPRInsights(
           dataPoints: [
             {
               label: t('insights.data.bestTime'),
-              value: formatDurationCompact(pr.bestTime),
+              value: formatDuration(pr.bestTime),
               context: 'good' as const,
             },
             {
@@ -935,7 +936,7 @@ function addSectionTrendInsights(
   };
 
   // Summary insight: show improving sections positively
-  if (total >= 3 && improving.length > 0) {
+  if (total >= 2 && improving.length > 0) {
     insights.push(
       makeInsight({
         id: 'section_trend-summary',
@@ -980,8 +981,8 @@ function addSectionTrendInsights(
         title: t('insights.sectionImproving', { name: section.sectionName }),
         body: t('insights.sectionImprovingBody', {
           name: section.sectionName,
-          median: formatDurationCompact(section.medianRecentSecs),
-          best: formatDurationCompact(section.bestTimeSecs),
+          median: formatDuration(section.medianRecentSecs),
+          best: formatDuration(section.bestTimeSecs),
           count: section.traversalCount,
         }),
         navigationTarget: `/section/${section.sectionId}`,

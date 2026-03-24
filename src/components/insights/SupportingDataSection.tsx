@@ -8,7 +8,7 @@ import { navigateTo } from '@/lib';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, opacity, shadows } from '@/theme';
 import { DataPointRow } from './DataPointRow';
-import { formatDurationCompact } from '@/hooks/insights/generateInsights';
+import { formatDuration } from '@/lib';
 import type { InsightSupportingData } from '@/types';
 
 const SPARKLINE_HEIGHT = 60;
@@ -231,7 +231,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
                 <View style={styles.sectionMeta}>
                   {section.bestTime != null ? (
                     <Text style={[styles.sectionBestTime, isDark && styles.sectionBestTimeDark]}>
-                      {formatDurationCompact(section.bestTime)}
+                      {formatDuration(section.bestTime)}
                     </Text>
                   ) : null}
                   {section.traversalCount != null ? (

@@ -14,6 +14,7 @@
   "react-native": "src/index.ts",
   "scripts": {
     "clean": "./scripts/clean.sh",
+    "clean:full": "./scripts/clean.sh --full",
     "generate:android": "npx uniffi-bindgen-react-native build android --release --and-generate --targets ${VELOQ_ANDROID_TARGET:-arm64-v8a} && npm run fix-includes",
     "generate:android:all": "npx uniffi-bindgen-react-native build android --release --and-generate && npm run fix-includes",
     "generate:ios": "npx uniffi-bindgen-react-native build ios --release --and-generate --targets ${VELOQ_IOS_TARGET:-aarch64-apple-ios-sim} && npm run fix-includes",

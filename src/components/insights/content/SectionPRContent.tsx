@@ -8,7 +8,7 @@ import { useSectionPerformances } from '@/hooks/routes/useSectionPerformances';
 import { navigateTo } from '@/lib';
 import { Shimmer } from '@/components/ui/Shimmer';
 import { MiniPerformanceSparkline } from './MiniPerformanceSparkline';
-import { formatDurationCompact } from '@/hooks/insights/generateInsights';
+import { formatDuration } from '@/lib';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import type { Insight } from '@/types';
 
@@ -34,10 +34,18 @@ export const SectionPRContent = React.memo(function SectionPRContent({
   }, [onClose, sectionId]);
 
   const prData = insight.supportingData?.sections?.[0];
-  const bestTimeFormatted = prData?.bestTime ? formatDurationCompact(prData.bestTime) : null;
-  const daysAgoPoint = insight.supportingData?.dataPoints?.find(
-    (dp) => dp.unit === 'days' || dp.label.toLowerCase().includes('days')
-  );
+  const bestTimeFormatted = bestRecord
+    ? formatDuration(bestRecord.bestTime)
+    : prData?.bestTime
+      ? formatDuration(prData.bestTime)
+      : null;
+  const effortCount = records.length > 0 ? records.length : undefined;
+  const prDate = bestRecord?.activityDate
+    ? new Date(bestRecord.activityDate).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+      })
+    : undefined;
 
   // Build chart data from performance records
   const chartData = records.map((r) => ({
@@ -62,9 +70,11 @@ export const SectionPRContent = React.memo(function SectionPRContent({
               {bestTimeFormatted}
             </Text>
           </View>
-          {daysAgoPoint ? (
+          {prDate || effortCount ? (
             <Text style={[styles.statSubtext, isDark && styles.statSubtextDark]}>
-              {String(daysAgoPoint.value)} {daysAgoPoint.unit ?? ''} ago
+              {prDate ? `Set ${prDate}` : ''}
+              {prDate && effortCount ? ' · ' : ''}
+              {effortCount ? `${effortCount} efforts` : ''}
             </Text>
           ) : null}
         </View>
