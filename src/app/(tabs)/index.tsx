@@ -69,7 +69,8 @@ const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
 const SEARCH_SECTION_HEIGHT = 78;
 
 export default function FeedScreen() {
-  // Performance timing
+  // Performance timing — tracks total render time and sub-component costs
+  const renderStart = PERF_DEBUG ? performance.now() : 0;
   const perfEndRef = useRef<(() => void) | null>(null);
   perfEndRef.current = logScreenRender('FeedScreen');
   useEffect(() => {
@@ -109,6 +110,7 @@ export default function FeedScreen() {
   const { summaryCard } = useDashboardPreferences();
 
   // Summary card data (hero metric, sparkline, supporting metrics)
+  const t0 = PERF_DEBUG ? performance.now() : 0;
   const {
     profileUrl,
     heroMetric,
@@ -127,7 +129,10 @@ export default function FeedScreen() {
     supportingMetrics,
     refetch: refetchSummary,
   } = useSummaryCardData();
+  if (PERF_DEBUG && performance.now() - t0 > 5)
+    console.log(`  ⏱ useSummaryCardData: ${(performance.now() - t0).toFixed(1)}ms`);
 
+  const t1 = PERF_DEBUG ? performance.now() : 0;
   const {
     data,
     isLoading,
@@ -139,6 +144,8 @@ export default function FeedScreen() {
     isFetchingNextPage,
     refetch,
   } = useInfiniteActivities();
+  if (PERF_DEBUG && performance.now() - t1 > 5)
+    console.log(`  ⏱ useInfiniteActivities: ${(performance.now() - t1).toFixed(1)}ms`);
 
   // Flatten all pages into a single array
   const allActivities = useMemo(() => {
@@ -147,6 +154,7 @@ export default function FeedScreen() {
   }, [data?.pages]);
 
   // Single FFI call for all startup data (insights + summary card + GPS tracks)
+  const t2 = PERF_DEBUG ? performance.now() : 0;
   const previewIds = useMemo(
     () =>
       allActivities
@@ -156,9 +164,19 @@ export default function FeedScreen() {
     [allActivities]
   );
   const { data: startupData } = useStartupData(previewIds);
+  if (PERF_DEBUG && performance.now() - t2 > 5)
+    console.log(`  ⏱ useStartupData: ${(performance.now() - t2).toFixed(1)}ms`);
 
   // useInsights uses pre-computed data from startup — never makes its own FFI call on feed
+  const t3 = PERF_DEBUG ? performance.now() : 0;
   const { insights } = useInsights(startupData?.insightsData, true);
+  if (PERF_DEBUG && performance.now() - t3 > 5)
+    console.log(`  ⏱ useInsights: ${(performance.now() - t3).toFixed(1)}ms`);
+
+  if (PERF_DEBUG) {
+    const hookTime = performance.now() - renderStart;
+    if (hookTime > 50) console.log(`  ⏱ Total hooks: ${hookTime.toFixed(1)}ms`);
+  }
 
   // Filter activities by search query and type
   const filteredActivities = useMemo(() => {

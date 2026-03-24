@@ -6,7 +6,7 @@
  * Also shows bounds cache sync progress (absorbed from former CacheLoadingBanner).
  */
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { View, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -128,8 +128,33 @@ export function GlobalDataSync() {
   // Pick which info to show — GPS sync > bounds sync > terrain snapshots
   const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo;
 
-  // Show banner when there's something to display and not on screens with own indicator.
-  const shouldShowBanner = displayInfo !== null && !isOnMapScreen && !isOnRoutesScreen;
+  // Suppress banner for fast syncs (<1s) — avoid intrusive flash for work that completes quickly
+  const [bannerDelayPassed, setBannerDelayPassed] = useState(false);
+  const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (displayInfo !== null && !bannerDelayPassed) {
+      // Start 1s timer — banner only shows if sync takes longer than this
+      if (!bannerTimerRef.current) {
+        bannerTimerRef.current = setTimeout(() => setBannerDelayPassed(true), 1000);
+      }
+    } else if (displayInfo === null) {
+      // Sync finished — clear timer and reset for next sync
+      if (bannerTimerRef.current) {
+        clearTimeout(bannerTimerRef.current);
+        bannerTimerRef.current = null;
+      }
+      setBannerDelayPassed(false);
+    }
+    return () => {
+      if (bannerTimerRef.current) {
+        clearTimeout(bannerTimerRef.current);
+        bannerTimerRef.current = null;
+      }
+    };
+  }, [displayInfo, bannerDelayPassed]);
+
+  const shouldShowBanner =
+    displayInfo !== null && bannerDelayPassed && !isOnMapScreen && !isOnRoutesScreen;
 
   // Shared values for Reanimated animations
   const indeterminateOffset = useSharedValue(0);
