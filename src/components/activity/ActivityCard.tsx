@@ -109,6 +109,15 @@ export const ActivityCard = React.memo(function ActivityCard({
   screenFocused,
   startupTrack,
 }: ActivityCardProps) {
+  if (__DEV__ && (index ?? 0) < 3) {
+    const start = performance.now();
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    React.useEffect(() => {
+      console.log(
+        `  🃏 ActivityCard[${index}] render: ${(performance.now() - start).toFixed(0)}ms (${activity.type})`
+      );
+    });
+  }
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();

@@ -49,6 +49,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   screenFocused = true,
   startupTrack,
 }: ActivityMapPreviewProps) {
+  const mapPreviewStart = __DEV__ && index < 3 ? performance.now() : 0;
   const { getStyleForActivity, getTerrain3DMode } = useMapPreferences();
   const mapStyle = getStyleForActivity(activity.type, activity.id, activity.country);
   const activityColor = getActivityColor(activity.type);
@@ -312,6 +313,22 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     activityColor,
     snapshotRef,
   ]);
+
+  if (__DEV__ && mapPreviewStart && index < 3) {
+    const hookTime = performance.now() - mapPreviewStart;
+    const source = startupTrack
+      ? 'startup'
+      : validCoordinates.length > 0
+        ? 'engine'
+        : isLoading
+          ? 'loading'
+          : 'none';
+    const render3d = show3D && terrainImageUri ? '3D-cached' : show3D ? '3D-pending' : '2D';
+    if (hookTime > 5)
+      console.log(
+        `    🗺️ MapPreview[${index}] hooks: ${hookTime.toFixed(0)}ms | coords: ${validCoordinates.length} | source: ${source} | ${render3d}`
+      );
+  }
 
   // No GPS data available for this activity (stream_types doesn't include latlng)
   if (!hasGpsData) {

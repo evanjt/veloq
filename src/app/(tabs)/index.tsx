@@ -396,6 +396,14 @@ export default function FeedScreen() {
     );
   }, [isFetchingNextPage, isDark, t]);
 
+  if (PERF_DEBUG) {
+    const jsxStart = performance.now() - renderStart;
+    if (jsxStart > 30)
+      console.log(
+        `  ⏱ Hooks→JSX: ${jsxStart.toFixed(0)}ms | activities: ${allActivities.length} | startup: ${startupData ? 'ready' : 'pending'} | insights: ${insights.length}`
+      );
+  }
+
   if (isLoading && !allActivities.length) {
     return (
       <ScreenSafeAreaView style={shared.container}>

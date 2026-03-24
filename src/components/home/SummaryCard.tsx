@@ -90,6 +90,14 @@ export const SummaryCard = React.memo(function SummaryCard({
   supportingMetrics,
   insightLine,
 }: SummaryCardProps) {
+  if (__DEV__) {
+    const start = performance.now();
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    React.useEffect(() => {
+      const dur = performance.now() - start;
+      if (dur > 20) console.log(`  📊 SummaryCard render: ${dur.toFixed(0)}ms`);
+    });
+  }
   const { isDark, colors: themeColors } = useTheme();
   const [profileImageError, setProfileImageError] = React.useState(false);
   const [scrubValues, setScrubValues] = useState<ScrubValues | null>(null);
