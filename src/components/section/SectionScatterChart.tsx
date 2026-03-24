@@ -64,6 +64,8 @@ export interface SectionScatterChartProps {
   onScrubChange?: (scrubbing: boolean) => void;
   onExcludeActivity?: (activityId: string) => void;
   onIncludeActivity?: (activityId: string) => void;
+  onSetAsReference?: (activityId: string) => void;
+  referenceActivityId?: string;
   showExcluded?: boolean;
   hasExcluded?: boolean;
   onToggleShowExcluded?: () => void;
@@ -81,6 +83,8 @@ export function SectionScatterChart({
   onScrubChange,
   onExcludeActivity,
   onIncludeActivity,
+  onSetAsReference,
+  referenceActivityId,
   showExcluded,
   hasExcluded,
   onToggleShowExcluded,
@@ -764,6 +768,27 @@ export function SectionScatterChart({
               >
                 {formatSpeedValue(selectedPoint.speed)}
               </Text>
+              {onSetAsReference && !selectedPoint.isExcluded && (
+                <TouchableOpacity
+                  onPress={() => onSetAsReference(selectedPoint.activityId)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.excludeButton}
+                >
+                  <MaterialCommunityIcons
+                    name={
+                      selectedPoint.activityId === referenceActivityId ? 'flag' : 'flag-outline'
+                    }
+                    size={16}
+                    color={
+                      selectedPoint.activityId === referenceActivityId
+                        ? colors.primary
+                        : isDark
+                          ? darkColors.textSecondary
+                          : colors.textSecondary
+                    }
+                  />
+                </TouchableOpacity>
+              )}
               {selectedPoint.isExcluded && onIncludeActivity ? (
                 <TouchableOpacity
                   onPress={() => {

@@ -34,14 +34,15 @@ export interface SectionHeaderProps {
   nameInputRef: React.RefObject<TextInput | null>;
   canResetBounds: boolean;
   isTrimming: boolean;
+  isExpandMode: boolean;
   trimStart: number;
   trimEnd: number;
   isTrimSaving: boolean;
   trimmedDistance: number;
   effectivePointCount: number;
-  sectionStartInTrack?: number;
-  sectionEndInTrack?: number;
-  extensionTrackPoints?: RoutePoint[] | null;
+  sectionStartInWindow?: number;
+  sectionEndInWindow?: number;
+  expandContextPoints?: RoutePoint[] | null;
   shadowTrack?: [number, number][];
   highlightedActivityId: string | null;
   highlightedLapPoints?: RoutePoint[];
@@ -60,6 +61,7 @@ export interface SectionHeaderProps {
   onConfirmTrim: () => void;
   onCancelTrim: () => void;
   onResetBounds: () => void;
+  onToggleExpand: () => void;
 }
 
 export function SectionHeader({
@@ -78,14 +80,15 @@ export function SectionHeader({
   nameInputRef,
   canResetBounds,
   isTrimming,
+  isExpandMode,
   trimStart,
   trimEnd,
   isTrimSaving,
   trimmedDistance,
   effectivePointCount,
-  sectionStartInTrack,
-  sectionEndInTrack,
-  extensionTrackPoints,
+  sectionStartInWindow,
+  sectionEndInWindow,
+  expandContextPoints,
   shadowTrack,
   highlightedActivityId,
   highlightedLapPoints,
@@ -104,6 +107,7 @@ export function SectionHeader({
   onConfirmTrim,
   onCancelTrim,
   onResetBounds,
+  onToggleExpand,
 }: SectionHeaderProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
@@ -123,7 +127,7 @@ export function SectionHeader({
             allActivityTraces={allActivityTraces}
             isScrubbing={isScrubbing}
             trimRange={isTrimming ? { start: trimStart, end: trimEnd } : null}
-            extensionTrack={isTrimming ? extensionTrackPoints : null}
+            extensionTrack={isTrimming && isExpandMode ? expandContextPoints : null}
           />
         ) : (
           <View style={[styles.mapPlaceholder, { height: MAP_HEIGHT }]}>
@@ -140,13 +144,15 @@ export function SectionHeader({
             isSaving={isTrimSaving}
             canReset={canResetBounds}
             initiallyExpanded={!canResetBounds}
-            sectionStartInTrack={sectionStartInTrack}
-            sectionEndInTrack={sectionEndInTrack}
+            isExpandMode={isExpandMode}
+            sectionStartInWindow={sectionStartInWindow}
+            sectionEndInWindow={sectionEndInWindow}
             onStartChange={onTrimStartChange}
             onEndChange={onTrimEndChange}
             onConfirm={onConfirmTrim}
             onCancel={onCancelTrim}
             onReset={onResetBounds}
+            onToggleExpand={onToggleExpand}
           />
         )}
       </View>

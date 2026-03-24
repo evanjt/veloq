@@ -6,3 +6,5 @@ export { SectionPerformanceSection } from './SectionPerformanceSection';
 export type { SectionPerformanceSectionProps } from './SectionPerformanceSection';
 export { SectionScatterChart } from './SectionScatterChart';
 export type { SectionScatterChartProps } from './SectionScatterChart';
+export { SectionInfoCard } from './SectionInfoCard';
+export type { SectionInfoCardProps } from './SectionInfoCard';

@@ -29,6 +29,8 @@ export interface SectionPerformanceSectionProps {
   onScrubChange?: (scrubbing: boolean) => void;
   onExcludeActivity?: (activityId: string) => void;
   onIncludeActivity?: (activityId: string) => void;
+  onSetAsReference?: (activityId: string) => void;
+  referenceActivityId?: string;
   showExcluded?: boolean;
   hasExcluded?: boolean;
   onToggleShowExcluded?: () => void;
@@ -46,6 +48,8 @@ export function SectionPerformanceSection({
   onScrubChange,
   onExcludeActivity,
   onIncludeActivity,
+  onSetAsReference,
+  referenceActivityId,
   showExcluded,
   hasExcluded,
   onToggleShowExcluded,
@@ -66,6 +70,8 @@ export function SectionPerformanceSection({
         onScrubChange={onScrubChange}
         onExcludeActivity={onExcludeActivity}
         onIncludeActivity={onIncludeActivity}
+        onSetAsReference={onSetAsReference}
+        referenceActivityId={referenceActivityId}
         showExcluded={showExcluded}
         hasExcluded={hasExcluded}
         onToggleShowExcluded={onToggleShowExcluded}

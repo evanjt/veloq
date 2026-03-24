@@ -146,6 +146,16 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
+    ptr: bigint,
+    currentStart: bigint,
+    currentEnd: bigint,
+    prevStart: bigint,
+    prevEnd: bigint,
+    chronicStart: bigint,
+    todayStart: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_trend(
     ptr: bigint,
     sportType: Uint8Array,
@@ -613,6 +623,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_available_sport_types(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_ftp_trend(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_trend(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pattern_for_today(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats(): number;

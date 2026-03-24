@@ -2047,6 +2047,130 @@ const FfiConverterTypeFfiHeatmapDay = (() => {
 })();
 
 /**
+ * Batch insights data: combines period stats, trends, patterns, and recent PRs.
+ * Reduces Insights hook FFI calls from 13-16 to 1.
+ */
+export type FfiInsightsData = {
+  /**
+   * Current week stats
+   */
+  currentWeek: FfiPeriodStats;
+  /**
+   * Previous week stats
+   */
+  previousWeek: FfiPeriodStats;
+  /**
+   * 4-week chronic period stats (raw total, not averaged)
+   */
+  chronicPeriod: FfiPeriodStats;
+  /**
+   * Today's stats (for rest day detection)
+   */
+  todayPeriod: FfiPeriodStats;
+  /**
+   * FTP trend
+   */
+  ftpTrend: FfiFtpTrend;
+  /**
+   * Running pace trend
+   */
+  runPaceTrend: FfiPaceTrend;
+  /**
+   * All activity patterns from k-means clustering
+   */
+  allPatterns: Array<FfiActivityPattern>;
+  /**
+   * Today's matching pattern (if any, confidence >= 0.6)
+   */
+  todayPattern: FfiActivityPattern | undefined;
+  /**
+   * Up to 3 recent section PRs (best times set in last 7 days)
+   */
+  recentPrs: Array<FfiRecentPr>;
+};
+
+/**
+ * Generated factory for {@link FfiInsightsData} record objects.
+ */
+export const FfiInsightsData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiInsightsData, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiInsightsData}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiInsightsData}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiInsightsData>,
+  });
+})();
+
+const FfiConverterTypeFfiInsightsData = (() => {
+  type TypeName = FfiInsightsData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        currentWeek: FfiConverterTypeFfiPeriodStats.read(from),
+        previousWeek: FfiConverterTypeFfiPeriodStats.read(from),
+        chronicPeriod: FfiConverterTypeFfiPeriodStats.read(from),
+        todayPeriod: FfiConverterTypeFfiPeriodStats.read(from),
+        ftpTrend: FfiConverterTypeFfiFtpTrend.read(from),
+        runPaceTrend: FfiConverterTypeFfiPaceTrend.read(from),
+        allPatterns: FfiConverterArrayTypeFfiActivityPattern.read(from),
+        todayPattern: FfiConverterOptionalTypeFfiActivityPattern.read(from),
+        recentPrs: FfiConverterArrayTypeFfiRecentPR.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterTypeFfiPeriodStats.write(value.currentWeek, into);
+      FfiConverterTypeFfiPeriodStats.write(value.previousWeek, into);
+      FfiConverterTypeFfiPeriodStats.write(value.chronicPeriod, into);
+      FfiConverterTypeFfiPeriodStats.write(value.todayPeriod, into);
+      FfiConverterTypeFfiFtpTrend.write(value.ftpTrend, into);
+      FfiConverterTypeFfiPaceTrend.write(value.runPaceTrend, into);
+      FfiConverterArrayTypeFfiActivityPattern.write(value.allPatterns, into);
+      FfiConverterOptionalTypeFfiActivityPattern.write(
+        value.todayPattern,
+        into,
+      );
+      FfiConverterArrayTypeFfiRecentPR.write(value.recentPrs, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiPeriodStats.allocationSize(value.currentWeek) +
+        FfiConverterTypeFfiPeriodStats.allocationSize(value.previousWeek) +
+        FfiConverterTypeFfiPeriodStats.allocationSize(value.chronicPeriod) +
+        FfiConverterTypeFfiPeriodStats.allocationSize(value.todayPeriod) +
+        FfiConverterTypeFfiFtpTrend.allocationSize(value.ftpTrend) +
+        FfiConverterTypeFfiPaceTrend.allocationSize(value.runPaceTrend) +
+        FfiConverterArrayTypeFfiActivityPattern.allocationSize(
+          value.allPatterns,
+        ) +
+        FfiConverterOptionalTypeFfiActivityPattern.allocationSize(
+          value.todayPattern,
+        ) +
+        FfiConverterArrayTypeFfiRecentPR.allocationSize(value.recentPrs)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Lightweight map signature for rendering activity traces on the map.
  * Contains simplified GPS points (max ~100 via Douglas-Peucker) as flat coords.
  */
@@ -2531,6 +2655,75 @@ const FfiConverterTypeFfiPotentialSection = (() => {
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
         FfiConverterFloat64.allocationSize(value.confidence) +
         FfiConverterString.allocationSize(value.scale)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A recent section PR detected in the last 7 days.
+ */
+export type FfiRecentPr = {
+  sectionId: string;
+  sectionName: string;
+  bestTime: /*f64*/ number;
+  daysAgo: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiRecentPr} record objects.
+ */
+export const FfiRecentPr = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRecentPr, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiRecentPr}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiRecentPr}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRecentPr>,
+  });
+})();
+
+const FfiConverterTypeFfiRecentPR = (() => {
+  type TypeName = FfiRecentPr;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionId: FfiConverterString.read(from),
+        sectionName: FfiConverterString.read(from),
+        bestTime: FfiConverterFloat64.read(from),
+        daysAgo: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.sectionId, into);
+      FfiConverterString.write(value.sectionName, into);
+      FfiConverterFloat64.write(value.bestTime, into);
+      FfiConverterUInt32.write(value.daysAgo, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterString.allocationSize(value.sectionName) +
+        FfiConverterFloat64.allocationSize(value.bestTime) +
+        FfiConverterUInt32.allocationSize(value.daysAgo)
       );
     }
   }
@@ -5466,6 +5659,18 @@ export interface FitnessManagerInterface {
   getActivityPatterns() /*throws*/ : Array<FfiActivityPattern>;
   getAvailableSportTypes() /*throws*/ : Array<string>;
   getFtpTrend() /*throws*/ : FfiFtpTrend;
+  /**
+   * Batch insights data: combines period stats, trends, patterns, and recent PRs
+   * in a single engine lock. Reduces Insights hook FFI calls from 13-16 to 1.
+   */
+  getInsightsData(
+    currentStart: /*i64*/ bigint,
+    currentEnd: /*i64*/ bigint,
+    prevStart: /*i64*/ bigint,
+    prevEnd: /*i64*/ bigint,
+    chronicStart: /*i64*/ bigint,
+    todayStart: /*i64*/ bigint,
+  ) /*throws*/ : FfiInsightsData;
   getPaceTrend(sportType: string) /*throws*/ : FfiPaceTrend;
   getPatternForToday() /*throws*/ : FfiActivityPattern | undefined;
   getPeriodStats(
@@ -5578,6 +5783,40 @@ export class FitnessManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_ftp_trend(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Batch insights data: combines period stats, trends, patterns, and recent PRs
+   * in a single engine lock. Reduces Insights hook FFI calls from 13-16 to 1.
+   */
+  public getInsightsData(
+    currentStart: /*i64*/ bigint,
+    currentEnd: /*i64*/ bigint,
+    prevStart: /*i64*/ bigint,
+    prevEnd: /*i64*/ bigint,
+    chronicStart: /*i64*/ bigint,
+    todayStart: /*i64*/ bigint,
+  ): FfiInsightsData /*throws*/ {
+    return FfiConverterTypeFfiInsightsData.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterInt64.lower(currentStart),
+            FfiConverterInt64.lower(currentEnd),
+            FfiConverterInt64.lower(prevStart),
+            FfiConverterInt64.lower(prevEnd),
+            FfiConverterInt64.lower(chronicStart),
+            FfiConverterInt64.lower(todayStart),
             callStatus,
           );
         },
@@ -7818,6 +8057,11 @@ const FfiConverterArrayTypeFfiPotentialSection = new FfiConverterArray(
   FfiConverterTypeFfiPotentialSection,
 );
 
+// FfiConverter for Array<FfiRecentPr>
+const FfiConverterArrayTypeFfiRecentPR = new FfiConverterArray(
+  FfiConverterTypeFfiRecentPR,
+);
+
 // FfiConverter for Array<FfiRouteGroup>
 const FfiConverterArrayTypeFfiRouteGroup = new FfiConverterArray(
   FfiConverterTypeFfiRouteGroup,
@@ -8085,6 +8329,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_ftp_trend",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data() !==
+    23193
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data",
     );
   }
   if (
@@ -8739,12 +8991,14 @@ export default Object.freeze({
     FfiConverterTypeFfiGroupSummariesResult,
     FfiConverterTypeFfiGroupWithPolyline,
     FfiConverterTypeFfiHeatmapDay,
+    FfiConverterTypeFfiInsightsData,
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMultiScaleSectionResult,
     FfiConverterTypeFfiPaceTrend,
     FfiConverterTypeFfiPatternSection,
     FfiConverterTypeFfiPeriodStats,
     FfiConverterTypeFfiPotentialSection,
+    FfiConverterTypeFfiRecentPR,
     FfiConverterTypeFfiRouteGroup,
     FfiConverterTypeFfiRoutePerformance,
     FfiConverterTypeFfiRoutePerformanceResult,

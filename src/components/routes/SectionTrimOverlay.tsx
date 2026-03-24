@@ -1,7 +1,8 @@
 /**
- * Overlay component for trimming section bounds.
+ * Overlay component for trimming/expanding section bounds.
  * Compact bottom bar design matching SectionCreationOverlay pattern.
  * Dual-handle range slider maps to polyline point indices.
+ * Toggle between trim (section polyline) and expand (padded activity context).
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
@@ -28,7 +29,7 @@ const TRACK_HEIGHT = 4;
 const MIN_HANDLE_GAP = 0.05; // Minimum 5% gap between handles
 
 interface SectionTrimOverlayProps {
-  /** Total number of points in the effective polyline (extension track or section polyline) */
+  /** Total number of points in the effective polyline */
   pointCount: number;
   /** Current start index */
   startIndex: number;
@@ -44,10 +45,12 @@ interface SectionTrimOverlayProps {
   canReset: boolean;
   /** Whether the detail pill should start expanded (first-time trim) */
   initiallyExpanded?: boolean;
-  /** Section start index within extension track (for visual marker) */
-  sectionStartInTrack?: number;
-  /** Section end index within extension track (for visual marker) */
-  sectionEndInTrack?: number;
+  /** Whether expand mode is active */
+  isExpandMode: boolean;
+  /** Section start index within expand window (for visual marker) */
+  sectionStartInWindow?: number;
+  /** Section end index within expand window (for visual marker) */
+  sectionEndInWindow?: number;
   /** Called when start index changes */
   onStartChange: (index: number) => void;
   /** Called when end index changes */
@@ -58,6 +61,8 @@ interface SectionTrimOverlayProps {
   onCancel: () => void;
   /** Called to reset to original bounds */
   onReset: () => void;
+  /** Called to toggle expand mode */
+  onToggleExpand: () => void;
 }
 
 export function SectionTrimOverlay({
@@ -69,13 +74,15 @@ export function SectionTrimOverlay({
   isSaving,
   canReset,
   initiallyExpanded,
-  sectionStartInTrack,
-  sectionEndInTrack,
+  isExpandMode,
+  sectionStartInWindow,
+  sectionEndInWindow,
   onStartChange,
   onEndChange,
   onConfirm,
   onCancel,
   onReset,
+  onToggleExpand,
 }: SectionTrimOverlayProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -89,10 +96,11 @@ export function SectionTrimOverlay({
   const startFraction = maxIndex > 0 ? startIndex / maxIndex : 0;
   const endFraction = maxIndex > 0 ? endIndex / maxIndex : 1;
 
-  // Original section boundaries within extension track (for visual markers)
-  const hasExtension = sectionStartInTrack != null && sectionEndInTrack != null;
-  const sectionStartFraction = hasExtension ? (sectionStartInTrack ?? 0) / maxIndex : 0;
-  const sectionEndFraction = hasExtension ? (sectionEndInTrack ?? maxIndex) / maxIndex : 1;
+  // Section boundaries within expand window (for visual markers in expand mode)
+  const hasWindowMarkers =
+    isExpandMode && sectionStartInWindow != null && sectionEndInWindow != null;
+  const sectionStartFraction = hasWindowMarkers ? (sectionStartInWindow ?? 0) / maxIndex : 0;
+  const sectionEndFraction = hasWindowMarkers ? (sectionEndInWindow ?? maxIndex) / maxIndex : 1;
 
   // Shared values for gesture tracking
   const startX = useSharedValue(0);
@@ -154,9 +162,10 @@ export function SectionTrimOverlay({
   // Percentage of original distance retained (can exceed 100% when expanding)
   const percentage =
     originalDistance > 0 ? Math.round((trimmedDistance / originalDistance) * 100) : 100;
-  // Changed: detect either trimming or expansion relative to the section boundaries
-  const isTrimmed = hasExtension
-    ? startIndex !== sectionStartInTrack || endIndex !== sectionEndInTrack
+
+  // Detect if bounds have been changed from original position
+  const isTrimmed = hasWindowMarkers
+    ? startIndex !== sectionStartInWindow || endIndex !== sectionEndInWindow
     : startIndex > 0 || endIndex < maxIndex;
 
   return (
@@ -180,13 +189,13 @@ export function SectionTrimOverlay({
           activeOpacity={0.9}
           disabled={isSaving}
         >
-          {/* Distance display */}
+          {/* Distance display + expand toggle */}
           <View style={styles.statusRow}>
             {isSaving ? (
               <ActivityIndicator size={18} color={colors.primary} />
             ) : (
               <MaterialCommunityIcons
-                name="arrow-expand-horizontal"
+                name={isExpandMode ? 'arrow-expand-horizontal' : 'content-cut'}
                 size={18}
                 color={isTrimmed ? colors.primary : colors.textSecondary}
               />
@@ -195,6 +204,20 @@ export function SectionTrimOverlay({
               {formatDistance(trimmedDistance, isMetric)}
             </Text>
             {isTrimmed && <Text style={styles.percentText}>{percentage}%</Text>}
+            <View style={styles.statusSpacer} />
+            {/* Expand/collapse toggle */}
+            <TouchableOpacity
+              onPress={onToggleExpand}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={[styles.expandToggle, isExpandMode && styles.expandToggleActive]}
+              disabled={isSaving}
+            >
+              <MaterialCommunityIcons
+                name={isExpandMode ? 'arrow-collapse-horizontal' : 'arrow-expand-horizontal'}
+                size={14}
+                color={isExpandMode ? colors.primary : colors.textSecondary}
+              />
+            </TouchableOpacity>
             <MaterialCommunityIcons
               name={expanded ? 'chevron-down' : 'chevron-up'}
               size={16}
@@ -207,8 +230,8 @@ export function SectionTrimOverlay({
             {/* Background track */}
             <View style={styles.trackBackground} />
 
-            {/* Original section boundaries (when extension track is active) */}
-            {trackWidth > 0 && hasExtension && (
+            {/* Original section boundaries (visible in expand mode) */}
+            {trackWidth > 0 && hasWindowMarkers && (
               <View
                 style={[
                   styles.trackSection,
@@ -355,6 +378,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
+  },
+  statusSpacer: {
+    flex: 1,
+  },
+  expandToggle: {
+    padding: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  expandToggleActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '10',
   },
   statusText: {
     ...typography.body,

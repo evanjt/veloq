@@ -38,7 +38,12 @@ import { DataRangeFooter, DebugInfoPanel, DebugWarningBanner } from '@/component
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
 import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/components/ui';
-import { SectionHeader, SectionPerformanceSection, SectionStatsCards } from '@/components/section';
+import {
+  SectionHeader,
+  SectionPerformanceSection,
+  SectionStatsCards,
+  SectionInfoCard,
+} from '@/components/section';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import {
   formatRelativeDate,
@@ -177,17 +182,21 @@ export default function SectionDetailScreen() {
   }, []);
   const {
     isTrimming,
+    isExpanded: isExpandMode,
     trimStart,
     trimEnd,
     isSaving: isTrimSaving,
     trimmedDistance,
     canReset: canResetBounds,
-    extensionTrack,
     effectivePointCount,
+    sectionStartInWindow,
+    sectionEndInWindow,
+    expandContextPoints,
     startTrim,
     cancelTrim,
     confirmTrim,
     resetBounds,
+    toggleExpand,
     setTrimStart,
     setTrimEnd,
   } = useSectionTrim(section, handleTrimRefresh);
@@ -272,6 +281,14 @@ export default function SectionDetailScreen() {
 
   // Get the effective reference activity ID (override takes precedence)
   const effectiveReferenceId = overrideReferenceId ?? section?.representativeActivityId;
+
+  // Derive reference activity name and whether it's user-defined (for info card)
+  const isReferenceUserDefined = useMemo(() => {
+    if (!id) return false;
+    const engine = getRouteEngine();
+    if (!engine) return false;
+    return engine.getSectionReferenceInfo(id).isUserDefined;
+  }, [id, sectionRefreshKey]);
 
   // Handle setting an activity as the reference (medoid) for this section
   const handleSetAsReference = useCallback(
@@ -687,14 +704,15 @@ export default function SectionDetailScreen() {
             nameInputRef={nameInputRef}
             canResetBounds={canResetBounds}
             isTrimming={isTrimming}
+            isExpandMode={isExpandMode}
             trimStart={trimStart}
             trimEnd={trimEnd}
             isTrimSaving={isTrimSaving}
             trimmedDistance={trimmedDistance}
             effectivePointCount={effectivePointCount}
-            sectionStartInTrack={extensionTrack?.sectionStartIdx}
-            sectionEndInTrack={extensionTrack?.sectionEndIdx}
-            extensionTrackPoints={extensionTrack?.points}
+            sectionStartInWindow={sectionStartInWindow}
+            sectionEndInWindow={sectionEndInWindow}
+            expandContextPoints={expandContextPoints}
             shadowTrack={undefined}
             highlightedActivityId={highlightedActivityId}
             highlightedLapPoints={highlightedActivityPoints}
@@ -713,6 +731,7 @@ export default function SectionDetailScreen() {
             onConfirmTrim={confirmTrim}
             onCancelTrim={cancelTrim}
             onResetBounds={resetBounds}
+            onToggleExpand={toggleExpand}
           />
 
           {/* Sport type pills for cross-sport sections */}
@@ -789,9 +808,22 @@ export default function SectionDetailScreen() {
               onScrubChange={handleScrubChange}
               onExcludeActivity={handleExcludeActivity}
               onIncludeActivity={handleIncludeActivity}
+              onSetAsReference={handleSetAsReference}
+              referenceActivityId={effectiveReferenceId}
               showExcluded={showExcluded}
               hasExcluded={excludedActivityIds.size > 0}
               onToggleShowExcluded={handleToggleShowExcluded}
+            />
+
+            {/* Section info card */}
+            <SectionInfoCard
+              chartData={combinedChartData}
+              referenceActivityId={effectiveReferenceId}
+              referenceActivityName={
+                sectionActivitiesUnsorted.find((a) => a.id === effectiveReferenceId)?.name
+              }
+              isReferenceUserDefined={isReferenceUserDefined}
+              isDark={isDark}
             />
 
             {/* Calendar performance history */}

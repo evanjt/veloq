@@ -1,13 +1,13 @@
 /**
  * Hook for trimming and expanding section bounds via a range slider.
- * Manages trimming state, computes trimmed distance in pure TS (haversine),
- * and calls Rust FFI for save/reset operations.
+ * Two modes: trim (default, section polyline) and expand (padded context window).
  *
- * Expansion: loads the representative activity's full GPS track so users
- * can extend the section beyond its current boundaries.
+ * Trim mode: slider operates on the section polyline. Handles span 0%–100%.
+ * Expand mode: loads the representative activity's GPS track and shows a
+ * padded window (~500m each side) so the user can extend the section bounds.
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -34,19 +34,79 @@ function polylineDistance(points: RoutePoint[]): number {
   return d;
 }
 
-interface ExtensionTrack {
-  /** Full GPS track of the representative activity as RoutePoints */
-  points: RoutePoint[];
-  /** Where the current section starts in the extension track */
-  sectionStartIdx: number;
-  /** Where the current section ends in the extension track */
-  sectionEndIdx: number;
+/** Padded window context for expand mode */
+interface ExpandContext {
+  /** Points in the padded window (subset of the full activity track) */
+  windowPoints: RoutePoint[];
+  /** Start index of this window in the full extension track */
+  windowStartIdx: number;
+  /** Section start index relative to the window */
+  sectionStartInWindow: number;
+  /** Section end index relative to the window */
+  sectionEndInWindow: number;
+}
+
+/**
+ * Compute a padded window around the section within the full activity track.
+ * Padding: max(500m, 50% of section length), capped at 2km each side.
+ */
+function computePaddedWindow(
+  fullPoints: RoutePoint[],
+  sectionStartIdx: number,
+  sectionEndIdx: number,
+  sectionDistance: number
+): ExpandContext {
+  const padding = Math.min(Math.max(500, sectionDistance * 0.5), 2000);
+
+  // Walk backwards from section start to find window start
+  let windowStartIdx = sectionStartIdx;
+  let accDist = 0;
+  for (let i = sectionStartIdx; i > 0; i--) {
+    accDist += haversine(
+      fullPoints[i].lat,
+      fullPoints[i].lng,
+      fullPoints[i - 1].lat,
+      fullPoints[i - 1].lng
+    );
+    if (accDist >= padding) {
+      windowStartIdx = i - 1;
+      break;
+    }
+    windowStartIdx = i - 1;
+  }
+
+  // Walk forwards from section end to find window end
+  let windowEndIdx = sectionEndIdx;
+  accDist = 0;
+  for (let i = sectionEndIdx; i < fullPoints.length - 1; i++) {
+    accDist += haversine(
+      fullPoints[i].lat,
+      fullPoints[i].lng,
+      fullPoints[i + 1].lat,
+      fullPoints[i + 1].lng
+    );
+    if (accDist >= padding) {
+      windowEndIdx = i + 1;
+      break;
+    }
+    windowEndIdx = i + 1;
+  }
+
+  const windowPoints = fullPoints.slice(windowStartIdx, windowEndIdx + 1);
+  return {
+    windowPoints,
+    windowStartIdx,
+    sectionStartInWindow: sectionStartIdx - windowStartIdx,
+    sectionEndInWindow: sectionEndIdx - windowStartIdx,
+  };
 }
 
 interface UseSectionTrimResult {
   /** Whether the trim overlay is visible */
   isTrimming: boolean;
-  /** Current start index (in the effective polyline: extension track or section polyline) */
+  /** Whether expand mode is active (vs trim mode) */
+  isExpanded: boolean;
+  /** Current start index (in the effective polyline) */
   trimStart: number;
   /** Current end index (in the effective polyline) */
   trimEnd: number;
@@ -56,10 +116,14 @@ interface UseSectionTrimResult {
   trimmedDistance: number;
   /** Whether the section can be reset to original bounds */
   canReset: boolean;
-  /** Extension track data (null if not loaded or unavailable) */
-  extensionTrack: ExtensionTrack | null;
   /** Total number of points in the effective slider range */
   effectivePointCount: number;
+  /** Section start index within expand window (for boundary markers) */
+  sectionStartInWindow: number | undefined;
+  /** Section end index within expand window (for boundary markers) */
+  sectionEndInWindow: number | undefined;
+  /** Expand context points for map display (null when in trim mode) */
+  expandContextPoints: RoutePoint[] | null;
   /** Enter trimming mode */
   startTrim: () => void;
   /** Cancel trimming without saving */
@@ -68,6 +132,8 @@ interface UseSectionTrimResult {
   confirmTrim: () => void;
   /** Reset to original (pre-trim) bounds */
   resetBounds: () => void;
+  /** Toggle between trim and expand modes */
+  toggleExpand: () => void;
   /** Update the trim start index */
   setTrimStart: (index: number) => void;
   /** Update the trim end index */
@@ -82,65 +148,41 @@ export function useSectionTrim(
   const queryClient = useQueryClient();
 
   const [isTrimming, setIsTrimming] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [extensionTrack, setExtensionTrack] = useState<ExtensionTrack | null>(null);
+  const [expandContext, setExpandContext] = useState<ExpandContext | null>(null);
 
-  // Load extension track when entering edit mode
-  useEffect(() => {
-    if (!isTrimming || !section?.id) {
-      setExtensionTrack(null);
-      return;
-    }
-
-    const engine = getRouteEngine();
-    if (!engine) return;
-
-    try {
-      const result = engine.getSectionExtensionTrack(section.id);
-      if (result && result.track.length >= 4) {
-        // Convert flat coords [lat, lng, lat, lng, ...] to RoutePoint[]
-        const points: RoutePoint[] = [];
-        for (let i = 0; i < result.track.length - 1; i += 2) {
-          points.push({ lat: result.track[i], lng: result.track[i + 1] });
-        }
-        setExtensionTrack({
-          points,
-          sectionStartIdx: result.sectionStartIdx,
-          sectionEndIdx: result.sectionEndIdx,
-        });
-      }
-    } catch {
-      // Extension track unavailable — trimming still works without it
-    }
-  }, [isTrimming, section?.id]);
-
-  // The effective polyline used for the slider.
-  // When extension track is available, the slider operates on the full activity track.
-  // The section portion is highlighted within it.
+  // The effective polyline point count for the slider
   const effectivePointCount = useMemo(() => {
-    if (extensionTrack) return extensionTrack.points.length;
+    if (isExpanded && expandContext) return expandContext.windowPoints.length;
     return section?.polyline?.length ?? 0;
-  }, [extensionTrack, section?.polyline?.length]);
+  }, [isExpanded, expandContext, section?.polyline?.length]);
 
   // Memoized trimmed/expanded distance (pure TS, no FFI)
   const trimmedDistance = useMemo(() => {
     if (!isTrimming) return section?.distanceMeters ?? 0;
 
-    if (extensionTrack) {
-      // Operating on extension track
-      const sliced = extensionTrack.points.slice(trimStart, trimEnd + 1);
+    if (isExpanded && expandContext) {
+      const sliced = expandContext.windowPoints.slice(trimStart, trimEnd + 1);
       if (sliced.length < 2) return 0;
       return polylineDistance(sliced);
     }
 
-    // Operating on section polyline (trim only)
     if (!section?.polyline) return 0;
     const sliced = section.polyline.slice(trimStart, trimEnd + 1);
     if (sliced.length < 2) return 0;
     return polylineDistance(sliced);
-  }, [section?.polyline, section?.distanceMeters, isTrimming, trimStart, trimEnd, extensionTrack]);
+  }, [
+    section?.polyline,
+    section?.distanceMeters,
+    isTrimming,
+    isExpanded,
+    expandContext,
+    trimStart,
+    trimEnd,
+  ]);
 
   // Check if section has original bounds that can be restored
   const canReset = useMemo(() => {
@@ -152,24 +194,69 @@ export function useSectionTrim(
 
   const startTrim = useCallback(() => {
     if (!section?.polyline) return;
-    // Default: select the full section range
-    // When extension track loads, these will be updated to map to the section portion
+    // Start in trim mode on section polyline
     setTrimStart(0);
     setTrimEnd(section.polyline.length - 1);
+    setIsExpanded(false);
+    setExpandContext(null);
     setIsTrimming(true);
   }, [section?.polyline]);
 
-  // When extension track loads, remap slider to the section's position within it
-  useEffect(() => {
-    if (extensionTrack && isTrimming) {
-      setTrimStart(extensionTrack.sectionStartIdx);
-      setTrimEnd(extensionTrack.sectionEndIdx);
+  const toggleExpand = useCallback(() => {
+    if (!section?.id || !section?.polyline) return;
+
+    if (isExpanded) {
+      // Switch back to trim mode
+      setIsExpanded(false);
+      setExpandContext(null);
+      setTrimStart(0);
+      setTrimEnd(section.polyline.length - 1);
+      return;
     }
-  }, [extensionTrack, isTrimming]);
+
+    // Switch to expand mode — load extension track and compute padded window
+    const engine = getRouteEngine();
+    if (!engine) return;
+
+    try {
+      const result = engine.getSectionExtensionTrack(section.id);
+      if (!result || result.track.length < 4) {
+        Alert.alert(
+          t('common.error'),
+          t('sections.expandUnavailable', 'No activity track available for expansion')
+        );
+        return;
+      }
+
+      // Convert flat coords [lat, lng, lat, lng, ...] to RoutePoint[]
+      const fullPoints: RoutePoint[] = [];
+      for (let i = 0; i < result.track.length - 1; i += 2) {
+        fullPoints.push({ lat: result.track[i], lng: result.track[i + 1] });
+      }
+
+      const ctx = computePaddedWindow(
+        fullPoints,
+        result.sectionStartIdx,
+        result.sectionEndIdx,
+        section.distanceMeters
+      );
+
+      setExpandContext(ctx);
+      setTrimStart(ctx.sectionStartInWindow);
+      setTrimEnd(ctx.sectionEndInWindow);
+      setIsExpanded(true);
+    } catch {
+      Alert.alert(
+        t('common.error'),
+        t('sections.expandUnavailable', 'No activity track available for expansion')
+      );
+    }
+  }, [section?.id, section?.polyline, section?.distanceMeters, isExpanded, t]);
 
   const cancelTrim = useCallback(() => {
     setIsTrimming(false);
-    setExtensionTrack(null);
+    setIsExpanded(false);
+    setExpandContext(null);
   }, []);
 
   const confirmTrim = useCallback(() => {
@@ -193,27 +280,28 @@ export function useSectionTrim(
 
     let success = false;
 
-    if (extensionTrack) {
+    if (isExpanded && expandContext) {
       // Check if the user expanded beyond the section or shrunk within it
-      const isExpanded =
-        trimStart < extensionTrack.sectionStartIdx || trimEnd > extensionTrack.sectionEndIdx;
+      const expandedBeyond =
+        trimStart < expandContext.sectionStartInWindow ||
+        trimEnd > expandContext.sectionEndInWindow;
 
-      if (isExpanded) {
-        // Expansion: extract the new polyline from the extension track and send to Rust
-        const newPolyline = extensionTrack.points.slice(trimStart, trimEnd + 1).map((p) => ({
+      if (expandedBeyond) {
+        // Expansion: extract new polyline from window points
+        const newPolyline = expandContext.windowPoints.slice(trimStart, trimEnd + 1).map((p) => ({
           latitude: p.lat,
           longitude: p.lng,
         }));
         const newPolylineJson = JSON.stringify(newPolyline);
         success = engine.expandSectionBounds(section.id, newPolylineJson);
       } else {
-        // User shrunk within the section — map back to section polyline indices
-        const sectionStart = trimStart - extensionTrack.sectionStartIdx;
-        const sectionEnd = trimEnd - extensionTrack.sectionStartIdx;
+        // User shrunk within section — map window indices back to section polyline indices
+        const sectionStart = trimStart - expandContext.sectionStartInWindow;
+        const sectionEnd = trimEnd - expandContext.sectionStartInWindow;
         success = engine.trimSection(section.id, sectionStart, sectionEnd);
       }
     } else {
-      // No extension track — pure trim on section polyline
+      // Trim mode — pure trim on section polyline
       success = engine.trimSection(section.id, trimStart, trimEnd);
     }
 
@@ -221,13 +309,14 @@ export function useSectionTrim(
 
     if (success) {
       setIsTrimming(false);
-      setExtensionTrack(null);
+      setIsExpanded(false);
+      setExpandContext(null);
       queryClient.invalidateQueries({ queryKey: ['sections'] });
       onRefresh();
     } else {
       Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
     }
-  }, [section?.id, trimStart, trimEnd, extensionTrack, queryClient, onRefresh, t]);
+  }, [section?.id, trimStart, trimEnd, isExpanded, expandContext, queryClient, onRefresh, t]);
 
   const resetBounds = useCallback(() => {
     if (!section?.id) return;
@@ -243,7 +332,8 @@ export function useSectionTrim(
           const success = engine.resetSectionBounds(section.id);
           if (success) {
             setIsTrimming(false);
-            setExtensionTrack(null);
+            setIsExpanded(false);
+            setExpandContext(null);
             queryClient.invalidateQueries({ queryKey: ['sections'] });
             onRefresh();
           }
@@ -254,17 +344,21 @@ export function useSectionTrim(
 
   return {
     isTrimming,
+    isExpanded,
     trimStart,
     trimEnd,
     isSaving,
     trimmedDistance,
     canReset,
-    extensionTrack,
     effectivePointCount,
+    sectionStartInWindow: expandContext?.sectionStartInWindow,
+    sectionEndInWindow: expandContext?.sectionEndInWindow,
+    expandContextPoints: expandContext?.windowPoints ?? null,
     startTrim,
     cancelTrim,
     confirmTrim,
     resetBounds,
+    toggleExpand,
     setTrimStart,
     setTrimEnd,
   };
