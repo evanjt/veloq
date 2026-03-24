@@ -147,11 +147,22 @@ export default function FeedScreen() {
   if (PERF_DEBUG && performance.now() - t1 > 5)
     console.log(`  ⏱ useInfiniteActivities: ${(performance.now() - t1).toFixed(1)}ms`);
 
-  // Flatten all pages into a single array
-  const allActivities = useMemo(() => {
+  // Flatten all pages into a single array — stabilize reference to prevent
+  // FlatList re-renders when TanStack Query refetches with identical data
+  const allActivitiesRaw = useMemo(() => {
     if (!data?.pages) return [];
     return data.pages.flat();
   }, [data?.pages]);
+  const prevActivitiesRef = useRef(allActivitiesRaw);
+  const allActivities = useMemo(() => {
+    const prevIds = prevActivitiesRef.current.map((a) => a.id).join(',');
+    const newIds = allActivitiesRaw.map((a) => a.id).join(',');
+    if (prevIds === newIds && prevActivitiesRef.current.length > 0) {
+      return prevActivitiesRef.current;
+    }
+    prevActivitiesRef.current = allActivitiesRaw;
+    return allActivitiesRaw;
+  }, [allActivitiesRaw]);
 
   // Single FFI call for all startup data (insights + summary card + GPS tracks)
   const t2 = PERF_DEBUG ? performance.now() : 0;
