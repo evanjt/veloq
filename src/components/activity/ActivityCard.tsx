@@ -451,15 +451,24 @@ export const ActivityCard = React.memo(
   },
   (prev, next) => {
     // Custom comparator: skip re-render when activity content hasn't changed.
-    // Default shallow compare fails because TanStack Query returns new object references
-    // on refetch even when data is identical.
-    return (
+    const equal =
       prev.activity.id === next.activity.id &&
       prev.activity.name === next.activity.name &&
       prev.index === next.index &&
       prev.screenFocused === next.screenFocused &&
-      prev.startupTrack === next.startupTrack
-    );
+      prev.startupTrack === next.startupTrack;
+    if (__DEV__ && !equal && (prev.index ?? 0) < 3) {
+      const diffs: string[] = [];
+      if (prev.activity.id !== next.activity.id) diffs.push('id');
+      if (prev.activity.name !== next.activity.name) diffs.push('name');
+      if (prev.index !== next.index) diffs.push('index');
+      if (prev.screenFocused !== next.screenFocused) diffs.push('screenFocused');
+      if (prev.startupTrack !== next.startupTrack) diffs.push('startupTrack');
+      console.log(
+        `    🔍 ActivityCard[${prev.index}] memo: re-render because: ${diffs.join(', ')}`
+      );
+    }
+    return equal;
   }
 );
 
