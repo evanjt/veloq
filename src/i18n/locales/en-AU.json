@@ -703,7 +703,7 @@
       },
       "zoneDescriptions": {
         "fresh": "Well-rested, fitness exceeds fatigue",
-        "transition": "Losing fitness from insufficient stimulus",
+        "transition": "TSB between 5 and 25, fitness fading as fatigue drops",
         "greyZone": "Moderate training load",
         "optimal": "Where most adaptation occurs",
         "highRisk": "Significant accumulated fatigue"
@@ -727,6 +727,8 @@
     "today": "TODAY",
     "tomorrow": "TOMORROW",
     "showMethodology": "Show methodology",
+    "howCalculated": "How was this calculated?",
+    "sourceActivities": "Source activities",
     "basedOnActivities": "Based on {{count}} activities",
     "confidence": "{{value}}% confident",
     "tapToExplore": "Tap to explore",

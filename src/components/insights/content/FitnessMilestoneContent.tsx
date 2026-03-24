@@ -25,6 +25,9 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
   const changeUnit = changePoint?.unit ?? '';
   const isPositive = changePoint?.context === 'good';
 
+  const lineColor = isDark ? darkColors.border : colors.border;
+  const dotColor = isPositive ? '#22C55E' : '#F59E0B';
+
   return (
     <View style={styles.container}>
       {/* Large current value */}
@@ -56,32 +59,47 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
         ) : null}
       </View>
 
-      {/* Before → After */}
-      <View style={styles.transitionRow}>
-        <View style={[styles.transitionBox, isDark && styles.transitionBoxDark]}>
-          <Text style={[styles.transitionLabel, isDark && styles.transitionLabelDark]}>Before</Text>
-          <Text style={[styles.transitionValue, isDark && styles.transitionValueDark]}>
-            {String(previousPoint.value)}
-            {previousPoint.unit ? ` ${previousPoint.unit}` : ''}
-          </Text>
+      {/* Timeline: Previous → Current */}
+      <View style={[styles.timelineCard, isDark && styles.timelineCardDark]}>
+        {/* Previous value */}
+        <View style={styles.timelineEntry}>
+          <View style={styles.timelineDotColumn}>
+            <View style={[styles.timelineDot, { backgroundColor: lineColor }]} />
+            <View style={[styles.timelineLine, { backgroundColor: lineColor }]} />
+          </View>
+          <View style={styles.timelineContent}>
+            <Text style={[styles.timelineLabel, isDark && styles.timelineLabelDark]}>
+              {previousPoint.label}
+            </Text>
+            <Text style={[styles.timelineValue, isDark && styles.timelineValueDark]}>
+              {String(previousPoint.value)}
+              {previousPoint.unit ? ` ${previousPoint.unit}` : ''}
+            </Text>
+          </View>
         </View>
-        <MaterialCommunityIcons
-          name="arrow-right"
-          size={20}
-          color={isDark ? darkColors.textMuted : colors.textMuted}
-        />
-        <View style={[styles.transitionBox, isDark && styles.transitionBoxDark]}>
-          <Text style={[styles.transitionLabel, isDark && styles.transitionLabelDark]}>After</Text>
-          <Text
-            style={[
-              styles.transitionValue,
-              isDark && styles.transitionValueDark,
-              isPositive && styles.transitionValueGood,
-            ]}
-          >
-            {String(currentPoint.value)}
-            {currentPoint.unit ? ` ${currentPoint.unit}` : ''}
-          </Text>
+
+        {/* Current value */}
+        <View style={styles.timelineEntry}>
+          <View style={styles.timelineDotColumn}>
+            <View
+              style={[styles.timelineDot, styles.timelineDotCurrent, { backgroundColor: dotColor }]}
+            />
+          </View>
+          <View style={styles.timelineContent}>
+            <Text style={[styles.timelineLabel, isDark && styles.timelineLabelDark]}>
+              {currentPoint.label}
+            </Text>
+            <Text
+              style={[
+                styles.timelineValue,
+                isDark && styles.timelineValueDark,
+                isPositive && styles.timelineValueGood,
+              ]}
+            >
+              {String(currentPoint.value)}
+              {currentPoint.unit ? ` ${currentPoint.unit}` : ''}
+            </Text>
+          </View>
         </View>
       </View>
     </View>
@@ -130,39 +148,61 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  transitionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  transitionBox: {
-    flex: 1,
+  timelineCard: {
     backgroundColor: opacity.overlay.subtle,
     borderRadius: 10,
-    padding: spacing.sm,
-    alignItems: 'center',
+    padding: spacing.md,
   },
-  transitionBoxDark: {
+  timelineCardDark: {
     backgroundColor: opacity.overlayDark.light,
   },
-  transitionLabel: {
-    fontSize: 11,
+  timelineEntry: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  timelineDotColumn: {
+    width: 20,
+    alignItems: 'center',
+    paddingTop: 4,
+  },
+  timelineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  timelineDotCurrent: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  timelineLine: {
+    width: 2,
+    flex: 1,
+    minHeight: 20,
+    marginVertical: 2,
+  },
+  timelineContent: {
+    flex: 1,
+    paddingLeft: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+  timelineLabel: {
+    fontSize: 12,
     color: colors.textSecondary,
     marginBottom: 2,
   },
-  transitionLabelDark: {
+  timelineLabelDark: {
     color: darkColors.textSecondary,
   },
-  transitionValue: {
+  timelineValue: {
     fontSize: 18,
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  transitionValueDark: {
+  timelineValueDark: {
     color: darkColors.textPrimary,
   },
-  transitionValueGood: {
+  timelineValueGood: {
     color: '#22C55E',
   },
 });

@@ -619,6 +619,9 @@ function addPeriodComparisonInsights(
   const prev = data.previousPeriod;
   if (!cur || !prev) return;
 
+  // Suppress all period comparisons when current week has no activities
+  if (cur.count === 0) return;
+
   // Prefer TSS comparison (accounts for intensity), fall back to duration
   const useTss = prev.totalTss > 0 && cur.totalTss > 0;
   const curValue = useTss ? cur.totalTss : cur.totalDuration;
@@ -628,6 +631,9 @@ function addPeriodComparisonInsights(
 
   const ratio = curValue / prevValue - 1;
   const percent = Math.round(Math.abs(ratio) * 100);
+
+  // Filter out zero-value comparisons (e.g., "100% less" when current is 0)
+  if (curValue === 0) return;
 
   const body = useTss
     ? t('insights.loadBody', {
@@ -728,6 +734,12 @@ function addWeeklyLoadChangeInsight(
   const chronic = data.chronicPeriod;
 
   if (!acute || !chronic || chronic.totalTss <= 0) return;
+
+  // Suppress when current week has no activities (avoids "100% below average")
+  if (acute.count === 0) return;
+
+  // Skip when period comparison already covers weekly volume change
+  if (insights.some((i) => i.id === 'period_comparison-volume')) return;
 
   const acuteLoad = acute.totalTss;
   const chronicAvg = chronic.totalTss; // Already averaged per week in useInsights
@@ -964,43 +976,46 @@ function addSectionTrendInsights(
     );
   }
 
-  // Individual section improving (top 1 only, most traversals first)
-  const topImproving = improving.sort((a, b) => b.traversalCount - a.traversalCount).slice(0, 1);
+  // Individual section improving — only show when the summary card was NOT generated,
+  // to avoid displaying both "1 of N improving" and "Section X getting faster".
+  if (!(total >= 2 && improving.length > 0)) {
+    const topImproving = improving.sort((a, b) => b.traversalCount - a.traversalCount).slice(0, 1);
 
-  for (const section of topImproving) {
-    // Don't duplicate if we already have a PR insight for this section
-    if (insights.some((i) => i.id === `section_pr-${section.sectionId}`)) continue;
+    for (const section of topImproving) {
+      // Don't duplicate if we already have a PR insight for this section
+      if (insights.some((i) => i.id === `section_pr-${section.sectionId}`)) continue;
 
-    insights.push(
-      makeInsight({
-        id: `section_trend-improving-${section.sectionId}`,
-        category: 'section_pr',
-        priority: 3,
-        icon: 'trending-up',
-        iconColor: '#66BB6A',
-        title: t('insights.sectionImproving', { name: section.sectionName }),
-        body: t('insights.sectionImprovingBody', {
-          name: section.sectionName,
-          median: formatDuration(section.medianRecentSecs),
-          best: formatDuration(section.bestTimeSecs),
-          count: section.traversalCount,
-        }),
-        navigationTarget: `/section/${section.sectionId}`,
-        timestamp: now,
-        supportingData: {
-          sections: [
-            {
-              sectionId: section.sectionId,
-              sectionName: section.sectionName,
-              bestTime: section.bestTimeSecs,
-              trend: section.trend,
-              traversalCount: section.traversalCount,
-            },
-          ],
-        },
-        methodology: trendMethodology,
-      })
-    );
+      insights.push(
+        makeInsight({
+          id: `section_trend-improving-${section.sectionId}`,
+          category: 'section_pr',
+          priority: 3,
+          icon: 'trending-up',
+          iconColor: '#66BB6A',
+          title: t('insights.sectionImproving', { name: section.sectionName }),
+          body: t('insights.sectionImprovingBody', {
+            name: section.sectionName,
+            median: formatDuration(section.medianRecentSecs),
+            best: formatDuration(section.bestTimeSecs),
+            count: section.traversalCount,
+          }),
+          navigationTarget: `/section/${section.sectionId}`,
+          timestamp: now,
+          supportingData: {
+            sections: [
+              {
+                sectionId: section.sectionId,
+                sectionName: section.sectionName,
+                bestTime: section.bestTimeSecs,
+                trend: section.trend,
+                traversalCount: section.traversalCount,
+              },
+            ],
+          },
+          methodology: trendMethodology,
+        })
+      );
+    }
   }
 }
 

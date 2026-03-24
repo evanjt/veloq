@@ -358,6 +358,34 @@ describe('generateInsights', () => {
       expect(load!.title).not.toContain('risk');
       expect(load!.title).not.toContain('danger');
     });
+
+    it('suppresses when current week has zero activities', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+          chronicPeriod: { count: 5, totalDuration: 5000, totalDistance: 80000, totalTss: 200 },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'weekly_load-change')).toBeUndefined();
+    });
+
+    it('suppresses when period comparison already generated', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 250 },
+          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+          chronicPeriod: { count: 5, totalDuration: 5000, totalDistance: 80000, totalTss: 200 },
+        },
+        mockT
+      );
+      // Period comparison fires (250 vs 150 = +67%)
+      expect(result.find((i) => i.id === 'period_comparison-volume')).toBeDefined();
+      // Weekly load is suppressed to avoid redundancy
+      expect(result.find((i) => i.id === 'weekly_load-change')).toBeUndefined();
+    });
   });
 
   // ============================================================
@@ -509,6 +537,18 @@ describe('generateInsights', () => {
       const changeDP = vol!.supportingData!.comparisonData!.change;
       expect(changeDP.context).toBe('neutral');
     });
+
+    it('suppresses period comparison when current week has zero activities', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+          previousPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+    });
   });
 
   // ============================================================
@@ -651,6 +691,34 @@ describe('generateInsights', () => {
       const summary = result.find((i) => i.id === 'section_trend-summary');
       expect(summary).toBeDefined();
       expect(summary!.priority).toBe(3);
+    });
+
+    it('does not generate individual improving card when summary is shown', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          sectionTrends: [
+            makeTrend('s1', 'Hill A', 1, 20),
+            makeTrend('s2', 'Hill B', 0),
+            makeTrend('s3', 'Hill C', -1),
+          ],
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'section_trend-summary')).toBeDefined();
+      expect(result.find((i) => i.id === 'section_trend-improving-s1')).toBeUndefined();
+    });
+
+    it('generates individual improving card when only 1 section exists', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          sectionTrends: [makeTrend('s1', 'Hill A', 1, 20)],
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'section_trend-summary')).toBeUndefined();
+      expect(result.find((i) => i.id === 'section_trend-improving-s1')).toBeDefined();
     });
 
     it('does not show declining sections (removed per plan)', () => {
