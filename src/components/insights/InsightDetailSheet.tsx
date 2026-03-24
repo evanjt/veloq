@@ -2,13 +2,10 @@ import React, { useCallback } from 'react';
 import { Modal, View, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/lib';
 import { useTheme } from '@/hooks';
-import { colors, darkColors, spacing, typography, opacity } from '@/theme';
-import { AlternativesCarousel } from './AlternativesCarousel';
-import { SupportingDataSection } from './SupportingDataSection';
-import { MethodologySection } from './MethodologySection';
+import { colors, darkColors, spacing, typography, opacity, colorWithOpacity } from '@/theme';
+import { InsightDetailContent } from './content/InsightDetailContent';
 import type { Insight } from '@/types';
 
 const SHEET_HEIGHT = Dimensions.get('window').height * 0.85;
@@ -25,23 +22,20 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   onClose,
 }: InsightDetailSheetProps) {
   const { isDark } = useTheme();
-  const { t } = useTranslation();
 
-  const handleSectionPress = useCallback(
-    (sectionId: string) => {
+  const handleNavigate = useCallback(() => {
+    if (insight?.navigationTarget) {
       onClose();
-      navigateTo(`/section/${sectionId}`);
-    },
-    [onClose]
-  );
+      navigateTo(insight.navigationTarget);
+    }
+  }, [insight?.navigationTarget, onClose]);
 
   if (!insight) return null;
 
-  const hasAlternatives = insight.alternatives && insight.alternatives.length > 0;
-  const hasSupportingData = insight.supportingData != null;
   const hasMethodology = insight.methodology != null;
-  const hasSectionLinks =
-    insight.supportingData?.sections && insight.supportingData.sections.length > 0;
+  // Content components for these categories already have embedded navigation
+  const contentHandlesNav = insight.category === 'section_pr' || insight.category === 'tsb_form';
+  const hasNavTarget = !!insight.navigationTarget && !contentHandlesNav;
 
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
@@ -60,74 +54,80 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          {/* Hero banner */}
-          <View style={[styles.hero, { backgroundColor: insight.iconColor }]}>
-            <MaterialCommunityIcons name={insight.icon as never} size={40} color="#FFFFFF" />
+          {/* Compact header row */}
+          <View style={styles.headerRow}>
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: colorWithOpacity(insight.iconColor, 0.12) },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={insight.icon as never}
+                size={16}
+                color={insight.iconColor}
+              />
+            </View>
+            <Text style={[styles.title, isDark && styles.titleDark]} numberOfLines={2}>
+              {insight.title}
+            </Text>
             <Pressable style={styles.closeButton} onPress={onClose} hitSlop={12}>
-              <MaterialCommunityIcons name="close" size={22} color="#FFFFFF" />
+              <MaterialCommunityIcons
+                name="close"
+                size={20}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
             </Pressable>
           </View>
 
-          {/* Title + confidence */}
-          <View style={styles.titleSection}>
-            <Text style={[styles.title, isDark && styles.titleDark]}>{insight.title}</Text>
-            {insight.confidence != null ? (
+          {/* Confidence badge */}
+          {insight.confidence != null ? (
+            <View style={styles.badgeRow}>
               <View style={[styles.confidenceBadge, isDark && styles.confidenceBadgeDark]}>
                 <Text style={[styles.confidenceText, isDark && styles.confidenceTextDark]}>
-                  {Math.round(insight.confidence * 100)}% {t('insights.confident', 'confident')}
+                  {Math.round(insight.confidence * 100)}% confident
                 </Text>
               </View>
-            ) : null}
-            {insight.subtitle ? (
-              <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
-                {insight.subtitle}
-              </Text>
-            ) : null}
-            {insight.body ? (
-              <Text style={[styles.body, isDark && styles.bodyDark]}>{insight.body}</Text>
-            ) : null}
+            </View>
+          ) : null}
+
+          {/* Subtitle */}
+          {insight.subtitle ? (
+            <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>{insight.subtitle}</Text>
+          ) : null}
+
+          {/* Body text */}
+          {insight.body ? (
+            <Text style={[styles.body, isDark && styles.bodyDark]}>{insight.body}</Text>
+          ) : null}
+
+          {/* Category-specific content */}
+          <View style={styles.contentSection}>
+            <InsightDetailContent insight={insight} onClose={onClose} />
           </View>
 
-          {/* Alternatives Carousel */}
-          {hasAlternatives ? <AlternativesCarousel alternatives={insight.alternatives!} /> : null}
-
-          {/* Supporting Data */}
-          {hasSupportingData ? (
-            <View style={styles.section}>
-              <SupportingDataSection data={insight.supportingData!} />
-            </View>
-          ) : null}
-
-          {/* Methodology */}
+          {/* Methodology credit */}
           {hasMethodology ? (
-            <View style={styles.section}>
-              <MethodologySection methodology={insight.methodology!} />
-            </View>
+            <Text style={[styles.methodologyCredit, isDark && styles.methodologyCreditDark]}>
+              Based on {insight.methodology!.name}
+            </Text>
           ) : null}
 
-          {/* Section links */}
-          {hasSectionLinks ? (
-            <View style={styles.exploreSection}>
-              {insight.supportingData!.sections!.map((section) => (
-                <Pressable
-                  key={section.sectionId}
-                  style={[styles.exploreSectionLink, isDark && styles.exploreSectionLinkDark]}
-                  onPress={() => handleSectionPress(section.sectionId)}
-                >
-                  <Text
-                    style={[styles.exploreSectionName, isDark && styles.exploreSectionNameDark]}
-                    numberOfLines={1}
-                  >
-                    {section.sectionName}
-                  </Text>
-                  <MaterialCommunityIcons
-                    name="chevron-right"
-                    size={18}
-                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                  />
-                </Pressable>
-              ))}
-            </View>
+          {/* Navigation link */}
+          {hasNavTarget ? (
+            <Pressable
+              style={[styles.navLink, isDark && styles.navLinkDark]}
+              onPress={handleNavigate}
+            >
+              <Text style={[styles.navLinkText, isDark && styles.navLinkTextDark]}>
+                View in detail
+              </Text>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={18}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
+            </Pressable>
           ) : null}
         </ScrollView>
       </View>
@@ -175,36 +175,39 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.xxl,
   },
-  // Hero
-  hero: {
-    height: 80,
-    justifyContent: 'center',
+  // Compact header
+  headerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    position: 'relative',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    padding: spacing.xs,
-    zIndex: 1,
-  },
-  // Title
-  titleSection: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  iconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     ...typography.cardTitle,
+    flex: 1,
     color: colors.textPrimary,
-    textAlign: 'center',
   },
   titleDark: {
     color: darkColors.textPrimary,
   },
+  closeButton: {
+    padding: spacing.xs,
+  },
+  // Badge
+  badgeRow: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xs,
+  },
   confidenceBadge: {
-    marginTop: spacing.sm,
+    alignSelf: 'flex-start',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: 12,
@@ -221,11 +224,12 @@ const styles = StyleSheet.create({
   confidenceTextDark: {
     color: darkColors.textSecondary,
   },
+  // Text
   subtitle: {
     fontSize: 14,
     color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xs,
   },
   subtitleDark: {
     color: darkColors.textSecondary,
@@ -233,42 +237,49 @@ const styles = StyleSheet.create({
   body: {
     fontSize: 14,
     color: colors.textSecondary,
-    textAlign: 'center',
     lineHeight: 20,
-    marginTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
   },
   bodyDark: {
     color: darkColors.textSecondary,
   },
-  // Content sections
-  section: {
+  // Content
+  contentSection: {
     paddingHorizontal: spacing.lg,
+    marginTop: spacing.xs,
   },
-  // Explore
-  exploreSection: {
+  // Methodology
+  methodologyCredit: {
+    fontSize: 11,
+    color: colors.textMuted,
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
-    gap: spacing.sm,
   },
-  exploreSectionLink: {
+  methodologyCreditDark: {
+    color: darkColors.textMuted,
+  },
+  // Navigation
+  navLink: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderRadius: 8,
     backgroundColor: opacity.overlay.subtle,
   },
-  exploreSectionLinkDark: {
+  navLinkDark: {
     backgroundColor: opacity.overlayDark.light,
   },
-  exploreSectionName: {
-    flex: 1,
+  navLinkText: {
     fontSize: 14,
+    fontWeight: '500',
     color: colors.textPrimary,
-    marginRight: spacing.sm,
   },
-  exploreSectionNameDark: {
+  navLinkTextDark: {
     color: darkColors.textPrimary,
   },
 });

@@ -1046,6 +1046,20 @@ function addConsistencyInsights(
             iconColor: '#42A5F5',
             title: t('insights.consistencyPartial', { good: goodWeeks, total: 2 }),
             timestamp: now,
+            supportingData: {
+              dataPoints: [
+                {
+                  label: t('insights.data.thisWeek'),
+                  value: cur.count,
+                  unit: t('insights.data.activities'),
+                },
+                {
+                  label: t('insights.data.lastWeek'),
+                  value: prev.count,
+                  unit: t('insights.data.activities'),
+                },
+              ],
+            },
             methodology: {
               name: 'Training consistency',
               description:
@@ -1075,6 +1089,20 @@ function addConsistencyInsights(
       iconColor: '#FF7043',
       title: t('insights.consistencyStreak', { count: streakWeeks }),
       timestamp: now,
+      supportingData: {
+        dataPoints: [
+          {
+            label: t('insights.data.thisWeek'),
+            value: cur.count,
+            unit: t('insights.data.activities'),
+          },
+          {
+            label: t('insights.data.lastWeek'),
+            value: prev.count,
+            unit: t('insights.data.activities'),
+          },
+        ],
+      },
       methodology: {
         name: 'Training consistency',
         description:

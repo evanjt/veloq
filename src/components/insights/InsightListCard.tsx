@@ -40,7 +40,7 @@ export const InsightListCard = React.memo(function InsightListCard({
       <View style={[styles.iconCircle, { backgroundColor: colorWithOpacity(categoryColor, 0.1) }]}>
         <MaterialCommunityIcons
           name={insight.icon as keyof typeof MaterialCommunityIcons.glyphMap}
-          size={20}
+          size={15}
           color={insight.iconColor}
         />
       </View>
@@ -59,7 +59,7 @@ export const InsightListCard = React.memo(function InsightListCard({
       </View>
       <MaterialCommunityIcons
         name="chevron-right"
-        size={18}
+        size={16}
         color={isDark ? darkColors.textMuted : colors.textMuted}
         style={styles.chevron}
       />
@@ -72,9 +72,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    borderRadius: 8,
     marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    marginBottom: 2,
     overflow: 'hidden',
     ...shadows.card,
   },
@@ -89,17 +89,17 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.sm,
-    marginVertical: spacing.sm,
+    marginVertical: 5,
   },
   textContainer: {
     flex: 1,
-    marginLeft: spacing.sm,
+    marginLeft: 6,
     marginRight: spacing.xs,
     justifyContent: 'center',
   },
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   title: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: colors.textPrimary,
     flexShrink: 1,
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FC4C02',
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textSecondary,
     marginTop: 2,
   },

@@ -50,7 +50,7 @@ describe('InsightsStore', () => {
     });
 
     it('restores fingerprint from storage', async () => {
-      const fp = 'section_pr-s1:PR on Hill|tsb_form-position:Form: 5';
+      const fp = 'section_pr-s1|tsb_form-position';
       await AsyncStorage.setItem(STORAGE_KEY, fp);
       await initializeInsightsStore();
       expect(useInsightsStore.getState().lastSeenFingerprint).toBe(fp);
@@ -101,7 +101,7 @@ describe('InsightsStore', () => {
 
   describe('idempotency', () => {
     it('initialize is idempotent', async () => {
-      const fp = 'test:fingerprint';
+      const fp = 'test-insight-id';
       await AsyncStorage.setItem(STORAGE_KEY, fp);
       await initializeInsightsStore();
       useInsightsStore.getState().setNewInsights(new Set(['x']));
@@ -124,10 +124,10 @@ describe('computeInsightFingerprint', () => {
     expect(computeInsightFingerprint([a, b])).toBe(computeInsightFingerprint([b, a]));
   });
 
-  it('changes when title changes', () => {
+  it('is stable when only title changes', () => {
     const v1 = [makeInsight('a', 'Old Title')];
     const v2 = [makeInsight('a', 'New Title')];
-    expect(computeInsightFingerprint(v1)).not.toBe(computeInsightFingerprint(v2));
+    expect(computeInsightFingerprint(v1)).toBe(computeInsightFingerprint(v2));
   });
 
   it('changes when insight added', () => {
@@ -162,12 +162,11 @@ describe('diffInsights', () => {
     expect(changed.has('b')).toBe(true);
   });
 
-  it('detects title change as new', () => {
+  it('does not flag title-only change as new', () => {
     const original = [makeInsight('a', 'Old')];
     const fp = computeInsightFingerprint(original);
     const updated = [makeInsight('a', 'New')];
     const changed = diffInsights(updated, fp);
-    expect(changed.size).toBe(1);
-    expect(changed.has('a')).toBe(true);
+    expect(changed.size).toBe(0);
   });
 });

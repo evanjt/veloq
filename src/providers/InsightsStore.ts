@@ -4,24 +4,25 @@ import type { Insight } from '@/types';
 
 const STORAGE_KEY = 'veloq-insights-fingerprint';
 
-/** Compute a stable fingerprint from a list of insights (sorted id:title pairs). */
+/** Compute a stable fingerprint from a list of insights (sorted IDs only).
+ *  Titles contain dynamic values (percentages, watts) that change between
+ *  sessions — using them caused the "new" dot to fire on every app launch. */
 export function computeInsightFingerprint(insights: Insight[]): string {
   return insights
-    .map((i) => `${i.id}:${i.title}`)
+    .map((i) => i.id)
     .sort()
     .join('|');
 }
 
-/** Diff current insights against a stored fingerprint. Returns IDs of new/changed insights. */
+/** Diff current insights against a stored fingerprint. Returns IDs of genuinely new insights. */
 export function diffInsights(current: Insight[], previousFingerprint: string): Set<string> {
   if (!previousFingerprint) {
     return new Set(current.map((i) => i.id));
   }
-  const prevPairs = new Set(previousFingerprint.split('|'));
+  const prevIds = new Set(previousFingerprint.split('|'));
   const changed = new Set<string>();
   for (const insight of current) {
-    const pair = `${insight.id}:${insight.title}`;
-    if (!prevPairs.has(pair)) {
+    if (!prevIds.has(insight.id)) {
       changed.add(insight.id);
     }
   }
