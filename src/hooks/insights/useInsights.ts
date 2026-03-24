@@ -122,6 +122,15 @@ export function useInsights(
         // Rest day detection
         const isRestDay = data.todayPeriod.count === 0;
 
+        // Guard: check if section data is available in the engine.
+        // On cold start, insight generation can run before sections are loaded,
+        // producing empty section insights. Check the engine's section count and
+        // skip section-dependent inputs if sections aren't ready yet.
+        // The 'sections' event subscription will re-trigger this effect once loaded.
+        const engine = getRouteEngine();
+        const sectionCount = engine?.getStats()?.sectionCount ?? 0;
+        const sectionsReady = sectionCount > 0;
+
         // Type the patterns array for downstream use (generated types not yet available)
         const allPatterns = (data.allPatterns ?? []) as Array<{
           primaryDay: number;
@@ -140,6 +149,7 @@ export function useInsights(
         }>;
 
         // Extract section trends from patterns (deduplicate by highest traversalCount)
+        // Skip if sections aren't loaded yet to avoid empty section insights on cold start
         const sectionTrendMap = new Map<
           string,
           {
@@ -152,20 +162,22 @@ export function useInsights(
           }
         >();
 
-        for (const pattern of allPatterns) {
-          if (!pattern.commonSections) continue;
-          for (const section of pattern.commonSections) {
-            if (section.trend == null || !section.sectionId) continue;
-            const existing = sectionTrendMap.get(section.sectionId);
-            if (!existing || section.traversalCount > existing.traversalCount) {
-              sectionTrendMap.set(section.sectionId, {
-                sectionId: section.sectionId,
-                sectionName: section.sectionName || 'Section',
-                trend: section.trend,
-                medianRecentSecs: section.medianRecentSecs,
-                bestTimeSecs: section.bestTimeSecs,
-                traversalCount: section.traversalCount,
-              });
+        if (sectionsReady) {
+          for (const pattern of allPatterns) {
+            if (!pattern.commonSections) continue;
+            for (const section of pattern.commonSections) {
+              if (section.trend == null || !section.sectionId) continue;
+              const existing = sectionTrendMap.get(section.sectionId);
+              if (!existing || section.traversalCount > existing.traversalCount) {
+                sectionTrendMap.set(section.sectionId, {
+                  sectionId: section.sectionId,
+                  sectionName: section.sectionName || 'Section',
+                  trend: section.trend,
+                  medianRecentSecs: section.medianRecentSecs,
+                  bestTimeSecs: section.bestTimeSecs,
+                  traversalCount: section.traversalCount,
+                });
+              }
             }
           }
         }
@@ -194,19 +206,22 @@ export function useInsights(
           allPatterns.find((p) => p.primaryDay === tomorrowDayMon && p.confidence >= 0.6) ?? null;
 
         // Recent PRs from batch result (already computed in Rust)
-        const recentPRs = (
-          (data.recentPrs ?? []) as Array<{
-            sectionId: string;
-            sectionName: string;
-            bestTime: number;
-            daysAgo: number;
-          }>
-        ).map((pr) => ({
-          sectionId: pr.sectionId,
-          sectionName: pr.sectionName,
-          bestTime: pr.bestTime,
-          daysAgo: pr.daysAgo,
-        }));
+        // Skip if sections aren't loaded yet — PRs depend on section data
+        const recentPRs = sectionsReady
+          ? (
+              (data.recentPrs ?? []) as Array<{
+                sectionId: string;
+                sectionName: string;
+                bestTime: number;
+                daysAgo: number;
+              }>
+            ).map((pr) => ({
+              sectionId: pr.sectionId,
+              sectionName: pr.sectionName,
+              bestTime: pr.bestTime,
+              daysAgo: pr.daysAgo,
+            }))
+          : [];
 
         const result = generateInsights(
           {
