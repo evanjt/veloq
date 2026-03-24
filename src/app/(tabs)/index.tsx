@@ -233,6 +233,9 @@ export default function FeedScreen() {
   const renderListHeader = useCallback(
     () => (
       <>
+        {/* Permission banner inside scroll area to avoid layout shifts */}
+        <PermissionUpgradeBanner />
+
         {/* Search bar + filter chips — initially hidden by scrollToOffset */}
         <View style={styles.searchSection}>
           <View style={styles.searchContainer}>
@@ -412,8 +415,6 @@ export default function FeedScreen() {
           insightLine={<InsightLine insights={insights} />}
         />
 
-        <PermissionUpgradeBanner />
-
         <FlatList
           ref={listRef}
           testID="home-activity-list"
@@ -441,11 +442,10 @@ export default function FeedScreen() {
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.5}
           showsVerticalScrollIndicator={false}
-          // iOS scroll performance optimizations
           removeClippedSubviews={Platform.OS === 'ios'}
-          maxToRenderPerBatch={Platform.OS === 'ios' ? 15 : 10}
-          windowSize={Platform.OS === 'ios' ? 21 : 11}
-          initialNumToRender={5}
+          maxToRenderPerBatch={Platform.OS === 'ios' ? 4 : 3}
+          windowSize={Platform.OS === 'ios' ? 7 : 5}
+          initialNumToRender={2}
         />
 
         {/* Hidden WebView for generating 3D terrain snapshots */}
