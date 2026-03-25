@@ -415,7 +415,7 @@
     "sectionTrendSummaryBody": "Forbedring: {{names}}. {{stable}} stabile, {{declining}} faldende.",
     "sectionImproving": "{{name}} bliver hurtigere",
     "sectionImprovingBody": "Seneste median: {{median}}. Bedste: {{best}} over {{count}} forsøg.",
-    "ftpIncrease": "FTP op {{delta}}W",
+    "ftpIncrease": "Cycling power: {{current}}W (+{{change}}W)",
     "paceImproved": "Tempo forbedret {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% ugentlig volumen",
     "weeklyVolumeDown": "{{percent}}% mindre denne uge",
@@ -508,12 +508,19 @@
         "greyZone": "Moderate training load",
         "optimal": "Where most adaptation occurs",
         "highRisk": "Significant accumulated fatigue"
+      },
+      "titles": {
+        "fresh": "Peak form — ready to race",
+        "transition": "Fresh — good for hard training",
+        "greyZone": "Balanced — steady training",
+        "optimal": "Building fitness — fatigue accumulating",
+        "highRisk": "Heavy load — recovery important"
       }
     },
     "hrvTrend": {
-      "trendingUp": "HRV trending up",
-      "trendingDown": "HRV trending down",
-      "stable": "HRV stable",
+      "trendingUp": "Recovery improving",
+      "trendingDown": "Recovery dipping",
+      "stable": "Recovery steady",
       "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
       "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
       "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
@@ -532,7 +539,8 @@
       "prFtp": "FTP at PR",
       "ftpGain": "FTP gain",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Higher FTP suggests untapped potential on power-dependent sections."
+      "methodology": "Compares FTP at PR time vs current FTP. Higher FTP suggests untapped potential on power-dependent sections.",
+      "groupTitle": "{{count}} PRs to revisit"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -542,11 +550,12 @@
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
     "sectionCluster": {
-      "improvingTitle": "{{count}} sections improving",
-      "decliningTitle": "{{count}} sections to revisit",
+      "improvingTitle": "{{name}} getting faster",
+      "decliningTitle": "{{name}} slowing down",
       "improvingBody": "{{names}} trending faster across {{count}} sections.",
       "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
-      "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced."
+      "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced.",
+      "subtitle": "and {{count}} other {{sport}} sections"
     },
     "efficiencyTrend": {
       "title": "HR faldende på {{name}}",

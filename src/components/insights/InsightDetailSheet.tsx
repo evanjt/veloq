@@ -26,8 +26,8 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 
   const handleNavigate = useCallback(() => {
     if (insight?.navigationTarget) {
-      onClose();
       navigateTo(insight.navigationTarget);
+      setTimeout(onClose, 100);
     }
   }, [insight?.navigationTarget, onClose]);
 

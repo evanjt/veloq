@@ -388,9 +388,8 @@ function addTsbFormPositionInsight(
       priority: 2,
       icon: 'heart-pulse',
       iconColor: zone.color,
-      title: t('insights.tsbForm.title', {
+      title: t(`insights.tsbForm.titles.${zone.key}`, {
         tsb: Math.round(tsb),
-        zone: t(`insights.tsbForm.zones.${zone.key}`),
       }),
       body: t('insights.tsbForm.body', {
         tsb: Math.round(tsb),
@@ -792,7 +791,10 @@ function addFitnessMilestoneInsights(
           priority: 2,
           icon: 'lightning-bolt',
           iconColor: '#FFA726',
-          title: t('insights.ftpIncrease', { delta }),
+          title: t('insights.ftpIncrease', {
+            current: Math.round(ftp.latestFtp),
+            change: delta,
+          }),
           timestamp: now,
           supportingData: {
             dataPoints: [
@@ -1224,14 +1226,21 @@ function addStalePRInsights(
   } else {
     // Group into one card listing all beatable sections
     const first = filtered[0];
-    const isPower = first.fitnessMetric === 'power';
-    const metricLabel = isPower ? 'FTP' : 'Pace';
-    const currentStr = isPower
-      ? `${Math.round(first.currentValue)}W`
-      : formatDuration(first.currentValue);
-    const previousStr = isPower
-      ? `${Math.round(first.previousValue)}W`
-      : formatDuration(first.previousValue);
+
+    // Build sport-aware subtitle: group improvements by metric type
+    const powerOpps = filtered.filter((o) => o.fitnessMetric === 'power');
+    const paceOpps = filtered.filter((o) => o.fitnessMetric === 'pace');
+    const subtitleParts: string[] = [];
+    if (powerOpps.length > 0) {
+      const p = powerOpps[0];
+      subtitleParts.push(`FTP: ${Math.round(p.previousValue)}W → ${Math.round(p.currentValue)}W`);
+    }
+    if (paceOpps.length > 0) {
+      const p = paceOpps[0];
+      subtitleParts.push(
+        `Pace: ${formatDuration(p.previousValue)} → ${formatDuration(p.currentValue)}`
+      );
+    }
 
     insights.push(
       makeInsight({
@@ -1240,8 +1249,8 @@ function addStalePRInsights(
         priority: 2,
         icon: 'lightning-bolt',
         iconColor: '#FF9800',
-        title: `${filtered.length} PRs might be beatable`,
-        subtitle: `${metricLabel} improved: ${previousStr} → ${currentStr}`,
+        title: t('insights.stalePr.groupTitle', { count: filtered.length }),
+        subtitle: subtitleParts.join(', '),
         body: filtered.map((o) => o.sectionName).join(', '),
         navigationTarget: `/section/${first.sectionId}`,
         timestamp: now,
@@ -1252,11 +1261,11 @@ function addStalePRInsights(
             bestTime: o.bestTimeSecs,
             sportType: sections.find((s) => s.sectionId === o.sectionId)?.sportType,
           })),
-          formula: `${metricLabel} gain = +${first.gainPercent}%`,
+          formula: subtitleParts.join('; '),
           algorithmDescription: t('insights.stalePr.methodology'),
         },
         methodology: {
-          name: `${metricLabel}-PR cross-reference`,
+          name: 'Fitness-PR cross-reference',
           description: t('insights.stalePr.methodology'),
         },
       })

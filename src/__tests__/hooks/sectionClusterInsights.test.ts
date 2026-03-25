@@ -70,7 +70,7 @@ describe('generateSectionClusterInsights', () => {
     expect(insight.category).toBe('section_cluster');
     expect(insight.priority).toBe(3);
     expect(insight.iconColor).toBe('#66BB6A');
-    expect(insight.title).toContain('count: 3');
+    expect(insight.title).toContain('name: Riverside');
     expect(insight.body).toContain('Riverside');
     expect(insight.body).toContain('Lakeside');
     expect(insight.body).toContain('Parkway');
@@ -237,7 +237,9 @@ describe('generateSectionClusterInsights', () => {
     ];
     const result = generateSectionClusterInsights(trends, NOW, mockT);
     expect(result).toHaveLength(1);
-    expect(result[0].title).toContain('sport: running');
+    // Title now uses top section name, sport goes to subtitle
+    expect(result[0].title).toContain('name: Sprint');
+    expect(result[0].subtitle).toContain('sport: running');
   });
 
   it('uses empty sport for unknown sport types', () => {
@@ -247,8 +249,9 @@ describe('generateSectionClusterInsights', () => {
     ];
     const result = generateSectionClusterInsights(trends, NOW, mockT);
     expect(result).toHaveLength(1);
-    // Sport param should be empty string for unknown sport types
-    expect(result[0].title).toContain('sport: ');
+    // Title uses top section name, sport goes to subtitle
+    expect(result[0].title).toContain('name: A');
+    expect(result[0].subtitle).toContain('sport: ');
   });
 
   it('does not cluster across sport types', () => {

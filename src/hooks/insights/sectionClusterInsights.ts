@@ -163,6 +163,10 @@ function makeClusterInsight(
   // Use sport-specific ID to allow one insight per sport per direction
   const sportSuffix = sportType ? `-${sportType.toLowerCase()}` : '';
 
+  // Name the top section in the title instead of a generic count
+  const topSectionName = sorted[0].sectionName;
+  const otherCount = count - 1;
+
   return {
     id: `section_cluster-${direction}${sportSuffix}`,
     category: 'section_cluster',
@@ -170,8 +174,12 @@ function makeClusterInsight(
     icon: isImproving ? 'trending-up' : 'map-marker-path',
     iconColor: isImproving ? '#66BB6A' : '#FFA726',
     title: isImproving
-      ? t('insights.sectionCluster.improvingTitle', { count, sport })
-      : t('insights.sectionCluster.decliningTitle', { count, sport }),
+      ? t('insights.sectionCluster.improvingTitle', { name: topSectionName })
+      : t('insights.sectionCluster.decliningTitle', { name: topSectionName }),
+    subtitle:
+      otherCount > 0
+        ? t('insights.sectionCluster.subtitle', { count: otherCount, sport })
+        : undefined,
     body: isImproving
       ? t('insights.sectionCluster.improvingBody', { names: nameList, count })
       : t('insights.sectionCluster.decliningBody', {

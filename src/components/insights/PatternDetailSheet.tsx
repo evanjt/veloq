@@ -158,15 +158,15 @@ export const PatternDetailSheet = React.memo(function PatternDetailSheet({
 
   const handleViewDetails = useCallback(() => {
     if (insight?.navigationTarget) {
-      onClose();
       navigateTo(insight.navigationTarget);
+      setTimeout(onClose, 100);
     }
   }, [insight?.navigationTarget, onClose]);
 
   const handleSectionPress = useCallback(
     (sectionId: string) => {
-      onClose();
       navigateTo(`/section/${sectionId}`);
+      setTimeout(onClose, 100);
     },
     [onClose]
   );

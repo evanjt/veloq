@@ -35,8 +35,8 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
 
   const handlePress = useCallback(
     (activityId: string) => {
-      onClose();
       navigateTo(`/activity/${activityId}`);
+      setTimeout(onClose, 100);
     },
     [onClose]
   );

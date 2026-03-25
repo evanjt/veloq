@@ -52,9 +52,9 @@ export const SectionPRContent = React.memo(function SectionPRContent({
   const { records, bestRecord, isLoading } = useSectionPerformances(section);
 
   const handleSectionPress = useCallback(() => {
-    onClose();
     if (sectionId) {
       navigateTo(`/section/${sectionId}`);
+      setTimeout(onClose, 100);
     }
   }, [onClose, sectionId]);
 

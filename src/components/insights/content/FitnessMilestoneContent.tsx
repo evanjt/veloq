@@ -113,14 +113,14 @@ const styles = StyleSheet.create({
   statCard: {
     backgroundColor: opacity.overlay.subtle,
     borderRadius: 10,
-    padding: spacing.md,
+    padding: spacing.sm,
     alignItems: 'center',
   },
   statCardDark: {
     backgroundColor: opacity.overlayDark.light,
   },
   currentValue: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
     gap: 4,
   },
   changeText: {
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   timelineContent: {
     flex: 1,
     paddingLeft: spacing.sm,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm,
   },
   timelineLabel: {
     fontSize: 12,

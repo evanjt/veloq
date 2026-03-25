@@ -314,7 +314,8 @@ describe('generateInsights', () => {
       const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
       expect(ftp).toBeDefined();
       expect(ftp!.priority).toBe(2);
-      expect(ftp!.title).toContain('delta: 10');
+      expect(ftp!.title).toContain('current: 260');
+      expect(ftp!.title).toContain('change: 10');
     });
 
     it('does not generate FTP insight when FTP decreased', () => {

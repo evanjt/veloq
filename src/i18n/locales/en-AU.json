@@ -680,7 +680,7 @@
     "sectionTrendSummaryBody": "Improving: {{names}}. {{stable}} stable.",
     "sectionImproving": "{{name}} getting faster",
     "sectionImprovingBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts.",
-    "ftpIncrease": "FTP up {{delta}}W",
+    "ftpIncrease": "Cycling power: {{current}}W (+{{change}}W)",
     "paceImproved": "Pace improved {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% weekly volume",
     "weeklyVolumeDown": "{{percent}}% less this week",
@@ -693,6 +693,13 @@
     "volumeBody": "Training duration: {{current}} this week vs {{previous}} last week. This measures time, not training load (TSS).",
     "tsbForm": {
       "title": "Form: {{tsb}} ({{zone}})",
+      "titles": {
+        "fresh": "Peak form — ready to race",
+        "transition": "Fresh — good for hard training",
+        "greyZone": "Balanced — steady training",
+        "optimal": "Building fitness — fatigue accumulating",
+        "highRisk": "Heavy load — recovery important"
+      },
       "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
       "zones": {
         "fresh": "Fresh",
@@ -710,9 +717,9 @@
       }
     },
     "hrvTrend": {
-      "trendingUp": "HRV trending up",
-      "trendingDown": "HRV trending down",
-      "stable": "HRV stable",
+      "trendingUp": "Recovery improving",
+      "trendingDown": "Recovery dipping",
+      "stable": "Recovery steady",
       "trendingUpBody": "Your 7-day HRV average ({{avg}} ms) is rising based on {{days}} days of data.",
       "trendingDownBody": "Your 7-day HRV average ({{avg}} ms) is declining based on {{days}} days of data.",
       "stableBody": "Your 7-day HRV average ({{avg}} ms) is within normal range based on {{days}} days of data."
@@ -725,6 +732,7 @@
     },
     "stalePr": {
       "title": "{{section}}: PR might be beatable",
+      "groupTitle": "{{count}} PRs to revisit",
       "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
       "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
       "currentFtp": "Current FTP",
@@ -807,8 +815,9 @@
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
     "sectionCluster": {
-      "improvingTitle": "{{count}} {{sport}} sections improving",
-      "decliningTitle": "{{count}} {{sport}} sections to revisit",
+      "improvingTitle": "{{name}} getting faster",
+      "decliningTitle": "{{name}} slowing down",
+      "subtitle": "and {{count}} other {{sport}} sections",
       "improvingBody": "{{names}} trending faster across {{count}} sections.",
       "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
       "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced."

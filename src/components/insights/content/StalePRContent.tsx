@@ -7,40 +7,46 @@ import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { navigateTo, formatDuration } from '@/lib';
 import { getActivityIcon } from '@/lib/utils/activityUtils';
 import { SectionInsightMap } from './SectionInsightMap';
-import { colors, darkColors, spacing, opacity } from '@/theme';
-import type { Insight } from '@/types';
+import { colors, darkColors, spacing, opacity, shadows } from '@/theme';
+import type { Insight, SupportingSection } from '@/types';
 
 interface StalePRContentProps {
   insight: Insight;
   onClose: () => void;
 }
 
+/** Map preview for the first section */
+const TopSectionMap = React.memo(function TopSectionMap({ sectionId }: { sectionId: string }) {
+  const { section } = useSectionDetail(sectionId);
+  if (!section?.polyline || section.polyline.length < 2) return null;
+  return <SectionInsightMap polyline={section.polyline} lineColor="#FF9800" />;
+});
+
 /**
  * Detail content for stale PR / opportunity insights.
- * Shows section map + FTP comparison data points.
+ * Shows section map + FTP comparison data points + tappable section list.
  */
 export const StalePRContent = React.memo(function StalePRContent({
   insight,
   onClose,
 }: StalePRContentProps) {
   const { isDark } = useTheme();
-  const sectionId = insight.navigationTarget?.replace('/section/', '') ?? null;
-  const { section } = useSectionDetail(sectionId);
   const dataPoints = insight.supportingData?.dataPoints ?? [];
+  const sections = insight.supportingData?.sections ?? [];
+  const topSectionId = sections[0]?.sectionId ?? null;
 
-  const handleSectionPress = useCallback(() => {
-    if (sectionId) {
-      onClose();
-      navigateTo(`/section/${sectionId}`);
-    }
-  }, [onClose, sectionId]);
+  const handleSectionPress = useCallback(
+    (id: string) => {
+      navigateTo(`/section/${id}`);
+      setTimeout(onClose, 100);
+    },
+    [onClose]
+  );
 
   return (
     <View style={styles.container}>
-      {/* Section map */}
-      {section?.polyline && section.polyline.length >= 2 ? (
-        <SectionInsightMap polyline={section.polyline} lineColor="#FF9800" />
-      ) : null}
+      {/* Map preview of the top section */}
+      {topSectionId ? <TopSectionMap sectionId={topSectionId} /> : null}
 
       {/* FTP comparison data */}
       {dataPoints.length > 0 ? (
@@ -62,29 +68,46 @@ export const StalePRContent = React.memo(function StalePRContent({
         </View>
       ) : null}
 
-      {/* Section link */}
-      {sectionId ? (
-        <Pressable
-          style={[styles.sectionLink, isDark && styles.sectionLinkDark]}
-          onPress={handleSectionPress}
-        >
-          {section?.sportType ? (
-            <MaterialCommunityIcons
-              name={getActivityIcon(section.sportType)}
-              size={14}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-              style={styles.sportIcon}
-            />
-          ) : null}
-          <Text style={[styles.linkText, isDark && styles.linkTextDark]} numberOfLines={1}>
-            View section details
-          </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={18}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        </Pressable>
+      {/* Section list — all beatable PRs */}
+      {sections.length > 0 ? (
+        <View style={styles.sectionList}>
+          {sections.map((s: SupportingSection) => (
+            <Pressable
+              key={s.sectionId}
+              style={[styles.sectionCard, isDark && styles.sectionCardDark]}
+              onPress={() => handleSectionPress(s.sectionId)}
+            >
+              <View style={styles.sectionContent}>
+                <View style={styles.sectionNameRow}>
+                  {s.sportType ? (
+                    <MaterialCommunityIcons
+                      name={getActivityIcon(s.sportType)}
+                      size={14}
+                      color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                      style={styles.sportIcon}
+                    />
+                  ) : null}
+                  <Text
+                    style={[styles.sectionName, isDark && styles.sectionNameDark]}
+                    numberOfLines={1}
+                  >
+                    {s.sectionName}
+                  </Text>
+                </View>
+                {s.bestTime != null ? (
+                  <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>
+                    {formatDuration(s.bestTime)}
+                  </Text>
+                ) : null}
+              </View>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={18}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
+            </Pressable>
+          ))}
+        </View>
       ) : null}
     </View>
   );
@@ -126,29 +149,55 @@ const styles = StyleSheet.create({
   dataValueGood: {
     color: '#22C55E',
   },
-  sportIcon: {
-    marginRight: 4,
+  sectionList: {
+    gap: spacing.xs,
   },
-  sectionLink: {
+  sectionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.card,
+  },
+  sectionCardDark: {
+    backgroundColor: darkColors.surfaceCard,
+    borderColor: darkColors.border,
+    ...shadows.none,
+  },
+  sectionContent: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 8,
-    backgroundColor: opacity.overlay.subtle,
+    marginRight: spacing.xs,
   },
-  sectionLinkDark: {
-    backgroundColor: opacity.overlayDark.light,
+  sectionNameRow: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginRight: spacing.sm,
   },
-  linkText: {
+  sportIcon: {
+    marginRight: 4,
+  },
+  sectionName: {
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
     color: colors.textPrimary,
-    marginRight: spacing.sm,
   },
-  linkTextDark: {
+  sectionNameDark: {
+    color: darkColors.textPrimary,
+  },
+  bestTime: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  bestTimeDark: {
     color: darkColors.textPrimary,
   },
 });
