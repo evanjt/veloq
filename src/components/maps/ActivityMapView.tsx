@@ -278,6 +278,8 @@ interface ActivityMapViewProps {
   routeOverlay?: LatLng[] | null;
   /** Section overlays for sections tab - all matched sections with activity portions */
   sectionOverlays?: SectionOverlay[] | null;
+  /** Active tab - controls section line color and legend visibility */
+  activeTab?: string;
   /** Section ID to highlight (dims other sections when set) */
   highlightedSectionId?: string | null;
   /** Called when a section marker is tapped on the map */
@@ -322,6 +324,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   onCreationErrorDismiss,
   routeOverlay,
   sectionOverlays,
+  activeTab,
   highlightedSectionId,
   onSectionMarkerPress,
   onCameraCapture,
@@ -419,6 +422,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     sectionOverlays,
     highlightIndex,
     onSectionMarkerPress,
+    activeTab,
   });
 
   // Section creation hook
@@ -832,9 +836,17 @@ export const ActivityMapView = memo(function ActivityMapView({
               <LineLayer
                 id="section-overlays-line"
                 style={{
-                  lineColor: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#FFAB00', '#00BCD4']
-                    : '#00BCD4',
+                  lineColor:
+                    activeTab === 'charts'
+                      ? '#D4AF37'
+                      : highlightedSectionId
+                        ? [
+                            'case',
+                            ['==', ['get', 'id'], highlightedSectionId],
+                            '#FFAB00',
+                            ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#00BCD4'],
+                          ]
+                        : ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#00BCD4'],
                   lineWidth: highlightedSectionId
                     ? ['case', ['==', ['get', 'id'], highlightedSectionId], 7, 4]
                     : 5,
@@ -1041,23 +1053,26 @@ export const ActivityMapView = memo(function ActivityMapView({
           </View>
         )}
 
-        {/* Section overlays legend */}
-        {sectionOverlaysGeoJSON && sectionOverlaysGeoJSON.length > 0 && !isFullscreen && (
-          <View style={styles.overlayLegend}>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendLine, { backgroundColor: '#00BCD4' }]} />
-              <Text style={styles.legendText}>{t('routes.legendSection')}</Text>
+        {/* Section overlays legend — only on Sections tab */}
+        {activeTab === 'sections' &&
+          sectionOverlaysGeoJSON &&
+          sectionOverlaysGeoJSON.length > 0 &&
+          !isFullscreen && (
+            <View style={styles.overlayLegend}>
+              <View style={styles.legendRow}>
+                <View style={[styles.legendLine, { backgroundColor: '#00BCD4' }]} />
+                <Text style={styles.legendText}>{t('routes.legendSection')}</Text>
+              </View>
+              <View style={styles.legendRow}>
+                <View style={[styles.legendLine, { backgroundColor: '#E91E63' }]} />
+                <Text style={styles.legendText}>{t('routes.legendYourEffort')}</Text>
+              </View>
+              <View style={styles.legendRow}>
+                <View style={[styles.legendLine, { backgroundColor: activityColor }]} />
+                <Text style={styles.legendText}>{t('routes.legendFullActivity')}</Text>
+              </View>
             </View>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendLine, { backgroundColor: '#E91E63' }]} />
-              <Text style={styles.legendText}>{t('routes.legendYourEffort')}</Text>
-            </View>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendLine, { backgroundColor: activityColor }]} />
-              <Text style={styles.legendText}>{t('routes.legendFullActivity')}</Text>
-            </View>
-          </View>
-        )}
+          )}
       </View>
 
       {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}

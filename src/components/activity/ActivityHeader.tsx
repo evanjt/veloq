@@ -105,7 +105,14 @@ export const ActivityHeader = React.memo(function ActivityHeader({
             onCreationCancelled={onCreationCancelled}
             onCreationErrorDismiss={onCreationErrorDismiss}
             routeOverlay={activeTab === 'routes' ? routeOverlayCoordinates : null}
-            sectionOverlays={sectionOverlays}
+            sectionOverlays={
+              activeTab === 'sections'
+                ? sectionOverlays
+                : activeTab === 'charts'
+                  ? (sectionOverlays?.filter((o) => o.isPR) ?? null)
+                  : null
+            }
+            activeTab={activeTab}
             highlightedSectionId={activeTab === 'sections' ? highlightedSectionId : null}
             onSectionMarkerPress={onSectionMarkerPress}
           />

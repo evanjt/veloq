@@ -35,6 +35,8 @@ interface UseMapLayersParams {
   highlightIndex?: number | null;
   /** Called when a section marker is tapped on the map */
   onSectionMarkerPress?: (sectionId: string) => void;
+  /** Active tab — controls marker style (numbered on sections, PR on charts) */
+  activeTab?: string;
 }
 
 interface UseMapLayersResult {
@@ -92,6 +94,7 @@ export function useMapLayers({
   sectionOverlays,
   highlightIndex,
   onSectionMarkerPress,
+  activeTab,
 }: UseMapLayersParams): UseMapLayersResult {
   // ----- route line -----
   const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
@@ -170,7 +173,7 @@ export function useMapLayers({
         if (validSectionPoints.length >= 2) {
           sectionGeo = {
             type: 'Feature',
-            properties: { id: overlay.id, type: 'section' },
+            properties: { id: overlay.id, type: 'section', isPR: !!overlay.isPR },
             geometry: {
               type: 'LineString',
               coordinates: validSectionPoints.map((c) => [c.longitude, c.latitude]),
@@ -242,12 +245,19 @@ export function useMapLayers({
       };
     }, [sectionOverlays]);
 
-  // ----- section marker elements (only PR markers) -----
+  // ----- section marker elements -----
+  // Sections tab: numbered markers (1, 2, 3...) for all sections
+  // Charts tab: PR markers for PR sections only
   const sectionMarkerElements = useMemo(() => {
     if (!sectionOverlaysGeoJSON) return null;
-    const prOverlays = sectionOverlaysGeoJSON.filter((o) => o.isPR);
-    if (prOverlays.length === 0) return null;
-    return prOverlays.map((overlay) => {
+
+    const overlaysToRender =
+      activeTab === 'sections'
+        ? sectionOverlaysGeoJSON
+        : sectionOverlaysGeoJSON.filter((o) => o.isPR);
+    if (overlaysToRender.length === 0) return null;
+
+    return overlaysToRender.map((overlay, index) => {
       const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
       const portionGeom = overlay.portionGeo?.geometry as GeoJSON.LineString | undefined;
       const coords = sectionGeom?.coordinates || portionGeom?.coordinates;
@@ -286,6 +296,8 @@ export function useMapLayers({
         }
       }
 
+      const isPRMarker = activeTab !== 'sections';
+
       return (
         <MarkerView
           key={`sectionMarker-${overlay.id}`}
@@ -294,9 +306,15 @@ export function useMapLayers({
         >
           {hasValidMarkerPosition ? (
             <Pressable onPress={() => onSectionMarkerPress?.(overlay.id)} hitSlop={8}>
-              <View style={markerStyles.prMarker}>
-                <Text style={markerStyles.prMarkerText}>PR</Text>
-              </View>
+              {isPRMarker ? (
+                <View style={markerStyles.prMarker}>
+                  <Text style={markerStyles.prMarkerText}>PR</Text>
+                </View>
+              ) : (
+                <View style={markerStyles.numberedMarker}>
+                  <Text style={markerStyles.numberedMarkerText}>{index + 1}</Text>
+                </View>
+              )}
             </Pressable>
           ) : (
             <View />
@@ -304,7 +322,7 @@ export function useMapLayers({
         </MarkerView>
       );
     });
-  }, [sectionOverlaysGeoJSON, onSectionMarkerPress]);
+  }, [sectionOverlaysGeoJSON, onSectionMarkerPress, activeTab]);
 
   // ----- route coordinates in [lng, lat] for BaseMapView / Map3DWebView -----
   const routeCoords = useMemo(() => {
@@ -367,6 +385,27 @@ const markerStyles = StyleSheet.create({
     elevation: 4,
   },
   prMarkerText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  numberedMarker: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#00BCD4',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  numberedMarkerText: {
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '800',
