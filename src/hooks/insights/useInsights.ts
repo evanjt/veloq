@@ -174,7 +174,7 @@ export function useInsights(
               : ['Ride', 'Run'];
 
           for (const sport of sportTypes) {
-            const ranked = engine.getRankedSections(sport, 10);
+            const ranked = engine.getRankedSections(sport, 50);
             for (const rs of ranked) {
               if (!rs.sectionId) continue;
               // ML-ranked sections are already in relevance order; keep the

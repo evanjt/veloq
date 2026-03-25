@@ -176,7 +176,6 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   // Priority 2: FTP/Pace Milestones
   addFitnessMilestoneInsights(insights, data, now, t);
 
-  // Note: addSectionTrendInsights REMOVED — replaced by addSectionClusterInsights (no duplicates)
   // Note: addConsistencyInsights REMOVED — "Trained X of Y weeks" was a guilt trip
   // Note: addActivityPatternInsights REMOVED — pattern predictions shown in Today banner only
 
@@ -872,111 +871,6 @@ function addFitnessMilestoneInsights(
             description:
               'Compares your latest threshold pace estimation against previous values to detect improvement.',
           },
-        })
-      );
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Priority 3: Section trends (from k-means pattern engine)
-// ---------------------------------------------------------------------------
-
-function addSectionTrendInsights(
-  insights: Insight[],
-  sectionTrends: SectionTrendData[],
-  now: number,
-  t: TFunc
-): void {
-  if (!sectionTrends || sectionTrends.length === 0) return;
-
-  const improving = sectionTrends.filter((s) => s.trend === 1);
-  const stable = sectionTrends.filter((s) => s.trend === 0);
-  const total = sectionTrends.length;
-
-  const allSectionsSupportingData: InsightSupportingData = {
-    sections: sectionTrends.map((s) => ({
-      sectionId: s.sectionId,
-      sectionName: s.sectionName,
-      bestTime: s.bestTimeSecs,
-      trend: s.trend,
-      traversalCount: s.traversalCount,
-      sportType: s.sportType,
-    })),
-  };
-
-  const trendMethodology: InsightMethodology = {
-    name: 'Section trend analysis',
-    description: 'Tracks median performance on frequently visited sections over time.',
-  };
-
-  // Summary insight: show improving sections positively
-  if (total >= 2 && improving.length > 0) {
-    insights.push(
-      makeInsight({
-        id: 'section_trend-summary',
-        category: 'section_pr',
-        priority: 3,
-        icon: 'chart-timeline-variant-shimmer',
-        iconColor: '#66BB6A',
-        title: t('insights.sectionTrendSummary', {
-          improving: improving.length,
-          total,
-        }),
-        body: t('insights.sectionTrendSummaryBody', {
-          improving: improving.length,
-          stable: stable.length,
-          names: improving
-            .slice(0, 3)
-            .map((s) => s.sectionName)
-            .join(', '),
-        }),
-        navigationTarget: '/routes',
-        timestamp: now,
-        supportingData: allSectionsSupportingData,
-        methodology: trendMethodology,
-      })
-    );
-  }
-
-  // Individual section improving — only show when the summary card was NOT generated,
-  // to avoid displaying both "1 of N improving" and "Section X getting faster".
-  if (!(total >= 2 && improving.length > 0)) {
-    const topImproving = improving.sort((a, b) => b.traversalCount - a.traversalCount).slice(0, 1);
-
-    for (const section of topImproving) {
-      // Don't duplicate if we already have a PR insight for this section
-      if (insights.some((i) => i.id === `section_pr-${section.sectionId}`)) continue;
-
-      insights.push(
-        makeInsight({
-          id: `section_trend-improving-${section.sectionId}`,
-          category: 'section_pr',
-          priority: 3,
-          icon: 'trending-up',
-          iconColor: '#66BB6A',
-          title: t('insights.sectionImproving', { name: section.sectionName }),
-          body: t('insights.sectionImprovingBody', {
-            name: section.sectionName,
-            median: formatDuration(section.medianRecentSecs),
-            best: formatDuration(section.bestTimeSecs),
-            count: section.traversalCount,
-          }),
-          navigationTarget: `/section/${section.sectionId}`,
-          timestamp: now,
-          supportingData: {
-            sections: [
-              {
-                sectionId: section.sectionId,
-                sectionName: section.sectionName,
-                bestTime: section.bestTimeSecs,
-                trend: section.trend,
-                traversalCount: section.traversalCount,
-                sportType: section.sportType,
-              },
-            ],
-          },
-          methodology: trendMethodology,
         })
       );
     }
