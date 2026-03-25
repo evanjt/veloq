@@ -100,6 +100,7 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   Modal,
   StatusBar,
   Animated,
@@ -117,7 +118,7 @@ import {
   CircleLayer,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { decodePolyline, LatLng, getActivityColor, getSectionStyle } from '@/lib';
+import { decodePolyline, LatLng, getActivityColor, getSectionStyle, navigateTo } from '@/lib';
 import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { useSectionCreation } from '@/hooks/maps/useSectionCreation';
@@ -1225,9 +1226,11 @@ export const ActivityMapView = memo(function ActivityMapView({
                   coordinate={[centerLng, centerLat]}
                 >
                   {hasValidCenter ? (
-                    <View style={[styles.sectionNumberMarker, { borderColor: style.color }]}>
-                      <Text style={styles.sectionNumberText}>{index + 1}</Text>
-                    </View>
+                    <Pressable onPress={() => navigateTo(`/section/${overlay.id}`)} hitSlop={8}>
+                      <View style={[styles.sectionNumberMarker, { borderColor: style.color }]}>
+                        <Text style={styles.sectionNumberText}>{index + 1}</Text>
+                      </View>
+                    </Pressable>
                   ) : (
                     <View />
                   )}
