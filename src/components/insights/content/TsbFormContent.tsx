@@ -24,13 +24,9 @@ const CHART_PADDING = { top: 12, bottom: 24, left: 36, right: 12 };
 
 interface TsbFormContentProps {
   insight: Insight;
-  onClose: () => void;
 }
 
-export const TsbFormContent = React.memo(function TsbFormContent({
-  insight,
-  onClose,
-}: TsbFormContentProps) {
+export const TsbFormContent = React.memo(function TsbFormContent({ insight }: TsbFormContentProps) {
   const { isDark } = useTheme();
   const [chartWidth, setChartWidth] = useState(0);
   const onChartLayout = useCallback((e: LayoutChangeEvent) => {
@@ -133,7 +129,6 @@ export const TsbFormContent = React.memo(function TsbFormContent({
   }, [formData, chartWidth]);
 
   const handleViewFitness = () => {
-    onClose();
     navigateTo('/fitness');
   };
 

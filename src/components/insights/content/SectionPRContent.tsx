@@ -20,7 +20,6 @@ const ACCENT_COLOR = '#FC4C02';
 
 interface SectionPRContentProps {
   insight: Insight;
-  onClose: () => void;
 }
 
 /**
@@ -44,7 +43,6 @@ function findPreviousBest(
 
 export const SectionPRContent = React.memo(function SectionPRContent({
   insight,
-  onClose,
 }: SectionPRContentProps) {
   const { isDark } = useTheme();
   const sectionId = insight.supportingData?.sections?.[0]?.sectionId ?? null;
@@ -54,9 +52,8 @@ export const SectionPRContent = React.memo(function SectionPRContent({
   const handleSectionPress = useCallback(() => {
     if (sectionId) {
       navigateTo(`/section/${sectionId}`);
-      setTimeout(onClose, 100);
     }
-  }, [onClose, sectionId]);
+  }, [sectionId]);
 
   const prData = insight.supportingData?.sections?.[0];
   const bestTime = bestRecord?.bestTime ?? prData?.bestTime ?? null;
@@ -179,7 +176,7 @@ export const SectionPRContent = React.memo(function SectionPRContent({
 
       {/* Recent efforts list */}
       {!isLoading && records.length > 0 ? (
-        <RecentEffortsList records={records} bestRecord={bestRecord} onClose={onClose} />
+        <RecentEffortsList records={records} bestRecord={bestRecord} />
       ) : null}
 
       {/* Section link */}

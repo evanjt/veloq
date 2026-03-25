@@ -12,7 +12,6 @@ const MAX_EFFORTS = 5;
 interface RecentEffortsListProps {
   records: SectionPerformanceRecord[];
   bestRecord: SectionPerformanceRecord | null;
-  onClose: () => void;
 }
 
 /**
@@ -22,7 +21,6 @@ interface RecentEffortsListProps {
 export const RecentEffortsList = React.memo(function RecentEffortsList({
   records,
   bestRecord,
-  onClose,
 }: RecentEffortsListProps) {
   const { isDark } = useTheme();
 
@@ -33,13 +31,9 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
       .slice(0, MAX_EFFORTS);
   }, [records]);
 
-  const handlePress = useCallback(
-    (activityId: string) => {
-      navigateTo(`/activity/${activityId}`);
-      setTimeout(onClose, 100);
-    },
-    [onClose]
-  );
+  const handlePress = useCallback((activityId: string) => {
+    navigateTo(`/activity/${activityId}`);
+  }, []);
 
   if (recentEfforts.length === 0) return null;
 

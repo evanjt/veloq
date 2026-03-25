@@ -12,7 +12,6 @@ import type { Insight, SupportingSection } from '@/types';
 
 interface StalePRContentProps {
   insight: Insight;
-  onClose: () => void;
 }
 
 /** Map preview for the first section */
@@ -26,22 +25,15 @@ const TopSectionMap = React.memo(function TopSectionMap({ sectionId }: { section
  * Detail content for stale PR / opportunity insights.
  * Shows section map + FTP comparison data points + tappable section list.
  */
-export const StalePRContent = React.memo(function StalePRContent({
-  insight,
-  onClose,
-}: StalePRContentProps) {
+export const StalePRContent = React.memo(function StalePRContent({ insight }: StalePRContentProps) {
   const { isDark } = useTheme();
   const dataPoints = insight.supportingData?.dataPoints ?? [];
   const sections = insight.supportingData?.sections ?? [];
   const topSectionId = sections[0]?.sectionId ?? null;
 
-  const handleSectionPress = useCallback(
-    (id: string) => {
-      navigateTo(`/section/${id}`);
-      setTimeout(onClose, 100);
-    },
-    [onClose]
-  );
+  const handleSectionPress = useCallback((id: string) => {
+    navigateTo(`/section/${id}`);
+  }, []);
 
   return (
     <View style={styles.container}>

@@ -10,7 +10,6 @@ import { SupportingDataSection } from '../SupportingDataSection';
 
 interface EfficiencyTrendContentProps {
   insight: Insight;
-  onClose: () => void;
 }
 
 /**
@@ -20,7 +19,6 @@ interface EfficiencyTrendContentProps {
  */
 export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent({
   insight,
-  onClose,
 }: EfficiencyTrendContentProps) {
   const { isDark } = useTheme();
 
@@ -34,9 +32,8 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
 
   const handleSectionPress = useCallback(() => {
     if (!sectionId) return;
-    onClose();
     navigateTo(`/section/${sectionId}`);
-  }, [sectionId, onClose]);
+  }, [sectionId]);
 
   return (
     <View style={styles.container}>

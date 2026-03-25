@@ -15,24 +15,22 @@ import { SupportingDataSection } from '../SupportingDataSection';
 
 interface InsightDetailContentProps {
   insight: Insight;
-  onClose: () => void;
 }
 
 export const InsightDetailContent = React.memo(function InsightDetailContent({
   insight,
-  onClose,
 }: InsightDetailContentProps) {
   switch (insight.category) {
     case 'section_pr': {
       // Actual PRs start with 'section_pr-', trends/summaries start with 'section_trend-' or 'rest_day-'
       const isActualPR = insight.id.startsWith('section_pr-');
       if (isActualPR) {
-        return <SectionPRContent insight={insight} onClose={onClose} />;
+        return <SectionPRContent insight={insight} />;
       }
-      return <SectionTrendContent insight={insight} onClose={onClose} />;
+      return <SectionTrendContent insight={insight} />;
     }
     case 'tsb_form':
-      return <TsbFormContent insight={insight} onClose={onClose} />;
+      return <TsbFormContent insight={insight} />;
     case 'hrv_trend':
       return <HrvTrendContent insight={insight} />;
     case 'period_comparison':
@@ -44,11 +42,11 @@ export const InsightDetailContent = React.memo(function InsightDetailContent({
     case 'training_consistency':
       return <ConsistencyContent insight={insight} />;
     case 'stale_pr':
-      return <StalePRContent insight={insight} onClose={onClose} />;
+      return <StalePRContent insight={insight} />;
     case 'section_cluster':
-      return <SectionClusterContent insight={insight} onClose={onClose} />;
+      return <SectionClusterContent insight={insight} />;
     case 'efficiency_trend':
-      return <EfficiencyTrendContent insight={insight} onClose={onClose} />;
+      return <EfficiencyTrendContent insight={insight} />;
     default:
       // Fallback: render existing SupportingDataSection for unhandled categories
       if (insight.supportingData) {

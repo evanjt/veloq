@@ -27,9 +27,8 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   const handleNavigate = useCallback(() => {
     if (insight?.navigationTarget) {
       navigateTo(insight.navigationTarget);
-      setTimeout(onClose, 100);
     }
-  }, [insight?.navigationTarget, onClose]);
+  }, [insight?.navigationTarget]);
 
   if (!insight) return null;
 
@@ -96,7 +95,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 
           {/* Category-specific content */}
           <View style={styles.contentSection}>
-            <InsightDetailContent insight={insight} onClose={onClose} />
+            <InsightDetailContent insight={insight} />
           </View>
 
           {/* Methodology transparency */}

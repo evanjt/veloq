@@ -10,7 +10,6 @@ import type { Insight, SupportingSection } from '@/types';
 
 interface SectionClusterContentProps {
   insight: Insight;
-  onClose: () => void;
 }
 
 function getTrendIcon(trend?: number): string {
@@ -33,18 +32,13 @@ function getTrendColor(trend?: number, isDark?: boolean): string {
  */
 export const SectionClusterContent = React.memo(function SectionClusterContent({
   insight,
-  onClose,
 }: SectionClusterContentProps) {
   const { isDark } = useTheme();
   const sections = insight.supportingData?.sections ?? [];
 
-  const handleSectionPress = useCallback(
-    (sectionId: string) => {
-      onClose();
-      navigateTo(`/section/${sectionId}`);
-    },
-    [onClose]
-  );
+  const handleSectionPress = useCallback((sectionId: string) => {
+    navigateTo(`/section/${sectionId}`);
+  }, []);
 
   if (sections.length === 0) return null;
 

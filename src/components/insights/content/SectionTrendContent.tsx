@@ -31,16 +31,13 @@ function getTrendColor(trend?: number, isDark?: boolean): string {
 
 interface SectionTrendContentProps {
   insight: Insight;
-  onClose: () => void;
 }
 
 /** Map + timeline chart for the top section */
 const TopSectionDetail = React.memo(function TopSectionDetail({
   sectionId,
-  onClose,
 }: {
   sectionId: string;
-  onClose: () => void;
 }) {
   const { isDark } = useTheme();
   const { section } = useSectionDetail(sectionId);
@@ -78,7 +75,7 @@ const TopSectionDetail = React.memo(function TopSectionDetail({
 
       {/* Recent efforts list */}
       {!isLoading && records.length > 0 ? (
-        <RecentEffortsList records={records} bestRecord={bestRecord} onClose={onClose} />
+        <RecentEffortsList records={records} bestRecord={bestRecord} />
       ) : null}
     </View>
   );
@@ -108,26 +105,21 @@ const detailStyles = StyleSheet.create({
 
 export const SectionTrendContent = React.memo(function SectionTrendContent({
   insight,
-  onClose,
 }: SectionTrendContentProps) {
   const { isDark } = useTheme();
   const sections = insight.supportingData?.sections ?? [];
   const topSectionId = sections[0]?.sectionId ?? null;
 
-  const handleSectionPress = useCallback(
-    (sectionId: string) => {
-      navigateTo(`/section/${sectionId}`);
-      setTimeout(onClose, 100);
-    },
-    [onClose]
-  );
+  const handleSectionPress = useCallback((sectionId: string) => {
+    navigateTo(`/section/${sectionId}`);
+  }, []);
 
   if (sections.length === 0) return null;
 
   return (
     <View style={styles.container}>
       {/* Top section: map + chart + recent efforts */}
-      {topSectionId ? <TopSectionDetail sectionId={topSectionId} onClose={onClose} /> : null}
+      {topSectionId ? <TopSectionDetail sectionId={topSectionId} /> : null}
 
       {/* Section list */}
       {sections.map((section: SupportingSection) => (
