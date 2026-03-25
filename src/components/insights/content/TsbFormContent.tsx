@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, Pressable, Dimensions } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
@@ -17,10 +17,10 @@ import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_BOUNDARIES } from '@/lib/algor
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import { ChartErrorBoundary } from '@/components/ui';
 import type { Insight } from '@/types';
+import type { LayoutChangeEvent } from 'react-native';
 
 const CHART_HEIGHT = 160;
 const CHART_PADDING = { top: 12, bottom: 24, left: 36, right: 12 };
-const CHART_WIDTH = Dimensions.get('window').width - spacing.lg * 4;
 
 interface TsbFormContentProps {
   insight: Insight;
@@ -32,6 +32,10 @@ export const TsbFormContent = React.memo(function TsbFormContent({
   onClose,
 }: TsbFormContentProps) {
   const { isDark } = useTheme();
+  const [chartWidth, setChartWidth] = useState(0);
+  const onChartLayout = useCallback((e: LayoutChangeEvent) => {
+    setChartWidth(e.nativeEvent.layout.width);
+  }, []);
   const { data: wellnessData } = useWellness('1m');
 
   // Extract CTL/ATL/TSB arrays from wellness
@@ -73,7 +77,7 @@ export const TsbFormContent = React.memo(function TsbFormContent({
 
   // Chart data: TSB line with zone-colored background bands
   const chartPaths = useMemo(() => {
-    if (formData.length < 2) return null;
+    if (formData.length < 2 || chartWidth <= 0) return null;
 
     const allVals = formData;
     const min = Math.min(...allVals, -35);
@@ -83,7 +87,7 @@ export const TsbFormContent = React.memo(function TsbFormContent({
     const padMax = max + range * 0.05;
     const yRange = padMax - padMin;
 
-    const drawW = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right;
+    const drawW = chartWidth - CHART_PADDING.left - CHART_PADDING.right;
     const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
 
     const toY = (v: number) => CHART_PADDING.top + drawH - ((v - padMin) / yRange) * drawH;
@@ -126,7 +130,7 @@ export const TsbFormContent = React.memo(function TsbFormContent({
     }
 
     return { tsbPath, areaPath, zones, ticks, yMin: padMin, yMax: padMax, toY, zeroY };
-  }, [formData]);
+  }, [formData, chartWidth]);
 
   const handleViewFitness = () => {
     onClose();
@@ -166,50 +170,57 @@ export const TsbFormContent = React.memo(function TsbFormContent({
             <Text style={[styles.chartLabel, isDark && styles.chartLabelDark]}>
               30-day form (TSB)
             </Text>
-            <View style={styles.chartWrapper}>
-              <Canvas style={{ width: CHART_WIDTH, height: CHART_HEIGHT }}>
-                {/* Zone background bands */}
-                {chartPaths.zones.map((z, i) => (
-                  <Rect
-                    key={`zone-${i}`}
-                    x={CHART_PADDING.left}
-                    y={z.y}
-                    width={CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right}
-                    height={z.height}
-                    color={z.color}
-                  />
-                ))}
-                {/* Horizontal grid lines */}
-                {chartPaths.ticks.map((tick, i) => {
-                  const y = chartPaths.toY(tick);
-                  return (
-                    <SkiaLine
-                      key={`grid-${i}`}
-                      p1={vec(CHART_PADDING.left, y)}
-                      p2={vec(CHART_WIDTH - CHART_PADDING.right, y)}
-                      color={gridColor}
-                      strokeWidth={1}
+            <View style={styles.chartWrapper} onLayout={onChartLayout}>
+              {chartWidth > 0 ? (
+                <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
+                  {/* Zone background bands */}
+                  {chartPaths.zones.map((z, i) => (
+                    <Rect
+                      key={`zone-${i}`}
+                      x={CHART_PADDING.left}
+                      y={z.y}
+                      width={chartWidth - CHART_PADDING.left - CHART_PADDING.right}
+                      height={z.height}
+                      color={z.color}
                     />
-                  );
-                })}
-                {/* Zero line */}
-                <SkiaLine
-                  p1={vec(CHART_PADDING.left, chartPaths.zeroY)}
-                  p2={vec(CHART_WIDTH - CHART_PADDING.right, chartPaths.zeroY)}
-                  color={isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'}
-                  strokeWidth={1}
-                />
-                {/* TSB area fill */}
-                <Path path={chartPaths.areaPath} style="fill">
-                  <LinearGradient
-                    start={vec(0, CHART_PADDING.top)}
-                    end={vec(0, CHART_HEIGHT - CHART_PADDING.bottom)}
-                    colors={[`${zoneColor}25`, `${zoneColor}05`]}
+                  ))}
+                  {/* Horizontal grid lines */}
+                  {chartPaths.ticks.map((tick, i) => {
+                    const y = chartPaths.toY(tick);
+                    return (
+                      <SkiaLine
+                        key={`grid-${i}`}
+                        p1={vec(CHART_PADDING.left, y)}
+                        p2={vec(chartWidth - CHART_PADDING.right, y)}
+                        color={gridColor}
+                        strokeWidth={1}
+                      />
+                    );
+                  })}
+                  {/* Zero line */}
+                  <SkiaLine
+                    p1={vec(CHART_PADDING.left, chartPaths.zeroY)}
+                    p2={vec(chartWidth - CHART_PADDING.right, chartPaths.zeroY)}
+                    color={isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'}
+                    strokeWidth={1}
                   />
-                </Path>
-                {/* TSB line */}
-                <Path path={chartPaths.tsbPath} style="stroke" strokeWidth={2} color={zoneColor} />
-              </Canvas>
+                  {/* TSB area fill */}
+                  <Path path={chartPaths.areaPath} style="fill">
+                    <LinearGradient
+                      start={vec(0, CHART_PADDING.top)}
+                      end={vec(0, CHART_HEIGHT - CHART_PADDING.bottom)}
+                      colors={[`${zoneColor}25`, `${zoneColor}05`]}
+                    />
+                  </Path>
+                  {/* TSB line */}
+                  <Path
+                    path={chartPaths.tsbPath}
+                    style="stroke"
+                    strokeWidth={2}
+                    color={zoneColor}
+                  />
+                </Canvas>
+              ) : null}
 
               {/* Y-axis labels */}
               {chartPaths.ticks.map((tick, i) => {
@@ -361,7 +372,6 @@ const styles = StyleSheet.create({
   },
   chartWrapper: {
     position: 'relative',
-    width: CHART_WIDTH,
     height: CHART_HEIGHT,
   },
   axisLabel: {

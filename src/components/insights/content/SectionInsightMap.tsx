@@ -1,15 +1,14 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Canvas, Path, Circle } from '@shopify/react-native-skia';
 import { useTheme } from '@/hooks';
 import { colors, spacing, opacity } from '@/theme';
 import { ChartErrorBoundary } from '@/components/ui';
 import type { RoutePoint } from '@/types';
+import type { LayoutChangeEvent } from 'react-native';
 
 const MAP_HEIGHT = 150;
 const MAP_PADDING = 16;
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const MAP_WIDTH = SCREEN_WIDTH - spacing.lg * 4;
 
 interface SectionInsightMapProps {
   polyline: RoutePoint[];
@@ -27,9 +26,13 @@ export const SectionInsightMap = React.memo(function SectionInsightMap({
   lineColor = colors.primary,
 }: SectionInsightMapProps) {
   const { isDark } = useTheme();
+  const [mapWidth, setMapWidth] = useState(0);
+  const onMapLayout = useCallback((e: LayoutChangeEvent) => {
+    setMapWidth(e.nativeEvent.layout.width);
+  }, []);
 
   const { linePath, startPoint, endPoint } = useMemo(() => {
-    if (polyline.length < 2) {
+    if (polyline.length < 2 || mapWidth <= 0) {
       return { linePath: '', startPoint: null, endPoint: null };
     }
 
@@ -54,7 +57,7 @@ export const SectionInsightMap = React.memo(function SectionInsightMap({
     const latCos = Math.cos((midLat * Math.PI) / 180);
 
     // Compute aspect ratio and fit to available area
-    const drawW = MAP_WIDTH - MAP_PADDING * 2;
+    const drawW = mapWidth - MAP_PADDING * 2;
     const drawH = MAP_HEIGHT - MAP_PADDING * 2;
     const dataAspect = (lngRange * latCos) / latRange;
     const viewAspect = drawW / drawH;
@@ -98,7 +101,7 @@ export const SectionInsightMap = React.memo(function SectionInsightMap({
       startPoint: { x: toX(first.lng), y: toY(first.lat) },
       endPoint: { x: toX(last.lng), y: toY(last.lat) },
     };
-  }, [polyline]);
+  }, [polyline, mapWidth]);
 
   if (polyline.length < 2 || !linePath) return null;
 
@@ -106,41 +109,43 @@ export const SectionInsightMap = React.memo(function SectionInsightMap({
 
   return (
     <ChartErrorBoundary height={MAP_HEIGHT}>
-      <View style={[styles.container, { backgroundColor: bgColor }]}>
-        <Canvas style={{ width: MAP_WIDTH, height: MAP_HEIGHT }}>
-          {/* Route line shadow */}
-          <Path
-            path={linePath}
-            style="stroke"
-            strokeWidth={5}
-            color={isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.12)'}
-            strokeCap="round"
-            strokeJoin="round"
-          />
-          {/* Route line */}
-          <Path
-            path={linePath}
-            style="stroke"
-            strokeWidth={3}
-            color={lineColor}
-            strokeCap="round"
-            strokeJoin="round"
-          />
-          {/* Start point */}
-          {startPoint && (
-            <>
-              <Circle cx={startPoint.x} cy={startPoint.y} r={5} color={lineColor} />
-              <Circle cx={startPoint.x} cy={startPoint.y} r={3} color="#FFFFFF" />
-            </>
-          )}
-          {/* End point */}
-          {endPoint && (
-            <>
-              <Circle cx={endPoint.x} cy={endPoint.y} r={5} color={lineColor} />
-              <Circle cx={endPoint.x} cy={endPoint.y} r={2} color="#FFFFFF" />
-            </>
-          )}
-        </Canvas>
+      <View style={[styles.container, { backgroundColor: bgColor }]} onLayout={onMapLayout}>
+        {mapWidth > 0 ? (
+          <Canvas style={{ width: mapWidth, height: MAP_HEIGHT }}>
+            {/* Route line shadow */}
+            <Path
+              path={linePath}
+              style="stroke"
+              strokeWidth={5}
+              color={isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.12)'}
+              strokeCap="round"
+              strokeJoin="round"
+            />
+            {/* Route line */}
+            <Path
+              path={linePath}
+              style="stroke"
+              strokeWidth={3}
+              color={lineColor}
+              strokeCap="round"
+              strokeJoin="round"
+            />
+            {/* Start point */}
+            {startPoint && (
+              <>
+                <Circle cx={startPoint.x} cy={startPoint.y} r={5} color={lineColor} />
+                <Circle cx={startPoint.x} cy={startPoint.y} r={3} color="#FFFFFF" />
+              </>
+            )}
+            {/* End point */}
+            {endPoint && (
+              <>
+                <Circle cx={endPoint.x} cy={endPoint.y} r={5} color={lineColor} />
+                <Circle cx={endPoint.x} cy={endPoint.y} r={2} color="#FFFFFF" />
+              </>
+            )}
+          </Canvas>
+        ) : null}
       </View>
     </ChartErrorBoundary>
   );

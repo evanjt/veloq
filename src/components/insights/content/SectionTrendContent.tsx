@@ -48,6 +48,16 @@ const TopSectionDetail = React.memo(function TopSectionDetail({
 
   return (
     <View style={detailStyles.container}>
+      {/* Section name */}
+      {section?.name ? (
+        <Text
+          style={[detailStyles.topSectionName, isDark && detailStyles.topSectionNameDark]}
+          numberOfLines={2}
+        >
+          {section.name}
+        </Text>
+      ) : null}
+
       {/* Section map */}
       {section?.polyline && section.polyline.length >= 2 ? (
         <SectionInsightMap polyline={section.polyline} lineColor={colors.success} />
@@ -78,6 +88,14 @@ const detailStyles = StyleSheet.create({
   container: {
     gap: spacing.sm,
   },
+  topSectionName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  topSectionNameDark: {
+    color: darkColors.textPrimary,
+  },
   shimmerCard: {
     backgroundColor: opacity.overlay.subtle,
     borderRadius: 10,
@@ -98,8 +116,8 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
 
   const handleSectionPress = useCallback(
     (sectionId: string) => {
-      onClose();
       navigateTo(`/section/${sectionId}`);
+      setTimeout(onClose, 100);
     },
     [onClose]
   );

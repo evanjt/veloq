@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Canvas, Path, LinearGradient, vec, Line as SkiaLine } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,10 +7,10 @@ import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import { ChartErrorBoundary } from '@/components/ui';
 import type { Insight } from '@/types';
+import type { LayoutChangeEvent } from 'react-native';
 
 const CHART_HEIGHT = 140;
 const CHART_PADDING = { top: 12, bottom: 24, left: 36, right: 12 };
-const CHART_WIDTH = Dimensions.get('window').width - spacing.lg * 4;
 
 function buildPath(
   data: number[],
@@ -58,6 +58,11 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
   insight,
 }: HrvTrendContentProps) {
   const { isDark } = useTheme();
+  const [chartWidth, setChartWidth] = useState(0);
+
+  const onChartLayout = useCallback((e: LayoutChangeEvent) => {
+    setChartWidth(e.nativeEvent.layout.width);
+  }, []);
 
   const sparklineData = insight.supportingData?.sparklineData;
   const avgPoint = insight.supportingData?.dataPoints?.find(
@@ -77,7 +82,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
   const trendColor = insight.iconColor;
 
   const { linePath, areaPath, yMin, yMax, yTicks } = useMemo(() => {
-    if (!sparklineData || sparklineData.length < 2) {
+    if (!sparklineData || sparklineData.length < 2 || chartWidth <= 0) {
       return { linePath: '', areaPath: '', yMin: 0, yMax: 100, yTicks: [] };
     }
     const min = Math.min(...sparklineData);
@@ -86,13 +91,13 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
     const padded = { min: min - range * 0.1, max: max + range * 0.1 };
     const lp = buildPath(
       sparklineData,
-      CHART_WIDTH,
+      chartWidth,
       CHART_HEIGHT,
       CHART_PADDING,
       padded.min,
       padded.max
     );
-    const ap = buildAreaPath(lp, sparklineData, CHART_WIDTH, CHART_HEIGHT, CHART_PADDING);
+    const ap = buildAreaPath(lp, sparklineData, chartWidth, CHART_HEIGHT, CHART_PADDING);
 
     // Y-axis ticks: 3-4 evenly spaced values
     const tickCount = 3;
@@ -100,7 +105,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
     const ticks = Array.from({ length: tickCount }, (_, i) => Math.round(min + i * step));
 
     return { linePath: lp, areaPath: ap, yMin: padded.min, yMax: padded.max, yTicks: ticks };
-  }, [sparklineData]);
+  }, [sparklineData, chartWidth]);
 
   const textMuted = isDark ? darkColors.textMuted : colors.textMuted;
   const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
@@ -138,34 +143,36 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
                 {insight.supportingData.sparklineLabel}
               </Text>
             ) : null}
-            <View style={styles.chartWrapper}>
-              <Canvas style={{ width: CHART_WIDTH, height: CHART_HEIGHT }}>
-                {/* Horizontal grid lines */}
-                {yTicks.map((tick, i) => {
-                  const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
-                  const yRange = yMax - yMin || 1;
-                  const y = CHART_PADDING.top + drawH - ((tick - yMin) / yRange) * drawH;
-                  return (
-                    <SkiaLine
-                      key={`grid-${i}`}
-                      p1={vec(CHART_PADDING.left, y)}
-                      p2={vec(CHART_WIDTH - CHART_PADDING.right, y)}
-                      color={gridColor}
-                      strokeWidth={1}
+            <View style={styles.chartWrapper} onLayout={onChartLayout}>
+              {chartWidth > 0 ? (
+                <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
+                  {/* Horizontal grid lines */}
+                  {yTicks.map((tick, i) => {
+                    const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
+                    const yRange = yMax - yMin || 1;
+                    const y = CHART_PADDING.top + drawH - ((tick - yMin) / yRange) * drawH;
+                    return (
+                      <SkiaLine
+                        key={`grid-${i}`}
+                        p1={vec(CHART_PADDING.left, y)}
+                        p2={vec(chartWidth - CHART_PADDING.right, y)}
+                        color={gridColor}
+                        strokeWidth={1}
+                      />
+                    );
+                  })}
+                  {/* Area fill */}
+                  <Path path={areaPath} style="fill">
+                    <LinearGradient
+                      start={vec(0, CHART_PADDING.top)}
+                      end={vec(0, CHART_HEIGHT - CHART_PADDING.bottom)}
+                      colors={[`${trendColor}30`, `${trendColor}05`]}
                     />
-                  );
-                })}
-                {/* Area fill */}
-                <Path path={areaPath} style="fill">
-                  <LinearGradient
-                    start={vec(0, CHART_PADDING.top)}
-                    end={vec(0, CHART_HEIGHT - CHART_PADDING.bottom)}
-                    colors={[`${trendColor}30`, `${trendColor}05`]}
-                  />
-                </Path>
-                {/* Line */}
-                <Path path={linePath} style="stroke" strokeWidth={2} color={trendColor} />
-              </Canvas>
+                  </Path>
+                  {/* Line */}
+                  <Path path={linePath} style="stroke" strokeWidth={2} color={trendColor} />
+                </Canvas>
+              ) : null}
 
               {/* Y-axis labels */}
               {yTicks.map((tick, i) => {
@@ -284,7 +291,6 @@ const styles = StyleSheet.create({
   },
   chartWrapper: {
     position: 'relative',
-    width: CHART_WIDTH,
     height: CHART_HEIGHT,
   },
   axisLabel: {

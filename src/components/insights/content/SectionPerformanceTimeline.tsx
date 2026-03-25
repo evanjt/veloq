@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   Canvas,
@@ -14,11 +14,10 @@ import { formatDuration, formatShortDate } from '@/lib';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import { ChartErrorBoundary } from '@/components/ui';
 import type { SectionPerformanceRecord } from '@/hooks/routes/useSectionPerformances';
+import type { LayoutChangeEvent } from 'react-native';
 
 const CHART_HEIGHT = 160;
 const CHART_PADDING = { top: 12, bottom: 24, left: 42, right: 12 };
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const CHART_WIDTH = SCREEN_WIDTH - spacing.lg * 4;
 
 interface SectionPerformanceTimelineProps {
   records: SectionPerformanceRecord[];
@@ -38,6 +37,10 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
   lineColor = colors.primary,
 }: SectionPerformanceTimelineProps) {
   const { isDark } = useTheme();
+  const [chartWidth, setChartWidth] = useState(0);
+  const onChartLayout = useCallback((e: LayoutChangeEvent) => {
+    setChartWidth(e.nativeEvent.layout.width);
+  }, []);
 
   // Sort records chronologically
   const sorted = useMemo(
@@ -57,7 +60,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
         yTicks: [] as number[],
         xLabels: [] as { x: number; label: string }[],
       };
-      if (sorted.length < 2) return empty;
+      if (sorted.length < 2 || chartWidth <= 0) return empty;
 
       const times = sorted.map((r) => r.bestTime);
       const minTime = Math.min(...times);
@@ -67,7 +70,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
       const paddedMax = maxTime + range * 0.1;
       const yRange = paddedMax - paddedMin;
 
-      const drawW = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right;
+      const drawW = chartWidth - CHART_PADDING.left - CHART_PADDING.right;
       const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
 
       // Map data to pixel positions
@@ -125,7 +128,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
         yTicks: ticks,
         xLabels: labels,
       };
-    }, [sorted, bestRecord]);
+    }, [sorted, bestRecord, chartWidth]);
 
   if (sorted.length < 2 || !linePath) return null;
 
@@ -141,69 +144,71 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
         <Text style={[styles.chartLabel, isDark && styles.chartLabelDark]}>
           All efforts ({records.length})
         </Text>
-        <View style={styles.chartWrapper}>
-          <Canvas style={{ width: CHART_WIDTH, height: CHART_HEIGHT }}>
-            {/* Horizontal grid lines */}
-            {yTicks.map((tick, i) => {
-              const y = CHART_PADDING.top + ((tick - yMin) / yRange) * drawH;
-              return (
-                <SkiaLine
-                  key={`grid-${i}`}
-                  p1={vec(CHART_PADDING.left, y)}
-                  p2={vec(CHART_WIDTH - CHART_PADDING.right, y)}
-                  color={gridColor}
-                  strokeWidth={1}
+        <View style={styles.chartWrapper} onLayout={onChartLayout}>
+          {chartWidth > 0 ? (
+            <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
+              {/* Horizontal grid lines */}
+              {yTicks.map((tick, i) => {
+                const y = CHART_PADDING.top + ((tick - yMin) / yRange) * drawH;
+                return (
+                  <SkiaLine
+                    key={`grid-${i}`}
+                    p1={vec(CHART_PADDING.left, y)}
+                    p2={vec(chartWidth - CHART_PADDING.right, y)}
+                    color={gridColor}
+                    strokeWidth={1}
+                  />
+                );
+              })}
+              {/* Area fill */}
+              <Path path={areaPath} style="fill">
+                <LinearGradient
+                  start={vec(0, CHART_PADDING.top)}
+                  end={vec(0, CHART_HEIGHT - CHART_PADDING.bottom)}
+                  colors={[`${lineColor}25`, `${lineColor}05`]}
                 />
-              );
-            })}
-            {/* Area fill */}
-            <Path path={areaPath} style="fill">
-              <LinearGradient
-                start={vec(0, CHART_PADDING.top)}
-                end={vec(0, CHART_HEIGHT - CHART_PADDING.bottom)}
-                colors={[`${lineColor}25`, `${lineColor}05`]}
+              </Path>
+              {/* Line */}
+              <Path
+                path={linePath}
+                style="stroke"
+                strokeWidth={2}
+                color={lineColor}
+                strokeCap="round"
+                strokeJoin="round"
               />
-            </Path>
-            {/* Line */}
-            <Path
-              path={linePath}
-              style="stroke"
-              strokeWidth={2}
-              color={lineColor}
-              strokeCap="round"
-              strokeJoin="round"
-            />
-            {/* Scatter dots */}
-            {pointPositions.map((p, i) =>
-              i === bestPointIdx ? null : (
-                <Circle key={`dot-${i}`} cx={p.x} cy={p.y} r={3} color={dotColor} />
-              )
-            )}
-            {/* Best record highlight */}
-            {bestPointIdx >= 0 && pointPositions[bestPointIdx] && (
-              <>
-                <Circle
-                  cx={pointPositions[bestPointIdx].x}
-                  cy={pointPositions[bestPointIdx].y}
-                  r={7}
-                  color="#FFB300"
-                  opacity={0.3}
-                />
-                <Circle
-                  cx={pointPositions[bestPointIdx].x}
-                  cy={pointPositions[bestPointIdx].y}
-                  r={5}
-                  color="#FFB300"
-                />
-                <Circle
-                  cx={pointPositions[bestPointIdx].x}
-                  cy={pointPositions[bestPointIdx].y}
-                  r={2.5}
-                  color="#FFFFFF"
-                />
-              </>
-            )}
-          </Canvas>
+              {/* Scatter dots */}
+              {pointPositions.map((p, i) =>
+                i === bestPointIdx ? null : (
+                  <Circle key={`dot-${i}`} cx={p.x} cy={p.y} r={3} color={dotColor} />
+                )
+              )}
+              {/* Best record highlight */}
+              {bestPointIdx >= 0 && pointPositions[bestPointIdx] && (
+                <>
+                  <Circle
+                    cx={pointPositions[bestPointIdx].x}
+                    cy={pointPositions[bestPointIdx].y}
+                    r={7}
+                    color="#FFB300"
+                    opacity={0.3}
+                  />
+                  <Circle
+                    cx={pointPositions[bestPointIdx].x}
+                    cy={pointPositions[bestPointIdx].y}
+                    r={5}
+                    color="#FFB300"
+                  />
+                  <Circle
+                    cx={pointPositions[bestPointIdx].x}
+                    cy={pointPositions[bestPointIdx].y}
+                    r={2.5}
+                    color="#FFFFFF"
+                  />
+                </>
+              )}
+            </Canvas>
+          ) : null}
 
           {/* Y-axis labels (time values) — faster at bottom, slower at top */}
           {yTicks.map((tick, i) => {
@@ -261,7 +266,6 @@ const styles = StyleSheet.create({
   },
   chartWrapper: {
     position: 'relative',
-    width: CHART_WIDTH,
     height: CHART_HEIGHT,
   },
   axisLabel: {
