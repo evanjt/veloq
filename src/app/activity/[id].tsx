@@ -24,6 +24,7 @@ import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
 import { useSectionMatches, type SectionMatch } from '@/hooks/routes/useSectionMatches';
 import {
   ActivityHeader,
+  ActivitySections,
   ActivityChartsSection,
   ActivityRoutesSection,
   ActivitySectionsSection,
@@ -445,6 +446,9 @@ export default function ActivityDetailScreen() {
           </Text>
         </View>
       ) : null}
+
+      {/* Section traversals with PR badges */}
+      <ActivitySections activityId={id} isDark={isDark} isMetric={isMetric} />
 
       {/* Swipeable Tabs: Charts, Routes, Sections */}
       <SwipeableTabs

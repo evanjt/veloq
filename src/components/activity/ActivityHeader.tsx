@@ -103,7 +103,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
             onCreationCancelled={onCreationCancelled}
             onCreationErrorDismiss={onCreationErrorDismiss}
             routeOverlay={activeTab === 'routes' ? routeOverlayCoordinates : null}
-            sectionOverlays={activeTab === 'sections' ? sectionOverlays : null}
+            sectionOverlays={sectionOverlays}
             highlightedSectionId={activeTab === 'sections' ? highlightedSectionId : null}
           />
         </ComponentErrorBoundary>

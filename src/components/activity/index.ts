@@ -11,6 +11,7 @@ export { IntervalsTable } from './IntervalsTable';
 export { SkylineBar } from './SkylineBar';
 export { InsightfulStats } from './stats';
 export { ActivityHeader } from './ActivityHeader';
+export { ActivitySections } from './ActivitySections';
 export { ActivityChartsSection } from './ActivityChartsSection';
 export { ActivityRoutesSection } from './ActivityRoutesSection';
 export { ActivitySectionsSection } from './ActivitySectionsSection';

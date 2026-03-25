@@ -47,8 +47,9 @@ export function useSectionOverlays(
   );
 
   // Compute activity traces using Rust engine's extractSectionTrace
+  // Always compute traces (not just on sections tab) so overlays show on the map immediately
   useEffect(() => {
-    if (activeTab !== 'sections' || !activityId) {
+    if (!activityId) {
       return;
     }
 
@@ -100,11 +101,10 @@ export function useSectionOverlays(
     setComputedActivityTraces(traces);
     // Use stable string IDs instead of array references to prevent infinite loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, activityId, engineSectionIds, customSectionIds]);
+  }, [activityId, engineSectionIds, customSectionIds]);
 
-  // Build section overlays when on Sections tab
+  // Build section overlays for map display (always computed, shown on all tabs)
   const sectionOverlays = useMemo((): SectionOverlay[] | null => {
-    if (activeTab !== 'sections') return null;
     if (!engineSectionMatches.length && !customMatchedSections.length) return null;
     if (coordinates.length === 0) return null;
 
@@ -213,7 +213,6 @@ export function useSectionOverlays(
 
     return overlays;
   }, [
-    activeTab,
     engineSectionMatches,
     customMatchedSections,
     coordinates,
