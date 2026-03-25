@@ -448,7 +448,7 @@ export default function ActivityDetailScreen() {
       ) : null}
 
       {/* Section traversals with PR badges */}
-      <ActivitySections activityId={id} isDark={isDark} isMetric={isMetric} />
+      <ActivitySections activityId={id} isDark={isDark} />
 
       {/* Swipeable Tabs: Charts, Routes, Sections */}
       <SwipeableTabs
