@@ -118,7 +118,7 @@ import {
   CircleLayer,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { decodePolyline, LatLng, getActivityColor, getSectionStyle, navigateTo } from '@/lib';
+import { decodePolyline, LatLng, getActivityColor } from '@/lib';
 import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { useSectionCreation } from '@/hooks/maps/useSectionCreation';
@@ -222,6 +222,8 @@ export interface SectionOverlay {
   sectionPolyline: LatLng[];
   /** Activity's trace portion that overlaps with this section */
   activityPortion?: LatLng[];
+  /** Whether the current activity holds the PR for this section */
+  isPR?: boolean;
 }
 
 // Re-export SectionCreationError for consumers
@@ -278,6 +280,8 @@ interface ActivityMapViewProps {
   sectionOverlays?: SectionOverlay[] | null;
   /** Section ID to highlight (dims other sections when set) */
   highlightedSectionId?: string | null;
+  /** Called when a section marker is tapped on the map */
+  onSectionMarkerPress?: (sectionId: string) => void;
   /** Called when user exits 3D mode with a custom camera position */
   onCameraCapture?: (camera: {
     center: [number, number];
@@ -319,6 +323,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   routeOverlay,
   sectionOverlays,
   highlightedSectionId,
+  onSectionMarkerPress,
   onCameraCapture,
   initial3DCamera,
   country,
@@ -413,6 +418,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     routeOverlay,
     sectionOverlays,
     highlightIndex,
+    onSectionMarkerPress,
   });
 
   // Section creation hook
@@ -1190,53 +1196,53 @@ export const ActivityMapView = memo(function ActivityMapView({
             />
           </ShapeSource>
 
-          {/* Numbered markers at center of each section in fullscreen */}
+          {/* PR markers at center of each PR section in fullscreen */}
           {/* CRITICAL: Always render ALL markers - never return null to avoid iOS Fabric crash */}
           {/* iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207) */}
           {sectionOverlaysGeoJSON &&
-            sectionOverlaysGeoJSON.map((overlay, index) => {
-              const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
-              const coords = sectionGeom?.coordinates;
-              const hasValidCoords = coords && coords.length > 0;
+            sectionOverlaysGeoJSON
+              .filter((overlay) => overlay.isPR)
+              .map((overlay) => {
+                const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
+                const coords = sectionGeom?.coordinates;
+                const hasValidCoords = coords && coords.length > 0;
 
-              // Calculate center coordinate, default to [0,0] if invalid
-              let centerLng = 0;
-              let centerLat = 0;
-              let hasValidCenter = false;
+                // Calculate center coordinate, default to [0,0] if invalid
+                let centerLng = 0;
+                let centerLat = 0;
+                let hasValidCenter = false;
 
-              if (hasValidCoords) {
-                const midIndex = Math.floor(coords.length / 2);
-                const centerCoord = coords[midIndex];
-                if (
-                  centerCoord &&
-                  Number.isFinite(centerCoord[0]) &&
-                  Number.isFinite(centerCoord[1])
-                ) {
-                  centerLng = centerCoord[0];
-                  centerLat = centerCoord[1];
-                  hasValidCenter = true;
+                if (hasValidCoords) {
+                  const midIndex = Math.floor(coords.length / 2);
+                  const centerCoord = coords[midIndex];
+                  if (
+                    centerCoord &&
+                    Number.isFinite(centerCoord[0]) &&
+                    Number.isFinite(centerCoord[1])
+                  ) {
+                    centerLng = centerCoord[0];
+                    centerLat = centerCoord[1];
+                    hasValidCenter = true;
+                  }
                 }
-              }
 
-              const style = getSectionStyle(index);
-
-              return (
-                <MarkerView
-                  key={`fs-sectionMarker-${overlay.id}`}
-                  coordinate={[centerLng, centerLat]}
-                >
-                  {hasValidCenter ? (
-                    <Pressable onPress={() => navigateTo(`/section/${overlay.id}`)} hitSlop={8}>
-                      <View style={[styles.sectionNumberMarker, { borderColor: style.color }]}>
-                        <Text style={styles.sectionNumberText}>{index + 1}</Text>
-                      </View>
-                    </Pressable>
-                  ) : (
-                    <View />
-                  )}
-                </MarkerView>
-              );
-            })}
+                return (
+                  <MarkerView
+                    key={`fs-sectionMarker-${overlay.id}`}
+                    coordinate={[centerLng, centerLat]}
+                  >
+                    {hasValidCenter ? (
+                      <Pressable onPress={() => onSectionMarkerPress?.(overlay.id)} hitSlop={8}>
+                        <View style={styles.prMarker}>
+                          <Text style={styles.prMarkerText}>PR</Text>
+                        </View>
+                      </Pressable>
+                    ) : (
+                      <View />
+                    )}
+                  </MarkerView>
+                );
+              })}
 
           {/* Start marker */}
           {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
@@ -1394,13 +1400,13 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
     fontWeight: '500',
   },
-  sectionNumberMarker: {
+  prMarker: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#D4AF37',
     borderWidth: 2.5,
-    borderColor: '#00BCD4',
+    borderColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -1409,10 +1415,10 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 4,
   },
-  sectionNumberText: {
+  prMarkerText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
     textAlign: 'center',
   },
 });

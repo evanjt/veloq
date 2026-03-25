@@ -103,6 +103,24 @@ export function useSectionOverlays(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityId, engineSectionIds, customSectionIds]);
 
+  // Determine which sections this activity holds the PR for
+  const prSectionIds = useMemo((): Set<string> => {
+    if (!activityId) return new Set();
+    const prIds = new Set<string>();
+    const allSections = [...engineSectionMatches.map((m) => m.section), ...customMatchedSections];
+    for (const section of allSections) {
+      try {
+        const result = routeEngine.getSectionPerformances(section.id);
+        if (result?.bestRecord?.activityId === activityId) {
+          prIds.add(section.id);
+        }
+      } catch {
+        // Engine may not have performance data yet
+      }
+    }
+    return prIds;
+  }, [engineSectionMatches, customMatchedSections, activityId]);
+
   // Build section overlays for map display (always computed, shown on all tabs)
   const sectionOverlays = useMemo((): SectionOverlay[] | null => {
     if (!engineSectionMatches.length && !customMatchedSections.length) return null;
@@ -156,6 +174,7 @@ export function useSectionOverlays(
         id: match.section.id,
         sectionPolyline,
         activityPortion,
+        isPR: prSectionIds.has(match.section.id),
       });
     }
 
@@ -208,6 +227,7 @@ export function useSectionOverlays(
         id: section.id,
         sectionPolyline,
         activityPortion,
+        isPR: prSectionIds.has(section.id),
       });
     }
 
@@ -218,6 +238,7 @@ export function useSectionOverlays(
     coordinates,
     activityId,
     computedActivityTraces,
+    prSectionIds,
   ]);
 
   // Helper to get activity portion as RoutePoint[] for MiniTraceView

@@ -24,7 +24,6 @@ import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
 import { useSectionMatches, type SectionMatch } from '@/hooks/routes/useSectionMatches';
 import {
   ActivityHeader,
-  ActivitySections,
   ActivityChartsSection,
   ActivityRoutesSection,
   ActivitySectionsSection,
@@ -358,6 +357,11 @@ export default function ActivityDetailScreen() {
     setSectionCreationError(null);
   }, []);
 
+  // Handle section marker press on map — switch to sections tab
+  const handleSectionMarkerPress = useCallback((_sectionId: string) => {
+    setActiveTab('sections');
+  }, []);
+
   // Handle GPX export
   const handleExportGpx = useCallback(() => {
     if (activity) {
@@ -433,6 +437,7 @@ export default function ActivityDetailScreen() {
         routeOverlayCoordinates={routeOverlayCoordinates}
         sectionOverlays={sectionOverlays}
         highlightedSectionId={highlightedSectionId}
+        onSectionMarkerPress={handleSectionMarkerPress}
       />
 
       {/* Activity description */}
@@ -446,9 +451,6 @@ export default function ActivityDetailScreen() {
           </Text>
         </View>
       ) : null}
-
-      {/* Section traversals with PR badges */}
-      <ActivitySections activityId={id} isDark={isDark} />
 
       {/* Swipeable Tabs: Charts, Routes, Sections */}
       <SwipeableTabs

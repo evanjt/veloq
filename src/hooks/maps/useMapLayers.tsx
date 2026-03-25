@@ -9,10 +9,9 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MarkerView } from '@maplibre/maplibre-react-native';
 import type { LatLng } from '@/lib';
-import { getSectionStyle } from '@/lib';
 import type { SectionOverlay } from '@/components/maps/ActivityMapView';
 
 /** Data about a single section overlay used by the rendering layer */
@@ -20,6 +19,7 @@ export interface SectionOverlayGeoJSON {
   id: string;
   sectionGeo: GeoJSON.Feature | null;
   portionGeo: GeoJSON.Feature | null;
+  isPR?: boolean;
 }
 
 interface UseMapLayersParams {
@@ -33,6 +33,8 @@ interface UseMapLayersParams {
   sectionOverlays?: SectionOverlay[] | null;
   /** Index into coordinates to highlight (from chart scrubbing) */
   highlightIndex?: number | null;
+  /** Called when a section marker is tapped on the map */
+  onSectionMarkerPress?: (sectionId: string) => void;
 }
 
 interface UseMapLayersResult {
@@ -89,6 +91,7 @@ export function useMapLayers({
   routeOverlay,
   sectionOverlays,
   highlightIndex,
+  onSectionMarkerPress,
 }: UseMapLayersParams): UseMapLayersResult {
   // ----- route line -----
   const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
@@ -211,7 +214,7 @@ export function useMapLayers({
           }
         }
 
-        overlayData.push({ id: overlay.id, sectionGeo, portionGeo });
+        overlayData.push({ id: overlay.id, sectionGeo, portionGeo, isPR: overlay.isPR });
       });
 
       if (__DEV__ && (skippedSections > 0 || skippedPortions > 0)) {
@@ -239,10 +242,12 @@ export function useMapLayers({
       };
     }, [sectionOverlays]);
 
-  // ----- section marker elements (memoised for stable references) -----
+  // ----- section marker elements (only PR markers) -----
   const sectionMarkerElements = useMemo(() => {
     if (!sectionOverlaysGeoJSON) return null;
-    return sectionOverlaysGeoJSON.map((overlay, index) => {
+    const prOverlays = sectionOverlaysGeoJSON.filter((o) => o.isPR);
+    if (prOverlays.length === 0) return null;
+    return prOverlays.map((overlay) => {
       const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
       const portionGeom = overlay.portionGeo?.geometry as GeoJSON.LineString | undefined;
       const coords = sectionGeom?.coordinates || portionGeom?.coordinates;
@@ -281,8 +286,6 @@ export function useMapLayers({
         }
       }
 
-      const sectionStyle = getSectionStyle(index);
-
       return (
         <MarkerView
           key={`sectionMarker-${overlay.id}`}
@@ -290,16 +293,18 @@ export function useMapLayers({
           anchor={{ x: 0.5, y: 0.5 }}
         >
           {hasValidMarkerPosition ? (
-            <View style={[markerStyles.sectionNumberMarker, { borderColor: sectionStyle.color }]}>
-              <Text style={markerStyles.sectionNumberText}>{index + 1}</Text>
-            </View>
+            <Pressable onPress={() => onSectionMarkerPress?.(overlay.id)} hitSlop={8}>
+              <View style={markerStyles.prMarker}>
+                <Text style={markerStyles.prMarkerText}>PR</Text>
+              </View>
+            </Pressable>
           ) : (
             <View />
           )}
         </MarkerView>
       );
     });
-  }, [sectionOverlaysGeoJSON]);
+  }, [sectionOverlaysGeoJSON, onSectionMarkerPress]);
 
   // ----- route coordinates in [lng, lat] for BaseMapView / Map3DWebView -----
   const routeCoords = useMemo(() => {
@@ -346,13 +351,13 @@ export function useMapLayers({
 }
 
 const markerStyles = StyleSheet.create({
-  sectionNumberMarker: {
+  prMarker: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#D4AF37',
     borderWidth: 2.5,
-    borderColor: '#00BCD4',
+    borderColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -361,10 +366,10 @@ const markerStyles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 4,
   },
-  sectionNumberText: {
+  prMarkerText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
     textAlign: 'center',
   },
 });

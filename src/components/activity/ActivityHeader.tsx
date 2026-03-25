@@ -49,6 +49,7 @@ interface ActivityHeaderProps {
   routeOverlayCoordinates: LatLng[] | null;
   sectionOverlays: SectionOverlay[] | null;
   highlightedSectionId: string | null;
+  onSectionMarkerPress?: (sectionId: string) => void;
 }
 
 export const ActivityHeader = React.memo(function ActivityHeader({
@@ -75,6 +76,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
   routeOverlayCoordinates,
   sectionOverlays,
   highlightedSectionId,
+  onSectionMarkerPress,
 }: ActivityHeaderProps) {
   return (
     <View testID="activity-detail-content" style={[styles.heroSection, { height: mapHeight }]}>
@@ -105,6 +107,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
             routeOverlay={activeTab === 'routes' ? routeOverlayCoordinates : null}
             sectionOverlays={sectionOverlays}
             highlightedSectionId={activeTab === 'sections' ? highlightedSectionId : null}
+            onSectionMarkerPress={onSectionMarkerPress}
           />
         </ComponentErrorBoundary>
       </View>
