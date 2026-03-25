@@ -284,12 +284,12 @@ function addRestDayInsights(
           supportingData: {
             sections: trends
               .filter((s) => s.trend === 1)
-              .slice(0, 5)
               .map((s) => ({
                 sectionId: s.sectionId,
                 sectionName: s.sectionName,
                 trend: s.trend,
                 traversalCount: s.traversalCount,
+                sportType: s.sportType,
               })),
           },
         })
