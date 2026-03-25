@@ -50,6 +50,7 @@ export interface SupportingSection {
   bestTime?: number;
   trend?: number;
   traversalCount?: number;
+  sportType?: string;
 }
 
 export interface SupportingActivity {

@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
 import { navigateTo, formatDuration } from '@/lib';
+import { getActivityIcon } from '@/lib/utils/activityUtils';
 import { colors, darkColors, spacing, shadows, opacity } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 
@@ -57,9 +58,22 @@ export const SectionClusterContent = React.memo(function SectionClusterContent({
           onPress={() => handleSectionPress(section.sectionId)}
         >
           <View style={styles.sectionContent}>
-            <Text style={[styles.sectionName, isDark && styles.sectionNameDark]} numberOfLines={1}>
-              {section.sectionName}
-            </Text>
+            <View style={styles.sectionNameRow}>
+              {section.sportType ? (
+                <MaterialCommunityIcons
+                  name={getActivityIcon(section.sportType)}
+                  size={14}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  style={styles.sportIcon}
+                />
+              ) : null}
+              <Text
+                style={[styles.sectionName, isDark && styles.sectionNameDark]}
+                numberOfLines={1}
+              >
+                {section.sectionName}
+              </Text>
+            </View>
             <View style={styles.sectionMeta}>
               {section.bestTime != null ? (
                 <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>
@@ -115,12 +129,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginRight: spacing.xs,
   },
+  sectionNameRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  sportIcon: {
+    marginRight: 4,
+  },
   sectionName: {
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
     color: colors.textPrimary,
-    marginRight: spacing.sm,
   },
   sectionNameDark: {
     color: darkColors.textPrimary,

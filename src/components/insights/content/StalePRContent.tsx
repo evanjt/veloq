@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { navigateTo, formatDuration } from '@/lib';
+import { getActivityIcon } from '@/lib/utils/activityUtils';
 import { SectionInsightMap } from './SectionInsightMap';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import type { Insight } from '@/types';
@@ -67,6 +68,14 @@ export const StalePRContent = React.memo(function StalePRContent({
           style={[styles.sectionLink, isDark && styles.sectionLinkDark]}
           onPress={handleSectionPress}
         >
+          {section?.sportType ? (
+            <MaterialCommunityIcons
+              name={getActivityIcon(section.sportType)}
+              size={14}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              style={styles.sportIcon}
+            />
+          ) : null}
           <Text style={[styles.linkText, isDark && styles.linkTextDark]} numberOfLines={1}>
             View section details
           </Text>
@@ -116,6 +125,9 @@ const styles = StyleSheet.create({
   },
   dataValueGood: {
     color: '#22C55E',
+  },
+  sportIcon: {
+    marginRight: 4,
   },
   sectionLink: {
     flexDirection: 'row',

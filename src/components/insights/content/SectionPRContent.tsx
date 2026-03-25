@@ -6,6 +6,7 @@ import { useTheme } from '@/hooks';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionPerformances } from '@/hooks/routes/useSectionPerformances';
 import { navigateTo } from '@/lib';
+import { getActivityIcon } from '@/lib/utils/activityUtils';
 import { Shimmer } from '@/components/ui/Shimmer';
 import { SectionInsightMap } from './SectionInsightMap';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
@@ -97,12 +98,22 @@ export const SectionPRContent = React.memo(function SectionPRContent({
         <View style={[styles.statCard, isDark && styles.statCardDark]}>
           {/* Section name */}
           {prData?.sectionName ? (
-            <Text
-              style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}
-              numberOfLines={1}
-            >
-              {prData.sectionName}
-            </Text>
+            <View style={styles.sectionTitleRow}>
+              {section?.sportType ? (
+                <MaterialCommunityIcons
+                  name={getActivityIcon(section.sportType)}
+                  size={14}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  style={styles.sportIcon}
+                />
+              ) : null}
+              <Text
+                style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}
+                numberOfLines={1}
+              >
+                {prData.sectionName}
+              </Text>
+            </View>
           ) : null}
 
           {/* PR time with trophy */}
@@ -205,11 +216,18 @@ const styles = StyleSheet.create({
   statCardDark: {
     backgroundColor: opacity.overlayDark.light,
   },
+  sectionTitleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginBottom: 2,
+  },
+  sportIcon: {
+    marginRight: 4,
+  },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
-    marginBottom: 2,
   },
   sectionTitleDark: {
     color: darkColors.textSecondary,

@@ -27,6 +27,8 @@ export interface StalePRSectionData {
   traversalCount: number;
   /** Timestamp (seconds since epoch) of the most recent traversal, if known */
   lastTraversalTs?: number;
+  /** Sport type: 'Run', 'Ride', etc. */
+  sportType?: string;
 }
 
 export interface StalePRFtpTrend {
@@ -43,9 +45,17 @@ export interface StalePRRecentPR {
   daysAgo: number;
 }
 
+export interface StalePRPaceTrend {
+  latestPace: number | undefined;
+  latestDate: bigint | number | undefined;
+  previousPace: number | undefined;
+  previousDate: bigint | number | undefined;
+}
+
 export interface StalePRInput {
   sections: StalePRSectionData[];
   ftpTrend: StalePRFtpTrend | null;
+  paceTrend: StalePRPaceTrend | null;
   recentPRs: StalePRRecentPR[];
 }
 
@@ -53,10 +63,13 @@ export interface StalePROpportunity {
   sectionId: string;
   sectionName: string;
   bestTimeSecs: number;
-  currentFtp: number;
-  /** Approximate FTP when the PR was set (previous FTP if PR is old enough) */
-  estimatedPrFtp: number;
-  ftpGainPercent: number;
+  /** 'power' for cycling (FTP), 'pace' for running */
+  fitnessMetric: 'power' | 'pace';
+  currentValue: number;
+  previousValue: number;
+  gainPercent: number;
+  /** Unit label: 'W' for power, 'min/km' for pace */
+  unit: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,70 +89,103 @@ const MAX_OPPORTUNITIES = 3;
 // Detection logic
 // ---------------------------------------------------------------------------
 
-/**
- * Detect sections where a PR might be beatable due to FTP improvement.
- *
- * Heuristic: if FTP increased AND the section hasn't had a PR in the last
- * 30 days, the PR was likely set at a lower FTP. We approximate the FTP
- * at PR time as `previousFtp` when the PR predates the latest FTP change,
- * or `latestFtp` otherwise.
- */
-export function detectStalePROpportunities(input: StalePRInput): StalePROpportunity[] {
-  const { sections, ftpTrend, recentPRs } = input;
+/** Check if a fitness metric has improved enough to flag opportunities */
+function getFitnessImprovement(
+  sportType: string | undefined,
+  ftpTrend: StalePRFtpTrend | null,
+  paceTrend: StalePRPaceTrend | null
+): {
+  metric: 'power' | 'pace';
+  current: number;
+  previous: number;
+  gain: number;
+  unit: string;
+} | null {
+  const isRunning = sportType === 'Run' || sportType === 'Swim';
 
-  // No FTP data or no improvement → nothing to flag
-  if (!ftpTrend) return [];
-  const currentFtp = ftpTrend.latestFtp;
-  const previousFtp = ftpTrend.previousFtp;
-  if (
-    currentFtp == null ||
-    previousFtp == null ||
-    !Number.isFinite(currentFtp) ||
-    !Number.isFinite(previousFtp) ||
-    currentFtp <= previousFtp
-  ) {
-    return [];
+  if (isRunning && paceTrend) {
+    const cur = paceTrend.latestPace;
+    const prev = paceTrend.previousPace;
+    if (cur == null || prev == null || !Number.isFinite(cur) || !Number.isFinite(prev)) return null;
+    // For pace, lower is better — improvement means current < previous
+    if (cur >= prev) return null;
+    const gainPercent = ((prev - cur) / prev) * 100;
+    if (gainPercent < MIN_FTP_GAIN_PERCENT) return null;
+    return {
+      metric: 'pace',
+      current: cur,
+      previous: prev,
+      gain: Math.round(gainPercent * 10) / 10,
+      unit: 'min/km',
+    };
   }
 
-  const ftpGainPercent = ((currentFtp - previousFtp) / previousFtp) * 100;
-  if (ftpGainPercent < MIN_FTP_GAIN_PERCENT) return [];
+  if (!isRunning && ftpTrend) {
+    const cur = ftpTrend.latestFtp;
+    const prev = ftpTrend.previousFtp;
+    if (cur == null || prev == null || !Number.isFinite(cur) || !Number.isFinite(prev)) return null;
+    if (cur <= prev) return null;
+    const gainPercent = ((cur - prev) / prev) * 100;
+    if (gainPercent < MIN_FTP_GAIN_PERCENT) return null;
+    return {
+      metric: 'power',
+      current: cur,
+      previous: prev,
+      gain: Math.round(gainPercent * 10) / 10,
+      unit: 'W',
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Detect sections where a PR might be beatable due to fitness improvement.
+ *
+ * Sport-aware: uses FTP for cycling sections, pace trend for running sections.
+ * Only flags sections that haven't been visited in 30+ days and where the
+ * relevant fitness metric has improved by 3%+.
+ */
+export function detectStalePROpportunities(input: StalePRInput): StalePROpportunity[] {
+  const { sections, ftpTrend, paceTrend, recentPRs } = input;
+
+  // No fitness data at all → nothing to flag
+  if (!ftpTrend && !paceTrend) return [];
 
   // Build a set of section IDs that had a recent PR (within 30 days)
   const recentPRSectionIds = new Set(
     recentPRs.filter((pr) => pr.daysAgo <= STALE_THRESHOLD_DAYS).map((pr) => pr.sectionId)
   );
 
-  const now = Date.now() / 1000; // current time in seconds
-
+  const now = Date.now() / 1000;
   const opportunities: StalePROpportunity[] = [];
 
   for (const section of sections) {
-    // Skip sections that already had a recent PR
     if (recentPRSectionIds.has(section.sectionId)) continue;
-
-    // Skip sections with no traversals or no valid best time
     if (section.traversalCount === 0 || !Number.isFinite(section.bestTimeSecs)) continue;
 
-    // Check staleness: either via explicit timestamp or by absence from recent PRs
+    // Check staleness
     if (section.lastTraversalTs != null && Number.isFinite(section.lastTraversalTs)) {
       const daysSinceLast = (now - section.lastTraversalTs) / 86400;
       if (daysSinceLast < STALE_THRESHOLD_DAYS) continue;
     }
-    // If no timestamp available, rely on the section not being in recentPRs
-    // (already filtered above) — conservative: only flag if we can confirm staleness
-    // or if the section simply has no recent PR record
+
+    // Get sport-appropriate fitness improvement
+    const improvement = getFitnessImprovement(section.sportType, ftpTrend, paceTrend);
+    if (!improvement) continue;
 
     opportunities.push({
       sectionId: section.sectionId,
       sectionName: section.sectionName,
       bestTimeSecs: section.bestTimeSecs,
-      currentFtp: currentFtp,
-      estimatedPrFtp: previousFtp,
-      ftpGainPercent: Math.round(ftpGainPercent * 10) / 10,
+      fitnessMetric: improvement.metric,
+      currentValue: improvement.current,
+      previousValue: improvement.previous,
+      gainPercent: improvement.gain,
+      unit: improvement.unit,
     });
   }
 
-  // Sort by FTP gain (all same) then by traversal count (more-visited sections first)
   opportunities.sort((a, b) => {
     const aSection = sections.find((s) => s.sectionId === a.sectionId);
     const bSection = sections.find((s) => s.sectionId === b.sectionId);
@@ -165,41 +211,40 @@ export function stalePROpportunityToInsight(
   const timestamp = now ?? Date.now();
   const prTime = formatDuration(opportunity.bestTimeSecs);
 
+  const isPower = opportunity.fitnessMetric === 'power';
+  const metricLabel = isPower ? 'FTP' : 'Pace';
+  const currentStr = isPower
+    ? `${Math.round(opportunity.currentValue)}${opportunity.unit}`
+    : formatDuration(opportunity.currentValue);
+  const previousStr = isPower
+    ? `${Math.round(opportunity.previousValue)}${opportunity.unit}`
+    : formatDuration(opportunity.previousValue);
+
   return {
     id: `stale_pr-${opportunity.sectionId}`,
     category: 'stale_pr',
     priority: 2,
     title: t('insights.stalePr.title', { section: opportunity.sectionName }),
-    subtitle: t('insights.stalePr.subtitle', {
-      prTime,
-      prFtp: Math.round(opportunity.estimatedPrFtp),
-      currentFtp: Math.round(opportunity.currentFtp),
-      gainPercent: opportunity.ftpGainPercent,
-    }),
+    subtitle: `PR ${prTime} at ${metricLabel} ${previousStr}, now ${currentStr} (+${opportunity.gainPercent}%)`,
     icon: 'lightning-bolt',
     iconColor: '#FF9800',
-    body: t('insights.stalePr.body', {
-      section: opportunity.sectionName,
-      prTime,
-      prFtp: Math.round(opportunity.estimatedPrFtp),
-      currentFtp: Math.round(opportunity.currentFtp),
-    }),
+    body: `${opportunity.sectionName}: PR set at ${metricLabel} ${previousStr}. Current ${metricLabel}: ${currentStr}.`,
     navigationTarget: `/section/${opportunity.sectionId}`,
     timestamp,
     isNew: true,
     supportingData: {
       dataPoints: [
         {
-          label: t('insights.stalePr.currentFtp'),
-          value: `${Math.round(opportunity.currentFtp)}W`,
+          label: `Current ${metricLabel}`,
+          value: currentStr,
         },
         {
-          label: t('insights.stalePr.prFtp'),
-          value: `${Math.round(opportunity.estimatedPrFtp)}W`,
+          label: `${metricLabel} at PR`,
+          value: previousStr,
         },
         {
-          label: t('insights.stalePr.ftpGain'),
-          value: `+${opportunity.ftpGainPercent}%`,
+          label: `${metricLabel} gain`,
+          value: `+${opportunity.gainPercent}%`,
           context: 'good',
         },
         {
@@ -207,11 +252,11 @@ export function stalePROpportunityToInsight(
           value: prTime,
         },
       ],
-      formula: `FTP gain = (${Math.round(opportunity.currentFtp)} - ${Math.round(opportunity.estimatedPrFtp)}) / ${Math.round(opportunity.estimatedPrFtp)} = +${opportunity.ftpGainPercent}%`,
+      formula: `${metricLabel} gain = ${isPower ? `(${Math.round(opportunity.currentValue)} - ${Math.round(opportunity.previousValue)}) / ${Math.round(opportunity.previousValue)}` : `(${previousStr} - ${currentStr}) / ${previousStr}`} = +${opportunity.gainPercent}%`,
       algorithmDescription: t('insights.stalePr.methodology'),
     },
     methodology: {
-      name: 'FTP-PR cross-reference',
+      name: `${metricLabel}-PR cross-reference`,
       description: t('insights.stalePr.methodology'),
     },
   };

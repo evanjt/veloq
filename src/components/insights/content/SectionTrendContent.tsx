@@ -6,6 +6,7 @@ import { useTheme } from '@/hooks';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionPerformances } from '@/hooks/routes/useSectionPerformances';
 import { navigateTo } from '@/lib';
+import { getActivityIcon } from '@/lib/utils/activityUtils';
 import { Shimmer } from '@/components/ui/Shimmer';
 import { SectionInsightMap } from './SectionInsightMap';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
@@ -176,12 +177,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginRight: spacing.xs,
   },
+  sectionNameRow: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginRight: spacing.sm,
+  },
+  sportIcon: {
+    marginRight: 4,
+  },
   sectionName: {
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
     color: colors.textPrimary,
-    marginRight: spacing.sm,
   },
   sectionNameDark: {
     color: darkColors.textPrimary,

@@ -209,4 +209,81 @@ describe('generateSectionClusterInsights', () => {
     // But supporting data should still include up to 10
     expect(result[0].supportingData?.sections?.length).toBe(7);
   });
+
+  // ---------------------------------------------------------------------------
+  // Sport-type-aware grouping tests
+  // ---------------------------------------------------------------------------
+
+  it('groups sections by sport type before trend', () => {
+    const trends = [
+      { ...makeTrend('s1', 'Run Hill', 1), sportType: 'Run' },
+      { ...makeTrend('s2', 'Run Valley', 1), sportType: 'Run' },
+      { ...makeTrend('s3', 'Bike Climb', 1), sportType: 'Ride' },
+      { ...makeTrend('s4', 'Bike Descent', 1), sportType: 'Ride' },
+    ];
+    const result = generateSectionClusterInsights(trends, NOW, mockT);
+    expect(result).toHaveLength(2);
+
+    const runInsight = result.find((i) => i.id === 'section_cluster-improving-run');
+    const rideInsight = result.find((i) => i.id === 'section_cluster-improving-ride');
+    expect(runInsight).toBeDefined();
+    expect(rideInsight).toBeDefined();
+  });
+
+  it('includes sport display name in title', () => {
+    const trends = [
+      { ...makeTrend('s1', 'Sprint', 1), sportType: 'Run' },
+      { ...makeTrend('s2', 'Tempo', 1), sportType: 'Run' },
+    ];
+    const result = generateSectionClusterInsights(trends, NOW, mockT);
+    expect(result).toHaveLength(1);
+    expect(result[0].title).toContain('sport: running');
+  });
+
+  it('uses empty sport for unknown sport types', () => {
+    const trends = [
+      { ...makeTrend('s1', 'A', 1), sportType: 'Kayak' },
+      { ...makeTrend('s2', 'B', 1), sportType: 'Kayak' },
+    ];
+    const result = generateSectionClusterInsights(trends, NOW, mockT);
+    expect(result).toHaveLength(1);
+    // Sport param should be empty string for unknown sport types
+    expect(result[0].title).toContain('sport: ');
+  });
+
+  it('does not cluster across sport types', () => {
+    // 1 run improving + 1 ride improving = no cluster (need 2+ per sport)
+    const trends = [
+      { ...makeTrend('s1', 'Run A', 1), sportType: 'Run' },
+      { ...makeTrend('s2', 'Ride B', 1), sportType: 'Ride' },
+    ];
+    const result = generateSectionClusterInsights(trends, NOW, mockT);
+    expect(result).toEqual([]);
+  });
+
+  it('carries sportType in supporting data sections', () => {
+    const trends = [
+      { ...makeTrend('s1', 'Hill A', 1), sportType: 'Run' },
+      { ...makeTrend('s2', 'Hill B', 1), sportType: 'Run' },
+    ];
+    const result = generateSectionClusterInsights(trends, NOW, mockT);
+    expect(result[0].supportingData?.sections?.[0]?.sportType).toBe('Run');
+    expect(result[0].supportingData?.sections?.[1]?.sportType).toBe('Run');
+  });
+
+  it('prioritises improving clusters over declining when exceeding MAX_CLUSTER_INSIGHTS', () => {
+    const trends = [
+      { ...makeTrend('s1', 'Run Up A', 1), sportType: 'Run' },
+      { ...makeTrend('s2', 'Run Up B', 1), sportType: 'Run' },
+      { ...makeTrend('s3', 'Ride Up A', 1), sportType: 'Ride' },
+      { ...makeTrend('s4', 'Ride Up B', 1), sportType: 'Ride' },
+      { ...makeTrend('s5', 'Run Down A', -1), sportType: 'Run' },
+      { ...makeTrend('s6', 'Run Down B', -1), sportType: 'Run' },
+    ];
+    const result = generateSectionClusterInsights(trends, NOW, mockT);
+    // 3 possible insights (2 improving + 1 declining), capped at 2
+    expect(result.length).toBeLessThanOrEqual(2);
+    // Both should be improving (higher priority)
+    expect(result.every((i) => i.id.includes('improving'))).toBe(true);
+  });
 });

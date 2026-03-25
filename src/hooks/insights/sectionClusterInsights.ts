@@ -3,16 +3,17 @@ import type { Insight, InsightSupportingData, InsightMethodology } from '@/types
 /**
  * Section Cluster Insights
  *
- * Groups sections by trend direction (improving / declining / stable) and
- * generates aggregate insights when 2+ sections share the same trend.
+ * Groups sections by sport type and trend direction (improving / declining /
+ * stable) and generates aggregate insights when 2+ sections share the same
+ * trend within a sport.
  *
  * This is a TypeScript-side approximation of geographic clustering: instead
  * of using spatial R-tree grouping (future Rust implementation), we group
  * sections by their performance trend similarity.
  *
  * Framed as observation, not advice:
- * - Improving: "3 sections improving" with names
- * - Declining: "2 sections to revisit" (positive framing, never punitive)
+ * - Improving: "3 running sections improving" with names
+ * - Declining: "2 cycling sections to revisit" (positive framing, never punitive)
  * - Stable: not surfaced (no actionable signal)
  */
 
@@ -27,6 +28,7 @@ export interface SectionTrendData {
   medianRecentSecs: number;
   bestTimeSecs: number;
   traversalCount: number;
+  sportType?: string; // 'Run', 'Ride', 'Swim', etc.
 }
 
 // Translation function type
@@ -46,15 +48,33 @@ const MAX_CLUSTER_INSIGHTS = 2;
 const MAX_LISTED_NAMES = 5;
 
 // ---------------------------------------------------------------------------
+// Sport type display mapping
+// ---------------------------------------------------------------------------
+
+/** Map intervals.icu sport type codes to lowercase display names */
+const SPORT_DISPLAY: Record<string, string> = {
+  Run: 'running',
+  Ride: 'cycling',
+  Swim: 'swimming',
+  VirtualRide: 'cycling',
+  VirtualRun: 'running',
+};
+
+/** Get lowercase sport display name, empty string for unknown types */
+export function getSportDisplayName(sportType?: string): string {
+  if (!sportType) return '';
+  return SPORT_DISPLAY[sportType] ?? '';
+}
+
+// ---------------------------------------------------------------------------
 // Generation logic
 // ---------------------------------------------------------------------------
 
 /**
  * Generate cluster insights from section trend data.
  *
- * Returns 0-2 insights:
- * - One for the improving cluster (if 2+ sections improving)
- * - One for the declining cluster (if 2+ sections declining)
+ * Groups by sport type first, then by trend within each sport. Returns up to
+ * MAX_CLUSTER_INSIGHTS insights, prioritising improving clusters.
  *
  * Stable sections are not surfaced (no actionable signal).
  */
@@ -65,20 +85,40 @@ export function generateSectionClusterInsights(
 ): Insight[] {
   if (!sectionTrends || sectionTrends.length === 0) return [];
 
-  const improving = sectionTrends.filter((s) => s.trend === 1);
-  const declining = sectionTrends.filter((s) => s.trend === -1);
+  // Group sections by sport type
+  const bySport = new Map<string, SectionTrendData[]>();
+  for (const s of sectionTrends) {
+    const sport = s.sportType ?? '';
+    const list = bySport.get(sport);
+    if (list) {
+      list.push(s);
+    } else {
+      bySport.set(sport, [s]);
+    }
+  }
 
   const insights: Insight[] = [];
 
-  // Improving cluster
-  if (improving.length >= MIN_CLUSTER_SIZE) {
-    insights.push(makeClusterInsight(improving, 'improving', now, t));
+  // Process each sport group: improving first, then declining
+  for (const [sport, sections] of bySport) {
+    const improving = sections.filter((s) => s.trend === 1);
+    const declining = sections.filter((s) => s.trend === -1);
+
+    if (improving.length >= MIN_CLUSTER_SIZE) {
+      insights.push(makeClusterInsight(improving, 'improving', sport, now, t));
+    }
+    if (declining.length >= MIN_CLUSTER_SIZE) {
+      insights.push(makeClusterInsight(declining, 'declining', sport, now, t));
+    }
   }
 
-  // Declining cluster — framed positively as "sections to revisit"
-  if (declining.length >= MIN_CLUSTER_SIZE) {
-    insights.push(makeClusterInsight(declining, 'declining', now, t));
-  }
+  // Sort: improving before declining, then by section count descending
+  insights.sort((a, b) => {
+    const aIsImproving = a.id.includes('improving') ? 1 : 0;
+    const bIsImproving = b.id.includes('improving') ? 1 : 0;
+    if (aIsImproving !== bIsImproving) return bIsImproving - aIsImproving;
+    return (b.supportingData?.sections?.length ?? 0) - (a.supportingData?.sections?.length ?? 0);
+  });
 
   return insights.slice(0, MAX_CLUSTER_INSIGHTS);
 }
@@ -90,6 +130,7 @@ export function generateSectionClusterInsights(
 function makeClusterInsight(
   sections: SectionTrendData[],
   direction: 'improving' | 'declining',
+  sportType: string,
   now: number,
   t: TFunc
 ): Insight {
@@ -98,6 +139,7 @@ function makeClusterInsight(
   const names = sorted.slice(0, MAX_LISTED_NAMES).map((s) => s.sectionName);
   const nameList = names.join(', ');
   const count = sections.length;
+  const sport = getSportDisplayName(sportType);
 
   const isImproving = direction === 'improving';
 
@@ -108,6 +150,7 @@ function makeClusterInsight(
       bestTime: s.bestTimeSecs,
       trend: s.trend,
       traversalCount: s.traversalCount,
+      sportType: s.sportType,
     })),
     algorithmDescription: t('insights.sectionCluster.methodology'),
   };
@@ -117,18 +160,24 @@ function makeClusterInsight(
     description: t('insights.sectionCluster.methodology'),
   };
 
+  // Use sport-specific ID to allow one insight per sport per direction
+  const sportSuffix = sportType ? `-${sportType.toLowerCase()}` : '';
+
   return {
-    id: `section_cluster-${direction}`,
+    id: `section_cluster-${direction}${sportSuffix}`,
     category: 'section_cluster',
     priority: 3,
     icon: isImproving ? 'trending-up' : 'map-marker-path',
     iconColor: isImproving ? '#66BB6A' : '#FFA726',
     title: isImproving
-      ? t('insights.sectionCluster.improvingTitle', { count })
-      : t('insights.sectionCluster.decliningTitle', { count }),
+      ? t('insights.sectionCluster.improvingTitle', { count, sport })
+      : t('insights.sectionCluster.decliningTitle', { count, sport }),
     body: isImproving
       ? t('insights.sectionCluster.improvingBody', { names: nameList, count })
-      : t('insights.sectionCluster.decliningBody', { names: nameList, count }),
+      : t('insights.sectionCluster.decliningBody', {
+          names: nameList,
+          count,
+        }),
     navigationTarget: '/routes',
     timestamp: now,
     isNew: false,

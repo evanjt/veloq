@@ -84,6 +84,7 @@ interface SectionTrendData {
   medianRecentSecs: number;
   bestTimeSecs: number;
   traversalCount: number;
+  sportType?: string; // 'Run', 'Ride', etc.
 }
 
 export interface InsightInputData {
@@ -172,27 +173,19 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   // Priority 2: Period Comparison
   addPeriodComparisonInsights(insights, data, now, t);
 
-  // Priority 2: Weekly Load Change (replaces ACWR)
-  addWeeklyLoadChangeInsight(insights, data, now, t);
-
   // Priority 2: FTP/Pace Milestones
   addFitnessMilestoneInsights(insights, data, now, t);
 
-  // Priority 3: Section Trends
-  addSectionTrendInsights(insights, data.sectionTrends, now, t);
-
-  // Priority 3: Training Consistency
-  addConsistencyInsights(insights, data, now, t);
-
-  // Priority 4: Activity Patterns
-  addActivityPatternInsights(insights, data.todayPattern, data.allPatterns ?? [], now, t);
+  // Note: addSectionTrendInsights REMOVED — replaced by addSectionClusterInsights (no duplicates)
+  // Note: addConsistencyInsights REMOVED — "Trained X of Y weeks" was a guilt trip
+  // Note: addActivityPatternInsights REMOVED — pattern predictions shown in Today banner only
 
   // Priority 2: Stale PR / Opportunity Detection
-  // Cross-references FTP trend against section PRs to find beatable records
+  // Cross-references fitness trends against section PRs to find beatable records
   addStalePRInsights(insights, data, now, t);
 
-  // Priority 3: Section Cluster Insights
-  // Groups sections by trend direction (improving/declining) for aggregate view
+  // Priority 3: Section Cluster Insights (replaces addSectionTrendInsights)
+  // Groups sections by trend direction for aggregate view — one insight per cluster
   addSectionClusterInsights(insights, data, now, t);
 
   // Priority 1: Aerobic Efficiency Trends
@@ -968,6 +961,7 @@ function addSectionTrendInsights(
       bestTime: s.bestTimeSecs,
       trend: s.trend,
       traversalCount: s.traversalCount,
+      sportType: s.sportType,
     })),
   };
 
@@ -1038,6 +1032,7 @@ function addSectionTrendInsights(
                 bestTime: section.bestTimeSecs,
                 trend: section.trend,
                 traversalCount: section.traversalCount,
+                sportType: section.sportType,
               },
             ],
           },
@@ -1259,21 +1254,22 @@ function addStalePRInsights(
   now: number,
   t: TFunc
 ): void {
-  if (!data.ftpTrend || !data.sectionTrends || data.sectionTrends.length === 0) return;
+  if ((!data.ftpTrend && !data.paceTrend) || !data.sectionTrends || data.sectionTrends.length === 0)
+    return;
 
-  // Build section data for stale PR detection from available section trends
+  // Build section data with sport type for sport-aware fitness comparison
   const sections = data.sectionTrends.map((s) => ({
     sectionId: s.sectionId,
     sectionName: s.sectionName,
     bestTimeSecs: s.bestTimeSecs,
     traversalCount: s.traversalCount,
-    // lastTraversalTs is not available from sectionTrends, so detection
-    // relies on recentPRs absence to infer staleness
+    sportType: s.sportType,
   }));
 
   const opportunities = detectStalePROpportunities({
     sections,
     ftpTrend: data.ftpTrend,
+    paceTrend: data.paceTrend,
     recentPRs: data.recentPRs,
   });
 
