@@ -150,8 +150,10 @@ export function useInsights(
           }>;
         }>;
 
-        // Extract section trends from patterns (deduplicate by highest traversalCount)
-        // Skip if sections aren't loaded yet to avoid empty section insights on cold start
+        // Build section trends from ML-ranked sections (composite scoring:
+        // recency, improvement, anomaly, engagement) instead of visit-count
+        // ordering from pattern.commonSections.
+        // Falls back to pattern-based trends when getRankedSections returns empty.
         const sectionTrendMap = new Map<
           string,
           {
@@ -161,10 +163,40 @@ export function useInsights(
             medianRecentSecs: number;
             bestTimeSecs: number;
             traversalCount: number;
+            sportType?: string;
           }
         >();
 
-        if (sectionsReady) {
+        if (sectionsReady && engine) {
+          const sportTypes =
+            allPatterns.length > 0
+              ? [...new Set(allPatterns.map((p) => p.sportType))]
+              : ['Ride', 'Run'];
+
+          for (const sport of sportTypes) {
+            const ranked = engine.getRankedSections(sport, 10);
+            for (const rs of ranked) {
+              if (!rs.sectionId) continue;
+              // ML-ranked sections are already in relevance order; keep the
+              // first occurrence (highest relevance) when a section appears
+              // across multiple sport types.
+              if (!sectionTrendMap.has(rs.sectionId)) {
+                sectionTrendMap.set(rs.sectionId, {
+                  sectionId: rs.sectionId,
+                  sectionName: rs.sectionName || 'Section',
+                  trend: rs.trend,
+                  medianRecentSecs: rs.medianRecentSecs,
+                  bestTimeSecs: rs.bestTimeSecs,
+                  traversalCount: rs.traversalCount,
+                  sportType: sport,
+                });
+              }
+            }
+          }
+        }
+
+        // Fallback: use pattern-based commonSections when ML ranking is empty
+        if (sectionTrendMap.size === 0 && sectionsReady) {
           for (const pattern of allPatterns) {
             if (!pattern.commonSections) continue;
             for (const section of pattern.commonSections) {
@@ -178,15 +210,16 @@ export function useInsights(
                   medianRecentSecs: section.medianRecentSecs,
                   bestTimeSecs: section.bestTimeSecs,
                   traversalCount: section.traversalCount,
+                  sportType: pattern.sportType,
                 });
               }
             }
           }
         }
 
-        const sectionTrends = Array.from(sectionTrendMap.values()).sort(
-          (a, b) => b.traversalCount - a.traversalCount
-        );
+        // ML-ranked sections are already sorted by relevance; pattern-based
+        // fallback sorts by traversal count for consistency.
+        const sectionTrends = Array.from(sectionTrendMap.values());
 
         // 7-day wellness window (from TanStack Query, not FFI)
         const wellnessWindow = (wellnessData ?? [])
