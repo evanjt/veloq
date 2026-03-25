@@ -144,7 +144,7 @@ function makeClusterInsight(
   const isImproving = direction === 'improving';
 
   const supportingData: InsightSupportingData = {
-    sections: sorted.slice(0, 10).map((s) => ({
+    sections: sorted.map((s) => ({
       sectionId: s.sectionId,
       sectionName: s.sectionName,
       bestTime: s.bestTimeSecs,

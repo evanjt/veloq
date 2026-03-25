@@ -895,7 +895,7 @@ function addSectionTrendInsights(
   const total = sectionTrends.length;
 
   const allSectionsSupportingData: InsightSupportingData = {
-    sections: sectionTrends.slice(0, 10).map((s) => ({
+    sections: sectionTrends.map((s) => ({
       sectionId: s.sectionId,
       sectionName: s.sectionName,
       bestTime: s.bestTimeSecs,
@@ -1290,7 +1290,19 @@ function addSectionClusterInsights(
   const clusterInsights = generateSectionClusterInsights(trends, now, t);
   // Show at most 1 cluster insight (the most relevant — improving takes priority)
   if (clusterInsights.length > 0) {
-    insights.push(clusterInsights[0]);
+    const insight = clusterInsights[0];
+
+    // Mark sections that have a recent PR so the UI can show a badge on collapsed rows
+    const prSectionIds = new Set((data.recentPRs ?? []).map((pr) => pr.sectionId));
+    if (prSectionIds.size > 0 && insight.supportingData?.sections) {
+      for (const section of insight.supportingData.sections) {
+        if (prSectionIds.has(section.sectionId)) {
+          section.hasRecentPR = true;
+        }
+      }
+    }
+
+    insights.push(insight);
   }
 }
 
