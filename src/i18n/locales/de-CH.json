@@ -487,7 +487,10 @@
       "latestHrv": "Latest HRV",
       "dataPoints": "Data points",
       "thisWeekTss": "This week",
-      "fourWeekAvgTss": "4-week average"
+      "fourWeekAvgTss": "4-week average",
+      "hrChange": "HF-Änderig",
+      "efforts": "Versüech",
+      "trendSlope": "Trendsteiging"
     },
     "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
     "tsbForm": {
@@ -544,6 +547,11 @@
       "improvingBody": "{{names}} trending faster across {{count}} sections.",
       "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
       "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced."
+    },
+    "efficiencyTrend": {
+      "title": "HF sinkt uf {{name}}",
+      "subtitle": "{{hrChange}} bpm tüüfer über {{efforts}} Versüech",
+      "body": "Über {{efforts}} Versüech uf {{name}} isch dini Härzfrequänz bim gliiche Tempo um {{hrChange}} bpm gsunke."
     }
   },
   "licenses": {

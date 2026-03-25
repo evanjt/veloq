@@ -486,7 +486,10 @@
       "latestHrv": "Latest HRV",
       "dataPoints": "Data points",
       "thisWeekTss": "This week",
-      "fourWeekAvgTss": "4-week average"
+      "fourWeekAvgTss": "4-week average",
+      "hrChange": "心率变化",
+      "efforts": "次数",
+      "trendSlope": "趋势斜率"
     },
     "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
     "tsbForm": {
@@ -544,6 +547,11 @@
       "improvingBody": "{{names}} trending faster across {{count}} sections.",
       "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
       "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced."
+    },
+    "efficiencyTrend": {
+      "title": "{{name}}上心率呈下降趋势",
+      "subtitle": "{{efforts}}次中降低{{hrChange}}bpm",
+      "body": "在{{name}}的{{efforts}}次中，相同配速下心率降低了{{hrChange}}bpm。"
     }
   },
   "licenses": {

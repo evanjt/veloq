@@ -9,7 +9,8 @@ export type InsightCategory =
   | 'tsb_form'
   | 'weekly_load'
   | 'intensity_context'
-  | 'section_cluster';
+  | 'section_cluster'
+  | 'efficiency_trend';
 
 export type InsightPriority = 1 | 2 | 3 | 4 | 5;
 

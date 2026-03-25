@@ -20,6 +20,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   intensity_context: '#FFA726',
   stale_pr: '#FF9800',
   section_cluster: '#66BB6A',
+  efficiency_trend: '#66BB6A',
 };
 
 interface InsightListCardProps {
@@ -75,6 +76,13 @@ function getInlineMetric(insight: Insight): { value: string; context?: string } 
         const m = Math.floor(secs / 60);
         const s = Math.round(secs % 60);
         return { value: `${m}:${s.toString().padStart(2, '0')}` };
+      }
+      return null;
+    }
+    case 'efficiency_trend': {
+      const hrPoint = dp?.find((d) => d.unit === 'bpm');
+      if (hrPoint) {
+        return { value: `${hrPoint.value} bpm`, context: undefined };
       }
       return null;
     }

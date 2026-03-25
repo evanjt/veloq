@@ -225,6 +225,25 @@ export function useInsights(
             }))
           : [];
 
+        // Gather top section IDs for aerobic efficiency trend checking.
+        // Uses getRankedSections when sections are ready; empty otherwise.
+        let efficiencyTrendSectionIds: string[] = [];
+        if (sectionsReady && engine) {
+          // Try all sport types from patterns; fall back to Ride/Run
+          const sportTypes =
+            allPatterns.length > 0
+              ? [...new Set(allPatterns.map((p) => p.sportType))]
+              : ['Ride', 'Run'];
+          for (const sport of sportTypes) {
+            const ranked = engine.getRankedSections(sport, 5);
+            for (const rs of ranked) {
+              if (!efficiencyTrendSectionIds.includes(rs.sectionId)) {
+                efficiencyTrendSectionIds.push(rs.sectionId);
+              }
+            }
+          }
+        }
+
         const result = generateInsights(
           {
             currentPeriod: toPeriod(data.currentWeek),
@@ -259,6 +278,7 @@ export function useInsights(
               confidence: p.confidence,
               activityCount: p.activityCount,
             })),
+            efficiencyTrendSectionIds,
           },
           t as (key: string, params?: Record<string, string | number>) => string
         );

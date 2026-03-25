@@ -9,6 +9,7 @@ import type {
 import { formatDuration } from '@/lib';
 import { detectStalePROpportunities, stalePROpportunityToInsight } from './stalePrDetection';
 import { generateSectionClusterInsights } from './sectionClusterInsights';
+import { generateEfficiencyTrendInsights } from './efficiencyTrendInsights';
 
 /**
  * Insight priority ranking (1 = highest):
@@ -119,6 +120,8 @@ export interface InsightInputData {
   tomorrowPattern?: ActivityPattern | null;
   // All detected activity patterns (for weekly heatmap in pattern detail)
   allPatterns?: ActivityPattern[];
+  // Section IDs to check for aerobic efficiency trends (from getRankedSections)
+  efficiencyTrendSectionIds?: string[];
 }
 
 // Translation function type
@@ -191,6 +194,10 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   // Priority 3: Section Cluster Insights
   // Groups sections by trend direction (improving/declining) for aggregate view
   addSectionClusterInsights(insights, data, now, t);
+
+  // Priority 1: Aerobic Efficiency Trends
+  // Detects improving HR/pace ratio on top sections (Coyle et al., 1991)
+  addEfficiencyTrendInsights(insights, data, now, t);
 
   insights.sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
 
@@ -1294,6 +1301,26 @@ function addSectionClusterInsights(
   const clusterInsights = generateSectionClusterInsights(trends, now, t);
   for (const ci of clusterInsights) {
     insights.push(ci);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Priority 1: Aerobic Efficiency Trends
+// Coyle et al., 1991; Jones & Carter, 2000
+// ---------------------------------------------------------------------------
+
+function addEfficiencyTrendInsights(
+  insights: Insight[],
+  data: InsightInputData,
+  now: number,
+  t: TFunc
+): void {
+  const sectionIds = data.efficiencyTrendSectionIds;
+  if (!sectionIds || sectionIds.length === 0) return;
+
+  const efficiencyInsights = generateEfficiencyTrendInsights(sectionIds, now, t);
+  for (const ei of efficiencyInsights) {
+    insights.push(ei);
   }
 }
 

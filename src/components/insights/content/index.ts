@@ -13,3 +13,4 @@ export { PeriodComparisonContent } from './PeriodComparisonContent';
 export { WeeklyLoadContent } from './WeeklyLoadContent';
 export { FitnessMilestoneContent } from './FitnessMilestoneContent';
 export { ConsistencyContent } from './ConsistencyContent';
+export { EfficiencyTrendContent } from './EfficiencyTrendContent';

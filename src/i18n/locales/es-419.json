@@ -486,7 +486,10 @@
       "latestHrv": "Latest HRV",
       "dataPoints": "Data points",
       "thisWeekTss": "This week",
-      "fourWeekAvgTss": "4-week average"
+      "fourWeekAvgTss": "4-week average",
+      "hrChange": "Cambio FC",
+      "efforts": "Esfuerzos",
+      "trendSlope": "Pendiente de tendencia"
     },
     "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
     "tsbForm": {
@@ -544,6 +547,11 @@
       "improvingBody": "{{names}} trending faster across {{count}} sections.",
       "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
       "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced."
+    },
+    "efficiencyTrend": {
+      "title": "FC bajando en {{name}}",
+      "subtitle": "{{hrChange}} ppm menos en {{efforts}} esfuerzos",
+      "body": "En {{efforts}} esfuerzos en {{name}}, tu frecuencia cardíaca al mismo ritmo bajó {{hrChange}} ppm."
     }
   },
   "licenses": {

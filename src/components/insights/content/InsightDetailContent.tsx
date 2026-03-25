@@ -10,6 +10,7 @@ import { PeriodComparisonContent } from './PeriodComparisonContent';
 import { WeeklyLoadContent } from './WeeklyLoadContent';
 import { FitnessMilestoneContent } from './FitnessMilestoneContent';
 import { ConsistencyContent } from './ConsistencyContent';
+import { EfficiencyTrendContent } from './EfficiencyTrendContent';
 import { SupportingDataSection } from '../SupportingDataSection';
 
 interface InsightDetailContentProps {
@@ -46,6 +47,8 @@ export const InsightDetailContent = React.memo(function InsightDetailContent({
       return <StalePRContent insight={insight} onClose={onClose} />;
     case 'section_cluster':
       return <SectionClusterContent insight={insight} onClose={onClose} />;
+    case 'efficiency_trend':
+      return <EfficiencyTrendContent insight={insight} onClose={onClose} />;
     default:
       // Fallback: render existing SupportingDataSection for unhandled categories
       if (insight.supportingData) {
