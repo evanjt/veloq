@@ -807,8 +807,8 @@
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
     "sectionCluster": {
-      "improvingTitle": "{{count}} sections improving",
-      "decliningTitle": "{{count}} sections to revisit",
+      "improvingTitle": "{{count}} {{sport}} sections improving",
+      "decliningTitle": "{{count}} {{sport}} sections to revisit",
       "improvingBody": "{{names}} trending faster across {{count}} sections.",
       "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
       "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced."
