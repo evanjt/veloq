@@ -119,9 +119,22 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
           onPress={() => handleSectionPress(section.sectionId)}
         >
           <View style={styles.sectionContent}>
-            <Text style={[styles.sectionName, isDark && styles.sectionNameDark]} numberOfLines={1}>
-              {section.sectionName}
-            </Text>
+            <View style={styles.sectionNameRow}>
+              {section.sportType ? (
+                <MaterialCommunityIcons
+                  name={getActivityIcon(section.sportType)}
+                  size={14}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  style={styles.sportIcon}
+                />
+              ) : null}
+              <Text
+                style={[styles.sectionName, isDark && styles.sectionNameDark]}
+                numberOfLines={1}
+              >
+                {section.sectionName}
+              </Text>
+            </View>
             <View style={styles.sectionMeta}>
               {section.bestTime != null ? (
                 <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>
