@@ -297,71 +297,9 @@ function addRestDayInsights(
     }
   }
 
-  // 3. Pattern prediction for tomorrow
-  const tomorrow = data.tomorrowPattern;
-  if (tomorrow && tomorrow.confidence >= PATTERN_CONFIDENCE_THRESHOLD) {
-    const tomorrowDayIdx = tomorrow.primaryDay;
-    const dayName = tomorrowDayIdx >= 0 && tomorrowDayIdx <= 6 ? DAY_NAMES[tomorrowDayIdx] : '';
-    const verb = tomorrow.sportType === 'Run' ? 'run' : 'ride';
-    const duration = formatDurationCompact(tomorrow.avgDurationSecs);
-
-    // Build weekly sparkline from all patterns
-    const weeklySparkline = [0, 0, 0, 0, 0, 0, 0];
-    for (const p of data.allPatterns ?? []) {
-      if (p.primaryDay >= 0 && p.primaryDay <= 6 && p.confidence >= 0.3) {
-        weeklySparkline[p.primaryDay] += p.activityCount;
-      }
-    }
-
-    insights.push(
-      makeInsight({
-        id: 'rest_day-tomorrow-pattern',
-        category: 'activity_pattern',
-        priority: 4,
-        icon: 'calendar-arrow-right',
-        iconColor: '#AB47BC',
-        title: t('insights.restDay.tomorrowPattern', { day: dayName, verb, duration }),
-        body: t('insights.restDay.tomorrowPatternBody', {
-          sport: tomorrow.sportType,
-          count: tomorrow.activityCount,
-        }),
-        timestamp: now,
-        confidence: tomorrow.confidence,
-        supportingData: {
-          dataPoints: [
-            {
-              label: t('insights.data.confidence'),
-              value: Math.round(tomorrow.confidence * 100),
-              unit: '%',
-            },
-            {
-              label: t('insights.data.basedOn'),
-              value: tomorrow.activityCount,
-              unit: t('insights.data.activities'),
-            },
-          ],
-          sparklineData: weeklySparkline,
-          sparklineLabel: 'typical_week',
-        },
-        methodology: {
-          name: 'K-means clustering',
-          description:
-            'Groups your activities by day, duration, and sport type to identify recurring training patterns.',
-          references: [
-            {
-              citation:
-                'Michie, S., Abraham, C., Whittington, C., McAteer, J., & Gupta, S. (2009). Effective techniques in healthy eating and physical activity interventions: A meta-regression. Health Psychology, 28(6), 690–701.',
-              url: 'https://pubmed.ncbi.nlm.nih.gov/19916637/',
-            },
-            {
-              citation:
-                'Chevance, G., Hekler, E. B., Elavsky, S., Pel-Littel, R., & Buman, M. P. (2024). A behavioral perspective for digital interventions targeting physical activity. Sports Medicine - Open, 10, 71.',
-            },
-          ],
-        },
-      })
-    );
-  }
+  // 3. Pattern prediction for tomorrow — REMOVED from card list.
+  // Pattern predictions are shown in the Today banner only.
+  // Pattern predictions removed from card list — shown in Today banner only.
 }
 
 // ---------------------------------------------------------------------------
@@ -1273,10 +1211,56 @@ function addStalePRInsights(
     recentPRs: data.recentPRs,
   });
 
-  for (const opp of opportunities) {
-    // Avoid duplicating if we already have a PR insight for this section
-    if (insights.some((i) => i.id === `section_pr-${opp.sectionId}`)) continue;
-    insights.push(stalePROpportunityToInsight(opp, t, now));
+  // Filter out sections that already have a PR insight
+  const filtered = opportunities.filter(
+    (opp) => !insights.some((i) => i.id === `section_pr-${opp.sectionId}`)
+  );
+
+  if (filtered.length === 0) return;
+
+  // Generate ONE grouped card for all beatable PRs instead of individual cards
+  if (filtered.length === 1) {
+    insights.push(stalePROpportunityToInsight(filtered[0], t, now));
+  } else {
+    // Group into one card listing all beatable sections
+    const first = filtered[0];
+    const isPower = first.fitnessMetric === 'power';
+    const metricLabel = isPower ? 'FTP' : 'Pace';
+    const currentStr = isPower
+      ? `${Math.round(first.currentValue)}W`
+      : formatDuration(first.currentValue);
+    const previousStr = isPower
+      ? `${Math.round(first.previousValue)}W`
+      : formatDuration(first.previousValue);
+
+    insights.push(
+      makeInsight({
+        id: 'stale_pr-group',
+        category: 'stale_pr',
+        priority: 2,
+        icon: 'lightning-bolt',
+        iconColor: '#FF9800',
+        title: `${filtered.length} PRs might be beatable`,
+        subtitle: `${metricLabel} improved: ${previousStr} → ${currentStr}`,
+        body: filtered.map((o) => o.sectionName).join(', '),
+        navigationTarget: `/section/${first.sectionId}`,
+        timestamp: now,
+        supportingData: {
+          sections: filtered.map((o) => ({
+            sectionId: o.sectionId,
+            sectionName: o.sectionName,
+            bestTime: o.bestTimeSecs,
+            sportType: sections.find((s) => s.sectionId === o.sectionId)?.sportType,
+          })),
+          formula: `${metricLabel} gain = +${first.gainPercent}%`,
+          algorithmDescription: t('insights.stalePr.methodology'),
+        },
+        methodology: {
+          name: `${metricLabel}-PR cross-reference`,
+          description: t('insights.stalePr.methodology'),
+        },
+      })
+    );
   }
 }
 
@@ -1295,8 +1279,9 @@ function addSectionClusterInsights(
   if (!trends || trends.length === 0) return;
 
   const clusterInsights = generateSectionClusterInsights(trends, now, t);
-  for (const ci of clusterInsights) {
-    insights.push(ci);
+  // Show at most 1 cluster insight (the most relevant — improving takes priority)
+  if (clusterInsights.length > 0) {
+    insights.push(clusterInsights[0]);
   }
 }
 

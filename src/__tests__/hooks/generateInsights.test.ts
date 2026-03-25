@@ -624,23 +624,7 @@ describe('generateInsights', () => {
       expect(result.find((i) => i.id === 'rest_day-section-trends')).toBeUndefined();
     });
 
-    it('generates tomorrow pattern on rest day', () => {
-      const result = generateInsights(
-        {
-          ...EMPTY_INPUT,
-          isRestDay: true,
-          tomorrowPattern: {
-            sportType: 'Ride',
-            primaryDay: 3,
-            avgDurationSecs: 5400,
-            confidence: 0.7,
-            activityCount: 12,
-          },
-        },
-        mockT
-      );
-      expect(result.find((i) => i.id === 'rest_day-tomorrow-pattern')).toBeDefined();
-    });
+    // Tomorrow pattern removed from card list — shown in Today banner only
   });
 
   // ============================================================
@@ -780,7 +764,6 @@ describe('generateInsights', () => {
       expect(tsb!.body).toContain('atl: 56');
     });
   });
-
 });
 
 // ============================================================
