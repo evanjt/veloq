@@ -8,6 +8,7 @@ import { TodayBanner } from '@/components/routes/TodayBanner';
 import { InsightListCard } from './InsightListCard';
 import { InsightDetailSheet } from './InsightDetailSheet';
 import { PatternDetailSheet } from './PatternDetailSheet';
+import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import type { Insight } from '@/types';
 
@@ -24,7 +25,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({ insights }: Ins
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <TodayBanner />
         {insights.length > 0 ? (
           <View style={styles.cardList}>
@@ -78,6 +79,9 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: spacing.sm,
     marginBottom: spacing.xs,
+  },
+  scrollContent: {
+    paddingBottom: layout.screenPadding + TAB_BAR_SAFE_PADDING,
   },
   cardList: {
     paddingTop: spacing.sm,
