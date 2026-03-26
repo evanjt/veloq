@@ -5,6 +5,7 @@ export { DataSourcesSection } from './DataSourcesSection';
 export { DisplaySettings } from './DisplaySettings';
 export { MapStylePreviewPicker } from './MapStylePreviewPicker';
 export { MapsSection } from './MapsSection';
+export { NotificationSection } from './NotificationSection';
 export { ProfileSection } from './ProfileSection';
 export { SettingsSection, SectionDivider } from './SettingsSection';
 export { StorageStatsPanel } from './StorageStatsPanel';

@@ -256,6 +256,19 @@ export default function RootLayout() {
     return () => subscription.remove();
   }, []);
 
+  // Re-register push token on app open (refreshes TTL on server)
+  useEffect(() => {
+    if (!appReady) return;
+    const { getNotificationPreferences } = require('@/providers/NotificationPreferencesStore');
+    const { useAuthStore: authStore } = require('@/providers/AuthStore');
+    const prefs = getNotificationPreferences();
+    const { athleteId, isDemoMode: demo } = authStore.getState();
+    if (prefs.enabled && athleteId && !demo) {
+      const { registerPushToken } = require('@/lib/notifications/pushTokenRegistration');
+      registerPushToken(athleteId);
+    }
+  }, [appReady]);
+
   // Show minimal loading while initializing
   if (!appReady) {
     return (

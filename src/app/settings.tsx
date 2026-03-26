@@ -32,6 +32,7 @@ import {
   DataCacheSection,
   AccountSection,
   DataSourcesSection,
+  NotificationSection,
   SupportSection,
 } from '@/components/settings';
 
@@ -167,6 +168,8 @@ export default function SettingsScreen() {
           <MapsSection />
 
           <DataCacheSection onLayout={handleDataCacheSectionLayout} />
+
+          <NotificationSection />
 
           <AccountSection />
 

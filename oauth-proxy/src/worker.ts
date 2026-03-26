@@ -486,12 +486,20 @@ async function handleIntervalsWebhook(
       return jsonResponse({ success: true }); // Nothing to process
     }
 
-    // Process each event
+    // Process each event (with deduplication)
     const pushPromises: Promise<void>[] = [];
 
     for (const event of payload.events) {
       if (!event.athlete_id || !event.type) continue;
       if (!PROCESSED_EVENTS.has(event.type)) continue;
+
+      // Deduplicate: skip if we already processed this event recently
+      const dedupeKey = `dedup:${event.athlete_id}:${event.type}:${event.activity?.id ?? "none"}`;
+      const alreadyProcessed = await env.OAUTH_STATES.get(dedupeKey);
+      if (alreadyProcessed) continue;
+
+      // Mark as processed (5-minute TTL)
+      await env.OAUTH_STATES.put(dedupeKey, "1", { expirationTtl: 300 });
 
       // Look up device tokens for this athlete
       const key = `athlete:${event.athlete_id}`;
