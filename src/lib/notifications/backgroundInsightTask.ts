@@ -11,6 +11,7 @@ import { formatInsightNotification, pickBestInsightForNotification } from './ins
 import { presentInsightNotification } from './notificationService';
 import { computeInsightFingerprint } from '@/providers/InsightsStore';
 import type { NotificationPreferences } from '@/providers/NotificationPreferencesStore';
+import type { Insight } from '@/types';
 
 const log = debug.create('BackgroundInsight');
 
@@ -52,16 +53,21 @@ async function readPrefsFromStorage(): Promise<NotificationPreferences | null> {
   }
 }
 
+interface ActivityInfo {
+  name: string;
+  type: string;
+  ingested: boolean;
+}
+
 /**
- * Download and ingest a single activity into the Rust engine.
- * Uses startFetchAndStore() for direct Rust→SQLite GPS storage.
- * Returns true if successful.
+ * Fetch activity metadata and download GPS into the Rust engine.
+ * Returns activity info for notification enrichment, or null on failure.
  */
-async function ingestActivity(activityId: string): Promise<boolean> {
+async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo | null> {
   try {
     const { getStoredCredentials } = require('@/providers/AuthStore');
     const creds = getStoredCredentials();
-    if (!creds.athleteId) return false;
+    if (!creds.athleteId) return null;
 
     // Build auth header
     let authHeader: string;
@@ -71,18 +77,21 @@ async function ingestActivity(activityId: string): Promise<boolean> {
       const encoded = btoa(`API_KEY:${creds.apiKey}`);
       authHeader = `Basic ${encoded}`;
     } else {
-      log.warn('No credentials for activity ingestion');
-      return false;
+      return null;
     }
 
-    // Fetch activity metadata to get sport type
+    // Fetch activity metadata
     const { intervalsApi } = require('@/api');
     const activity = await intervalsApi.getActivity(activityId);
-    if (!activity) return false;
+    if (!activity) return null;
 
-    const sportType = activity.type ?? 'Ride';
+    const activityInfo: ActivityInfo = {
+      name: activity.name ?? 'Activity',
+      type: activity.type ?? 'Ride',
+      ingested: false,
+    };
 
-    // Start GPS download in Rust (direct to SQLite, no JS round-trip)
+    // Download GPS in Rust (direct to SQLite, ~150ms for one activity)
     const {
       startFetchAndStore,
       getDownloadProgress,
@@ -90,55 +99,70 @@ async function ingestActivity(activityId: string): Promise<boolean> {
       routeEngine,
     } = require('veloqrs');
 
-    startFetchAndStore(authHeader, [activityId], [{ activityId, sportType }]);
+    startFetchAndStore(authHeader, [activityId], [{ activityId, sportType: activityInfo.type }]);
 
-    // Wait for the Rust background thread to complete.
-    // Single activity GPS download takes ~150-500ms in Rust.
-    // setTimeout doesn't fire reliably when app is backgrounded,
-    // so we use a synchronous busy-wait with periodic yield via
-    // a resolved promise (microtask) to keep the JS thread alive.
+    // Busy-wait for Rust thread (setTimeout unreliable when backgrounded)
     const startTime = Date.now();
-    let complete = false;
     while (Date.now() - startTime < GPS_DOWNLOAD_TIMEOUT_MS) {
-      // Yield to microtask queue (allows Rust thread callbacks to propagate)
       await Promise.resolve();
       const progress = getDownloadProgress();
-      if (!progress.active) {
-        log.log(`[ingest] GPS download complete in ${Date.now() - startTime}ms`);
-        complete = true;
-        break;
-      }
-      // Brief busy-wait to avoid spinning too fast (100 iterations ~= 1ms)
+      if (!progress.active) break;
       const busyEnd = Date.now() + 50;
       while (Date.now() < busyEnd) {
-        // spin
+        /* spin */
       }
     }
 
-    if (!complete) {
-      log.warn(`[ingest] GPS download timed out after ${Date.now() - startTime}ms`);
-    }
-
-    // Get result
     const result = takeFetchAndStoreResult();
-    log.log(`[ingest] Result: synced=${result?.successCount}, points=${result?.totalPoints}`);
-    if (!result || result.successCount === 0) {
-      log.warn('[ingest] GPS download failed or no data');
-      return false;
+    if (result && result.successCount > 0) {
+      const { toActivityMetrics } = require('@/lib/utils/activityMetrics');
+      routeEngine.setActivityMetrics([toActivityMetrics(activity)]);
+      routeEngine.triggerRefresh('activities');
+      activityInfo.ingested = true;
+      log.log(
+        `Activity ingested: ${activityInfo.name} (${result.totalPoints} GPS points, ${Date.now() - startTime}ms)`
+      );
     }
 
-    // Set activity metrics in engine
-    const { toActivityMetrics } = require('@/lib/utils/activityMetrics');
-    const metrics = toActivityMetrics(activity);
-    routeEngine.setActivityMetrics([metrics]);
-    routeEngine.triggerRefresh('activities');
-
-    log.log(`Activity ${activityId} ingested: ${result.totalPoints} GPS points`);
-    return true;
+    return activityInfo;
   } catch (e) {
-    log.warn('Activity ingestion failed:', e);
-    return false;
+    log.warn('Activity fetch/ingest failed:', e);
+    return null;
   }
+}
+
+/**
+ * Build an activity-centric notification body.
+ * Mentions the activity name, with an insight detail if one was caused by this activity.
+ */
+function buildActivityNotificationBody(
+  activityName: string,
+  newInsights: Insight[],
+  t: (key: string, params?: Record<string, string | number>) => string
+): string {
+  // Check for activity-specific insights (PRs, section trends)
+  const pr = newInsights.find((i) => i.category === 'section_pr');
+  if (pr) {
+    return `${activityName} — ${pr.title}`;
+  }
+
+  const cluster = newInsights.find((i) => i.category === 'section_cluster');
+  if (cluster?.subtitle) {
+    return `${activityName} — ${cluster.subtitle}`;
+  }
+
+  const milestone = newInsights.find((i) => i.category === 'fitness_milestone');
+  if (milestone) {
+    return `${activityName} — ${milestone.title}`;
+  }
+
+  const comparison = newInsights.find((i) => i.category === 'period_comparison');
+  if (comparison) {
+    return `${activityName} — ${comparison.title}`;
+  }
+
+  // No activity-relevant insight
+  return activityName;
 }
 
 /**
@@ -190,22 +214,18 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     log.log(`Push received: event=${eventType}, activity=${activityId}`);
     const isActivityEvent = eventType === 'ACTIVITY_UPLOADED' || eventType === 'ACTIVITY_ANALYZED';
 
-    // 3. If activity event, download and ingest the new activity
-    if (isActivityEvent && activityId) {
-      const ingested = await ingestActivity(activityId);
-      if (ingested) {
-        log.log('New activity ingested into engine');
-      } else {
-        log.log('Activity ingestion skipped — will sync on next app open');
-      }
-    }
-
-    // 4. Get i18n translation function (standalone, no React)
+    // 3. Get i18n translation function (standalone, no React)
     const { i18n } = require('@/i18n');
     const t = i18n.t.bind(i18n) as (
       key: string,
       params?: Record<string, string | number>
     ) => string;
+
+    // 4. If activity event, fetch metadata + download GPS into engine
+    let activityInfo: ActivityInfo | null = null;
+    if (isActivityEvent && activityId) {
+      activityInfo = await fetchAndIngestActivity(activityId);
+    }
 
     // 5. Fetch fresh wellness data from intervals.icu API
     let wellnessData: WellnessInput[] | null = null;
@@ -217,71 +237,39 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       log.warn('Could not fetch wellness data:', e);
     }
 
-    // 6. Get insight data from engine (now includes the new activity if ingested)
+    // 6. Generate insights (now includes new activity if ingested)
     const ffiData = fetchInsightsDataFromEngine();
-    if (!ffiData) {
-      // Engine not ready — still notify about the activity
-      if (isActivityEvent) {
-        await presentInsightNotification(
-          t('notifications.activityRecorded.title'),
-          t('notifications.activityRecorded.body'),
-          { route: '/', activityId: activityId ?? undefined }
-        );
-        log.log('Notification sent: activity recorded (engine not ready)');
-      }
-      return;
-    }
+    const insights = ffiData ? computeInsightsFromData(ffiData, wellnessData, t) : [];
 
-    // 7. Generate insights with fresh wellness + new activity data
-    const insights = computeInsightsFromData(ffiData, wellnessData, t);
-    log.log(
-      `Generated ${insights.length} insights, categories: ${insights.map((i) => i.category).join(', ')}`
-    );
-
-    // 8. Compare fingerprint to detect new insights
-    const currentFingerprint = insights.length > 0 ? computeInsightFingerprint(insights) : '';
+    // 7. Find insights that are NEW (caused by this activity)
     const storedFingerprint = await AsyncStorage.getItem(FINGERPRINT_KEY);
-
     const previousIds = new Set((storedFingerprint ?? '').split('|'));
     const newInsights = insights.filter((i) => !previousIds.has(i.id));
-    const bestInsight = pickBestInsightForNotification(
-      newInsights.length > 0 ? newInsights : insights
-    );
 
-    // 9. Present notification
-    if (bestInsight) {
-      const prefKey = CATEGORY_PREFS[bestInsight.category];
-      if (prefKey && !prefs.categories[prefKey]) {
-        // Category disabled — show generic activity notification instead
-        if (isActivityEvent) {
-          await presentInsightNotification(
-            t('notifications.activityRecorded.title'),
-            t('notifications.activityRecorded.body'),
-            { route: '/', activityId: activityId ?? undefined }
-          );
-          log.log('Notification sent: activity recorded (insight category disabled)');
-        }
-      } else {
-        // Show the insight, deep linking to activity if available
+    // 8. Build activity-centric notification
+    if (isActivityEvent) {
+      const activityName = activityInfo?.name ?? t('notifications.activityRecorded.title');
+      const body = buildActivityNotificationBody(activityName, newInsights, t);
+
+      await presentInsightNotification(t('notifications.activityRecorded.title'), body, {
+        route: '/',
+        activityId: activityId ?? undefined,
+      });
+      log.log(`Notification sent: ${body}`);
+    } else if (newInsights.length > 0) {
+      // Non-activity event (fitness update, wellness change) with new insights
+      const bestInsight = pickBestInsightForNotification(newInsights);
+      if (bestInsight) {
         const content = formatInsightNotification(bestInsight, t);
-        if (activityId) {
-          content.data.activityId = activityId;
-        }
         await presentInsightNotification(content.title, content.body, content.data);
         log.log(`Notification sent: ${content.title} — ${content.body}`);
       }
-    } else if (isActivityEvent) {
-      await presentInsightNotification(
-        t('notifications.activityRecorded.title'),
-        t('notifications.activityRecorded.body'),
-        { route: '/', activityId: activityId ?? undefined }
-      );
-      log.log('Notification sent: activity recorded (no insights)');
     } else {
       log.log('No notification content to show');
     }
 
-    // 10. Update stored fingerprint
+    // 9. Update stored fingerprint
+    const currentFingerprint = insights.length > 0 ? computeInsightFingerprint(insights) : '';
     if (currentFingerprint) {
       await AsyncStorage.setItem(FINGERPRINT_KEY, currentFingerprint);
     }
