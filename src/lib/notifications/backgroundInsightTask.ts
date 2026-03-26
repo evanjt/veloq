@@ -90,20 +90,43 @@ async function ingestActivity(activityId: string): Promise<boolean> {
       routeEngine,
     } = require('veloqrs');
 
+    log.log('[ingest] Calling startFetchAndStore...');
     startFetchAndStore(authHeader, [activityId], [{ activityId, sportType }]);
+    log.log('[ingest] startFetchAndStore returned, polling progress...');
 
     // Poll until complete or timeout
     const startTime = Date.now();
+    let pollCount = 0;
+    let complete = false;
     while (Date.now() - startTime < GPS_DOWNLOAD_TIMEOUT_MS) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Use a short delay to yield the thread
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 200);
+      });
+      pollCount++;
       const progress = getDownloadProgress();
-      if (!progress.active) break;
+      log.log(
+        `[ingest] Poll #${pollCount}: active=${progress.active}, completed=${progress.completed}/${progress.total} (${Date.now() - startTime}ms)`
+      );
+      if (!progress.active) {
+        complete = true;
+        break;
+      }
+    }
+
+    if (!complete) {
+      log.warn(
+        `[ingest] GPS download timed out after ${Date.now() - startTime}ms (${pollCount} polls)`
+      );
     }
 
     // Get result
     const result = takeFetchAndStoreResult();
+    log.log(
+      `[ingest] Result: synced=${result?.successCount}, failed=${result?.failedIds?.length}, points=${result?.totalPoints}`
+    );
     if (!result || result.successCount === 0) {
-      log.warn('GPS download failed or timed out');
+      log.warn('[ingest] GPS download failed or no data');
       return false;
     }
 
