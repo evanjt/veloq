@@ -187,6 +187,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   clearCredentials: async () => {
+    // Unregister push token before clearing credentials (fire-and-forget)
+    try {
+      const currentAthleteId = get().athleteId;
+      if (currentAthleteId) {
+        const { getNotificationPreferences } = require('./NotificationPreferencesStore');
+        const prefs = getNotificationPreferences();
+        if (prefs.enabled) {
+          const { unregisterPushToken } = require('@/lib/notifications/pushTokenRegistration');
+          unregisterPushToken(currentAthleteId);
+        }
+      }
+    } catch {
+      // Push token cleanup is best-effort
+    }
+
     await Promise.all([
       SecureStore.deleteItemAsync(API_KEY_STORAGE_KEY),
       SecureStore.deleteItemAsync(ATHLETE_ID_STORAGE_KEY),

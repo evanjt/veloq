@@ -11,6 +11,16 @@ compatibility_date = "2024-01-01"
 binding = "OAUTH_STATES"
 id = "54c9bae1afed491e8cd0177102800b8d"
 
+# Required: Stores device push tokens for webhook relay
+[[kv_namespaces]]
+binding = "DEVICE_TOKENS"
+id = "TODO_CREATE_VIA_DASHBOARD"
+
 # Secrets (set via Dashboard or `wrangler secret put`)
 # - INTERVALS_CLIENT_ID
 # - INTERVALS_CLIENT_SECRET
+# - WEBHOOK_SECRET (shared secret from intervals.icu webhook config)
+# - FCM_SERVICE_ACCOUNT_KEY (for Android push via FCM HTTP v1 API)
+# - APNS_KEY_P8 (for iOS push via APNs JWT auth)
+# - APNS_KEY_ID (APNs key ID)
+# - APNS_TEAM_ID (Apple Developer Team ID)

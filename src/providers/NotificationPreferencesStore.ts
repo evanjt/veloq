@@ -76,6 +76,23 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
     };
     set({ enabled });
     persist(updated);
+
+    // Register/unregister push token with server (fire-and-forget)
+    try {
+      const { useAuthStore } = require('./AuthStore');
+      const { athleteId } = useAuthStore.getState();
+      if (athleteId) {
+        if (enabled) {
+          const { registerPushToken } = require('@/lib/notifications/pushTokenRegistration');
+          registerPushToken(athleteId);
+        } else {
+          const { unregisterPushToken } = require('@/lib/notifications/pushTokenRegistration');
+          unregisterPushToken(athleteId);
+        }
+      }
+    } catch {
+      // Push token registration is best-effort
+    }
   },
 
   acceptPrivacy: () => {
