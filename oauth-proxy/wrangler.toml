@@ -14,7 +14,7 @@ id = "54c9bae1afed491e8cd0177102800b8d"
 # Required: Stores device push tokens for webhook relay
 [[kv_namespaces]]
 binding = "DEVICE_TOKENS"
-id = "TODO_CREATE_VIA_DASHBOARD"
+id = "36c0a670f2924225b557104215bcff62"
 
 # Secrets (set via Dashboard or `wrangler secret put`)
 # - INTERVALS_CLIENT_ID
