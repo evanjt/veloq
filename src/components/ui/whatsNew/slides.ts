@@ -22,6 +22,16 @@ export interface WhatsNewSlideDefinition {
  * Future releases just add a new key here.
  */
 export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
+  '0.3.0': [
+    {
+      titleKey: 'whatsNew.v030.notificationsTitle',
+      bodyKey: 'whatsNew.v030.notificationsBody',
+      icon: 'bell-ring-outline',
+      get Component() {
+        return require('./NotificationSlide').NotificationSlide;
+      },
+    },
+  ],
   '0.2.2': [
     {
       titleKey: 'whatsNew.v022.mapStylesTitle',

@@ -649,6 +649,17 @@ export interface TranslationResource {
     justWhatsNew: string;
     backToTour: string;
     closeTour: string;
+    v030: {
+      notificationsTitle: string;
+      notificationsBody: string;
+      enableNotifications: string;
+      requiresOAuth: string;
+      notificationExample: {
+        trophy: string;
+        'lightning-bolt': string;
+        'chart-line': string;
+      };
+    };
     v022: {
       mapStylesTitle: string;
       mapStylesBody: string;
@@ -658,6 +669,34 @@ export interface TranslationResource {
       heatmapTip: string;
       fitnessTitle: string;
       fitnessBody: string;
+    };
+  };
+
+  notifications: {
+    sectionPr: { title: string };
+    fitnessMilestone: { title: string };
+    periodComparison: { title: string };
+    tsbForm: { title: string };
+    hrvTrend: { title: string };
+    stalePr: { title: string };
+    sectionCluster: { title: string };
+    efficiencyTrend: { title: string };
+    generic: { title: string };
+    privacy: {
+      title: string;
+      body: string;
+      accept: string;
+    };
+    settings: {
+      title: string;
+      enable: string;
+      categories: string;
+      sectionPr: string;
+      fitnessMilestone: string;
+      periodComparison: string;
+      activityPattern: string;
+      requiresOAuth: string;
+      stravaNote: string;
     };
   };
 

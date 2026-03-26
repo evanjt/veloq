@@ -37,6 +37,7 @@ import {
   initializeInsightsStore,
   initializeRecordingPreferences,
   initializeUploadPermission,
+  initializeNotificationPreferences,
   useSyncDateRange,
   useEngineStatus,
 } from '@/providers';
@@ -55,6 +56,10 @@ import {
 import { RecordingBanner } from '@/components/recording/RecordingBanner';
 import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
+import {
+  initializeNotifications,
+  setupNotificationResponseHandler,
+} from '@/lib/notifications/notificationService';
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
 // These occur because Victory uses shared values during render (known library behavior)
@@ -235,10 +240,18 @@ export default function RootLayout() {
         initializeInsightsStore(),
         initializeRecordingPreferences(),
         initializeUploadPermission(),
+        initializeNotificationPreferences(),
       ]);
     }
     initialize().finally(() => setAppReady(true));
   }, [initializeAuth]);
+
+  // Set up notification handlers once on mount
+  useEffect(() => {
+    initializeNotifications();
+    const subscription = setupNotificationResponseHandler();
+    return () => subscription.remove();
+  }, []);
 
   // Show minimal loading while initializing
   if (!appReady) {

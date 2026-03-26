@@ -100,6 +100,12 @@ export {
   computeInsightFingerprint,
   diffInsights,
 } from './InsightsStore';
+export {
+  useNotificationPreferences,
+  getNotificationPreferences,
+  initializeNotificationPreferences,
+  type NotificationPreferences,
+} from './NotificationPreferencesStore';
 export { useRecordingStore, getRecordingStatus } from './RecordingStore';
 export {
   useRecordingPreferences,

@@ -23,7 +23,7 @@
         "CFBundleLocalizations": ["en-AU", "en-US", "en-GB", "es", "fr"],
         "NSLocationWhenInUseUsageDescription": "Veloq uses your location to display activity maps, track routes, and record fitness activities.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Veloq uses your location in the background to continue recording fitness activities when the app is not in the foreground.",
-        "UIBackgroundModes": ["location", "fetch"],
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"],
         "ITSAppUsesNonExemptEncryption": false
       },
       "config": {
@@ -81,6 +81,13 @@
       "expo-web-browser",
       "expo-secure-store",
       "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./src/assets/icon.png",
+          "color": "#FC4C02"
+        }
+      ],
       [
         "expo-build-properties",
         {
