@@ -17,6 +17,7 @@ const HOME_CATEGORIES: Set<InsightCategory> = new Set([
   'section_pr',
   'activity_pattern',
   'fitness_milestone',
+  'section_cluster',
 ]);
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -43,9 +44,14 @@ export const InsightLine = React.memo(function InsightLine({ insights }: Insight
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [currentIndex, setCurrentIndex] = React.useState(0);
 
-  // Only show PRs, patterns, and milestones; filter consecutive identical titles
+  // Only show PRs, patterns, milestones, and improving clusters; filter consecutive identical titles
   const displayInsights = useMemo(() => {
-    const relevant = insights.filter((i) => HOME_CATEGORIES.has(i.category));
+    const relevant = insights.filter((i) => {
+      if (!HOME_CATEGORIES.has(i.category)) return false;
+      // Only show improving clusters on home (declining feels negative)
+      if (i.category === 'section_cluster' && !i.id.includes('improving')) return false;
+      return true;
+    });
     const sliced = relevant.slice(0, MAX_DISPLAY);
     return sliced.filter((insight, i) => i === 0 || insight.title !== sliced[i - 1].title);
   }, [insights]);

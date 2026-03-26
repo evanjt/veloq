@@ -80,6 +80,11 @@ export const SectionClusterContent = React.memo(function SectionClusterContent({
                       : t('time.dayAbbrev', { count: section.daysSinceLast })}
                 </Text>
               ) : null}
+              {section.traversalCount != null && section.traversalCount >= 3 ? (
+                <Text style={[styles.traversals, isDark && styles.traversalsDark]}>
+                  {section.traversalCount}x
+                </Text>
+              ) : null}
               {section.bestTime != null ? (
                 <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>
                   {formatDuration(section.bestTime)}
@@ -157,6 +162,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   recencyDark: {
+    color: darkColors.textSecondary,
+  },
+  traversals: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  traversalsDark: {
     color: darkColors.textSecondary,
   },
   bestTime: {

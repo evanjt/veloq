@@ -14,7 +14,13 @@ const mockT = (key: string, params?: Record<string, string | number>): string =>
 
 const NOW = Date.now();
 
-function makeTrend(id: string, name: string, trend: number, traversalCount = 10): SectionTrendData {
+function makeTrend(
+  id: string,
+  name: string,
+  trend: number,
+  traversalCount = 10,
+  daysSinceLast?: number
+): SectionTrendData {
   return {
     sectionId: id,
     sectionName: name,
@@ -22,6 +28,7 @@ function makeTrend(id: string, name: string, trend: number, traversalCount = 10)
     medianRecentSecs: 300,
     bestTimeSecs: 270,
     traversalCount,
+    daysSinceLast,
   };
 }
 
@@ -109,7 +116,7 @@ describe('generateSectionClusterInsights', () => {
     expect(result[0].id).toBe('section_cluster-improving');
   });
 
-  it('sorts sections by traversal count in supporting data', () => {
+  it('falls back to traversal count sort when daysSinceLast is not provided', () => {
     const trends = [
       makeTrend('s1', 'Low Traffic', 1, 5),
       makeTrend('s2', 'High Traffic', 1, 50),
@@ -126,13 +133,56 @@ describe('generateSectionClusterInsights', () => {
     expect(sections![2].sectionName).toBe('Low Traffic');
   });
 
-  it('lists section names in body ordered by traversal count', () => {
+  it('falls back to traversal count ordering in body when daysSinceLast is not provided', () => {
     const trends = [makeTrend('s1', 'Alpha', 1, 3), makeTrend('s2', 'Beta', 1, 30)];
     const result = generateSectionClusterInsights(trends, NOW, mockT);
     expect(result).toHaveLength(1);
-    // Body should list Beta before Alpha (higher traversal count first)
+    // Body should list Beta before Alpha (higher traversal count first, as tiebreaker)
     const body = result[0].body!;
     expect(body.indexOf('Beta')).toBeLessThan(body.indexOf('Alpha'));
+  });
+
+  it('sorts sections by daysSinceLast ascending when provided', () => {
+    const trends = [
+      makeTrend('s1', 'Old Section', 1, 50, 14),
+      makeTrend('s2', 'Recent Section', 1, 5, 2),
+      makeTrend('s3', 'Medium Section', 1, 30, 7),
+    ];
+    const result = generateSectionClusterInsights(trends, NOW, mockT);
+    expect(result).toHaveLength(1);
+
+    const sections = result[0].supportingData?.sections;
+    expect(sections![0].sectionName).toBe('Recent Section');
+    expect(sections![1].sectionName).toBe('Medium Section');
+    expect(sections![2].sectionName).toBe('Old Section');
+  });
+
+  it('uses traversal count as tiebreaker when daysSinceLast is equal', () => {
+    const trends = [
+      makeTrend('s1', 'Less Visited', 1, 5, 3),
+      makeTrend('s2', 'More Visited', 1, 50, 3),
+    ];
+    const result = generateSectionClusterInsights(trends, NOW, mockT);
+    const sections = result[0].supportingData?.sections;
+    expect(sections![0].sectionName).toBe('More Visited');
+    expect(sections![1].sectionName).toBe('Less Visited');
+  });
+
+  it('names most recent section in title when daysSinceLast is provided', () => {
+    const trends = [
+      makeTrend('s1', 'Old Favorite', 1, 50, 14),
+      makeTrend('s2', 'Fresh Run', 1, 5, 1),
+    ];
+    const result = generateSectionClusterInsights(trends, NOW, mockT);
+    expect(result[0].title).toContain('name: Fresh Run');
+  });
+
+  it('includes daysSinceLast in supporting data sections', () => {
+    const trends = [makeTrend('s1', 'A', 1, 10, 3), makeTrend('s2', 'B', 1, 10, 7)];
+    const result = generateSectionClusterInsights(trends, NOW, mockT);
+    const sections = result[0].supportingData?.sections;
+    expect(sections![0].daysSinceLast).toBe(3);
+    expect(sections![1].daysSinceLast).toBe(7);
   });
 
   it('includes methodology in the insight', () => {
