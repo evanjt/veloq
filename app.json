@@ -34,6 +34,7 @@
     "android": {
       "package": "com.veloq.app",
       "versionCode": 18,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/adaptive-icon.png",
         "backgroundColor": "#5B9BD5"

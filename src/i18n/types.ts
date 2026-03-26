@@ -684,6 +684,7 @@ export interface TranslationResource {
     generic: { title: string };
     privacy: {
       title: string;
+      brief: string;
       body: string;
       accept: string;
     };
