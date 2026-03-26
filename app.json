@@ -20,16 +20,28 @@
       "buildNumber": "18",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "en-AU",
-        "CFBundleLocalizations": ["en-AU", "en-US", "en-GB", "es", "fr"],
+        "CFBundleLocalizations": [
+          "en-AU",
+          "en-US",
+          "en-GB",
+          "es",
+          "fr"
+        ],
         "NSLocationWhenInUseUsageDescription": "Veloq uses your location to display activity maps, track routes, and record fitness activities.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Veloq uses your location in the background to continue recording fitness activities when the app is not in the foreground.",
-        "UIBackgroundModes": ["location", "fetch", "remote-notification"],
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ],
         "ITSAppUsesNonExemptEncryption": false
       },
       "config": {
         "usesNonExemptEncryption": false
       },
-      "associatedDomains": ["applinks:intervals.icu"]
+      "associatedDomains": [
+        "applinks:intervals.icu"
+      ]
     },
     "android": {
       "package": "com.veloq.app",
@@ -101,6 +113,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f8cfc9cb-dda9-4d0a-a061-e2f01fb42c2f"
+      }
     }
   }
 }

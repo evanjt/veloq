@@ -1343,6 +1343,10 @@
     "generic": {
       "title": "New Insight"
     },
+    "activityRecorded": {
+      "title": "Activity Recorded",
+      "body": "New activity synced. Open the app for details."
+    },
     "privacy": {
       "title": "Privacy Notice",
       "brief": "Your athlete ID and a push token will be stored on our server (90-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",

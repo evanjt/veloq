@@ -111,7 +111,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     }
 
     // 2. Extract activity ID from push payload for queuing
-    const pushData = data as { activity_id?: string } | undefined;
+    const pushData = data as { activity_id?: string; event_type?: string } | undefined;
     const activityId = pushData?.activity_id;
 
     // 3. Queue the activity ID for prioritised sync on next app open
@@ -152,46 +152,58 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
 
     // 7. Generate insights with fresh wellness data
     const insights = computeInsightsFromData(ffiData, wellnessData, t);
-    if (insights.length === 0) {
-      log.log('No insights generated');
-      return;
-    }
 
     // 8. Compare fingerprint to detect new insights
-    const currentFingerprint = computeInsightFingerprint(insights);
+    const currentFingerprint = insights.length > 0 ? computeInsightFingerprint(insights) : '';
     const storedFingerprint = await AsyncStorage.getItem(FINGERPRINT_KEY);
 
-    if (currentFingerprint === storedFingerprint) {
-      log.log('No new insights (fingerprint unchanged)');
-      return;
-    }
-
-    // 9. Find the best NEW insight to notify about
+    // Find new insights (if any)
     const previousIds = new Set((storedFingerprint ?? '').split('|'));
     const newInsights = insights.filter((i) => !previousIds.has(i.id));
-    const bestInsight = pickBestInsightForNotification(newInsights);
+    const bestInsight = pickBestInsightForNotification(
+      newInsights.length > 0 ? newInsights : insights
+    );
 
-    if (!bestInsight) {
-      log.log('No notification-worthy insights');
-      await AsyncStorage.setItem(FINGERPRINT_KEY, currentFingerprint);
-      return;
+    // 9. Determine notification content
+    const eventType = pushData?.event_type;
+    const isActivityEvent = eventType === 'ACTIVITY_UPLOADED' || eventType === 'ACTIVITY_ANALYZED';
+
+    if (bestInsight) {
+      // Check category preference
+      const prefKey = CATEGORY_PREFS[bestInsight.category];
+      if (prefKey && !prefs.categories[prefKey]) {
+        log.log(`Category ${bestInsight.category} disabled`);
+        // Still notify about the activity itself if it's an activity event
+        if (isActivityEvent) {
+          await presentInsightNotification(
+            t('notifications.activityRecorded.title'),
+            t('notifications.activityRecorded.body'),
+            { route: '/routes', activityId: activityId ?? undefined }
+          );
+          log.log('Notification sent: activity recorded (insight category disabled)');
+        }
+      } else {
+        // Notify with the best insight
+        const content = formatInsightNotification(bestInsight, t);
+        await presentInsightNotification(content.title, content.body, content.data);
+        log.log(`Notification sent: ${content.title} — ${content.body}`);
+      }
+    } else if (isActivityEvent) {
+      // No insights but we have a new activity — still notify
+      await presentInsightNotification(
+        t('notifications.activityRecorded.title'),
+        t('notifications.activityRecorded.body'),
+        { route: '/routes', activityId: activityId ?? undefined }
+      );
+      log.log('Notification sent: activity recorded (no insights)');
+    } else {
+      log.log('No notification content to show');
     }
 
-    // 10. Check category preference
-    const prefKey = CATEGORY_PREFS[bestInsight.category];
-    if (prefKey && !prefs.categories[prefKey]) {
-      log.log(`Category ${bestInsight.category} disabled, skipping notification`);
+    // 10. Update stored fingerprint
+    if (currentFingerprint) {
       await AsyncStorage.setItem(FINGERPRINT_KEY, currentFingerprint);
-      return;
     }
-
-    // 11. Present local notification
-    const content = formatInsightNotification(bestInsight, t);
-    await presentInsightNotification(content.title, content.body, content.data);
-    log.log(`Notification sent: ${content.title} — ${content.body}`);
-
-    // 12. Update stored fingerprint
-    await AsyncStorage.setItem(FINGERPRINT_KEY, currentFingerprint);
   } catch (e) {
     log.error('Background insight task failed:', e);
   }

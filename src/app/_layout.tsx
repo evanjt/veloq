@@ -59,6 +59,7 @@ import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 import {
   initializeNotifications,
   setupNotificationResponseHandler,
+  hasNotificationPermission,
 } from '@/lib/notifications/notificationService';
 
 // Register background insight task at module scope (required by TaskManager)
@@ -168,6 +169,21 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         if (today !== lastForegroundDateRef.current) {
           lastForegroundDateRef.current = today;
           queryClient.resetQueries({ queryKey: ['activities-infinite'] });
+        }
+
+        // Sync notification state: if OS permission was revoked while backgrounded,
+        // disable notifications in the app store and unregister the push token
+        const {
+          getNotificationPreferences,
+          useNotificationPreferences,
+        } = require('@/providers/NotificationPreferencesStore');
+        const prefs = getNotificationPreferences();
+        if (prefs.enabled) {
+          hasNotificationPermission().then((granted) => {
+            if (!granted) {
+              useNotificationPreferences.getState().setEnabled(false);
+            }
+          });
         }
       }
     });

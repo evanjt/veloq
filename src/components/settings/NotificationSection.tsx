@@ -1,11 +1,14 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, Alert, Pressable } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { useAuthStore, useNotificationPreferences } from '@/providers';
-import { requestNotificationPermission } from '@/lib/notifications/notificationService';
+import {
+  requestNotificationPermission,
+  hasNotificationPermission,
+} from '@/lib/notifications/notificationService';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { SectionDivider } from './SettingsSection';
 
@@ -24,6 +27,18 @@ export function NotificationSection() {
   const [toggling, setToggling] = useState(false);
 
   const canEnable = isOAuth && !isDemoMode;
+
+  // Sync with OS permission: if user revoked notification permission in system settings,
+  // disable notifications in the app so the toggle reflects reality
+  useEffect(() => {
+    if (enabled) {
+      hasNotificationPermission().then((granted) => {
+        if (!granted) {
+          setEnabled(false);
+        }
+      });
+    }
+  }, [enabled, setEnabled]);
 
   const handleMainToggle = useCallback(
     async (value: boolean) => {
