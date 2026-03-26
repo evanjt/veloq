@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { navigateTo, formatDuration } from '@/lib';
 import { getActivityIcon } from '@/lib/utils/activityUtils';
@@ -34,6 +35,7 @@ export const SectionClusterContent = React.memo(function SectionClusterContent({
   insight,
 }: SectionClusterContentProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   const sections = insight.supportingData?.sections ?? [];
 
   const handleSectionPress = useCallback((sectionId: string) => {
@@ -69,14 +71,18 @@ export const SectionClusterContent = React.memo(function SectionClusterContent({
               </Text>
             </View>
             <View style={styles.sectionMeta}>
+              {section.daysSinceLast != null ? (
+                <Text style={[styles.recency, isDark && styles.recencyDark]}>
+                  {section.daysSinceLast === 0
+                    ? t('time.today')
+                    : section.daysSinceLast === 1
+                      ? t('time.yesterday')
+                      : t('time.dayAbbrev', { count: section.daysSinceLast })}
+                </Text>
+              ) : null}
               {section.bestTime != null ? (
                 <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>
                   {formatDuration(section.bestTime)}
-                </Text>
-              ) : null}
-              {section.traversalCount != null ? (
-                <Text style={[styles.traversals, isDark && styles.traversalsDark]}>
-                  {section.traversalCount}x
                 </Text>
               ) : null}
               <MaterialCommunityIcons
@@ -146,6 +152,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
+  recency: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  recencyDark: {
+    color: darkColors.textSecondary,
+  },
   bestTime: {
     fontSize: 13,
     fontWeight: '600',
@@ -153,12 +166,5 @@ const styles = StyleSheet.create({
   },
   bestTimeDark: {
     color: darkColors.textPrimary,
-  },
-  traversals: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  traversalsDark: {
-    color: darkColors.textSecondary,
   },
 });

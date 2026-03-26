@@ -46,6 +46,7 @@ export interface SupportingSection {
   traversalCount?: number;
   sportType?: string;
   hasRecentPR?: boolean;
+  daysSinceLast?: number;
 }
 
 export interface SupportingActivity {

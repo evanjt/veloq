@@ -107,6 +107,7 @@ export function computeInsightsFromData(
         bestTimeSecs: number;
         traversalCount: number;
         sportType?: string;
+        daysSinceLast?: number;
       }
     >();
 
@@ -129,6 +130,7 @@ export function computeInsightsFromData(
               bestTimeSecs: rs.bestTimeSecs,
               traversalCount: rs.traversalCount,
               sportType: sport,
+              daysSinceLast: rs.daysSinceLast,
             });
           }
         }

@@ -29,6 +29,7 @@ export interface SectionTrendData {
   bestTimeSecs: number;
   traversalCount: number;
   sportType?: string; // 'Run', 'Ride', 'Swim', etc.
+  daysSinceLast?: number; // days since last traversal
 }
 
 // Translation function type
@@ -134,8 +135,13 @@ function makeClusterInsight(
   now: number,
   t: TFunc
 ): Insight {
-  // Sort by traversal count descending so most-visited sections appear first
-  const sorted = [...sections].sort((a, b) => b.traversalCount - a.traversalCount);
+  // Sort by recency (most recently done first), then traversal count as tiebreaker
+  const sorted = [...sections].sort((a, b) => {
+    const aDays = a.daysSinceLast ?? Infinity;
+    const bDays = b.daysSinceLast ?? Infinity;
+    if (aDays !== bDays) return aDays - bDays;
+    return b.traversalCount - a.traversalCount;
+  });
   const names = sorted.slice(0, MAX_LISTED_NAMES).map((s) => s.sectionName);
   const nameList = names.join(', ');
   const count = sections.length;
@@ -151,6 +157,7 @@ function makeClusterInsight(
       trend: s.trend,
       traversalCount: s.traversalCount,
       sportType: s.sportType,
+      daysSinceLast: s.daysSinceLast,
     })),
     algorithmDescription: t('insights.sectionCluster.methodology'),
   };

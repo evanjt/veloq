@@ -23,6 +23,7 @@ import {
   initializeWhatsNewStore,
   initializeInsightsStore,
   initializeRecordingPreferences,
+  initializeNotificationPreferences,
 } from '@/providers';
 import { reloadCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { reloadMapCameraState } from '@/lib/storage/mapCameraState';
@@ -293,6 +294,7 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
       initializeWhatsNewStore(),
       initializeInsightsStore(),
       initializeRecordingPreferences(),
+      initializeNotificationPreferences(),
       reloadCameraOverrides(),
       reloadMapCameraState(),
     ]);

@@ -63,6 +63,7 @@ import {
 
 // Register background insight task at module scope (required by TaskManager)
 import '@/lib/notifications/backgroundInsightTask';
+import { registerBackgroundNotificationTask } from '@/lib/notifications/backgroundInsightTask';
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
 // These occur because Victory uses shared values during render (known library behavior)
@@ -252,6 +253,7 @@ export default function RootLayout() {
   // Set up notification handlers once on mount
   useEffect(() => {
     initializeNotifications();
+    registerBackgroundNotificationTask();
     const subscription = setupNotificationResponseHandler();
     return () => subscription.remove();
   }, []);

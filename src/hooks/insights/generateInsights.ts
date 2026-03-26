@@ -70,6 +70,7 @@ interface SectionTrendData {
   bestTimeSecs: number;
   traversalCount: number;
   sportType?: string; // 'Run', 'Ride', etc.
+  daysSinceLast?: number; // days since last traversal
 }
 
 export interface InsightInputData {
@@ -248,12 +249,14 @@ function addRestDayInsights(
           supportingData: {
             sections: trends
               .filter((s) => s.trend === 1)
+              .sort((a, b) => (a.daysSinceLast ?? Infinity) - (b.daysSinceLast ?? Infinity))
               .map((s) => ({
                 sectionId: s.sectionId,
                 sectionName: s.sectionName,
                 trend: s.trend,
                 traversalCount: s.traversalCount,
                 sportType: s.sportType,
+                daysSinceLast: s.daysSinceLast,
               })),
           },
         })
