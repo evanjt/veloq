@@ -252,8 +252,8 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       const body = buildActivityNotificationBody(activityName, newInsights, t);
 
       await presentInsightNotification(t('notifications.activityRecorded.title'), body, {
-        route: '/',
-        activityId: activityId ?? undefined,
+        route: activityId ? `/activity/${activityId}` : '/',
+        activityId: activityId || undefined,
       });
       log.log(`Notification sent: ${body}`);
     } else if (newInsights.length > 0) {
