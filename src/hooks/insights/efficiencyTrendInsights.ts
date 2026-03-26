@@ -102,18 +102,6 @@ export function generateEfficiencyTrendInsights(
         description:
           'Tracks the HR/pace ratio across matched section efforts over time. A declining ratio (lower HR at the same pace) indicates improving aerobic efficiency. Uses ordinary least squares linear regression on the hr_pace_ratio time series.',
         formula: 'efficiency = avg_hr / pace_secs_per_km',
-        references: [
-          {
-            citation:
-              'Coyle, E. F., Coggan, A. R., Hopper, M. K., & Walters, T. J. (1991). Determinants of endurance in well-trained cyclists. Journal of Applied Physiology, 64(6), 2622–2630.',
-            url: 'https://pubmed.ncbi.nlm.nih.gov/3209572/',
-          },
-          {
-            citation:
-              'Jones, A. M. & Carter, H. (2000). The effect of endurance training on parameters of aerobic fitness. Sports Medicine, 29(6), 373–386.',
-            url: 'https://pubmed.ncbi.nlm.nih.gov/10870864/',
-          },
-        ],
       },
     });
   }

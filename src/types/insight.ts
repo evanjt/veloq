@@ -30,18 +30,12 @@ export interface InsightAlternative {
   thresholds?: DataPoint[];
 }
 
-export interface InsightReference {
-  citation: string;
-  url?: string;
-}
-
 export interface InsightMethodology {
   name: string;
   description: string;
   formula?: string;
   reference?: string;
   referenceUrl?: string;
-  references?: InsightReference[];
 }
 
 export interface SupportingSection {

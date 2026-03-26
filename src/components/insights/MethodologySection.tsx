@@ -7,7 +7,7 @@ import { useTheme } from '@/hooks';
 import { navigateTo } from '@/lib';
 import { CollapsibleSection } from '@/components/ui';
 import { colors, darkColors, spacing, opacity } from '@/theme';
-import type { Insight, InsightReference, SupportingActivity } from '@/types';
+import type { Insight, SupportingActivity } from '@/types';
 
 interface MethodologySectionProps {
   insight: Insight;
@@ -28,15 +28,13 @@ export const MethodologySection = React.memo(function MethodologySection({
   const algorithmDescription = supportingData?.algorithmDescription;
   const activities = supportingData?.activities;
   const hasActivities = activities != null && activities.length > 0;
-  const hasReferences = methodology?.references != null && methodology.references.length > 0;
-  const hasLegacyReference = !hasReferences && methodology?.reference != null;
+  const hasLegacyReference = methodology?.reference != null;
   const hasDescription = methodology?.description != null;
 
   const hasAnyContent =
     formula != null ||
     algorithmDescription != null ||
     hasActivities ||
-    hasReferences ||
     hasLegacyReference ||
     hasDescription;
 
@@ -46,7 +44,6 @@ export const MethodologySection = React.memo(function MethodologySection({
     if (hasDescription) height += 40;
     if (algorithmDescription) height += 40;
     if (hasActivities) height += Math.min(activities!.length, 5) * 44 + 24;
-    if (hasReferences) height += methodology!.references!.length * 50 + 16;
     if (hasLegacyReference) height += 30;
     return Math.max(height, 80);
   }, [
@@ -55,8 +52,6 @@ export const MethodologySection = React.memo(function MethodologySection({
     algorithmDescription,
     hasActivities,
     activities,
-    hasReferences,
-    methodology,
     hasLegacyReference,
   ]);
 
@@ -88,11 +83,6 @@ export const MethodologySection = React.memo(function MethodologySection({
 
           {/* Source activities */}
           {hasActivities ? <SourceActivitiesList activities={activities!} isDark={isDark} /> : null}
-
-          {/* Academic references */}
-          {hasReferences ? (
-            <ReferencesList references={methodology!.references!} isDark={isDark} />
-          ) : null}
 
           {/* Legacy single reference */}
           {hasLegacyReference ? (
@@ -176,58 +166,7 @@ const SourceActivitiesList = React.memo(function SourceActivitiesList({
   );
 });
 
-/** Renders numbered academic references with optional URLs */
-const ReferencesList = React.memo(function ReferencesList({
-  references,
-  isDark,
-}: {
-  references: InsightReference[];
-  isDark: boolean;
-}) {
-  const handleRefPress = useCallback((url: string) => {
-    Linking.openURL(url);
-  }, []);
-
-  return (
-    <View style={styles.referencesContainer}>
-      {references.map((ref, i) => (
-        <View key={i} style={styles.referenceItem}>
-          <Text style={[styles.referenceNumber, isDark && styles.referenceNumberDark]}>
-            {i + 1}.
-          </Text>
-          {ref.url ? (
-            <Pressable
-              style={styles.referenceTextContainer}
-              onPress={() => handleRefPress(ref.url!)}
-            >
-              <Text
-                style={[
-                  styles.referenceText,
-                  isDark && styles.referenceTextDark,
-                  styles.referenceTappable,
-                ]}
-              >
-                {ref.citation}
-              </Text>
-            </Pressable>
-          ) : (
-            <Text
-              style={[
-                styles.referenceText,
-                isDark && styles.referenceTextDark,
-                styles.referenceTextContainer,
-              ]}
-            >
-              {ref.citation}
-            </Text>
-          )}
-        </View>
-      ))}
-    </View>
-  );
-});
-
-/** Renders a single legacy reference (backwards compat) */
+/** Renders a single legacy reference */
 const LegacyReference = React.memo(function LegacyReference({
   reference,
   referenceUrl,
@@ -372,27 +311,6 @@ const styles = StyleSheet.create({
   },
   moreActivitiesDark: {
     color: darkColors.textSecondary,
-  },
-  // References
-  referencesContainer: {
-    gap: spacing.xs,
-  },
-  referenceItem: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  referenceNumber: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    lineHeight: 18,
-    minWidth: 16,
-  },
-  referenceNumberDark: {
-    color: darkColors.textSecondary,
-  },
-  referenceTextContainer: {
-    flex: 1,
   },
   referenceText: {
     fontSize: 12,

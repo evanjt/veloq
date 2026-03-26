@@ -3,7 +3,6 @@ import type {
   InsightCategory,
   InsightPriority,
   InsightMethodology,
-  InsightReference,
   InsightSupportingData,
 } from '@/types';
 import { formatDuration } from '@/lib';
@@ -20,21 +19,7 @@ import { generateEfficiencyTrendInsights } from './efficiencyTrendInsights';
  *
  * All insights are INFORMATIONAL only — no prescriptive advice.
  *
- * Evidence base:
- * Banister EW et al., Aust J Sports Med, 1975 — Impulse-response model (TSB)
- * Thomas L et al., J Sports Sci, 2005 — Model validation (R²=0.79, time constant variance)
- * Kiviniemi AM et al., Eur J Appl Physiol, 2007 — HRV-guided training RCT (VO2max +4)
- * Schneider C et al., J Sci Med Sport, 2021 — HRV wearables meta-analysis (g=0.296)
- * Bellenger CR et al., Int J Environ Res Public Health, 2021 — HRV meta-analysis (SMD=0.50)
- * Plews DJ et al., Int J Sports Physiol Perform, 2013 — HRV rolling average methodology
- * Impellizzeri FM et al., Int J Sports Physiol Perform, 2020 — ACWR critique (acute load sufficient)
- * Seiler S & Kjerland GO, Scand J Med Sci Sports, 2006 — Intensity distribution
- * Stoggl T & Sperlich B, Front Physiol, 2014 — Polarized training RCT
- * Lally P et al., Eur J Soc Psychol, 2010 — Habit formation (median 66 days)
- * Kaushal N & Rhodes RE, J Behav Med, 2015 — Exercise habit (4x/week, 6 weeks)
- * Silverman J & Barasch A, J Consumer Res, 2023 — Broken streak demotivation
- * Michie S et al., Health Psychol, 2009 — Self-monitoring meta-regression
- * Chevance G et al., Sports Med Open, 2024 — Behavioural perspective on exercise adherence
+ * Insights are generated from cached FFI data — no new queries needed.
  */
 
 // ---------------------------------------------------------------------------
@@ -134,10 +119,6 @@ type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
 const MAX_PR_INSIGHTS = 3;
 const VOLUME_CHANGE_THRESHOLD = 0.1; // 10%
-const PATTERN_CONFIDENCE_THRESHOLD = 0.6;
-const CONSISTENCY_MIN_ACTIVITIES = 3;
-
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 // TSB zones per intervals.icu convention (informational only, no prescriptive text)
 const TSB_ZONES = {
@@ -176,9 +157,6 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   // Priority 2: FTP/Pace Milestones
   addFitnessMilestoneInsights(insights, data, now, t);
 
-  // Note: addConsistencyInsights REMOVED — "Trained X of Y weeks" was a guilt trip
-  // Note: addActivityPatternInsights REMOVED — pattern predictions shown in Today banner only
-
   // Priority 2: Stale PR / Opportunity Detection
   // Cross-references fitness trends against section PRs to find beatable records
   addStalePRInsights(insights, data, now, t);
@@ -188,7 +166,6 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   addSectionClusterInsights(insights, data, now, t);
 
   // Priority 1: Aerobic Efficiency Trends
-  // Detects improving HR/pace ratio on top sections (Coyle et al., 1991)
   addEfficiencyTrendInsights(insights, data, now, t);
 
   insights.sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
@@ -242,18 +219,6 @@ function addRestDayInsights(
               name: 'Intensity distribution',
               description:
                 'Counts training sessions this week. Athletes naturally distribute about 80% easy and 20% hard sessions.',
-              references: [
-                {
-                  citation:
-                    'Seiler, S., & Kjerland, G. O. (2006). Quantifying training intensity distribution in elite endurance athletes. Scandinavian Journal of Medicine & Science in Sports, 16(1), 49–56.',
-                  url: 'https://pubmed.ncbi.nlm.nih.gov/16430681/',
-                },
-                {
-                  citation:
-                    'Stöggl, T., & Sperlich, B. (2014). Polarized training has greater impact on key endurance variables than threshold, high intensity, or high volume training. Frontiers in Physiology, 5, 33.',
-                  url: 'https://pubmed.ncbi.nlm.nih.gov/24570662/',
-                },
-              ],
             },
           })
         );
@@ -421,20 +386,8 @@ function addTsbFormPositionInsight(
       methodology: {
         name: 'Banister Impulse-Response Model',
         description:
-          'Training Stress Balance = CTL - ATL. Based on the Banister impulse-response model with standard 42-day/7-day time constants. These are population defaults — individual time constants vary (Thomas et al. 2005 found SD of ±16 days for the fitness constant).',
+          'Training Stress Balance = CTL - ATL. Based on the Banister impulse-response model with standard 42-day/7-day time constants. These are population defaults — individual time constants vary between athletes.',
         formula: 'TSB = CTL - ATL',
-        references: [
-          {
-            citation:
-              'Banister, E. W., Calvert, T. W., Savage, M. V., & Bach, T. (1975). A systems model of training for athletic performance. Australian Journal of Sports Medicine, 7, 57–61.',
-            url: 'https://doi.org/10.4324/9781003360858-36',
-          },
-          {
-            citation:
-              'Thomas, L., Mujika, I., & Busso, T. (2005). Computer simulations assessing the potential performance benefit of a final increase in training during pre-event taper. Journal of Sports Sciences, 23(10), 1101–1109.',
-            url: 'https://pubmed.ncbi.nlm.nih.gov/16194984/',
-          },
-        ],
       },
     })
   );
@@ -450,7 +403,7 @@ function resolveTsbZone(tsb: number): { color: string; key: string } {
 
 // ---------------------------------------------------------------------------
 // Priority 2: HRV Trend (replaces Recovery Readiness)
-// Kiviniemi et al., 2007; Schneider et al., 2021; Plews et al., 2013
+// Kiviniemi et al., 2007 — HRV-guided training RCT
 // ---------------------------------------------------------------------------
 
 function addHrvTrendInsight(
@@ -540,24 +493,7 @@ function addHrvTrendInsight(
       methodology: {
         name: 'HRV rolling average trend',
         description:
-          'HRV trend based on your 7-day rolling average. HRV accuracy depends on measurement device and consistency. Wrist-based readings have higher day-to-day noise than chest straps (Plews et al. 2013). Trends over days are more reliable than single readings.',
-        references: [
-          {
-            citation:
-              'Kiviniemi, A. M., Hautala, A. J., Kinnunen, H., & Tulppo, M. P. (2007). Endurance training guided by daily heart rate variability measurements. European Journal of Applied Physiology, 101(6), 743–751.',
-            url: 'https://pubmed.ncbi.nlm.nih.gov/17849143/',
-          },
-          {
-            citation:
-              'Schneider, C., Hanakam, F., Wiewelhove, T., Döweling, A., Kellmann, M., Meyer, T., Pfeiffer, M., & Ferrauti, A. (2018). Heart rate monitoring in team sports — A conceptual framework for contextual analyses. International Journal of Sports Physiology and Performance, 13(6), 1–9.',
-            url: 'https://pubmed.ncbi.nlm.nih.gov/34140252/',
-          },
-          {
-            citation:
-              'Plews, D. J., Laursen, P. B., Kilding, A. E., & Buchheit, M. (2013). Heart rate variability in elite triathletes: Is variation in variability the key to effective training? International Journal of Sports Physiology and Performance, 8(6), 611–618.',
-            url: 'https://pubmed.ncbi.nlm.nih.gov/23852425/',
-          },
-        ],
+          'HRV trend based on your 7-day rolling average. HRV accuracy depends on measurement device and consistency. Trends over days are more reliable than single readings.',
       },
     })
   );
@@ -677,91 +613,6 @@ function addPeriodComparisonInsights(
 }
 
 // ---------------------------------------------------------------------------
-// Priority 2: Weekly Load Change (replaces ACWR)
-// Impellizzeri FM et al., 2020: acute load alone has equivalent predictive
-// power to the ACWR ratio. The ratio confers no additional value.
-// ---------------------------------------------------------------------------
-
-function addWeeklyLoadChangeInsight(
-  insights: Insight[],
-  data: InsightInputData,
-  now: number,
-  t: TFunc
-): void {
-  const acute = data.currentPeriod;
-  const chronic = data.chronicPeriod;
-
-  if (!acute || !chronic || chronic.totalTss <= 0) return;
-
-  // Suppress when current week has no activities (avoids "100% below average")
-  if (acute.count === 0) return;
-
-  // Skip when period comparison already covers weekly volume change
-  if (insights.some((i) => i.id === 'period_comparison-volume')) return;
-
-  const acuteLoad = acute.totalTss;
-  const chronicAvg = chronic.totalTss; // Already averaged per week in useInsights
-  const percentChange = Math.round(((acuteLoad - chronicAvg) / chronicAvg) * 100);
-
-  // Only show if there's a meaningful difference (>15%)
-  if (Math.abs(percentChange) < 15) return;
-
-  const isAbove = percentChange > 0;
-
-  insights.push(
-    makeInsight({
-      id: 'weekly_load-change',
-      category: 'weekly_load',
-      priority: 2,
-      icon: isAbove ? 'trending-up' : 'trending-down',
-      iconColor: isAbove ? '#FFA726' : '#42A5F5',
-      title: t('insights.weeklyLoad.title', {
-        percent: Math.abs(percentChange),
-        direction: isAbove ? t('insights.weeklyLoad.above') : t('insights.weeklyLoad.below'),
-      }),
-      body: t('insights.weeklyLoad.body', {
-        acute: Math.round(acuteLoad),
-        chronic: Math.round(chronicAvg),
-        percent: Math.abs(percentChange),
-      }),
-      navigationTarget: '/fitness',
-      timestamp: now,
-      supportingData: {
-        dataPoints: [
-          {
-            label: t('insights.data.thisWeekTss'),
-            value: Math.round(acuteLoad),
-            unit: 'TSS',
-          },
-          {
-            label: t('insights.data.fourWeekAvgTss'),
-            value: Math.round(chronicAvg),
-            unit: 'TSS',
-          },
-          {
-            label: t('insights.data.change'),
-            value: `${isAbove ? '+' : ''}${percentChange}%`,
-            context: 'neutral',
-          },
-        ],
-      },
-      methodology: {
-        name: 'Weekly load comparison',
-        description:
-          "Compares this week's training load against your 4-week average. Impellizzeri et al. (2020) demonstrated that monitoring acute load alone has equivalent predictive power to the ACWR ratio.",
-        references: [
-          {
-            citation:
-              'Impellizzeri, F. M., Woodcock, S., Coutts, A. J., Fanchini, M., McCall, A., & Ward, P. (2020). Acute:chronic workload ratio: Conceptual issues and fundamental pitfalls. International Journal of Sports Physiology and Performance, 15(6), 907–913.',
-            url: 'https://pubmed.ncbi.nlm.nih.gov/32502973/',
-          },
-        ],
-      },
-    })
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Priority 2: Fitness milestones (FTP/Pace — direct measurements)
 // ---------------------------------------------------------------------------
 
@@ -875,206 +726,6 @@ function addFitnessMilestoneInsights(
       );
     }
   }
-}
-
-// ---------------------------------------------------------------------------
-// Priority 3: Training consistency (actual consecutive weeks)
-// Lally et al., 2010; Kaushal & Rhodes, 2015; Silverman & Barasch, 2023
-// ---------------------------------------------------------------------------
-
-function addConsistencyInsights(
-  insights: Insight[],
-  data: InsightInputData,
-  now: number,
-  t: TFunc
-): void {
-  const cur = data.currentPeriod;
-  const prev = data.previousPeriod;
-  if (!cur || !prev) return;
-
-  // Count actual consecutive weeks with 3+ activities
-  let streakWeeks = 0;
-  if (cur.count >= CONSISTENCY_MIN_ACTIVITIES) streakWeeks++;
-  if (prev.count >= CONSISTENCY_MIN_ACTIVITIES) streakWeeks++;
-
-  // With only 2 weeks of data, we can check both
-  if (streakWeeks < 2) {
-    // Not enough consecutive weeks — but never show broken streaks
-    // If current week is on track, show positive partial framing
-    if (cur.count >= CONSISTENCY_MIN_ACTIVITIES) {
-      // One good week doesn't qualify as a streak, skip
-      return;
-    }
-    // Show "X of last Y weeks" if at least one week has data
-    if (cur.count > 0 || prev.count >= CONSISTENCY_MIN_ACTIVITIES) {
-      const goodWeeks =
-        (cur.count >= CONSISTENCY_MIN_ACTIVITIES ? 1 : 0) +
-        (prev.count >= CONSISTENCY_MIN_ACTIVITIES ? 1 : 0);
-      if (goodWeeks > 0) {
-        insights.push(
-          makeInsight({
-            id: 'training_consistency-partial',
-            category: 'training_consistency',
-            priority: 3,
-            icon: 'calendar-check',
-            iconColor: '#42A5F5',
-            title: t('insights.consistencyPartial', { good: goodWeeks, total: 2 }),
-            timestamp: now,
-            supportingData: {
-              dataPoints: [
-                {
-                  label: t('insights.data.thisWeek'),
-                  value: cur.count,
-                  unit: t('insights.data.activities'),
-                },
-                {
-                  label: t('insights.data.lastWeek'),
-                  value: prev.count,
-                  unit: t('insights.data.activities'),
-                },
-              ],
-            },
-            methodology: {
-              name: 'Training consistency',
-              description:
-                'Tracks weeks with 3+ training sessions. Weekly session counts are more predictive of habit formation than daily streaks (Kaushal & Rhodes, 2015).',
-              references: [
-                {
-                  citation:
-                    'Kaushal, N., & Rhodes, R. E. (2015). Exercise habit formation in new gym members: A longitudinal study. Journal of Behavioral Medicine, 38(4), 652–663.',
-                  url: 'https://pubmed.ncbi.nlm.nih.gov/25851609/',
-                },
-              ],
-            },
-          })
-        );
-      }
-    }
-    return;
-  }
-
-  // 2+ consecutive weeks — show streak
-  insights.push(
-    makeInsight({
-      id: 'training_consistency-streak',
-      category: 'training_consistency',
-      priority: 3,
-      icon: 'fire',
-      iconColor: '#FF7043',
-      title: t('insights.consistencyStreak', { count: streakWeeks }),
-      timestamp: now,
-      supportingData: {
-        dataPoints: [
-          {
-            label: t('insights.data.thisWeek'),
-            value: cur.count,
-            unit: t('insights.data.activities'),
-          },
-          {
-            label: t('insights.data.lastWeek'),
-            value: prev.count,
-            unit: t('insights.data.activities'),
-          },
-        ],
-      },
-      methodology: {
-        name: 'Training consistency',
-        description:
-          'Tracks consecutive weeks with 3+ training sessions. Weekly session counts are more predictive of habit formation than daily streaks. Missing one session does not derail habit formation (Lally et al. 2010, median 66 days to automaticity).',
-        references: [
-          {
-            citation:
-              'Lally, P., van Jaarsveld, C. H. M., Potts, H. W. W., & Wardle, J. (2010). How are habits formed: Modelling habit formation in the real world. European Journal of Social Psychology, 40(6), 998–1009.',
-            url: 'https://doi.org/10.1002/ejsp.674',
-          },
-          {
-            citation:
-              'Kaushal, N., & Rhodes, R. E. (2015). Exercise habit formation in new gym members: A longitudinal study. Journal of Behavioral Medicine, 38(4), 652–663.',
-            url: 'https://pubmed.ncbi.nlm.nih.gov/25851609/',
-          },
-        ],
-      },
-    })
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Priority 4: Activity patterns
-// Michie S et al., 2009: Self-monitoring is the strongest BCT
-// ---------------------------------------------------------------------------
-
-function addActivityPatternInsights(
-  insights: Insight[],
-  todayPattern: ActivityPattern | null,
-  allPatterns: ActivityPattern[],
-  now: number,
-  t: TFunc
-): void {
-  if (!todayPattern) return;
-  if (todayPattern.confidence < PATTERN_CONFIDENCE_THRESHOLD) return;
-  if (todayPattern.primaryDay < 0 || todayPattern.primaryDay > 6) return;
-  if (!Number.isFinite(todayPattern.avgDurationSecs) || todayPattern.avgDurationSecs <= 0) return;
-
-  const day = DAY_NAMES[todayPattern.primaryDay];
-  const verb = todayPattern.sportType === 'Run' ? 'run' : 'ride';
-  const duration = formatDurationCompact(todayPattern.avgDurationSecs);
-
-  // Build weekly pattern sparkline: activity count per day of week (0=Mon..6=Sun)
-  const weeklySparkline = [0, 0, 0, 0, 0, 0, 0];
-  for (const p of allPatterns) {
-    if (p.primaryDay >= 0 && p.primaryDay <= 6 && p.confidence >= 0.3) {
-      weeklySparkline[p.primaryDay] += p.activityCount;
-    }
-  }
-
-  insights.push(
-    makeInsight({
-      id: `activity_pattern-${todayPattern.sportType}-${todayPattern.primaryDay}`,
-      category: 'activity_pattern',
-      priority: 4,
-      icon: 'calendar-clock',
-      iconColor: '#AB47BC',
-      title: t('insights.patternMatch', { day, verb, duration }),
-      timestamp: now,
-      confidence: todayPattern.confidence,
-      supportingData: {
-        dataPoints: [
-          {
-            label: t('insights.data.confidence'),
-            value: Math.round(todayPattern.confidence * 100),
-            unit: '%',
-          },
-          {
-            label: t('insights.data.basedOn'),
-            value: todayPattern.activityCount,
-            unit: t('insights.data.activities'),
-          },
-          {
-            label: t('insights.data.avgDuration'),
-            value: duration,
-          },
-        ],
-        sparklineData: weeklySparkline,
-        sparklineLabel: 'typical_week',
-      },
-      methodology: {
-        name: 'K-means clustering',
-        description:
-          'Groups your activities by day, duration, and sport type to identify recurring training patterns.',
-        references: [
-          {
-            citation:
-              'Michie, S., Abraham, C., Whittington, C., McAteer, J., & Gupta, S. (2009). Effective techniques in healthy eating and physical activity interventions: A meta-regression. Health Psychology, 28(6), 690–701.',
-            url: 'https://pubmed.ncbi.nlm.nih.gov/19916637/',
-          },
-          {
-            citation:
-              'Chevance, G., Hekler, E. B., Elavsky, S., Pel-Littel, R., & Buman, M. P. (2024). A behavioral perspective for digital interventions targeting physical activity. Sports Medicine - Open, 10, 71.',
-          },
-        ],
-      },
-    })
-  );
 }
 
 // ---------------------------------------------------------------------------
