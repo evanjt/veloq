@@ -260,7 +260,10 @@ export default function SectionDetailScreen() {
 
   // Handle deleting a custom section
   const handleDeleteSection = useCallback(() => {
-    if (!id || !isCustomId) return;
+    if (!id || !isCustomId) {
+      if (__DEV__) console.warn('[SectionDetail] Delete blocked:', { id, isCustomId });
+      return;
+    }
 
     Alert.alert(t('sections.deleteSection'), t('sections.deleteSectionConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
@@ -273,6 +276,7 @@ export default function SectionDetailScreen() {
             router.back();
           } catch (error) {
             if (__DEV__) console.error('Failed to delete section:', error);
+            Alert.alert(t('common.error'), String(error));
           }
         },
       },

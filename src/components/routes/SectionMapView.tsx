@@ -146,8 +146,16 @@ export const SectionMapView = memo(function SectionMapView({
 
   const displayPoints = section.polyline || [];
 
-  // Calculate bounds from the section polyline (15% padding)
-  const bounds = useMemo(() => getBoundsFromPoints(displayPoints, 0.15), [displayPoints]);
+  // When extension track is active (expand mode), calculate bounds from the full context window
+  // so the camera shows the entire expandable area, not just the section portion
+  const boundsPoints = useMemo(() => {
+    if (extensionTrack && extensionTrack.length > 0) {
+      return extensionTrack;
+    }
+    return displayPoints;
+  }, [extensionTrack, displayPoints]);
+
+  const bounds = useMemo(() => getBoundsFromPoints(boundsPoints, 0.15), [boundsPoints]);
 
   // Section coordinates for 3D map and BaseMapView [lng, lat] format
   const sectionCoords = useMemo(() => {
@@ -164,6 +172,22 @@ export const SectionMapView = memo(function SectionMapView({
       bearingAnim.stopAnimation();
     };
   }, [map3DOpacity, bearingAnim]);
+
+  // Refit camera when extension track changes (entering/leaving expand mode)
+  useEffect(() => {
+    if (!cameraRef.current) return;
+    const newBounds =
+      extensionTrack && extensionTrack.length > 0
+        ? getBoundsFromPoints(extensionTrack, 0.15)
+        : getBoundsFromPoints(displayPoints, 0.15);
+    if (newBounds) {
+      cameraRef.current.setCamera({
+        bounds: { ne: newBounds.ne, sw: newBounds.sw },
+        padding: { paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 },
+        animationDuration: 500,
+      });
+    }
+  }, [extensionTrack, displayPoints]);
 
   // Reset 3D ready state when toggling off
   useEffect(() => {
@@ -277,9 +301,13 @@ export const SectionMapView = memo(function SectionMapView({
   }, [displayPoints]);
 
   // GeoJSON for the trimmed portion (when trim range is active)
+  // In expand mode, trim indices are relative to extensionTrack (window points), not section polyline
   const trimmedGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    if (!trimRange || displayPoints.length < 2) return emptyCollection;
-    const sliced = displayPoints.slice(trimRange.start, trimRange.end + 1);
+    if (!trimRange) return emptyCollection;
+    const sourcePoints =
+      extensionTrack && extensionTrack.length > 0 ? extensionTrack : displayPoints;
+    if (sourcePoints.length < 2) return emptyCollection;
+    const sliced = sourcePoints.slice(trimRange.start, trimRange.end + 1);
     const validPoints = sliced.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
     if (validPoints.length < 2) return emptyCollection;
     return {
@@ -290,7 +318,7 @@ export const SectionMapView = memo(function SectionMapView({
         coordinates: validPoints.map((p) => [p.lng, p.lat]),
       },
     };
-  }, [displayPoints, trimRange]);
+  }, [displayPoints, extensionTrack, trimRange]);
 
   // Create GeoJSON for the shadow track (full activity route)
   const shadowGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
@@ -486,14 +514,23 @@ export const SectionMapView = memo(function SectionMapView({
       {/* Extension track (representative activity's full route, shown during bounds editing) */}
       <ShapeSource id="extensionSource" shape={extensionGeoJSON}>
         <LineLayer
-          id="extensionLine"
+          id="extensionLineCasing"
           style={{
-            lineColor: activityColor,
-            lineOpacity: extensionTrack ? 0.25 : 0,
-            lineWidth: 3,
+            lineColor: '#000000',
+            lineOpacity: extensionTrack ? 0.5 : 0,
+            lineWidth: 6,
             lineCap: 'round',
             lineJoin: 'round',
-            lineDasharray: [2, 3],
+          }}
+        />
+        <LineLayer
+          id="extensionLine"
+          style={{
+            lineColor: '#FF6B00',
+            lineOpacity: extensionTrack ? 1 : 0,
+            lineWidth: 4,
+            lineCap: 'round',
+            lineJoin: 'round',
           }}
         />
       </ShapeSource>

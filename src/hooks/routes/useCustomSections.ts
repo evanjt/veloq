@@ -224,14 +224,23 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         throw new Error('Route engine not initialized');
       }
 
-      engine.deleteSection(sectionId);
+      const deleted = engine.deleteSection(sectionId);
+      if (!deleted) {
+        throw new Error(`Failed to delete section ${sectionId}`);
+      }
 
       // Remove superseded entries for this section
       await useSupersededSections.getState().removeSuperseded(sectionId);
 
+      // Optimistically remove from cache to prevent stale data showing in activity detail
+      queryClient.setQueryData(
+        QUERY_KEY,
+        (old: Section[] | undefined) => old?.filter((s) => s.id !== sectionId) ?? []
+      );
+
       await invalidate();
     },
-    [invalidate]
+    [invalidate, queryClient]
   );
 
   // Rename a section

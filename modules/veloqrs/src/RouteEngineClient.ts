@@ -862,10 +862,11 @@ class RouteEngineClient {
     if (!this.ready) return false;
     validateId(sectionId, 'section ID');
     try {
-      this.timed('deleteSection', () => this.engine.sections().delete(sectionId));
+      this.timed('deleteSection', () => this.engine.sections().delete_(sectionId));
       this.notify('sections');
       return true;
-    } catch {
+    } catch (e) {
+      console.error('[RouteEngine] deleteSection failed:', sectionId, e);
       return false;
     }
   }
