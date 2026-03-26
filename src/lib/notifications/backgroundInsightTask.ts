@@ -149,9 +149,26 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     }
 
     // 2. Extract push payload
-    const pushData = data as { activity_id?: string; event_type?: string } | undefined;
-    const activityId = pushData?.activity_id;
-    const eventType = pushData?.event_type;
+    // expo-notifications wraps data inside data.dataString as a JSON string
+    const taskPayload = data as
+      | { data?: { dataString?: string }; notification?: unknown }
+      | undefined;
+    let activityId: string | undefined;
+    let eventType: string | undefined;
+
+    try {
+      const raw = taskPayload?.data?.dataString;
+      log.log(`Raw push payload: ${JSON.stringify(taskPayload?.data)}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        activityId = parsed.activity_id ?? undefined;
+        eventType = parsed.event_type ?? undefined;
+      }
+    } catch {
+      log.warn('Could not parse push payload');
+    }
+
+    log.log(`Push received: event=${eventType}, activity=${activityId}`);
     const isActivityEvent = eventType === 'ACTIVITY_UPLOADED' || eventType === 'ACTIVITY_ANALYZED';
 
     // 3. If activity event, download and ingest the new activity
@@ -198,6 +215,9 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
 
     // 7. Generate insights with fresh wellness + new activity data
     const insights = computeInsightsFromData(ffiData, wellnessData, t);
+    log.log(
+      `Generated ${insights.length} insights, categories: ${insights.map((i) => i.category).join(', ')}`
+    );
 
     // 8. Compare fingerprint to detect new insights
     const currentFingerprint = insights.length > 0 ? computeInsightFingerprint(insights) : '';
