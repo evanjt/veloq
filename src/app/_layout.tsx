@@ -61,6 +61,9 @@ import {
   setupNotificationResponseHandler,
 } from '@/lib/notifications/notificationService';
 
+// Register background insight task at module scope (required by TaskManager)
+import '@/lib/notifications/backgroundInsightTask';
+
 // Suppress Reanimated strict mode warnings from Victory Native charts
 // These occur because Victory uses shared values during render (known library behavior)
 configureReanimatedLogger({ level: ReanimatedLogLevel.error, strict: false });
