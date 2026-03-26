@@ -78,14 +78,17 @@ export async function presentInsightNotification(
 export function setupNotificationResponseHandler(): Notifications.Subscription {
   return Notifications.addNotificationResponseReceivedListener((response) => {
     const data = response.notification.request.content.data as InsightNotificationData | undefined;
+    console.log('[Notification] Tap data:', JSON.stringify(data));
     if (!data) return;
 
     // Deep link to the relevant screen
     if (data.activityId) {
+      console.log('[Notification] Navigating to activity:', data.activityId);
       router.push(`/activity/${data.activityId}` as never);
     } else if (data.sectionId) {
       router.push(`/section/${data.sectionId}` as never);
     } else if (data.route) {
+      console.log('[Notification] Navigating to route:', data.route);
       router.push(data.route as never);
     }
   });
