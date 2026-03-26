@@ -10,7 +10,7 @@ import {
   useRouteGroups,
   useOldestActivityDate,
   useTheme,
-  useUnifiedSections,
+  useSectionSummaries,
   useExportBackup,
   useImportBackup,
   useBulkExport,
@@ -65,7 +65,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   const { groups: routeGroups, processedCount: routeProcessedCount } = useRouteGroups({
     minActivities: 2,
   });
-  const { count: totalSections } = useUnifiedSections();
+  const { totalCount: totalSections } = useSectionSummaries();
   const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } = useRouteSettings();
 
   // Backup & Export
