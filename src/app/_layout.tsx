@@ -88,7 +88,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
-  const expandRange = useSyncDateRange((s) => s.expandRange);
+  const initializeRange = useSyncDateRange((s) => s.initializeRange);
 
   // Process queued uploads on network restore / app foreground
   useUploadQueueProcessor();
@@ -125,7 +125,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             if (stats?.oldestDate && stats?.newestDate) {
               const oldestDateStr = formatLocalDate(new Date(Number(stats.oldestDate) * 1000));
               const newestDateStr = formatLocalDate(new Date(Number(stats.newestDate) * 1000));
-              expandRange(oldestDateStr, newestDateStr);
+              initializeRange(oldestDateStr, newestDateStr);
               if (__DEV__) {
                 console.log(
                   `[SyncDateRange] Initialized from engine: ${oldestDateStr} - ${newestDateStr}`
@@ -153,7 +153,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         tryInit(0);
       }
     }
-  }, [isAuthenticated, expandRange, setEngineInitFailed]);
+  }, [isAuthenticated, initializeRange, setEngineInitFailed]);
 
   // Reset infinite activities query when the date rolls over while backgrounded.
   // initialPageParam is computed at render time with today's date, but the feed tab
