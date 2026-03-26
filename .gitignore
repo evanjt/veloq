@@ -43,6 +43,7 @@ yarn-error.*
 
 # misc
 .syncthing.*
+.wrangler/
 
 # Rust build artifacts
 **/target/
