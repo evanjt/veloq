@@ -133,35 +133,58 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
 
 /**
  * Build an activity-centric notification body.
- * Mentions the activity name, with an insight detail if one was caused by this activity.
+ * Queries the engine to find section PRs and matches for THIS specific activity,
+ * rather than relying on generic insight fingerprint diffing.
  */
 function buildActivityNotificationBody(
+  activityId: string,
   activityName: string,
-  newInsights: Insight[],
-  t: (key: string, params?: Record<string, string | number>) => string
+  newInsights: Insight[]
 ): string {
-  // Check for activity-specific insights (PRs, section trends)
-  const pr = newInsights.find((i) => i.category === 'section_pr');
-  if (pr) {
-    return `${activityName} — ${pr.title}`;
+  try {
+    const { routeEngine } = require('veloqrs');
+
+    // Check which sections this activity traversed
+    const sections = routeEngine.getSectionsForActivity(activityId);
+    if (sections && sections.length > 0) {
+      // Check for PRs on these sections
+      let prCount = 0;
+      let prSectionName = '';
+      for (const section of sections) {
+        try {
+          const perf = routeEngine.getSectionPerformances(section.id);
+          if (perf?.bestRecord?.activityId === activityId) {
+            prCount++;
+            if (!prSectionName) prSectionName = section.name || 'a section';
+          }
+        } catch {
+          // Skip sections where performance check fails
+        }
+      }
+
+      if (prCount > 0) {
+        if (prCount === 1) {
+          return `${activityName} — PR on ${prSectionName}`;
+        }
+        return `${activityName} — PR on ${prCount} sections`;
+      }
+
+      // No PRs but has section matches
+      if (sections.length === 1) {
+        return `${activityName} — 1 section traversed`;
+      }
+      return `${activityName} — ${sections.length} sections traversed`;
+    }
+  } catch {
+    // Engine query failed, fall through
   }
 
-  const cluster = newInsights.find((i) => i.category === 'section_cluster');
-  if (cluster?.subtitle) {
-    return `${activityName} — ${cluster.subtitle}`;
-  }
-
+  // Check for new insights caused by this activity
   const milestone = newInsights.find((i) => i.category === 'fitness_milestone');
   if (milestone) {
     return `${activityName} — ${milestone.title}`;
   }
 
-  const comparison = newInsights.find((i) => i.category === 'period_comparison');
-  if (comparison) {
-    return `${activityName} — ${comparison.title}`;
-  }
-
-  // No activity-relevant insight
   return activityName;
 }
 
@@ -249,7 +272,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     // 8. Build activity-centric notification
     if (isActivityEvent) {
       const activityName = activityInfo?.name ?? t('notifications.activityRecorded.title');
-      const body = buildActivityNotificationBody(activityName, newInsights, t);
+      const body = buildActivityNotificationBody(activityId!, activityName, newInsights);
 
       await presentInsightNotification(t('notifications.activityRecorded.title'), body, {
         route: activityId ? `/activity/${activityId}` : '/',
