@@ -44,6 +44,7 @@ yarn-error.*
 # misc
 .syncthing.*
 .wrangler/
+google-services.json
 
 # Rust build artifacts
 **/target/
