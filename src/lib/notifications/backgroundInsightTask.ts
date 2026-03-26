@@ -18,7 +18,6 @@ export const BACKGROUND_INSIGHT_TASK = 'veloq-background-insight';
 
 const FINGERPRINT_KEY = 'veloq-insights-fingerprint';
 const PREFS_KEY = 'veloq-notification-preferences';
-const QUEUED_ACTIVITIES_KEY = 'veloq-queued-activity-ids';
 
 /**
  * Category → preference key mapping for all insight types.
@@ -29,13 +28,15 @@ const CATEGORY_PREFS: Record<string, keyof NotificationPreferences['categories']
   fitness_milestone: 'fitnessMilestone',
   period_comparison: 'periodComparison',
   activity_pattern: 'activityPattern',
-  // These categories notify unless the master toggle is off
   tsb_form: null,
   hrv_trend: null,
   stale_pr: null,
   section_cluster: null,
   efficiency_trend: null,
 };
+
+/** Max time to wait for GPS download (15 seconds) */
+const GPS_DOWNLOAD_TIMEOUT_MS = 15_000;
 
 /**
  * Read notification preferences directly from AsyncStorage.
@@ -52,49 +53,86 @@ async function readPrefsFromStorage(): Promise<NotificationPreferences | null> {
 }
 
 /**
- * Queue an activity ID for processing on next app open.
- * Used when background task can't complete (offline, engine busy).
+ * Download and ingest a single activity into the Rust engine.
+ * Uses startFetchAndStore() for direct Rust→SQLite GPS storage.
+ * Returns true if successful.
  */
-async function queueActivityId(activityId: string): Promise<void> {
+async function ingestActivity(activityId: string): Promise<boolean> {
   try {
-    const raw = await AsyncStorage.getItem(QUEUED_ACTIVITIES_KEY);
-    const ids: string[] = raw ? JSON.parse(raw) : [];
-    if (!ids.includes(activityId)) {
-      ids.push(activityId);
-      await AsyncStorage.setItem(QUEUED_ACTIVITIES_KEY, JSON.stringify(ids));
+    const { getStoredCredentials } = require('@/providers/AuthStore');
+    const creds = getStoredCredentials();
+    if (!creds.athleteId) return false;
+
+    // Build auth header
+    let authHeader: string;
+    if (creds.authMethod === 'oauth' && creds.accessToken) {
+      authHeader = `Bearer ${creds.accessToken}`;
+    } else if (creds.apiKey) {
+      const encoded = btoa(`API_KEY:${creds.apiKey}`);
+      authHeader = `Basic ${encoded}`;
+    } else {
+      log.warn('No credentials for activity ingestion');
+      return false;
     }
-  } catch {
-    // Best-effort
+
+    // Fetch activity metadata to get sport type
+    const { intervalsApi } = require('@/api');
+    const activity = await intervalsApi.getActivity(activityId);
+    if (!activity) return false;
+
+    const sportType = activity.type ?? 'Ride';
+
+    // Start GPS download in Rust (direct to SQLite, no JS round-trip)
+    const {
+      startFetchAndStore,
+      getDownloadProgress,
+      takeFetchAndStoreResult,
+      routeEngine,
+    } = require('veloqrs');
+
+    startFetchAndStore(authHeader, [activityId], [{ activityId, sportType }]);
+
+    // Poll until complete or timeout
+    const startTime = Date.now();
+    while (Date.now() - startTime < GPS_DOWNLOAD_TIMEOUT_MS) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const progress = getDownloadProgress();
+      if (!progress.active) break;
+    }
+
+    // Get result
+    const result = takeFetchAndStoreResult();
+    if (!result || result.successCount === 0) {
+      log.warn('GPS download failed or timed out');
+      return false;
+    }
+
+    // Set activity metrics in engine
+    const { toActivityMetrics } = require('@/lib/utils/activityMetrics');
+    const metrics = toActivityMetrics(activity);
+    routeEngine.setActivityMetrics([metrics]);
+    routeEngine.triggerRefresh('activities');
+
+    log.log(`Activity ${activityId} ingested: ${result.totalPoints} GPS points`);
+    return true;
+  } catch (e) {
+    log.warn('Activity ingestion failed:', e);
+    return false;
   }
 }
 
 /**
- * Get and clear queued activity IDs (called on app open from GlobalDataSync).
- */
-export async function takeQueuedActivityIds(): Promise<string[]> {
-  try {
-    const raw = await AsyncStorage.getItem(QUEUED_ACTIVITIES_KEY);
-    if (!raw) return [];
-    await AsyncStorage.removeItem(QUEUED_ACTIVITIES_KEY);
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Background task that generates insights and presents a local notification.
+ * Background task that processes new activities and generates insight notifications.
  *
  * Called when a silent push arrives from auth.veloq.fit (webhook relay).
  * Runs outside React — no hooks, no providers, no context.
  *
- * The background task refreshes wellness/fitness data from intervals.icu and
- * regenerates insights. Fitness milestones (FTP increase), form changes
- * (CTL/ATL/TSB), and weekly comparisons are detected immediately.
- *
- * Section PRs require GPS ingestion into the Rust engine, which happens on
- * next app open via GlobalDataSync. The new activity ID is queued so it can
- * be prioritised during the next sync.
+ * Flow:
+ *   1. Check notification preferences
+ *   2. If activity event: download GPS, ingest into engine
+ *   3. Fetch fresh wellness data from intervals.icu
+ *   4. Generate insights (now including the new activity)
+ *   5. Present notification with deep link to activity
  */
 TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
   if (error) {
@@ -110,14 +148,20 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       return;
     }
 
-    // 2. Extract activity ID from push payload for queuing
+    // 2. Extract push payload
     const pushData = data as { activity_id?: string; event_type?: string } | undefined;
     const activityId = pushData?.activity_id;
+    const eventType = pushData?.event_type;
+    const isActivityEvent = eventType === 'ACTIVITY_UPLOADED' || eventType === 'ACTIVITY_ANALYZED';
 
-    // 3. Queue the activity ID for prioritised sync on next app open
-    // GPS ingestion (needed for section PRs) runs in foreground sync
-    if (activityId) {
-      await queueActivityId(activityId);
+    // 3. If activity event, download and ingest the new activity
+    if (isActivityEvent && activityId) {
+      const ingested = await ingestActivity(activityId);
+      if (ingested) {
+        log.log('New activity ingested into engine');
+      } else {
+        log.log('Activity ingestion skipped — will sync on next app open');
+      }
     }
 
     // 4. Get i18n translation function (standalone, no React)
@@ -128,7 +172,6 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     ) => string;
 
     // 5. Fetch fresh wellness data from intervals.icu API
-    // FTP, CTL, ATL, TSB, HRV are computed server-side by intervals.icu
     let wellnessData: WellnessInput[] | null = null;
     try {
       const { intervalsApi } = require('@/api');
@@ -136,64 +179,63 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       wellnessData = wellness as WellnessInput[];
     } catch (e) {
       log.warn('Could not fetch wellness data:', e);
-      // If offline, skip insight generation — queue for next app open
-      if (activityId) {
-        log.log('Activity queued for next app open');
+    }
+
+    // 6. Get insight data from engine (now includes the new activity if ingested)
+    const ffiData = fetchInsightsDataFromEngine();
+    if (!ffiData) {
+      // Engine not ready — still notify about the activity
+      if (isActivityEvent) {
+        await presentInsightNotification(
+          t('notifications.activityRecorded.title'),
+          t('notifications.activityRecorded.body'),
+          { route: '/', activityId: activityId ?? undefined }
+        );
+        log.log('Notification sent: activity recorded (engine not ready)');
       }
       return;
     }
 
-    // 6. Get insight data from engine (reads existing SQLite data)
-    const ffiData = fetchInsightsDataFromEngine();
-    if (!ffiData) {
-      log.log('Engine not ready, activity queued for next app open');
-      return;
-    }
-
-    // 7. Generate insights with fresh wellness data
+    // 7. Generate insights with fresh wellness + new activity data
     const insights = computeInsightsFromData(ffiData, wellnessData, t);
 
     // 8. Compare fingerprint to detect new insights
     const currentFingerprint = insights.length > 0 ? computeInsightFingerprint(insights) : '';
     const storedFingerprint = await AsyncStorage.getItem(FINGERPRINT_KEY);
 
-    // Find new insights (if any)
     const previousIds = new Set((storedFingerprint ?? '').split('|'));
     const newInsights = insights.filter((i) => !previousIds.has(i.id));
     const bestInsight = pickBestInsightForNotification(
       newInsights.length > 0 ? newInsights : insights
     );
 
-    // 9. Determine notification content
-    const eventType = pushData?.event_type;
-    const isActivityEvent = eventType === 'ACTIVITY_UPLOADED' || eventType === 'ACTIVITY_ANALYZED';
-
+    // 9. Present notification
     if (bestInsight) {
-      // Check category preference
       const prefKey = CATEGORY_PREFS[bestInsight.category];
       if (prefKey && !prefs.categories[prefKey]) {
-        log.log(`Category ${bestInsight.category} disabled`);
-        // Still notify about the activity itself if it's an activity event
+        // Category disabled — show generic activity notification instead
         if (isActivityEvent) {
           await presentInsightNotification(
             t('notifications.activityRecorded.title'),
             t('notifications.activityRecorded.body'),
-            { route: '/routes', activityId: activityId ?? undefined }
+            { route: '/', activityId: activityId ?? undefined }
           );
           log.log('Notification sent: activity recorded (insight category disabled)');
         }
       } else {
-        // Notify with the best insight
+        // Show the insight, deep linking to activity if available
         const content = formatInsightNotification(bestInsight, t);
+        if (activityId) {
+          content.data.activityId = activityId;
+        }
         await presentInsightNotification(content.title, content.body, content.data);
         log.log(`Notification sent: ${content.title} — ${content.body}`);
       }
     } else if (isActivityEvent) {
-      // No insights but we have a new activity — still notify
       await presentInsightNotification(
         t('notifications.activityRecorded.title'),
         t('notifications.activityRecorded.body'),
-        { route: '/routes', activityId: activityId ?? undefined }
+        { route: '/', activityId: activityId ?? undefined }
       );
       log.log('Notification sent: activity recorded (no insights)');
     } else {
