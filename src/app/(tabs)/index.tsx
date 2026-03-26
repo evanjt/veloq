@@ -216,10 +216,10 @@ export default function FeedScreen() {
     return filtered;
   }, [allActivities, searchQuery, selectedTypeGroup]);
 
-  // Comprehensive refresh: resets feed, triggers route engine sync, refreshes all data
+  // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
   const handleRefresh = useCallback(async () => {
     await Promise.all([
-      queryClient.resetQueries({ queryKey: ['activities-infinite'] }),
+      queryClient.invalidateQueries({ queryKey: ['activities-infinite'] }),
       queryClient.invalidateQueries({ queryKey: ['activities'] }),
       queryClient.invalidateQueries({ queryKey: ['wellness'] }),
       queryClient.invalidateQueries({ queryKey: ['athlete-summary'] }),

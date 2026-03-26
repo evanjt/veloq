@@ -233,9 +233,39 @@ export function useRouteDataSync(
         }
 
         if (withGps.length === 0) {
-          if (__DEV__) {
+          // Check if section detection was interrupted and needs to recover
+          const stats = routeEngine.getStats();
+          if (stats?.sectionsDirty && isMountedRef.current) {
+            if (__DEV__) {
+              console.log(
+                '[RouteDataSync] No new GPS, but sectionsDirty — triggering section detection'
+              );
+            }
+            updateProgress({
+              status: 'computing',
+              completed: 0,
+              total: 0,
+              percent: 0,
+              message: 'Analyzing routes...',
+            });
+
+            const started = nativeModule.routeEngine.startSectionDetection();
+            if (started) {
+              const pollInterval = 150;
+              const maxPollTime = 60000;
+              const startTime = Date.now();
+              while (isMountedRef.current) {
+                const detectionStatus = nativeModule.routeEngine.pollSectionDetection();
+                if (detectionStatus !== 'running' || Date.now() - startTime > maxPollTime) break;
+                await new Promise((resolve) => setTimeout(resolve, pollInterval));
+              }
+              routeEngine.triggerRefresh('groups');
+              routeEngine.triggerRefresh('sections');
+            }
+          } else if (__DEV__) {
             console.log('[RouteDataSync] No new activities to sync');
           }
+
           // Set complete status so lastSyncTimestamp is updated
           if (isMountedRef.current) {
             updateProgress({

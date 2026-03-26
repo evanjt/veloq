@@ -112,8 +112,8 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
     staleTime: 1000 * 60 * 5, // 5 minutes - data appears instantly from cache
     gcTime: 1000 * 60 * 60, // 1 hour - keep in memory for navigation
     // refetchOnMount: false (inherits global default) — persisted cache shows instantly,
-    // refetchOnWindowFocus handles picking up new activities when app foregrounds
-    refetchOnWindowFocus: true, // Pick up new activities on foreground
+    // 'always' bypasses staleTime so new activities appear immediately on foreground
+    refetchOnWindowFocus: 'always',
     maxPages: 10, // Evict old pages to prevent memory growth
   });
 
