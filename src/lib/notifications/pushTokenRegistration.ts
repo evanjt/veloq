@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { debug } from '@/lib';
 
@@ -8,25 +9,29 @@ const log = debug.create('PushToken');
 const API_URL = 'https://auth.veloq.fit';
 
 /**
- * Get the device push token for FCM (Android) or APNs (iOS).
+ * Get the Expo push token for this device.
+ * Expo handles FCM (Android) and APNs (iOS) routing transparently.
  * Returns null if unable to get token.
  */
-export async function getDevicePushToken(): Promise<string | null> {
+export async function getExpoPushToken(): Promise<string | null> {
   try {
-    const token = await Notifications.getDevicePushTokenAsync();
-    return token.data as string;
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    const token = await Notifications.getExpoPushTokenAsync({
+      projectId: projectId ?? undefined,
+    });
+    return token.data;
   } catch (e) {
-    log.error('Failed to get push token:', e);
+    log.error('Failed to get Expo push token:', e);
     return null;
   }
 }
 
 /**
- * Register the device push token with auth.veloq.fit.
+ * Register the Expo push token with auth.veloq.fit.
  * Only call after user has explicitly opted in.
  */
 export async function registerPushToken(athleteId: string): Promise<boolean> {
-  const token = await getDevicePushToken();
+  const token = await getExpoPushToken();
   if (!token) return false;
 
   try {
@@ -54,11 +59,11 @@ export async function registerPushToken(athleteId: string): Promise<boolean> {
 }
 
 /**
- * Unregister the device push token from auth.veloq.fit.
+ * Unregister the Expo push token from auth.veloq.fit.
  * Called on logout or when user disables notifications.
  */
 export async function unregisterPushToken(athleteId: string): Promise<boolean> {
-  const token = await getDevicePushToken();
+  const token = await getExpoPushToken();
   if (!token) return false;
 
   try {

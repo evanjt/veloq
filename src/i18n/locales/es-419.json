@@ -1356,7 +1356,7 @@
       "fitnessMilestone": "Fitness milestones",
       "periodComparison": "Weekly comparisons",
       "activityPattern": "Activity patterns",
-      "requiresOAuth": "Push notifications require a connected account.",
+      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
       "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
     }
   },
@@ -1373,7 +1373,7 @@
       "notificationsTitle": "Activity Notifications",
       "notificationsBody": "Get notified when you set a personal record or hit a fitness milestone. All insights are generated entirely on your device.",
       "enableNotifications": "Enable notifications",
-      "requiresOAuth": "Push notifications require a connected account (OAuth). Your app works fully without them.",
+      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key. Your app works fully without them.",
       "notificationExample": {
         "trophy": "Col du Marchairuz — 2:45 faster",
         "lightning-bolt": "FTP increased to 285W (+12W)",

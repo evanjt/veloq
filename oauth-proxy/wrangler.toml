@@ -20,7 +20,3 @@ id = "TODO_CREATE_VIA_DASHBOARD"
 # - INTERVALS_CLIENT_ID
 # - INTERVALS_CLIENT_SECRET
 # - WEBHOOK_SECRET (shared secret from intervals.icu webhook config)
-# - FCM_SERVICE_ACCOUNT_KEY (for Android push via FCM HTTP v1 API)
-# - APNS_KEY_P8 (for iOS push via APNs JWT auth)
-# - APNS_KEY_ID (APNs key ID)
-# - APNS_TEAM_ID (Apple Developer Team ID)

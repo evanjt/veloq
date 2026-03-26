@@ -14,10 +14,6 @@
  * - OAUTH_STATES: KV namespace for CSRF state validation and rate limiting
  * - DEVICE_TOKENS: KV namespace for push token storage
  * - WEBHOOK_SECRET: Shared secret from intervals.icu webhook config
- * - FCM_SERVICE_ACCOUNT_KEY: JSON key for FCM HTTP v1 API (Android push)
- * - APNS_KEY_P8: APNs auth key in PEM format (iOS push)
- * - APNS_KEY_ID: APNs key ID
- * - APNS_TEAM_ID: Apple Developer Team ID
  */
 
 interface Env {
@@ -26,10 +22,6 @@ interface Env {
   OAUTH_STATES: KVNamespace;
   DEVICE_TOKENS: KVNamespace;
   WEBHOOK_SECRET?: string;
-  FCM_SERVICE_ACCOUNT_KEY?: string;
-  APNS_KEY_P8?: string;
-  APNS_KEY_ID?: string;
-  APNS_TEAM_ID?: string;
 }
 
 interface DeviceToken {
@@ -515,7 +507,7 @@ async function handleIntervalsWebhook(
         };
 
         pushPromises.push(
-          sendSilentPush(device, pushData, env).catch((err) => {
+          sendExpoPush(device.token, pushData).catch((err) => {
             console.error(`Push failed for ${device.platform}:`, err);
           })
         );
@@ -533,74 +525,34 @@ async function handleIntervalsWebhook(
 }
 
 /**
- * Send a data-only (silent) push notification.
- * iOS: content-available: 1, no alert
- * Android: data message, no notification field
+ * Send a silent push notification via Expo Push Service.
+ * Expo handles FCM (Android) and APNs (iOS) routing transparently.
+ * No Firebase project or APNs key required — Expo Push is free.
+ *
+ * Payload contains only event_type + activity_id (zero personal data).
  */
-async function sendSilentPush(
-  device: DeviceToken,
-  data: Record<string, unknown>,
-  env: Env
-): Promise<void> {
-  if (device.platform === "android") {
-    await sendFcmPush(device.token, data, env);
-  } else {
-    await sendApnsPush(device.token, data, env);
-  }
-}
-
-/**
- * Send push via FCM HTTP v1 API (Android).
- * Requires FCM_SERVICE_ACCOUNT_KEY secret.
- */
-async function sendFcmPush(
+async function sendExpoPush(
   token: string,
-  data: Record<string, unknown>,
-  env: Env
+  data: Record<string, unknown>
 ): Promise<void> {
-  if (!env.FCM_SERVICE_ACCOUNT_KEY) {
-    console.warn("FCM_SERVICE_ACCOUNT_KEY not set, skipping Android push");
-    return;
+  const response = await fetch("https://exp.host/--/api/v2/push/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      to: token,
+      data,
+      priority: "normal",
+      _contentAvailable: true,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    console.error(`Expo push failed (${response.status}): ${body}`);
   }
-
-  // TODO: Implement FCM HTTP v1 API call
-  // This requires:
-  //   1. Parse service account JSON
-  //   2. Create JWT for OAuth2 token exchange
-  //   3. Exchange JWT for access token
-  //   4. POST to fcm.googleapis.com/v1/projects/{project}/messages:send
-  //   5. Body: { message: { token, data: { ... } } }
-  //
-  // For now, log the intent. Implementation requires the service account
-  // key to be configured in Cloudflare secrets.
-  console.log(`FCM push queued for token ${token.substring(0, 8)}...`);
-}
-
-/**
- * Send push via APNs HTTP/2 (iOS).
- * Requires APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID secrets.
- */
-async function sendApnsPush(
-  token: string,
-  data: Record<string, unknown>,
-  env: Env
-): Promise<void> {
-  if (!env.APNS_KEY_P8 || !env.APNS_KEY_ID || !env.APNS_TEAM_ID) {
-    console.warn("APNs credentials not set, skipping iOS push");
-    return;
-  }
-
-  // TODO: Implement APNs HTTP/2 call
-  // This requires:
-  //   1. Create JWT from p8 key (ES256 algorithm)
-  //   2. POST to api.push.apple.com/3/device/{token}
-  //   3. Headers: authorization: bearer {jwt}, apns-push-type: background,
-  //              apns-priority: 5, apns-topic: com.veloq.app
-  //   4. Body: { aps: { "content-available": 1 }, ...data }
-  //
-  // For now, log the intent. Implementation requires the APNs key
-  // to be configured in Cloudflare secrets.
-  console.log(`APNs push queued for token ${token.substring(0, 8)}...`);
 }
 
 /** Helper to create JSON responses */
