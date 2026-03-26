@@ -380,12 +380,18 @@ class RouteEngineClient {
     this.notify('groups');
   }
 
-  setSectionName(sectionId: string, name: string): void {
-    if (!this.ready) return;
+  setSectionName(sectionId: string, name: string): boolean {
+    if (!this.ready) return false;
     validateId(sectionId, 'section ID');
     validateName(name, 'section name');
-    this.timed('setSectionName', () => this.engine.sections().setName(sectionId, name));
-    this.notify('sections');
+    try {
+      this.timed('setSectionName', () => this.engine.sections().setName(sectionId, name));
+      this.notify('sections');
+      return true;
+    } catch (e) {
+      console.error('[RouteEngine] setSectionName failed:', sectionId, e);
+      return false;
+    }
   }
 
 
@@ -489,20 +495,32 @@ class RouteEngineClient {
     );
   }
 
-  excludeActivityFromSection(sectionId: string, activityId: string): void {
-    if (!this.ready) return;
-    this.timed('excludeActivityFromSection', () =>
-      this.engine.sections().excludeActivity(sectionId, activityId),
-    );
-    this.notify('sections');
+  excludeActivityFromSection(sectionId: string, activityId: string): boolean {
+    if (!this.ready) return false;
+    try {
+      this.timed('excludeActivityFromSection', () =>
+        this.engine.sections().excludeActivity(sectionId, activityId),
+      );
+      this.notify('sections');
+      return true;
+    } catch (e) {
+      console.error('[RouteEngine] excludeActivityFromSection failed:', sectionId, activityId, e);
+      return false;
+    }
   }
 
-  includeActivityInSection(sectionId: string, activityId: string): void {
-    if (!this.ready) return;
-    this.timed('includeActivityInSection', () =>
-      this.engine.sections().includeActivity(sectionId, activityId),
-    );
-    this.notify('sections');
+  includeActivityInSection(sectionId: string, activityId: string): boolean {
+    if (!this.ready) return false;
+    try {
+      this.timed('includeActivityInSection', () =>
+        this.engine.sections().includeActivity(sectionId, activityId),
+      );
+      this.notify('sections');
+      return true;
+    } catch (e) {
+      console.error('[RouteEngine] includeActivityInSection failed:', sectionId, activityId, e);
+      return false;
+    }
   }
 
   getExcludedActivityIds(sectionId: string): string[] {
@@ -925,7 +943,8 @@ class RouteEngineClient {
       );
       this.notify('sections');
       return true;
-    } catch {
+    } catch (e) {
+      console.error('[RouteEngine] setSectionReference failed:', sectionId, activityId, e);
       return false;
     }
   }
@@ -939,7 +958,8 @@ class RouteEngineClient {
       );
       this.notify('sections');
       return true;
-    } catch {
+    } catch (e) {
+      console.error('[RouteEngine] resetSectionReference failed:', sectionId, e);
       return false;
     }
   }
@@ -966,7 +986,8 @@ class RouteEngineClient {
       );
       this.notifyAll('sections');
       return true;
-    } catch {
+    } catch (e) {
+      console.error('[RouteEngine] trimSection failed:', sectionId, { startIndex, endIndex }, e);
       return false;
     }
   }
@@ -978,7 +999,8 @@ class RouteEngineClient {
       this.timed('resetSectionBounds', () => this.engine.sections().resetBounds(sectionId));
       this.notifyAll('sections');
       return true;
-    } catch {
+    } catch (e) {
+      console.error('[RouteEngine] resetSectionBounds failed:', sectionId, e);
       return false;
     }
   }
@@ -1009,7 +1031,8 @@ class RouteEngineClient {
           sectionEndIdx: result.sectionEndIdx,
         };
       });
-    } catch {
+    } catch (e) {
+      console.error('[RouteEngine] getSectionExtensionTrack failed:', sectionId, e);
       return null;
     }
   }
@@ -1027,7 +1050,8 @@ class RouteEngineClient {
       );
       this.notifyAll('sections');
       return true;
-    } catch {
+    } catch (e) {
+      console.error('[RouteEngine] expandSectionBounds failed:', sectionId, e);
       return false;
     }
   }
