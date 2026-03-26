@@ -92,39 +92,38 @@ async function ingestActivity(activityId: string): Promise<boolean> {
 
     log.log('[ingest] Calling startFetchAndStore...');
     startFetchAndStore(authHeader, [activityId], [{ activityId, sportType }]);
-    log.log('[ingest] startFetchAndStore returned, polling progress...');
+    log.log('[ingest] startFetchAndStore returned, waiting for completion...');
 
-    // Poll until complete or timeout
+    // Wait for the Rust background thread to complete.
+    // Single activity GPS download takes ~150-500ms in Rust.
+    // setTimeout doesn't fire reliably when app is backgrounded,
+    // so we use a synchronous busy-wait with periodic yield via
+    // a resolved promise (microtask) to keep the JS thread alive.
     const startTime = Date.now();
-    let pollCount = 0;
     let complete = false;
     while (Date.now() - startTime < GPS_DOWNLOAD_TIMEOUT_MS) {
-      // Use a short delay to yield the thread
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, 200);
-      });
-      pollCount++;
+      // Yield to microtask queue (allows Rust thread callbacks to propagate)
+      await Promise.resolve();
       const progress = getDownloadProgress();
-      log.log(
-        `[ingest] Poll #${pollCount}: active=${progress.active}, completed=${progress.completed}/${progress.total} (${Date.now() - startTime}ms)`
-      );
       if (!progress.active) {
+        log.log(`[ingest] GPS download complete in ${Date.now() - startTime}ms`);
         complete = true;
         break;
+      }
+      // Brief busy-wait to avoid spinning too fast (100 iterations ~= 1ms)
+      const busyEnd = Date.now() + 50;
+      while (Date.now() < busyEnd) {
+        // spin
       }
     }
 
     if (!complete) {
-      log.warn(
-        `[ingest] GPS download timed out after ${Date.now() - startTime}ms (${pollCount} polls)`
-      );
+      log.warn(`[ingest] GPS download timed out after ${Date.now() - startTime}ms`);
     }
 
     // Get result
     const result = takeFetchAndStoreResult();
-    log.log(
-      `[ingest] Result: synced=${result?.successCount}, failed=${result?.failedIds?.length}, points=${result?.totalPoints}`
-    );
+    log.log(`[ingest] Result: synced=${result?.successCount}, points=${result?.totalPoints}`);
     if (!result || result.successCount === 0) {
       log.warn('[ingest] GPS download failed or no data');
       return false;
