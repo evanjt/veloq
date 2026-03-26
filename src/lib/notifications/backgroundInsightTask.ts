@@ -90,9 +90,7 @@ async function ingestActivity(activityId: string): Promise<boolean> {
       routeEngine,
     } = require('veloqrs');
 
-    log.log('[ingest] Calling startFetchAndStore...');
     startFetchAndStore(authHeader, [activityId], [{ activityId, sportType }]);
-    log.log('[ingest] startFetchAndStore returned, waiting for completion...');
 
     // Wait for the Rust background thread to complete.
     // Single activity GPS download takes ~150-500ms in Rust.
@@ -180,7 +178,6 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
 
     try {
       const raw = taskPayload?.data?.dataString;
-      log.log(`Raw push payload: ${JSON.stringify(taskPayload?.data)}`);
       if (raw) {
         const parsed = JSON.parse(raw);
         activityId = parsed.activity_id ?? undefined;
