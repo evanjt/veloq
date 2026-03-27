@@ -112,6 +112,22 @@ export type RoutesScreenData = FfiRoutesScreenData;
 export type GroupWithPolyline = FfiGroupWithPolyline;
 export type SectionWithPolyline = FfiSectionWithPolyline;
 export type PotentialSection = FfiPotentialSection;
+// Strength training types (generated after Rust rebuild)
+export interface ExerciseSet {
+  activityId: string;
+  setOrder: number;
+  exerciseCategory: number;
+  exerciseName: number | undefined;
+  displayName: string;
+  setType: number;
+  repetitions: number | undefined;
+  weightKg: number | undefined;
+  durationSecs: number | undefined;
+}
+export interface MuscleGroup {
+  slug: string;
+  intensity: number;
+}
 
 // For backward compatibility, also export the module initialization status
 export function isRouteMatcherInitialized(): boolean {

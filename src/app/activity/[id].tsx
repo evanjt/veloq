@@ -135,6 +135,8 @@ export default function ActivityDetailScreen() {
     return [];
   }, [streams?.latlng, activity?.polyline]);
 
+  const hasGpsData = coordinates.length > 0;
+
   // Get auto-detected sections from engine that include this activity
   const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);
 
@@ -192,28 +194,32 @@ export default function ActivityDetailScreen() {
     customMatchedSections
   );
 
-  // Tabs configuration
-  const tabs = useMemo<SwipeableTab[]>(
-    () => [
+  // Tabs configuration — hide routes/sections for non-GPS activities
+  const tabs = useMemo<SwipeableTab[]>(() => {
+    const allTabs: SwipeableTab[] = [
       {
         key: 'charts',
         label: t('activityDetail.tabs.charts'),
         icon: 'chart-line',
       },
-      {
-        key: 'routes',
-        label: t('activityDetail.tabs.route'),
-        icon: 'map-marker-path',
-      },
-      {
-        key: 'sections',
-        label: t('activityDetail.tabs.sections'),
-        icon: 'road-variant',
-        count: totalSectionCount,
-      },
-    ],
-    [t, matchedRouteCount, totalSectionCount]
-  );
+    ];
+    if (hasGpsData) {
+      allTabs.push(
+        {
+          key: 'routes',
+          label: t('activityDetail.tabs.route'),
+          icon: 'map-marker-path',
+        },
+        {
+          key: 'sections',
+          label: t('activityDetail.tabs.sections'),
+          icon: 'road-variant',
+          count: totalSectionCount,
+        }
+      );
+    }
+    return allTabs;
+  }, [t, hasGpsData, matchedRouteCount, totalSectionCount]);
 
   // Handle chart point selection
   const handlePointSelect = useCallback((index: number | null) => {
@@ -412,33 +418,57 @@ export default function ActivityDetailScreen() {
       testID="activity-detail-screen"
       style={[styles.container, isDark && styles.containerDark]}
     >
-      {/* Hero Map Section - fixed at top */}
-      <ActivityHeader
-        activity={activity}
-        activityId={id}
-        coordinates={coordinates}
-        isMetric={isMetric}
-        isDark={isDark}
-        debugEnabled={debugEnabled}
-        insetTop={insets.top}
-        mapHeight={MAP_HEIGHT}
-        highlightIndex={highlightIndex}
-        sectionCreationMode={sectionCreationMode}
-        sectionCreationState={sectionCreationState}
-        sectionCreationError={sectionCreationError}
-        onSectionCreated={handleSectionCreated}
-        onCreationCancelled={handleSectionCreationCancelled}
-        onCreationErrorDismiss={handleSectionCreationErrorDismiss}
-        on3DModeChange={handle3DModeChange}
-        onStyleChange={handleStyleChange}
-        onCameraCapture={handleCameraCapture}
-        initial3DCamera={saved3DCamera}
-        activeTab={activeTab}
-        routeOverlayCoordinates={routeOverlayCoordinates}
-        sectionOverlays={sectionOverlays}
-        highlightedSectionId={highlightedSectionId}
-        onSectionMarkerPress={handleSectionMarkerPress}
-      />
+      {/* Simple header for non-GPS activities (map header provides nav for GPS activities) */}
+      {!hasGpsData && (
+        <View
+          style={[styles.noMapHeader, { paddingTop: insets.top }, isDark && styles.noMapHeaderDark]}
+        >
+          <IconButton
+            icon="arrow-left"
+            iconColor={isDark ? darkColors.textPrimary : colors.textPrimary}
+            onPress={() => router.back()}
+          />
+          <View style={styles.noMapHeaderText}>
+            <Text
+              numberOfLines={1}
+              style={[styles.noMapTitle, isDark && { color: darkColors.textPrimary }]}
+            >
+              {activity.name}
+            </Text>
+          </View>
+          <View style={{ width: 48 }} />
+        </View>
+      )}
+
+      {/* Hero Map Section - hidden for non-GPS activities */}
+      {hasGpsData && (
+        <ActivityHeader
+          activity={activity}
+          activityId={id}
+          coordinates={coordinates}
+          isMetric={isMetric}
+          isDark={isDark}
+          debugEnabled={debugEnabled}
+          insetTop={insets.top}
+          mapHeight={MAP_HEIGHT}
+          highlightIndex={highlightIndex}
+          sectionCreationMode={sectionCreationMode}
+          sectionCreationState={sectionCreationState}
+          sectionCreationError={sectionCreationError}
+          onSectionCreated={handleSectionCreated}
+          onCreationCancelled={handleSectionCreationCancelled}
+          onCreationErrorDismiss={handleSectionCreationErrorDismiss}
+          on3DModeChange={handle3DModeChange}
+          onStyleChange={handleStyleChange}
+          onCameraCapture={handleCameraCapture}
+          initial3DCamera={saved3DCamera}
+          activeTab={activeTab}
+          routeOverlayCoordinates={routeOverlayCoordinates}
+          sectionOverlays={sectionOverlays}
+          highlightedSectionId={highlightedSectionId}
+          onSectionMarkerPress={handleSectionMarkerPress}
+        />
+      )}
 
       {/* Activity description */}
       {activity.description ? (
@@ -544,6 +574,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
     zIndex: 10,
+  },
+  noMapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xs,
+    backgroundColor: colors.background,
+  },
+  noMapHeaderDark: {
+    backgroundColor: darkColors.background,
+  },
+  noMapHeaderText: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  noMapTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   descriptionContainer: {
     paddingHorizontal: spacing.md,

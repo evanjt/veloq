@@ -374,6 +374,33 @@ impl ActivityFetcher {
         })
     }
 
+    /// Download the raw FIT file for an activity.
+    /// Returns the binary data or an error message.
+    pub async fn download_fit_file(&self, activity_id: &str) -> Result<Vec<u8>, String> {
+        let url = format!(
+            "https://intervals.icu/api/v1/activity/{}/file",
+            activity_id
+        );
+
+        let response = self
+            .client
+            .get(&url)
+            .header("Authorization", &self.auth_header)
+            .send()
+            .await
+            .map_err(|e| format!("FIT download error: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(format!("HTTP {}", response.status()));
+        }
+
+        response
+            .bytes()
+            .await
+            .map(|b| b.to_vec())
+            .map_err(|e| format!("FIT body error: {}", e))
+    }
+
     /// Fetch map data for multiple activities in parallel
     pub async fn fetch_activity_maps(
         &self,

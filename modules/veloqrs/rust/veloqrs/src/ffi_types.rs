@@ -1487,3 +1487,32 @@ mod tests {
         assert!(ffi_section.source_activity_id.is_none());
     }
 }
+
+// ============================================================================
+// Strength Training Types
+// ============================================================================
+
+/// A single exercise set from a FIT file, exposed to TypeScript.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiExerciseSet {
+    pub activity_id: String,
+    pub set_order: u32,
+    pub exercise_category: u16,
+    pub exercise_name: Option<u16>,
+    /// Human-readable exercise name, pre-resolved in Rust.
+    pub display_name: String,
+    /// 0=active, 1=rest, 2=warmup, 3=cooldown
+    pub set_type: u8,
+    pub repetitions: Option<u16>,
+    pub weight_kg: Option<f64>,
+    pub duration_secs: Option<f64>,
+}
+
+/// A muscle group activation, matching react-native-body-highlighter slug format.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMuscleGroup {
+    /// Slug matching react-native-body-highlighter (e.g., "biceps", "chest")
+    pub slug: String,
+    /// 1 = secondary, 2 = primary
+    pub intensity: u8,
+}

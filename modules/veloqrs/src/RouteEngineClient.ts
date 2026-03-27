@@ -1082,6 +1082,37 @@ class RouteEngineClient {
     return created;
   }
 
+  // ========================================================================
+  // Strength Training
+  // ========================================================================
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getExerciseSets(activityId: string): any[] {
+    return this.timed('getExerciseSets', () =>
+      this.engine.strength().getExerciseSets(activityId),
+    );
+  }
+
+  isFitProcessed(activityId: string): boolean {
+    return this.timed('isFitProcessed', () =>
+      this.engine.strength().isFitProcessed(activityId),
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fetchAndParseExerciseSets(authHeader: string, activityId: string): any[] {
+    return this.timed('fetchAndParseExerciseSets', () =>
+      this.engine.strength().fetchAndParseExerciseSets(authHeader, activityId),
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getMuscleGroups(activityId: string): any[] {
+    return this.timed('getMuscleGroups', () =>
+      this.engine.strength().getMuscleGroups(activityId),
+    );
+  }
+
   subscribe(event: string, callback: () => void): () => void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());

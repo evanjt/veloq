@@ -12,7 +12,10 @@ import { ChartTypeSelector } from './ChartTypeSelector';
 import { HRZonesChart } from './HRZonesChart';
 import { PowerZonesChart } from './PowerZonesChart';
 import { IntervalsTable } from './IntervalsTable';
+import { ExerciseTable } from './ExerciseTable';
+import { MuscleGroupView } from './MuscleGroupView';
 import { InsightfulStats } from './stats';
+import { useExerciseSets } from '@/hooks/activities';
 import { ComponentErrorBoundary, DeviceAttribution } from '@/components/ui';
 import { DebugInfoPanel, DebugWarningBanner } from '@/components/routes';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/hooks';
@@ -91,6 +94,11 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const { getPageMetrics } = useFFITimer();
+
+  // Strength training exercise data
+  const isStrength = activity?.type === 'WeightTraining';
+  const { data: exerciseSets } = useExerciseSets(activityId, activity?.type ?? '');
+  const hasExercises = (exerciseSets?.length ?? 0) > 0;
 
   // Chart state
   const [selectedCharts, setSelectedCharts] = useState<ChartTypeId[]>([]);
@@ -346,6 +354,18 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
         <ComponentErrorBoundary componentName="Activity Stats">
           <InsightfulStats activity={activity} wellness={activityWellness} />
         </ComponentErrorBoundary>
+
+        {/* Strength Training: Muscle Groups + Exercise Table */}
+        {isStrength && (
+          <>
+            <ComponentErrorBoundary componentName="Muscle Groups">
+              <MuscleGroupView activityId={activityId} hasExercises={hasExercises} />
+            </ComponentErrorBoundary>
+            <ComponentErrorBoundary componentName="Exercise Table">
+              <ExerciseTable activityId={activityId} activityType={activity.type} />
+            </ComponentErrorBoundary>
+          </>
+        )}
 
         {/* Export GPX button */}
         {coordinates.length > 0 && (

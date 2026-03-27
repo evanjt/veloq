@@ -119,4 +119,8 @@ impl VeloqEngine {
     fn detection(&self) -> Arc<super::detection::DetectionManager> {
         Arc::new(super::detection::DetectionManager { _private: () })
     }
+
+    fn strength(&self) -> Arc<super::strength::StrengthManager> {
+        Arc::new(super::strength::StrengthManager { _private: () })
+    }
 }

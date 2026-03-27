@@ -7,6 +7,7 @@ mod maps;
 mod routes;
 mod sections;
 mod settings;
+pub mod strength;
 
 pub use engine::VeloqEngine;
 pub use error::VeloqError;

@@ -40,6 +40,7 @@ mod activities;
 mod routes;
 mod sections;
 mod fitness;
+mod strength;
 
 // ============================================================================
 // Name Translation Support
