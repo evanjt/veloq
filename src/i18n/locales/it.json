@@ -149,6 +149,8 @@
       "sections": "Tratti",
       "exercises": "Esercizi"
     },
+    "primary": "Primario",
+    "secondary": "Secondario",
     "exercises": "Esercizi",
     "exercisesSummary": "{{exercises}} esercizi · {{sets}} serie",
     "muscleDataSource": "Dati muscolari: free-exercise-db",

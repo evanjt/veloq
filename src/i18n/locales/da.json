@@ -149,6 +149,8 @@
       "sections": "Sektioner",
       "exercises": "Øvelser"
     },
+    "primary": "Primær",
+    "secondary": "Sekundær",
     "exercises": "Øvelser",
     "exercisesSummary": "{{exercises}} øvelser · {{sets}} sæt",
     "muscleDataSource": "Muskeldata: free-exercise-db",

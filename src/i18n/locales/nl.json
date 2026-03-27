@@ -149,6 +149,8 @@
       "sections": "Secties",
       "exercises": "Oefeningen"
     },
+    "primary": "Primair",
+    "secondary": "Secundair",
     "exercises": "Oefeningen",
     "exercisesSummary": "{{exercises}} oefeningen · {{sets}} sets",
     "muscleDataSource": "Spiergegevens: free-exercise-db",

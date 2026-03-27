@@ -149,6 +149,8 @@
       "sections": "区間",
       "exercises": "エクササイズ"
     },
+    "primary": "主動筋",
+    "secondary": "補助筋",
     "exercises": "エクササイズ",
     "exercisesSummary": "{{exercises}}種目 · {{sets}}セット",
     "muscleDataSource": "筋肉データ: free-exercise-db",

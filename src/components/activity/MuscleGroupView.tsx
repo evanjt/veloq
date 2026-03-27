@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMuscleGroups } from '@/hooks/activities';
+import { useTranslation } from 'react-i18next';
 import { formatDateTime, formatDuration } from '@/lib';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type { ActivityDetail } from '@/types';
@@ -29,6 +30,7 @@ export function MuscleGroupView({
   isDark,
   athleteSex,
 }: MuscleGroupViewProps) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { data: muscleGroups } = useMuscleGroups(activityId, hasExercises);
 
@@ -67,11 +69,11 @@ export function MuscleGroupView({
         <View style={styles.legendCenter}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: PRIMARY_COLOR }]} />
-            <Text style={styles.legendText}>Primary</Text>
+            <Text style={styles.legendText}>{t('activityDetail.primary')}</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: SECONDARY_COLOR }]} />
-            <Text style={styles.legendText}>Secondary</Text>
+            <Text style={styles.legendText}>{t('activityDetail.secondary')}</Text>
           </View>
         </View>
         <View style={styles.bodyView}>
@@ -139,7 +141,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   legendCenter: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
     gap: spacing.sm,
     paddingHorizontal: 4,

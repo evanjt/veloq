@@ -149,6 +149,8 @@
       "sections": "路段",
       "exercises": "练习"
     },
+    "primary": "主要",
+    "secondary": "次要",
     "exercises": "练习",
     "exercisesSummary": "{{exercises}}个练习 · {{sets}}组",
     "muscleDataSource": "肌肉数据: free-exercise-db",

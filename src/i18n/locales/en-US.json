@@ -149,6 +149,8 @@
       "routes": "Routes",
       "sections": "Sections"
     },
+    "primary": "Primary",
+    "secondary": "Secondary",
     "exercises": "Exercises",
     "exercisesSummary": "{{exercises}} exercises · {{sets}} sets",
     "muscleDataSource": "Muscle data: free-exercise-db",

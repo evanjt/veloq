@@ -149,6 +149,8 @@
       "sections": "Sections",
       "exercises": "Exercices"
     },
+    "primary": "Primaire",
+    "secondary": "Secondaire",
     "exercises": "Exercices",
     "exercisesSummary": "{{exercises}} exercices · {{sets}} séries",
     "muscleDataSource": "Données musculaires : free-exercise-db",

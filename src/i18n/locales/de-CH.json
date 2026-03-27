@@ -149,6 +149,8 @@
       "sections": "Abschnitt",
       "exercises": "Übige"
     },
+    "primary": "Primär",
+    "secondary": "Sekundär",
     "exercises": "Übige",
     "exercisesSummary": "{{exercises}} Übige · {{sets}} Sätz",
     "muscleDataSource": "Muskeldate: free-exercise-db",

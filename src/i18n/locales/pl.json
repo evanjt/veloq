@@ -149,6 +149,8 @@
       "sections": "Odcinki",
       "exercises": "Ćwiczenia"
     },
+    "primary": "Główne",
+    "secondary": "Wspomagające",
     "exercises": "Ćwiczenia",
     "exercisesSummary": "{{exercises}} ćwiczeń · {{sets}} serii",
     "muscleDataSource": "Dane mięśniowe: free-exercise-db",

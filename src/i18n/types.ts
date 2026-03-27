@@ -1035,6 +1035,8 @@ export interface TranslationResource {
     chartDisplayOptions: string;
     fullscreenChart: string;
     feedPreviewUpdated: string;
+    primary: string;
+    secondary: string;
     exercises: string;
     exercisesSummary: string;
     muscleDataSource: string;
