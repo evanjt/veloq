@@ -146,8 +146,14 @@
       "intervals": "インターバル",
       "route": "ルート",
       "routes": "ルート",
-      "sections": "区間"
-    }
+      "sections": "区間",
+      "exercises": "エクササイズ"
+    },
+    "exercises": "エクササイズ",
+    "exercisesSummary": "{{exercises}}種目 · {{sets}}セット",
+    "muscleDataSource": "筋肉データ: free-exercise-db",
+    "bodyShapeFromProfile": "あなたのプロフィール: {{gender}}",
+    "bodyShapeRandom": "体型はランダムに選択 — intervals.icuプロフィールに性別なし"
   },
   "alerts": {
     "cacheCleared": "キャッシュをクリアしました",

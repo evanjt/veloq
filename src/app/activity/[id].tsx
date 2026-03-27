@@ -215,7 +215,7 @@ export default function ActivityDetailScreen() {
     if (isStrength) {
       allTabs.push({
         key: 'exercises',
-        label: 'Exercises',
+        label: t('activityDetail.tabs.exercises'),
         icon: 'dumbbell',
       });
     }
@@ -434,8 +434,8 @@ export default function ActivityDetailScreen() {
       testID="activity-detail-screen"
       style={[styles.container, isDark && styles.containerDark]}
     >
-      {/* Simple header for non-GPS activities (map header provides nav for GPS activities) */}
-      {!hasGpsData && (
+      {/* Simple header for non-GPS, non-strength activities */}
+      {!hasGpsData && !isStrength && (
         <View
           style={[styles.noMapHeader, { paddingTop: insets.top }, isDark && styles.noMapHeaderDark]}
         >
@@ -456,11 +456,12 @@ export default function ActivityDetailScreen() {
         </View>
       )}
 
-      {/* Strength Training hero — body diagrams replace the map */}
+      {/* Strength Training hero — body diagrams with overlay (back button, name, date, duration) */}
       {isStrength && (
         <ComponentErrorBoundary componentName="Muscle Groups">
           <MuscleGroupView
             activityId={id}
+            activity={activity}
             hasExercises={hasExercises}
             isDark={isDark}
             athleteSex={athlete?.sex}

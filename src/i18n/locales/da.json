@@ -146,8 +146,14 @@
       "intervals": "Intervaller",
       "route": "Rute",
       "routes": "Ruter",
-      "sections": "Sektioner"
-    }
+      "sections": "Sektioner",
+      "exercises": "Øvelser"
+    },
+    "exercises": "Øvelser",
+    "exercisesSummary": "{{exercises}} øvelser · {{sets}} sæt",
+    "muscleDataSource": "Muskeldata: free-exercise-db",
+    "bodyShapeFromProfile": "Din profil: {{gender}}",
+    "bodyShapeRandom": "Krop valgt tilfældigt — intet køn i intervals.icu-profil"
   },
   "alerts": {
     "cacheCleared": "Cache ryddet",

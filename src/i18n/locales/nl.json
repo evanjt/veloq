@@ -146,8 +146,14 @@
       "intervals": "Intervallen",
       "route": "Route",
       "routes": "Routes",
-      "sections": "Secties"
-    }
+      "sections": "Secties",
+      "exercises": "Oefeningen"
+    },
+    "exercises": "Oefeningen",
+    "exercisesSummary": "{{exercises}} oefeningen · {{sets}} sets",
+    "muscleDataSource": "Spiergegevens: free-exercise-db",
+    "bodyShapeFromProfile": "Jouw profiel: {{gender}}",
+    "bodyShapeRandom": "Lichaam willekeurig gekozen — geen geslacht in intervals.icu-profiel"
   },
   "alerts": {
     "cacheCleared": "Cache gewist",

@@ -1700,6 +1700,101 @@ const FfiConverterTypeFfiEfficiencyTrend = (() => {
 })();
 
 /**
+ * A single exercise set from a FIT file, exposed to TypeScript.
+ */
+export type FfiExerciseSet = {
+  activityId: string;
+  setOrder: /*u32*/ number;
+  exerciseCategory: /*u16*/ number;
+  exerciseName: /*u16*/ number | undefined;
+  /**
+   * Human-readable exercise name, pre-resolved in Rust.
+   */
+  displayName: string;
+  /**
+   * 0=active, 1=rest, 2=warmup, 3=cooldown
+   */
+  setType: /*u8*/ number;
+  repetitions: /*u16*/ number | undefined;
+  weightKg: /*f64*/ number | undefined;
+  durationSecs: /*f64*/ number | undefined;
+};
+
+/**
+ * Generated factory for {@link FfiExerciseSet} record objects.
+ */
+export const FfiExerciseSet = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiExerciseSet, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiExerciseSet}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiExerciseSet}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiExerciseSet>,
+  });
+})();
+
+const FfiConverterTypeFfiExerciseSet = (() => {
+  type TypeName = FfiExerciseSet;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityId: FfiConverterString.read(from),
+        setOrder: FfiConverterUInt32.read(from),
+        exerciseCategory: FfiConverterUInt16.read(from),
+        exerciseName: FfiConverterOptionalUInt16.read(from),
+        displayName: FfiConverterString.read(from),
+        setType: FfiConverterUInt8.read(from),
+        repetitions: FfiConverterOptionalUInt16.read(from),
+        weightKg: FfiConverterOptionalFloat64.read(from),
+        durationSecs: FfiConverterOptionalFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.activityId, into);
+      FfiConverterUInt32.write(value.setOrder, into);
+      FfiConverterUInt16.write(value.exerciseCategory, into);
+      FfiConverterOptionalUInt16.write(value.exerciseName, into);
+      FfiConverterString.write(value.displayName, into);
+      FfiConverterUInt8.write(value.setType, into);
+      FfiConverterOptionalUInt16.write(value.repetitions, into);
+      FfiConverterOptionalFloat64.write(value.weightKg, into);
+      FfiConverterOptionalFloat64.write(value.durationSecs, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterUInt32.allocationSize(value.setOrder) +
+        FfiConverterUInt16.allocationSize(value.exerciseCategory) +
+        FfiConverterOptionalUInt16.allocationSize(value.exerciseName) +
+        FfiConverterString.allocationSize(value.displayName) +
+        FfiConverterUInt8.allocationSize(value.setType) +
+        FfiConverterOptionalUInt16.allocationSize(value.repetitions) +
+        FfiConverterOptionalFloat64.allocationSize(value.weightKg) +
+        FfiConverterOptionalFloat64.allocationSize(value.durationSecs)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Frequent section for FFI
  */
 export type FfiFrequentSection = {
@@ -2493,6 +2588,73 @@ const FfiConverterTypeFfiMultiScaleSectionResult = (() => {
           value.potentials,
         ) +
         FfiConverterTypeFfiDetectionStats.allocationSize(value.stats)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A muscle group activation, matching react-native-body-highlighter slug format.
+ */
+export type FfiMuscleGroup = {
+  /**
+   * Slug matching react-native-body-highlighter (e.g., "biceps", "chest")
+   */
+  slug: string;
+  /**
+   * 1 = secondary, 2 = primary
+   */
+  intensity: /*u8*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiMuscleGroup} record objects.
+ */
+export const FfiMuscleGroup = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMuscleGroup, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiMuscleGroup}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiMuscleGroup}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMuscleGroup>,
+  });
+})();
+
+const FfiConverterTypeFfiMuscleGroup = (() => {
+  type TypeName = FfiMuscleGroup;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        slug: FfiConverterString.read(from),
+        intensity: FfiConverterUInt8.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.slug, into);
+      FfiConverterUInt8.write(value.intensity, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.slug) +
+        FfiConverterUInt8.allocationSize(value.intensity)
       );
     }
   }
@@ -8111,6 +8273,231 @@ const FfiConverterTypeSettingsManager = new FfiConverterObject(
   uniffiTypeSettingsManagerObjectFactory,
 );
 
+export interface StrengthManagerInterface {
+  /**
+   * Download FIT file, parse exercise sets, store in SQLite, return results.
+   * The FIT binary is held in memory only — not persisted to disk.
+   */
+  fetchAndParseExerciseSets(
+    authHeader: string,
+    activityId: string,
+  ) /*throws*/ : Array<FfiExerciseSet>;
+  /**
+   * Get cached exercise sets for an activity (from SQLite).
+   * Returns empty vec if not yet downloaded/parsed.
+   */
+  getExerciseSets(activityId: string) /*throws*/ : Array<FfiExerciseSet>;
+  /**
+   * Get aggregated muscle groups for an activity.
+   * Returns slugs matching react-native-body-highlighter format.
+   */
+  getMuscleGroups(activityId: string) /*throws*/ : Array<FfiMuscleGroup>;
+  /**
+   * Check if FIT file has been processed for this activity.
+   */
+  isFitProcessed(activityId: string) /*throws*/ : boolean;
+}
+
+export class StrengthManager
+  extends UniffiAbstractObject
+  implements StrengthManagerInterface
+{
+  readonly [uniffiTypeNameSymbol] = "StrengthManager";
+  readonly [destructorGuardSymbol]: UniffiRustArcPtr;
+  readonly [pointerLiteralSymbol]: UnsafeMutableRawPointer;
+  constructor() {
+    super();
+    const pointer = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_strengthmanager_new(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+    this[pointerLiteralSymbol] = pointer;
+    this[destructorGuardSymbol] =
+      uniffiTypeStrengthManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Download FIT file, parse exercise sets, store in SQLite, return results.
+   * The FIT binary is held in memory only — not persisted to disk.
+   */
+  public fetchAndParseExerciseSets(
+    authHeader: string,
+    activityId: string,
+  ): Array<FfiExerciseSet> /*throws*/ {
+    return FfiConverterArrayTypeFfiExerciseSet.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(authHeader),
+            FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get cached exercise sets for an activity (from SQLite).
+   * Returns empty vec if not yet downloaded/parsed.
+   */
+  public getExerciseSets(activityId: string): Array<FfiExerciseSet> /*throws*/ {
+    return FfiConverterArrayTypeFfiExerciseSet.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercise_sets(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get aggregated muscle groups for an activity.
+   * Returns slugs matching react-native-body-highlighter format.
+   */
+  public getMuscleGroups(activityId: string): Array<FfiMuscleGroup> /*throws*/ {
+    return FfiConverterArrayTypeFfiMuscleGroup.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_muscle_groups(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Check if FIT file has been processed for this activity.
+   */
+  public isFitProcessed(activityId: string): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_is_fit_processed(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
+   */
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer = uniffiTypeStrengthManagerObjectFactory.pointer(this);
+      uniffiTypeStrengthManagerObjectFactory.freePointer(pointer);
+      uniffiTypeStrengthManagerObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj: any): obj is StrengthManager {
+    return uniffiTypeStrengthManagerObjectFactory.isConcreteType(obj);
+  }
+}
+
+const uniffiTypeStrengthManagerObjectFactory: UniffiObjectFactory<StrengthManagerInterface> =
+  (() => {
+    return {
+      create(pointer: UnsafeMutableRawPointer): StrengthManagerInterface {
+        const instance = Object.create(StrengthManager.prototype);
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = "StrengthManager";
+        return instance;
+      },
+
+      bless(p: UnsafeMutableRawPointer): UniffiRustArcPtr {
+        return uniffiCaller.rustCall(
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_strengthmanager_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      unbless(ptr: UniffiRustArcPtr) {
+        ptr.markDestroyed();
+      },
+
+      pointer(obj: StrengthManagerInterface): UnsafeMutableRawPointer {
+        if ((obj as any)[destructorGuardSymbol] === undefined) {
+          throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj as any)[pointerLiteralSymbol];
+      },
+
+      clonePointer(obj: StrengthManagerInterface): UnsafeMutableRawPointer {
+        const pointer = this.pointer(obj);
+        return uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_clone_strengthmanager(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      freePointer(pointer: UnsafeMutableRawPointer): void {
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_free_strengthmanager(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      isConcreteType(obj: any): obj is StrengthManagerInterface {
+        return (
+          obj[destructorGuardSymbol] &&
+          obj[uniffiTypeNameSymbol] === "StrengthManager"
+        );
+      },
+    };
+  })();
+// FfiConverter for StrengthManagerInterface
+const FfiConverterTypeStrengthManager = new FfiConverterObject(
+  uniffiTypeStrengthManagerObjectFactory,
+);
+
 export interface VeloqEngineInterface {
   activities(): ActivityManagerInterface;
   cleanupOldActivities(
@@ -8133,6 +8520,7 @@ export interface VeloqEngineInterface {
   sections(): SectionManagerInterface;
   setNameTranslations(routeWord: string, sectionWord: string): void;
   settings(): SettingsManagerInterface;
+  strength(): StrengthManagerInterface;
 }
 
 export class VeloqEngine
@@ -8390,6 +8778,20 @@ export class VeloqEngine
     );
   }
 
+  public strength(): StrengthManagerInterface {
+    return FfiConverterTypeStrengthManager.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_strength(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   /**
    * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
    */
@@ -8593,6 +8995,11 @@ const FfiConverterArrayTypeFfiEfficiencyPoint = new FfiConverterArray(
   FfiConverterTypeFfiEfficiencyPoint,
 );
 
+// FfiConverter for Array<FfiExerciseSet>
+const FfiConverterArrayTypeFfiExerciseSet = new FfiConverterArray(
+  FfiConverterTypeFfiExerciseSet,
+);
+
 // FfiConverter for Array<FfiFrequentSection>
 const FfiConverterArrayTypeFfiFrequentSection = new FfiConverterArray(
   FfiConverterTypeFfiFrequentSection,
@@ -8616,6 +9023,11 @@ const FfiConverterArrayTypeFfiHeatmapDay = new FfiConverterArray(
 // FfiConverter for Array<FfiMapSignature>
 const FfiConverterArrayTypeFfiMapSignature = new FfiConverterArray(
   FfiConverterTypeFfiMapSignature,
+);
+
+// FfiConverter for Array<FfiMuscleGroup>
+const FfiConverterArrayTypeFfiMuscleGroup = new FfiConverterArray(
+  FfiConverterTypeFfiMuscleGroup,
 );
 
 // FfiConverter for Array<FfiPatternSection>
@@ -9393,6 +9805,38 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets() !==
+    53159
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_sets() !==
+    18738
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_sets",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_groups() !==
+    7773
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_groups",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed() !==
+    33257
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_activities() !==
     8779
   ) {
@@ -9513,6 +9957,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_strength() !==
+    57062
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_strength",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_activitymanager_new() !==
     25350
   ) {
@@ -9569,6 +10021,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_strengthmanager_new() !==
+    5301
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_constructor_strengthmanager_new",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_veloqengine_create() !==
     7056
   ) {
@@ -9600,6 +10060,7 @@ export default Object.freeze({
     FfiConverterTypeFfiDirectionStats,
     FfiConverterTypeFfiEfficiencyPoint,
     FfiConverterTypeFfiEfficiencyTrend,
+    FfiConverterTypeFfiExerciseSet,
     FfiConverterTypeFfiFrequentSection,
     FfiConverterTypeFfiFtpTrend,
     FfiConverterTypeFfiGpsPoint,
@@ -9609,6 +10070,7 @@ export default Object.freeze({
     FfiConverterTypeFfiInsightsData,
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMultiScaleSectionResult,
+    FfiConverterTypeFfiMuscleGroup,
     FfiConverterTypeFfiPaceTrend,
     FfiConverterTypeFfiPatternSection,
     FfiConverterTypeFfiPeriodStats,
@@ -9643,6 +10105,7 @@ export default Object.freeze({
     FfiConverterTypeSectionManager,
     FfiConverterTypeSectionSummary,
     FfiConverterTypeSettingsManager,
+    FfiConverterTypeStrengthManager,
     FfiConverterTypeVeloqEngine,
     FfiConverterTypeVeloqError,
   },

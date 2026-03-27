@@ -1,10 +1,11 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, ActivityIndicator, Pressable, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { useExerciseSets } from '@/hooks/activities';
 import { useMetricSystem } from '@/hooks/ui/useMetricSystem';
 import { formatDuration } from '@/lib';
-import { colors, darkColors, spacing, layout, opacity } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { ExerciseSet } from 'veloqrs';
 
 interface ExerciseTableProps {
@@ -24,9 +25,7 @@ function groupExercises(sets: ExerciseSet[]): ExerciseGroup[] {
   let current: ExerciseGroup | null = null;
 
   for (const set of sets) {
-    // Skip rest sets — they're gaps between exercises
     if (set.setType !== 0) continue;
-
     if (!current || current.name !== set.displayName) {
       current = { name: set.displayName, sets: [] };
       groups.push(current);
@@ -51,6 +50,7 @@ export function ExerciseTable({
   isDark,
   athleteSex,
 }: ExerciseTableProps) {
+  const { t } = useTranslation();
   const isMetric = useMetricSystem();
   const { data: exerciseSets, isLoading } = useExerciseSets(activityId, activityType);
 
@@ -63,9 +63,6 @@ export function ExerciseTable({
     return (
       <View style={[styles.card, isDark && styles.cardDark, styles.loadingContainer]}>
         <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={[styles.loadingText, isDark && styles.textSecondaryDark]}>
-          Loading exercises...
-        </Text>
       </View>
     );
   }
@@ -73,81 +70,91 @@ export function ExerciseTable({
   if (groups.length === 0) return null;
 
   const totalSets = groups.reduce((sum, g) => sum + g.sets.length, 0);
+  const hasGender = athleteSex === 'M' || athleteSex === 'F';
+  const genderLabel = athleteSex === 'F' ? 'female' : 'male';
 
   return (
-    <View style={[styles.card, isDark && styles.cardDark]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textDark]}>Exercises</Text>
-        <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
-          {groups.length} exercises · {totalSets} sets
-        </Text>
-      </View>
+    <>
+      {/* Exercise card */}
+      <View style={[styles.card, isDark && styles.cardDark]}>
+        <View style={styles.header}>
+          <Text style={[styles.title, isDark && styles.textDark]}>
+            {t('activityDetail.exercises')}
+          </Text>
+          <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
+            {t('activityDetail.exercisesSummary', {
+              exercises: groups.length,
+              sets: totalSets,
+            })}
+          </Text>
+        </View>
 
-      {groups.map((group, groupIdx) => (
-        <View key={`${group.name}-${groupIdx}`}>
-          {groupIdx > 0 && <View style={[styles.divider, isDark && styles.dividerDark]} />}
-          <Text style={[styles.exerciseName, isDark && styles.textDark]}>{group.name}</Text>
+        {groups.map((group, groupIdx) => (
+          <View key={`${group.name}-${groupIdx}`}>
+            {groupIdx > 0 && <View style={[styles.divider, isDark && styles.dividerDark]} />}
+            <Text style={[styles.exerciseName, isDark && styles.textDark]}>{group.name}</Text>
 
-          {/* Column headers */}
-          <View style={styles.headerRow}>
-            <Text style={[styles.colHeader, styles.colSet, isDark && styles.textSecondaryDark]}>
-              Set
-            </Text>
-            <Text style={[styles.colHeader, styles.colReps, isDark && styles.textSecondaryDark]}>
-              Reps
-            </Text>
-            <Text style={[styles.colHeader, styles.colWeight, isDark && styles.textSecondaryDark]}>
-              Weight
-            </Text>
-            <Text style={[styles.colHeader, styles.colTime, isDark && styles.textSecondaryDark]}>
-              Time
-            </Text>
-          </View>
-
-          {group.sets.map((set, setIdx) => (
-            <View
-              key={set.setOrder}
-              style={[
-                styles.setRow,
-                setIdx > 0 && styles.setRowBorder,
-                setIdx > 0 && isDark && styles.setRowBorderDark,
-              ]}
-            >
-              <Text style={[styles.colValue, styles.colSet, isDark && styles.textDark]}>
-                {setIdx + 1}
+            <View style={styles.headerRow}>
+              <Text style={[styles.colHeader, styles.colSet, isDark && styles.textSecondaryDark]}>
+                Set
               </Text>
-              <Text style={[styles.colValue, styles.colReps, isDark && styles.textDark]}>
-                {set.repetitions != null ? set.repetitions : '--'}
+              <Text style={[styles.colHeader, styles.colReps, isDark && styles.textSecondaryDark]}>
+                Reps
               </Text>
-              <Text style={[styles.colValue, styles.colWeight, isDark && styles.textDark]}>
-                {set.weightKg != null ? formatWeight(set.weightKg, isMetric) : '--'}
+              <Text
+                style={[styles.colHeader, styles.colWeight, isDark && styles.textSecondaryDark]}
+              >
+                Weight
               </Text>
-              <Text style={[styles.colValue, styles.colTime, isDark && styles.textSecondaryDark]}>
-                {set.durationSecs != null ? formatDuration(set.durationSecs) : '--'}
+              <Text style={[styles.colHeader, styles.colTime, isDark && styles.textSecondaryDark]}>
+                Time
               </Text>
             </View>
-          ))}
-        </View>
-      ))}
 
-      {/* Footer: citation + gender note */}
-      <View style={[styles.footerDivider, isDark && styles.footerDividerDark]} />
-      <View style={styles.footer}>
+            {group.sets.map((set, setIdx) => (
+              <View
+                key={set.setOrder}
+                style={[
+                  styles.setRow,
+                  setIdx > 0 && styles.setRowBorder,
+                  setIdx > 0 && isDark && styles.setRowBorderDark,
+                ]}
+              >
+                <Text style={[styles.colValue, styles.colSet, isDark && styles.textDark]}>
+                  {setIdx + 1}
+                </Text>
+                <Text style={[styles.colValue, styles.colReps, isDark && styles.textDark]}>
+                  {set.repetitions != null ? set.repetitions : '--'}
+                </Text>
+                <Text style={[styles.colValue, styles.colWeight, isDark && styles.textDark]}>
+                  {set.weightKg != null ? formatWeight(set.weightKg, isMetric) : '--'}
+                </Text>
+                <Text style={[styles.colValue, styles.colTime, isDark && styles.textSecondaryDark]}>
+                  {set.durationSecs != null ? formatDuration(set.durationSecs) : '--'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ))}
+      </View>
+
+      {/* Info card below (like "Understanding the metrics" on Fitness tab) */}
+      <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
         <Pressable
           onPress={() => Linking.openURL('https://github.com/yuhonas/free-exercise-db')}
           hitSlop={8}
         >
-          <Text style={[styles.footerText, isDark && styles.textSecondaryDark]}>
-            Muscle data: free-exercise-db
+          <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+            {t('activityDetail.muscleDataSource')}
           </Text>
         </Pressable>
-        {athleteSex !== 'M' && athleteSex !== 'F' && (
-          <Text style={[styles.footerText, isDark && styles.textSecondaryDark]}>
-            Body chosen at random — no gender in profile
-          </Text>
-        )}
+        <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+          {hasGender
+            ? t('activityDetail.bodyShapeFromProfile', { gender: genderLabel })
+            : t('activityDetail.bodyShapeRandom')}
+        </Text>
       </View>
-    </View>
+    </>
   );
 }
 
@@ -171,12 +178,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.xl,
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: colors.textSecondary,
   },
   header: {
     flexDirection: 'row',
@@ -256,21 +257,22 @@ const styles = StyleSheet.create({
   textSecondaryDark: {
     color: darkColors.textSecondary,
   },
-  footerDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.divider,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
+  // Info card (matches fitness tab "Understanding the metrics" pattern)
+  infoCard: {
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadius,
+    padding: layout.cardPadding,
+    marginBottom: spacing.md,
+    gap: 4,
   },
-  footerDividerDark: {
-    backgroundColor: darkColors.border,
+  infoCardDark: {
+    backgroundColor: darkColors.surface,
   },
-  footer: {
-    gap: 2,
-  },
-  footerText: {
-    fontSize: 10,
+  infoText: {
+    ...typography.caption,
     color: colors.textSecondary,
-    opacity: 0.6,
+  },
+  infoTextDark: {
+    color: darkColors.textSecondary,
   },
 });

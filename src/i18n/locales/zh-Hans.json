@@ -146,8 +146,14 @@
       "intervals": "间歇",
       "route": "路线",
       "routes": "路线",
-      "sections": "路段"
-    }
+      "sections": "路段",
+      "exercises": "练习"
+    },
+    "exercises": "练习",
+    "exercisesSummary": "{{exercises}}个练习 · {{sets}}组",
+    "muscleDataSource": "肌肉数据: free-exercise-db",
+    "bodyShapeFromProfile": "你的资料: {{gender}}",
+    "bodyShapeRandom": "随机选择身体 — intervals.icu资料中无性别"
   },
   "alerts": {
     "cacheCleared": "缓存已清除",

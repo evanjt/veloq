@@ -1019,6 +1019,7 @@ export interface TranslationResource {
     elapsedTime: string;
     tabs: {
       charts: string;
+      exercises: string;
       intervals: string;
       route: string;
       routes: string;
@@ -1034,6 +1035,11 @@ export interface TranslationResource {
     chartDisplayOptions: string;
     fullscreenChart: string;
     feedPreviewUpdated: string;
+    exercises: string;
+    exercisesSummary: string;
+    muscleDataSource: string;
+    bodyShapeFromProfile: string;
+    bodyShapeRandom: string;
   };
 
   routeDetail: {

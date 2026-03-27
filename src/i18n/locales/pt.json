@@ -146,8 +146,14 @@
       "intervals": "Intervalos",
       "route": "Rota",
       "routes": "Percursos",
-      "sections": "Troços"
-    }
+      "sections": "Troços",
+      "exercises": "Exercícios"
+    },
+    "exercises": "Exercícios",
+    "exercisesSummary": "{{exercises}} exercícios · {{sets}} séries",
+    "muscleDataSource": "Dados musculares: free-exercise-db",
+    "bodyShapeFromProfile": "O seu perfil: {{gender}}",
+    "bodyShapeRandom": "Corpo escolhido aleatoriamente — sem género no perfil intervals.icu"
   },
   "alerts": {
     "cacheCleared": "Cache limpa",

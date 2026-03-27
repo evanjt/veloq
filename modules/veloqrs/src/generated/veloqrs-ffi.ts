@@ -534,6 +534,38 @@ interface NativeModuleInterface {
     json: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_clone_strengthmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_strengthmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_strengthmanager_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
+    ptr: bigint,
+    authHeader: Uint8Array,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercise_sets(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_muscle_groups(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_is_fit_processed(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_clone_veloqengine(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -606,6 +638,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_settings(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_strength(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
@@ -709,6 +745,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_sets(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_groups(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_activities(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_activities(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear(): number;
@@ -724,6 +764,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_set_name_translations(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_settings(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_strength(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_activitymanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_detectionmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_fitnessmanager_new(): number;
@@ -731,6 +772,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_constructor_routemanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_sectionmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_settingsmanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_strengthmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_veloqengine_create(): number;
   ubrn_ffi_veloqrs_uniffi_contract_version(): number;
   ubrn_uniffi_internal_fn_method_activitymanager_ffi__bless_pointer(
@@ -758,6 +800,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiRustArcPtr;
   ubrn_uniffi_internal_fn_method_settingsmanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiRustArcPtr;
+  ubrn_uniffi_internal_fn_method_strengthmanager_ffi__bless_pointer(
     pointer: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiRustArcPtr;
