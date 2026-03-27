@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { Text, IconButton, ActivityIndicator, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenSafeAreaView } from '@/components/ui';
@@ -540,14 +540,17 @@ export default function ActivityDetailScreen() {
 
         {/* Tab 2: Exercises (only for strength activities) */}
         {isStrength && (
-          <View style={styles.exercisesTab}>
+          <ScrollView
+            style={styles.exercisesTab}
+            contentContainerStyle={styles.exercisesTabContent}
+          >
             <ExerciseTable
               activityId={id}
               activityType={activity.type}
               isDark={isDark}
               athleteSex={athlete?.sex}
             />
-          </View>
+          </ScrollView>
         )}
 
         {/* Tab 3: Routes (only for GPS activities) */}
@@ -621,8 +624,12 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   exercisesTab: {
+    flex: 1,
     paddingHorizontal: spacing.md,
+  },
+  exercisesTabContent: {
     paddingTop: spacing.sm,
+    paddingBottom: spacing.xl + 80,
   },
   noMapHeader: {
     flexDirection: 'row',
