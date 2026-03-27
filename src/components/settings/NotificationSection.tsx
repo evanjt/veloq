@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, Alert, Pressable } from 'react-native';
+import { View, StyleSheet, Linking, Pressable } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -12,24 +12,18 @@ import {
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { SectionDivider } from './SettingsSection';
 
-function showPrivacyNotice(t: (key: string) => string): void {
-  Alert.alert(t('notifications.privacy.title'), t('notifications.privacy.body'));
-}
-
 export function NotificationSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const authMethod = useAuthStore((s) => s.authMethod);
   const isOAuth = authMethod === 'oauth';
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
-  const { enabled, privacyAccepted, categories, setEnabled, acceptPrivacy, setCategoryEnabled } =
-    useNotificationPreferences();
+  const { enabled, categories, setEnabled, setCategoryEnabled } = useNotificationPreferences();
   const [toggling, setToggling] = useState(false);
 
   const canEnable = isOAuth && !isDemoMode;
 
-  // Sync with OS permission: if user revoked notification permission in system settings,
-  // disable notifications in the app so the toggle reflects reality
+  // Sync with OS permission
   useEffect(() => {
     if (enabled) {
       hasNotificationPermission().then((granted) => {
@@ -44,25 +38,6 @@ export function NotificationSection() {
     async (value: boolean) => {
       if (!canEnable) return;
 
-      if (value && !privacyAccepted) {
-        Alert.alert(t('notifications.privacy.title'), t('notifications.privacy.brief'), [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('notifications.privacy.accept'),
-            onPress: async () => {
-              acceptPrivacy();
-              setToggling(true);
-              const granted = await requestNotificationPermission();
-              if (granted) {
-                setEnabled(true);
-              }
-              setToggling(false);
-            },
-          },
-        ]);
-        return;
-      }
-
       if (value) {
         setToggling(true);
         const granted = await requestNotificationPermission();
@@ -74,12 +49,8 @@ export function NotificationSection() {
         setEnabled(false);
       }
     },
-    [canEnable, privacyAccepted, acceptPrivacy, setEnabled, t]
+    [canEnable, setEnabled]
   );
-
-  const handleShowPrivacy = useCallback(() => {
-    showPrivacyNotice(t as (key: string) => string);
-  }, [t]);
 
   return (
     <>
@@ -97,19 +68,6 @@ export function NotificationSection() {
           <Text style={[styles.rowLabel, isDark && styles.textLight]} numberOfLines={1}>
             {t('notifications.settings.enable')}
           </Text>
-          {canEnable ? (
-            <Pressable
-              onPress={handleShowPrivacy}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.infoButton}
-            >
-              <MaterialCommunityIcons
-                name="information-outline"
-                size={18}
-                color={isDark ? darkColors.textMuted : colors.textMuted}
-              />
-            </Pressable>
-          ) : null}
           <Switch
             value={enabled}
             onValueChange={handleMainToggle}
@@ -122,7 +80,21 @@ export function NotificationSection() {
           <Text style={[styles.hint, isDark && styles.textMuted]}>
             {t('notifications.settings.requiresOAuth')}
           </Text>
-        ) : null}
+        ) : (
+          <Pressable
+            onPress={() => Linking.openURL('https://veloq.fit/privacy')}
+            style={styles.privacyRow}
+          >
+            <MaterialCommunityIcons
+              name="information-outline"
+              size={14}
+              color={isDark ? darkColors.textMuted : colors.textMuted}
+            />
+            <Text style={[styles.privacyText, isDark && styles.textMuted]}>
+              {t('notifications.settings.privacyHint')}
+            </Text>
+          </Pressable>
+        )}
 
         {/* Category toggles (only when enabled) */}
         {enabled ? (
@@ -236,14 +208,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textPrimary,
   },
-  infoButton: {
-    padding: 4,
-  },
   hint: {
     fontSize: 12,
     color: colors.textMuted,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
+  },
+  privacyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  privacyText: {
+    fontSize: 11,
+    color: colors.textMuted,
   },
   categoryHeader: {
     fontSize: 12,

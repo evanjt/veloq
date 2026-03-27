@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -24,32 +24,12 @@ export function NotificationSlide() {
   const { t } = useTranslation();
   const authMethod = useAuthStore((s) => s.authMethod);
   const isOAuth = authMethod === 'oauth';
-  const { enabled, privacyAccepted, setEnabled, acceptPrivacy } = useNotificationPreferences();
+  const { enabled, setEnabled } = useNotificationPreferences();
   const [toggling, setToggling] = useState(false);
 
   const handleToggle = useCallback(
     async (value: boolean) => {
       if (!isOAuth) return;
-
-      if (value && !privacyAccepted) {
-        // Show privacy notice before enabling
-        Alert.alert(t('notifications.privacy.title'), t('notifications.privacy.body'), [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('notifications.privacy.accept'),
-            onPress: async () => {
-              acceptPrivacy();
-              setToggling(true);
-              const granted = await requestNotificationPermission();
-              if (granted) {
-                setEnabled(true);
-              }
-              setToggling(false);
-            },
-          },
-        ]);
-        return;
-      }
 
       if (value) {
         setToggling(true);
@@ -62,7 +42,7 @@ export function NotificationSlide() {
         setEnabled(false);
       }
     },
-    [isOAuth, privacyAccepted, acceptPrivacy, setEnabled, t]
+    [isOAuth, setEnabled]
   );
 
   return (

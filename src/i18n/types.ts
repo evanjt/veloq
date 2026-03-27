@@ -698,6 +698,7 @@ export interface TranslationResource {
       periodComparison: string;
       activityPattern: string;
       requiresOAuth: string;
+      privacyHint: string;
       stravaNote: string;
     };
   };

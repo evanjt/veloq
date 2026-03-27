@@ -1362,6 +1362,7 @@
       "periodComparison": "Weekly comparisons",
       "activityPattern": "Activity patterns",
       "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
+      "privacyHint": "Stores a push token and athlete ID on our server (90-day expiry). See veloq.fit/privacy",
       "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
     }
   },
