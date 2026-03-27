@@ -37,6 +37,7 @@ import type {
 import type { CreationState } from '@/components/maps/SectionCreationOverlay';
 import { convertLatLngTuples, decodePolyline } from '@/lib';
 import { useExerciseSets } from '@/hooks/activities';
+import { useAthlete } from '@/hooks';
 import { ExerciseTable } from '@/components/activity/ExerciseTable';
 import { MuscleGroupView } from '@/components/activity/MuscleGroupView';
 import { ComponentErrorBoundary } from '@/components/ui';
@@ -142,6 +143,7 @@ export default function ActivityDetailScreen() {
   const hasGpsData = coordinates.length > 0;
   const isStrength = activity?.type === 'WeightTraining';
   const { data: exerciseSets } = useExerciseSets(id || '', activity?.type ?? '');
+  const { data: athlete } = useAthlete();
   const hasExercises = (exerciseSets?.length ?? 0) > 0;
 
   // Get auto-detected sections from engine that include this activity
@@ -457,7 +459,12 @@ export default function ActivityDetailScreen() {
       {/* Strength Training hero — body diagrams replace the map */}
       {isStrength && (
         <ComponentErrorBoundary componentName="Muscle Groups">
-          <MuscleGroupView activityId={id} hasExercises={hasExercises} isDark={isDark} />
+          <MuscleGroupView
+            activityId={id}
+            hasExercises={hasExercises}
+            isDark={isDark}
+            athleteSex={athlete?.sex}
+          />
         </ComponentErrorBoundary>
       )}
 
@@ -533,7 +540,12 @@ export default function ActivityDetailScreen() {
         {/* Tab 2: Exercises (only for strength activities) */}
         {isStrength && (
           <View style={styles.exercisesTab}>
-            <ExerciseTable activityId={id} activityType={activity.type} isDark={isDark} />
+            <ExerciseTable
+              activityId={id}
+              activityType={activity.type}
+              isDark={isDark}
+              athleteSex={athlete?.sex}
+            />
           </View>
         )}
 

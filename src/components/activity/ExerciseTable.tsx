@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useMemo, useCallback } from 'react';
+import { View, StyleSheet, ActivityIndicator, Pressable, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useExerciseSets } from '@/hooks/activities';
 import { useMetricSystem } from '@/hooks/ui/useMetricSystem';
@@ -11,6 +11,7 @@ interface ExerciseTableProps {
   activityId: string;
   activityType: string;
   isDark: boolean;
+  athleteSex?: string;
 }
 
 interface ExerciseGroup {
@@ -44,7 +45,12 @@ function formatWeight(kg: number, isMetric: boolean): string {
   return lbs % 1 === 0 ? `${lbs} lbs` : `${lbs.toFixed(1)} lbs`;
 }
 
-export function ExerciseTable({ activityId, activityType, isDark }: ExerciseTableProps) {
+export function ExerciseTable({
+  activityId,
+  activityType,
+  isDark,
+  athleteSex,
+}: ExerciseTableProps) {
   const isMetric = useMetricSystem();
   const { data: exerciseSets, isLoading } = useExerciseSets(activityId, activityType);
 
@@ -123,6 +129,24 @@ export function ExerciseTable({ activityId, activityType, isDark }: ExerciseTabl
           ))}
         </View>
       ))}
+
+      {/* Footer: citation + gender note */}
+      <View style={[styles.footerDivider, isDark && styles.footerDividerDark]} />
+      <View style={styles.footer}>
+        <Pressable
+          onPress={() => Linking.openURL('https://github.com/yuhonas/free-exercise-db')}
+          hitSlop={8}
+        >
+          <Text style={[styles.footerText, isDark && styles.textSecondaryDark]}>
+            Muscle data: free-exercise-db
+          </Text>
+        </Pressable>
+        {athleteSex !== 'M' && athleteSex !== 'F' && (
+          <Text style={[styles.footerText, isDark && styles.textSecondaryDark]}>
+            Body chosen at random — no gender in profile
+          </Text>
+        )}
+      </View>
     </View>
   );
 }
@@ -231,5 +255,22 @@ const styles = StyleSheet.create({
   },
   textSecondaryDark: {
     color: darkColors.textSecondary,
+  },
+  footerDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.divider,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  footerDividerDark: {
+    backgroundColor: darkColors.border,
+  },
+  footer: {
+    gap: 2,
+  },
+  footerText: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    opacity: 0.6,
   },
 });
