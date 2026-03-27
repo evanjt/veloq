@@ -272,7 +272,7 @@ export const ActivityCard = React.memo(
       return (
         <View style={styles.cardWrapper}>
           <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
-            <View style={styles.strengthPanel}>
+            <View style={[styles.strengthPanel, isDark && styles.strengthPanelDark]}>
               {/* Pressable overlay */}
               <Pressable
                 testID={`activity-card-${activity.id}`}
@@ -295,7 +295,7 @@ export const ActivityCard = React.memo(
                   <RNText
                     style={[
                       styles.overlayName,
-                      { color: '#FFF', textShadowColor: 'rgba(0,0,0,0.5)' },
+                      { color: compactTextColor, textShadowColor: 'transparent' },
                     ]}
                     numberOfLines={1}
                   >
@@ -304,7 +304,7 @@ export const ActivityCard = React.memo(
                   <RNText
                     style={[
                       styles.overlayDate,
-                      { color: 'rgba(255,255,255,0.85)', textShadowColor: 'rgba(0,0,0,0.5)' },
+                      { color: compactMutedColor, textShadowColor: 'transparent' },
                     ]}
                   >
                     {formatRelativeDate(activity.start_date_local)}
@@ -332,27 +332,31 @@ export const ActivityCard = React.memo(
                 </View>
                 <View style={styles.strengthStats}>
                   <View style={styles.strengthStatRow}>
-                    <RNText style={styles.strengthStatValue}>
+                    <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
                       {formatDuration(activity.moving_time)}
                     </RNText>
-                    <RNText style={styles.strengthStatLabel}>Duration</RNText>
+                    <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
+                      Duration
+                    </RNText>
                   </View>
                   <View style={styles.strengthStatRow}>
-                    <RNText style={styles.strengthStatValue}>
+                    <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
                       {strengthData.exerciseCount} / {strengthData.setCount}
                     </RNText>
-                    <RNText style={styles.strengthStatLabel}>
+                    <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
                       {t('activityDetail.exercises')} / Sets
                     </RNText>
                   </View>
                   {strengthData.totalWeight > 0 && (
                     <View style={styles.strengthStatRow}>
-                      <RNText style={styles.strengthStatValue}>
+                      <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
                         {isMetric
                           ? `${Math.round(strengthData.totalWeight)} kg`
                           : `${Math.round(strengthData.totalWeight * 2.20462)} lbs`}
                       </RNText>
-                      <RNText style={styles.strengthStatLabel}>Total</RNText>
+                      <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
+                        Total
+                      </RNText>
                     </View>
                   )}
                 </View>
@@ -363,11 +367,9 @@ export const ActivityCard = React.memo(
                 {activity.skyline_chart_bytes ? (
                   <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
                 ) : (
-                  <View
-                    style={[styles.dividerLine, { backgroundColor: 'rgba(255,255,255,0.15)' }]}
-                  />
+                  <View style={[styles.dividerLine, { backgroundColor: compactDividerColor }]} />
                 )}
-                {secondaryStatsRow('rgba(255,255,255,0.7)')}
+                {secondaryStatsRow(compactMutedColor)}
               </View>
             </View>
           </View>
@@ -646,6 +648,9 @@ const styles = StyleSheet.create({
   strengthPanel: {
     position: 'relative',
     height: 240,
+    backgroundColor: '#F0F0F0',
+  },
+  strengthPanelDark: {
     backgroundColor: '#111',
   },
   strengthCenter: {
@@ -666,11 +671,9 @@ const styles = StyleSheet.create({
   strengthStatValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFF',
   },
   strengthStatLabel: {
     fontSize: 10,
-    color: 'rgba(255,255,255,0.5)',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },

@@ -42,7 +42,7 @@ export function MuscleGroupView({
   const gender = athleteSex === 'F' ? 'female' : 'male';
 
   return (
-    <View style={styles.hero}>
+    <View style={[styles.hero, isDark && styles.heroDark]}>
       {/* Back button */}
       <View style={[styles.floatingHeader, { paddingTop: insets.top }]} pointerEvents="box-none">
         <TouchableOpacity
@@ -51,7 +51,11 @@ export function MuscleGroupView({
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
+          <MaterialCommunityIcons
+            name="arrow-left"
+            size={24}
+            color={isDark ? colors.textOnDark : colors.textPrimary}
+          />
         </TouchableOpacity>
       </View>
 
@@ -89,17 +93,21 @@ export function MuscleGroupView({
 
       {/* Bottom gradient + activity info overlay (like map hero) */}
       <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.7)']}
+        colors={isDark ? ['transparent', 'rgba(0,0,0,0.7)'] : ['transparent', 'rgba(0,0,0,0.15)']}
         style={styles.gradient}
         pointerEvents="none"
       />
       <View style={styles.infoOverlay}>
-        <Text style={styles.activityName} numberOfLines={1}>
+        <Text style={[styles.activityName, !isDark && styles.activityNameLight]} numberOfLines={1}>
           {activity.name}
         </Text>
         <View style={styles.metaRow}>
-          <Text style={styles.activityDate}>{formatDateTime(activity.start_date_local)}</Text>
-          <Text style={styles.durationStat}>{formatDuration(activity.moving_time)}</Text>
+          <Text style={[styles.activityDate, !isDark && styles.activityDateLight]}>
+            {formatDateTime(activity.start_date_local)}
+          </Text>
+          <Text style={[styles.durationStat, !isDark && styles.durationStatLight]}>
+            {formatDuration(activity.moving_time)}
+          </Text>
         </View>
       </View>
     </View>
@@ -109,6 +117,9 @@ export function MuscleGroupView({
 const styles = StyleSheet.create({
   hero: {
     position: 'relative',
+    backgroundColor: '#F0F0F0',
+  },
+  heroDark: {
     backgroundColor: '#111',
   },
   floatingHeader: {
@@ -125,7 +136,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(128,128,128,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -158,7 +169,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 10,
-    color: 'rgba(255,255,255,0.7)',
+    color: colors.textSecondary,
   },
   gradient: {
     position: 'absolute',
@@ -182,6 +193,10 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
+  activityNameLight: {
+    color: colors.textPrimary,
+    textShadowColor: 'transparent',
+  },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -192,6 +207,9 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     color: 'rgba(255,255,255,0.85)',
   },
+  activityDateLight: {
+    color: colors.textSecondary,
+  },
   durationStat: {
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
@@ -199,5 +217,9 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
+  },
+  durationStatLight: {
+    color: colors.textPrimary,
+    textShadowColor: 'transparent',
   },
 });
