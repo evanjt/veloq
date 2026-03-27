@@ -449,14 +449,16 @@ export default function ActivityDetailScreen() {
 
       {/* Strength Training hero section — replaces the map */}
       {isStrength && (
-        <View style={[styles.strengthHero, isDark && styles.strengthHeroDark]}>
+        <>
           <ComponentErrorBoundary componentName="Muscle Groups">
             <MuscleGroupView activityId={id} hasExercises={hasExercises} isDark={isDark} />
           </ComponentErrorBoundary>
-          <ComponentErrorBoundary componentName="Exercise Table">
-            <ExerciseTable activityId={id} activityType={activity.type} isDark={isDark} />
-          </ComponentErrorBoundary>
-        </View>
+          <View style={styles.strengthExercises}>
+            <ComponentErrorBoundary componentName="Exercise Table">
+              <ExerciseTable activityId={id} activityType={activity.type} isDark={isDark} />
+            </ComponentErrorBoundary>
+          </View>
+        </>
       )}
 
       {/* Hero Map Section - hidden for non-GPS activities */}
@@ -598,12 +600,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     zIndex: 10,
   },
-  strengthHero: {
-    paddingHorizontal: spacing.sm,
-    paddingTop: spacing.sm,
-  },
-  strengthHeroDark: {
-    backgroundColor: darkColors.background,
+  strengthExercises: {
+    paddingHorizontal: spacing.md,
   },
   noMapHeader: {
     flexDirection: 'row',

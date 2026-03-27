@@ -3,13 +3,16 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useMuscleGroups } from '@/hooks/activities';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing } from '@/theme';
 
 interface MuscleGroupViewProps {
   activityId: string;
   hasExercises: boolean;
   isDark: boolean;
 }
+
+const PRIMARY_COLOR = '#FC4C02';
+const SECONDARY_COLOR = '#FCA67A';
 
 export function MuscleGroupView({ activityId, hasExercises, isDark }: MuscleGroupViewProps) {
   const { data: muscleGroups } = useMuscleGroups(activityId, hasExercises);
@@ -22,8 +25,7 @@ export function MuscleGroupView({ activityId, hasExercises, isDark }: MuscleGrou
   }));
 
   return (
-    <View style={[styles.card, isDark && styles.cardDark]}>
-      <Text style={[styles.title, isDark && styles.textDark]}>Muscles Targeted</Text>
+    <View style={styles.container}>
       <View style={styles.bodyContainer}>
         <View style={styles.bodyView}>
           <Body
@@ -31,7 +33,7 @@ export function MuscleGroupView({ activityId, hasExercises, isDark }: MuscleGrou
             gender="male"
             side="front"
             scale={0.7}
-            colors={['#FDCDB9', '#FC4C02', '#D43D00']}
+            colors={['transparent', SECONDARY_COLOR, PRIMARY_COLOR]}
           />
         </View>
         <View style={styles.bodyView}>
@@ -40,18 +42,18 @@ export function MuscleGroupView({ activityId, hasExercises, isDark }: MuscleGrou
             gender="male"
             side="back"
             scale={0.7}
-            colors={['#FDCDB9', '#FC4C02', '#D43D00']}
+            colors={['transparent', SECONDARY_COLOR, PRIMARY_COLOR]}
           />
         </View>
       </View>
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#D43D00' }]} />
-          <Text style={[styles.legendText, isDark && styles.textSecondaryDark]}>Primary</Text>
+          <View style={[styles.legendDot, { backgroundColor: PRIMARY_COLOR }]} />
+          <Text style={styles.legendText}>Primary</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#FC4C02' }]} />
-          <Text style={[styles.legendText, isDark && styles.textSecondaryDark]}>Secondary</Text>
+          <View style={[styles.legendDot, { backgroundColor: SECONDARY_COLOR }]} />
+          <Text style={styles.legendText}>Secondary</Text>
         </View>
       </View>
     </View>
@@ -59,32 +61,14 @@ export function MuscleGroupView({ activityId, hasExercises, isDark }: MuscleGrou
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.cardPadding,
+  container: {
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: spacing.sm,
-    elevation: 2,
-  },
-  cardDark: {
-    backgroundColor: darkColors.surface,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
   },
   bodyContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.md,
   },
   bodyView: {
     flex: 1,
@@ -95,26 +79,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: spacing.lg,
-    marginTop: spacing.sm,
+    marginTop: 4,
+    marginBottom: spacing.xs,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   legendText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  textDark: {
-    color: darkColors.textPrimary,
-  },
-  textSecondaryDark: {
+    fontSize: 11,
     color: darkColors.textSecondary,
   },
 });
