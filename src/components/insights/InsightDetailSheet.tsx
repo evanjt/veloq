@@ -36,7 +36,8 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   const contentHandlesNav =
     insight.category === 'section_pr' ||
     insight.category === 'tsb_form' ||
-    insight.category === 'stale_pr';
+    insight.category === 'stale_pr' ||
+    insight.category === 'section_cluster';
   const hasNavTarget = !!insight.navigationTarget && !contentHandlesNav;
 
   return (

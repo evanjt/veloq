@@ -137,7 +137,7 @@ impl FitnessManager {
                 if let Some(record) = best {
                     if record.activity_date >= seven_days_ago {
                         let days_ago =
-                            ((now_ts - record.activity_date) / 86400).max(0) as u32;
+                            crate::calendar_days_between(record.activity_date, now_ts);
                         recent_prs.push(crate::FfiRecentPR {
                             section_id: s.id.clone(),
                             section_name: s
@@ -217,7 +217,7 @@ impl FitnessManager {
                 if let Some(record) = best {
                     if record.activity_date >= seven_days_ago {
                         let days_ago =
-                            ((now_ts - record.activity_date) / 86400).max(0) as u32;
+                            crate::calendar_days_between(record.activity_date, now_ts);
                         recent_prs.push(crate::FfiRecentPR {
                             section_id: s.id.clone(),
                             section_name: s

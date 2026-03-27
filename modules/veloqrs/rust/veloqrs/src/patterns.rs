@@ -685,7 +685,7 @@ fn build_pattern(
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as i64;
-    let days_since_last = ((now - max_date) / 86400).max(0) as u32;
+    let days_since_last = crate::calendar_days_between(max_date, now);
 
     // Confidence score
     let confidence = compute_confidence(

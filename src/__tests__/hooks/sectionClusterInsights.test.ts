@@ -77,10 +77,8 @@ describe('generateSectionClusterInsights', () => {
     expect(insight.category).toBe('section_cluster');
     expect(insight.priority).toBe(3);
     expect(insight.iconColor).toBe('#66BB6A');
-    expect(insight.title).toContain('name: Riverside');
-    expect(insight.body).toContain('Riverside');
-    expect(insight.body).toContain('Lakeside');
-    expect(insight.body).toContain('Parkway');
+    expect(insight.title).toContain('count: 3');
+    expect(insight.body).toBeUndefined();
   });
 
   it('generates two cluster insights for 2 improving and 2 declining', () => {
@@ -133,15 +131,6 @@ describe('generateSectionClusterInsights', () => {
     expect(sections![2].sectionName).toBe('Low Traffic');
   });
 
-  it('falls back to traversal count ordering in body when daysSinceLast is not provided', () => {
-    const trends = [makeTrend('s1', 'Alpha', 1, 3), makeTrend('s2', 'Beta', 1, 30)];
-    const result = generateSectionClusterInsights(trends, NOW, mockT);
-    expect(result).toHaveLength(1);
-    // Body should list Beta before Alpha (higher traversal count first, as tiebreaker)
-    const body = result[0].body!;
-    expect(body.indexOf('Beta')).toBeLessThan(body.indexOf('Alpha'));
-  });
-
   it('sorts sections by daysSinceLast ascending when provided', () => {
     const trends = [
       makeTrend('s1', 'Old Section', 1, 50, 14),
@@ -168,13 +157,13 @@ describe('generateSectionClusterInsights', () => {
     expect(sections![1].sectionName).toBe('Less Visited');
   });
 
-  it('names most recent section in title when daysSinceLast is provided', () => {
+  it('uses aggregate count in title', () => {
     const trends = [
       makeTrend('s1', 'Old Favorite', 1, 50, 14),
       makeTrend('s2', 'Fresh Run', 1, 5, 1),
     ];
     const result = generateSectionClusterInsights(trends, NOW, mockT);
-    expect(result[0].title).toContain('name: Fresh Run');
+    expect(result[0].title).toContain('count: 2');
   });
 
   it('includes daysSinceLast in supporting data sections', () => {
@@ -200,10 +189,10 @@ describe('generateSectionClusterInsights', () => {
     expect(result[0].timestamp).toBe(customNow);
   });
 
-  it('sets navigationTarget to /routes', () => {
+  it('does not set navigationTarget (content handles its own navigation)', () => {
     const trends = [makeTrend('s1', 'A', 1), makeTrend('s2', 'B', 1)];
     const result = generateSectionClusterInsights(trends, NOW, mockT);
-    expect(result[0].navigationTarget).toBe('/routes');
+    expect(result[0].navigationTarget).toBeUndefined();
   });
 
   it('limits to MAX_CLUSTER_INSIGHTS (2)', () => {
@@ -237,26 +226,13 @@ describe('generateSectionClusterInsights', () => {
     expect(result).toEqual([]);
   });
 
-  it('truncates name list when more than 5 sections', () => {
+  it('includes all sections in supporting data even with many sections', () => {
     const trends = Array.from({ length: 7 }, (_, i) =>
       makeTrend(`s${i}`, `Section ${i}`, 1, 10 + i)
     );
     const result = generateSectionClusterInsights(trends, NOW, mockT);
     expect(result).toHaveLength(1);
-
-    // Body names param should contain at most 5 section names
-    const body = result[0].body!;
-    // The highest traversal count sections should be listed
-    expect(body).toContain('Section 6');
-    expect(body).toContain('Section 5');
-    expect(body).toContain('Section 4');
-    expect(body).toContain('Section 3');
-    expect(body).toContain('Section 2');
-    // Section 0 and 1 have lowest traversal count, should be excluded from name list
-    expect(body).not.toContain('Section 0');
-    expect(body).not.toContain('Section 1');
-
-    // But supporting data should still include up to 10
+    expect(result[0].body).toBeUndefined();
     expect(result[0].supportingData?.sections?.length).toBe(7);
   });
 
@@ -280,28 +256,27 @@ describe('generateSectionClusterInsights', () => {
     expect(rideInsight).toBeDefined();
   });
 
-  it('includes sport display name in title', () => {
+  it('includes sport display name in subtitle', () => {
     const trends = [
       { ...makeTrend('s1', 'Sprint', 1), sportType: 'Run' },
       { ...makeTrend('s2', 'Tempo', 1), sportType: 'Run' },
     ];
     const result = generateSectionClusterInsights(trends, NOW, mockT);
     expect(result).toHaveLength(1);
-    // Title now uses top section name, sport goes to subtitle
-    expect(result[0].title).toContain('name: Sprint');
+    expect(result[0].title).toContain('count: 2');
     expect(result[0].subtitle).toContain('sport: running');
   });
 
-  it('uses empty sport for unknown sport types', () => {
+  it('omits subtitle for unknown sport types', () => {
     const trends = [
       { ...makeTrend('s1', 'A', 1), sportType: 'Kayak' },
       { ...makeTrend('s2', 'B', 1), sportType: 'Kayak' },
     ];
     const result = generateSectionClusterInsights(trends, NOW, mockT);
     expect(result).toHaveLength(1);
-    // Title uses top section name, sport goes to subtitle
-    expect(result[0].title).toContain('name: A');
-    expect(result[0].subtitle).toContain('sport: ');
+    expect(result[0].title).toContain('count: 2');
+    // getSportDisplayName returns '' for unknown types, so subtitle is undefined
+    expect(result[0].subtitle).toBeUndefined();
   });
 
   it('does not cluster across sport types', () => {

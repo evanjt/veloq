@@ -558,12 +558,13 @@
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
     "sectionCluster": {
-      "improvingTitle": "{{name}} getting faster",
-      "decliningTitle": "{{name}} slowing down",
-      "improvingBody": "{{names}} trending faster across {{count}} sections.",
-      "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
-      "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced.",
-      "subtitle": "and {{count}} other {{sport}} sections"
+      "improvingTitle": "{{count}}セクションで速くなっています",
+      "improvingTitle_one": "1セクションで速くなっています",
+      "decliningTitle": "{{count}}セクションで遅くなっています",
+      "decliningTitle_one": "1セクションで遅くなっています",
+      "subtitle": "{{count}}の{{sport}}セクション",
+      "subtitle_one": "1つの{{sport}}セクション",
+      "methodology": "各セクションの直近3回の中央値を、その前の3回の中央値と比較します。最近の中央値が速いセクションは改善中と分類されます。"
     },
     "efficiencyTrend": {
       "title": "{{name}}で心拍数が低下傾向",

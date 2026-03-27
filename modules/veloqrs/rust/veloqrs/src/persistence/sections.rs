@@ -773,7 +773,7 @@ impl PersistentRouteEngine {
             .map(|(section_id, data)| {
                 let traversal_count = data.times.len() as u32;
                 let last_date = *data.dates.last().unwrap_or(&now_secs);
-                let days_since_last = ((now_secs - last_date) as f64 / 86400.0).max(0.0) as u32;
+                let days_since_last = crate::calendar_days_between(last_date, now_secs);
 
                 // --- Recency score (weight 0.35) ---
                 // exp(-days / 14): half-life of ~2 weeks

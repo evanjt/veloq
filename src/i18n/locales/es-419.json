@@ -558,12 +558,13 @@
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
     "sectionCluster": {
-      "improvingTitle": "{{name}} getting faster",
-      "decliningTitle": "{{name}} slowing down",
-      "improvingBody": "{{names}} trending faster across {{count}} sections.",
-      "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
-      "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced.",
-      "subtitle": "and {{count}} other {{sport}} sections"
+      "improvingTitle": "Mejorando en {{count}} secciones",
+      "improvingTitle_one": "Mejorando en 1 sección",
+      "decliningTitle": "Ralentizando en {{count}} secciones",
+      "decliningTitle_one": "Ralentizando en 1 sección",
+      "subtitle": "{{count}} secciones de {{sport}}",
+      "subtitle_one": "1 sección de {{sport}}",
+      "methodology": "Compara la mediana de tus últimos 3 esfuerzos en cada sección con la mediana de los 3 anteriores. Las secciones con una mediana reciente más rápida se clasifican como en mejora."
     },
     "efficiencyTrend": {
       "title": "FC bajando en {{name}}",

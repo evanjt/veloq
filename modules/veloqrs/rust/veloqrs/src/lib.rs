@@ -50,6 +50,15 @@ pub(crate) fn elapsed_ms(start: std::time::Instant) -> u64 {
     start.elapsed().as_millis() as u64
 }
 
+/// Calendar-day difference in UTC. Returns 0 for same UTC day, 1 for adjacent days, etc.
+/// Uses div_euclid to correctly handle negative timestamps (pre-epoch).
+#[inline]
+pub(crate) fn calendar_days_between(earlier: i64, later: i64) -> u32 {
+    let day_earlier = earlier.div_euclid(86400);
+    let day_later = later.div_euclid(86400);
+    (day_later - day_earlier).max(0) as u32
+}
+
 uniffi::setup_scaffolding!();
 
 /// Initialize logging for Android

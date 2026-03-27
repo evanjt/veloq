@@ -823,12 +823,13 @@
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
     "sectionCluster": {
-      "improvingTitle": "{{name}} getting faster",
-      "decliningTitle": "{{name}} slowing down",
-      "subtitle": "and {{count}} other {{sport}} sections",
-      "improvingBody": "{{names}} trending faster across {{count}} sections.",
-      "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
-      "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced."
+      "improvingTitle": "Getting faster on {{count}} sections",
+      "improvingTitle_one": "Getting faster on 1 section",
+      "decliningTitle": "Slowing down on {{count}} sections",
+      "decliningTitle_one": "Slowing down on 1 section",
+      "subtitle": "{{count}} {{sport}} sections",
+      "subtitle_one": "1 {{sport}} section",
+      "methodology": "Compares the median time of your last 3 efforts on each section to the median of the previous 3. Sections where the recent median is faster are classified as improving."
     },
     "efficiencyTrend": {
       "title": "HR trending down on {{name}}",
