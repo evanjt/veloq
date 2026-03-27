@@ -281,26 +281,34 @@ export const ActivityCard = React.memo(
                 {/* Primary stats + location */}
                 <View style={styles.compactPrimaryRow}>
                   <View style={styles.primaryStats}>
-                    <RNText
-                      testID={`activity-card-${activity.id}-distance`}
-                      style={[styles.compactStatValue, { color: compactTextColor }]}
-                    >
-                      {formatDistance(activity.distance, isMetric)}
-                    </RNText>
-                    <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
+                    {activity.distance > 0 && (
+                      <>
+                        <RNText
+                          testID={`activity-card-${activity.id}-distance`}
+                          style={[styles.compactStatValue, { color: compactTextColor }]}
+                        >
+                          {formatDistance(activity.distance, isMetric)}
+                        </RNText>
+                        <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
+                      </>
+                    )}
                     <RNText
                       testID={`activity-card-${activity.id}-duration`}
                       style={[styles.compactStatValue, { color: compactTextColor }]}
                     >
                       {formatDuration(activity.moving_time)}
                     </RNText>
-                    <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
-                    <RNText
-                      testID={`activity-card-${activity.id}-elevation`}
-                      style={[styles.compactStatValue, { color: compactTextColor }]}
-                    >
-                      {formatElevation(activity.total_elevation_gain, isMetric)}
-                    </RNText>
+                    {activity.total_elevation_gain > 0 && (
+                      <>
+                        <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
+                        <RNText
+                          testID={`activity-card-${activity.id}-elevation`}
+                          style={[styles.compactStatValue, { color: compactTextColor }]}
+                        >
+                          {formatElevation(activity.total_elevation_gain, isMetric)}
+                        </RNText>
+                      </>
+                    )}
                   </View>
                   {location && (
                     <RNText style={[styles.compactLocation, { color: compactMutedColor }]}>

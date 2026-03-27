@@ -509,34 +509,38 @@ export default function ActivityDetailScreen() {
           onExportGpx={handleExportGpx}
         />
 
-        {/* Tab 2: Routes */}
-        <ActivityRoutesSection
-          activityId={activity.id}
-          activityType={activity.type}
-          hasMatchedRoute={!!matchedRoute}
-          cacheDays={cacheDays}
-          isDark={isDark}
-        />
+        {/* Tab 2: Routes (only for GPS activities) */}
+        {hasGpsData && (
+          <ActivityRoutesSection
+            activityId={activity.id}
+            activityType={activity.type}
+            hasMatchedRoute={!!matchedRoute}
+            cacheDays={cacheDays}
+            isDark={isDark}
+          />
+        )}
 
-        {/* Tab 3: Sections */}
-        <ActivitySectionsSection
-          activityId={id}
-          unifiedSections={unifiedSections}
-          coordinates={coordinates}
-          streams={streams}
-          isDark={isDark}
-          isMetric={isMetric}
-          disabledSectionIds={disabledSectionIds}
-          sectionCreationMode={sectionCreationMode}
-          cacheDays={cacheDays}
-          highlightedSectionId={highlightedSectionId}
-          onHighlightedSectionIdChange={setHighlightedSectionId}
-          onSectionCreationModeChange={setSectionCreationMode}
-          getSectionBestTime={getSectionBestTime}
-          disableSection={disableSection}
-          enableSection={enableSection}
-          removeSection={removeSection}
-        />
+        {/* Tab 3: Sections (only for GPS activities) */}
+        {hasGpsData && (
+          <ActivitySectionsSection
+            activityId={id}
+            unifiedSections={unifiedSections}
+            coordinates={coordinates}
+            streams={streams}
+            isDark={isDark}
+            isMetric={isMetric}
+            disabledSectionIds={disabledSectionIds}
+            sectionCreationMode={sectionCreationMode}
+            cacheDays={cacheDays}
+            highlightedSectionId={highlightedSectionId}
+            onHighlightedSectionIdChange={setHighlightedSectionId}
+            onSectionCreationModeChange={setSectionCreationMode}
+            getSectionBestTime={getSectionBestTime}
+            disableSection={disableSection}
+            enableSection={enableSection}
+            removeSection={removeSection}
+          />
+        )}
       </SwipeableTabs>
 
       {/* Snackbar: 3D camera override saved */}
