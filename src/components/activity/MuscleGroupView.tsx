@@ -33,7 +33,7 @@ export function MuscleGroupView({ activityId, hasExercises, isDark }: MuscleGrou
             gender="male"
             side="front"
             scale={0.7}
-            colors={['transparent', SECONDARY_COLOR, PRIMARY_COLOR]}
+            colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
           />
         </View>
         <View style={styles.bodyView}>
@@ -42,7 +42,7 @@ export function MuscleGroupView({ activityId, hasExercises, isDark }: MuscleGrou
             gender="male"
             side="back"
             scale={0.7}
-            colors={['transparent', SECONDARY_COLOR, PRIMARY_COLOR]}
+            colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
           />
         </View>
       </View>
