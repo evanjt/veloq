@@ -27,6 +27,8 @@ import { ActivityMapPreview } from './ActivityMapPreview';
 import type { PreviewTrack } from '@/hooks/home/useStartupData';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
+import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
 
 function formatLocation(activity: Activity): string | null {
@@ -236,6 +238,162 @@ export const ActivityCard = React.memo(
         activity={activity}
       />
     );
+
+    // Strength card with body diagrams (if exercise data is cached)
+    const isStrength = activity.type === 'WeightTraining';
+    const strengthData = React.useMemo(() => {
+      if (!isStrength) return null;
+      const engine = getRouteEngine();
+      if (!engine || typeof engine.getExerciseSets !== 'function') return null;
+      try {
+        const sets = engine.getExerciseSets(activity.id);
+        if (sets.length === 0) return null;
+        const muscles = engine.getMuscleGroups(activity.id);
+        const activeSets = sets.filter((s: { setType: number }) => s.setType === 0);
+        const totalWeight = activeSets.reduce(
+          (sum: number, s: { weightKg?: number; repetitions?: number }) =>
+            sum + (s.weightKg ?? 0) * (s.repetitions ?? 1),
+          0
+        );
+        const exerciseNames = new Set(
+          activeSets.map((s: { displayName: string }) => s.displayName)
+        );
+        return {
+          muscles: muscles.map(
+            (g: { slug: string; intensity: number }): ExtendedBodyPart => ({
+              slug: g.slug as ExtendedBodyPart['slug'],
+              intensity: g.intensity,
+            })
+          ),
+          exerciseCount: exerciseNames.size,
+          setCount: activeSets.length,
+          totalWeight,
+        };
+      } catch {
+        return null;
+      }
+    }, [activity.id, isStrength]);
+
+    if (isStrength && strengthData) {
+      return (
+        <View style={styles.cardWrapper}>
+          <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
+            <View style={styles.strengthPanel}>
+              {/* Pressable overlay */}
+              <Pressable
+                testID={`activity-card-${activity.id}`}
+                onPress={handlePress}
+                onLongPress={handleLongPress}
+                delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+                style={styles.pressableOverlay}
+                accessibilityRole="button"
+                accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDuration(activity.moving_time)}`}
+              />
+
+              {/* Top: icon + name + date */}
+              <View style={styles.topOverlay} pointerEvents="none">
+                <View style={styles.overlayHeader}>
+                  <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
+                    <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
+                  </View>
+                  <RNText
+                    style={[
+                      styles.overlayName,
+                      { color: '#FFF', textShadowColor: 'rgba(0,0,0,0.5)' },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {activity.name}
+                  </RNText>
+                  <RNText
+                    style={[
+                      styles.overlayDate,
+                      { color: 'rgba(255,255,255,0.85)', textShadowColor: 'rgba(0,0,0,0.5)' },
+                    ]}
+                  >
+                    {formatRelativeDate(activity.start_date_local)}
+                  </RNText>
+                </View>
+              </View>
+
+              {/* Center: body diagrams + stats */}
+              <View style={styles.strengthCenter}>
+                <View style={styles.strengthBodies}>
+                  <Body
+                    data={strengthData.muscles}
+                    gender="male"
+                    side="front"
+                    scale={0.38}
+                    colors={['#FCA67A', '#FC4C02']}
+                  />
+                  <Body
+                    data={strengthData.muscles}
+                    gender="male"
+                    side="back"
+                    scale={0.38}
+                    colors={['#FCA67A', '#FC4C02']}
+                  />
+                </View>
+                <View style={styles.strengthStats}>
+                  <View style={styles.strengthStatRow}>
+                    <RNText style={styles.strengthStatValue}>{strengthData.exerciseCount}</RNText>
+                    <RNText style={styles.strengthStatLabel}>
+                      {t('activityDetail.exercises')}
+                    </RNText>
+                  </View>
+                  <View style={styles.strengthStatRow}>
+                    <RNText style={styles.strengthStatValue}>{strengthData.setCount}</RNText>
+                    <RNText style={styles.strengthStatLabel}>Sets</RNText>
+                  </View>
+                  {strengthData.totalWeight > 0 && (
+                    <View style={styles.strengthStatRow}>
+                      <RNText style={styles.strengthStatValue}>
+                        {isMetric
+                          ? `${Math.round(strengthData.totalWeight)} kg`
+                          : `${Math.round(strengthData.totalWeight * 2.20462)} lbs`}
+                      </RNText>
+                      <RNText style={styles.strengthStatLabel}>Total</RNText>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Bottom: duration + secondary stats */}
+              <View style={styles.bottomSection} pointerEvents="none">
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.6)']}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                />
+                <View style={styles.primaryRow}>
+                  <View style={styles.primaryStats}>
+                    <RNText
+                      style={[
+                        styles.primaryStatValue,
+                        { color: '#FFF', textShadowColor: 'rgba(0,0,0,0.5)' },
+                      ]}
+                    >
+                      {formatDuration(activity.moving_time)}
+                    </RNText>
+                  </View>
+                </View>
+                {activity.skyline_chart_bytes ? (
+                  <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
+                ) : (
+                  <View
+                    style={[styles.dividerLine, { backgroundColor: 'rgba(255,255,255,0.15)' }]}
+                  />
+                )}
+                {secondaryStatsRow('rgba(255,255,255,0.9)')}
+              </View>
+            </View>
+          </View>
+          {contextMenu}
+        </View>
+      );
+    }
 
     // Compact card for activities without GPS data
     if (!hasGpsData) {
@@ -503,6 +661,42 @@ const styles = StyleSheet.create({
   mapContainer: {
     position: 'relative',
     height: 240,
+  },
+  strengthPanel: {
+    position: 'relative',
+    height: 240,
+    backgroundColor: '#111',
+  },
+  strengthCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 44,
+    paddingBottom: 60,
+    flex: 1,
+  },
+  strengthBodies: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  strengthStats: {
+    marginLeft: spacing.md,
+    gap: spacing.sm,
+  },
+  strengthStatRow: {
+    gap: 1,
+  },
+  strengthStatValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  strengthStatLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   pressableOverlay: {
     ...StyleSheet.absoluteFillObject,

@@ -73,6 +73,14 @@ export function ExerciseTable({
   const hasGender = athleteSex === 'M' || athleteSex === 'F';
   const genderLabel = athleteSex === 'F' ? 'female' : 'male';
 
+  // Compute totals
+  const allActiveSets = exerciseSets?.filter((s) => s.setType === 0) ?? [];
+  const totalWeight = allActiveSets.reduce(
+    (sum, s) => sum + (s.weightKg ?? 0) * (s.repetitions ?? 1),
+    0
+  );
+  const totalDuration = allActiveSets.reduce((sum, s) => sum + (s.durationSecs ?? 0), 0);
+
   return (
     <>
       {/* Exercise card */}
@@ -136,6 +144,23 @@ export function ExerciseTable({
             ))}
           </View>
         ))}
+
+        {/* Totals row */}
+        <View style={[styles.totalsRow, isDark && styles.totalsRowDark]}>
+          <Text style={[styles.totalsLabel, isDark && styles.textSecondaryDark]}>Total</Text>
+          <View style={styles.totalsValues}>
+            {totalWeight > 0 && (
+              <Text style={[styles.totalsValue, isDark && styles.textDark]}>
+                {formatWeight(Math.round(totalWeight), isMetric)}
+              </Text>
+            )}
+            {totalDuration > 0 && (
+              <Text style={[styles.totalsValue, isDark && styles.textSecondaryDark]}>
+                {formatDuration(totalDuration)}
+              </Text>
+            )}
+          </View>
+        </View>
       </View>
 
       {/* Info card below (like "Understanding the metrics" on Fitness tab) */}
@@ -278,6 +303,34 @@ const styles = StyleSheet.create({
   },
   textSecondaryDark: {
     color: darkColors.textSecondary,
+  },
+  totalsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: spacing.sm,
+    marginTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  totalsRowDark: {
+    borderTopColor: darkColors.border,
+  },
+  totalsLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  totalsValues: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  totalsValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
   // Info card (matches fitness tab "Understanding the metrics" pattern)
   infoCard: {
