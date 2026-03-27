@@ -325,14 +325,14 @@ export const ActivityCard = React.memo(
                     data={strengthData.muscles}
                     gender="male"
                     side="front"
-                    scale={0.32}
+                    scale={0.38}
                     colors={['#FCA67A', '#FC4C02']}
                   />
                   <Body
                     data={strengthData.muscles}
                     gender="male"
                     side="back"
-                    scale={0.32}
+                    scale={0.38}
                     colors={['#FCA67A', '#FC4C02']}
                   />
                 </View>
@@ -655,30 +655,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#111',
   },
   strengthCenter: {
+    ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 46,
-    paddingBottom: 56,
-    paddingLeft: 8,
-    paddingRight: 20,
-    flex: 1,
+    justifyContent: 'center',
+    gap: 12,
   },
   strengthBodies: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
   },
   strengthStats: {
-    gap: 12,
-    minWidth: 80,
+    gap: 10,
   },
   strengthStatRow: {},
   strengthStatValue: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFF',
-    lineHeight: 24,
   },
   strengthStatLabel: {
     fontSize: 10,
