@@ -3,16 +3,15 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useMuscleGroups } from '@/hooks/activities';
-import { useTheme } from '@/hooks';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, layout } from '@/theme';
 
 interface MuscleGroupViewProps {
   activityId: string;
   hasExercises: boolean;
+  isDark: boolean;
 }
 
-export function MuscleGroupView({ activityId, hasExercises }: MuscleGroupViewProps) {
-  const { isDark } = useTheme();
+export function MuscleGroupView({ activityId, hasExercises, isDark }: MuscleGroupViewProps) {
   const { data: muscleGroups } = useMuscleGroups(activityId, hasExercises);
 
   if (!muscleGroups || muscleGroups.length === 0) return null;
@@ -61,16 +60,22 @@ export function MuscleGroupView({ activityId, hasExercises }: MuscleGroupViewPro
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: layout.cardPadding,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: spacing.sm,
+    elevation: 2,
   },
   cardDark: {
-    backgroundColor: darkColors.surfaceCard,
+    backgroundColor: darkColors.surface,
   },
   title: {
-    fontSize: typography.cardTitle.fontSize,
+    fontSize: 16,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.sm,

@@ -1,17 +1,16 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useTranslation } from 'react-i18next';
 import { useExerciseSets } from '@/hooks/activities';
-import { useTheme } from '@/hooks';
 import { useMetricSystem } from '@/hooks/ui/useMetricSystem';
 import { formatDuration } from '@/lib';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, opacity } from '@/theme';
 import type { ExerciseSet } from 'veloqrs';
 
 interface ExerciseTableProps {
   activityId: string;
   activityType: string;
+  isDark: boolean;
 }
 
 interface ExerciseGroup {
@@ -45,9 +44,7 @@ function formatWeight(kg: number, isMetric: boolean): string {
   return lbs % 1 === 0 ? `${lbs} lbs` : `${lbs.toFixed(1)} lbs`;
 }
 
-export function ExerciseTable({ activityId, activityType }: ExerciseTableProps) {
-  const { t } = useTranslation();
-  const { isDark } = useTheme();
+export function ExerciseTable({ activityId, activityType, isDark }: ExerciseTableProps) {
   const isMetric = useMetricSystem();
   const { data: exerciseSets, isLoading } = useExerciseSets(activityId, activityType);
 
@@ -132,13 +129,19 @@ export function ExerciseTable({ activityId, activityType }: ExerciseTableProps) 
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: layout.cardPadding,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: spacing.sm,
+    elevation: 2,
   },
   cardDark: {
-    backgroundColor: darkColors.surfaceCard,
+    backgroundColor: darkColors.surface,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -148,37 +151,37 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   loadingText: {
-    fontSize: typography.body.fontSize,
+    fontSize: 14,
     color: colors.textSecondary,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   title: {
-    fontSize: typography.cardTitle.fontSize,
+    fontSize: 16,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   subtitle: {
-    fontSize: typography.label.fontSize,
+    fontSize: 12,
     color: colors.textSecondary,
   },
   exerciseName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.textPrimary,
     paddingVertical: spacing.xs,
   },
   divider: {
-    height: 1,
-    backgroundColor: '#E5E5E5',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.divider,
     marginVertical: spacing.sm,
   },
   dividerDark: {
-    backgroundColor: '#333333',
+    backgroundColor: darkColors.border,
   },
   headerRow: {
     flexDirection: 'row',
@@ -190,16 +193,17 @@ const styles = StyleSheet.create({
   },
   setRowBorder: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E5E5',
+    borderTopColor: colors.divider,
   },
   setRowBorderDark: {
-    borderTopColor: '#333333',
+    borderTopColor: darkColors.border,
   },
   colHeader: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     color: colors.textSecondary,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   colValue: {
     fontSize: 14,

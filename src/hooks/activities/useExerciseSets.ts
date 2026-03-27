@@ -23,21 +23,43 @@ function buildAuthHeader(): string {
  */
 export function useExerciseSets(activityId: string, activityType: string) {
   return useQuery<ExerciseSet[]>({
-    queryKey: ['exercise-sets', activityId],
+    queryKey: ['exercise-sets-v2', activityId],
     queryFn: () => {
+      console.log(`[ExerciseSets] Querying for ${activityId} (type: ${activityType})`);
       const engine = getRouteEngine();
-      if (!engine) return [];
+      if (!engine) {
+        console.log('[ExerciseSets] No engine available');
+        return [];
+      }
 
-      // Check SQLite cache first
-      const cached = engine.getExerciseSets(activityId);
-      if (cached.length > 0) return cached;
+      // Check if strength() method exists (requires Rust rebuild with StrengthManager)
+      if (typeof engine.getExerciseSets !== 'function') {
+        console.log('[ExerciseSets] getExerciseSets not available — rebuild required');
+        return [];
+      }
 
-      // Already processed but no sets found
-      if (engine.isFitProcessed(activityId)) return [];
+      try {
+        // Check SQLite cache first
+        const cached = engine.getExerciseSets(activityId);
+        console.log(`[ExerciseSets] Cache: ${cached.length} sets`);
 
-      // Download, parse, store, return
-      const authHeader = buildAuthHeader();
-      return engine.fetchAndParseExerciseSets(authHeader, activityId);
+        if (cached.length > 0) return cached;
+
+        // Check if already processed (may have no exercise data in FIT)
+        const processed = engine.isFitProcessed(activityId);
+        console.log(`[ExerciseSets] Processed: ${processed}`);
+        if (processed) return [];
+
+        // Download, parse, store, return
+        console.log(`[ExerciseSets] Fetching FIT file for ${activityId}...`);
+        const authHeader = buildAuthHeader();
+        const result = engine.fetchAndParseExerciseSets(authHeader, activityId);
+        console.log(`[ExerciseSets] Parsed ${result.length} sets`);
+        return result;
+      } catch (err) {
+        console.error('[ExerciseSets] Error:', err);
+        return [];
+      }
     },
     enabled: activityType === 'WeightTraining' && !!activityId,
     staleTime: Infinity, // exercise data never changes
@@ -51,11 +73,17 @@ export function useExerciseSets(activityId: string, activityType: string) {
  */
 export function useMuscleGroups(activityId: string, hasExercises: boolean) {
   return useQuery<MuscleGroup[]>({
-    queryKey: ['muscle-groups', activityId],
+    queryKey: ['muscle-groups-v2', activityId],
     queryFn: () => {
       const engine = getRouteEngine();
-      if (!engine) return [];
-      return engine.getMuscleGroups(activityId);
+      if (!engine || typeof engine.getMuscleGroups !== 'function') return [];
+
+      try {
+        return engine.getMuscleGroups(activityId);
+      } catch (err) {
+        console.error('[MuscleGroups] Error:', err);
+        return [];
+      }
     },
     enabled: hasExercises && !!activityId,
     staleTime: Infinity,

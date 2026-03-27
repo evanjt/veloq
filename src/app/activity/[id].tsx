@@ -36,6 +36,10 @@ import type {
 } from '@/components/maps/ActivityMapView';
 import type { CreationState } from '@/components/maps/SectionCreationOverlay';
 import { convertLatLngTuples, decodePolyline } from '@/lib';
+import { useExerciseSets } from '@/hooks/activities';
+import { ExerciseTable } from '@/components/activity/ExerciseTable';
+import { MuscleGroupView } from '@/components/activity/MuscleGroupView';
+import { ComponentErrorBoundary } from '@/components/ui';
 import { colors, darkColors, spacing } from '@/theme';
 import { ErrorStatePreset } from '@/components/ui';
 import {
@@ -136,6 +140,9 @@ export default function ActivityDetailScreen() {
   }, [streams?.latlng, activity?.polyline]);
 
   const hasGpsData = coordinates.length > 0;
+  const isStrength = activity?.type === 'WeightTraining';
+  const { data: exerciseSets } = useExerciseSets(id || '', activity?.type ?? '');
+  const hasExercises = (exerciseSets?.length ?? 0) > 0;
 
   // Get auto-detected sections from engine that include this activity
   const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);
@@ -440,6 +447,18 @@ export default function ActivityDetailScreen() {
         </View>
       )}
 
+      {/* Strength Training hero section — replaces the map */}
+      {isStrength && (
+        <View style={[styles.strengthHero, isDark && styles.strengthHeroDark]}>
+          <ComponentErrorBoundary componentName="Muscle Groups">
+            <MuscleGroupView activityId={id} hasExercises={hasExercises} isDark={isDark} />
+          </ComponentErrorBoundary>
+          <ComponentErrorBoundary componentName="Exercise Table">
+            <ExerciseTable activityId={id} activityType={activity.type} isDark={isDark} />
+          </ComponentErrorBoundary>
+        </View>
+      )}
+
       {/* Hero Map Section - hidden for non-GPS activities */}
       {hasGpsData && (
         <ActivityHeader
@@ -578,6 +597,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
     zIndex: 10,
+  },
+  strengthHero: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  strengthHeroDark: {
+    backgroundColor: darkColors.background,
   },
   noMapHeader: {
     flexDirection: 'row',
