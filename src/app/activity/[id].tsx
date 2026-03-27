@@ -80,7 +80,7 @@ export default function ActivityDetailScreen() {
   const { data: activityWellness } = useWellnessForDate(activityDate);
 
   // Tab state for swipeable tabs
-  type TabType = 'charts' | 'routes' | 'sections';
+  type TabType = 'charts' | 'exercises' | 'routes' | 'sections';
   const [activeTab, setActiveTab] = useState<TabType>('charts');
 
   // Fetch intervals data
@@ -201,7 +201,7 @@ export default function ActivityDetailScreen() {
     customMatchedSections
   );
 
-  // Tabs configuration — hide routes/sections for non-GPS activities
+  // Tabs configuration
   const tabs = useMemo<SwipeableTab[]>(() => {
     const allTabs: SwipeableTab[] = [
       {
@@ -210,6 +210,13 @@ export default function ActivityDetailScreen() {
         icon: 'chart-line',
       },
     ];
+    if (isStrength) {
+      allTabs.push({
+        key: 'exercises',
+        label: 'Exercises',
+        icon: 'dumbbell',
+      });
+    }
     if (hasGpsData) {
       allTabs.push(
         {
@@ -226,7 +233,7 @@ export default function ActivityDetailScreen() {
       );
     }
     return allTabs;
-  }, [t, hasGpsData, matchedRouteCount, totalSectionCount]);
+  }, [t, isStrength, hasGpsData, matchedRouteCount, totalSectionCount]);
 
   // Handle chart point selection
   const handlePointSelect = useCallback((index: number | null) => {
@@ -447,18 +454,11 @@ export default function ActivityDetailScreen() {
         </View>
       )}
 
-      {/* Strength Training hero section — replaces the map */}
+      {/* Strength Training hero — body diagrams replace the map */}
       {isStrength && (
-        <>
-          <ComponentErrorBoundary componentName="Muscle Groups">
-            <MuscleGroupView activityId={id} hasExercises={hasExercises} isDark={isDark} />
-          </ComponentErrorBoundary>
-          <View style={styles.strengthExercises}>
-            <ComponentErrorBoundary componentName="Exercise Table">
-              <ExerciseTable activityId={id} activityType={activity.type} isDark={isDark} />
-            </ComponentErrorBoundary>
-          </View>
-        </>
+        <ComponentErrorBoundary componentName="Muscle Groups">
+          <MuscleGroupView activityId={id} hasExercises={hasExercises} isDark={isDark} />
+        </ComponentErrorBoundary>
       )}
 
       {/* Hero Map Section - hidden for non-GPS activities */}
@@ -530,7 +530,14 @@ export default function ActivityDetailScreen() {
           onExportGpx={handleExportGpx}
         />
 
-        {/* Tab 2: Routes (only for GPS activities) */}
+        {/* Tab 2: Exercises (only for strength activities) */}
+        {isStrength && (
+          <View style={styles.exercisesTab}>
+            <ExerciseTable activityId={id} activityType={activity.type} isDark={isDark} />
+          </View>
+        )}
+
+        {/* Tab 3: Routes (only for GPS activities) */}
         {hasGpsData && (
           <ActivityRoutesSection
             activityId={activity.id}
@@ -600,8 +607,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     zIndex: 10,
   },
-  strengthExercises: {
+  exercisesTab: {
     paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
   },
   noMapHeader: {
     flexDirection: 'row',
