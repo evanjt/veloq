@@ -18,7 +18,6 @@ import {
   useSectionOverlays,
   useSectionTimeStreams,
 } from '@/hooks';
-import { useDisabledSections } from '@/providers';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
 import { useSectionMatches, type SectionMatch } from '@/hooks/routes/useSectionMatches';
@@ -106,8 +105,6 @@ export default function ActivityDetailScreen() {
     null
   );
   const { createSection, removeSection, sections } = useCustomSections();
-  const { disable: disableSection, enable: enableSection } = useDisabledSections();
-  const disabledSectionIds = useDisabledSections((state) => state.disabledIds);
   // Highlighted section ID for map (when user long-presses a section row)
   const [highlightedSectionId, setHighlightedSectionId] = useState<string | null>(null);
 
@@ -573,15 +570,12 @@ export default function ActivityDetailScreen() {
             streams={streams}
             isDark={isDark}
             isMetric={isMetric}
-            disabledSectionIds={disabledSectionIds}
             sectionCreationMode={sectionCreationMode}
             cacheDays={cacheDays}
             highlightedSectionId={highlightedSectionId}
             onHighlightedSectionIdChange={setHighlightedSectionId}
             onSectionCreationModeChange={setSectionCreationMode}
             getSectionBestTime={getSectionBestTime}
-            disableSection={disableSection}
-            enableSection={enableSection}
             removeSection={removeSection}
           />
         )}

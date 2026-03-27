@@ -889,6 +889,85 @@ class RouteEngineClient {
     }
   }
 
+  disableSection(sectionId: string): boolean {
+    if (!this.ready) return false;
+    try {
+      this.engine.sections().disable(sectionId);
+      this.notify('sections');
+      return true;
+    } catch (e) {
+      console.error('[RouteEngine] disableSection failed:', sectionId, e);
+      return false;
+    }
+  }
+
+  enableSection(sectionId: string): boolean {
+    if (!this.ready) return false;
+    try {
+      this.engine.sections().enable(sectionId);
+      this.notify('sections');
+      return true;
+    } catch (e) {
+      console.error('[RouteEngine] enableSection failed:', sectionId, e);
+      return false;
+    }
+  }
+
+  setSuperseded(autoSectionId: string, customSectionId: string): boolean {
+    if (!this.ready) return false;
+    try {
+      this.engine.sections().setSuperseded(autoSectionId, customSectionId);
+      return true;
+    } catch (e) {
+      console.error('[RouteEngine] setSuperseded failed:', autoSectionId, e);
+      return false;
+    }
+  }
+
+  clearSuperseded(customSectionId: string): boolean {
+    if (!this.ready) return false;
+    try {
+      this.engine.sections().clearSuperseded(customSectionId);
+      this.notify('sections');
+      return true;
+    } catch (e) {
+      console.error('[RouteEngine] clearSuperseded failed:', customSectionId, e);
+      return false;
+    }
+  }
+
+  importDisabledIds(ids: string[]): number {
+    if (!this.ready || ids.length === 0) return 0;
+    try {
+      return this.engine.sections().importDisabledIds(ids);
+    } catch (e) {
+      console.error('[RouteEngine] importDisabledIds failed:', e);
+      return 0;
+    }
+  }
+
+  importSupersededMap(map: Record<string, string[]>): number {
+    if (!this.ready) return 0;
+    const entries = Object.entries(map).map(([customSectionId, autoSectionIds]) => ({
+      customSectionId,
+      autoSectionIds,
+    }));
+    if (entries.length === 0) return 0;
+    try {
+      return this.engine.sections().importSupersededMap(entries);
+    } catch (e) {
+      console.error('[RouteEngine] importSupersededMap failed:', e);
+      return 0;
+    }
+  }
+
+  getAllSectionsIncludingHidden(sportType?: string): SectionSummary[] {
+    if (!this.ready) return [];
+    return this.timed('getAllSectionsIncludingHidden', () =>
+      this.engine.sections().getAllSummariesIncludingHidden(sportType ?? null),
+    );
+  }
+
   detectPotentials(sportFilter?: string): FfiPotentialSection[] {
     if (!this.ready) return [];
     return this.timed('detectPotentials', () =>

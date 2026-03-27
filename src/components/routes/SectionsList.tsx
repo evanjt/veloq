@@ -31,9 +31,8 @@ import { PotentialSectionCard } from './PotentialSectionCard';
 import { DataRangeFooter } from './DataRangeFooter';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
-import { useDisabledSections } from '@/providers/DisabledSectionsStore';
-import { useSupersededSections } from '@/providers/SupersededSectionsStore';
 import { debug, navigateTo, getActivityIcon, getActivityColor } from '@/lib';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { UnifiedSection, FrequentSection } from '@/types';
 import type { SectionWithPolyline } from 'veloqrs';
 import { generateSectionName } from '@/hooks/routes/useUnifiedSections';
@@ -308,24 +307,9 @@ export function SectionsList({
   }, [unifiedSections]);
 
   const { createSection, removeSection } = useCustomSections();
-  const disabledIds = useDisabledSections((s) => s.disabledIds);
-  const { disable, enable } = useDisabledSections();
 
-  // Compute true total counts for filter badges (independent of pagination)
-  const supersededBy = useSupersededSections((s) => s.supersededBy);
-  const supersededCount = useMemo(() => {
-    let count = 0;
-    for (const ids of Object.values(supersededBy)) {
-      count += ids.length;
-    }
-    return count;
-  }, [supersededBy]);
-
-  const trueAutoCount =
-    totalSectionCount != null
-      ? Math.max(0, totalSectionCount - supersededCount - disabledIds.size)
-      : autoCount;
-  const trueDisabledCount = totalSectionCount != null ? disabledIds.size : disabledCount;
+  const trueAutoCount = totalSectionCount != null ? totalSectionCount : autoCount;
+  const trueDisabledCount = disabledCount;
 
   // Track open swipeable refs to close them when another opens
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
@@ -346,8 +330,9 @@ export function SectionsList({
       } else {
         // Apply hide filters - hide if the filter is set for this type
         const isCustom = section.sectionType === 'custom';
-        const isAuto = section.sectionType === 'auto' && !disabledIds.has(section.id);
-        const isDisabledAuto = section.sectionType === 'auto' && disabledIds.has(section.id);
+        const isAuto = section.sectionType === 'auto' && !section.disabled && !section.supersededBy;
+        const isDisabledAuto =
+          section.sectionType === 'auto' && !!(section.disabled || section.supersededBy);
 
         if (
           (isCustom && hiddenFilters.custom) ||
@@ -666,24 +651,24 @@ export function SectionsList({
 
   // Handle remove/restore action for auto sections
   const handleToggleHide = useCallback(
-    async (item: UnifiedSection) => {
+    (item: UnifiedSection) => {
       const swipeable = swipeableRefs.current.get(item.id);
       swipeable?.close();
 
-      if (disabledIds.has(item.id)) {
-        await enable(item.id);
+      if (item.disabled || item.supersededBy) {
+        getRouteEngine()?.enableSection(item.id);
       } else {
         Alert.alert(t('sections.removeSection'), t('sections.removeSectionConfirm'), [
           { text: t('common.cancel'), style: 'cancel' },
           {
             text: t('common.remove'),
             style: 'destructive',
-            onPress: () => disable(item.id),
+            onPress: () => getRouteEngine()?.disableSection(item.id),
           },
         ]);
       }
     },
-    [disable, enable, t]
+    [t]
   );
 
   // Handle delete action for custom sections
@@ -715,7 +700,7 @@ export function SectionsList({
       <SectionListItem
         item={item}
         isDark={isDark}
-        isDisabled={disabledIds.has(item.id)}
+        isDisabled={!!(item.disabled || item.supersededBy)}
         distanceFromUser={distanceMap?.get(item.id)}
         onPress={handleSectionPress}
         onSwipeableOpen={handleSwipeableOpen}
@@ -727,7 +712,6 @@ export function SectionsList({
     ),
     [
       isDark,
-      disabledIds,
       distanceMap,
       handleSectionPress,
       handleSwipeableOpen,

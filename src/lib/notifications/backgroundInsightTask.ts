@@ -144,11 +144,9 @@ function buildActivityNotificationBody(
   try {
     const { routeEngine } = require('veloqrs');
 
-    // Check which sections this activity traversed (exclude disabled)
-    const { useDisabledSections } = require('@/providers');
-    const disabledIds = useDisabledSections.getState().disabledIds;
-    const allSections = routeEngine.getSectionsForActivity(activityId);
-    const sections = allSections?.filter((s: { id: string }) => !disabledIds.has(s.id));
+    // Check which sections this activity traversed
+    // Rust already filters out disabled/superseded sections
+    const sections = routeEngine.getSectionsForActivity(activityId);
     if (sections && sections.length > 0) {
       // Check for PRs on these sections
       let prCount = 0;

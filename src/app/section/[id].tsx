@@ -33,7 +33,6 @@ import {
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionTrim } from '@/hooks/routes/useSectionTrim';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
-import { useDisabledSections } from '@/providers';
 import { DataRangeFooter, DebugInfoPanel, DebugWarningBanner } from '@/components/routes';
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
@@ -172,9 +171,8 @@ export default function SectionDetailScreen() {
   const { removeSection, renameSection } = useCustomSections();
   const queryClient = useQueryClient();
 
-  // Disabled sections state
-  const { isDisabled, disable, enable } = useDisabledSections();
-  const isSectionDisabled = id ? isDisabled(id) : false;
+  // Disabled state from section data
+  const isSectionDisabled = !!(section?.disabled || section?.supersededBy);
 
   // Section bounds trimming
   const handleTrimRefresh = useCallback(() => {
@@ -375,7 +373,7 @@ export default function SectionDetailScreen() {
 
     if (isSectionDisabled) {
       // Restore
-      enable(id);
+      getRouteEngine()?.enableSection(id);
     } else {
       // Remove with confirmation, navigate back after
       Alert.alert(t('sections.removeSection'), t('sections.removeSectionConfirm'), [
@@ -384,13 +382,13 @@ export default function SectionDetailScreen() {
           text: t('common.remove'),
           style: 'destructive',
           onPress: () => {
-            disable(id);
+            getRouteEngine()?.disableSection(id);
             router.back();
           },
         },
       ]);
     }
-  }, [id, isCustomId, isSectionDisabled, enable, disable, t]);
+  }, [id, isCustomId, isSectionDisabled, t]);
 
   const handleActivitySelect = useCallback(
     (activityId: string | null, activityPoints?: RoutePoint[]) => {

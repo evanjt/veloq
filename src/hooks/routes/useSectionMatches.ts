@@ -8,7 +8,6 @@
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import { useDisabledSections } from '@/providers';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
 import { convertNativeSectionToApp } from '@/lib/utils/sectionConversions';
 import type { FrequentSection } from '@/types';
@@ -78,9 +77,7 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
 
   const isReady = sectionCount > 0;
 
-  // Get disabled sections to filter them out
-  const disabledIds = useDisabledSections((s) => s.disabledIds);
-
+  // Rust already filters out disabled/superseded sections in getSectionsForActivity
   const sections = useMemo(() => {
     if (!activityId) {
       return [];
@@ -109,11 +106,6 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
         continue;
       }
 
-      // Skip disabled sections
-      if (disabledIds.has(section.id)) {
-        continue;
-      }
-
       matches.push({
         section,
         direction: 'same',
@@ -134,7 +126,7 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
 
     return unique;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityId, disabledIds, refreshTrigger]);
+  }, [activityId, refreshTrigger]);
 
   return {
     sections,

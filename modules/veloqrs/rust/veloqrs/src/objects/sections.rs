@@ -322,6 +322,66 @@ impl SectionManager {
         with_engine(|e| e.get_section_efficiency_trend(&section_id))
     }
 
+    fn disable(&self, section_id: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.disable_section(&section_id)
+                .map_err(|e| VeloqError::Database { msg: e })
+        })?
+    }
+
+    fn enable(&self, section_id: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.enable_section(&section_id)
+                .map_err(|e| VeloqError::Database { msg: e })
+        })?
+    }
+
+    fn set_superseded(&self, auto_section_id: String, custom_section_id: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_superseded(&auto_section_id, &custom_section_id)
+                .map_err(|e| VeloqError::Database { msg: e })
+        })?
+    }
+
+    fn clear_superseded(&self, custom_section_id: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.clear_superseded(&custom_section_id)
+                .map_err(|e| VeloqError::Database { msg: e })
+        })?
+    }
+
+    fn import_disabled_ids(&self, ids: Vec<String>) -> Result<u32, VeloqError> {
+        with_engine(|e| {
+            e.import_disabled_ids(&ids)
+                .map_err(|e| VeloqError::Database { msg: e })
+        })?
+    }
+
+    fn import_superseded_map(&self, entries: Vec<crate::FfiSupersededEntry>) -> Result<u32, VeloqError> {
+        with_engine(|e| {
+            let map: Vec<(String, Vec<String>)> = entries
+                .into_iter()
+                .map(|entry| (entry.custom_section_id, entry.auto_section_ids))
+                .collect();
+            e.import_superseded_map(&map)
+                .map_err(|e| VeloqError::Database { msg: e })
+        })?
+    }
+
+    /// Get ALL section summaries including disabled/superseded (for restore UI).
+    fn get_all_summaries_including_hidden(&self, sport_type: Option<String>) -> Result<Vec<crate::SectionSummary>, VeloqError> {
+        with_engine(|e| match sport_type {
+            Some(ref sport) => {
+                // Use the unfiltered variant
+                e.get_all_section_summaries(None)
+                    .into_iter()
+                    .filter(|s| s.sport_type == sport)
+                    .collect()
+            }
+            None => e.get_all_section_summaries(None),
+        })
+    }
+
     fn extract_traces_batch(
         &self,
         activity_ids: Vec<String>,

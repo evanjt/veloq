@@ -596,8 +596,10 @@ impl PersistentRouteEngine {
         let mut stmt = match self.db.prepare(
             "SELECT id, name, sport_type, distance_meters, confidence, scale,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                    section_type, representative_activity_id, created_at
-             FROM sections"
+                    section_type, representative_activity_id, created_at,
+                    disabled, superseded_by
+             FROM sections
+             WHERE disabled = 0 AND superseded_by IS NULL"
         ) {
             Ok(s) => s,
             Err(e) => {
@@ -643,6 +645,8 @@ impl PersistentRouteEngine {
                     bounds,
                     created_at: row.get::<_, Option<String>>(12)?.unwrap_or_default(),
                     sport_types,
+                    disabled: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
+                    superseded_by: row.get(14)?,
                 })
             })
             .ok()
@@ -711,6 +715,7 @@ impl PersistentRouteEngine {
                  JOIN section_activities sa ON s.id = sa.section_id
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
                  WHERE s.sport_type = ? AND sa.excluded = 0 AND sa.lap_time IS NOT NULL
+                   AND s.disabled = 0 AND s.superseded_by IS NULL
                  ORDER BY s.id, am.date ASC"
             ) {
                 Ok(s) => s,

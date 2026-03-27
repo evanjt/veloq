@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
-import { useDisabledSections } from '@/providers';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
 
 export interface WorkoutSection {
@@ -31,7 +30,6 @@ export function useWorkoutSections(sportType: string | undefined): {
   sections: WorkoutSection[];
 } {
   const trigger = useEngineSubscription(['sections']);
-  const disabledIds = useDisabledSections((s) => s.disabledIds);
 
   const sections = useMemo(() => {
     if (!sportType) return [];
@@ -40,18 +38,17 @@ export function useWorkoutSections(sportType: string | undefined): {
     if (!engine) return [];
 
     // Try ML-ranked sections first (composite relevance score)
-    const ranked = engine
-      .getRankedSections(sportType, 5)
-      .filter((rs) => !disabledIds.has(rs.sectionId));
+    // Rust already filters out disabled/superseded sections
+    const ranked = engine.getRankedSections(sportType, 5);
 
     if (ranked.length > 0) {
       return enrichRankedSections(engine, ranked);
     }
 
     // Fall back to visit-count sort when getRankedSections returns empty
-    return enrichVisitCountSections(engine, sportType, disabledIds);
+    return enrichVisitCountSections(engine, sportType);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sportType, trigger, disabledIds]);
+  }, [sportType, trigger]);
 
   return { sections };
 }
@@ -131,12 +128,12 @@ function enrichRankedSections(
  */
 function enrichVisitCountSections(
   engine: NonNullable<ReturnType<typeof getRouteEngine>>,
-  sportType: string,
-  disabledIds: Set<string>
+  sportType: string
 ): WorkoutSection[] {
+  // Rust already filters out disabled/superseded sections
   const summaries = engine.getSectionSummaries(sportType).summaries;
   const topSections = summaries
-    .filter((s) => s.visitCount >= 5 && !disabledIds.has(s.id))
+    .filter((s) => s.visitCount >= 5)
     .sort((a, b) => b.visitCount - a.visitCount)
     .slice(0, 5);
 

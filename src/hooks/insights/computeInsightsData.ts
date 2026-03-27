@@ -1,5 +1,4 @@
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import { useDisabledSections } from '@/providers';
 import { generateInsights } from './generateInsights';
 import type { Insight } from '@/types';
 
@@ -80,9 +79,6 @@ export function computeInsightsFromData(
     const sectionCount = engine?.getStats()?.sectionCount ?? 0;
     const sectionsReady = sectionCount > 0;
 
-    // Get disabled section IDs to filter them out of all section-based insights
-    const disabledIds = useDisabledSections.getState().disabledIds;
-
     // Type the patterns array
     const allPatterns = (ffiData.allPatterns ?? []) as Array<{
       primaryDay: number;
@@ -124,7 +120,7 @@ export function computeInsightsFromData(
       for (const sport of sportTypes) {
         const ranked = engine.getRankedSections(sport, 50);
         for (const rs of ranked) {
-          if (!rs.sectionId || disabledIds.has(rs.sectionId)) continue;
+          if (!rs.sectionId) continue;
           if (!sectionTrendMap.has(rs.sectionId)) {
             sectionTrendMap.set(rs.sectionId, {
               sectionId: rs.sectionId,
@@ -146,8 +142,7 @@ export function computeInsightsFromData(
       for (const pattern of allPatterns) {
         if (!pattern.commonSections) continue;
         for (const section of pattern.commonSections) {
-          if (section.trend == null || !section.sectionId || disabledIds.has(section.sectionId))
-            continue;
+          if (section.trend == null || !section.sectionId) continue;
           const existing = sectionTrendMap.get(section.sectionId);
           if (!existing || section.traversalCount > existing.traversalCount) {
             sectionTrendMap.set(section.sectionId, {
@@ -183,7 +178,7 @@ export function computeInsightsFromData(
     const tomorrowPattern =
       allPatterns.find((p) => p.primaryDay === tomorrowDayMon && p.confidence >= 0.6) ?? null;
 
-    // Recent PRs (skip if sections aren't loaded, filter out disabled)
+    // Recent PRs (skip if sections aren't loaded)
     const recentPRs = sectionsReady
       ? (
           (ffiData.recentPrs ?? []) as Array<{
@@ -192,14 +187,12 @@ export function computeInsightsFromData(
             bestTime: number;
             daysAgo: number;
           }>
-        )
-          .filter((pr) => !disabledIds.has(pr.sectionId))
-          .map((pr) => ({
-            sectionId: pr.sectionId,
-            sectionName: pr.sectionName,
-            bestTime: pr.bestTime,
-            daysAgo: pr.daysAgo,
-          }))
+        ).map((pr) => ({
+          sectionId: pr.sectionId,
+          sectionName: pr.sectionName,
+          bestTime: pr.bestTime,
+          daysAgo: pr.daysAgo,
+        }))
       : [];
 
     // Aerobic efficiency section IDs
@@ -212,7 +205,7 @@ export function computeInsightsFromData(
       for (const sport of sportTypes) {
         const ranked = engine.getRankedSections(sport, 5);
         for (const rs of ranked) {
-          if (!disabledIds.has(rs.sectionId) && !efficiencyTrendSectionIds.includes(rs.sectionId)) {
+          if (!efficiencyTrendSectionIds.includes(rs.sectionId)) {
             efficiencyTrendSectionIds.push(rs.sectionId);
           }
         }

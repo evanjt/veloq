@@ -17,6 +17,13 @@ pub struct FfiBatchTrace {
     pub coords: Vec<f64>,
 }
 
+/// Entry for importing superseded section mappings from AsyncStorage migration.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSupersededEntry {
+    pub custom_section_id: String,
+    pub auto_section_ids: Vec<String>,
+}
+
 /// Extension track for expanding section bounds.
 /// Contains the representative activity's full GPS track with section start/end indices.
 #[derive(Debug, Clone, uniffi::Record)]
@@ -647,6 +654,9 @@ pub struct FfiSection {
     pub source_activity_id: Option<String>,
     pub start_index: Option<u32>,
     pub end_index: Option<u32>,
+    // Visibility state
+    pub disabled: bool,
+    pub superseded_by: Option<String>,
 }
 
 impl From<crate::sections::Section> for FfiSection {
@@ -675,6 +685,8 @@ impl From<crate::sections::Section> for FfiSection {
             source_activity_id: s.source_activity_id,
             start_index: s.start_index,
             end_index: s.end_index,
+            disabled: s.disabled,
+            superseded_by: s.superseded_by,
         }
     }
 }
@@ -1470,6 +1482,8 @@ mod tests {
             source_activity_id: None,
             start_index: None,
             end_index: None,
+            disabled: false,
+            superseded_by: None,
         };
 
         let ffi_section = FfiSection::from(section);

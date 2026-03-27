@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { SectionListItem } from '@/components/activity/SectionListItem';
 import { DataRangeFooter } from '@/components/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
 import type { Section } from '@/types';
 import { formatDuration, formatPace, getSectionStyle, navigateTo } from '@/lib';
@@ -33,15 +34,12 @@ interface ActivitySectionsSectionProps {
   streams: { time?: number[] } | undefined;
   isDark: boolean;
   isMetric: boolean;
-  disabledSectionIds: Set<string>;
   sectionCreationMode: boolean;
   cacheDays: number;
   highlightedSectionId: string | null;
   onHighlightedSectionIdChange: (id: string | null) => void;
   onSectionCreationModeChange: (mode: boolean) => void;
   getSectionBestTime: (sectionId: string) => number | undefined;
-  disableSection: (sectionId: string) => Promise<void>;
-  enableSection: (sectionId: string) => Promise<void>;
   removeSection: (sectionId: string) => Promise<void>;
 }
 
@@ -52,15 +50,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   streams,
   isDark,
   isMetric,
-  disabledSectionIds,
   sectionCreationMode,
   cacheDays,
   highlightedSectionId,
   onHighlightedSectionIdChange,
   onSectionCreationModeChange,
   getSectionBestTime,
-  disableSection,
-  enableSection,
   removeSection,
 }: ActivitySectionsSectionProps) {
   const { t } = useTranslation();
@@ -85,12 +80,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       swipeable?.close();
 
       if (isCurrentlyDisabled) {
-        await enableSection(sectionId);
+        getRouteEngine()?.enableSection(sectionId);
       } else {
-        await disableSection(sectionId);
+        getRouteEngine()?.disableSection(sectionId);
       }
     },
-    [disableSection, enableSection]
+    []
   );
 
   // Handle delete action for custom sections
@@ -275,7 +270,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       const delta =
         sectionTime != null && bestTime != null ? formatTimeDelta(sectionTime, bestTime) : null;
 
-      const isDisabled = disabledSectionIds.has(sectionId);
+      const isDisabled = false; // Rust filters disabled sections — only visible ones reach here
 
       return (
         <SectionListItem
@@ -310,7 +305,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       highlightedSectionId,
       isDark,
       isMetric,
-      disabledSectionIds,
       activityId,
       t,
       handleSectionLongPress,

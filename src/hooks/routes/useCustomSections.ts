@@ -8,7 +8,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { computePolylineOverlap } from '@/lib/utils/geometry';
 import { gpsPointsToRoutePoints, type GpsPoint } from 'veloqrs';
-import { useSupersededSections } from '@/providers';
 import type { Section, RoutePoint } from '@/types';
 
 const QUERY_KEY = ['sections', 'custom'];
@@ -197,7 +196,9 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         }));
         const supersededIds = findSupersededSections(result.polyline, autoSectionsForOverlap);
         if (supersededIds.length > 0) {
-          await useSupersededSections.getState().setSuperseded(result.id, supersededIds);
+          for (const autoId of supersededIds) {
+            engine.setSuperseded(autoId, result.id);
+          }
           if (__DEV__) {
             console.log(
               `[useCustomSections] Custom section ${result.id} supersedes ${supersededIds.length} auto sections`
@@ -229,8 +230,8 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         throw new Error(`Failed to delete section ${sectionId}`);
       }
 
-      // Remove superseded entries for this section
-      await useSupersededSections.getState().removeSuperseded(sectionId);
+      // Clear superseded entries for this section (un-hides auto sections it replaced)
+      engine.clearSuperseded(sectionId);
 
       // Optimistically remove from cache to prevent stale data showing in activity detail
       queryClient.setQueryData(
