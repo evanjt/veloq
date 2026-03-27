@@ -325,27 +325,31 @@ export const ActivityCard = React.memo(
                     data={strengthData.muscles}
                     gender="male"
                     side="front"
-                    scale={0.38}
+                    scale={0.32}
                     colors={['#FCA67A', '#FC4C02']}
                   />
                   <Body
                     data={strengthData.muscles}
                     gender="male"
                     side="back"
-                    scale={0.38}
+                    scale={0.32}
                     colors={['#FCA67A', '#FC4C02']}
                   />
                 </View>
                 <View style={styles.strengthStats}>
                   <View style={styles.strengthStatRow}>
-                    <RNText style={styles.strengthStatValue}>{strengthData.exerciseCount}</RNText>
-                    <RNText style={styles.strengthStatLabel}>
-                      {t('activityDetail.exercises')}
+                    <RNText style={styles.strengthStatValue}>
+                      {formatDuration(activity.moving_time)}
                     </RNText>
+                    <RNText style={styles.strengthStatLabel}>Duration</RNText>
                   </View>
                   <View style={styles.strengthStatRow}>
-                    <RNText style={styles.strengthStatValue}>{strengthData.setCount}</RNText>
-                    <RNText style={styles.strengthStatLabel}>Sets</RNText>
+                    <RNText style={styles.strengthStatValue}>
+                      {strengthData.exerciseCount} / {strengthData.setCount}
+                    </RNText>
+                    <RNText style={styles.strengthStatLabel}>
+                      {t('activityDetail.exercises')} / Sets
+                    </RNText>
                   </View>
                   {strengthData.totalWeight > 0 && (
                     <View style={styles.strengthStatRow}>
@@ -360,25 +364,8 @@ export const ActivityCard = React.memo(
                 </View>
               </View>
 
-              {/* Bottom: duration + secondary stats */}
-              <View style={styles.bottomSection} pointerEvents="none">
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.6)']}
-                  style={StyleSheet.absoluteFill}
-                  pointerEvents="none"
-                />
-                <View style={styles.primaryRow}>
-                  <View style={styles.primaryStats}>
-                    <RNText
-                      style={[
-                        styles.primaryStatValue,
-                        { color: '#FFF', textShadowColor: 'rgba(0,0,0,0.5)' },
-                      ]}
-                    >
-                      {formatDuration(activity.moving_time)}
-                    </RNText>
-                  </View>
-                </View>
+              {/* Bottom: secondary stats only */}
+              <View style={styles.strengthBottom}>
                 {activity.skyline_chart_bytes ? (
                   <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
                 ) : (
@@ -386,7 +373,7 @@ export const ActivityCard = React.memo(
                     style={[styles.dividerLine, { backgroundColor: 'rgba(255,255,255,0.15)' }]}
                   />
                 )}
-                {secondaryStatsRow('rgba(255,255,255,0.9)')}
+                {secondaryStatsRow('rgba(255,255,255,0.7)')}
               </View>
             </View>
           </View>
@@ -670,33 +657,40 @@ const styles = StyleSheet.create({
   strengthCenter: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 44,
-    paddingBottom: 60,
+    paddingTop: 46,
+    paddingBottom: 56,
+    paddingLeft: 8,
+    paddingRight: 20,
     flex: 1,
   },
   strengthBodies: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    flex: 1,
+    justifyContent: 'center',
   },
   strengthStats: {
-    marginLeft: spacing.md,
-    gap: spacing.sm,
+    gap: 12,
+    minWidth: 80,
   },
-  strengthStatRow: {
-    gap: 1,
-  },
+  strengthStatRow: {},
   strengthStatValue: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '700',
     color: '#FFF',
+    lineHeight: 24,
   },
   strengthStatLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.6)',
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.5)',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  strengthBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   pressableOverlay: {
     ...StyleSheet.absoluteFillObject,
