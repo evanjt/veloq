@@ -29,6 +29,7 @@ import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { useExerciseSets, useMuscleGroups } from '@/hooks/activities';
 import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
 
 function formatLocation(activity: Activity): string | null {
@@ -239,40 +240,33 @@ export const ActivityCard = React.memo(
       />
     );
 
-    // Strength card with body diagrams (if exercise data is cached)
+    // Strength card: auto-fetch exercise data (like map previews for GPS activities)
     const isStrength = activity.type === 'WeightTraining';
+    const { data: exerciseSets } = useExerciseSets(activity.id, activity.type);
+    const hasExercises = (exerciseSets?.length ?? 0) > 0;
+    const { data: muscleGroups } = useMuscleGroups(activity.id, hasExercises);
+
     const strengthData = React.useMemo(() => {
-      if (!isStrength) return null;
-      const engine = getRouteEngine();
-      if (!engine || typeof engine.getExerciseSets !== 'function') return null;
-      try {
-        const sets = engine.getExerciseSets(activity.id);
-        if (sets.length === 0) return null;
-        const muscles = engine.getMuscleGroups(activity.id);
-        const activeSets = sets.filter((s: { setType: number }) => s.setType === 0);
-        const totalWeight = activeSets.reduce(
-          (sum: number, s: { weightKg?: number; repetitions?: number }) =>
-            sum + (s.weightKg ?? 0) * (s.repetitions ?? 1),
-          0
-        );
-        const exerciseNames = new Set(
-          activeSets.map((s: { displayName: string }) => s.displayName)
-        );
-        return {
-          muscles: muscles.map(
-            (g: { slug: string; intensity: number }): ExtendedBodyPart => ({
-              slug: g.slug as ExtendedBodyPart['slug'],
-              intensity: g.intensity,
-            })
-          ),
-          exerciseCount: exerciseNames.size,
-          setCount: activeSets.length,
-          totalWeight,
-        };
-      } catch {
-        return null;
-      }
-    }, [activity.id, isStrength]);
+      if (!isStrength || !exerciseSets || exerciseSets.length === 0) return null;
+      const activeSets = exerciseSets.filter((s) => s.setType === 0);
+      if (activeSets.length === 0) return null;
+      const totalWeight = activeSets.reduce(
+        (sum, s) => sum + (s.weightKg ?? 0) * (s.repetitions ?? 1),
+        0
+      );
+      const exerciseNames = new Set(activeSets.map((s) => s.displayName));
+      return {
+        muscles: (muscleGroups ?? []).map(
+          (g): ExtendedBodyPart => ({
+            slug: g.slug as ExtendedBodyPart['slug'],
+            intensity: g.intensity,
+          })
+        ),
+        exerciseCount: exerciseNames.size,
+        setCount: activeSets.length,
+        totalWeight,
+      };
+    }, [isStrength, exerciseSets, muscleGroups]);
 
     if (isStrength && strengthData) {
       return (
