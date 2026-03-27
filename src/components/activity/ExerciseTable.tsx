@@ -140,19 +140,41 @@ export function ExerciseTable({
 
       {/* Info card below (like "Understanding the metrics" on Fitness tab) */}
       <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
-        <Pressable
-          onPress={() => Linking.openURL('https://github.com/yuhonas/free-exercise-db')}
-          hitSlop={8}
-        >
+        <View style={styles.infoRow}>
+          <View style={[styles.infoDot, { backgroundColor: colors.primary }]} />
           <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-            {t('activityDetail.muscleDataSource')}
+            Muscle groups for each exercise type have been sourced from{' '}
+            <Text
+              style={styles.infoLink}
+              onPress={() => Linking.openURL('https://github.com/yuhonas/free-exercise-db')}
+            >
+              free-exercise-db
+            </Text>
+            , an open public domain exercise dataset.
           </Text>
-        </Pressable>
-        <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-          {hasGender
-            ? t('activityDetail.bodyShapeFromProfile', { gender: genderLabel })
-            : t('activityDetail.bodyShapeRandom')}
-        </Text>
+        </View>
+        <View style={styles.infoRow}>
+          <View style={[styles.infoDot, { backgroundColor: '#FCA67A' }]} />
+          <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+            {hasGender ? (
+              <>
+                Body type shown as{' '}
+                <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
+                  {genderLabel}
+                </Text>
+                , based on your intervals.icu profile.
+              </>
+            ) : (
+              <>
+                Body type chosen as{' '}
+                <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
+                  {genderLabel}
+                </Text>{' '}
+                at random, as your intervals.icu profile has no gender set.
+              </>
+            )}
+          </Text>
+        </View>
       </View>
     </>
   );
@@ -263,16 +285,39 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadius,
     padding: layout.cardPadding,
     marginBottom: spacing.md,
-    gap: 4,
   },
   infoCardDark: {
     backgroundColor: darkColors.surface,
   },
+  infoRow: {
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
+  },
+  infoDot: {
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: spacing.xs,
+    marginTop: 4,
+    marginRight: spacing.xs,
+  },
   infoText: {
+    flex: 1,
     ...typography.caption,
     color: colors.textSecondary,
+    lineHeight: 18,
   },
   infoTextDark: {
     color: darkColors.textSecondary,
+  },
+  infoHighlight: {
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  infoHighlightDark: {
+    color: darkColors.textPrimary,
+  },
+  infoLink: {
+    ...typography.caption,
+    color: colors.primary,
   },
 });
