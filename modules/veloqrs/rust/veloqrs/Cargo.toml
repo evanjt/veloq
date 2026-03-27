@@ -35,6 +35,9 @@ base64 = "0.22"
 # Error handling
 thiserror = "2"
 
+# FIT file parsing
+fitparser = "0.10"
+
 # Common
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }

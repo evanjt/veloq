@@ -10,7 +10,7 @@ use super::PersistentRouteEngine;
 impl PersistentRouteEngine {
     /// Current schema version for app-level tracking.
     /// This is separate from rusqlite_migration and tracks the overall schema state.
-    pub(super) const SCHEMA_VERSION: i32 = 14; // v0.3.0 schema (exercise sets from FIT files)
+    pub(super) const SCHEMA_VERSION: i32 = 15; // v0.3.0 schema (FIT parser fix)
 
     /// Get the database migrations.
     /// Each migration is applied in order, tracked in `__rusqlite_migrations` table.
@@ -52,6 +52,8 @@ impl PersistentRouteEngine {
             M::up(include_str!("../migrations/017_section_activity_avg_hr.sql")),
             // M18: Exercise set data from FIT files for strength training
             M::up(include_str!("../migrations/018_exercise_sets.sql")),
+            // M19: Reset FIT cache after parser fix (set_type inversion)
+            M::up(include_str!("../migrations/019_reset_fit_cache.sql")),
         ])
     }
 
