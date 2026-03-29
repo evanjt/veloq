@@ -158,24 +158,26 @@ export function MuscleGroupView({
                 nestedScrollEnabled
               >
                 {muscleDetail.exercises.map((ex, idx) => (
-                  <View key={`${ex.name}-${idx}`} style={styles.detailExRow}>
-                    <View
-                      style={[
-                        styles.detailExDot,
-                        {
-                          backgroundColor: ex.role === 'primary' ? PRIMARY_COLOR : SECONDARY_COLOR,
-                        },
-                      ]}
-                    />
-                    <Text
-                      style={[styles.detailExText, isDark && styles.detailExTextDark]}
-                      numberOfLines={2}
-                    >
-                      {ex.name}
-                      {'\n'}
-                      <Text style={styles.detailExSub}>
-                        {ex.sets}×{ex.reps}
+                  <View key={`${ex.name}-${idx}`} style={styles.detailExItem}>
+                    <View style={styles.detailExNameRow}>
+                      <View
+                        style={[
+                          styles.detailExDot,
+                          {
+                            backgroundColor:
+                              ex.role === 'primary' ? PRIMARY_COLOR : SECONDARY_COLOR,
+                          },
+                        ]}
+                      />
+                      <Text
+                        style={[styles.detailExName, isDark && styles.detailExNameDark]}
+                        numberOfLines={1}
+                      >
+                        {ex.name}
                       </Text>
+                    </View>
+                    <Text style={[styles.detailExSub, isDark && styles.detailExSubDark]}>
+                      {ex.sets}×{ex.reps}
                     </Text>
                   </View>
                 ))}
@@ -326,32 +328,35 @@ const styles = StyleSheet.create({
   detailExList: {
     maxHeight: 120,
   },
-  detailExRow: {
+  detailExItem: {
+    marginBottom: 4,
+  },
+  detailExNameRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 4,
-    marginBottom: 2,
+    alignItems: 'center',
+    gap: 3,
   },
   detailExDot: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    marginTop: 4,
   },
-  detailExText: {
-    fontSize: 11,
-    fontWeight: '500',
+  detailExName: {
+    fontSize: 10,
+    fontWeight: '600',
     color: colors.textPrimary,
     flex: 1,
-    lineHeight: 15,
   },
-  detailExTextDark: {
+  detailExNameDark: {
     color: darkColors.textPrimary,
   },
   detailExSub: {
     fontSize: 10,
-    fontWeight: '400',
     color: colors.textSecondary,
+    paddingLeft: 8,
+  },
+  detailExSubDark: {
+    color: darkColors.textSecondary,
   },
   gradient: {
     position: 'absolute',
