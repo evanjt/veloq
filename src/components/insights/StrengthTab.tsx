@@ -17,10 +17,10 @@ const PRIMARY_COLOR = '#FC4C02';
 const SECONDARY_COLOR = '#FCA67A';
 const BODY_COLORS: readonly string[] = [SECONDARY_COLOR, PRIMARY_COLOR] as const;
 const PERIODS: { id: StrengthPeriod; label: string }[] = [
-  { id: 'week', label: '7 Days' },
-  { id: '4weeks', label: '4 Weeks' },
-  { id: '3months', label: '3 Months' },
-  { id: '6months', label: '6 Months' },
+  { id: 'week', label: '7D' },
+  { id: '4weeks', label: '4W' },
+  { id: '3months', label: '3M' },
+  { id: '6months', label: '6M' },
 ];
 
 function formatWeight(kg: number, isMetric: boolean): string {
