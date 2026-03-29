@@ -16,7 +16,14 @@ import type { StrengthPeriod, MuscleVolume } from '@/types';
 
 const PRIMARY_COLOR = '#FC4C02';
 const SECONDARY_COLOR = '#FCA67A';
-const BODY_COLORS: readonly string[] = [SECONDARY_COLOR, PRIMARY_COLOR] as const;
+// 5-step color ramp from light to saturated for continuous heat map
+const BODY_COLORS: readonly string[] = [
+  '#FDDCC4', // 1 - very light
+  '#FCA67A', // 2 - light orange
+  '#FB8C4E', // 3 - medium orange
+  '#FC6A1A', // 4 - dark orange
+  '#FC4C02', // 5 - full primary
+] as const;
 const BODY_FILL_LIGHT = '#3f3f3f';
 const BODY_FILL_DARK = '#555555';
 const PERIODS: { id: StrengthPeriod; label: string }[] = [
@@ -51,9 +58,11 @@ export const StrengthTab = React.memo(function StrengthTab() {
 
     return summary.muscleVolumes.map((v) => {
       const normalized = v.weightedSets / maxWeighted;
+      // Map 0-1 to intensity 1-5 for the 5-step color ramp
+      const intensity = Math.max(1, Math.min(5, Math.ceil(normalized * 5)));
       return {
         slug: v.slug as ExtendedBodyPart['slug'],
-        intensity: normalized < 0.5 ? 1 : 2,
+        intensity,
         ...(v.slug === selectedMuscle ? { styles: { stroke: '#1A1A1A', strokeWidth: 2.5 } } : {}),
       };
     });
@@ -194,7 +203,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
               </Text>
               <View style={styles.scaleBar}>
                 <LinearGradient
-                  colors={[BODY_FILL_LIGHT, SECONDARY_COLOR, PRIMARY_COLOR]}
+                  colors={[BODY_FILL_LIGHT, '#FDDCC4', '#FCA67A', '#FB8C4E', '#FC6A1A', '#FC4C02']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.scaleGradient}
