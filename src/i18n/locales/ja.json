@@ -155,7 +155,8 @@
     "exercisesSummary": "{{exercises}}種目 · {{sets}}セット",
     "muscleDataSource": "筋肉データ: free-exercise-db",
     "bodyShapeFromProfile": "あなたのプロフィール: {{gender}}",
-    "bodyShapeRandom": "体型はランダムに選択 — intervals.icuプロフィールに性別なし"
+    "bodyShapeRandom": "体型はランダムに選択 — intervals.icuプロフィールに性別なし",
+    "tapMuscle": "Tap for details"
   },
   "alerts": {
     "cacheCleared": "キャッシュをクリアしました",

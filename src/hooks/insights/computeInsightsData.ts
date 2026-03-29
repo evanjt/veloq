@@ -108,6 +108,7 @@ export function computeInsightsFromData(
         traversalCount: number;
         sportType?: string;
         daysSinceLast?: number;
+        latestIsPr?: boolean;
       }
     >();
 

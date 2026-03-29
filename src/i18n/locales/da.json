@@ -155,7 +155,8 @@
     "exercisesSummary": "{{exercises}} øvelser · {{sets}} sæt",
     "muscleDataSource": "Muskeldata: free-exercise-db",
     "bodyShapeFromProfile": "Din profil: {{gender}}",
-    "bodyShapeRandom": "Krop valgt tilfældigt — intet køn i intervals.icu-profil"
+    "bodyShapeRandom": "Krop valgt tilfældigt — intet køn i intervals.icu-profil",
+    "tapMuscle": "Tap for details"
   },
   "alerts": {
     "cacheCleared": "Cache ryddet",

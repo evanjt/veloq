@@ -71,6 +71,7 @@ interface SectionTrendData {
   traversalCount: number;
   sportType?: string; // 'Run', 'Ride', etc.
   daysSinceLast?: number; // days since last traversal
+  latestIsPr?: boolean; // whether the most recent effort is the all-time best
 }
 
 export interface InsightInputData {

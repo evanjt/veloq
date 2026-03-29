@@ -153,6 +153,7 @@
     "secondary": "Secondary",
     "exercises": "Exercises",
     "exercisesSummary": "{{exercises}} exercises · {{sets}} sets",
+    "tapMuscle": "Tap for details",
     "muscleDataSource": "Muscle data: free-exercise-db",
     "bodyShapeFromProfile": "Your profile: {{gender}}",
     "bodyShapeRandom": "Body chosen at random — no gender in intervals.icu profile"

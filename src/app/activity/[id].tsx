@@ -462,6 +462,7 @@ export default function ActivityDetailScreen() {
             hasExercises={hasExercises}
             isDark={isDark}
             athleteSex={athlete?.sex}
+            exerciseSets={exerciseSets}
           />
         </ComponentErrorBoundary>
       )}
@@ -565,6 +566,7 @@ export default function ActivityDetailScreen() {
         {hasGpsData && (
           <ActivitySectionsSection
             activityId={id}
+            activityType={activity.type}
             unifiedSections={unifiedSections}
             coordinates={coordinates}
             streams={streams}

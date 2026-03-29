@@ -155,7 +155,8 @@
     "exercisesSummary": "{{exercises}} Übige · {{sets}} Sätz",
     "muscleDataSource": "Muskeldate: free-exercise-db",
     "bodyShapeFromProfile": "Dis Profil: {{gender}}",
-    "bodyShapeRandom": "Körper zuefällig gwählt — keis Gschlächt im intervals.icu-Profil"
+    "bodyShapeRandom": "Körper zuefällig gwählt — keis Gschlächt im intervals.icu-Profil",
+    "tapMuscle": "Tap for details"
   },
   "alerts": {
     "cacheCleared": "Cache gleert",

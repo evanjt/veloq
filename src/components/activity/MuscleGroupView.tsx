@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,10 +7,13 @@ import { router } from 'expo-router';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMuscleGroups } from '@/hooks/activities';
+import { useMuscleDetail } from '@/hooks/activities/useMuscleDetail';
+import { MuscleDetailSheet } from './MuscleDetailSheet';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime, formatDuration } from '@/lib';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type { ActivityDetail } from '@/types';
+import type { ExerciseSet } from 'veloqrs';
 
 interface MuscleGroupViewProps {
   activityId: string;
@@ -18,6 +21,7 @@ interface MuscleGroupViewProps {
   hasExercises: boolean;
   isDark: boolean;
   athleteSex?: string;
+  exerciseSets?: ExerciseSet[];
 }
 
 const PRIMARY_COLOR = '#FC4C02';
@@ -29,10 +33,23 @@ export function MuscleGroupView({
   hasExercises,
   isDark,
   athleteSex,
+  exerciseSets,
 }: MuscleGroupViewProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { data: muscleGroups } = useMuscleGroups(activityId, hasExercises);
+  const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
+  const muscleDetail = useMuscleDetail(selectedMuscle, exerciseSets ?? []);
+
+  const handleBodyPartPress = useCallback((bodyPart: ExtendedBodyPart) => {
+    if (bodyPart.slug) {
+      setSelectedMuscle(bodyPart.slug);
+    }
+  }, []);
+
+  const handleCloseSheet = useCallback(() => {
+    setSelectedMuscle(null);
+  }, []);
 
   const bodyData: ExtendedBodyPart[] = (muscleGroups ?? []).map((g) => ({
     slug: g.slug as ExtendedBodyPart['slug'],
@@ -40,6 +57,7 @@ export function MuscleGroupView({
   }));
 
   const gender = athleteSex === 'F' ? 'female' : 'male';
+  const hasInteractiveData = (exerciseSets ?? []).length > 0;
 
   return (
     <View style={[styles.hero, isDark && styles.heroDark]}>
@@ -68,6 +86,7 @@ export function MuscleGroupView({
             side="front"
             scale={0.7}
             colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
+            onBodyPartPress={hasInteractiveData ? handleBodyPartPress : undefined}
           />
         </View>
         <View style={styles.legendCenter}>
@@ -79,6 +98,9 @@ export function MuscleGroupView({
             <View style={[styles.legendDot, { backgroundColor: SECONDARY_COLOR }]} />
             <Text style={styles.legendText}>{t('activityDetail.secondary')}</Text>
           </View>
+          {hasInteractiveData && (
+            <Text style={styles.hintText}>{t('activityDetail.tapMuscle', 'Tap for details')}</Text>
+          )}
         </View>
         <View style={styles.bodyView}>
           <Body
@@ -87,6 +109,7 @@ export function MuscleGroupView({
             side="back"
             scale={0.7}
             colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
+            onBodyPartPress={hasInteractiveData ? handleBodyPartPress : undefined}
           />
         </View>
       </View>
@@ -110,6 +133,12 @@ export function MuscleGroupView({
           </Text>
         </View>
       </View>
+
+      <MuscleDetailSheet
+        detail={muscleDetail}
+        visible={selectedMuscle !== null && muscleDetail !== null}
+        onClose={handleCloseSheet}
+      />
     </View>
   );
 }
@@ -170,6 +199,12 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 10,
     color: colors.textSecondary,
+  },
+  hintText: {
+    fontSize: 9,
+    color: colors.textDisabled,
+    marginTop: spacing.xs,
+    fontStyle: 'italic',
   },
   gradient: {
     position: 'absolute',

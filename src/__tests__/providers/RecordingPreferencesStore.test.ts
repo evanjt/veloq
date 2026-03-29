@@ -10,6 +10,7 @@ import {
   useRecordingPreferences,
   initializeRecordingPreferences,
 } from '@/providers/RecordingPreferencesStore';
+import type { DataFieldType } from '@/types';
 
 const STORAGE_KEY = 'veloq-recording-preferences';
 
@@ -19,7 +20,7 @@ const DEFAULT_AUTO_PAUSE_THRESHOLDS: Record<string, number> = {
   walking: 0.5,
 };
 
-const DEFAULT_DATA_FIELDS: Record<string, string[]> = {
+const DEFAULT_DATA_FIELDS: Record<string, DataFieldType[]> = {
   gps: ['speed', 'distance', 'heartrate', 'power'],
   indoor: ['heartrate', 'power', 'cadence', 'timer'],
   manual: ['timer', 'distance'],

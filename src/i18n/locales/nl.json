@@ -155,7 +155,8 @@
     "exercisesSummary": "{{exercises}} oefeningen · {{sets}} sets",
     "muscleDataSource": "Spiergegevens: free-exercise-db",
     "bodyShapeFromProfile": "Jouw profiel: {{gender}}",
-    "bodyShapeRandom": "Lichaam willekeurig gekozen — geen geslacht in intervals.icu-profiel"
+    "bodyShapeRandom": "Lichaam willekeurig gekozen — geen geslacht in intervals.icu-profiel",
+    "tapMuscle": "Tap for details"
   },
   "alerts": {
     "cacheCleared": "Cache gewist",

@@ -155,7 +155,8 @@
     "exercisesSummary": "{{exercises}}个练习 · {{sets}}组",
     "muscleDataSource": "肌肉数据: free-exercise-db",
     "bodyShapeFromProfile": "你的资料: {{gender}}",
-    "bodyShapeRandom": "随机选择身体 — intervals.icu资料中无性别"
+    "bodyShapeRandom": "随机选择身体 — intervals.icu资料中无性别",
+    "tapMuscle": "Tap for details"
   },
   "alerts": {
     "cacheCleared": "缓存已清除",

@@ -155,7 +155,8 @@
     "exercisesSummary": "{{exercises}} exercises · {{sets}} sets",
     "muscleDataSource": "Muscle data: free-exercise-db",
     "bodyShapeFromProfile": "Your profile: {{gender}}",
-    "bodyShapeRandom": "Body chosen at random — no gender in intervals.icu profile"
+    "bodyShapeRandom": "Body chosen at random — no gender in intervals.icu profile",
+    "tapMuscle": "Tap for details"
   },
   "alerts": {
     "cacheCleared": "Cache Cleared",
