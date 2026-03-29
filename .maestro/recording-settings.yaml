@@ -12,6 +12,13 @@ tags:
 - tapOn:
     id: "record-fab"
 
+# Dismiss any "Resume previous recording?" dialog
+- runFlow:
+    when:
+      visible: "DISCARD"
+    commands:
+      - tapOn: "DISCARD"
+
 # Wait for record screen to show activity types
 - extendedWaitUntil:
     visible:

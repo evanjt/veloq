@@ -69,6 +69,8 @@ export interface SectionScatterChartProps {
   showExcluded?: boolean;
   hasExcluded?: boolean;
   onToggleShowExcluded?: () => void;
+  /** When true, hides tooltip/scrub hint and disables long-press scrub gesture */
+  compact?: boolean;
 }
 
 export function SectionScatterChart({
@@ -88,6 +90,7 @@ export function SectionScatterChart({
   showExcluded,
   hasExcluded,
   onToggleShowExcluded,
+  compact,
 }: SectionScatterChartProps) {
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
@@ -350,10 +353,14 @@ export function SectionScatterChart({
   );
 
   // Combined gesture — allows ScrollView to handle scroll momentum
+  // In compact mode, skip pan (scrub) gesture entirely
   const nativeGesture = useMemo(() => Gesture.Native(), []);
   const composedGesture = useMemo(
-    () => Gesture.Simultaneous(nativeGesture, Gesture.Simultaneous(tapGesture, panGesture)),
-    [nativeGesture, tapGesture, panGesture]
+    () =>
+      compact
+        ? Gesture.Simultaneous(nativeGesture, tapGesture)
+        : Gesture.Simultaneous(nativeGesture, Gesture.Simultaneous(tapGesture, panGesture)),
+    [nativeGesture, tapGesture, panGesture, compact]
   );
 
   // Animated reaction: map touch X to closest data point during scrub
@@ -680,162 +687,164 @@ export function SectionScatterChart({
           colors.reverseDirection
         )}
 
-      {/* Tooltip */}
-      <View style={styles.tooltipContainer}>
-        {selectedPoint ? (
-          <TouchableOpacity
-            style={[styles.selectedTooltip, isDark && styles.selectedTooltipDark]}
-            onPress={() => navigateTo(`/activity/${selectedPoint.activityId}`)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.tooltipLeft}>
-              <View style={styles.tooltipNameRow}>
-                {selectedPoint.isBest && (
-                  <MaterialCommunityIcons
-                    name="trophy"
-                    size={13}
-                    color={colors.chartGold}
-                    style={{ marginRight: 3 }}
-                  />
-                )}
-                <Text style={[styles.tooltipName, isDark && styles.textLight]} numberOfLines={1}>
-                  {selectedPoint.activityName}
-                </Text>
-                {(selectedPoint.lapCount ?? 0) > 1 && (
-                  <View style={styles.lapBadge}>
-                    <Text style={styles.lapBadgeText}>{selectedPoint.lapCount}x</Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.tooltipMeta}>
-                <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
-                  {formatShortDate(selectedPoint.date)}
-                </Text>
-                {selectedPoint.sectionTime != null && (
-                  <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
-                    {' \u00b7 '}
-                    {formatDuration(selectedPoint.sectionTime)}
-                  </Text>
-                )}
-                {(() => {
-                  const delta = formatPerformanceDelta({
-                    isBest: selectedPoint.isBest === true,
-                    showPace: showPace,
-                    currentSpeed: selectedPoint.speed,
-                    bestSpeed: selectedPoint.bestSpeed,
-                    timeDelta:
-                      selectedPoint.sectionTime != null && selectedPoint.bestTime != null
-                        ? selectedPoint.sectionTime - selectedPoint.bestTime
-                        : undefined,
-                  });
-                  if (delta.deltaDisplay) {
-                    return (
-                      <Text
-                        style={[
-                          styles.tooltipDelta,
-                          { color: delta.isFaster ? colors.success : colors.error },
-                        ]}
-                      >
-                        {' \u00b7 '}
-                        {delta.deltaDisplay}
-                      </Text>
-                    );
-                  }
-                  return null;
-                })()}
-                {selectedPoint.direction === 'reverse' && (
-                  <View style={styles.reverseBadge}>
+      {/* Tooltip — hidden in compact mode */}
+      {!compact && (
+        <View style={styles.tooltipContainer}>
+          {selectedPoint ? (
+            <TouchableOpacity
+              style={[styles.selectedTooltip, isDark && styles.selectedTooltipDark]}
+              onPress={() => navigateTo(`/activity/${selectedPoint.activityId}`)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.tooltipLeft}>
+                <View style={styles.tooltipNameRow}>
+                  {selectedPoint.isBest && (
                     <MaterialCommunityIcons
-                      name="swap-horizontal"
-                      size={10}
-                      color={colors.reverseDirection}
+                      name="trophy"
+                      size={13}
+                      color={colors.chartGold}
+                      style={{ marginRight: 3 }}
                     />
-                  </View>
-                )}
+                  )}
+                  <Text style={[styles.tooltipName, isDark && styles.textLight]} numberOfLines={1}>
+                    {selectedPoint.activityName}
+                  </Text>
+                  {(selectedPoint.lapCount ?? 0) > 1 && (
+                    <View style={styles.lapBadge}>
+                      <Text style={styles.lapBadgeText}>{selectedPoint.lapCount}x</Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.tooltipMeta}>
+                  <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
+                    {formatShortDate(selectedPoint.date)}
+                  </Text>
+                  {selectedPoint.sectionTime != null && (
+                    <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
+                      {' \u00b7 '}
+                      {formatDuration(selectedPoint.sectionTime)}
+                    </Text>
+                  )}
+                  {(() => {
+                    const delta = formatPerformanceDelta({
+                      isBest: selectedPoint.isBest === true,
+                      showPace: showPace,
+                      currentSpeed: selectedPoint.speed,
+                      bestSpeed: selectedPoint.bestSpeed,
+                      timeDelta:
+                        selectedPoint.sectionTime != null && selectedPoint.bestTime != null
+                          ? selectedPoint.sectionTime - selectedPoint.bestTime
+                          : undefined,
+                    });
+                    if (delta.deltaDisplay) {
+                      return (
+                        <Text
+                          style={[
+                            styles.tooltipDelta,
+                            { color: delta.isFaster ? colors.success : colors.error },
+                          ]}
+                        >
+                          {' \u00b7 '}
+                          {delta.deltaDisplay}
+                        </Text>
+                      );
+                    }
+                    return null;
+                  })()}
+                  {selectedPoint.direction === 'reverse' && (
+                    <View style={styles.reverseBadge}>
+                      <MaterialCommunityIcons
+                        name="swap-horizontal"
+                        size={10}
+                        color={colors.reverseDirection}
+                      />
+                    </View>
+                  )}
+                </View>
               </View>
-            </View>
-            <View style={styles.tooltipRight}>
-              <Text
-                style={[
-                  styles.tooltipSpeed,
-                  {
-                    color:
-                      selectedPoint.direction === 'reverse'
-                        ? colors.reverseDirection
-                        : activityColor,
-                  },
-                ]}
-              >
-                {formatSpeedValue(selectedPoint.speed)}
-              </Text>
-              {onSetAsReference && !selectedPoint.isExcluded && (
-                <TouchableOpacity
-                  onPress={() => onSetAsReference(selectedPoint.activityId)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={styles.excludeButton}
+              <View style={styles.tooltipRight}>
+                <Text
+                  style={[
+                    styles.tooltipSpeed,
+                    {
+                      color:
+                        selectedPoint.direction === 'reverse'
+                          ? colors.reverseDirection
+                          : activityColor,
+                    },
+                  ]}
                 >
-                  <MaterialCommunityIcons
-                    name={
-                      selectedPoint.activityId === referenceActivityId ? 'flag' : 'flag-outline'
-                    }
-                    size={16}
-                    color={
-                      selectedPoint.activityId === referenceActivityId
-                        ? colors.primary
-                        : isDark
-                          ? darkColors.textSecondary
-                          : colors.textSecondary
-                    }
-                  />
-                </TouchableOpacity>
-              )}
-              {selectedPoint.isExcluded && onIncludeActivity ? (
-                <TouchableOpacity
-                  onPress={() => {
-                    onIncludeActivity(selectedPoint.activityId);
-                    setSelectedPoint(null);
-                    onActivitySelect?.(null);
-                  }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={styles.excludeButton}
-                >
-                  <MaterialCommunityIcons name="undo" size={16} color={colors.primary} />
-                </TouchableOpacity>
-              ) : (
-                onExcludeActivity &&
-                !selectedPoint.isExcluded && (
+                  {formatSpeedValue(selectedPoint.speed)}
+                </Text>
+                {onSetAsReference && !selectedPoint.isExcluded && (
+                  <TouchableOpacity
+                    onPress={() => onSetAsReference(selectedPoint.activityId)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.excludeButton}
+                  >
+                    <MaterialCommunityIcons
+                      name={
+                        selectedPoint.activityId === referenceActivityId ? 'flag' : 'flag-outline'
+                      }
+                      size={16}
+                      color={
+                        selectedPoint.activityId === referenceActivityId
+                          ? colors.primary
+                          : isDark
+                            ? darkColors.textSecondary
+                            : colors.textSecondary
+                      }
+                    />
+                  </TouchableOpacity>
+                )}
+                {selectedPoint.isExcluded && onIncludeActivity ? (
                   <TouchableOpacity
                     onPress={() => {
-                      onExcludeActivity(selectedPoint.activityId);
+                      onIncludeActivity(selectedPoint.activityId);
                       setSelectedPoint(null);
                       onActivitySelect?.(null);
                     }}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     style={styles.excludeButton}
                   >
-                    <MaterialCommunityIcons
-                      name="close-circle-outline"
-                      size={16}
-                      color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                    />
+                    <MaterialCommunityIcons name="undo" size={16} color={colors.primary} />
                   </TouchableOpacity>
-                )
-              )}
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={14}
-                color={isDark ? darkColors.textMuted : colors.border}
-              />
+                ) : (
+                  onExcludeActivity &&
+                  !selectedPoint.isExcluded && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        onExcludeActivity(selectedPoint.activityId);
+                        setSelectedPoint(null);
+                        onActivitySelect?.(null);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={styles.excludeButton}
+                    >
+                      <MaterialCommunityIcons
+                        name="close-circle-outline"
+                        size={16}
+                        color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  )
+                )}
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={14}
+                  color={isDark ? darkColors.textMuted : colors.border}
+                />
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.tooltipPlaceholder}>
+              <Text style={[styles.chartHint, isDark && styles.textMuted]}>
+                {t('sections.scrubHint')}
+              </Text>
             </View>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.tooltipPlaceholder}>
-            <Text style={[styles.chartHint, isDark && styles.textMuted]}>
-              {t('sections.scrubHint')}
-            </Text>
-          </View>
-        )}
-      </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }

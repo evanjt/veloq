@@ -13,7 +13,13 @@ tags:
     id: "record-fab"
 
 # Select WeightTraining — a manual-mode activity type (no GPS needed)
-# WeightTraining is in the quick start bar (6th item in DEFAULT_QUICK_TYPES)
+# WeightTraining is the 6th item in the horizontal quick start bar and may be off-screen
+- scrollUntilVisible:
+    element:
+      id: "record-type-WeightTraining"
+    direction: DOWN
+    timeout: 15000
+    speed: 40
 - tapOn:
     id: "record-type-WeightTraining"
 

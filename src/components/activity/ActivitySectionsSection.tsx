@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import {
   View,
   FlatList,
@@ -14,14 +14,16 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import { SectionListItem } from '@/components/activity/SectionListItem';
+import { routeEngine, type SectionPerformanceResult } from 'veloqrs';
+import { SectionInlinePlot, type InlineSectionData } from '@/components/activity/SectionInlinePlot';
 import { DataRangeFooter } from '@/components/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { castDirection, fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
-import type { Section } from '@/types';
-import { formatDuration, formatPace, getSectionStyle, navigateTo } from '@/lib';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import type { Section, ActivityType, PerformanceDataPoint } from '@/types';
+import { getSectionStyle, navigateTo } from '@/lib';
+import { colors, darkColors, spacing } from '@/theme';
 
 type UnifiedSectionItem =
   | { type: 'engine'; match: SectionMatch; index: number }
@@ -29,6 +31,7 @@ type UnifiedSectionItem =
 
 interface ActivitySectionsSectionProps {
   activityId: string;
+  activityType: ActivityType;
   unifiedSections: UnifiedSectionItem[];
   coordinates: { latitude: number; longitude: number }[];
   streams: { time?: number[] } | undefined;
@@ -43,11 +46,39 @@ interface ActivitySectionsSectionProps {
   removeSection: (sectionId: string) => Promise<void>;
 }
 
+/** Build chart data from section performance FFI result */
+function buildChartData(
+  result: SectionPerformanceResult,
+  sportType: string
+): (PerformanceDataPoint & { x: number })[] {
+  const points: (PerformanceDataPoint & { x: number })[] = [];
+  for (const record of result.records) {
+    const date = fromUnixSeconds(record.activityDate);
+    if (!date) continue;
+    for (const lap of record.laps) {
+      if (lap.pace <= 0) continue;
+      points.push({
+        x: 0,
+        id: lap.id,
+        activityId: record.activityId,
+        speed: lap.pace,
+        date,
+        activityName: record.activityName,
+        direction: castDirection(lap.direction),
+        sectionTime: Math.round(lap.time),
+        sectionDistance: lap.distance || record.sectionDistance,
+      });
+    }
+  }
+  points.sort((a, b) => a.date.getTime() - b.date.getTime());
+  return points.map((p, i) => ({ ...p, x: i }));
+}
+
 export const ActivitySectionsSection = React.memo(function ActivitySectionsSection({
   activityId,
+  activityType,
   unifiedSections,
   coordinates,
-  streams,
   isDark,
   isMetric,
   sectionCreationMode,
@@ -55,7 +86,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   highlightedSectionId,
   onHighlightedSectionIdChange,
   onSectionCreationModeChange,
-  getSectionBestTime,
   removeSection,
 }: ActivitySectionsSectionProps) {
   const { t } = useTranslation();
@@ -63,6 +93,66 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // Track open swipeable refs to close them when another opens
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
   const openSwipeableRef = useRef<string | null>(null);
+
+  // Batch-load performance data for all sections
+  const plotDataMap = useMemo((): Map<string, InlineSectionData> => {
+    const map = new Map<string, InlineSectionData>();
+    const engine = getRouteEngine();
+    if (!engine) return map;
+
+    for (const item of unifiedSections) {
+      const section = item.type === 'engine' ? item.match.section : item.section;
+      const sectionId = section.id;
+      const sectionSportType = (section as any).sportType || activityType;
+
+      try {
+        const result: SectionPerformanceResult = routeEngine.getSectionPerformances(sectionId);
+        const chartData = buildChartData(result, sectionSportType);
+        if (chartData.length === 0) continue;
+
+        const bestFwd = result.bestForwardRecord;
+        const bestRev = result.bestReverseRecord;
+
+        map.set(sectionId, {
+          chartData,
+          bestForwardRecord: bestFwd
+            ? {
+                bestTime: bestFwd.bestTime,
+                activityDate: fromUnixSeconds(bestFwd.activityDate) ?? new Date(),
+              }
+            : null,
+          bestReverseRecord: bestRev
+            ? {
+                bestTime: bestRev.bestTime,
+                activityDate: fromUnixSeconds(bestRev.activityDate) ?? new Date(),
+              }
+            : null,
+          forwardStats: result.forwardStats
+            ? {
+                avgTime: result.forwardStats.avgTime ?? null,
+                lastActivity: result.forwardStats.lastActivity
+                  ? fromUnixSeconds(result.forwardStats.lastActivity)
+                  : null,
+                count: result.forwardStats.count,
+              }
+            : null,
+          reverseStats: result.reverseStats
+            ? {
+                avgTime: result.reverseStats.avgTime ?? null,
+                lastActivity: result.reverseStats.lastActivity
+                  ? fromUnixSeconds(result.reverseStats.lastActivity)
+                  : null,
+                count: result.reverseStats.count,
+              }
+            : null,
+          activityType: sectionSportType as ActivityType,
+        });
+      } catch {
+        // Skip sections that fail to load
+      }
+    }
+    return map;
+  }, [unifiedSections, activityType]);
 
   // Close any open swipeable when another opens
   const handleSwipeableOpen = useCallback((sectionId: string) => {
@@ -130,48 +220,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   const handleSectionPress = useCallback((sectionId: string) => {
     navigateTo(`/section/${sectionId}`);
   }, []);
-
-  // Helper to calculate section elapsed time from streams
-  const getSectionTime = useCallback(
-    (portion?: { startIndex?: number; endIndex?: number }): number | undefined => {
-      if (!streams?.time || portion?.startIndex == null || portion?.endIndex == null) {
-        return undefined;
-      }
-      const timeArray = streams.time;
-      const start = Math.max(0, portion.startIndex);
-      const end = Math.min(timeArray.length - 1, portion.endIndex);
-      if (end <= start) return undefined;
-      return timeArray[end] - timeArray[start];
-    },
-    [streams?.time]
-  );
-
-  const formatSectionPace = useCallback(
-    (seconds: number, meters: number): string => {
-      if (meters <= 0 || seconds <= 0) return '--';
-      return formatPace(meters / seconds, isMetric);
-    },
-    [isMetric]
-  );
-
-  // Format time delta with +/- sign
-  const formatTimeDelta = (
-    currentTime: number,
-    bestTime: number
-  ): { text: string; isAhead: boolean } => {
-    const delta = currentTime - bestTime;
-    const absDelta = Math.abs(delta);
-    const m = Math.floor(absDelta / 60);
-    const s = Math.floor(absDelta % 60);
-    const timeStr = m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${s}s`;
-    if (delta <= 0) {
-      return {
-        text: delta === 0 ? t('routes.pr') : `-${timeStr}`,
-        isAhead: true,
-      };
-    }
-    return { text: `+${timeStr}`, isAhead: false };
-  };
 
   // Render swipe actions for section cards
   const renderSectionSwipeActions = useCallback(
@@ -246,58 +294,39 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           ? item.match.section.name || t('routes.autoDetected')
           : item.section.name || t('routes.custom');
 
-      let sectionTime: number | undefined;
       let distance: number;
       let visitCount: number;
 
       if (item.type === 'engine') {
-        sectionTime = undefined;
         distance = item.match.distance;
         visitCount = item.match.section.visitCount;
       } else {
-        const portionRecord = item.section.activityPortions?.find(
-          (p: any) => p.activityId === activityId
-        );
-        const portionIndices =
-          portionRecord ??
-          (item.section.sourceActivityId === activityId ? item.section : undefined);
-        sectionTime = getSectionTime(portionIndices);
         distance = item.section.distanceMeters;
         visitCount = item.section.activityIds?.length ?? item.section.visitCount;
       }
 
-      const bestTime = getSectionBestTime(sectionId);
-      const delta =
-        sectionTime != null && bestTime != null ? formatTimeDelta(sectionTime, bestTime) : null;
-
       const isDisabled = false; // Rust filters disabled sections — only visible ones reach here
 
       return (
-        <SectionListItem
-          item={item}
+        <SectionInlinePlot
           sectionId={sectionId}
-          isCustom={isCustom}
-          sectionType={sectionType}
           sectionName={sectionName}
-          sectionTime={sectionTime}
+          sectionType={sectionType}
           distance={distance}
           visitCount={visitCount}
-          bestTime={bestTime}
-          delta={delta}
-          style={style}
           index={item.index}
+          style={style}
           isHighlighted={highlightedSectionId === sectionId}
           isDark={isDark}
           isMetric={isMetric}
-          onLongPress={handleSectionLongPress}
+          plotData={plotDataMap.get(sectionId)}
           onPress={handleSectionPress}
+          onLongPress={handleSectionLongPress}
           onSwipeableOpen={handleSwipeableOpen}
           renderRightActions={(progress, dragX) =>
             renderSectionSwipeActions(sectionId, isCustom, isDisabled, progress, dragX)
           }
           swipeableRefs={swipeableRefs}
-          formatSectionTime={formatDuration}
-          formatSectionPace={formatSectionPace}
         />
       );
     },
@@ -305,17 +334,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       highlightedSectionId,
       isDark,
       isMetric,
-      activityId,
       t,
+      plotDataMap,
       handleSectionLongPress,
       handleSectionPress,
       handleSwipeableOpen,
       renderSectionSwipeActions,
-      getSectionTime,
-      getSectionBestTime,
-      formatTimeDelta,
-      formatDuration,
-      formatSectionPace,
       swipeableRefs,
     ]
   );
@@ -376,9 +400,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         }
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        initialNumToRender={8}
-        maxToRenderPerBatch={10}
-        windowSize={5}
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        windowSize={3}
         removeClippedSubviews={Platform.OS === 'ios'}
       />
     </View>
@@ -390,6 +414,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabScrollContent: {
+    paddingTop: spacing.md,
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   tabScrollContentEmpty: {

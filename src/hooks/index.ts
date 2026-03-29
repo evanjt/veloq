@@ -40,6 +40,7 @@ export {
   useActivity,
   useActivityStreams,
   useActivityIntervals,
+  isInfiniteActivitiesStale,
 } from './activities';
 export {
   useSportSettings,

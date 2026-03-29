@@ -466,6 +466,29 @@ export default function SectionDetailScreen() {
     );
   }, [section?.activityIds]);
 
+  // Load simplified GPS signatures for activity trace display during chart scrubbing
+  const allActivityTraces = useMemo((): Record<string, RoutePoint[]> | undefined => {
+    if (!section?.activityIds?.length) return undefined;
+    try {
+      const engine = getRouteEngine();
+      if (!engine) return undefined;
+      const activityIdSet = new Set(section.activityIds);
+      const allSigs = engine.getAllMapSignatures();
+      const result: Record<string, RoutePoint[]> = {};
+      for (const sig of allSigs) {
+        if (!activityIdSet.has(sig.activityId) || sig.coords.length < 4) continue;
+        const points: RoutePoint[] = [];
+        for (let i = 0; i < sig.coords.length - 1; i += 2) {
+          points.push({ lat: sig.coords[i], lng: sig.coords[i + 1] });
+        }
+        result[sig.activityId] = points;
+      }
+      return Object.keys(result).length > 0 ? result : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [section?.activityIds]);
+
   // Compute available sport types with activity counts for cross-sport sections
   const sportTypeCounts = useMemo(() => {
     if (!section?.activityIds?.length) return [];
@@ -718,7 +741,7 @@ export default function SectionDetailScreen() {
             shadowTrack={undefined}
             highlightedActivityId={highlightedActivityId}
             highlightedLapPoints={highlightedActivityPoints}
-            allActivityTraces={undefined}
+            allActivityTraces={allActivityTraces}
             isScrubbing={isScrubbing}
             onBack={() => router.back()}
             onStartTrim={startTrim}

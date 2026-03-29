@@ -19,7 +19,13 @@ import { useIsFocused } from '@react-navigation/core';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { useInfiniteActivities, useTheme, useSummaryCardData, useInsights } from '@/hooks';
+import {
+  useInfiniteActivities,
+  useTheme,
+  useSummaryCardData,
+  useInsights,
+  isInfiniteActivitiesStale,
+} from '@/hooks';
 import type { Activity } from '@/types';
 import { useDashboardPreferences, useMapPreferences } from '@/providers';
 import { ActivityCard } from '@/components/activity';
@@ -218,8 +224,14 @@ export default function FeedScreen() {
 
   // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
   const handleRefresh = useCallback(async () => {
+    // Reset the infinite query if page params are stale (don't cover today),
+    // otherwise invalidate for smooth stale-while-revalidate.
+    const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
+      ? queryClient.resetQueries({ queryKey: ['activities-infinite'] })
+      : queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
+
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['activities-infinite'] }),
+      infiniteRefresh,
       queryClient.invalidateQueries({ queryKey: ['activities'] }),
       queryClient.invalidateQueries({ queryKey: ['wellness'] }),
       queryClient.invalidateQueries({ queryKey: ['athlete-summary'] }),

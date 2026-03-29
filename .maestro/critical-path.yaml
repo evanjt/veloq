@@ -12,11 +12,9 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 # ── Home Feed ───────────────────────────────────────────
-- assertVisible:
-    id: "home-activity-list"
-
 - extendedWaitUntil:
-    visible: "RECENT ACTIVITIES"
+    visible:
+      id: "home-activity-list"
     timeout: 15000
 
 - takeScreenshot: "critical-home"

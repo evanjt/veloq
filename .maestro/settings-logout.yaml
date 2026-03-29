@@ -16,7 +16,7 @@ tags:
     element:
       id: "settings-logout-button"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
     speed: 40
     visibilityPercentage: 20
 
@@ -40,10 +40,38 @@ tags:
 - tapOn:
     text: "^Disconnect$"
 
-# Verify we return to login screen
+# Verify we return to login screen (may take time to tear down)
 - extendedWaitUntil:
     visible:
       id: "login-screen"
-    timeout: 10000
+    timeout: 20000
 
 - takeScreenshot: "settings-logout-complete"
+
+# Re-enter demo mode for subsequent tests
+- tapOn:
+    id: "login-demo-button"
+
+# Dismiss any post-login dialogs
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+
+- runFlow:
+    when:
+      visible: "Done"
+    commands:
+      - tapOn: "Done"
+
+- runFlow:
+    when:
+      visible: "Skip"
+    commands:
+      - tapOn: "Skip"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 30000

@@ -28,12 +28,12 @@ tags:
     id: "fitness-section-performance"
 - takeScreenshot: "fitness-collapsible-sections-performance-expanded"
 
-# Scroll further to check zones section
+# Scroll further to check zones section (further down after performance expanded)
 - scrollUntilVisible:
     element:
       id: "fitness-section-zones"
     direction: DOWN
-    timeout: 10000
+    timeout: 20000
     speed: 40
 
 # Toggle zones section

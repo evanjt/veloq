@@ -1,4 +1,9 @@
-import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
+import {
+  useQuery,
+  useInfiniteQuery,
+  keepPreviousData,
+  type QueryClient,
+} from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
@@ -174,4 +179,19 @@ export function useActivityIntervals(id: string) {
     gcTime: 1000 * 60 * 60 * 2,
     enabled: !!id,
   });
+}
+
+/**
+ * Check if the persisted activities-infinite query has stale page params
+ * (first page doesn't cover today's date). When stale, `invalidateQueries`
+ * won't help because it refetches with the stored params — `resetQueries`
+ * is needed to re-evaluate `initialPageParam` with today's date.
+ */
+export function isInfiniteActivitiesStale(queryClient: QueryClient): boolean {
+  const state = queryClient.getQueryState(['activities-infinite', 'base']);
+  if (!state?.data) return false;
+  const pageParams = (state.data as { pageParams?: Array<{ newest?: string }> }).pageParams;
+  const firstNewest = pageParams?.[0]?.newest;
+  if (!firstNewest) return false;
+  return firstNewest !== formatLocalDate(new Date());
 }

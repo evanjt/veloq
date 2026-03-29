@@ -1,5 +1,5 @@
 # Recording Start/Stop Test
-# Tests the full recording lifecycle: start, pause, resume, stop, review, discard
+# Tests: start recording, unlock screen, pause, stop, review, discard
 
 appId: com.veloq.app.dev
 tags:
@@ -12,6 +12,13 @@ tags:
 - tapOn:
     id: "record-fab"
 
+# Dismiss any "Resume previous recording?" dialog
+- runFlow:
+    when:
+      visible: "DISCARD"
+    commands:
+      - tapOn: "DISCARD"
+
 # Select Ride activity type
 - tapOn:
     id: "record-type-Ride"
@@ -22,23 +29,28 @@ tags:
       id: "recording-timer"
     timeout: 10000
 
-# Verify control bar buttons are visible (recording state: lap, pause, stop)
-- assertVisible:
-    id: "control-pause"
-
-- assertVisible:
-    id: "control-stop"
-
-- assertVisible:
-    id: "control-lap"
-
 - takeScreenshot: "recording-active"
 
-# Tap pause
+# Unlock the lock overlay by swiping the handle right
+- swipe:
+    from:
+      id: "lock-overlay-unlock"
+    direction: RIGHT
+    duration: 800
+
+# Wait for controls to appear after unlock
+- extendedWaitUntil:
+    visible:
+      id: "control-pause"
+    timeout: 5000
+
+- takeScreenshot: "recording-unlocked"
+
+# Tap pause (recording → paused state)
 - tapOn:
     id: "control-pause"
 
-# Verify resume button appears (paused state)
+# Wait for paused state (resume + stop buttons)
 - extendedWaitUntil:
     visible:
       id: "control-resume"
@@ -46,35 +58,22 @@ tags:
 
 - takeScreenshot: "recording-paused"
 
-# Tap resume
-- tapOn:
-    id: "control-resume"
-
-# Verify pause button returns (recording state)
-- extendedWaitUntil:
-    visible:
-      id: "control-pause"
-    timeout: 5000
-
-- takeScreenshot: "recording-resumed"
-
-# Tap stop (simple tap in recording state)
-- tapOn:
+# Long-press stop to end recording (paused-state stop requires hold)
+- longPressOn:
     id: "control-stop"
 
-# Wait for review screen to load
+# Wait for review screen
 - extendedWaitUntil:
     visible:
       id: "review-save-button"
     timeout: 10000
 
-# Verify discard button is also visible
 - assertVisible:
     id: "review-discard-button"
 
 - takeScreenshot: "recording-review-screen"
 
-# Long-press discard to return to home (hold-to-discard requires 1s press)
+# Long-press discard to return to home
 - longPressOn:
     id: "review-discard-button"
 

@@ -2662,6 +2662,108 @@ const FfiConverterTypeFfiMuscleGroup = (() => {
 })();
 
 /**
+ * Aggregated muscle group volume over a time period.
+ */
+export type FfiMuscleVolume = {
+  /**
+   * Slug matching react-native-body-highlighter
+   */
+  slug: string;
+  /**
+   * Number of sets where this muscle is primary target
+   */
+  primarySets: /*u32*/ number;
+  /**
+   * Number of sets where this muscle is secondary target
+   */
+  secondarySets: /*u32*/ number;
+  /**
+   * Weighted set count: primary=1.0, secondary=0.5
+   */
+  weightedSets: /*f64*/ number;
+  /**
+   * Total reps across all exercises targeting this muscle (primary only)
+   */
+  totalReps: /*u32*/ number;
+  /**
+   * Total volume load in kg (weight × reps) for primary exercises
+   */
+  totalWeightKg: /*f64*/ number;
+  /**
+   * Human-readable exercise names that targeted this muscle
+   */
+  exerciseNames: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiMuscleVolume} record objects.
+ */
+export const FfiMuscleVolume = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMuscleVolume, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiMuscleVolume}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiMuscleVolume}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMuscleVolume>,
+  });
+})();
+
+const FfiConverterTypeFfiMuscleVolume = (() => {
+  type TypeName = FfiMuscleVolume;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        slug: FfiConverterString.read(from),
+        primarySets: FfiConverterUInt32.read(from),
+        secondarySets: FfiConverterUInt32.read(from),
+        weightedSets: FfiConverterFloat64.read(from),
+        totalReps: FfiConverterUInt32.read(from),
+        totalWeightKg: FfiConverterFloat64.read(from),
+        exerciseNames: FfiConverterArrayString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.slug, into);
+      FfiConverterUInt32.write(value.primarySets, into);
+      FfiConverterUInt32.write(value.secondarySets, into);
+      FfiConverterFloat64.write(value.weightedSets, into);
+      FfiConverterUInt32.write(value.totalReps, into);
+      FfiConverterFloat64.write(value.totalWeightKg, into);
+      FfiConverterArrayString.write(value.exerciseNames, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.slug) +
+        FfiConverterUInt32.allocationSize(value.primarySets) +
+        FfiConverterUInt32.allocationSize(value.secondarySets) +
+        FfiConverterFloat64.allocationSize(value.weightedSets) +
+        FfiConverterUInt32.allocationSize(value.totalReps) +
+        FfiConverterFloat64.allocationSize(value.totalWeightKg) +
+        FfiConverterArrayString.allocationSize(value.exerciseNames)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Pace trend data (critical speed for running/swimming).
  */
 export type FfiPaceTrend = {
@@ -4945,6 +5047,82 @@ const FfiConverterTypeFfiStartupData = (() => {
           value.previewTracks,
         ) +
         FfiConverterArrayString.allocationSize(value.cachedMetricIds)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Summary of strength training volume over a time period.
+ */
+export type FfiStrengthSummary = {
+  /**
+   * Per-muscle-group volume data
+   */
+  muscleVolumes: Array<FfiMuscleVolume>;
+  /**
+   * Number of WeightTraining activities in the period
+   */
+  activityCount: /*u32*/ number;
+  /**
+   * Total active sets across all activities
+   */
+  totalSets: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiStrengthSummary} record objects.
+ */
+export const FfiStrengthSummary = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiStrengthSummary, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiStrengthSummary}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiStrengthSummary}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiStrengthSummary>,
+  });
+})();
+
+const FfiConverterTypeFfiStrengthSummary = (() => {
+  type TypeName = FfiStrengthSummary;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        muscleVolumes: FfiConverterArrayTypeFfiMuscleVolume.read(from),
+        activityCount: FfiConverterUInt32.read(from),
+        totalSets: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterArrayTypeFfiMuscleVolume.write(value.muscleVolumes, into);
+      FfiConverterUInt32.write(value.activityCount, into);
+      FfiConverterUInt32.write(value.totalSets, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterArrayTypeFfiMuscleVolume.allocationSize(
+          value.muscleVolumes,
+        ) +
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterUInt32.allocationSize(value.totalSets)
       );
     }
   }
@@ -8511,6 +8689,14 @@ const FfiConverterTypeSettingsManager = new FfiConverterObject(
 
 export interface StrengthManagerInterface {
   /**
+   * Batch download and parse FIT files for multiple activities.
+   * Returns the list of successfully processed activity IDs.
+   */
+  batchFetchExerciseSets(
+    authHeader: string,
+    activityIds: Array<string>,
+  ) /*throws*/ : Array<string>;
+  /**
    * Download FIT file, parse exercise sets, store in SQLite, return results.
    * The FIT binary is held in memory only — not persisted to disk.
    */
@@ -8528,6 +8714,25 @@ export interface StrengthManagerInterface {
    * Returns slugs matching react-native-body-highlighter format.
    */
   getMuscleGroups(activityId: string) /*throws*/ : Array<FfiMuscleGroup>;
+  /**
+   * Get aggregated strength training volume for a date range.
+   * Uses weighted set counting: primary=1.0, secondary=0.5.
+   * Timestamps are Unix seconds.
+   */
+  getStrengthSummary(
+    startTs: /*i64*/ bigint,
+    endTs: /*i64*/ bigint,
+  ) /*throws*/ : FfiStrengthSummary;
+  /**
+   * Get activity IDs from the input list that have not been FIT-processed yet.
+   */
+  getUnprocessedStrengthIds(
+    activityIds: Array<string>,
+  ) /*throws*/ : Array<string>;
+  /**
+   * Check if there are any strength activities with exercise data.
+   */
+  hasStrengthData() /*throws*/ : boolean;
   /**
    * Check if FIT file has been processed for this activity.
    */
@@ -8554,6 +8759,32 @@ export class StrengthManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeStrengthManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Batch download and parse FIT files for multiple activities.
+   * Returns the list of successfully processed activity IDs.
+   */
+  public batchFetchExerciseSets(
+    authHeader: string,
+    activityIds: Array<string>,
+  ): Array<string> /*throws*/ {
+    return FfiConverterArrayString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(authHeader),
+            FfiConverterArrayString.lower(activityIds),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
   }
 
   /**
@@ -8618,6 +8849,76 @@ export class StrengthManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_muscle_groups(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get aggregated strength training volume for a date range.
+   * Uses weighted set counting: primary=1.0, secondary=0.5.
+   * Timestamps are Unix seconds.
+   */
+  public getStrengthSummary(
+    startTs: /*i64*/ bigint,
+    endTs: /*i64*/ bigint,
+  ): FfiStrengthSummary /*throws*/ {
+    return FfiConverterTypeFfiStrengthSummary.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_strength_summary(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            FfiConverterInt64.lower(startTs),
+            FfiConverterInt64.lower(endTs),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get activity IDs from the input list that have not been FIT-processed yet.
+   */
+  public getUnprocessedStrengthIds(
+    activityIds: Array<string>,
+  ): Array<string> /*throws*/ {
+    return FfiConverterArrayString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_unprocessed_strength_ids(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayString.lower(activityIds),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Check if there are any strength activities with exercise data.
+   */
+  public hasStrengthData(): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_has_strength_data(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -9264,6 +9565,11 @@ const FfiConverterArrayTypeFfiMapSignature = new FfiConverterArray(
 // FfiConverter for Array<FfiMuscleGroup>
 const FfiConverterArrayTypeFfiMuscleGroup = new FfiConverterArray(
   FfiConverterTypeFfiMuscleGroup,
+);
+
+// FfiConverter for Array<FfiMuscleVolume>
+const FfiConverterArrayTypeFfiMuscleVolume = new FfiConverterArray(
+  FfiConverterTypeFfiMuscleVolume,
 );
 
 // FfiConverter for Array<FfiPatternSection>
@@ -10102,6 +10408,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets() !==
+    35095
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets() !==
     53159
   ) {
@@ -10123,6 +10437,30 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_groups",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_strength_summary() !==
+    35062
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_get_strength_summary",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_unprocessed_strength_ids() !==
+    52938
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_get_unprocessed_strength_ids",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data() !==
+    963
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data",
     );
   }
   if (
@@ -10368,6 +10706,7 @@ export default Object.freeze({
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMultiScaleSectionResult,
     FfiConverterTypeFfiMuscleGroup,
+    FfiConverterTypeFfiMuscleVolume,
     FfiConverterTypeFfiPaceTrend,
     FfiConverterTypeFfiPatternSection,
     FfiConverterTypeFfiPeriodStats,
@@ -10392,6 +10731,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionSummariesResult,
     FfiConverterTypeFfiSectionWithPolyline,
     FfiConverterTypeFfiStartupData,
+    FfiConverterTypeFfiStrengthSummary,
     FfiConverterTypeFfiSummaryCardData,
     FfiConverterTypeFfiSupersededEntry,
     FfiConverterTypeFitnessManager,

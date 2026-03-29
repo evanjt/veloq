@@ -12,6 +12,13 @@ tags:
 - tapOn:
     id: "record-fab"
 
+# Dismiss any "Resume previous recording?" dialog
+- runFlow:
+    when:
+      visible: "DISCARD"
+    commands:
+      - tapOn: "DISCARD"
+
 - tapOn:
     id: "record-type-Ride"
 
@@ -21,13 +28,31 @@ tags:
       id: "recording-timer"
     timeout: 10000
 
-# Brief recording — let it run for a moment
+# Unlock the lock overlay (auto-engaged on recording start)
 - swipe:
-    direction: UP
-    duration: 1000
+    from:
+      id: "lock-overlay-unlock"
+    direction: RIGHT
+    duration: 800
 
-# Stop the recording to reach review screen
+# Wait for controls to appear after unlock
+- extendedWaitUntil:
+    visible:
+      id: "control-pause"
+    timeout: 5000
+
+# Pause the recording first
 - tapOn:
+    id: "control-pause"
+
+# Wait for paused state (resume + stop buttons)
+- extendedWaitUntil:
+    visible:
+      id: "control-resume"
+    timeout: 5000
+
+# Long-press stop to end recording (paused-state stop requires hold)
+- longPressOn:
     id: "control-stop"
 
 # Wait for review screen to load

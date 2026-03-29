@@ -260,7 +260,7 @@ export function useMapLayers({
     return overlaysToRender.map((overlay, index) => {
       const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
       const portionGeom = overlay.portionGeo?.geometry as GeoJSON.LineString | undefined;
-      const coords = sectionGeom?.coordinates || portionGeom?.coordinates;
+      const coords = portionGeom?.coordinates || sectionGeom?.coordinates;
       const hasValidCoords = coords && coords.length >= 2;
 
       let markerLng = 0;

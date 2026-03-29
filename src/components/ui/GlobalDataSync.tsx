@@ -23,7 +23,12 @@ import Animated, {
   FadeOut,
 } from 'react-native-reanimated';
 import { useQueryClient } from '@tanstack/react-query';
-import { useActivities, useRouteDataSync, useActivityBoundsCache } from '@/hooks';
+import {
+  useActivities,
+  useRouteDataSync,
+  useActivityBoundsCache,
+  isInfiniteActivitiesStale,
+} from '@/hooks';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import {
   formatGpsSyncProgress,
@@ -55,7 +60,13 @@ export function GlobalDataSync() {
   useEffect(() => {
     if (isAuthenticated && routeSettings.enabled) {
       queryClient.invalidateQueries({ queryKey: ['activities'] });
-      queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
+      // Reset the infinite query if persisted page params don't cover today,
+      // otherwise invalidate for stale-while-revalidate.
+      if (isInfiniteActivitiesStale(queryClient)) {
+        queryClient.resetQueries({ queryKey: ['activities-infinite'] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
+      }
       queryClient.invalidateQueries({ queryKey: ['wellness'] });
       queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
     }
@@ -80,9 +91,11 @@ export function GlobalDataSync() {
   // Use the route data sync hook to automatically sync GPS data
   const { progress, isSyncing } = useRouteDataSync(activities, routeSettings.enabled);
 
-  // Invalidate fitness-related caches when sync completes so data refreshes
+  // Invalidate caches when sync completes so data refreshes
   useEffect(() => {
     if (progress.status === 'complete') {
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
+      queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['wellness'] });
       queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
       queryClient.invalidateQueries({ queryKey: ['powerCurve'] });

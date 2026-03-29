@@ -8,9 +8,12 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
-# Navigate to routes screen
-- runFlow:
-    file: helpers/navigate-to-routes.yaml
+# Navigate to routes screen (deep link with tab=routes to skip insights default)
+- openLink: "veloq://routes?tab=routes"
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
 
 # Wait for routes list to load
 - extendedWaitUntil:

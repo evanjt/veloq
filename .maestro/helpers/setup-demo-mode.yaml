@@ -1,8 +1,15 @@
 # Launch app, enter demo mode if needed, wait for home screen
-# Works on both emulators (with root) and physical devices (without root)
+# Works on emulators, simulators, and physical devices
 appId: com.veloq.app.dev
 ---
 - launchApp
+
+# Dismiss iOS "Open in Veloq?" deep link confirmation
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 # Wait for either login screen or home screen
 - extendedWaitUntil:
@@ -20,12 +27,26 @@ appId: com.veloq.app.dev
       - tapOn:
           id: "login-demo-button"
 
-# Dismiss any system alerts
+# Dismiss any system alerts (e.g. "Not Now" for notifications)
 - runFlow:
     when:
       visible: "Not Now"
     commands:
       - tapOn: "Not Now"
+
+# Dismiss Activity Notifications dialog if present
+- runFlow:
+    when:
+      visible: "Done"
+    commands:
+      - tapOn: "Done"
+
+# Dismiss WhatsNewModal if present (auto-triggers on new version)
+- runFlow:
+    when:
+      visible: "Skip"
+    commands:
+      - tapOn: "Skip"
 
 - extendedWaitUntil:
     visible:

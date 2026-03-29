@@ -62,13 +62,16 @@ tags:
     text: "undefined"
     optional: true
 
-# Navigate to Routes and verify list loads
-- runFlow:
-    file: helpers/navigate-to-routes.yaml
+# Navigate to Routes tab (deep link with tab=routes to skip insights default)
+- openLink: "veloq://routes?tab=routes"
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
 - extendedWaitUntil:
     visible:
       id: "routes-list"
-    timeout: 10000
+    timeout: 15000
 
 - takeScreenshot: "data-verification-routes"
 

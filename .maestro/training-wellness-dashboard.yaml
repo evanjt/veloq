@@ -11,16 +11,20 @@ tags:
 - runFlow:
     file: helpers/navigate-to-training.yaml
 
-# Verify wellness dashboard loads
+# Verify training screen loads (WellnessDashboard component is not rendered here;
+# wellness data is shown via WellnessTrendsChart and WeeklySummary)
 - extendedWaitUntil:
     visible:
-      id: "wellness-dashboard"
+      id: "training-screen"
     timeout: 10000
 - takeScreenshot: "training-wellness-dashboard-loaded"
 
-# Verify weekly summary is also present
-- assertVisible:
-    id: "weekly-summary"
-    optional: true
+# Scroll down to verify weekly summary loads (deferred below fold)
+- scrollUntilVisible:
+    element:
+      id: "weekly-summary"
+    direction: DOWN
+    timeout: 15000
+    speed: 40
 
 - takeScreenshot: "training-wellness-dashboard-complete"

@@ -5,32 +5,55 @@ appId: com.veloq.app.dev
 tags:
   - tier1
 ---
-- launchApp:
-    clearState: true
+- launchApp
 
-- runFlow:
-    when:
-      visible: "Not Now"
-    commands:
-      - tapOn: "Not Now"
-
+# Wait for login screen or home screen
 - extendedWaitUntil:
     visible:
       id: "login-screen"
-    timeout: 60000
+    timeout: 30000
+    optional: true
 
-# Expand API key section
+# If we're on home screen (already logged in), log out first
+- runFlow:
+    when:
+      visible:
+        id: "home-screen"
+    commands:
+      - openLink: "veloq://settings"
+      - extendedWaitUntil:
+          visible:
+            id: "settings-screen"
+          timeout: 10000
+      - scrollUntilVisible:
+          element:
+            id: "settings-logout-button"
+          direction: DOWN
+          timeout: 10000
+      - tapOn:
+          id: "settings-logout-button"
+      - tapOn: "Disconnect"
+      - extendedWaitUntil:
+          visible:
+            id: "login-screen"
+          timeout: 15000
+
+# Now on login screen — expand API key section
 - tapOn:
     id: "login-apikey-section"
-- assertVisible:
-    id: "login-apikey-input"
+
+- extendedWaitUntil:
+    visible:
+      id: "login-apikey-input"
+    timeout: 5000
 
 # Enter invalid API key
 - tapOn:
     id: "login-apikey-input"
 - inputText: "invalid-test-key"
 
-# Tap connect button
+# Dismiss keyboard then tap connect button
+- hideKeyboard
 - tapOn:
     id: "login-apikey-button"
 
@@ -41,3 +64,12 @@ tags:
     timeout: 15000
 
 - takeScreenshot: "auth-api-key-error"
+
+# Re-enter demo mode so other tests can run
+- tapOn:
+    id: "login-demo-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 30000
