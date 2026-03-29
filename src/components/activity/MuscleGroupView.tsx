@@ -253,13 +253,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  // Center column between bodies — fixed width, vertically centered
+  // Center column between bodies — fixed width, top-aligned so legend stays put
   centerColumn: {
     width: 90,
     alignItems: 'flex-start',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: 4,
     paddingHorizontal: 4,
+    paddingTop: spacing.xl,
   },
   // Legend (default state)
   legendItem: {
