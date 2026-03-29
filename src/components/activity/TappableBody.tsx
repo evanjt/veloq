@@ -177,26 +177,28 @@ export const TappableBody = React.memo(function TappableBody({
       {/* Tap targets + selection ring */}
       {layoutSize && tappableSlugs && tappableSlugs.size > 0 && (
         <View style={[StyleSheet.absoluteFill, styles.tapOverlay]} pointerEvents="box-none">
-          {Object.entries(positions).map(([slug, pos]) => {
+          {Object.entries(positions).map(([slug, regions]) => {
             if (!tappableSlugs.has(slug)) return null;
-            const left = pos.x * layoutSize.width - TAP_TARGET_RADIUS;
-            const top = pos.y * layoutSize.height - TAP_TARGET_RADIUS;
-            return (
-              <Pressable
-                key={slug}
-                style={[
-                  styles.tapTarget,
-                  {
-                    left,
-                    top,
-                    width: TAP_TARGET_RADIUS * 2,
-                    height: TAP_TARGET_RADIUS * 2,
-                    borderRadius: TAP_TARGET_RADIUS,
-                  },
-                ]}
-                onPress={() => onMuscleTap?.(slug)}
-              />
-            );
+            return regions.map((pos, idx) => {
+              const left = pos.x * layoutSize.width - TAP_TARGET_RADIUS;
+              const top = pos.y * layoutSize.height - TAP_TARGET_RADIUS;
+              return (
+                <Pressable
+                  key={`${slug}-${idx}`}
+                  style={[
+                    styles.tapTarget,
+                    {
+                      left,
+                      top,
+                      width: TAP_TARGET_RADIUS * 2,
+                      height: TAP_TARGET_RADIUS * 2,
+                      borderRadius: TAP_TARGET_RADIUS,
+                    },
+                  ]}
+                  onPress={() => onMuscleTap?.(slug)}
+                />
+              );
+            });
           })}
         </View>
       )}
@@ -207,6 +209,8 @@ export const TappableBody = React.memo(function TappableBody({
           <Animated.View style={[styles.loupeBody, loupeBodyStyle]}>
             <Body data={enhancedData} gender={gender} side={side} scale={scale} colors={colors} />
           </Animated.View>
+          {/* Center crosshair dot */}
+          <View style={styles.loupeCrosshair} />
         </View>
       </Animated.View>
     </View>
@@ -245,5 +249,16 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     transformOrigin: 'top left',
+  },
+  loupeCrosshair: {
+    position: 'absolute',
+    top: LOUPE_SIZE / 2 - 3,
+    left: LOUPE_SIZE / 2 - 3,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#fff',
   },
 });
