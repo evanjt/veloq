@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
@@ -16,7 +16,7 @@ import {
 } from '@/lib/strength/muscleHitRegions';
 
 const LOUPE_SIZE = 90;
-const LOUPE_OFFSET_Y = -100; // Above the finger
+const LOUPE_OFFSET_Y = -100;
 const LOUPE_SCALE = 2.5;
 const LONG_PRESS_MS = 200;
 
@@ -26,19 +26,17 @@ interface TappableBodyProps {
   side: 'front' | 'back';
   scale: number;
   colors: ReadonlyArray<string>;
-  /** Quick tap — parent typically toggles selection */
   onMuscleTap?: (slug: string) => void;
-  /** Scrub during long-press drag — parent sets selection directly (no toggle) */
   onMuscleScrub?: (slug: string) => void;
   tappableSlugs?: Set<string>;
-  /** Currently selected muscle slug — shows a highlight ring */
-  selectedSlug?: string | null;
 }
 
 /**
- * Body diagram with two interaction modes:
- * 1. Quick tap on a muscle → selects it immediately
- * 2. Long-press + drag → shows magnifying loupe, scrubs across muscles in real time
+ * Body diagram with tap and long-press loupe scrub.
+ *
+ * IMPORTANT: This component does NOT accept selectedSlug to avoid
+ * re-rendering the expensive Body SVG on every selection change.
+ * Selection highlighting is handled by the parent.
  */
 export const TappableBody = React.memo(function TappableBody({
   data,
@@ -49,7 +47,6 @@ export const TappableBody = React.memo(function TappableBody({
   onMuscleTap,
   onMuscleScrub,
   tappableSlugs,
-  selectedSlug,
 }: TappableBodyProps) {
   const [layoutSize, setLayoutSize] = useState<{ width: number; height: number } | null>(null);
   const lastScrubSlug = useRef<string | null>(null);
@@ -64,30 +61,13 @@ export const TappableBody = React.memo(function TappableBody({
     []
   );
 
-  // Selection outline data — only the selected muscle with stroke, rendered as a separate overlay
-  // This avoids re-rendering the main Body on every selection change.
-  const selectionOverlayData: ReadonlyArray<ExtendedBodyPart> = useMemo(() => {
-    if (!selectedSlug) return [];
-    return [
-      {
-        slug: selectedSlug as ExtendedBodyPart['slug'],
-        intensity: 0,
-        styles: { stroke: '#1A1A1A', strokeWidth: 2.5, fill: 'transparent' },
-      },
-    ];
-  }, [selectedSlug]);
-
-  // Shared values for loupe
   const loupeX = useSharedValue(0);
   const loupeY = useSharedValue(0);
   const loupeOpacity = useSharedValue(0);
-  // Body offset inside loupe (to center the touch point in the magnified view)
   const bodyOffsetX = useSharedValue(0);
   const bodyOffsetY = useSharedValue(0);
 
   const positions = side === 'front' ? FRONT_POSITIONS : BACK_POSITIONS;
-
-  // JS callback for muscle detection during scrub
   const scrubCallback = onMuscleScrub ?? onMuscleTap;
 
   const handleScrubUpdate = useCallback(
@@ -113,7 +93,6 @@ export const TappableBody = React.memo(function TappableBody({
     lastScrubSlug.current = null;
   }, []);
 
-  // Long-press + pan gesture for loupe scrubbing
   const scrubGesture = Gesture.Pan()
     .minDistance(0)
     .activateAfterLongPress(LONG_PRESS_MS)
@@ -145,7 +124,6 @@ export const TappableBody = React.memo(function TappableBody({
     })
     .enabled(!!(scrubCallback && tappableSlugs && tappableSlugs.size > 0));
 
-  // Loupe container style (positioned above finger)
   const loupeContainerStyle = useAnimatedStyle(() => {
     'worklet';
     return {
@@ -157,7 +135,6 @@ export const TappableBody = React.memo(function TappableBody({
     };
   });
 
-  // Magnified body offset inside loupe
   const loupeBodyStyle = useAnimatedStyle(() => {
     'worklet';
     return {
@@ -177,21 +154,7 @@ export const TappableBody = React.memo(function TappableBody({
         </Animated.View>
       </GestureDetector>
 
-      {/* Selection stroke overlay — always mounted to avoid mount/unmount flash */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Body
-          data={selectionOverlayData}
-          gender={gender}
-          side={side}
-          scale={scale}
-          colors={['transparent', 'transparent']}
-          border="none"
-          defaultFill="transparent"
-          defaultStroke="transparent"
-        />
-      </View>
-
-      {/* Tap targets + selection ring */}
+      {/* Tap targets */}
       {layoutSize && tappableSlugs && tappableSlugs.size > 0 && (
         <View style={[StyleSheet.absoluteFill, styles.tapOverlay]} pointerEvents="box-none">
           {Object.entries(positions).map(([slug, regions]) => {
@@ -226,7 +189,6 @@ export const TappableBody = React.memo(function TappableBody({
           <Animated.View style={[styles.loupeBody, loupeBodyStyle]}>
             <Body data={data} gender={gender} side={side} scale={scale} colors={colors} />
           </Animated.View>
-          {/* Center crosshair dot */}
           <View style={styles.loupeCrosshair} />
         </View>
       </Animated.View>
