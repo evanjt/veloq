@@ -26,6 +26,10 @@ interface BodyPairWithLoupeProps {
   tappableSlugs?: Set<string>;
   /** Optional gap between front and back bodies (dp) */
   gap?: number;
+  /** Optional content rendered between front and back bodies (e.g. legend) */
+  centerContent?: React.ReactNode;
+  /** Width of centerContent in dp (needed for coordinate math) */
+  centerWidth?: number;
 }
 
 /**
@@ -43,6 +47,8 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   onMuscleScrub,
   tappableSlugs,
   gap = 0,
+  centerContent,
+  centerWidth = 0,
 }: BodyPairWithLoupeProps) {
   const [layoutSize, setLayoutSize] = useState<{ width: number; height: number } | null>(null);
   const lastScrubSlug = useRef<string | null>(null);
@@ -71,10 +77,11 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   const handleScrubUpdate = useCallback(
     (x: number, y: number) => {
       if (!layoutSize || !tappableSlugs || tappableSlugs.size === 0 || !scrubCallback) return;
-      const bodyW = (layoutSize.width - gap) / 2;
-      const midpoint = bodyW + gap / 2;
+      const totalGap = gap + centerWidth;
+      const bodyW = (layoutSize.width - totalGap) / 2;
+      const midpoint = bodyW + totalGap / 2;
       const side: 'front' | 'back' = x < midpoint ? 'front' : 'back';
-      const localX = side === 'front' ? x : x - bodyW - gap;
+      const localX = side === 'front' ? x : x - bodyW - totalGap;
       const slug = findNearestMuscle(localX, y, bodyW, layoutSize.height, side, tappableSlugs);
       if (slug && slug !== lastScrubSlug.current) {
         lastScrubSlug.current = slug;
@@ -91,10 +98,11 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   const handleTap = useCallback(
     (x: number, y: number) => {
       if (!layoutSize || !tappableSlugs || tappableSlugs.size === 0 || !onMuscleTap) return;
-      const bodyW = (layoutSize.width - gap) / 2;
-      const midpoint = bodyW + gap / 2;
+      const totalGap = gap + centerWidth;
+      const bodyW = (layoutSize.width - totalGap) / 2;
+      const midpoint = bodyW + totalGap / 2;
       const side: 'front' | 'back' = x < midpoint ? 'front' : 'back';
-      const localX = side === 'front' ? x : x - bodyW - gap;
+      const localX = side === 'front' ? x : x - bodyW - totalGap;
       const slug = findNearestMuscle(localX, y, bodyW, layoutSize.height, side, tappableSlugs);
       if (slug) onMuscleTap(slug);
     },
@@ -110,13 +118,13 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     loupeX.value = x;
     loupeY.value = y;
     if (layoutSize) {
-      const bodyW = (layoutSize.width - gap) / 2;
-      const midpoint = bodyW + gap / 2;
+      const totalGap = gap + centerWidth;
+      const bodyW = (layoutSize.width - totalGap) / 2;
+      const midpoint = bodyW + totalGap / 2;
       const isBack = x >= midpoint;
       loupeSide.value = isBack ? 1 : 0;
 
-      // Touch X relative to the body's flex container
-      const localX = isBack ? x - bodyW - gap : x;
+      const localX = isBack ? x - bodyW - totalGap : x;
       // The Body SVG is centered in the flex container
       const svgPadX = (bodyW - bodyPixelW) / 2;
       // Touch position relative to the SVG itself
@@ -210,7 +218,8 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
             />
           </View>
 
-          {gap > 0 && <View style={{ width: gap }} />}
+          {centerContent}
+          {!centerContent && gap > 0 && <View style={{ width: gap }} />}
 
           <View style={styles.bodyView}>
             <Body
