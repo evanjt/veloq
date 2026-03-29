@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   bodyContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.xl + spacing.lg,
   },
