@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useTranslation } from 'react-i18next';
-import { TappableBody } from '@/components/activity/TappableBody';
+import { BodyPairWithLoupe } from '@/components/activity/BodyPairWithLoupe';
 import { useTheme, useMetricSystem } from '@/hooks';
 import { useStrengthVolume } from '@/hooks/activities/useStrengthVolume';
 import { useAthlete } from '@/hooks';
@@ -42,21 +42,21 @@ export const StrengthTab = React.memo(function StrengthTab() {
 
   const gender = athlete?.sex === 'F' ? 'female' : 'male';
 
-  // Compute body diagram data with heat-map intensity
+  // Compute body diagram data with heat-map intensity + selection stroke
   const bodyData: ExtendedBodyPart[] = useMemo(() => {
     if (!summary || summary.muscleVolumes.length === 0) return [];
     const maxWeighted = Math.max(...summary.muscleVolumes.map((v) => v.weightedSets));
     if (maxWeighted === 0) return [];
 
     return summary.muscleVolumes.map((v) => {
-      // Normalize to 1-2 intensity range for the body highlighter
       const normalized = v.weightedSets / maxWeighted;
       return {
         slug: v.slug as ExtendedBodyPart['slug'],
         intensity: normalized < 0.5 ? 1 : 2,
+        ...(v.slug === selectedMuscle ? { styles: { stroke: '#1A1A1A', strokeWidth: 2.5 } } : {}),
       };
     });
-  }, [summary]);
+  }, [summary, selectedMuscle]);
 
   // Find the selected muscle's data
   const selectedVolume: MuscleVolume | null = useMemo(() => {
@@ -170,34 +170,16 @@ export const StrengthTab = React.memo(function StrengthTab() {
               Tap a muscle group for details
             </Text>
 
-            <View style={styles.bodyRow}>
-              <View style={styles.bodyView}>
-                <TappableBody
-                  data={bodyData}
-                  gender={gender}
-                  side="front"
-                  scale={0.6}
-                  colors={BODY_COLORS}
-                  onMuscleTap={handleMuscleTap}
-                  onMuscleScrub={handleMuscleScrub}
-                  tappableSlugs={tappableSlugs}
-                  defaultFill={isDark ? BODY_FILL_DARK : BODY_FILL_LIGHT}
-                />
-              </View>
-              <View style={styles.bodyView}>
-                <TappableBody
-                  data={bodyData}
-                  gender={gender}
-                  side="back"
-                  scale={0.6}
-                  colors={BODY_COLORS}
-                  onMuscleTap={handleMuscleTap}
-                  onMuscleScrub={handleMuscleScrub}
-                  tappableSlugs={tappableSlugs}
-                  defaultFill={isDark ? BODY_FILL_DARK : BODY_FILL_LIGHT}
-                />
-              </View>
-            </View>
+            <BodyPairWithLoupe
+              data={bodyData}
+              gender={gender}
+              scale={0.6}
+              colors={BODY_COLORS}
+              onMuscleTap={handleMuscleTap}
+              onMuscleScrub={handleMuscleScrub}
+              tappableSlugs={tappableSlugs}
+              defaultFill={isDark ? BODY_FILL_DARK : BODY_FILL_LIGHT}
+            />
 
             {/* Legend */}
             <View style={styles.legendRow}>
@@ -450,15 +432,6 @@ const styles = StyleSheet.create({
   },
   bodyTitleDark: {
     color: darkColors.textPrimary,
-  },
-  bodyRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bodyView: {
-    flex: 1,
-    alignItems: 'center',
   },
   bodyHint: {
     fontSize: 11,
