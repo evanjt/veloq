@@ -64,15 +64,18 @@ export const TappableBody = React.memo(function TappableBody({
     []
   );
 
-  // Enhance body data with selection stroke on the selected muscle
-  const enhancedData = useMemo(() => {
-    if (!selectedSlug) return data;
-    return data.map((part) =>
-      part.slug === selectedSlug
-        ? { ...part, styles: { stroke: '#1A1A1A', strokeWidth: 2.5 } }
-        : part
-    );
-  }, [data, selectedSlug]);
+  // Selection outline data — only the selected muscle with stroke, rendered as a separate overlay
+  // This avoids re-rendering the main Body on every selection change.
+  const selectionOverlayData: ReadonlyArray<ExtendedBodyPart> = useMemo(() => {
+    if (!selectedSlug) return [];
+    return [
+      {
+        slug: selectedSlug as ExtendedBodyPart['slug'],
+        intensity: 0,
+        styles: { stroke: '#1A1A1A', strokeWidth: 2.5, fill: 'transparent' },
+      },
+    ];
+  }, [selectedSlug]);
 
   // Shared values for loupe
   const loupeX = useSharedValue(0);
@@ -170,9 +173,23 @@ export const TappableBody = React.memo(function TappableBody({
     <View onLayout={handleLayout} style={styles.container}>
       <GestureDetector gesture={scrubGesture}>
         <Animated.View>
-          <Body data={enhancedData} gender={gender} side={side} scale={scale} colors={colors} />
+          <Body data={data} gender={gender} side={side} scale={scale} colors={colors} />
         </Animated.View>
       </GestureDetector>
+
+      {/* Selection stroke overlay — separate Body so main one doesn't re-render */}
+      {selectionOverlayData.length > 0 && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Body
+            data={selectionOverlayData}
+            gender={gender}
+            side={side}
+            scale={scale}
+            colors={['transparent', 'transparent']}
+            border="none"
+          />
+        </View>
+      )}
 
       {/* Tap targets + selection ring */}
       {layoutSize && tappableSlugs && tappableSlugs.size > 0 && (
@@ -207,7 +224,7 @@ export const TappableBody = React.memo(function TappableBody({
       <Animated.View style={[styles.loupeContainer, loupeContainerStyle]} pointerEvents="none">
         <View style={styles.loupeClip}>
           <Animated.View style={[styles.loupeBody, loupeBodyStyle]}>
-            <Body data={enhancedData} gender={gender} side={side} scale={scale} colors={colors} />
+            <Body data={data} gender={gender} side={side} scale={scale} colors={colors} />
           </Animated.View>
           {/* Center crosshair dot */}
           <View style={styles.loupeCrosshair} />

@@ -17,6 +17,9 @@ function getTimestampRange(period: StrengthPeriod): { startTs: number; endTs: nu
     case '3months':
       start.setMonth(start.getMonth() - 3);
       break;
+    case '6months':
+      start.setMonth(start.getMonth() - 6);
+      break;
   }
   const startTs = Math.floor(start.getTime() / 1000);
 

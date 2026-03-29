@@ -19,6 +19,7 @@ const PERIODS: { id: StrengthPeriod; label: string }[] = [
   { id: 'week', label: '7 Days' },
   { id: '4weeks', label: '4 Weeks' },
   { id: '3months', label: '3 Months' },
+  { id: '6months', label: '6 Months' },
 ];
 
 function formatWeight(kg: number, isMetric: boolean): string {
@@ -73,7 +74,13 @@ export const StrengthTab = React.memo(function StrengthTab() {
     [summary]
   );
 
-  const periodLabel = period === 'week' ? 'week' : period === '4weeks' ? '4 weeks' : '3 months';
+  const periodLabels: Record<StrengthPeriod, string> = {
+    week: 'week',
+    '4weeks': '4 weeks',
+    '3months': '3 months',
+    '6months': '6 months',
+  };
+  const periodLabel = periodLabels[period];
 
   return (
     <ScrollView
