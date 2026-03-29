@@ -1532,3 +1532,33 @@ pub struct FfiMuscleGroup {
     /// 1 = secondary, 2 = primary
     pub intensity: u8,
 }
+
+/// Aggregated muscle group volume over a time period.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMuscleVolume {
+    /// Slug matching react-native-body-highlighter
+    pub slug: String,
+    /// Number of sets where this muscle is primary target
+    pub primary_sets: u32,
+    /// Number of sets where this muscle is secondary target
+    pub secondary_sets: u32,
+    /// Weighted set count: primary=1.0, secondary=0.5
+    pub weighted_sets: f64,
+    /// Total reps across all exercises targeting this muscle (primary only)
+    pub total_reps: u32,
+    /// Total volume load in kg (weight × reps) for primary exercises
+    pub total_weight_kg: f64,
+    /// Human-readable exercise names that targeted this muscle
+    pub exercise_names: Vec<String>,
+}
+
+/// Summary of strength training volume over a time period.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiStrengthSummary {
+    /// Per-muscle-group volume data
+    pub muscle_volumes: Vec<FfiMuscleVolume>,
+    /// Number of WeightTraining activities in the period
+    pub activity_count: u32,
+    /// Total active sets across all activities
+    pub total_sets: u32,
+}

@@ -1192,6 +1192,29 @@ class RouteEngineClient {
     );
   }
 
+  getUnprocessedStrengthIds(activityIds: string[]): string[] {
+    return this.timed('getUnprocessedStrengthIds', () =>
+      this.engine.strength().getUnprocessedStrengthIds(activityIds),
+    );
+  }
+
+  batchFetchExerciseSets(authHeader: string, activityIds: string[]): string[] {
+    return this.timed('batchFetchExerciseSets', () =>
+      this.engine.strength().batchFetchExerciseSets(authHeader, activityIds),
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getStrengthSummary(startDate: string, endDate: string): any {
+    return this.timed('getStrengthSummary', () =>
+      this.engine.strength().getStrengthSummary(startDate, endDate),
+    );
+  }
+
+  hasStrengthData(): boolean {
+    return this.timed('hasStrengthData', () => this.engine.strength().hasStrengthData());
+  }
+
   subscribe(event: string, callback: () => void): () => void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());

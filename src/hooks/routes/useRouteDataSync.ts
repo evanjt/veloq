@@ -46,7 +46,7 @@ import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { getNativeModule } from '@/lib/native/routeEngine';
 import { routeEngine } from 'veloqrs';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
-import { useSyncDateRange } from '@/providers';
+import { useSyncDateRange, getStoredCredentials } from '@/providers';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 
@@ -229,6 +229,53 @@ export function useRouteDataSync(
           if (newMetrics.length > 0) {
             nativeModule.routeEngine.setActivityMetrics(newMetrics);
             routeEngine.triggerRefresh('activities');
+          }
+        }
+
+        // Batch-fetch FIT files for WeightTraining activities not yet processed
+        if (!isDemoModeRef.current) {
+          const strengthIds = activitiesToSync
+            .filter((a) => a.type === 'WeightTraining')
+            .map((a) => a.id);
+
+          if (
+            strengthIds.length > 0 &&
+            typeof nativeModule.routeEngine.getUnprocessedStrengthIds === 'function'
+          ) {
+            const unprocessed = nativeModule.routeEngine.getUnprocessedStrengthIds(strengthIds);
+            if (unprocessed.length > 0) {
+              if (__DEV__) {
+                console.log(
+                  `[RouteDataSync] Fetching FIT files for ${unprocessed.length} strength activities`
+                );
+              }
+              try {
+                const creds = getStoredCredentials();
+                let authHeader: string;
+                if (creds.authMethod === 'oauth' && creds.accessToken) {
+                  authHeader = `Bearer ${creds.accessToken}`;
+                } else if (creds.apiKey) {
+                  authHeader = `Basic ${btoa(`API_KEY:${creds.apiKey}`)}`;
+                } else {
+                  authHeader = '';
+                }
+                if (authHeader) {
+                  const processed = nativeModule.routeEngine.batchFetchExerciseSets(
+                    authHeader,
+                    unprocessed
+                  );
+                  if (__DEV__) {
+                    console.log(
+                      `[RouteDataSync] FIT batch complete: ${processed.length}/${unprocessed.length}`
+                    );
+                  }
+                }
+              } catch (err) {
+                if (__DEV__) {
+                  console.error('[RouteDataSync] FIT batch fetch error:', err);
+                }
+              }
+            }
           }
         }
 

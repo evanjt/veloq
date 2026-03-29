@@ -83,4 +83,86 @@ impl PersistentRouteEngine {
         )?;
         Ok(count > 0)
     }
+
+    /// Get activity IDs from the input list that have NOT been FIT-processed yet.
+    pub fn get_unprocessed_strength_ids(&self, activity_ids: &[String]) -> SqlResult<Vec<String>> {
+        if activity_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let processed: std::collections::HashSet<String> = {
+            let placeholders = activity_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let sql = format!(
+                "SELECT activity_id FROM fit_file_status WHERE activity_id IN ({})",
+                placeholders
+            );
+            let mut stmt = self.db.prepare(&sql)?;
+            let rows = stmt.query_map(
+                rusqlite::params_from_iter(activity_ids.iter()),
+                |row| row.get::<_, String>(0),
+            )?;
+            rows.filter_map(|r| r.ok()).collect()
+        };
+
+        Ok(activity_ids
+            .iter()
+            .filter(|id| !processed.contains(id.as_str()))
+            .cloned()
+            .collect())
+    }
+
+    /// Get all exercise sets for WeightTraining activities within a date range.
+    /// Joins exercise_sets with activity_metrics to filter by date and sport type.
+    /// Returns (activity_id, FitExerciseSet) pairs for active sets only.
+    pub fn get_exercise_sets_in_range(
+        &self,
+        start_date: &str,
+        end_date: &str,
+    ) -> SqlResult<Vec<(String, FitExerciseSet)>> {
+        let mut stmt = self.db.prepare(
+            "SELECT es.activity_id, es.set_order, es.exercise_category, es.exercise_name,
+                    es.set_type, es.repetitions, es.weight_kg, es.duration_secs, es.start_time
+             FROM exercise_sets es
+             INNER JOIN activity_metrics am ON es.activity_id = am.activity_id
+             WHERE am.sport_type = 'WeightTraining'
+               AND am.date >= ?
+               AND am.date <= ?
+               AND es.set_type = 0
+             ORDER BY am.date DESC, es.activity_id, es.set_order",
+        )?;
+
+        let results = stmt
+            .query_map(params![start_date, end_date], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    FitExerciseSet {
+                        set_order: row.get::<_, i32>(1)? as u32,
+                        exercise_category: row.get::<_, i32>(2)? as u16,
+                        exercise_name: row.get::<_, Option<i32>>(3)?.map(|v| v as u16),
+                        set_type: row.get::<_, i32>(4)? as u8,
+                        repetitions: row.get::<_, Option<i32>>(5)?.map(|v| v as u16),
+                        weight_kg: row.get(6)?,
+                        duration_secs: row.get(7)?,
+                        start_time: row.get(8)?,
+                    },
+                ))
+            })?
+            .collect::<SqlResult<Vec<_>>>()?;
+
+        Ok(results)
+    }
+
+    /// Count WeightTraining activities that have exercise set data.
+    pub fn get_strength_activity_count(&self) -> SqlResult<u32> {
+        let count: i32 = self.db.query_row(
+            "SELECT COUNT(DISTINCT es.activity_id)
+             FROM exercise_sets es
+             INNER JOIN activity_metrics am ON es.activity_id = am.activity_id
+             WHERE am.sport_type = 'WeightTraining'
+               AND es.set_type = 0",
+            [],
+            |row| row.get(0),
+        )?;
+        Ok(count as u32)
+    }
 }
