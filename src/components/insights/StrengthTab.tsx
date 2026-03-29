@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
+import Body from 'react-native-body-highlighter';
+import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/hooks';
 import { useStrengthVolume } from '@/hooks/activities/useStrengthVolume';
@@ -66,9 +67,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
     return summary.muscleVolumes.find((v) => v.slug === selectedMuscle) ?? null;
   }, [selectedMuscle, summary]);
 
-  const handleBodyPartPress = useCallback((bodyPart: ExtendedBodyPart) => {
-    const slug = bodyPart.slug;
-    if (!slug) return;
+  const handleMusclePillPress = useCallback((slug: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelectedMuscle((prev) => (prev === slug ? null : slug));
   }, []);
@@ -156,10 +155,6 @@ export const StrengthTab = React.memo(function StrengthTab() {
             <Text style={[styles.bodyTitle, isDark && styles.bodyTitleDark]}>
               Muscle Group Volume
             </Text>
-            <Text style={[styles.bodySubtitle, isDark && styles.bodySubtitleDark]}>
-              Tap a muscle group for details
-            </Text>
-
             <View style={styles.bodyRow}>
               <View style={styles.bodyView}>
                 <Body
@@ -168,7 +163,6 @@ export const StrengthTab = React.memo(function StrengthTab() {
                   side="front"
                   scale={0.6}
                   colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
-                  onBodyPartPress={handleBodyPartPress}
                 />
               </View>
               <View style={styles.bodyView}>
@@ -178,7 +172,6 @@ export const StrengthTab = React.memo(function StrengthTab() {
                   side="back"
                   scale={0.6}
                   colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
-                  onBodyPartPress={handleBodyPartPress}
                 />
               </View>
             </View>
@@ -196,6 +189,46 @@ export const StrengthTab = React.memo(function StrengthTab() {
                 <Text style={[styles.legendText, isDark && styles.legendTextDark]}>Low volume</Text>
               </View>
             </View>
+
+            {/* Tappable muscle group pills */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.pillsContent}
+              style={styles.pillsRow}
+            >
+              {summary.muscleVolumes.map((v) => (
+                <TouchableOpacity
+                  key={v.slug}
+                  style={[
+                    styles.musclePill,
+                    isDark && styles.musclePillDark,
+                    selectedMuscle === v.slug && styles.musclePillActive,
+                  ]}
+                  onPress={() => handleMusclePillPress(v.slug)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.pillText,
+                      isDark && styles.pillTextDark,
+                      selectedMuscle === v.slug && styles.pillTextActive,
+                    ]}
+                  >
+                    {MUSCLE_DISPLAY_NAMES[v.slug as MuscleSlug] ?? v.slug}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.pillCount,
+                      isDark && styles.pillCountDark,
+                      selectedMuscle === v.slug && styles.pillCountActive,
+                    ]}
+                  >
+                    {v.weightedSets.toFixed(0)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
 
           {/* Selected muscle detail (inline expansion) */}
@@ -441,17 +474,6 @@ const styles = StyleSheet.create({
   bodyTitleDark: {
     color: darkColors.textPrimary,
   },
-  bodySubtitle: {
-    fontSize: 11,
-    color: colors.textDisabled,
-    textAlign: 'center',
-    marginTop: 2,
-    marginBottom: spacing.sm,
-    fontStyle: 'italic',
-  },
-  bodySubtitleDark: {
-    color: darkColors.textMuted,
-  },
   bodyRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -460,6 +482,49 @@ const styles = StyleSheet.create({
   bodyView: {
     flex: 1,
     alignItems: 'center',
+  },
+  pillsRow: {
+    marginTop: spacing.sm,
+  },
+  pillsContent: {
+    gap: spacing.xs,
+  },
+  musclePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: colors.background,
+  },
+  musclePillDark: {
+    backgroundColor: darkColors.background,
+  },
+  musclePillActive: {
+    backgroundColor: PRIMARY_COLOR,
+  },
+  pillText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  pillTextDark: {
+    color: darkColors.textPrimary,
+  },
+  pillTextActive: {
+    color: '#fff',
+  },
+  pillCount: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  pillCountDark: {
+    color: darkColors.textSecondary,
+  },
+  pillCountActive: {
+    color: 'rgba(255,255,255,0.8)',
   },
   legendRow: {
     flexDirection: 'row',

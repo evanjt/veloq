@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,7 @@ import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMuscleGroups } from '@/hooks/activities';
 import { useMuscleDetail } from '@/hooks/activities/useMuscleDetail';
+import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
 import { MuscleDetailSheet } from './MuscleDetailSheet';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime, formatDuration } from '@/lib';
@@ -41,15 +42,6 @@ export function MuscleGroupView({
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const muscleDetail = useMuscleDetail(selectedMuscle, exerciseSets ?? []);
 
-  const handleBodyPartPress = useCallback(
-    (bodyPart: ExtendedBodyPart) => {
-      if (bodyPart.slug && (exerciseSets ?? []).length > 0) {
-        setSelectedMuscle(bodyPart.slug);
-      }
-    },
-    [exerciseSets]
-  );
-
   const handleCloseSheet = useCallback(() => {
     setSelectedMuscle(null);
   }, []);
@@ -60,7 +52,7 @@ export function MuscleGroupView({
   }));
 
   const gender = athleteSex === 'F' ? 'female' : 'male';
-  const hasInteractiveData = (exerciseSets ?? []).length > 0;
+  const hasInteractiveData = (exerciseSets ?? []).length > 0 && (muscleGroups ?? []).length > 0;
 
   return (
     <View style={[styles.hero, isDark && styles.heroDark]}>
@@ -89,7 +81,6 @@ export function MuscleGroupView({
             side="front"
             scale={0.7}
             colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
-            onBodyPartPress={handleBodyPartPress}
           />
         </View>
         <View style={styles.legendCenter}>
@@ -101,9 +92,6 @@ export function MuscleGroupView({
             <View style={[styles.legendDot, { backgroundColor: SECONDARY_COLOR }]} />
             <Text style={styles.legendText}>{t('activityDetail.secondary')}</Text>
           </View>
-          {hasInteractiveData && (
-            <Text style={styles.hintText}>{t('activityDetail.tapMuscle', 'Tap for details')}</Text>
-          )}
         </View>
         <View style={styles.bodyView}>
           <Body
@@ -112,10 +100,48 @@ export function MuscleGroupView({
             side="back"
             scale={0.7}
             colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
-            onBodyPartPress={handleBodyPartPress}
           />
         </View>
       </View>
+
+      {/* Tappable muscle group pills */}
+      {hasInteractiveData && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.pillsContent}
+          style={styles.pillsRow}
+        >
+          {(muscleGroups ?? []).map((g) => (
+            <TouchableOpacity
+              key={g.slug}
+              style={[
+                styles.musclePill,
+                isDark && styles.musclePillDark,
+                selectedMuscle === g.slug && styles.musclePillActive,
+              ]}
+              onPress={() => setSelectedMuscle((prev) => (prev === g.slug ? null : g.slug))}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  styles.pillDot,
+                  { backgroundColor: g.intensity === 2 ? PRIMARY_COLOR : SECONDARY_COLOR },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.pillText,
+                  isDark && styles.pillTextDark,
+                  selectedMuscle === g.slug && styles.pillTextActive,
+                ]}
+              >
+                {MUSCLE_DISPLAY_NAMES[g.slug as MuscleSlug] ?? g.slug}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
 
       {/* Bottom gradient + activity info overlay (like map hero) */}
       <LinearGradient
@@ -177,7 +203,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.xl + spacing.lg,
+    paddingBottom: spacing.sm,
   },
   bodyView: {
     flex: 1,
@@ -203,11 +229,44 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textSecondary,
   },
-  hintText: {
-    fontSize: 9,
-    color: colors.textDisabled,
-    marginTop: spacing.xs,
-    fontStyle: 'italic',
+  pillsRow: {
+    zIndex: 6,
+    marginBottom: spacing.xl + spacing.md,
+  },
+  pillsContent: {
+    paddingHorizontal: spacing.md,
+    gap: spacing.xs,
+  },
+  musclePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  musclePillDark: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  musclePillActive: {
+    backgroundColor: PRIMARY_COLOR,
+  },
+  pillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  pillText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  pillTextDark: {
+    color: darkColors.textPrimary,
+  },
+  pillTextActive: {
+    color: '#fff',
   },
   gradient: {
     position: 'absolute',
