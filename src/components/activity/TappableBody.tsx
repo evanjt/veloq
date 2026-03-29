@@ -177,21 +177,19 @@ export const TappableBody = React.memo(function TappableBody({
         </Animated.View>
       </GestureDetector>
 
-      {/* Selection stroke overlay — separate Body so main one doesn't re-render */}
-      {selectionOverlayData.length > 0 && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Body
-            data={selectionOverlayData}
-            gender={gender}
-            side={side}
-            scale={scale}
-            colors={['transparent', 'transparent']}
-            border="none"
-            defaultFill="transparent"
-            defaultStroke="transparent"
-          />
-        </View>
-      )}
+      {/* Selection stroke overlay — always mounted to avoid mount/unmount flash */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Body
+          data={selectionOverlayData}
+          gender={gender}
+          side={side}
+          scale={scale}
+          colors={['transparent', 'transparent']}
+          border="none"
+          defaultFill="transparent"
+          defaultStroke="transparent"
+        />
+      </View>
 
       {/* Tap targets + selection ring */}
       {layoutSize && tappableSlugs && tappableSlugs.size > 0 && (

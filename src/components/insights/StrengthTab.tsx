@@ -211,8 +211,8 @@ export const StrengthTab = React.memo(function StrengthTab() {
             </View>
           </View>
 
-          {/* Selected muscle detail (inline expansion) */}
-          {selectedVolume && (
+          {/* Selected muscle detail — always mounted, hidden when empty */}
+          {selectedVolume ? (
             <View style={[styles.detailCard, isDark && styles.detailCardDark]}>
               <View style={styles.detailHeader}>
                 <Text style={[styles.detailTitle, isDark && styles.detailTitleDark]}>
@@ -316,7 +316,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                 </View>
               )}
             </View>
-          )}
+          ) : null}
 
           {/* Info card */}
           <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
