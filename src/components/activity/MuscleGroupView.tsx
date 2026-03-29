@@ -100,103 +100,91 @@ export function MuscleGroupView({
         </TouchableOpacity>
       </View>
 
-      {/* Body diagrams with unified loupe + center column for legend/detail */}
+      {/* Body diagrams with unified loupe */}
       <View style={[styles.bodyContainer, { paddingTop: insets.top + 40 }]}>
         <BodyPairWithLoupe
           data={bodyData}
           gender={gender}
           scale={0.65}
           colors={BODY_COLORS}
+          gap={8}
           onMuscleTap={hasInteractiveData ? handleMuscleTap : undefined}
           onMuscleScrub={hasInteractiveData ? handleMuscleScrub : undefined}
           tappableSlugs={tappableSlugs}
-          centerContent={
-            <View style={styles.centerColumn}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: PRIMARY_COLOR }]} />
-                <Text style={styles.legendText}>{t('activityDetail.primary')}</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: SECONDARY_COLOR }]} />
-                <Text style={styles.legendText}>{t('activityDetail.secondary')}</Text>
-              </View>
-
-              {muscleDetail ? (
-                <>
-                  <View style={styles.detailDivider} />
-                  <View style={styles.detailHeaderRow}>
-                    <View
-                      style={[
-                        styles.detailDot,
-                        {
-                          backgroundColor:
-                            muscleDetail.primaryExercises > 0 ? PRIMARY_COLOR : SECONDARY_COLOR,
-                        },
-                      ]}
-                    />
-                    <Text
-                      style={[styles.detailName, isDark && styles.detailNameDark]}
-                      numberOfLines={1}
-                    >
-                      {muscleDetail.name}
-                    </Text>
-                    <TouchableOpacity onPress={() => setSelectedMuscle(null)} hitSlop={12}>
-                      <MaterialCommunityIcons
-                        name="close"
-                        size={12}
-                        color={isDark ? darkColors.textMuted : colors.textDisabled}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
-                    {muscleDetail.totalSets} {muscleDetail.totalSets === 1 ? 'set' : 'sets'} ·{' '}
-                    {muscleDetail.totalReps} reps
-                  </Text>
-                  {muscleDetail.totalVolumeKg > 0 && (
-                    <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
-                      {formatWeight(Math.round(muscleDetail.totalVolumeKg), isMetric)}
-                    </Text>
-                  )}
-                  <ScrollView
-                    style={styles.detailExList}
-                    showsVerticalScrollIndicator={muscleDetail.exercises.length > 3}
-                    nestedScrollEnabled
-                  >
-                    {muscleDetail.exercises.map((ex, idx) => (
-                      <View key={`${ex.name}-${idx}`} style={styles.detailExItem}>
-                        <View style={styles.detailExNameRow}>
-                          <View
-                            style={[
-                              styles.detailExDot,
-                              {
-                                backgroundColor:
-                                  ex.role === 'primary' ? PRIMARY_COLOR : SECONDARY_COLOR,
-                              },
-                            ]}
-                          />
-                          <Text
-                            style={[styles.detailExName, isDark && styles.detailExNameDark]}
-                            numberOfLines={1}
-                          >
-                            {ex.name}
-                          </Text>
-                        </View>
-                        <Text style={[styles.detailExSub, isDark && styles.detailExSubDark]}>
-                          {ex.sets}×{ex.reps}
-                        </Text>
-                      </View>
-                    ))}
-                  </ScrollView>
-                </>
-              ) : hasInteractiveData ? (
-                <Text style={styles.hintText}>
-                  {t('activityDetail.tapMuscle', 'Tap for details')}
-                </Text>
-              ) : null}
-            </View>
-          }
         />
       </View>
+
+      {/* Legend + detail below bodies */}
+      <View style={styles.legendRow}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: PRIMARY_COLOR }]} />
+          <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
+            {t('activityDetail.primary')}
+          </Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: SECONDARY_COLOR }]} />
+          <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
+            {t('activityDetail.secondary')}
+          </Text>
+        </View>
+        {hasInteractiveData && !muscleDetail && (
+          <Text style={[styles.hintText, isDark && styles.hintTextDark]}>
+            {t('activityDetail.tapMuscle', 'Tap for details')}
+          </Text>
+        )}
+      </View>
+
+      {muscleDetail && (
+        <View style={[styles.detailBar, isDark && styles.detailBarDark]}>
+          <View style={styles.detailHeaderRow}>
+            <View
+              style={[
+                styles.detailDot,
+                {
+                  backgroundColor:
+                    muscleDetail.primaryExercises > 0 ? PRIMARY_COLOR : SECONDARY_COLOR,
+                },
+              ]}
+            />
+            <Text style={[styles.detailName, isDark && styles.detailNameDark]} numberOfLines={1}>
+              {muscleDetail.name}
+            </Text>
+            <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
+              {muscleDetail.totalSets} sets · {muscleDetail.totalReps} reps
+              {muscleDetail.totalVolumeKg > 0
+                ? ` · ${formatWeight(Math.round(muscleDetail.totalVolumeKg), isMetric)}`
+                : ''}
+            </Text>
+            <TouchableOpacity onPress={() => setSelectedMuscle(null)} hitSlop={12}>
+              <MaterialCommunityIcons
+                name="close"
+                size={14}
+                color={isDark ? darkColors.textMuted : colors.textDisabled}
+              />
+            </TouchableOpacity>
+          </View>
+          {muscleDetail.exercises.map((ex, idx) => (
+            <View key={`${ex.name}-${idx}`} style={styles.detailExRow}>
+              <View
+                style={[
+                  styles.detailExDot,
+                  { backgroundColor: ex.role === 'primary' ? PRIMARY_COLOR : SECONDARY_COLOR },
+                ]}
+              />
+              <Text
+                style={[styles.detailExName, isDark && styles.detailExNameDark]}
+                numberOfLines={1}
+              >
+                {ex.name}
+              </Text>
+              <Text style={[styles.detailExSub, isDark && styles.detailExSubDark]}>
+                {ex.sets}×{ex.reps}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Bottom gradient + activity info overlay */}
       <LinearGradient
@@ -248,26 +236,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   bodyContainer: {
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+  legendRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.xl + spacing.lg,
-  },
-  bodyView: {
-    flex: 1,
     alignItems: 'center',
+    gap: spacing.md,
+    paddingBottom: spacing.xs,
   },
-  // Center column between bodies — wider to fit exercise names
-  centerColumn: {
-    width: 120,
-    alignItems: 'flex-start',
-    justifyContent: 'flex-start',
-    gap: 4,
-    paddingHorizontal: 4,
-    paddingTop: spacing.xl,
-  },
-  // Legend (default state)
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -282,17 +260,29 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textSecondary,
   },
+  legendTextDark: {
+    color: darkColors.textSecondary,
+  },
   hintText: {
     fontSize: 9,
     color: colors.textDisabled,
-    marginTop: spacing.xs,
     fontStyle: 'italic',
   },
-  // Detail (selected state)
+  hintTextDark: {
+    color: darkColors.textMuted,
+  },
+  // Detail bar below legend
+  detailBar: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  detailBarDark: {},
   detailHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    marginBottom: 4,
   },
   detailDot: {
     width: 8,
@@ -300,61 +290,45 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   detailName: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 4,
   },
   detailNameDark: {
     color: darkColors.textPrimary,
   },
   detailStat: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textSecondary,
-    lineHeight: 16,
+    flex: 1,
   },
   detailStatDark: {
     color: darkColors.textSecondary,
   },
-  detailDivider: {
-    width: '100%',
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(0,0,0,0.15)',
-    marginVertical: 4,
-  },
-  detailExList: {
-    maxHeight: 120,
-    width: '100%',
-  },
-  detailExItem: {
-    marginBottom: 4,
-    width: '100%',
-  },
-  detailExNameRow: {
+  detailExRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    width: '100%',
+    gap: 6,
+    paddingVertical: 2,
+    paddingLeft: 14,
   },
   detailExDot: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    flexShrink: 0,
   },
   detailExName: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '500',
     color: colors.textPrimary,
-    flexShrink: 1,
+    flex: 1,
   },
   detailExNameDark: {
     color: darkColors.textPrimary,
   },
   detailExSub: {
-    fontSize: 10,
+    fontSize: 12,
     color: colors.textSecondary,
-    paddingLeft: 8,
   },
   detailExSubDark: {
     color: darkColors.textSecondary,
