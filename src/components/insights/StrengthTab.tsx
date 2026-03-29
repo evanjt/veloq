@@ -1,12 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  LayoutAnimation,
-} from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
@@ -68,12 +61,10 @@ export const StrengthTab = React.memo(function StrengthTab() {
   }, [selectedMuscle, summary]);
 
   const handleMuscleTap = useCallback((slug: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelectedMuscle((prev) => (prev === slug ? null : slug));
   }, []);
 
   const handleMuscleScrub = useCallback((slug: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelectedMuscle(slug);
   }, []);
 
@@ -220,13 +211,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                 <Text style={[styles.detailTitle, isDark && styles.detailTitleDark]}>
                   {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug}
                 </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                    setSelectedMuscle(null);
-                  }}
-                  hitSlop={12}
-                >
+                <TouchableOpacity onPress={() => setSelectedMuscle(null)} hitSlop={12}>
                   <MaterialCommunityIcons
                     name="close"
                     size={18}
