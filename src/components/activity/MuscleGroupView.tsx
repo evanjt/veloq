@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -152,28 +152,34 @@ export function MuscleGroupView({
                   {formatWeight(Math.round(muscleDetail.totalVolumeKg), isMetric)}
                 </Text>
               )}
-              {muscleDetail.exercises.map((ex, idx) => (
-                <View key={`${ex.name}-${idx}`} style={styles.detailExRow}>
-                  <View
-                    style={[
-                      styles.detailExDot,
-                      {
-                        backgroundColor: ex.role === 'primary' ? PRIMARY_COLOR : SECONDARY_COLOR,
-                      },
-                    ]}
-                  />
-                  <Text
-                    style={[styles.detailExText, isDark && styles.detailExTextDark]}
-                    numberOfLines={2}
-                  >
-                    {ex.name}
-                    {'\n'}
-                    <Text style={styles.detailExSub}>
-                      {ex.sets}×{ex.reps}
+              <ScrollView
+                style={styles.detailExList}
+                showsVerticalScrollIndicator={muscleDetail.exercises.length > 3}
+                nestedScrollEnabled
+              >
+                {muscleDetail.exercises.map((ex, idx) => (
+                  <View key={`${ex.name}-${idx}`} style={styles.detailExRow}>
+                    <View
+                      style={[
+                        styles.detailExDot,
+                        {
+                          backgroundColor: ex.role === 'primary' ? PRIMARY_COLOR : SECONDARY_COLOR,
+                        },
+                      ]}
+                    />
+                    <Text
+                      style={[styles.detailExText, isDark && styles.detailExTextDark]}
+                      numberOfLines={2}
+                    >
+                      {ex.name}
+                      {'\n'}
+                      <Text style={styles.detailExSub}>
+                        {ex.sets}×{ex.reps}
+                      </Text>
                     </Text>
-                  </Text>
-                </View>
-              ))}
+                  </View>
+                ))}
+              </ScrollView>
             </>
           ) : hasInteractiveData ? (
             <Text style={styles.hintText}>{t('activityDetail.tapMuscle', 'Tap for details')}</Text>
@@ -316,6 +322,9 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(0,0,0,0.15)',
     marginVertical: 4,
+  },
+  detailExList: {
+    maxHeight: 120,
   },
   detailExRow: {
     flexDirection: 'row',
