@@ -571,7 +571,8 @@
       "title": "HF sinkt uf {{name}}",
       "subtitle": "{{hrChange}} bpm tüüfer über {{efforts}} Versüech",
       "body": "Über {{efforts}} Versüech uf {{name}} isch dini Härzfrequänz bim gliiche Tempo um {{hrChange}} bpm gsunke."
-    }
+    },
+    "strength": "Strength"
   },
   "licenses": {
     "footer": "Tipp uf es Lizenz-Badge um de voll Text z gseh. Tipp ufs Link-Symbol um s Projekt-Repository z bsueche.",

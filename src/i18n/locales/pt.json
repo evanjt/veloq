@@ -571,7 +571,8 @@
       "title": "FC em queda em {{name}}",
       "subtitle": "{{hrChange}} bpm menos em {{efforts}} esforços",
       "body": "Em {{efforts}} esforços em {{name}}, a sua frequência cardíaca ao mesmo ritmo desceu {{hrChange}} bpm."
-    }
+    },
+    "strength": "Strength"
   },
   "licenses": {
     "footer": "Toque em qualquer selo de licenca para ver o texto completo. Toque no icone de link para visitar o repositorio do projeto.",

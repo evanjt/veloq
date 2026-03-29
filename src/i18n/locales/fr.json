@@ -571,7 +571,8 @@
       "title": "FC en baisse sur {{name}}",
       "subtitle": "{{hrChange}} bpm de moins sur {{efforts}} efforts",
       "body": "Sur {{efforts}} efforts sur {{name}}, votre fréquence cardiaque au même rythme a baissé de {{hrChange}} bpm."
-    }
+    },
+    "strength": "Strength"
   },
   "licenses": {
     "footer": "Appuyez sur un badge de licence pour voir le texte complet. Appuyez sur l'icône de lien pour visiter le dépôt du projet.",

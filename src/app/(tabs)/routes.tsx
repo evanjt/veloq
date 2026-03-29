@@ -8,6 +8,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { RoutesList, SectionsList, DateRangeSummary, SyncDebugTab } from '@/components';
 import { InsightsPanel } from '@/components/insights';
+import { StrengthTab } from '@/components/insights/StrengthTab';
 import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import {
   useRouteProcessing,
@@ -19,12 +20,13 @@ import {
   useInsights,
   useUserLocation,
 } from '@/hooks';
+import { useHasStrengthData } from '@/hooks/activities/useStrengthVolume';
 import { useRouteNameGeocoding } from '@/hooks/routes/useRouteNameGeocoding';
 import { useRouteSettings, useSyncDateRange, useDebugStore, useEngineStatus } from '@/providers';
 import { colors, darkColors, spacing } from '@/theme';
 import type { ActivityType } from '@/types';
 
-type TabType = 'insights' | 'routes' | 'sections' | 'debug';
+type TabType = 'insights' | 'strength' | 'routes' | 'sections' | 'debug';
 
 export default function RoutesScreen() {
   // Performance timing
@@ -46,6 +48,9 @@ export default function RoutesScreen() {
 
   // Background geocoding for generic "Route N" / "Section N" names
   useRouteNameGeocoding(isRouteMatchingEnabled);
+
+  // Strength data availability
+  const hasStrength = useHasStrengthData();
 
   // Debug mode
   const debugEnabled = useDebugStore((s) => s.enabled);
@@ -129,6 +134,15 @@ export default function RoutesScreen() {
         label: t('insights.title', 'Insights'),
         icon: 'lightbulb-outline',
       },
+    ];
+    if (hasStrength) {
+      result.push({
+        key: 'strength',
+        label: t('insights.strength', 'Strength'),
+        icon: 'dumbbell',
+      });
+    }
+    result.push(
       {
         key: 'routes',
         label: t('trainingScreen.routes'),
@@ -140,13 +154,13 @@ export default function RoutesScreen() {
         label: t('trainingScreen.sections'),
         icon: 'road-variant',
         count: totalSections,
-      },
-    ];
+      }
+    );
     if (debugEnabled) {
       result.push({ key: 'debug', label: 'Sync', icon: 'bug-outline' });
     }
     return result;
-  }, [t, routeGroupCount, totalSections, debugEnabled]);
+  }, [t, routeGroupCount, totalSections, debugEnabled, hasStrength]);
 
   // Date range state - default to full cached range (show all data)
   const now = useMemo(() => new Date(), []);
@@ -391,6 +405,7 @@ export default function RoutesScreen() {
           lazy
         >
           <InsightsPanel insights={insights} />
+          {hasStrength ? <StrengthTab /> : null}
           <RoutesList
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}

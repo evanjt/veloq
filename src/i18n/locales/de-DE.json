@@ -571,7 +571,8 @@
       "title": "HF sinkend auf {{name}}",
       "subtitle": "{{hrChange}} bpm niedriger über {{efforts}} Versuche",
       "body": "Über {{efforts}} Versuche auf {{name}} ist deine Herzfrequenz bei gleichem Tempo um {{hrChange}} bpm gesunken."
-    }
+    },
+    "strength": "Strength"
   },
   "licenses": {
     "footer": "Tippe auf ein Lizenz-Badge um den vollständigen Lizenztext anzuzeigen. Tippe auf das Link-Symbol um das Projekt-Repository zu besuchen.",

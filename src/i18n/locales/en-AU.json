@@ -836,7 +836,8 @@
       "title": "HR trending down on {{name}}",
       "subtitle": "{{hrChange}} bpm lower over {{efforts}} efforts",
       "body": "Over {{efforts}} efforts on {{name}}, your heart rate at the same pace has dropped by {{hrChange}} bpm."
-    }
+    },
+    "strength": "Strength"
   },
   "routeDetail": {
     "avgTime": "Avg Time",

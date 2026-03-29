@@ -571,7 +571,8 @@
       "title": "{{name}}上心率呈下降趋势",
       "subtitle": "{{efforts}}次中降低{{hrChange}}bpm",
       "body": "在{{name}}的{{efforts}}次中，相同配速下心率降低了{{hrChange}}bpm。"
-    }
+    },
+    "strength": "Strength"
   },
   "licenses": {
     "footer": "点击任何许可证徽章查看完整许可证文本。点击链接图标访问项目仓库。",

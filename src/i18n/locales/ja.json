@@ -571,7 +571,8 @@
       "title": "{{name}}で心拍数が低下傾向",
       "subtitle": "{{efforts}}回で{{hrChange}}bpm低下",
       "body": "{{name}}での{{efforts}}回の走行で、同じペースでの心拍数が{{hrChange}}bpm低下しました。"
-    }
+    },
+    "strength": "Strength"
   },
   "licenses": {
     "footer": "ライセンスバッジをタップすると、完全なライセンステキストが表示されます。リンクアイコンをタップすると、プロジェクトリポジトリにアクセスできます。",

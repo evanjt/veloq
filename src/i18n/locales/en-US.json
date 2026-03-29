@@ -681,6 +681,7 @@
   },
   "insights": {
     "title": "Insights",
+    "strength": "Strength",
     "noInsights": "Insights will appear as you train",
     "noInsightsHint": "Complete more activities to see personalized insights",
     "sectionPr": "PR on {{name}}",

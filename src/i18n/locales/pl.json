@@ -571,7 +571,8 @@
       "title": "HR spada na {{name}}",
       "subtitle": "{{hrChange}} bpm mniej w {{efforts}} powtórzeniach",
       "body": "W {{efforts}} powtórzeniach na {{name}} tętno przy tym samym tempie spadło o {{hrChange}} bpm."
-    }
+    },
+    "strength": "Strength"
   },
   "licenses": {
     "footer": "Dotknij dowolnej plakietki licencji, aby zobaczyć pełny tekst. Dotknij ikony linku, aby odwiedzić repozytorium projektu.",

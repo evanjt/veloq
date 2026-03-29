@@ -571,7 +571,8 @@
       "title": "HF dalend op {{name}}",
       "subtitle": "{{hrChange}} bpm lager over {{efforts}} pogingen",
       "body": "Over {{efforts}} pogingen op {{name}} is je hartslag bij hetzelfde tempo met {{hrChange}} bpm gedaald."
-    }
+    },
+    "strength": "Strength"
   },
   "licenses": {
     "footer": "Tik op een licentiebadge om de volledige licentietekst te bekijken. Tik op het linkpictogram om de projectrepository te bezoeken.",
