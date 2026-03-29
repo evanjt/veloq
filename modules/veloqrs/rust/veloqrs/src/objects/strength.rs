@@ -162,7 +162,7 @@ impl StrengthManager {
                         activity_id
                     );
 
-                    let store_result = with_engine(|e| {
+                    let stored = with_engine(|e| -> Result<(), VeloqError> {
                         if has_sets {
                             e.store_exercise_sets(activity_id, &sets)
                                 .map_err(|e| VeloqError::Database {
@@ -176,7 +176,7 @@ impl StrengthManager {
                         Ok(())
                     })?;
 
-                    if store_result.is_ok() {
+                    if stored.is_ok() {
                         processed.push(activity_id.clone());
                     }
                 }
@@ -204,14 +204,15 @@ impl StrengthManager {
 
     /// Get aggregated strength training volume for a date range.
     /// Uses weighted set counting: primary=1.0, secondary=0.5.
+    /// Timestamps are Unix seconds.
     fn get_strength_summary(
         &self,
-        start_date: String,
-        end_date: String,
+        start_ts: i64,
+        end_ts: i64,
     ) -> Result<FfiStrengthSummary, VeloqError> {
         with_engine(|e| {
             let sets = e
-                .get_exercise_sets_in_range(&start_date, &end_date)
+                .get_exercise_sets_in_range(start_ts, end_ts)
                 .map_err(|e| VeloqError::Database {
                     msg: format!("{}", e),
                 })?;

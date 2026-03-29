@@ -2,9 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { StrengthSummary, StrengthPeriod } from '@/types';
 
-function getDateRange(period: StrengthPeriod): { startDate: string; endDate: string } {
+function getTimestampRange(period: StrengthPeriod): { startTs: number; endTs: number } {
   const now = new Date();
-  const endDate = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const endTs = Math.floor(now.getTime() / 1000);
 
   const start = new Date(now);
   switch (period) {
@@ -18,9 +18,9 @@ function getDateRange(period: StrengthPeriod): { startDate: string; endDate: str
       start.setMonth(start.getMonth() - 3);
       break;
   }
-  const startDate = start.toISOString().slice(0, 10);
+  const startTs = Math.floor(start.getTime() / 1000);
 
-  return { startDate, endDate };
+  return { startTs, endTs };
 }
 
 /**
@@ -28,10 +28,10 @@ function getDateRange(period: StrengthPeriod): { startDate: string; endDate: str
  * Returns muscle group volumes with weighted set counting.
  */
 export function useStrengthVolume(period: StrengthPeriod) {
-  const { startDate, endDate } = getDateRange(period);
+  const { startTs, endTs } = getTimestampRange(period);
 
   return useQuery<StrengthSummary>({
-    queryKey: ['strength-volume', period, startDate],
+    queryKey: ['strength-volume', period, startTs],
     queryFn: () => {
       const engine = getRouteEngine();
       if (!engine || typeof engine.getStrengthSummary !== 'function') {
@@ -39,7 +39,7 @@ export function useStrengthVolume(period: StrengthPeriod) {
       }
 
       try {
-        const raw = engine.getStrengthSummary(startDate, endDate);
+        const raw = engine.getStrengthSummary(startTs, endTs);
         return {
           muscleVolumes: (raw.muscleVolumes ?? []).map(
             (v: {

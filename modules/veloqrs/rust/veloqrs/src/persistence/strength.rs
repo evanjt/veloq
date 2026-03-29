@@ -112,12 +112,12 @@ impl PersistentRouteEngine {
     }
 
     /// Get all exercise sets for WeightTraining activities within a date range.
-    /// Joins exercise_sets with activity_metrics to filter by date and sport type.
+    /// Joins exercise_sets with activity_metrics to filter by date (Unix timestamp) and sport type.
     /// Returns (activity_id, FitExerciseSet) pairs for active sets only.
     pub fn get_exercise_sets_in_range(
         &self,
-        start_date: &str,
-        end_date: &str,
+        start_ts: i64,
+        end_ts: i64,
     ) -> SqlResult<Vec<(String, FitExerciseSet)>> {
         let mut stmt = self.db.prepare(
             "SELECT es.activity_id, es.set_order, es.exercise_category, es.exercise_name,
@@ -132,7 +132,7 @@ impl PersistentRouteEngine {
         )?;
 
         let results = stmt
-            .query_map(params![start_date, end_date], |row| {
+            .query_map(params![start_ts, end_ts], |row| {
                 Ok((
                     row.get::<_, String>(0)?,
                     FitExerciseSet {

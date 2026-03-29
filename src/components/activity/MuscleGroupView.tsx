@@ -120,7 +120,7 @@ export function MuscleGroupView({
         style={styles.gradient}
         pointerEvents="none"
       />
-      <View style={styles.infoOverlay}>
+      <View style={styles.infoOverlay} pointerEvents="none">
         <Text style={[styles.activityName, !isDark && styles.activityNameLight]} numberOfLines={1}>
           {activity.name}
         </Text>
