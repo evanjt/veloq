@@ -185,7 +185,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
 
   return (
     <GestureDetector gesture={composedGesture}>
-      <Animated.View>
+      <Animated.View style={styles.gestureWrapper}>
         <View onLayout={handleLayout} style={styles.row}>
           <View style={styles.bodyView}>
             <Body
@@ -247,6 +247,9 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
 });
 
 const styles = StyleSheet.create({
+  gestureWrapper: {
+    width: '100%',
+  },
   row: {
     flexDirection: 'row',
     justifyContent: 'center',
