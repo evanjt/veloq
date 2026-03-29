@@ -1,0 +1,48 @@
+# Home Screen Search Test
+# Tests search input, filtering, and clearing on the home feed
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Wait for activity list to load
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
+# Scroll up to reveal hidden search bar (iOS-style hidden search)
+- scroll
+
+- takeScreenshot: "home-search-before"
+
+# Tap on the search input
+- tapOn:
+    id: "home-search-input"
+
+# Type search query
+- inputText: "Ride"
+
+# Wait briefly for filtering
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 5000
+
+- takeScreenshot: "home-search-filtered"
+
+# Clear the search by erasing text
+- tapOn:
+    id: "home-search-input"
+- eraseText: 4
+
+- takeScreenshot: "home-search-cleared"
+
+# Verify the activity list is still visible (no crash from search)
+- assertVisible:
+    id: "home-activity-list"
+
+- takeScreenshot: "home-search-complete"

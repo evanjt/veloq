@@ -1,7 +1,7 @@
 # Launch app without clearing state, enter demo mode if needed
 # NOTE: Assumes app is already logged in (home-screen appears within 10s).
 # If app is logged out, use setup-demo-mode.yaml (clearState: true) instead.
-appId: com.veloq.app
+appId: com.veloq.app.dev
 ---
 - launchApp:
     clearState: false

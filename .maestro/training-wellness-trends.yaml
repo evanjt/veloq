@@ -1,7 +1,7 @@
 # Training Wellness Trends Test
 # Tests wellness trends chart on training screen
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -25,5 +25,6 @@ tags:
     timeout: 10000
     speed: 40
     visibilityPercentage: 50
+- takeScreenshot: "training-wellness-trends-chart-loaded"
 
 - takeScreenshot: "training-wellness-trends-complete"

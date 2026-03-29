@@ -188,7 +188,10 @@ export const PatternDetailSheet = React.memo(function PatternDetailSheet({
       <Pressable style={styles.backdrop} onPress={onClose}>
         <View style={styles.backdropFill} />
       </Pressable>
-      <View style={[styles.sheet, isDark && styles.sheetDark, { height: SHEET_HEIGHT }]}>
+      <View
+        style={[styles.sheet, isDark && styles.sheetDark, { height: SHEET_HEIGHT }]}
+        testID="pattern-detail-sheet"
+      >
         {/* Drag handle */}
         <View style={styles.handleContainer}>
           <View style={[styles.handle, isDark && styles.handleDark]} />

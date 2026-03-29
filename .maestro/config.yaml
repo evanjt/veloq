@@ -4,7 +4,7 @@
 # App identifier (used in all flows)
 # Android: com.veloq.app
 # iOS: com.veloq.app (bundle identifier)
-appId: com.veloq.app
+appId: com.veloq.app.dev
 
 # Deep link scheme for navigation
 # Uses veloq:// scheme defined in app.json

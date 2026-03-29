@@ -2,7 +2,7 @@
 # Tests the wellness metrics display (HRV, RHR, sleep, etc.)
 # Wellness content lives on the training tab
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -17,5 +17,6 @@ tags:
     visible:
       id: "wellness-dashboard"
     timeout: 10000
+- takeScreenshot: "wellness-dashboard-data-loaded"
 
 - takeScreenshot: "wellness-dashboard-complete"

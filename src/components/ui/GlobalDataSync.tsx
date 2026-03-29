@@ -55,6 +55,7 @@ export function GlobalDataSync() {
   useEffect(() => {
     if (isAuthenticated && routeSettings.enabled) {
       queryClient.invalidateQueries({ queryKey: ['activities'] });
+      queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['wellness'] });
       queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
     }

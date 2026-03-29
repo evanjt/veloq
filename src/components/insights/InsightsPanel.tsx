@@ -24,23 +24,17 @@ export const InsightsPanel = React.memo(function InsightsPanel({ insights }: Ins
   const handleCloseSheet = useCallback(() => setSelectedInsight(null), []);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="insights-panel">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <TodayBanner />
         {insights.length > 0 ? (
-          <View style={styles.cardList}>
+          <View style={styles.cardList} testID="insights-card-list">
             {insights.map((insight) => (
               <InsightListCard key={insight.id} insight={insight} onPress={handleInsightPress} />
             ))}
-            <Text style={[styles.disclaimer, isDark && styles.disclaimerDark]}>
-              {t(
-                'insights.disclaimer',
-                'Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.'
-              )}
-            </Text>
           </View>
         ) : (
-          <View style={styles.emptyContainer}>
+          <View style={styles.emptyContainer} testID="insights-empty">
             <MaterialCommunityIcons
               name="lightbulb-outline"
               size={32}
@@ -104,16 +98,5 @@ const styles = StyleSheet.create({
   },
   emptyDark: {
     color: darkColors.textSecondary,
-  },
-  disclaimer: {
-    fontSize: 11,
-    color: colors.textMuted,
-    textAlign: 'center',
-    paddingHorizontal: layout.screenPadding,
-    paddingTop: spacing.sm,
-    lineHeight: 16,
-  },
-  disclaimerDark: {
-    color: darkColors.textMuted,
   },
 });

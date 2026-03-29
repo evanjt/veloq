@@ -1,7 +1,7 @@
 # Comprehensive Map Integration Test
 # Tests map features: activities, routes, sections, popups, filters, and toggles
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -16,6 +16,8 @@ tags:
     visible:
       id: "map-toggle-activities"
     timeout: 10000
+
+- takeScreenshot: "map-controls-loaded"
 
 # =============================================================================
 # Activity Markers - Basic Interaction
@@ -39,6 +41,8 @@ tags:
       id: "activity-popup"
     timeout: 3000
     optional: true
+
+- takeScreenshot: "map-activity-popup"
 
 - tapOn:
     id: "activity-popup-zoom"
@@ -206,6 +210,8 @@ tags:
     id: "map-filter-hike"
     optional: true
 
+- takeScreenshot: "map-filter-applied"
+
 - tapOn:
     id: "map-filter-clear"
     optional: true
@@ -216,7 +222,6 @@ tags:
 
 - tapOn:
     id: "map-toggle-activities"
-    optional: true
 
 - extendedWaitUntil:
     visible:
@@ -225,7 +230,6 @@ tags:
 
 - tapOn:
     id: "map-toggle-sections"
-    optional: true
 
 - extendedWaitUntil:
     visible:
@@ -234,7 +238,6 @@ tags:
 
 - tapOn:
     id: "map-toggle-routes"
-    optional: true
 
 - extendedWaitUntil:
     visible:
@@ -244,19 +247,17 @@ tags:
 # Toggle back on
 - tapOn:
     id: "map-toggle-routes"
-    optional: true
 
 - tapOn:
     id: "map-toggle-sections"
-    optional: true
 
 - tapOn:
     id: "map-toggle-activities"
-    optional: true
 
 - tapOn:
     id: "map-toggle-heatmap"
-    optional: true
+
+- takeScreenshot: "map-layers-toggled"
 
 # =============================================================================
 # Toggle Stress Test
@@ -267,13 +268,10 @@ tags:
     commands:
       - tapOn:
           id: "map-toggle-activities"
-          optional: true
       - tapOn:
           id: "map-toggle-routes"
-          optional: true
       - tapOn:
           id: "map-toggle-sections"
-          optional: true
 
 # =============================================================================
 # 3D Mode and Map Controls
@@ -281,20 +279,19 @@ tags:
 
 - tapOn:
     id: "map-toggle-3d"
-    optional: true
 
 - extendedWaitUntil:
     visible:
       id: "map-screen"
     timeout: 2000
 
+- takeScreenshot: "map-3d-mode"
+
 - tapOn:
     id: "map-compass"
-    optional: true
 
 - tapOn:
     id: "map-location"
-    optional: true
 
 - extendedWaitUntil:
     visible:
@@ -312,7 +309,8 @@ tags:
 
 - tapOn:
     id: "map-toggle-3d"
-    optional: true
+
+- takeScreenshot: "map-2d-restored"
 
 # =============================================================================
 # Final State Validation

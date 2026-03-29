@@ -21,7 +21,11 @@ export function SummaryCardSection() {
       <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
         {t('settings.summaryCard').toUpperCase()}
       </Text>
-      <View style={[styles.section, isDark && styles.sectionDark]}>
+      <View
+        key={isDark ? 'dark' : 'light'}
+        style={[styles.section, isDark && styles.sectionDark]}
+        testID="settings-summary-card"
+      >
         {/* Live Preview using actual SummaryCard with real data */}
         <View style={styles.summaryCardPreview}>
           <SummaryCard

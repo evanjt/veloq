@@ -222,10 +222,19 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_constructor_sectionmanager_new(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_clear_superseded(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_create(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_delete(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_disable(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_enable(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_exclude_activity(
@@ -244,6 +253,10 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_fn_method_sectionmanager_get_all_summaries_including_hidden(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_get_by_id(
@@ -297,6 +310,12 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_has_original_bounds(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_import_disabled_ids(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_import_superseded_map(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_include_activity(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -310,6 +329,9 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_set_reference(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_set_superseded(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_trim(
@@ -590,10 +612,19 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_checksum_method_routemanager_set_name(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_clear_superseded(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_create(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_delete(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_disable(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_enable(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_exclude_activity(
@@ -613,6 +644,10 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_all_summaries_including_hidden(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_by_id(
@@ -671,6 +706,14 @@ protected:
   cpp_uniffi_veloqrs_checksum_method_sectionmanager_has_original_bounds(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_sectionmanager_import_disabled_ids(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_sectionmanager_import_superseded_map(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_include_activity(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -684,6 +727,9 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_set_reference(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_set_superseded(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_trim(

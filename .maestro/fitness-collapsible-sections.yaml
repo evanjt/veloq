@@ -1,7 +1,7 @@
 # Fitness Collapsible Sections Test
 # Tests expanding and collapsing sections on fitness screen
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -26,6 +26,7 @@ tags:
 # Tap to expand it again
 - tapOn:
     id: "fitness-section-performance"
+- takeScreenshot: "fitness-collapsible-sections-performance-expanded"
 
 # Scroll further to check zones section
 - scrollUntilVisible:
@@ -41,5 +42,6 @@ tags:
 
 - tapOn:
     id: "fitness-section-zones"
+- takeScreenshot: "fitness-collapsible-sections-zones-expanded"
 
 - takeScreenshot: "fitness-collapsible-sections-complete"

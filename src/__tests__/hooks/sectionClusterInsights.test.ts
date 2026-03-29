@@ -74,7 +74,7 @@ describe('generateSectionClusterInsights', () => {
 
     const insight = result[0];
     expect(insight.id).toBe('section_cluster-improving');
-    expect(insight.category).toBe('section_cluster');
+    expect(insight.category).toBe('section_pr');
     expect(insight.priority).toBe(3);
     expect(insight.iconColor).toBe('#66BB6A');
     expect(insight.title).toContain('count: 3');
@@ -267,7 +267,7 @@ describe('generateSectionClusterInsights', () => {
     expect(result[0].subtitle).toContain('sport: running');
   });
 
-  it('omits subtitle for unknown sport types', () => {
+  it('falls back to lowercase sport type for unknown types', () => {
     const trends = [
       { ...makeTrend('s1', 'A', 1), sportType: 'Kayak' },
       { ...makeTrend('s2', 'B', 1), sportType: 'Kayak' },
@@ -275,8 +275,8 @@ describe('generateSectionClusterInsights', () => {
     const result = generateSectionClusterInsights(trends, NOW, mockT);
     expect(result).toHaveLength(1);
     expect(result[0].title).toContain('count: 2');
-    // getSportDisplayName returns '' for unknown types, so subtitle is undefined
-    expect(result[0].subtitle).toBeUndefined();
+    // getSportDisplayName falls back to lowercase for unmapped types
+    expect(result[0].subtitle).toContain('kayak');
   });
 
   it('does not cluster across sport types', () => {

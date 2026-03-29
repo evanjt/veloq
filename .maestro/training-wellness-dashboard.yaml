@@ -1,7 +1,7 @@
 # Training Wellness Dashboard Test
 # Tests wellness indicators on the training screen
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -16,6 +16,7 @@ tags:
     visible:
       id: "wellness-dashboard"
     timeout: 10000
+- takeScreenshot: "training-wellness-dashboard-loaded"
 
 # Verify weekly summary is also present
 - assertVisible:

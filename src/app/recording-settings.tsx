@@ -83,9 +83,16 @@ export default function RecordingSettingsScreen() {
   }, []);
 
   return (
-    <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
+    <ScreenSafeAreaView
+      testID="recording-settings-screen"
+      style={[styles.container, { backgroundColor: bg }]}
+    >
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          testID="recording-settings-back"
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
           <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: textPrimary }]}>{t('recording.settings')}</Text>

@@ -112,10 +112,12 @@ export function computeInsightsFromData(
     >();
 
     if (sectionsReady && engine) {
+      const patternSports =
+        allPatterns.length > 0 ? [...new Set(allPatterns.map((p) => p.sportType))] : [];
       const sportTypes =
-        allPatterns.length > 0
-          ? [...new Set(allPatterns.map((p) => p.sportType))]
-          : ['Ride', 'Run'];
+        patternSports.length > 0
+          ? patternSports
+          : (engine.getAvailableSportTypes?.() ?? ['Ride', 'Run']);
 
       for (const sport of sportTypes) {
         const ranked = engine.getRankedSections(sport, 50);
@@ -131,6 +133,7 @@ export function computeInsightsFromData(
               traversalCount: rs.traversalCount,
               sportType: sport,
               daysSinceLast: rs.daysSinceLast,
+              latestIsPr: rs.latestIsPr,
             });
           }
         }
@@ -198,10 +201,12 @@ export function computeInsightsFromData(
     // Aerobic efficiency section IDs
     let efficiencyTrendSectionIds: string[] = [];
     if (sectionsReady && engine) {
+      const patternSports =
+        allPatterns.length > 0 ? [...new Set(allPatterns.map((p) => p.sportType))] : [];
       const sportTypes =
-        allPatterns.length > 0
-          ? [...new Set(allPatterns.map((p) => p.sportType))]
-          : ['Ride', 'Run'];
+        patternSports.length > 0
+          ? patternSports
+          : (engine.getAvailableSportTypes?.() ?? ['Ride', 'Run']);
       for (const sport of sportTypes) {
         const ranked = engine.getRankedSections(sport, 5);
         for (const rs of ranked) {

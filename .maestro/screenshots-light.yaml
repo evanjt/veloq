@@ -1,7 +1,7 @@
 # Screenshot Capture - Light Theme
 # Captures screenshots of key screens for App Store marketing
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier4
 ---

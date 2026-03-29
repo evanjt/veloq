@@ -1,7 +1,7 @@
 # Secondary Screen Navigation Tests
 # Tests navigation to settings, about, routes
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -11,6 +11,7 @@ tags:
 # Settings screen
 - runFlow:
     file: helpers/navigate-to-settings.yaml
+- takeScreenshot: "navigation-secondary-settings"
 
 # About screen
 - openLink: "veloq://about"
@@ -18,6 +19,7 @@ tags:
     visible:
       id: "about-screen"
     timeout: 10000
+- takeScreenshot: "navigation-secondary-about"
 
 # Back to home
 - openLink: "veloq://"
@@ -29,6 +31,7 @@ tags:
 # Routes screen
 - runFlow:
     file: helpers/navigate-to-routes.yaml
+- takeScreenshot: "navigation-secondary-routes"
 
 # Return home
 - openLink: "veloq://"

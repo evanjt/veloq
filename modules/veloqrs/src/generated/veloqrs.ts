@@ -3091,6 +3091,10 @@ export type FfiRankedSection = {
    * -1 = declining, 0 = stable, 1 = improving
    */
   trend: /*i32*/ number;
+  /**
+   * Whether the most recent effort is the all-time best time
+   */
+  latestIsPr: boolean;
 };
 
 /**
@@ -3140,6 +3144,7 @@ const FfiConverterTypeFfiRankedSection = (() => {
         medianRecentSecs: FfiConverterFloat64.read(from),
         daysSinceLast: FfiConverterUInt32.read(from),
         trend: FfiConverterInt32.read(from),
+        latestIsPr: FfiConverterBool.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -3155,6 +3160,7 @@ const FfiConverterTypeFfiRankedSection = (() => {
       FfiConverterFloat64.write(value.medianRecentSecs, into);
       FfiConverterUInt32.write(value.daysSinceLast, into);
       FfiConverterInt32.write(value.trend, into);
+      FfiConverterBool.write(value.latestIsPr, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3169,7 +3175,8 @@ const FfiConverterTypeFfiRankedSection = (() => {
         FfiConverterFloat64.allocationSize(value.bestTimeSecs) +
         FfiConverterFloat64.allocationSize(value.medianRecentSecs) +
         FfiConverterUInt32.allocationSize(value.daysSinceLast) +
-        FfiConverterInt32.allocationSize(value.trend)
+        FfiConverterInt32.allocationSize(value.trend) +
+        FfiConverterBool.allocationSize(value.latestIsPr)
       );
     }
   }
@@ -3894,6 +3901,8 @@ export type FfiSection = {
   sourceActivityId: string | undefined;
   startIndex: /*u32*/ number | undefined;
   endIndex: /*u32*/ number | undefined;
+  disabled: boolean;
+  supersededBy: string | undefined;
 };
 
 /**
@@ -3954,6 +3963,8 @@ const FfiConverterTypeFfiSection = (() => {
         sourceActivityId: FfiConverterOptionalString.read(from),
         startIndex: FfiConverterOptionalUInt32.read(from),
         endIndex: FfiConverterOptionalUInt32.read(from),
+        disabled: FfiConverterBool.read(from),
+        supersededBy: FfiConverterOptionalString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -3980,6 +3991,8 @@ const FfiConverterTypeFfiSection = (() => {
       FfiConverterOptionalString.write(value.sourceActivityId, into);
       FfiConverterOptionalUInt32.write(value.startIndex, into);
       FfiConverterOptionalUInt32.write(value.endIndex, into);
+      FfiConverterBool.write(value.disabled, into);
+      FfiConverterOptionalString.write(value.supersededBy, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -4007,7 +4020,9 @@ const FfiConverterTypeFfiSection = (() => {
         FfiConverterOptionalArrayString.allocationSize(value.routeIds) +
         FfiConverterOptionalString.allocationSize(value.sourceActivityId) +
         FfiConverterOptionalUInt32.allocationSize(value.startIndex) +
-        FfiConverterOptionalUInt32.allocationSize(value.endIndex)
+        FfiConverterOptionalUInt32.allocationSize(value.endIndex) +
+        FfiConverterBool.allocationSize(value.disabled) +
+        FfiConverterOptionalString.allocationSize(value.supersededBy)
       );
     }
   }
@@ -5011,6 +5026,67 @@ const FfiConverterTypeFfiSummaryCardData = (() => {
 })();
 
 /**
+ * Entry for importing superseded section mappings from AsyncStorage migration.
+ */
+export type FfiSupersededEntry = {
+  customSectionId: string;
+  autoSectionIds: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiSupersededEntry} record objects.
+ */
+export const FfiSupersededEntry = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSupersededEntry, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiSupersededEntry}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiSupersededEntry}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSupersededEntry>,
+  });
+})();
+
+const FfiConverterTypeFfiSupersededEntry = (() => {
+  type TypeName = FfiSupersededEntry;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        customSectionId: FfiConverterString.read(from),
+        autoSectionIds: FfiConverterArrayString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.customSectionId, into);
+      FfiConverterArrayString.write(value.autoSectionIds, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.customSectionId) +
+        FfiConverterArrayString.allocationSize(value.autoSectionIds)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Lightweight group metadata for list views.
  * Used to avoid loading full group data with activity ID arrays when only summary info is needed.
  */
@@ -5373,6 +5449,14 @@ export type SectionSummary = {
    * All sport types present in this section's activities
    */
   sportTypes: Array<string>;
+  /**
+   * Whether the user has disabled (hidden) this section.
+   */
+  disabled: boolean;
+  /**
+   * If superseded by a custom section, stores its ID.
+   */
+  supersededBy: string | undefined;
 };
 
 /**
@@ -5423,6 +5507,8 @@ const FfiConverterTypeSectionSummary = (() => {
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
         createdAt: FfiConverterString.read(from),
         sportTypes: FfiConverterArrayString.read(from),
+        disabled: FfiConverterBool.read(from),
+        supersededBy: FfiConverterOptionalString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -5439,6 +5525,8 @@ const FfiConverterTypeSectionSummary = (() => {
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
       FfiConverterString.write(value.createdAt, into);
       FfiConverterArrayString.write(value.sportTypes, into);
+      FfiConverterBool.write(value.disabled, into);
+      FfiConverterOptionalString.write(value.supersededBy, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -5456,7 +5544,9 @@ const FfiConverterTypeSectionSummary = (() => {
         FfiConverterOptionalString.allocationSize(value.scale) +
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
         FfiConverterString.allocationSize(value.createdAt) +
-        FfiConverterArrayString.allocationSize(value.sportTypes)
+        FfiConverterArrayString.allocationSize(value.sportTypes) +
+        FfiConverterBool.allocationSize(value.disabled) +
+        FfiConverterOptionalString.allocationSize(value.supersededBy)
       );
     }
   }
@@ -7323,6 +7413,7 @@ const FfiConverterTypeRouteManager = new FfiConverterObject(
 );
 
 export interface SectionManagerInterface {
+  clearSuperseded(customSectionId: string) /*throws*/ : void;
   create(
     sportType: string,
     polyline: Array<FfiGpsPoint>,
@@ -7333,6 +7424,8 @@ export interface SectionManagerInterface {
     endIndex: /*u32*/ number | undefined,
   ) /*throws*/ : string;
   delete_(sectionId: string) /*throws*/ : void;
+  disable(sectionId: string) /*throws*/ : void;
+  enable(sectionId: string) /*throws*/ : void;
   excludeActivity(sectionId: string, activityId: string) /*throws*/ : void;
   expandBounds(sectionId: string, newPolylineJson: string) /*throws*/ : void;
   extractTrace(
@@ -7345,6 +7438,12 @@ export interface SectionManagerInterface {
   ) /*throws*/ : Array<FfiBatchTrace>;
   getAll() /*throws*/ : Array<FfiFrequentSection>;
   getAllNames() /*throws*/ : Map<string, string>;
+  /**
+   * Get ALL section summaries including disabled/superseded (for restore UI).
+   */
+  getAllSummariesIncludingHidden(
+    sportType: string | undefined,
+  ) /*throws*/ : Array<SectionSummary>;
   getById(sectionId: string) /*throws*/ : FfiFrequentSection | undefined;
   getByType(sectionType: string | undefined) /*throws*/ : Array<FfiSection>;
   getCalendarSummary(
@@ -7380,11 +7479,19 @@ export interface SectionManagerInterface {
     sportType: string | undefined,
   ) /*throws*/ : FfiSectionSummariesResult;
   hasOriginalBounds(sectionId: string) /*throws*/ : boolean;
+  importDisabledIds(ids: Array<string>) /*throws*/ : /*u32*/ number;
+  importSupersededMap(
+    entries: Array<FfiSupersededEntry>,
+  ) /*throws*/ : /*u32*/ number;
   includeActivity(sectionId: string, activityId: string) /*throws*/ : void;
   resetBounds(sectionId: string) /*throws*/ : void;
   resetReference(sectionId: string) /*throws*/ : void;
   setName(sectionId: string, name: string) /*throws*/ : void;
   setReference(sectionId: string, activityId: string) /*throws*/ : void;
+  setSuperseded(
+    autoSectionId: string,
+    customSectionId: string,
+  ) /*throws*/ : void;
   trim(
     sectionId: string,
     startIndex: /*u32*/ number,
@@ -7412,6 +7519,22 @@ export class SectionManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeSectionManagerObjectFactory.bless(pointer);
+  }
+
+  public clearSuperseded(customSectionId: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_clear_superseded(
+          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(customSectionId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
   }
 
   public create(
@@ -7453,6 +7576,38 @@ export class SectionManager
       ),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_delete(
+          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(sectionId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  public disable(sectionId: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_disable(
+          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(sectionId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  public enable(sectionId: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_enable(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
           callStatus,
@@ -7572,6 +7727,29 @@ export class SectionManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get ALL section summaries including disabled/superseded (for restore UI).
+   */
+  public getAllSummariesIncludingHidden(
+    sportType: string | undefined,
+  ): Array<SectionSummary> /*throws*/ {
+    return FfiConverterArrayTypeSectionSummary.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_summaries_including_hidden(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterOptionalString.lower(sportType),
             callStatus,
           );
         },
@@ -7896,6 +8074,44 @@ export class SectionManager
     );
   }
 
+  public importDisabledIds(ids: Array<string>): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_import_disabled_ids(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayString.lower(ids),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  public importSupersededMap(
+    entries: Array<FfiSupersededEntry>,
+  ): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_import_superseded_map(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayTypeFfiSupersededEntry.lower(entries),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   public includeActivity(
     sectionId: string,
     activityId: string,
@@ -7975,6 +8191,26 @@ export class SectionManager
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
           FfiConverterString.lower(activityId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  public setSuperseded(
+    autoSectionId: string,
+    customSectionId: string,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_superseded(
+          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(autoSectionId),
+          FfiConverterString.lower(customSectionId),
           callStatus,
         );
       },
@@ -9095,6 +9331,11 @@ const FfiConverterArrayTypeFfiSectionWithPolyline = new FfiConverterArray(
   FfiConverterTypeFfiSectionWithPolyline,
 );
 
+// FfiConverter for Array<FfiSupersededEntry>
+const FfiConverterArrayTypeFfiSupersededEntry = new FfiConverterArray(
+  FfiConverterTypeFfiSupersededEntry,
+);
+
 // FfiConverter for Array<GroupSummary>
 const FfiConverterArrayTypeGroupSummary = new FfiConverterArray(
   FfiConverterTypeGroupSummary,
@@ -9533,6 +9774,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_clear_superseded() !==
+    46272
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_clear_superseded",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_create() !==
     39592
   ) {
@@ -9546,6 +9795,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_delete",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_disable() !==
+    42421
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_disable",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_enable() !==
+    63761
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_enable",
     );
   }
   if (
@@ -9594,6 +9859,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_all_names",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_summaries_including_hidden() !==
+    31828
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_all_summaries_including_hidden",
     );
   }
   if (
@@ -9725,6 +9998,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_import_disabled_ids() !==
+    59221
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_import_disabled_ids",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_import_superseded_map() !==
+    46158
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_import_superseded_map",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_activity() !==
     60022
   ) {
@@ -9762,6 +10051,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_set_reference",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_superseded() !==
+    964
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_set_superseded",
     );
   }
   if (
@@ -10096,6 +10393,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionWithPolyline,
     FfiConverterTypeFfiStartupData,
     FfiConverterTypeFfiSummaryCardData,
+    FfiConverterTypeFfiSupersededEntry,
     FfiConverterTypeFitnessManager,
     FfiConverterTypeGroupSummary,
     FfiConverterTypeMapActivityComplete,

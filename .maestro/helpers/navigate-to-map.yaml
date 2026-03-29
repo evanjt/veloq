@@ -1,5 +1,5 @@
 # Navigate to map tab via deep link
-appId: com.veloq.app
+appId: com.veloq.app.dev
 ---
 - openLink: "veloq://map"
 - extendedWaitUntil:

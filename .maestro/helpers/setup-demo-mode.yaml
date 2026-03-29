@@ -1,16 +1,24 @@
-# Launch app fresh, enter demo mode, wait for home screen
-appId: com.veloq.app
+# Launch app, enter demo mode if needed, wait for home screen
+# Works on both emulators (with root) and physical devices (without root)
+appId: com.veloq.app.dev
 ---
-- launchApp:
-    clearState: true
+- launchApp
 
+# Wait for either login screen or home screen
 - extendedWaitUntil:
     visible:
       id: "login-screen"
-    timeout: 60000
+    timeout: 30000
+    optional: true
 
-- tapOn:
-    id: "login-demo-button"
+# If login screen is visible, enter demo mode
+- runFlow:
+    when:
+      visible:
+        id: "login-screen"
+    commands:
+      - tapOn:
+          id: "login-demo-button"
 
 # Dismiss any system alerts
 - runFlow:

@@ -1,7 +1,7 @@
 # Settings Logout Test
 # Tests logout flow returns to login screen
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -34,6 +34,8 @@ tags:
     visible:
       text: "^Disconnect$"
     timeout: 5000
+
+- takeScreenshot: "settings-logout-dialog"
 
 - tapOn:
     text: "^Disconnect$"

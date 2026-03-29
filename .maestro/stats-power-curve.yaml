@@ -2,7 +2,7 @@
 # Tests the power curve display on fitness screen
 # (Power curves migrated from stats to fitness tab)
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -18,6 +18,8 @@ tags:
       id: "power-curve-chart"
     timeout: 10000
     optional: true
+
+- takeScreenshot: "stats-power-curve-chart-loaded"
 
 # If power curve is visible, check for values
 - assertVisible:

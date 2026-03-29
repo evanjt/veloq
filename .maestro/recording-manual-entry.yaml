@@ -1,0 +1,47 @@
+# Recording Manual Entry Test
+# Tests the manual entry flow: select ManualEntry type, verify form, discard
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Tap the record FAB on the home screen
+- tapOn:
+    id: "record-fab"
+
+# Select WeightTraining — a manual-mode activity type (no GPS needed)
+# WeightTraining is in the quick start bar (6th item in DEFAULT_QUICK_TYPES)
+- tapOn:
+    id: "record-type-WeightTraining"
+
+# Wait for manual entry form to load — verify key form fields
+- extendedWaitUntil:
+    visible:
+      id: "manual-entry-name"
+    timeout: 10000
+
+- assertVisible:
+    id: "manual-entry-duration"
+
+- assertVisible:
+    id: "manual-entry-distance"
+
+# Verify the continue button is visible
+- assertVisible:
+    id: "manual-entry-continue"
+
+- takeScreenshot: "recording-manual-entry-form"
+
+# Navigate back to discard and return to home
+- back
+
+# Verify return to the record type picker or home
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+- takeScreenshot: "recording-manual-entry-complete"

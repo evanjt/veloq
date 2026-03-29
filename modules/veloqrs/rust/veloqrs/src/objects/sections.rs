@@ -375,7 +375,7 @@ impl SectionManager {
                 // Use the unfiltered variant
                 e.get_all_section_summaries(None)
                     .into_iter()
-                    .filter(|s| s.sport_type == sport)
+                    .filter(|s| s.sport_type == *sport)
                     .collect()
             }
             None => e.get_all_section_summaries(None),

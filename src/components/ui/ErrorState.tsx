@@ -40,7 +40,7 @@ export function ErrorState({
 
   if (compact) {
     return (
-      <View style={[styles.compactContainer, style]}>
+      <View style={[styles.compactContainer, style]} testID="error-state-compact">
         <MaterialCommunityIcons
           name={icon}
           size={18}
@@ -66,7 +66,7 @@ export function ErrorState({
   }
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, style]} testID="error-state">
       <View
         style={[
           styles.iconContainer,

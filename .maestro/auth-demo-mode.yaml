@@ -1,7 +1,7 @@
 # Demo Mode Authentication Tests
 # Tests the login screen and demo mode entry flow
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier1
 ---
@@ -25,6 +25,8 @@ tags:
 - assertVisible:
     id: "login-demo-button"
 
+- takeScreenshot: "auth-login-screen"
+
 # Test: API key section is expandable
 - tapOn:
     id: "login-apikey-section"
@@ -44,3 +46,5 @@ tags:
 
 - assertVisible:
     id: "demo-mode-banner"
+
+- takeScreenshot: "auth-demo-home"

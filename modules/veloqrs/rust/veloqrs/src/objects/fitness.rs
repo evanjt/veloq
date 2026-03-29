@@ -116,19 +116,15 @@ impl FitnessManager {
             // Recent PRs — loop stays in Rust, never crosses FFI
             let seven_days_ago = now_ts - 7 * 86400;
             let mut recent_prs = Vec::new();
-            let ride_summaries = e.get_section_summaries_for_sport("Ride");
-            let run_summaries = e.get_section_summaries_for_sport("Run");
-            let mut all_summaries: Vec<_> = ride_summaries
-                .into_iter()
-                .chain(run_summaries)
+            let sport_types = e.get_available_sport_types();
+            let mut all_summaries: Vec<_> = sport_types
+                .iter()
+                .flat_map(|sport| e.get_section_summaries_for_sport(sport))
                 .filter(|s| s.visit_count >= 3)
                 .collect();
             all_summaries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
 
-            for s in all_summaries.iter().take(10) {
-                if recent_prs.len() >= 3 {
-                    break;
-                }
+            for s in &all_summaries {
                 let perf = e.get_section_performances_filtered(&s.id, None);
                 let best = perf
                     .best_record
@@ -196,19 +192,15 @@ impl FitnessManager {
             // Recent PRs
             let seven_days_ago = now_ts - 7 * 86400;
             let mut recent_prs = Vec::new();
-            let ride_summaries = e.get_section_summaries_for_sport("Ride");
-            let run_summaries = e.get_section_summaries_for_sport("Run");
-            let mut all_summaries: Vec<_> = ride_summaries
-                .into_iter()
-                .chain(run_summaries)
+            let sport_types = e.get_available_sport_types();
+            let mut all_summaries: Vec<_> = sport_types
+                .iter()
+                .flat_map(|sport| e.get_section_summaries_for_sport(sport))
                 .filter(|s| s.visit_count >= 3)
                 .collect();
             all_summaries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
 
-            for s in all_summaries.iter().take(10) {
-                if recent_prs.len() >= 3 {
-                    break;
-                }
+            for s in &all_summaries {
                 let perf = e.get_section_performances_filtered(&s.id, None);
                 let best = perf
                     .best_record

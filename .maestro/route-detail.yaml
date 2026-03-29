@@ -1,7 +1,7 @@
 # Route Detail Test
 # Tests navigation to route detail screen
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -28,5 +28,15 @@ tags:
       id: "route-detail-screen"
     timeout: 10000
     optional: true
+
+- takeScreenshot: "route-detail-loaded"
+
+# Scroll down to stats
+- scroll
+- takeScreenshot: "route-detail-scroll-stats"
+
+# Scroll to sections/performances
+- scroll
+- takeScreenshot: "route-detail-scroll-sections"
 
 - takeScreenshot: "route-detail-complete"

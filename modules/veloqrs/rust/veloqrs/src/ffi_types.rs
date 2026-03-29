@@ -1033,6 +1033,8 @@ pub struct FfiRankedSection {
     pub days_since_last: u32,
     /// -1 = declining, 0 = stable, 1 = improving
     pub trend: i32,
+    /// Whether the most recent effort is the all-time best time
+    pub latest_is_pr: bool,
 }
 
 // ============================================================================

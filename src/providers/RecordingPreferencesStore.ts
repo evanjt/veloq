@@ -43,10 +43,23 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
       if (stored) {
         const parsed = JSON.parse(stored) as Partial<RecordingPreferencesState>;
         set({
-          recentActivityTypes: parsed.recentActivityTypes ?? [],
-          autoPauseEnabled: parsed.autoPauseEnabled ?? true,
-          autoPauseThresholds: parsed.autoPauseThresholds ?? { ...DEFAULT_AUTO_PAUSE_THRESHOLDS },
-          dataFields: parsed.dataFields ?? { ...DEFAULT_DATA_FIELDS },
+          recentActivityTypes: Array.isArray(parsed.recentActivityTypes)
+            ? parsed.recentActivityTypes
+            : [],
+          autoPauseEnabled:
+            typeof parsed.autoPauseEnabled === 'boolean' ? parsed.autoPauseEnabled : true,
+          autoPauseThresholds:
+            parsed.autoPauseThresholds &&
+            typeof parsed.autoPauseThresholds === 'object' &&
+            !Array.isArray(parsed.autoPauseThresholds)
+              ? parsed.autoPauseThresholds
+              : { ...DEFAULT_AUTO_PAUSE_THRESHOLDS },
+          dataFields:
+            parsed.dataFields &&
+            typeof parsed.dataFields === 'object' &&
+            !Array.isArray(parsed.dataFields)
+              ? parsed.dataFields
+              : { ...DEFAULT_DATA_FIELDS },
           isLoaded: true,
         });
       } else {
@@ -77,6 +90,7 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
   },
 
   setAutoPauseThreshold: (sport, kmh) => {
+    if (!Number.isFinite(kmh) || kmh < 0) return;
     set((state) => {
       const updated = { ...state.autoPauseThresholds, [sport]: kmh };
       persistPreferences({ ...state, autoPauseThresholds: updated });

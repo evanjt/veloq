@@ -30,6 +30,7 @@ export interface SectionTrendData {
   traversalCount: number;
   sportType?: string; // 'Run', 'Ride', 'Swim', etc.
   daysSinceLast?: number; // days since last traversal
+  latestIsPr?: boolean; // whether the most recent effort is the all-time best
 }
 
 // Translation function type
@@ -56,12 +57,30 @@ const SPORT_DISPLAY: Record<string, string> = {
   Swim: 'swimming',
   VirtualRide: 'cycling',
   VirtualRun: 'running',
+  TrailRun: 'trail running',
+  MountainBikeRide: 'mountain biking',
+  GravelRide: 'gravel riding',
+  EBikeRide: 'e-biking',
+  Hike: 'hiking',
+  Walk: 'walking',
+  AlpineSki: 'skiing',
+  BackcountrySki: 'skiing',
+  NordicSki: 'cross-country skiing',
+  Snowshoe: 'snowshoeing',
+  RollerSki: 'roller skiing',
+  Kayaking: 'kayaking',
+  Canoeing: 'canoeing',
+  StandUpPaddling: 'paddleboarding',
+  InlineSkate: 'inline skating',
+  OpenWaterSwim: 'swimming',
+  Handcycle: 'handcycling',
+  Velomobile: 'velomobile',
 };
 
-/** Get lowercase sport display name, empty string for unknown types */
+/** Get lowercase sport display name, falls back to lowercase sport type */
 export function getSportDisplayName(sportType?: string): string {
   if (!sportType) return '';
-  return SPORT_DISPLAY[sportType] ?? '';
+  return SPORT_DISPLAY[sportType] ?? sportType.toLowerCase();
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +172,7 @@ function makeClusterInsight(
       traversalCount: s.traversalCount,
       sportType: s.sportType,
       daysSinceLast: s.daysSinceLast,
+      hasRecentPR: s.latestIsPr,
     })),
     algorithmDescription: t('insights.sectionCluster.methodology'),
   };
@@ -167,7 +187,7 @@ function makeClusterInsight(
 
   return {
     id: `section_cluster-${direction}${sportSuffix}`,
-    category: 'section_cluster',
+    category: 'section_pr',
     priority: 3,
     icon: isImproving ? 'trending-up' : 'map-marker-path',
     iconColor: isImproving ? '#66BB6A' : '#FFA726',

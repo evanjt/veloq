@@ -1,7 +1,7 @@
 # API Key Validation Test
 # Tests that invalid API keys show an error
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier1
 ---
@@ -39,3 +39,5 @@ tags:
     visible:
       id: "login-error-text"
     timeout: 15000
+
+- takeScreenshot: "auth-api-key-error"

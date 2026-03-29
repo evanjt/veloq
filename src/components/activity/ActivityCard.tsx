@@ -51,6 +51,8 @@ interface ActivityCardProps {
   startupTrack?: PreviewTrack;
   /** Whether snapshot WebView workers are ready */
   snapshotReady?: boolean;
+  /** Forces re-render when theme changes (enableFreeze suppresses useColorScheme updates) */
+  colorScheme?: boolean;
 }
 
 // White text theme (used on any dark/satellite map, or dark theme + light map)
@@ -604,7 +606,9 @@ export const ActivityCard = React.memo(
       prev.activity.name === next.activity.name &&
       prev.index === next.index &&
       prev.screenFocused === next.screenFocused &&
-      prev.startupTrack === next.startupTrack;
+      prev.startupTrack === next.startupTrack &&
+      prev.colorScheme === next.colorScheme &&
+      prev.snapshotReady === next.snapshotReady;
     if (__DEV__ && !equal && (prev.index ?? 0) < 3) {
       const diffs: string[] = [];
       if (prev.activity.id !== next.activity.id) diffs.push('id');
@@ -612,6 +616,8 @@ export const ActivityCard = React.memo(
       if (prev.index !== next.index) diffs.push('index');
       if (prev.screenFocused !== next.screenFocused) diffs.push('screenFocused');
       if (prev.startupTrack !== next.startupTrack) diffs.push('startupTrack');
+      if (prev.colorScheme !== next.colorScheme) diffs.push('colorScheme');
+      if (prev.snapshotReady !== next.snapshotReady) diffs.push('snapshotReady');
       console.log(
         `    🔍 ActivityCard[${prev.index}] memo: re-render because: ${diffs.join(', ')}`
       );

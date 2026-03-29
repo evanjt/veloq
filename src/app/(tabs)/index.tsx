@@ -279,9 +279,10 @@ export default function FeedScreen() {
         screenFocused={isFeedFocused}
         startupTrack={previewTracksRef.current?.get(item.id)}
         snapshotReady={snapshotWebViewReady}
+        colorScheme={isDark}
       />
     ),
-    [isFeedFocused, snapshotWebViewReady]
+    [isFeedFocused, snapshotWebViewReady, isDark]
   );
 
   const navigateToSettings = useCallback(() => {
@@ -355,6 +356,7 @@ export default function FeedScreen() {
             {Object.keys(ACTIVITY_TYPE_GROUPS).map((group) => (
               <TouchableOpacity
                 key={group}
+                testID={`home-filter-${group.toLowerCase()}`}
                 style={[
                   styles.filterChip,
                   isDark && styles.filterChipDark,
@@ -506,6 +508,7 @@ export default function FeedScreen() {
           data={filteredActivities}
           renderItem={renderActivity}
           keyExtractor={(item) => item.id}
+          extraData={isDark}
           ListHeaderComponent={renderListHeader}
           ListEmptyComponent={isError ? renderError : renderEmpty}
           ListFooterComponent={renderFooter}

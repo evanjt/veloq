@@ -33,7 +33,7 @@ export function EmptyState({
   const { isDark, colors } = useTheme();
 
   return (
-    <View style={[styles.container, compact && styles.containerCompact]}>
+    <View style={[styles.container, compact && styles.containerCompact]} testID="empty-state">
       <View
         style={[
           styles.iconContainer,

@@ -3,7 +3,6 @@ import type { Insight } from '@/types';
 import { SectionPRContent } from './SectionPRContent';
 import { SectionTrendContent } from './SectionTrendContent';
 import { StalePRContent } from './StalePRContent';
-import { SectionClusterContent } from './SectionClusterContent';
 import { TsbFormContent } from './TsbFormContent';
 import { HrvTrendContent } from './HrvTrendContent';
 import { PeriodComparisonContent } from './PeriodComparisonContent';
@@ -43,8 +42,6 @@ export const InsightDetailContent = React.memo(function InsightDetailContent({
       return <ConsistencyContent insight={insight} />;
     case 'stale_pr':
       return <StalePRContent insight={insight} />;
-    case 'section_cluster':
-      return <SectionClusterContent insight={insight} />;
     case 'efficiency_trend':
       return <EfficiencyTrendContent insight={insight} />;
     default:

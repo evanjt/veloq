@@ -360,7 +360,11 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   }, [coordinates.length, sectionCreationMode, isDark, cacheDays, t, onSectionCreationModeChange]);
 
   return (
-    <View style={styles.tabScrollView} onTouchEnd={handleSectionsTouchEnd}>
+    <View
+      style={styles.tabScrollView}
+      onTouchEnd={handleSectionsTouchEnd}
+      testID="activity-sections-list"
+    >
       <FlatList
         data={unifiedSections}
         keyExtractor={keyExtractor}

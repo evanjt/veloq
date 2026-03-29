@@ -19,7 +19,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   weekly_load: '#FFA726',
   intensity_context: '#FFA726',
   stale_pr: '#FF9800',
-  section_cluster: '#66BB6A',
   efficiency_trend: '#66BB6A',
 };
 
@@ -174,6 +173,7 @@ export const InsightListCard = React.memo(function InsightListCard({
       style={[styles.card, isDark && styles.cardDark]}
       onPress={handlePress}
       activeOpacity={0.7}
+      testID={`insight-card-${insight.id}`}
     >
       <View style={[styles.colorBar, { backgroundColor: categoryColor }]} />
       <View style={[styles.iconCircle, { backgroundColor: colorWithOpacity(categoryColor, 0.1) }]}>

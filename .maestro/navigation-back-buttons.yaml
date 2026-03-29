@@ -1,0 +1,62 @@
+# Back Button Navigation Regression
+# Tests back navigation doesn't corrupt the navigation stack
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Wait for demo data before deep linking to activity
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
+# Home -> Activity detail -> back -> verify home
+- openLink: "veloq://activity/demo-test-0"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-screen"
+    timeout: 15000
+- takeScreenshot: "navigation-back-buttons-activity-detail"
+- back
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+- takeScreenshot: "navigation-back-buttons-back-to-home"
+
+# Settings -> About -> back -> verify settings
+- openLink: "veloq://settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+- openLink: "veloq://about"
+- extendedWaitUntil:
+    visible:
+      id: "about-screen"
+    timeout: 10000
+- takeScreenshot: "navigation-back-buttons-about"
+- back
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+- takeScreenshot: "navigation-back-buttons-back-to-settings"
+
+# Fitness -> back -> verify home
+- openLink: "veloq://fitness"
+- extendedWaitUntil:
+    visible:
+      id: "fitness-screen"
+    timeout: 10000
+- openLink: "veloq://"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+- takeScreenshot: "navigation-back-buttons-complete"

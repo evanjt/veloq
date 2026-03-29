@@ -1,0 +1,72 @@
+# Recording Review Screen Test
+# Tests the review screen: verify fields, enter activity name, save
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Start a recording
+- tapOn:
+    id: "record-fab"
+
+- tapOn:
+    id: "record-type-Ride"
+
+# Wait for recording screen
+- extendedWaitUntil:
+    visible:
+      id: "recording-timer"
+    timeout: 10000
+
+# Brief recording — let it run for a moment
+- swipe:
+    direction: UP
+    duration: 1000
+
+# Stop the recording to reach review screen
+- tapOn:
+    id: "control-stop"
+
+# Wait for review screen to load
+- extendedWaitUntil:
+    visible:
+      id: "review-save-button"
+    timeout: 10000
+
+# Verify all review fields are visible
+- assertVisible:
+    id: "review-activity-name"
+
+- assertVisible:
+    id: "review-activity-type"
+
+- assertVisible:
+    id: "review-discard-button"
+
+- takeScreenshot: "recording-review-fields"
+
+# Clear the default name and enter a custom one with special characters
+- tapOn:
+    id: "review-activity-name"
+
+- eraseText:
+    charactersToErase: 50
+
+- inputText: "Test Ride 🚴"
+
+- takeScreenshot: "recording-review-name-entered"
+
+# Tap save — in demo mode this succeeds and navigates home
+- tapOn:
+    id: "review-save-button"
+
+# Verify return to home screen (no crash)
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+- takeScreenshot: "recording-review-complete"

@@ -227,43 +227,6 @@ function addRestDayInsights(
     }
   }
 
-  // 2. Section trends on rest day (positive framing)
-  const trends = data.allSectionTrends ?? data.sectionTrends;
-  if (trends.length > 0) {
-    const improvingCount = trends.filter((s) => s.trend === 1).length;
-
-    if (improvingCount > 0) {
-      insights.push(
-        makeInsight({
-          id: 'rest_day-section-trends',
-          category: 'section_pr',
-          priority: 3,
-          icon: 'map-marker-path',
-          iconColor: '#66BB6A',
-          title: t('insights.restDay.sectionTrends', {
-            improving: improvingCount,
-            total: trends.length,
-          }),
-          navigationTarget: '/routes',
-          timestamp: now,
-          supportingData: {
-            sections: trends
-              .filter((s) => s.trend === 1)
-              .sort((a, b) => (a.daysSinceLast ?? Infinity) - (b.daysSinceLast ?? Infinity))
-              .map((s) => ({
-                sectionId: s.sectionId,
-                sectionName: s.sectionName,
-                trend: s.trend,
-                traversalCount: s.traversalCount,
-                sportType: s.sportType,
-                daysSinceLast: s.daysSinceLast,
-              })),
-          },
-        })
-      );
-    }
-  }
-
   // 3. Pattern prediction for tomorrow — REMOVED from card list.
   // Pattern predictions are shown in the Today banner only.
   // Pattern predictions removed from card list — shown in Today banner only.
@@ -838,19 +801,7 @@ function addSectionClusterInsights(
   const clusterInsights = generateSectionClusterInsights(trends, now, t);
   // Show at most 1 cluster insight (the most relevant — improving takes priority)
   if (clusterInsights.length > 0) {
-    const insight = clusterInsights[0];
-
-    // Mark sections that have a recent PR so the UI can show a badge on collapsed rows
-    const prSectionIds = new Set((data.recentPRs ?? []).map((pr) => pr.sectionId));
-    if (prSectionIds.size > 0 && insight.supportingData?.sections) {
-      for (const section of insight.supportingData.sections) {
-        if (prSectionIds.has(section.sectionId)) {
-          section.hasRecentPR = true;
-        }
-      }
-    }
-
-    insights.push(insight);
+    insights.push(clusterInsights[0]);
   }
 }
 

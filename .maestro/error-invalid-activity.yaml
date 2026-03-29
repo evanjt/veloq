@@ -1,0 +1,37 @@
+# Invalid Activity Deep Link Error Handling
+# Verifies app handles nonexistent activity IDs gracefully without crashing
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Open a nonexistent activity via deep link
+- openLink: "veloq://activity/this-does-not-exist"
+
+# Wait briefly for the app to handle the invalid ID
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 5000
+    optional: true
+
+- takeScreenshot: "error-invalid-activity-after-deep-link"
+
+# Verify app is still responsive by navigating to a real screen
+- openLink: "veloq://"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+# Navigate to another screen to confirm full responsiveness
+- openLink: "veloq://fitness"
+- extendedWaitUntil:
+    visible:
+      id: "fitness-screen"
+    timeout: 10000
+
+- takeScreenshot: "error-invalid-activity-complete"

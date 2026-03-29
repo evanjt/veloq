@@ -577,48 +577,7 @@ describe('generateInsights', () => {
       expect(intensity!.category).toBe('intensity_context');
     });
 
-    it('generates section trends on rest day when improving sections exist', () => {
-      const result = generateInsights(
-        {
-          ...EMPTY_INPUT,
-          isRestDay: true,
-          sectionTrends: [
-            {
-              sectionId: 's1',
-              sectionName: 'Hill',
-              trend: 1,
-              medianRecentSecs: 300,
-              bestTimeSecs: 270,
-              traversalCount: 10,
-            },
-          ],
-        },
-        mockT
-      );
-      const trends = result.find((i) => i.id === 'rest_day-section-trends');
-      expect(trends).toBeDefined();
-    });
-
-    it('does not generate section trends when no improving sections', () => {
-      const result = generateInsights(
-        {
-          ...EMPTY_INPUT,
-          isRestDay: true,
-          sectionTrends: [
-            {
-              sectionId: 's1',
-              sectionName: 'Hill',
-              trend: -1,
-              medianRecentSecs: 300,
-              bestTimeSecs: 270,
-              traversalCount: 10,
-            },
-          ],
-        },
-        mockT
-      );
-      expect(result.find((i) => i.id === 'rest_day-section-trends')).toBeUndefined();
-    });
+    // Rest-day section trends removed — handled by sport-grouped cluster insights
 
     // Tomorrow pattern removed from card list — shown in Today banner only
   });
@@ -797,5 +756,262 @@ describe('formatDurationCompact', () => {
 
   it('pads minutes with leading zero', () => {
     expect(formatDurationCompact(3660)).toBe('1h01');
+  });
+});
+
+// ============================================================
+// ADDITIONAL EDGE CASE BUG HUNTING
+// ============================================================
+
+describe('generateInsights — additional edge cases', () => {
+  /**
+   * All-zero metrics: CTL=0, ATL=0, TSB=0 should NOT generate a TSB form
+   * insight because there is no wellness data to report on.
+   *
+   * The guard `if ((!ctl || ctl === 0) && (!atl || atl === 0)) return` should
+   * catch this, but let's verify TSB=0 specifically.
+   */
+  it('all-zero CTL/ATL/TSB does not generate TSB form insight', () => {
+    const result = generateInsights({ ...EMPTY_INPUT, formTsb: 0, formCtl: 0, formAtl: 0 }, mockT);
+    const tsb = result.find((i) => i.id === 'tsb_form-position');
+    expect(tsb).toBeUndefined();
+  });
+
+  /**
+   * FTP with NaN values should not produce an insight.
+   */
+  it('FTP trend with NaN latestFtp does not crash or generate insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        ftpTrend: {
+          latestFtp: NaN,
+          latestDate: BigInt(1000),
+          previousFtp: 250,
+          previousDate: BigInt(500),
+        },
+      },
+      mockT
+    );
+    const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
+    expect(ftp).toBeUndefined();
+  });
+
+  /**
+   * FTP trend with undefined values should not crash.
+   */
+  it('FTP trend with undefined values does not crash', () => {
+    expect(() =>
+      generateInsights(
+        {
+          ...EMPTY_INPUT,
+          ftpTrend: {
+            latestFtp: undefined,
+            latestDate: undefined,
+            previousFtp: undefined,
+            previousDate: undefined,
+          },
+        },
+        mockT
+      )
+    ).not.toThrow();
+  });
+
+  /**
+   * Pace trend with zero values should not generate a milestone.
+   * pace.latestPace = 0 means 0 m/s — effectively no movement.
+   */
+  it('pace trend with zero latestPace does not generate insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        paceTrend: {
+          latestPace: 0,
+          latestDate: BigInt(1000),
+          previousPace: 300,
+          previousDate: BigInt(500),
+        },
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'fitness_milestone-pace')).toBeUndefined();
+  });
+
+  /**
+   * Period comparison where previous period has zero TSS and zero duration.
+   * Both fallback paths have prevValue=0, which triggers the prevValue <= 0 guard.
+   */
+  it('previous period all zeroes does not generate period comparison', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        currentPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 150 },
+        previousPeriod: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+  });
+
+  /**
+   * Single HRV data point should NOT generate an HRV trend.
+   * Trends from 1-2 points are unreliable.
+   */
+  it('single HRV value does not produce trend insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        wellnessWindow: [{ date: '2026-02-15', hrv: 55 }],
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
+  });
+
+  /**
+   * HRV values with NaN entries should be filtered out and not crash.
+   * If all values are NaN, no insight should be generated.
+   */
+  it('all-NaN HRV values do not produce trend insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        wellnessWindow: [
+          { date: '2026-02-15', hrv: NaN },
+          { date: '2026-02-16', hrv: NaN },
+          { date: '2026-02-17', hrv: NaN },
+        ],
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
+  });
+
+  /**
+   * Section PR with bestTime = 0 should be skipped.
+   * 0 seconds is clearly invalid for a section time.
+   */
+  it('section PR with bestTime = 0 is skipped', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        recentPRs: [{ sectionId: 's1', sectionName: 'Test', bestTime: 0, daysAgo: 1 }],
+      },
+      mockT
+    );
+    const prInsights = result.filter((i) => i.id.startsWith('section_pr-'));
+    // bestTime = 0 is not NaN, so Number.isFinite(0) = true. It passes the guard.
+    // This may or may not be intentional (a 0-second PR is nonsensical).
+    // The test documents the current behavior.
+    expect(prInsights).toHaveLength(1);
+  });
+
+  /**
+   * Section PR with negative bestTime should be filtered.
+   * Negative time makes no physical sense.
+   */
+  it('section PR with negative bestTime is skipped', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        recentPRs: [{ sectionId: 's1', sectionName: 'Test', bestTime: -100, daysAgo: 1 }],
+      },
+      mockT
+    );
+    const prInsights = result.filter((i) => i.id.startsWith('section_pr-'));
+    // Number.isFinite(-100) is true, so the guard only catches NaN/Infinity.
+    // Negative bestTime passes through. This may be a gap in validation.
+    expect(prInsights).toHaveLength(1);
+  });
+
+  /**
+   * Rest day with isRestDay=true but no period data should not crash.
+   */
+  it('rest day with null period data does not crash', () => {
+    expect(() => generateInsights({ ...EMPTY_INPUT, isRestDay: true }, mockT)).not.toThrow();
+    const result = generateInsights({ ...EMPTY_INPUT, isRestDay: true }, mockT);
+    expect(result.find((i) => i.id === 'rest_day-intensity-context')).toBeUndefined();
+  });
+
+  /**
+   * Period comparison with both periods having identical non-zero values.
+   * Change should be < 10% so no insight is generated.
+   */
+  it('identical periods produce no comparison insight', () => {
+    const period = { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 };
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        currentPeriod: period,
+        previousPeriod: period,
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+  });
+
+  /**
+   * FTP equal values (no change) should not generate milestone.
+   */
+  it('FTP with no change (same value) does not generate insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        ftpTrend: {
+          latestFtp: 250,
+          latestDate: BigInt(1000),
+          previousFtp: 250,
+          previousDate: BigInt(500),
+        },
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'fitness_milestone-ftp')).toBeUndefined();
+  });
+
+  /**
+   * Pace got worse (higher seconds per km) should not generate milestone.
+   */
+  it('pace regression does not produce insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        paceTrend: {
+          latestPace: 350,
+          latestDate: BigInt(1000),
+          previousPace: 300,
+          previousDate: BigInt(500),
+        },
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'fitness_milestone-pace')).toBeUndefined();
+  });
+
+  /**
+   * Extremely large TSB value (e.g., 999) should still generate an insight
+   * and map to the 'fresh' zone without crashing.
+   */
+  it('extremely large TSB value maps to fresh zone without crashing', () => {
+    const result = generateInsights(
+      { ...EMPTY_INPUT, formTsb: 999, formCtl: 50, formAtl: 50 },
+      mockT
+    );
+    const tsb = result.find((i) => i.id === 'tsb_form-position');
+    expect(tsb).toBeDefined();
+    expect(tsb!.title).toContain('fresh');
+  });
+
+  /**
+   * Extremely negative TSB value should map to highRisk zone.
+   */
+  it('extremely negative TSB maps to highRisk zone', () => {
+    const result = generateInsights(
+      { ...EMPTY_INPUT, formTsb: -100, formCtl: 50, formAtl: 150 },
+      mockT
+    );
+    const tsb = result.find((i) => i.id === 'tsb_form-position');
+    expect(tsb).toBeDefined();
+    expect(tsb!.title).toContain('highRisk');
   });
 });

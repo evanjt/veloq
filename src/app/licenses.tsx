@@ -292,9 +292,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 interface CollapsibleSectionProps {
   section: LicenseSection;
   isDark: boolean;
+  testID?: string;
 }
 
-function CollapsibleSection({ section, isDark }: CollapsibleSectionProps) {
+function CollapsibleSection({ section, isDark, testID }: CollapsibleSectionProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useTranslation();
   const themeColors = isDark ? darkColors : colors;
@@ -305,7 +306,7 @@ function CollapsibleSection({ section, isDark }: CollapsibleSectionProps) {
   };
 
   return (
-    <View style={styles.sectionContainer(isDark)}>
+    <View testID={testID} style={styles.sectionContainer(isDark)}>
       <TouchableOpacity style={styles.sectionHeader} onPress={toggleExpanded} activeOpacity={0.7}>
         <View style={styles.sectionTitleRow}>
           <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
@@ -332,6 +333,7 @@ function CollapsibleSection({ section, isDark }: CollapsibleSectionProps) {
           {section.entries.map((entry, index) => (
             <LicenseEntryRow
               key={entry.name}
+              testID={`license-entry-${index}`}
               entry={entry}
               isDark={isDark}
               isLast={index === section.entries.length - 1}
@@ -347,9 +349,10 @@ interface LicenseEntryRowProps {
   entry: LicenseEntry;
   isDark: boolean;
   isLast: boolean;
+  testID?: string;
 }
 
-function LicenseEntryRow({ entry, isDark, isLast }: LicenseEntryRowProps) {
+function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps) {
   const [showLicense, setShowLicense] = useState(false);
   const themeColors = isDark ? darkColors : colors;
 
@@ -369,7 +372,7 @@ function LicenseEntryRow({ entry, isDark, isLast }: LicenseEntryRowProps) {
   const licenseText = LICENSE_TEXTS[primaryLicense];
 
   return (
-    <View style={[styles.entryContainer, !isLast && styles.entryBorder(isDark)]}>
+    <View testID={testID} style={[styles.entryContainer, !isLast && styles.entryBorder(isDark)]}>
       <View style={styles.entryRow}>
         <View style={styles.entryInfo}>
           <Text style={[styles.entryName, { color: themeColors.textPrimary }]}>{entry.name}</Text>
@@ -437,8 +440,13 @@ export default function LicensesScreen() {
         </View>
 
         {/* License sections */}
-        {LICENSE_DATA.map((section) => (
-          <CollapsibleSection key={section.title} section={section} isDark={isDark} />
+        {LICENSE_DATA.map((section, index) => (
+          <CollapsibleSection
+            key={section.title}
+            testID={`license-section-${index}`}
+            section={section}
+            isDark={isDark}
+          />
         ))}
 
         {/* Footer */}

@@ -1,7 +1,7 @@
 # Section Detail Test
 # Tests navigation to section detail screen
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -33,5 +33,15 @@ tags:
       id: "section-detail-screen"
     timeout: 10000
     optional: true
+
+- takeScreenshot: "section-detail-loaded"
+
+# Scroll down to stats
+- scroll
+- takeScreenshot: "section-detail-scroll-stats"
+
+# Scroll to performances
+- scroll
+- takeScreenshot: "section-detail-scroll-performances"
 
 - takeScreenshot: "section-detail-complete"

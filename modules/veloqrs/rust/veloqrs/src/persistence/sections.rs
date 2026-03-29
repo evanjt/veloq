@@ -896,6 +896,12 @@ impl PersistentRouteEngine {
                     0
                 };
 
+                let latest_is_pr = if let Some(&latest) = data.times.last() {
+                    best_time_secs.is_finite() && (latest - best_time_secs).abs() < 0.01
+                } else {
+                    false
+                };
+
                 crate::FfiRankedSection {
                     section_id: section_id.clone(),
                     section_name: data.name.clone(),
@@ -909,6 +915,7 @@ impl PersistentRouteEngine {
                     median_recent_secs,
                     days_since_last,
                     trend,
+                    latest_is_pr,
                 }
             })
             .collect();

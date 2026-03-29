@@ -1,7 +1,7 @@
 # Fitness Metrics Tests
 # Tests the fitness chart CTL/ATL values display
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -17,8 +17,20 @@ tags:
       id: "fitness-ctl-value"
     timeout: 10000
 
+# Verify CTL value is not NaN
+- assertNotVisible:
+    text: "NaN"
+    optional: true
+
 # Verify ATL (fatigue) value is displayed
 - assertVisible:
     id: "fitness-atl-value"
+
+# Verify ATL value is not NaN
+- assertNotVisible:
+    text: "NaN"
+    optional: true
+
+- takeScreenshot: "fitness-metrics-ctl-loaded"
 
 - takeScreenshot: "fitness-metrics-complete"

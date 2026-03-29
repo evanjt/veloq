@@ -1,0 +1,87 @@
+# Recording Start/Stop Test
+# Tests the full recording lifecycle: start, pause, resume, stop, review, discard
+
+appId: com.veloq.app.dev
+tags:
+  - tier1
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Tap the record FAB on the home screen
+- tapOn:
+    id: "record-fab"
+
+# Select Ride activity type
+- tapOn:
+    id: "record-type-Ride"
+
+# Wait for recording screen to load
+- extendedWaitUntil:
+    visible:
+      id: "recording-timer"
+    timeout: 10000
+
+# Verify control bar buttons are visible (recording state: lap, pause, stop)
+- assertVisible:
+    id: "control-pause"
+
+- assertVisible:
+    id: "control-stop"
+
+- assertVisible:
+    id: "control-lap"
+
+- takeScreenshot: "recording-active"
+
+# Tap pause
+- tapOn:
+    id: "control-pause"
+
+# Verify resume button appears (paused state)
+- extendedWaitUntil:
+    visible:
+      id: "control-resume"
+    timeout: 5000
+
+- takeScreenshot: "recording-paused"
+
+# Tap resume
+- tapOn:
+    id: "control-resume"
+
+# Verify pause button returns (recording state)
+- extendedWaitUntil:
+    visible:
+      id: "control-pause"
+    timeout: 5000
+
+- takeScreenshot: "recording-resumed"
+
+# Tap stop (simple tap in recording state)
+- tapOn:
+    id: "control-stop"
+
+# Wait for review screen to load
+- extendedWaitUntil:
+    visible:
+      id: "review-save-button"
+    timeout: 10000
+
+# Verify discard button is also visible
+- assertVisible:
+    id: "review-discard-button"
+
+- takeScreenshot: "recording-review-screen"
+
+# Long-press discard to return to home (hold-to-discard requires 1s press)
+- longPressOn:
+    id: "review-discard-button"
+
+# Verify return to home screen
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+- takeScreenshot: "recording-start-stop-complete"

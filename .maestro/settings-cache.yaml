@@ -1,7 +1,7 @@
 # Settings Cache Test
 # Tests cache clear button exists and is interactive
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -18,5 +18,7 @@ tags:
     direction: DOWN
     timeout: 10000
     speed: 40
+
+- takeScreenshot: "settings-cache-section"
 
 - takeScreenshot: "settings-cache-complete"

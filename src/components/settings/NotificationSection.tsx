@@ -73,6 +73,7 @@ export function NotificationSection() {
             onValueChange={handleMainToggle}
             disabled={!canEnable || toggling}
             color={colors.primary}
+            testID="settings-notifications-toggle"
           />
         </View>
 

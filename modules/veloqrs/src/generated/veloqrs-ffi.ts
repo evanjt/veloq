@@ -339,6 +339,11 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_constructor_sectionmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_clear_superseded(
+    ptr: bigint,
+    customSectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_create(
     ptr: bigint,
     sportType: Uint8Array,
@@ -351,6 +356,16 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_delete(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_disable(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_enable(
     ptr: bigint,
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
@@ -385,6 +400,11 @@ interface NativeModuleInterface {
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
     ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_summaries_including_hidden(
+    ptr: bigint,
+    sportType: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_by_id(
@@ -470,6 +490,16 @@ interface NativeModuleInterface {
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_import_disabled_ids(
+    ptr: bigint,
+    ids: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_import_superseded_map(
+    ptr: bigint,
+    entries: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_include_activity(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -496,6 +526,12 @@ interface NativeModuleInterface {
     ptr: bigint,
     sectionId: Uint8Array,
     activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_superseded(
+    ptr: bigint,
+    autoSectionId: Uint8Array,
+    customSectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_trim(
@@ -711,14 +747,18 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries_with_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_include_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_set_name(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_clear_superseded(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_create(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_delete(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_disable(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_enable(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_trace(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_traces_batch(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_summaries_including_hidden(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_id(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_type(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_calendar_summary(): number;
@@ -735,11 +775,14 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries_with_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_has_original_bounds(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_import_disabled_ids(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_import_superseded_map(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_reference(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_name(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_reference(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_superseded(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_trim(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings(): number;

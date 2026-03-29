@@ -102,7 +102,7 @@ export function TrimSlider({
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
-    <View style={[styles.pill, { backgroundColor: pillBg }]}>
+    <View style={[styles.pill, { backgroundColor: pillBg }]} testID="review-trim-slider">
       {/* Title + time labels */}
       <View style={styles.headerRow}>
         <Text style={[styles.title, { color: textPrimary }]}>

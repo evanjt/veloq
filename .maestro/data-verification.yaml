@@ -1,7 +1,7 @@
 # Data Verification Tests
 # Verifies that key data components display correctly with demo data
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -14,6 +14,16 @@ tags:
       id: "home-activity-list"
     timeout: 10000
 
+- takeScreenshot: "data-verification-home"
+
+# Check for bad values on home screen
+- assertNotVisible:
+    text: "NaN"
+    optional: true
+- assertNotVisible:
+    text: "undefined"
+    optional: true
+
 # Navigate to training screen to check weekly summary
 - runFlow:
     file: helpers/navigate-to-training.yaml
@@ -21,6 +31,16 @@ tags:
     visible:
       id: "weekly-summary"
     timeout: 10000
+
+- takeScreenshot: "data-verification-training"
+
+# Check for bad values on training screen
+- assertNotVisible:
+    text: "NaN"
+    optional: true
+- assertNotVisible:
+    text: "undefined"
+    optional: true
 
 # Navigate to Fitness and check CTL/ATL values display
 - runFlow:
@@ -32,6 +52,16 @@ tags:
 - assertVisible:
     id: "fitness-atl-value"
 
+- takeScreenshot: "data-verification-fitness"
+
+# Check for bad values on fitness screen
+- assertNotVisible:
+    text: "NaN"
+    optional: true
+- assertNotVisible:
+    text: "undefined"
+    optional: true
+
 # Navigate to Routes and verify list loads
 - runFlow:
     file: helpers/navigate-to-routes.yaml
@@ -39,6 +69,16 @@ tags:
     visible:
       id: "routes-list"
     timeout: 10000
+
+- takeScreenshot: "data-verification-routes"
+
+# Check for bad values on routes screen
+- assertNotVisible:
+    text: "NaN"
+    optional: true
+- assertNotVisible:
+    text: "undefined"
+    optional: true
 
 # Navigate to activity detail and verify stats display
 - openLink: "veloq://activity/demo-test-0"
@@ -51,3 +91,15 @@ tags:
     visible:
       id: "chart-type-selector"
     timeout: 10000
+
+- takeScreenshot: "data-verification-activity-detail"
+
+# Check for bad values on activity detail screen
+- assertNotVisible:
+    text: "NaN"
+    optional: true
+- assertNotVisible:
+    text: "undefined"
+    optional: true
+
+- takeScreenshot: "data-verification-complete"
