@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity, LayoutAnimation } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,7 +12,7 @@ import { useMetricSystem } from '@/hooks';
 import { TappableBody } from './TappableBody';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime, formatDuration } from '@/lib';
-import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import type { ActivityDetail } from '@/types';
 import type { ExerciseSet } from 'veloqrs';
 
@@ -52,7 +52,6 @@ export function MuscleGroupView({
   const handleMuscleTap = useCallback(
     (slug: string) => {
       if ((exerciseSets ?? []).length > 0) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setSelectedMuscle((prev) => (prev === slug ? null : slug));
       }
     },
@@ -90,7 +89,7 @@ export function MuscleGroupView({
         </TouchableOpacity>
       </View>
 
-      {/* Body diagrams with legend between */}
+      {/* Body diagrams with center column between them */}
       <View style={[styles.bodyContainer, { paddingTop: insets.top + 40 }]}>
         <View style={styles.bodyView}>
           <TappableBody
@@ -103,7 +102,10 @@ export function MuscleGroupView({
             tappableSlugs={tappableSlugs}
           />
         </View>
-        <View style={styles.legendCenter}>
+
+        {/* Center column: legend always on top, detail below when selected */}
+        <View style={styles.centerColumn}>
+          {/* Legend — always visible */}
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: PRIMARY_COLOR }]} />
             <Text style={styles.legendText}>{t('activityDetail.primary')}</Text>
@@ -112,10 +114,72 @@ export function MuscleGroupView({
             <View style={[styles.legendDot, { backgroundColor: SECONDARY_COLOR }]} />
             <Text style={styles.legendText}>{t('activityDetail.secondary')}</Text>
           </View>
-          {hasInteractiveData && (
+
+          {/* Detail — shown below legend when a muscle is selected */}
+          {muscleDetail ? (
+            <>
+              <View style={styles.detailDivider} />
+              <View style={styles.detailHeaderRow}>
+                <View
+                  style={[
+                    styles.detailDot,
+                    {
+                      backgroundColor:
+                        muscleDetail.primaryExercises > 0 ? PRIMARY_COLOR : SECONDARY_COLOR,
+                    },
+                  ]}
+                />
+                <Text
+                  style={[styles.detailName, isDark && styles.detailNameDark]}
+                  numberOfLines={1}
+                >
+                  {muscleDetail.name}
+                </Text>
+                <TouchableOpacity onPress={() => setSelectedMuscle(null)} hitSlop={12}>
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={12}
+                    color={isDark ? darkColors.textMuted : colors.textDisabled}
+                  />
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
+                {muscleDetail.totalSets} {muscleDetail.totalSets === 1 ? 'set' : 'sets'} ·{' '}
+                {muscleDetail.totalReps} reps
+              </Text>
+              {muscleDetail.totalVolumeKg > 0 && (
+                <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
+                  {formatWeight(Math.round(muscleDetail.totalVolumeKg), isMetric)}
+                </Text>
+              )}
+              {muscleDetail.exercises.map((ex, idx) => (
+                <View key={`${ex.name}-${idx}`} style={styles.detailExRow}>
+                  <View
+                    style={[
+                      styles.detailExDot,
+                      {
+                        backgroundColor: ex.role === 'primary' ? PRIMARY_COLOR : SECONDARY_COLOR,
+                      },
+                    ]}
+                  />
+                  <Text
+                    style={[styles.detailExText, isDark && styles.detailExTextDark]}
+                    numberOfLines={2}
+                  >
+                    {ex.name}
+                    {'\n'}
+                    <Text style={styles.detailExSub}>
+                      {ex.sets}×{ex.reps}
+                    </Text>
+                  </Text>
+                </View>
+              ))}
+            </>
+          ) : hasInteractiveData ? (
             <Text style={styles.hintText}>{t('activityDetail.tapMuscle', 'Tap for details')}</Text>
-          )}
+          ) : null}
         </View>
+
         <View style={styles.bodyView}>
           <TappableBody
             data={bodyData}
@@ -128,91 +192,6 @@ export function MuscleGroupView({
           />
         </View>
       </View>
-
-      {/* Inline muscle detail (replaces bottom sheet) */}
-      {muscleDetail && (
-        <View style={[styles.detailCard, isDark && styles.detailCardDark]}>
-          <View style={styles.detailHeader}>
-            <View style={styles.detailHeaderLeft}>
-              <View
-                style={[
-                  styles.detailDot,
-                  {
-                    backgroundColor:
-                      muscleDetail.primaryExercises > 0 ? PRIMARY_COLOR : SECONDARY_COLOR,
-                  },
-                ]}
-              />
-              <Text style={[styles.detailTitle, isDark && styles.detailTitleDark]}>
-                {muscleDetail.name}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                setSelectedMuscle(null);
-              }}
-              hitSlop={12}
-            >
-              <MaterialCommunityIcons
-                name="close"
-                size={16}
-                color={isDark ? darkColors.textSecondary : colors.textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Compact stats row */}
-          <View style={styles.detailStats}>
-            <Text style={[styles.detailStatText, isDark && styles.detailStatTextDark]}>
-              {muscleDetail.totalSets} {muscleDetail.totalSets === 1 ? 'set' : 'sets'}
-            </Text>
-            <Text style={[styles.detailSep, isDark && styles.detailSepDark]}>·</Text>
-            <Text style={[styles.detailStatText, isDark && styles.detailStatTextDark]}>
-              {muscleDetail.totalReps} reps
-            </Text>
-            {muscleDetail.totalVolumeKg > 0 && (
-              <>
-                <Text style={[styles.detailSep, isDark && styles.detailSepDark]}>·</Text>
-                <Text style={[styles.detailStatText, isDark && styles.detailStatTextDark]}>
-                  {formatWeight(Math.round(muscleDetail.totalVolumeKg), isMetric)}
-                </Text>
-              </>
-            )}
-          </View>
-
-          {/* Exercise list */}
-          {muscleDetail.exercises.map((ex, idx) => (
-            <View
-              key={`${ex.name}-${idx}`}
-              style={[
-                styles.detailExercise,
-                idx > 0 && styles.detailExerciseBorder,
-                idx > 0 && isDark && styles.detailExerciseBorderDark,
-              ]}
-            >
-              <View style={styles.detailExerciseRow}>
-                <View
-                  style={[
-                    styles.detailExDot,
-                    { backgroundColor: ex.role === 'primary' ? PRIMARY_COLOR : SECONDARY_COLOR },
-                  ]}
-                />
-                <Text
-                  style={[styles.detailExName, isDark && styles.detailExNameDark]}
-                  numberOfLines={1}
-                >
-                  {ex.name}
-                </Text>
-                <Text style={[styles.detailExInfo, isDark && styles.detailExInfoDark]}>
-                  {ex.sets}×{ex.reps}
-                  {ex.volumeKg > 0 ? ` · ${formatWeight(Math.round(ex.volumeKg), isMetric)}` : ''}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
 
       {/* Bottom gradient + activity info overlay */}
       <LinearGradient
@@ -268,18 +247,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.xl + spacing.lg,
   },
   bodyView: {
     flex: 1,
     alignItems: 'center',
   },
-  legendCenter: {
+  // Center column between bodies — fixed width, vertically centered
+  centerColumn: {
+    width: 90,
     alignItems: 'flex-start',
     justifyContent: 'center',
-    gap: spacing.sm,
+    gap: 4,
     paddingHorizontal: 4,
   },
+  // Legend (default state)
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -300,99 +282,66 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     fontStyle: 'italic',
   },
-  // Inline muscle detail card
-  detailCard: {
-    marginHorizontal: spacing.sm,
-    marginBottom: spacing.xl + spacing.md,
-    padding: spacing.sm,
-    borderRadius: layout.borderRadius,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-  },
-  detailCardDark: {
-    backgroundColor: 'rgba(30,30,30,0.92)',
-  },
-  detailHeader: {
+  // Detail (selected state)
+  detailHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  detailHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   detailDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  detailTitle: {
-    fontSize: 15,
+  detailName: {
+    fontSize: 13,
     fontWeight: '700',
     color: colors.textPrimary,
+    marginBottom: 4,
   },
-  detailTitleDark: {
+  detailNameDark: {
     color: darkColors.textPrimary,
   },
-  detailStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-    paddingLeft: 16,
-  },
-  detailStatText: {
-    fontSize: 13,
-    fontWeight: '600',
+  detailStat: {
+    fontSize: 11,
     color: colors.textSecondary,
+    lineHeight: 16,
   },
-  detailStatTextDark: {
+  detailStatDark: {
     color: darkColors.textSecondary,
   },
-  detailSep: {
-    fontSize: 13,
-    color: colors.textDisabled,
-    paddingHorizontal: 5,
+  detailDivider: {
+    width: '100%',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    marginVertical: 4,
   },
-  detailSepDark: {
-    color: darkColors.textMuted,
-  },
-  detailExercise: {
-    paddingVertical: 4,
-    paddingLeft: 16,
-  },
-  detailExerciseBorder: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.08)',
-  },
-  detailExerciseBorderDark: {
-    borderTopColor: 'rgba(255,255,255,0.08)',
-  },
-  detailExerciseRow: {
+  detailExRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    alignItems: 'flex-start',
+    gap: 4,
+    marginBottom: 2,
   },
   detailExDot: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
+    marginTop: 4,
   },
-  detailExName: {
-    fontSize: 13,
+  detailExText: {
+    fontSize: 11,
     fontWeight: '500',
     color: colors.textPrimary,
     flex: 1,
+    lineHeight: 15,
   },
-  detailExNameDark: {
+  detailExTextDark: {
     color: darkColors.textPrimary,
   },
-  detailExInfo: {
-    fontSize: 12,
+  detailExSub: {
+    fontSize: 10,
+    fontWeight: '400',
     color: colors.textSecondary,
-  },
-  detailExInfoDark: {
-    color: darkColors.textSecondary,
   },
   gradient: {
     position: 'absolute',
