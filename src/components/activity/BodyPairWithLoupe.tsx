@@ -101,6 +101,10 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     [layoutSize, tappableSlugs, onMuscleTap]
   );
 
+  // Body SVG intrinsic dimensions (from react-native-body-highlighter)
+  const bodyPixelW = 200 * scale;
+  const bodyPixelH = 400 * scale;
+
   const updateLoupePosition = (x: number, y: number) => {
     'worklet';
     loupeX.value = x;
@@ -110,9 +114,17 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
       const midpoint = bodyW + gap / 2;
       const isBack = x >= midpoint;
       loupeSide.value = isBack ? 1 : 0;
+
+      // Touch X relative to the body's flex container
       const localX = isBack ? x - bodyW - gap : x;
-      bodyOffsetX.value = -localX * LOUPE_SCALE + LOUPE_SIZE / 2;
-      bodyOffsetY.value = -y * LOUPE_SCALE + LOUPE_SIZE / 2;
+      // The Body SVG is centered in the flex container
+      const svgPadX = (bodyW - bodyPixelW) / 2;
+      // Touch position relative to the SVG itself
+      const svgX = localX - svgPadX;
+      const svgY = y;
+
+      bodyOffsetX.value = -svgX * LOUPE_SCALE + LOUPE_SIZE / 2;
+      bodyOffsetY.value = -svgY * LOUPE_SCALE + LOUPE_SIZE / 2;
     }
   };
 
