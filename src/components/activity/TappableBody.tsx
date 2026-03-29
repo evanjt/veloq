@@ -68,7 +68,9 @@ export const TappableBody = React.memo(function TappableBody({
   const enhancedData = useMemo(() => {
     if (!selectedSlug) return data;
     return data.map((part) =>
-      part.slug === selectedSlug ? { ...part, styles: { stroke: '#FC4C02', strokeWidth: 3 } } : part
+      part.slug === selectedSlug
+        ? { ...part, styles: { stroke: '#1A1A1A', strokeWidth: 2.5 } }
+        : part
     );
   }, [data, selectedSlug]);
 
