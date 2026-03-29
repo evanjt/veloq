@@ -180,6 +180,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                   onMuscleTap={handleMuscleTap}
                   onMuscleScrub={handleMuscleScrub}
                   tappableSlugs={tappableSlugs}
+                  selectedSlug={selectedMuscle}
                 />
               </View>
               <View style={styles.bodyView}>
@@ -192,6 +193,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                   onMuscleTap={handleMuscleTap}
                   onMuscleScrub={handleMuscleScrub}
                   tappableSlugs={tappableSlugs}
+                  selectedSlug={selectedMuscle}
                 />
               </View>
             </View>

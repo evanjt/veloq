@@ -106,6 +106,7 @@ export function MuscleGroupView({
             onMuscleTap={hasInteractiveData ? handleMuscleTap : undefined}
             onMuscleScrub={hasInteractiveData ? handleMuscleScrub : undefined}
             tappableSlugs={tappableSlugs}
+            selectedSlug={selectedMuscle}
           />
         </View>
 
@@ -204,6 +205,7 @@ export function MuscleGroupView({
             onMuscleTap={hasInteractiveData ? handleMuscleTap : undefined}
             onMuscleScrub={hasInteractiveData ? handleMuscleScrub : undefined}
             tappableSlugs={tappableSlugs}
+            selectedSlug={selectedMuscle}
           />
         </View>
       </View>

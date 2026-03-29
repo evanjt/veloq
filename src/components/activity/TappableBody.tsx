@@ -31,6 +31,8 @@ interface TappableBodyProps {
   /** Scrub during long-press drag — parent sets selection directly (no toggle) */
   onMuscleScrub?: (slug: string) => void;
   tappableSlugs?: Set<string>;
+  /** Currently selected muscle slug — shows a highlight ring */
+  selectedSlug?: string | null;
 }
 
 /**
@@ -47,6 +49,7 @@ export const TappableBody = React.memo(function TappableBody({
   onMuscleTap,
   onMuscleScrub,
   tappableSlugs,
+  selectedSlug,
 }: TappableBodyProps) {
   const [layoutSize, setLayoutSize] = useState<{ width: number; height: number } | null>(null);
   const lastScrubSlug = useRef<string | null>(null);
@@ -161,11 +164,12 @@ export const TappableBody = React.memo(function TappableBody({
         </Animated.View>
       </GestureDetector>
 
-      {/* Quick-tap targets (same as before, for immediate selection) */}
-      {onMuscleTap && layoutSize && tappableSlugs && tappableSlugs.size > 0 && (
+      {/* Tap targets + selection ring */}
+      {layoutSize && tappableSlugs && tappableSlugs.size > 0 && (
         <View style={[StyleSheet.absoluteFill, styles.tapOverlay]} pointerEvents="box-none">
           {Object.entries(positions).map(([slug, pos]) => {
             if (!tappableSlugs.has(slug)) return null;
+            const isSelected = slug === selectedSlug;
             const left = pos.x * layoutSize.width - TAP_TARGET_RADIUS;
             const top = pos.y * layoutSize.height - TAP_TARGET_RADIUS;
             return (
@@ -180,8 +184,9 @@ export const TappableBody = React.memo(function TappableBody({
                     height: TAP_TARGET_RADIUS * 2,
                     borderRadius: TAP_TARGET_RADIUS,
                   },
+                  isSelected && styles.tapTargetSelected,
                 ]}
-                onPress={() => onMuscleTap(slug)}
+                onPress={() => onMuscleTap?.(slug)}
               />
             );
           })}
@@ -209,6 +214,11 @@ const styles = StyleSheet.create({
   },
   tapTarget: {
     position: 'absolute',
+  },
+  tapTargetSelected: {
+    borderWidth: 2,
+    borderColor: '#FC4C02',
+    backgroundColor: 'rgba(252, 76, 2, 0.12)',
   },
   loupeContainer: {
     position: 'absolute',
