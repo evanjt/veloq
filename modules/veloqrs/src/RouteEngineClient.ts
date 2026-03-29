@@ -1207,7 +1207,7 @@ class RouteEngineClient {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getStrengthSummary(startTs: number, endTs: number): any {
     return this.timed('getStrengthSummary', () =>
-      this.engine.strength().getStrengthSummary(startTs, endTs),
+      this.engine.strength().getStrengthSummary(BigInt(startTs), BigInt(endTs)),
     );
   }
 

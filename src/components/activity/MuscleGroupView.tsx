@@ -41,11 +41,14 @@ export function MuscleGroupView({
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const muscleDetail = useMuscleDetail(selectedMuscle, exerciseSets ?? []);
 
-  const handleBodyPartPress = useCallback((bodyPart: ExtendedBodyPart) => {
-    if (bodyPart.slug) {
-      setSelectedMuscle(bodyPart.slug);
-    }
-  }, []);
+  const handleBodyPartPress = useCallback(
+    (bodyPart: ExtendedBodyPart) => {
+      if (bodyPart.slug && (exerciseSets ?? []).length > 0) {
+        setSelectedMuscle(bodyPart.slug);
+      }
+    },
+    [exerciseSets]
+  );
 
   const handleCloseSheet = useCallback(() => {
     setSelectedMuscle(null);
@@ -86,7 +89,7 @@ export function MuscleGroupView({
             side="front"
             scale={0.7}
             colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
-            onBodyPartPress={hasInteractiveData ? handleBodyPartPress : undefined}
+            onBodyPartPress={handleBodyPartPress}
           />
         </View>
         <View style={styles.legendCenter}>
@@ -109,7 +112,7 @@ export function MuscleGroupView({
             side="back"
             scale={0.7}
             colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
-            onBodyPartPress={hasInteractiveData ? handleBodyPartPress : undefined}
+            onBodyPartPress={handleBodyPartPress}
           />
         </View>
       </View>
