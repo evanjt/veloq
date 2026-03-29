@@ -49,3 +49,36 @@ export const BACK_POSITIONS: MusclePositions = {
 
 /** Radius of tap target in dp */
 export const TAP_TARGET_RADIUS = 22;
+
+/** Max distance in dp to snap to a muscle during scrub */
+export const SCRUB_THRESHOLD = 40;
+
+/**
+ * Find the nearest tappable muscle to a touch point.
+ * Returns the muscle slug or null if nothing is within threshold.
+ */
+export function findNearestMuscle(
+  touchX: number,
+  touchY: number,
+  layoutWidth: number,
+  layoutHeight: number,
+  side: 'front' | 'back',
+  tappableSlugs: Set<string>
+): string | null {
+  const positions = side === 'front' ? FRONT_POSITIONS : BACK_POSITIONS;
+  let nearest: string | null = null;
+  let nearestDist = SCRUB_THRESHOLD;
+
+  for (const [slug, pos] of Object.entries(positions)) {
+    if (!tappableSlugs.has(slug)) continue;
+    const dx = touchX - pos.x * layoutWidth;
+    const dy = touchY - pos.y * layoutHeight;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearest = slug;
+    }
+  }
+
+  return nearest;
+}

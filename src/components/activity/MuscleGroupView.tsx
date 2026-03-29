@@ -58,6 +58,11 @@ export function MuscleGroupView({
     [exerciseSets]
   );
 
+  // During loupe scrub, always set (no toggle) to avoid flickering
+  const handleMuscleScrub = useCallback((slug: string) => {
+    setSelectedMuscle(slug);
+  }, []);
+
   const bodyData: ExtendedBodyPart[] = (muscleGroups ?? []).map((g) => ({
     slug: g.slug as ExtendedBodyPart['slug'],
     intensity: g.intensity,
@@ -99,6 +104,7 @@ export function MuscleGroupView({
             scale={0.65}
             colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
             onMuscleTap={hasInteractiveData ? handleMuscleTap : undefined}
+            onMuscleScrub={hasInteractiveData ? handleMuscleScrub : undefined}
             tappableSlugs={tappableSlugs}
           />
         </View>
@@ -196,6 +202,7 @@ export function MuscleGroupView({
             scale={0.65}
             colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
             onMuscleTap={hasInteractiveData ? handleMuscleTap : undefined}
+            onMuscleScrub={hasInteractiveData ? handleMuscleScrub : undefined}
             tappableSlugs={tappableSlugs}
           />
         </View>

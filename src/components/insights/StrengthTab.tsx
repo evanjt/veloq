@@ -72,6 +72,11 @@ export const StrengthTab = React.memo(function StrengthTab() {
     setSelectedMuscle((prev) => (prev === slug ? null : slug));
   }, []);
 
+  const handleMuscleScrub = useCallback((slug: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setSelectedMuscle(slug);
+  }, []);
+
   const tappableSlugs = useMemo(
     () => new Set((summary?.muscleVolumes ?? []).map((v) => v.slug)),
     [summary]
@@ -173,6 +178,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                   scale={0.6}
                   colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
                   onMuscleTap={handleMuscleTap}
+                  onMuscleScrub={handleMuscleScrub}
                   tappableSlugs={tappableSlugs}
                 />
               </View>
@@ -184,6 +190,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                   scale={0.6}
                   colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
                   onMuscleTap={handleMuscleTap}
+                  onMuscleScrub={handleMuscleScrub}
                   tappableSlugs={tappableSlugs}
                 />
               </View>
