@@ -16,6 +16,8 @@ import type { StrengthPeriod, MuscleVolume } from '@/types';
 const PRIMARY_COLOR = '#FC4C02';
 const SECONDARY_COLOR = '#FCA67A';
 const BODY_COLORS: readonly string[] = [SECONDARY_COLOR, PRIMARY_COLOR] as const;
+const BODY_FILL_LIGHT = '#3f3f3f';
+const BODY_FILL_DARK = '#555555';
 const PERIODS: { id: StrengthPeriod; label: string }[] = [
   { id: 'week', label: '7D' },
   { id: '4weeks', label: '4W' },
@@ -179,6 +181,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                   onMuscleTap={handleMuscleTap}
                   onMuscleScrub={handleMuscleScrub}
                   tappableSlugs={tappableSlugs}
+                  defaultFill={isDark ? BODY_FILL_DARK : BODY_FILL_LIGHT}
                 />
               </View>
               <View style={styles.bodyView}>
@@ -191,6 +194,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                   onMuscleTap={handleMuscleTap}
                   onMuscleScrub={handleMuscleScrub}
                   tappableSlugs={tappableSlugs}
+                  defaultFill={isDark ? BODY_FILL_DARK : BODY_FILL_LIGHT}
                 />
               </View>
             </View>
@@ -227,7 +231,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
               </View>
 
               {/* Volume stats */}
-              <View style={styles.detailStatsRow}>
+              <View style={[styles.detailStatsRow, isDark && styles.detailStatsRowDark]}>
                 <View style={styles.detailStat}>
                   <Text style={[styles.detailStatValue, isDark && styles.detailStatValueDark]}>
                     {selectedVolume.weightedSets.toFixed(1)}
@@ -518,6 +522,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.background,
     marginBottom: spacing.sm,
+  },
+  detailStatsRowDark: {
+    backgroundColor: darkColors.background,
   },
   detailStat: {
     alignItems: 'center',

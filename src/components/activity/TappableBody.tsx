@@ -29,6 +29,8 @@ interface TappableBodyProps {
   onMuscleTap?: (slug: string) => void;
   onMuscleScrub?: (slug: string) => void;
   tappableSlugs?: Set<string>;
+  /** Fill color for non-highlighted body parts */
+  defaultFill?: string;
 }
 
 /**
@@ -47,6 +49,7 @@ export const TappableBody = React.memo(function TappableBody({
   onMuscleTap,
   onMuscleScrub,
   tappableSlugs,
+  defaultFill,
 }: TappableBodyProps) {
   const [layoutSize, setLayoutSize] = useState<{ width: number; height: number } | null>(null);
   const lastScrubSlug = useRef<string | null>(null);
@@ -150,7 +153,14 @@ export const TappableBody = React.memo(function TappableBody({
     <View onLayout={handleLayout} style={styles.container}>
       <GestureDetector gesture={scrubGesture}>
         <Animated.View>
-          <Body data={data} gender={gender} side={side} scale={scale} colors={colors} />
+          <Body
+            data={data}
+            gender={gender}
+            side={side}
+            scale={scale}
+            colors={colors}
+            defaultFill={defaultFill}
+          />
         </Animated.View>
       </GestureDetector>
 
@@ -187,7 +197,14 @@ export const TappableBody = React.memo(function TappableBody({
       <Animated.View style={[styles.loupeContainer, loupeContainerStyle]} pointerEvents="none">
         <View style={styles.loupeClip}>
           <Animated.View style={[styles.loupeBody, loupeBodyStyle]}>
-            <Body data={data} gender={gender} side={side} scale={scale} colors={colors} />
+            <Body
+              data={data}
+              gender={gender}
+              side={side}
+              scale={scale}
+              colors={colors}
+              defaultFill={defaultFill}
+            />
           </Animated.View>
           <View style={styles.loupeCrosshair} />
         </View>
