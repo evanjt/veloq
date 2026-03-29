@@ -3,6 +3,7 @@ import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } fro
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { BodyPairWithLoupe } from '@/components/activity/BodyPairWithLoupe';
 import { useTheme, useMetricSystem } from '@/hooks';
@@ -57,6 +58,11 @@ export const StrengthTab = React.memo(function StrengthTab() {
       };
     });
   }, [summary, selectedMuscle]);
+
+  const maxWeightedSets = useMemo(() => {
+    if (!summary || summary.muscleVolumes.length === 0) return 0;
+    return Math.max(...summary.muscleVolumes.map((v) => v.weightedSets));
+  }, [summary]);
 
   // Find the selected muscle's data
   const selectedVolume: MuscleVolume | null = useMemo(() => {
@@ -181,17 +187,24 @@ export const StrengthTab = React.memo(function StrengthTab() {
               defaultFill={isDark ? BODY_FILL_DARK : BODY_FILL_LIGHT}
             />
 
-            {/* Legend */}
-            <View style={styles.legendRow}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: PRIMARY_COLOR }]} />
-                <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
-                  High volume
-                </Text>
+            {/* Continuous scale bar */}
+            <View style={styles.scaleBarContainer}>
+              <Text style={[styles.scaleLabel, isDark && styles.scaleLabelDark]}>
+                Volume (weighted sets)
+              </Text>
+              <View style={styles.scaleBar}>
+                <LinearGradient
+                  colors={[BODY_FILL_LIGHT, SECONDARY_COLOR, PRIMARY_COLOR]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.scaleGradient}
+                />
               </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: SECONDARY_COLOR }]} />
-                <Text style={[styles.legendText, isDark && styles.legendTextDark]}>Low volume</Text>
+              <View style={styles.scaleLabels}>
+                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>0</Text>
+                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>
+                  {maxWeightedSets > 0 ? maxWeightedSets.toFixed(0) : ''}
+                </Text>
               </View>
             </View>
           </View>
@@ -443,27 +456,38 @@ const styles = StyleSheet.create({
   bodyHintDark: {
     color: darkColors.textMuted,
   },
-  legendRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.md,
+  scaleBarContainer: {
+    paddingHorizontal: spacing.md,
     marginTop: spacing.sm,
   },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+  scaleLabel: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 4,
   },
-  legendDot: {
-    width: 8,
+  scaleLabelDark: {
+    color: darkColors.textSecondary,
+  },
+  scaleBar: {
     height: 8,
     borderRadius: 4,
+    overflow: 'hidden',
   },
-  legendText: {
-    fontSize: 11,
+  scaleGradient: {
+    flex: 1,
+    borderRadius: 4,
+  },
+  scaleLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
+  scaleValue: {
+    fontSize: 10,
     color: colors.textSecondary,
   },
-  legendTextDark: {
+  scaleValueDark: {
     color: darkColors.textSecondary,
   },
   detailCard: {
