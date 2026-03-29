@@ -187,6 +187,8 @@ export const TappableBody = React.memo(function TappableBody({
             scale={scale}
             colors={['transparent', 'transparent']}
             border="none"
+            defaultFill="transparent"
+            defaultStroke="transparent"
           />
         </View>
       )}
