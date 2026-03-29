@@ -63,10 +63,15 @@ export function MuscleGroupView({
     setSelectedMuscle(slug);
   }, []);
 
-  const bodyData: ExtendedBodyPart[] = (muscleGroups ?? []).map((g) => ({
-    slug: g.slug as ExtendedBodyPart['slug'],
-    intensity: g.intensity,
-  }));
+  const bodyData: ExtendedBodyPart[] = useMemo(
+    () =>
+      (muscleGroups ?? []).map((g) => ({
+        slug: g.slug as ExtendedBodyPart['slug'],
+        intensity: g.intensity,
+        ...(g.slug === selectedMuscle ? { styles: { stroke: '#1A1A1A', strokeWidth: 2.5 } } : {}),
+      })),
+    [muscleGroups, selectedMuscle]
+  );
 
   const tappableSlugs = useMemo(
     () => new Set((muscleGroups ?? []).map((g) => g.slug)),
