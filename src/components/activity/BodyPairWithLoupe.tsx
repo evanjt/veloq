@@ -24,11 +24,14 @@ interface BodyPairWithLoupeProps {
   onMuscleTap?: (slug: string) => void;
   onMuscleScrub?: (slug: string) => void;
   tappableSlugs?: Set<string>;
+  /** Optional content to render between front and back bodies */
+  centerContent?: React.ReactNode;
 }
 
 /**
  * Renders front + back body diagrams side by side with a single unified
- * gesture handler, so the loupe scrub can go seamlessly from front to back.
+ * gesture handler. The loupe scrub goes seamlessly from front to back.
+ * Used by both activity detail and insights strength tab.
  */
 export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   data,
@@ -39,6 +42,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   onMuscleTap,
   onMuscleScrub,
   tappableSlugs,
+  centerContent,
 }: BodyPairWithLoupeProps) {
   const [layoutSize, setLayoutSize] = useState<{ width: number; height: number } | null>(null);
   const lastScrubSlug = useRef<string | null>(null);
@@ -56,10 +60,14 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   const loupeX = useSharedValue(0);
   const loupeY = useSharedValue(0);
   const loupeOpacity = useSharedValue(0);
+  // Which side the loupe is on: 0 = front (left), 1 = back (right)
+  const loupeSide = useSharedValue(0);
+  // Offset of the magnified body inside the loupe
+  const bodyOffsetX = useSharedValue(0);
+  const bodyOffsetY = useSharedValue(0);
 
   const scrubCallback = onMuscleScrub ?? onMuscleTap;
 
-  // Determine which side (front/back) based on X position, then find nearest muscle
   const handleScrubUpdate = useCallback(
     (x: number, y: number) => {
       if (!layoutSize || !tappableSlugs || tappableSlugs.size === 0 || !scrubCallback) return;
@@ -79,7 +87,6 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     lastScrubSlug.current = null;
   }, []);
 
-  // Quick tap — find nearest muscle and call onMuscleTap
   const handleTap = useCallback(
     (x: number, y: number) => {
       if (!layoutSize || !tappableSlugs || tappableSlugs.size === 0 || !onMuscleTap) return;
@@ -91,6 +98,21 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     },
     [layoutSize, tappableSlugs, onMuscleTap]
   );
+
+  const updateLoupePosition = (x: number, y: number) => {
+    'worklet';
+    loupeX.value = x;
+    loupeY.value = y;
+    if (layoutSize) {
+      const halfW = layoutSize.width / 2;
+      const isBack = x >= halfW;
+      loupeSide.value = isBack ? 1 : 0;
+      // Local X within the body half
+      const localX = isBack ? x - halfW : x;
+      bodyOffsetX.value = -localX * LOUPE_SCALE + LOUPE_SIZE / 2;
+      bodyOffsetY.value = -y * LOUPE_SCALE + LOUPE_SIZE / 2;
+    }
+  };
 
   const tapGesture = Gesture.Tap()
     .onEnd((e) => {
@@ -104,15 +126,13 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     .activateAfterLongPress(LONG_PRESS_MS)
     .onStart((e) => {
       'worklet';
-      loupeX.value = e.x;
-      loupeY.value = e.y;
+      updateLoupePosition(e.x, e.y);
       loupeOpacity.value = withTiming(1, { duration: 100 });
       runOnJS(handleScrubUpdate)(e.x, e.y);
     })
     .onUpdate((e) => {
       'worklet';
-      loupeX.value = e.x;
-      loupeY.value = e.y;
+      updateLoupePosition(e.x, e.y);
       runOnJS(handleScrubUpdate)(e.x, e.y);
     })
     .onEnd(() => {
@@ -122,16 +142,41 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     })
     .enabled(!!(scrubCallback && tappableSlugs && tappableSlugs.size > 0));
 
-  // Tap fires immediately, pan fires after long press — they don't conflict
   const composedGesture = Gesture.Exclusive(panGesture, tapGesture);
 
-  const loupeStyle = useAnimatedStyle(() => {
+  const loupeContainerStyle = useAnimatedStyle(() => {
     'worklet';
     return {
       opacity: loupeOpacity.value,
       transform: [
         { translateX: loupeX.value - LOUPE_SIZE / 2 },
         { translateY: loupeY.value + LOUPE_OFFSET_Y },
+      ],
+    };
+  });
+
+  // Front body magnified inside loupe — visible when touch is on left half
+  const loupeFrontStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: loupeSide.value === 0 ? 1 : 0,
+      transform: [
+        { translateX: bodyOffsetX.value },
+        { translateY: bodyOffsetY.value },
+        { scale: LOUPE_SCALE },
+      ],
+    };
+  });
+
+  // Back body magnified inside loupe — visible when touch is on right half
+  const loupeBackStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: loupeSide.value === 1 ? 1 : 0,
+      transform: [
+        { translateX: bodyOffsetX.value },
+        { translateY: bodyOffsetY.value },
+        { scale: LOUPE_SCALE },
       ],
     };
   });
@@ -150,6 +195,9 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
               defaultFill={defaultFill}
             />
           </View>
+
+          {centerContent}
+
           <View style={styles.bodyView}>
             <Body
               data={data}
@@ -161,9 +209,32 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
             />
           </View>
 
-          {/* Loupe */}
-          <Animated.View style={[styles.loupeContainer, loupeStyle]} pointerEvents="none">
+          {/* Magnifying loupe with zoomed body */}
+          <Animated.View style={[styles.loupeContainer, loupeContainerStyle]} pointerEvents="none">
             <View style={styles.loupeClip}>
+              {/* Front body magnified */}
+              <Animated.View style={[styles.loupeBody, loupeFrontStyle]}>
+                <Body
+                  data={data}
+                  gender={gender}
+                  side="front"
+                  scale={scale}
+                  colors={colors}
+                  defaultFill={defaultFill}
+                />
+              </Animated.View>
+              {/* Back body magnified */}
+              <Animated.View style={[styles.loupeBody, loupeBackStyle]}>
+                <Body
+                  data={data}
+                  gender={gender}
+                  side="back"
+                  scale={scale}
+                  colors={colors}
+                  defaultFill={defaultFill}
+                />
+              </Animated.View>
+              {/* Center crosshair dot */}
               <View style={styles.loupeCrosshair} />
             </View>
           </Animated.View>
@@ -177,7 +248,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     position: 'relative',
   },
   bodyView: {
@@ -199,9 +270,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 3,
     borderColor: '#FC4C02',
-    backgroundColor: 'rgba(128,128,128,0.15)',
+    backgroundColor: '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loupeBody: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    transformOrigin: 'top left',
   },
   loupeCrosshair: {
     width: 6,
@@ -210,5 +287,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1A1A1A',
     borderWidth: 1,
     borderColor: '#fff',
+    zIndex: 5,
   },
 });

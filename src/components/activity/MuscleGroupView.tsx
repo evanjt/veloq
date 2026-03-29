@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMuscleGroups } from '@/hooks/activities';
 import { useMuscleDetail } from '@/hooks/activities/useMuscleDetail';
 import { useMetricSystem } from '@/hooks';
-import { TappableBody } from './TappableBody';
+import { BodyPairWithLoupe } from './BodyPairWithLoupe';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime, formatDuration } from '@/lib';
 import { colors, darkColors, spacing, typography } from '@/theme';
@@ -27,6 +27,7 @@ interface MuscleGroupViewProps {
 
 const PRIMARY_COLOR = '#FC4C02';
 const SECONDARY_COLOR = '#FCA67A';
+const BODY_COLORS: readonly string[] = [SECONDARY_COLOR, PRIMARY_COLOR] as const;
 
 function formatWeight(kg: number, isMetric: boolean): string {
   if (isMetric) return kg % 1 === 0 ? `${kg} kg` : `${kg.toFixed(1)} kg`;
@@ -99,118 +100,102 @@ export function MuscleGroupView({
         </TouchableOpacity>
       </View>
 
-      {/* Body diagrams with center column between them */}
+      {/* Body diagrams with unified loupe + center column for legend/detail */}
       <View style={[styles.bodyContainer, { paddingTop: insets.top + 40 }]}>
-        <View style={styles.bodyView}>
-          <TappableBody
-            data={bodyData}
-            gender={gender}
-            side="front"
-            scale={0.65}
-            colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
-            onMuscleTap={hasInteractiveData ? handleMuscleTap : undefined}
-            onMuscleScrub={hasInteractiveData ? handleMuscleScrub : undefined}
-            tappableSlugs={tappableSlugs}
-          />
-        </View>
-
-        {/* Center column: legend always on top, detail below when selected */}
-        <View style={styles.centerColumn}>
-          {/* Legend — always visible */}
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: PRIMARY_COLOR }]} />
-            <Text style={styles.legendText}>{t('activityDetail.primary')}</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: SECONDARY_COLOR }]} />
-            <Text style={styles.legendText}>{t('activityDetail.secondary')}</Text>
-          </View>
-
-          {/* Detail — shown below legend when a muscle is selected */}
-          {muscleDetail ? (
-            <>
-              <View style={styles.detailDivider} />
-              <View style={styles.detailHeaderRow}>
-                <View
-                  style={[
-                    styles.detailDot,
-                    {
-                      backgroundColor:
-                        muscleDetail.primaryExercises > 0 ? PRIMARY_COLOR : SECONDARY_COLOR,
-                    },
-                  ]}
-                />
-                <Text
-                  style={[styles.detailName, isDark && styles.detailNameDark]}
-                  numberOfLines={1}
-                >
-                  {muscleDetail.name}
-                </Text>
-                <TouchableOpacity onPress={() => setSelectedMuscle(null)} hitSlop={12}>
-                  <MaterialCommunityIcons
-                    name="close"
-                    size={12}
-                    color={isDark ? darkColors.textMuted : colors.textDisabled}
-                  />
-                </TouchableOpacity>
+        <BodyPairWithLoupe
+          data={bodyData}
+          gender={gender}
+          scale={0.65}
+          colors={BODY_COLORS}
+          onMuscleTap={hasInteractiveData ? handleMuscleTap : undefined}
+          onMuscleScrub={hasInteractiveData ? handleMuscleScrub : undefined}
+          tappableSlugs={tappableSlugs}
+          centerContent={
+            <View style={styles.centerColumn}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: PRIMARY_COLOR }]} />
+                <Text style={styles.legendText}>{t('activityDetail.primary')}</Text>
               </View>
-              <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
-                {muscleDetail.totalSets} {muscleDetail.totalSets === 1 ? 'set' : 'sets'} ·{' '}
-                {muscleDetail.totalReps} reps
-              </Text>
-              {muscleDetail.totalVolumeKg > 0 && (
-                <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
-                  {formatWeight(Math.round(muscleDetail.totalVolumeKg), isMetric)}
-                </Text>
-              )}
-              <ScrollView
-                style={styles.detailExList}
-                showsVerticalScrollIndicator={muscleDetail.exercises.length > 3}
-                nestedScrollEnabled
-              >
-                {muscleDetail.exercises.map((ex, idx) => (
-                  <View key={`${ex.name}-${idx}`} style={styles.detailExItem}>
-                    <View style={styles.detailExNameRow}>
-                      <View
-                        style={[
-                          styles.detailExDot,
-                          {
-                            backgroundColor:
-                              ex.role === 'primary' ? PRIMARY_COLOR : SECONDARY_COLOR,
-                          },
-                        ]}
-                      />
-                      <Text
-                        style={[styles.detailExName, isDark && styles.detailExNameDark]}
-                        numberOfLines={1}
-                      >
-                        {ex.name}
-                      </Text>
-                    </View>
-                    <Text style={[styles.detailExSub, isDark && styles.detailExSubDark]}>
-                      {ex.sets}×{ex.reps}
-                    </Text>
-                  </View>
-                ))}
-              </ScrollView>
-            </>
-          ) : hasInteractiveData ? (
-            <Text style={styles.hintText}>{t('activityDetail.tapMuscle', 'Tap for details')}</Text>
-          ) : null}
-        </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: SECONDARY_COLOR }]} />
+                <Text style={styles.legendText}>{t('activityDetail.secondary')}</Text>
+              </View>
 
-        <View style={styles.bodyView}>
-          <TappableBody
-            data={bodyData}
-            gender={gender}
-            side="back"
-            scale={0.65}
-            colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
-            onMuscleTap={hasInteractiveData ? handleMuscleTap : undefined}
-            onMuscleScrub={hasInteractiveData ? handleMuscleScrub : undefined}
-            tappableSlugs={tappableSlugs}
-          />
-        </View>
+              {muscleDetail ? (
+                <>
+                  <View style={styles.detailDivider} />
+                  <View style={styles.detailHeaderRow}>
+                    <View
+                      style={[
+                        styles.detailDot,
+                        {
+                          backgroundColor:
+                            muscleDetail.primaryExercises > 0 ? PRIMARY_COLOR : SECONDARY_COLOR,
+                        },
+                      ]}
+                    />
+                    <Text
+                      style={[styles.detailName, isDark && styles.detailNameDark]}
+                      numberOfLines={1}
+                    >
+                      {muscleDetail.name}
+                    </Text>
+                    <TouchableOpacity onPress={() => setSelectedMuscle(null)} hitSlop={12}>
+                      <MaterialCommunityIcons
+                        name="close"
+                        size={12}
+                        color={isDark ? darkColors.textMuted : colors.textDisabled}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
+                    {muscleDetail.totalSets} {muscleDetail.totalSets === 1 ? 'set' : 'sets'} ·{' '}
+                    {muscleDetail.totalReps} reps
+                  </Text>
+                  {muscleDetail.totalVolumeKg > 0 && (
+                    <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
+                      {formatWeight(Math.round(muscleDetail.totalVolumeKg), isMetric)}
+                    </Text>
+                  )}
+                  <ScrollView
+                    style={styles.detailExList}
+                    showsVerticalScrollIndicator={muscleDetail.exercises.length > 3}
+                    nestedScrollEnabled
+                  >
+                    {muscleDetail.exercises.map((ex, idx) => (
+                      <View key={`${ex.name}-${idx}`} style={styles.detailExItem}>
+                        <View style={styles.detailExNameRow}>
+                          <View
+                            style={[
+                              styles.detailExDot,
+                              {
+                                backgroundColor:
+                                  ex.role === 'primary' ? PRIMARY_COLOR : SECONDARY_COLOR,
+                              },
+                            ]}
+                          />
+                          <Text
+                            style={[styles.detailExName, isDark && styles.detailExNameDark]}
+                            numberOfLines={1}
+                          >
+                            {ex.name}
+                          </Text>
+                        </View>
+                        <Text style={[styles.detailExSub, isDark && styles.detailExSubDark]}>
+                          {ex.sets}×{ex.reps}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </>
+              ) : hasInteractiveData ? (
+                <Text style={styles.hintText}>
+                  {t('activityDetail.tapMuscle', 'Tap for details')}
+                </Text>
+              ) : null}
+            </View>
+          }
+        />
       </View>
 
       {/* Bottom gradient + activity info overlay */}
