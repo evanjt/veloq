@@ -15,6 +15,7 @@ import type { StrengthPeriod, MuscleVolume } from '@/types';
 
 const PRIMARY_COLOR = '#FC4C02';
 const SECONDARY_COLOR = '#FCA67A';
+const BODY_COLORS: readonly string[] = [SECONDARY_COLOR, PRIMARY_COLOR] as const;
 const PERIODS: { id: StrengthPeriod; label: string }[] = [
   { id: 'week', label: '7 Days' },
   { id: '4weeks', label: '4 Weeks' },
@@ -174,7 +175,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                   gender={gender}
                   side="front"
                   scale={0.6}
-                  colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
+                  colors={BODY_COLORS}
                   onMuscleTap={handleMuscleTap}
                   onMuscleScrub={handleMuscleScrub}
                   tappableSlugs={tappableSlugs}
@@ -186,7 +187,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                   gender={gender}
                   side="back"
                   scale={0.6}
-                  colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
+                  colors={BODY_COLORS}
                   onMuscleTap={handleMuscleTap}
                   onMuscleScrub={handleMuscleScrub}
                   tappableSlugs={tappableSlugs}
