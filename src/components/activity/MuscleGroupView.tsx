@@ -327,25 +327,29 @@ const styles = StyleSheet.create({
   },
   detailExList: {
     maxHeight: 120,
+    width: '100%',
   },
   detailExItem: {
     marginBottom: 4,
+    width: '100%',
   },
   detailExNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
+    width: '100%',
   },
   detailExDot: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
+    flexShrink: 0,
   },
   detailExName: {
     fontSize: 10,
     fontWeight: '600',
     color: colors.textPrimary,
-    flex: 1,
+    flexShrink: 1,
   },
   detailExNameDark: {
     color: darkColors.textPrimary,
