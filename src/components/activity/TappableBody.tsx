@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
@@ -63,6 +63,14 @@ export const TappableBody = React.memo(function TappableBody({
     },
     []
   );
+
+  // Enhance body data with selection stroke on the selected muscle
+  const enhancedData = useMemo(() => {
+    if (!selectedSlug) return data;
+    return data.map((part) =>
+      part.slug === selectedSlug ? { ...part, styles: { stroke: '#FC4C02', strokeWidth: 3 } } : part
+    );
+  }, [data, selectedSlug]);
 
   // Shared values for loupe
   const loupeX = useSharedValue(0);
@@ -160,7 +168,7 @@ export const TappableBody = React.memo(function TappableBody({
     <View onLayout={handleLayout} style={styles.container}>
       <GestureDetector gesture={scrubGesture}>
         <Animated.View>
-          <Body data={data} gender={gender} side={side} scale={scale} colors={colors} />
+          <Body data={enhancedData} gender={gender} side={side} scale={scale} colors={colors} />
         </Animated.View>
       </GestureDetector>
 
@@ -169,7 +177,6 @@ export const TappableBody = React.memo(function TappableBody({
         <View style={[StyleSheet.absoluteFill, styles.tapOverlay]} pointerEvents="box-none">
           {Object.entries(positions).map(([slug, pos]) => {
             if (!tappableSlugs.has(slug)) return null;
-            const isSelected = slug === selectedSlug;
             const left = pos.x * layoutSize.width - TAP_TARGET_RADIUS;
             const top = pos.y * layoutSize.height - TAP_TARGET_RADIUS;
             return (
@@ -184,7 +191,6 @@ export const TappableBody = React.memo(function TappableBody({
                     height: TAP_TARGET_RADIUS * 2,
                     borderRadius: TAP_TARGET_RADIUS,
                   },
-                  isSelected && styles.tapTargetSelected,
                 ]}
                 onPress={() => onMuscleTap?.(slug)}
               />
@@ -197,7 +203,7 @@ export const TappableBody = React.memo(function TappableBody({
       <Animated.View style={[styles.loupeContainer, loupeContainerStyle]} pointerEvents="none">
         <View style={styles.loupeClip}>
           <Animated.View style={[styles.loupeBody, loupeBodyStyle]}>
-            <Body data={data} gender={gender} side={side} scale={scale} colors={colors} />
+            <Body data={enhancedData} gender={gender} side={side} scale={scale} colors={colors} />
           </Animated.View>
         </View>
       </Animated.View>
@@ -214,11 +220,6 @@ const styles = StyleSheet.create({
   },
   tapTarget: {
     position: 'absolute',
-  },
-  tapTargetSelected: {
-    borderWidth: 2,
-    borderColor: '#FC4C02',
-    backgroundColor: 'rgba(252, 76, 2, 0.12)',
   },
   loupeContainer: {
     position: 'absolute',
