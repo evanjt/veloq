@@ -96,7 +96,7 @@ export function MuscleGroupView({
             data={bodyData}
             gender={gender}
             side="front"
-            scale={0.7}
+            scale={0.65}
             colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
             onMuscleTap={hasInteractiveData ? handleMuscleTap : undefined}
             tappableSlugs={tappableSlugs}
@@ -193,7 +193,7 @@ export function MuscleGroupView({
             data={bodyData}
             gender={gender}
             side="back"
-            scale={0.7}
+            scale={0.65}
             colors={[SECONDARY_COLOR, PRIMARY_COLOR]}
             onMuscleTap={hasInteractiveData ? handleMuscleTap : undefined}
             tappableSlugs={tappableSlugs}
@@ -261,9 +261,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  // Center column between bodies — fixed width, top-aligned so legend stays put
+  // Center column between bodies — wider to fit exercise names
   centerColumn: {
-    width: 90,
+    width: 120,
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
     gap: 4,
