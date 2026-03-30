@@ -178,12 +178,66 @@ export const StrengthTab = React.memo(function StrengthTab() {
 
           {/* Body diagrams */}
           <View style={[styles.bodyCard, isDark && styles.bodyCardDark]}>
-            <Text style={[styles.bodyTitle, isDark && styles.bodyTitleDark]}>
-              Muscle Group Volume
-            </Text>
-            <Text style={[styles.bodyHint, isDark && styles.bodyHintDark]}>
-              Tap a muscle group for details
-            </Text>
+            {/* Header: title/hint OR inline muscle detail */}
+            {selectedVolume ? (
+              <View style={styles.inlineDetail}>
+                <View style={styles.inlineDetailHeader}>
+                  <View style={styles.inlineDetailNameRow}>
+                    <View
+                      style={[
+                        styles.inlineDetailDot,
+                        { backgroundColor: selectedVolume.primarySets > 0 ? '#FC4C02' : '#FCA67A' },
+                      ]}
+                    />
+                    <Text
+                      style={[styles.inlineDetailName, isDark && styles.inlineDetailNameDark]}
+                      numberOfLines={1}
+                    >
+                      {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ??
+                        selectedVolume.slug}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setSelectedMuscle(null)} hitSlop={12}>
+                    <MaterialCommunityIcons
+                      name="close"
+                      size={16}
+                      color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <Text style={[styles.inlineDetailStats, isDark && styles.inlineDetailStatsDark]}>
+                  {selectedVolume.weightedSets.toFixed(1)} weighted sets ·{' '}
+                  {selectedVolume.primarySets} primary · {selectedVolume.secondarySets} secondary
+                  {selectedVolume.totalReps > 0 ? ` · ${selectedVolume.totalReps} reps` : ''}
+                </Text>
+                {selectedVolume.exerciseNames.length > 0 && (
+                  <View style={styles.inlineExerciseRow}>
+                    {selectedVolume.exerciseNames.map((name) => (
+                      <View key={name} style={styles.inlineExerciseChip}>
+                        <View style={styles.inlineExerciseDot} />
+                        <Text
+                          style={[
+                            styles.inlineExerciseText,
+                            isDark && styles.inlineExerciseTextDark,
+                          ]}
+                        >
+                          {name}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ) : (
+              <>
+                <Text style={[styles.bodyTitle, isDark && styles.bodyTitleDark]}>
+                  Muscle Group Volume
+                </Text>
+                <Text style={[styles.bodyHint, isDark && styles.bodyHintDark]}>
+                  Tap a muscle group for details
+                </Text>
+              </>
+            )}
 
             <BodyPairWithLoupe
               data={bodyData}
@@ -216,113 +270,6 @@ export const StrengthTab = React.memo(function StrengthTab() {
             </View>
           </View>
 
-          {/* Selected muscle detail — always mounted, hidden when empty */}
-          {selectedVolume ? (
-            <View style={[styles.detailCard, isDark && styles.detailCardDark]}>
-              <View style={styles.detailHeader}>
-                <Text style={[styles.detailTitle, isDark && styles.detailTitleDark]}>
-                  {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug}
-                </Text>
-                <TouchableOpacity onPress={() => setSelectedMuscle(null)} hitSlop={12}>
-                  <MaterialCommunityIcons
-                    name="close"
-                    size={18}
-                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {/* Volume stats */}
-              <View style={[styles.detailStatsRow, isDark && styles.detailStatsRowDark]}>
-                <View style={styles.detailStat}>
-                  <Text style={[styles.detailStatValue, isDark && styles.detailStatValueDark]}>
-                    {selectedVolume.weightedSets.toFixed(1)}
-                  </Text>
-                  <Text style={[styles.detailStatLabel, isDark && styles.detailStatLabelDark]}>
-                    weighted sets
-                  </Text>
-                </View>
-                <View style={styles.detailStat}>
-                  <Text style={[styles.detailStatValue, isDark && styles.detailStatValueDark]}>
-                    {selectedVolume.primarySets}
-                  </Text>
-                  <Text style={[styles.detailStatLabel, isDark && styles.detailStatLabelDark]}>
-                    primary
-                  </Text>
-                </View>
-                <View style={styles.detailStat}>
-                  <Text style={[styles.detailStatValue, isDark && styles.detailStatValueDark]}>
-                    {selectedVolume.secondarySets}
-                  </Text>
-                  <Text style={[styles.detailStatLabel, isDark && styles.detailStatLabelDark]}>
-                    secondary
-                  </Text>
-                </View>
-                {selectedVolume.totalReps > 0 && (
-                  <View style={styles.detailStat}>
-                    <Text style={[styles.detailStatValue, isDark && styles.detailStatValueDark]}>
-                      {selectedVolume.totalReps}
-                    </Text>
-                    <Text style={[styles.detailStatLabel, isDark && styles.detailStatLabelDark]}>
-                      reps
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Volume context */}
-              {period === 'week' && (
-                <View style={[styles.contextRow, isDark && styles.contextRowDark]}>
-                  <MaterialCommunityIcons
-                    name="information-outline"
-                    size={14}
-                    color={isDark ? darkColors.textMuted : colors.textDisabled}
-                  />
-                  <Text style={[styles.contextText, isDark && styles.contextTextDark]}>
-                    10–20 sets/week per major muscle group is recommended for hypertrophy
-                    (Schoenfeld et al., 2017)
-                  </Text>
-                </View>
-              )}
-
-              {/* Contributing exercises */}
-              {selectedVolume.exerciseNames.length > 0 && (
-                <View style={styles.exerciseList}>
-                  <Text style={[styles.exerciseListTitle, isDark && styles.exerciseListTitleDark]}>
-                    Exercises
-                  </Text>
-                  {selectedVolume.exerciseNames.map((name, idx) => (
-                    <View
-                      key={name}
-                      style={[
-                        styles.exerciseItem,
-                        idx > 0 && styles.exerciseItemBorder,
-                        idx > 0 && isDark && styles.exerciseItemBorderDark,
-                      ]}
-                    >
-                      <View style={styles.exerciseBullet} />
-                      <Text style={[styles.exerciseName, isDark && styles.exerciseNameDark]}>
-                        {name}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* Total volume */}
-              {selectedVolume.totalWeightKg > 0 && (
-                <View style={[styles.totalRow, isDark && styles.totalRowDark]}>
-                  <Text style={[styles.totalLabel, isDark && styles.totalLabelDark]}>
-                    Total volume
-                  </Text>
-                  <Text style={[styles.totalValue, isDark && styles.totalValueDark]}>
-                    {formatWeight(selectedVolume.totalWeightKg, isMetric)}
-                  </Text>
-                </View>
-              )}
-            </View>
-          ) : null}
-
           {/* Info card */}
           <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
             <View style={styles.infoRow}>
@@ -332,9 +279,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                 color={isDark ? darkColors.textMuted : colors.textDisabled}
               />
               <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-                Primary exercises count as 1 set, secondary as 0.5 sets toward each muscle group's
-                weekly volume. This reflects how compound movements contribute less stimulus to
-                secondary muscles.
+                Primary exercises count as 1 set, secondary as 0.5 sets toward each muscle group.
               </Text>
             </View>
           </View>
@@ -451,6 +396,66 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bodyTitleDark: {
+    color: darkColors.textPrimary,
+  },
+  // Inline detail (replaces title when muscle selected)
+  inlineDetail: {
+    paddingHorizontal: spacing.xs,
+    paddingBottom: spacing.xs,
+  },
+  inlineDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  inlineDetailNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  inlineDetailDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  inlineDetailName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  inlineDetailNameDark: {
+    color: darkColors.textPrimary,
+  },
+  inlineDetailStats: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  inlineDetailStatsDark: {
+    color: darkColors.textSecondary,
+  },
+  inlineExerciseRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  inlineExerciseChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  inlineExerciseDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#FC4C02',
+  },
+  inlineExerciseText: {
+    fontSize: 12,
+    color: colors.textPrimary,
+  },
+  inlineExerciseTextDark: {
     color: darkColors.textPrimary,
   },
   bodyHint: {
