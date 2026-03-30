@@ -33,7 +33,6 @@ tags:
     from:
       id: "lock-overlay-unlock"
     direction: RIGHT
-    duration: 800
 
 # Wait for controls to appear after unlock
 - extendedWaitUntil:

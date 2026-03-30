@@ -47,6 +47,10 @@ appId: com.veloq.app.dev
       visible: "Skip"
     commands:
       - tapOn: "Skip"
+      - extendedWaitUntil:
+          notVisible: "Skip"
+          timeout: 3000
+          optional: true
 
 - extendedWaitUntil:
     visible:

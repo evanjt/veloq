@@ -6985,6 +6985,168 @@ const FfiConverterTypeFitnessManager = new FfiConverterObject(
   uniffiTypeFitnessManagerObjectFactory,
 );
 
+export interface HeatmapManagerInterface {
+  /**
+   * Clear all heatmap tiles from disk.
+   */
+  clearTiles(basePath: string) /*throws*/ : /*u32*/ number;
+  /**
+   * Set the filesystem path for heatmap tile storage.
+   * Called once at engine init from JS (documentDirectory + "heatmap-tiles/").
+   */
+  setTilesPath(path: string) /*throws*/ : void;
+}
+
+export class HeatmapManager
+  extends UniffiAbstractObject
+  implements HeatmapManagerInterface
+{
+  readonly [uniffiTypeNameSymbol] = "HeatmapManager";
+  readonly [destructorGuardSymbol]: UniffiRustArcPtr;
+  readonly [pointerLiteralSymbol]: UnsafeMutableRawPointer;
+  constructor() {
+    super();
+    const pointer = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_heatmapmanager_new(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+    this[pointerLiteralSymbol] = pointer;
+    this[destructorGuardSymbol] =
+      uniffiTypeHeatmapManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Clear all heatmap tiles from disk.
+   */
+  public clearTiles(basePath: string): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
+            uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(basePath),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Set the filesystem path for heatmap tile storage.
+   * Called once at engine init from JS (documentDirectory + "heatmap-tiles/").
+   */
+  public setTilesPath(path: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
+          uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(path),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
+   */
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer = uniffiTypeHeatmapManagerObjectFactory.pointer(this);
+      uniffiTypeHeatmapManagerObjectFactory.freePointer(pointer);
+      uniffiTypeHeatmapManagerObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj: any): obj is HeatmapManager {
+    return uniffiTypeHeatmapManagerObjectFactory.isConcreteType(obj);
+  }
+}
+
+const uniffiTypeHeatmapManagerObjectFactory: UniffiObjectFactory<HeatmapManagerInterface> =
+  (() => {
+    return {
+      create(pointer: UnsafeMutableRawPointer): HeatmapManagerInterface {
+        const instance = Object.create(HeatmapManager.prototype);
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = "HeatmapManager";
+        return instance;
+      },
+
+      bless(p: UnsafeMutableRawPointer): UniffiRustArcPtr {
+        return uniffiCaller.rustCall(
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      unbless(ptr: UniffiRustArcPtr) {
+        ptr.markDestroyed();
+      },
+
+      pointer(obj: HeatmapManagerInterface): UnsafeMutableRawPointer {
+        if ((obj as any)[destructorGuardSymbol] === undefined) {
+          throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj as any)[pointerLiteralSymbol];
+      },
+
+      clonePointer(obj: HeatmapManagerInterface): UnsafeMutableRawPointer {
+        const pointer = this.pointer(obj);
+        return uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_clone_heatmapmanager(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      freePointer(pointer: UnsafeMutableRawPointer): void {
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_free_heatmapmanager(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      isConcreteType(obj: any): obj is HeatmapManagerInterface {
+        return (
+          obj[destructorGuardSymbol] &&
+          obj[uniffiTypeNameSymbol] === "HeatmapManager"
+        );
+      },
+    };
+  })();
+// FfiConverter for HeatmapManagerInterface
+const FfiConverterTypeHeatmapManager = new FfiConverterObject(
+  uniffiTypeHeatmapManagerObjectFactory,
+);
+
 export interface MapManagerInterface {
   getAllSignatures() /*throws*/ : Array<FfiMapSignature>;
   getBoundsForRange(
@@ -9050,6 +9212,7 @@ export interface VeloqEngineInterface {
   fitness(): FitnessManagerInterface;
   getActivityCount() /*throws*/ : /*u32*/ number;
   getStats() /*throws*/ : PersistentEngineStats;
+  heatmap(): HeatmapManagerInterface;
   isInitialized(): boolean;
   maps(): MapManagerInterface;
   markForRecomputation() /*throws*/ : void;
@@ -9207,6 +9370,20 @@ export class VeloqEngine
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_get_stats(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  public heatmap(): HeatmapManagerInterface {
+    return FfiConverterTypeHeatmapManager.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_heatmap(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
             callStatus,
           );
@@ -9944,6 +10121,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles() !==
+    20848
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path() !==
+    55939
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures() !==
     33684
   ) {
@@ -10536,6 +10729,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_heatmap() !==
+    10585
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_heatmap",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized() !==
     30977
   ) {
@@ -10621,6 +10822,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_constructor_fitnessmanager_new",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_heatmapmanager_new() !==
+    16751
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_constructor_heatmapmanager_new",
     );
   }
   if (
@@ -10736,6 +10945,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSupersededEntry,
     FfiConverterTypeFitnessManager,
     FfiConverterTypeGroupSummary,
+    FfiConverterTypeHeatmapManager,
     FfiConverterTypeMapActivityComplete,
     FfiConverterTypeMapManager,
     FfiConverterTypePersistentEngineStats,

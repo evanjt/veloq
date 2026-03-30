@@ -185,6 +185,16 @@ RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_zone_distribution(
 void uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot(
     void *ptr, RustBuffer sport_type, double critical_speed, RustBuffer d_prime,
     RustBuffer r2, int64_t date, RustCallStatus *uniffi_out_err);
+void *uniffi_veloqrs_fn_clone_heatmapmanager(void *ptr,
+                                             RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_free_heatmapmanager(void *ptr,
+                                           RustCallStatus *uniffi_out_err);
+void *uniffi_veloqrs_fn_constructor_heatmapmanager_new(
+    RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
+    void *ptr, RustBuffer base_path, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
+    void *ptr, RustBuffer path, RustCallStatus *uniffi_out_err);
 void *uniffi_veloqrs_fn_clone_mapmanager(void *ptr,
                                          RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_free_mapmanager(void *ptr,
@@ -407,6 +417,9 @@ uint32_t uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
 RustBuffer
 uniffi_veloqrs_fn_method_veloqengine_get_stats(void *ptr,
                                                RustCallStatus *uniffi_out_err);
+void *
+uniffi_veloqrs_fn_method_veloqengine_heatmap(void *ptr,
+                                             RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_veloqengine_is_initialized(
     void *ptr, RustCallStatus *uniffi_out_err);
 void *uniffi_veloqrs_fn_method_veloqengine_maps(void *ptr,
@@ -597,6 +610,8 @@ uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot();
+uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles();
+uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path();
 uint16_t uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures();
 uint16_t uniffi_veloqrs_checksum_method_mapmanager_get_bounds_for_range();
 uint16_t uniffi_veloqrs_checksum_method_mapmanager_get_filtered();
@@ -679,6 +694,7 @@ uint16_t uniffi_veloqrs_checksum_method_veloqengine_detection();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_fitness();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_get_activity_count();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_get_stats();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_heatmap();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_is_initialized();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_maps();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation();
@@ -690,6 +706,7 @@ uint16_t uniffi_veloqrs_checksum_method_veloqengine_strength();
 uint16_t uniffi_veloqrs_checksum_constructor_activitymanager_new();
 uint16_t uniffi_veloqrs_checksum_constructor_detectionmanager_new();
 uint16_t uniffi_veloqrs_checksum_constructor_fitnessmanager_new();
+uint16_t uniffi_veloqrs_checksum_constructor_heatmapmanager_new();
 uint16_t uniffi_veloqrs_checksum_constructor_mapmanager_new();
 uint16_t uniffi_veloqrs_checksum_constructor_routemanager_new();
 uint16_t uniffi_veloqrs_checksum_constructor_sectionmanager_new();
@@ -2529,6 +2546,64 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_clone_heatmapmanager"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_clone_heatmapmanager"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_clone_heatmapmanager(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_free_heatmapmanager"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_free_heatmapmanager"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_free_heatmapmanager(rt, thisVal,
+                                                                   args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_constructor_heatmapmanager_new"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_constructor_heatmapmanager_new"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_constructor_heatmapmanager_new(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_clone_mapmanager"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -3615,6 +3690,17 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_method_veloqengine_get_stats(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_heatmap"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_heatmap"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_heatmap(
+                rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_veloqengine_is_initialized"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -4122,6 +4208,31 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "heatmapmanager_set_tiles_path"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -5018,6 +5129,17 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_veloqengine_get_stats(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_heatmap"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_heatmap"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_method_veloqengine_heatmap(
+                rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -5152,6 +5274,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_constructor_fitnessmanager_new(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_constructor_heatmapmanager_new"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_constructor_heatmapmanager_new"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_constructor_heatmapmanager_new(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_constructor_mapmanager_new"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -5272,6 +5407,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_internal_fn_method_fitnessmanager_ffi__bless_pointer(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_internal_fn_method_"
+                                        "heatmapmanager_ffi__bless_pointer"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_internal_fn_method_mapmanager_ffi__bless_pointer"] =
@@ -5455,6 +5602,22 @@ NativeVeloqrs::cpp_uniffi_internal_fn_method_fitnessmanager_ffi__bless_pointer(
     auto pointer = reinterpret_cast<void *>(static_cast<uintptr_t>(p));
     RustCallStatus status = {0};
     uniffi_veloqrs_fn_free_fitnessmanager(pointer, &status);
+  };
+  auto ptrObj =
+      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
+  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
+  return jsi::Value(rt, obj);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto pointer =
+      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
+  auto static destructor = [](uint64_t p) {
+    auto pointer = reinterpret_cast<void *>(static_cast<uintptr_t>(p));
+    RustCallStatus status = {0};
+    uniffi_veloqrs_fn_free_heatmapmanager(pointer, &status);
   };
   auto ptrObj =
       std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
@@ -6069,6 +6232,71 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot(
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[5]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_heatmapmanager(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_clone_heatmapmanager(
+      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_heatmapmanager(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_free_heatmapmanager(
+      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_heatmapmanager_new(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_constructor_heatmapmanager_new(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
+      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
+      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -7393,6 +7621,18 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_get_stats(
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_heatmap(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_heatmap(
+      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_is_initialized(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -7805,6 +8045,22 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -8429,6 +8685,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_get_stats(
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_heatmap(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_heatmap();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_is_initialized(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -8513,6 +8777,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_constructor_fitnessmanager_new(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_constructor_fitnessmanager_new();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_constructor_heatmapmanager_new(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_constructor_heatmapmanager_new();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

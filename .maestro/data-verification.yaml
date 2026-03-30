@@ -49,8 +49,10 @@ tags:
     visible:
       id: "fitness-ctl-value"
     timeout: 10000
-- assertVisible:
-    id: "fitness-atl-value"
+- extendedWaitUntil:
+    visible:
+      id: "fitness-atl-value"
+    timeout: 5000
 
 - takeScreenshot: "data-verification-fitness"
 

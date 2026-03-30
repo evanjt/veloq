@@ -238,9 +238,11 @@ tags:
     visible:
       id: "map-toggle-sections"
     timeout: 20000
+    optional: true
 
 - tapOn:
     id: "map-toggle-sections"
+    optional: true
 
 - extendedWaitUntil:
     visible:

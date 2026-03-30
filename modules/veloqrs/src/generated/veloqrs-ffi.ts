@@ -209,6 +209,27 @@ interface NativeModuleInterface {
     date: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_clone_heatmapmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_heatmapmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_heatmapmanager_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
+    ptr: bigint,
+    basePath: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
+    ptr: bigint,
+    path: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_clone_mapmanager(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -668,6 +689,10 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_heatmap(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_is_initialized(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -751,6 +776,8 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot(): number;
+  ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(): number;
+  ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_bounds_for_range(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_filtered(): number;
@@ -825,6 +852,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_fitness(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_stats(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_heatmap(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_maps(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation(): number;
@@ -836,6 +864,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_constructor_activitymanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_detectionmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_fitnessmanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_heatmapmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_mapmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_routemanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_sectionmanager_new(): number;
@@ -852,6 +881,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiRustArcPtr;
   ubrn_uniffi_internal_fn_method_fitnessmanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiRustArcPtr;
+  ubrn_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer(
     pointer: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiRustArcPtr;

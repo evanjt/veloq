@@ -14,8 +14,12 @@ tags:
       id: "home-activity-list"
     timeout: 15000
 
-# Scroll up to reveal hidden search bar (iOS-style hidden search)
-- scroll
+# Scroll up to reveal hidden search bar (initially offset 78px below fold)
+- scrollUntilVisible:
+    element:
+      id: "home-search-input"
+    direction: UP
+    timeout: 5000
 
 - takeScreenshot: "home-search-before"
 

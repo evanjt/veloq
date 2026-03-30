@@ -17,7 +17,7 @@ tags:
 - scrollUntilVisible:
     element:
       id: "record-type-WeightTraining"
-    direction: DOWN
+    direction: RIGHT
     timeout: 15000
     speed: 40
 - tapOn:
