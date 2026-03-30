@@ -19,7 +19,31 @@ tags:
     commands:
       - tapOn: "DISCARD"
 
+# Expand Cycling category if Ride isn't directly visible (may be collapsed due to
+# a previous test selecting a different activity type, e.g. WeightTraining)
+- runFlow:
+    when:
+      notVisible:
+        id: "record-type-Ride"
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Cycling"
+          direction: DOWN
+          timeout: 5000
+          speed: 40
+      - tapOn:
+          text: "Cycling"
+
 # Select Ride activity type
+- scrollUntilVisible:
+    element:
+      id: "record-type-Ride"
+    direction: DOWN
+    timeout: 5000
+    speed: 40
+    centerElement: true
+
 - tapOn:
     id: "record-type-Ride"
 
