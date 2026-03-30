@@ -8,7 +8,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
-import { findNearestMuscle } from '@/lib/strength/muscleHitRegions';
+import { findMuscleAtPoint } from '@/lib/strength/musclePolygons';
 
 const LOUPE_SIZE = 90;
 const LOUPE_OFFSET_Y = -100;
@@ -75,28 +75,34 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   // The loupe renders the body at a larger scale directly (no CSS transform)
   const loupeScale = scale * LOUPE_SCALE;
 
-  const handleScrubUpdate = useCallback(
-    (x: number, y: number) => {
-      if (!layoutSize || !tappableSlugs || tappableSlugs.size === 0 || !scrubCallback) return;
+  // Convert touch coordinates to normalized SVG space (0-1) and find muscle
+  const touchToMuscle = useCallback(
+    (x: number, y: number): string | null => {
+      if (!layoutSize || !tappableSlugs || tappableSlugs.size === 0) return null;
       const bodyW = (layoutSize.width - totalGap) / 2;
       const midpoint = bodyW + totalGap / 2;
       const side: 'front' | 'back' = x < midpoint ? 'front' : 'back';
       const localX = side === 'front' ? x : x - bodyW - totalGap;
-      const slug = findNearestMuscle(
-        localX,
-        y,
-        bodyW,
-        layoutSize.height,
-        side,
-        tappableSlugs,
-        scale
-      );
+      // SVG centering within flex container
+      const padX = (bodyW - bodyPixelW) / 2;
+      // Normalized 0-1 coordinates within the SVG viewBox
+      const nx = (localX - padX) / bodyPixelW;
+      const ny = y / bodyPixelH;
+      return findMuscleAtPoint(nx, ny, side, tappableSlugs);
+    },
+    [layoutSize, tappableSlugs, totalGap, bodyPixelW, bodyPixelH]
+  );
+
+  const handleScrubUpdate = useCallback(
+    (x: number, y: number) => {
+      if (!scrubCallback) return;
+      const slug = touchToMuscle(x, y);
       if (slug && slug !== lastScrubSlug.current) {
         lastScrubSlug.current = slug;
         scrubCallback(slug);
       }
     },
-    [layoutSize, tappableSlugs, scrubCallback, totalGap]
+    [touchToMuscle, scrubCallback]
   );
 
   const handleScrubEnd = useCallback(() => {
@@ -105,23 +111,11 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
 
   const handleTap = useCallback(
     (x: number, y: number) => {
-      if (!layoutSize || !tappableSlugs || tappableSlugs.size === 0 || !onMuscleTap) return;
-      const bodyW = (layoutSize.width - totalGap) / 2;
-      const midpoint = bodyW + totalGap / 2;
-      const side: 'front' | 'back' = x < midpoint ? 'front' : 'back';
-      const localX = side === 'front' ? x : x - bodyW - totalGap;
-      const slug = findNearestMuscle(
-        localX,
-        y,
-        bodyW,
-        layoutSize.height,
-        side,
-        tappableSlugs,
-        scale
-      );
+      if (!onMuscleTap) return;
+      const slug = touchToMuscle(x, y);
       if (slug) onMuscleTap(slug);
     },
-    [layoutSize, tappableSlugs, onMuscleTap, totalGap]
+    [touchToMuscle, onMuscleTap]
   );
 
   const updateLoupePosition = (x: number, y: number) => {
