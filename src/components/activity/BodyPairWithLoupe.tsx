@@ -8,7 +8,12 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
-import { findNearestMuscle } from '@/lib/strength/muscleHitRegions';
+import {
+  findNearestMuscle,
+  FRONT_POSITIONS,
+  BACK_POSITIONS,
+  TAP_TARGET_RADIUS,
+} from '@/lib/strength/muscleHitRegions';
 
 const LOUPE_SIZE = 90;
 const LOUPE_OFFSET_Y = -100;
@@ -82,7 +87,15 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
       const midpoint = bodyW + totalGap / 2;
       const side: 'front' | 'back' = x < midpoint ? 'front' : 'back';
       const localX = side === 'front' ? x : x - bodyW - totalGap;
-      const slug = findNearestMuscle(localX, y, bodyW, layoutSize.height, side, tappableSlugs);
+      const slug = findNearestMuscle(
+        localX,
+        y,
+        bodyW,
+        layoutSize.height,
+        side,
+        tappableSlugs,
+        scale
+      );
       if (slug && slug !== lastScrubSlug.current) {
         lastScrubSlug.current = slug;
         scrubCallback(slug);
@@ -102,7 +115,15 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
       const midpoint = bodyW + totalGap / 2;
       const side: 'front' | 'back' = x < midpoint ? 'front' : 'back';
       const localX = side === 'front' ? x : x - bodyW - totalGap;
-      const slug = findNearestMuscle(localX, y, bodyW, layoutSize.height, side, tappableSlugs);
+      const slug = findNearestMuscle(
+        localX,
+        y,
+        bodyW,
+        layoutSize.height,
+        side,
+        tappableSlugs,
+        scale
+      );
       if (slug) onMuscleTap(slug);
     },
     [layoutSize, tappableSlugs, onMuscleTap, totalGap]
@@ -248,6 +269,38 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
               <View style={styles.loupeCrosshair} />
             </View>
           </Animated.View>
+          {/* DEBUG: Visualize hit regions in SVG-relative space */}
+          {layoutSize && tappableSlugs && tappableSlugs.size > 0 && (
+            <View style={StyleSheet.absoluteFill} pointerEvents="none">
+              {(['front', 'back'] as const).map((side) => {
+                const positions = side === 'front' ? FRONT_POSITIONS : BACK_POSITIONS;
+                const bodyW = (layoutSize.width - totalGap) / 2;
+                const svgW = bodyPixelW;
+                const svgH = bodyPixelH;
+                const padX = (bodyW - svgW) / 2;
+                const containerOffsetX = side === 'front' ? 0 : bodyW + totalGap;
+                return Object.entries(positions).map(([slug, regions]) => {
+                  if (!tappableSlugs.has(slug)) return null;
+                  return regions.map((pos, idx) => (
+                    <View
+                      key={`debug-${side}-${slug}-${idx}`}
+                      style={{
+                        position: 'absolute',
+                        left: containerOffsetX + padX + pos.x * svgW - TAP_TARGET_RADIUS,
+                        top: pos.y * svgH - TAP_TARGET_RADIUS,
+                        width: TAP_TARGET_RADIUS * 2,
+                        height: TAP_TARGET_RADIUS * 2,
+                        borderRadius: TAP_TARGET_RADIUS,
+                        backgroundColor: 'rgba(0, 100, 255, 0.3)',
+                        borderWidth: 1,
+                        borderColor: 'blue',
+                      }}
+                    />
+                  ));
+                });
+              })}
+            </View>
+          )}
         </View>
       </Animated.View>
     </GestureDetector>
