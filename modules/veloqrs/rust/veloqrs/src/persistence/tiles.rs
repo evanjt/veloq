@@ -15,9 +15,22 @@ use tracematch::{Bounds, GpsPoint};
 impl PersistentRouteEngine {
     /// Set the filesystem path where heatmap tiles are stored.
     /// Called once from JS at engine init time.
+    /// If the engine already has activities, spawns background tile generation immediately.
     pub fn set_heatmap_tiles_path(&mut self, path: String) {
         info!("[heatmap] Tiles path set to: {}", path);
         self.heatmap_tiles_path = Some(path);
+
+        // If we already have activity data (existing user / upgrade),
+        // generate tiles immediately so the map shows the heatmap on first view.
+        if !self.activity_metadata.is_empty() {
+            if let Some(handle) = self.generate_tiles_background() {
+                if let Ok(mut guard) =
+                    super::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock()
+                {
+                    *guard = Some(handle);
+                }
+            }
+        }
     }
 
     /// Spawn background tile generation. Extracts metadata while holding &self
