@@ -139,7 +139,7 @@ export function RegionalMapView({
   const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
 
   // Heatmap tiles (raster overlay replacing vector traces)
-  const { tileUrlTemplate, generateForViewport } = useHeatmapTiles({
+  const { tileUrlTemplate, tilesReady, generateForViewport } = useHeatmapTiles({
     enabled: isMapFocused,
   });
 
@@ -298,16 +298,23 @@ export function RegionalMapView({
     markUserInteracted,
   });
 
-  // Generate heatmap tiles for the full activity extent.
-  // Fires once when we first have activities AND the map has focused,
-  // then re-fires after each sync (activities array reference changes).
+  // Generate heatmap tiles once when map first has activities.
+  // Subsequent syncs clear tiles (in GlobalDataSync) and this re-fires
+  // because tilesReady becomes false.
   const generateForViewportRef = useRef(generateForViewport);
   generateForViewportRef.current = generateForViewport;
-  const hasGeneratedRef = useRef(false);
+  const hasRequestedRef = useRef(false);
+
+  // Reset generation flag when tiles are cleared (after sync)
+  useEffect(() => {
+    if (!tilesReady) hasRequestedRef.current = false;
+  }, [tilesReady]);
 
   useEffect(() => {
     if (!isMapFocused || activities.length === 0) return;
-    // Compute full bounding box of all activities
+    if (hasRequestedRef.current) return;
+    hasRequestedRef.current = true;
+
     let minLat = 90,
       maxLat = -90,
       minLng = 180,
@@ -319,7 +326,6 @@ export function RegionalMapView({
       if (bMinLng < minLng) minLng = bMinLng;
       if (bMaxLng > maxLng) maxLng = bMaxLng;
     }
-    hasGeneratedRef.current = true;
     generateForViewportRef.current({ minLat, maxLat, minLng, maxLng });
   }, [activities, isMapFocused]);
 
