@@ -687,7 +687,7 @@ export function RegionalMapView({
             <RasterLayer
               id="heatmap-layer"
               style={{
-                rasterOpacity: showTraces ? 0.85 : 0,
+                rasterOpacity: showActivities ? 0.85 : 0,
               }}
               belowLayerID="sectionsOutline"
             />
