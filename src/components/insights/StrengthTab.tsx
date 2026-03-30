@@ -206,8 +206,11 @@ export const StrengthTab = React.memo(function StrengthTab() {
                   </TouchableOpacity>
                 </View>
                 <Text style={[styles.inlineDetailStats, isDark && styles.inlineDetailStatsDark]}>
-                  {selectedVolume.weightedSets.toFixed(1)} weighted sets ·{' '}
-                  {selectedVolume.primarySets} primary · {selectedVolume.secondarySets} secondary
+                  {selectedVolume.weightedSets % 1 === 0
+                    ? selectedVolume.weightedSets.toFixed(0)
+                    : selectedVolume.weightedSets.toFixed(1)}{' '}
+                  weighted sets · {selectedVolume.primarySets} primary ·{' '}
+                  {selectedVolume.secondarySets} secondary
                   {selectedVolume.totalReps > 0 ? ` · ${selectedVolume.totalReps} reps` : ''}
                 </Text>
                 {selectedVolume.exerciseNames.length > 0 && (
@@ -264,8 +267,13 @@ export const StrengthTab = React.memo(function StrengthTab() {
                 />
               </View>
               <View style={styles.scaleLabels}>
-                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>Low</Text>
-                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>High</Text>
+                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>0</Text>
+                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>
+                  {maxWeightedSets % 1 === 0
+                    ? maxWeightedSets.toFixed(0)
+                    : maxWeightedSets.toFixed(1)}{' '}
+                  sets
+                </Text>
               </View>
             </View>
           </View>
