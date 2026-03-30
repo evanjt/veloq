@@ -116,6 +116,7 @@ import {
   LineLayer,
   MarkerView,
   CircleLayer,
+  SymbolLayer,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { decodePolyline, LatLng, getActivityColor } from '@/lib';
@@ -411,7 +412,8 @@ export const ActivityMapView = memo(function ActivityMapView({
     sectionOverlaysGeoJSON,
     consolidatedSectionsGeoJSON,
     consolidatedPortionsGeoJSON,
-    sectionMarkerElements,
+    sectionMarkersGeoJSON,
+    fullscreenPRMarkersGeoJSON,
     routeCoords,
     highlightPoint,
     highlightGeoJSON,
@@ -421,7 +423,6 @@ export const ActivityMapView = memo(function ActivityMapView({
     routeOverlay,
     sectionOverlays,
     highlightIndex,
-    onSectionMarkerPress,
     activeTab,
   });
 
@@ -967,9 +968,38 @@ export const ActivityMapView = memo(function ActivityMapView({
               </View>
             </MarkerView>
 
-            {/* Numbered markers at center of each section, offset to the side */}
-            {/* Memoized to prevent re-renders when highlight state changes (see sectionMarkerElements) */}
-            {sectionMarkerElements}
+            {/* Section numbered/PR markers — geo-anchored so they track with map pan/zoom */}
+            {/* Uses ShapeSource + CircleLayer + SymbolLayer instead of MarkerView: */}
+            {/* MarkerView coordinate updates break native position binding in MapLibre RN */}
+            <ShapeSource
+              id="sectionMarkersSource"
+              shape={sectionMarkersGeoJSON}
+              onPress={(e) => {
+                const sectionId = e.features[0]?.properties?.sectionId as string | undefined;
+                if (sectionId) onSectionMarkerPress?.(sectionId);
+              }}
+            >
+              <CircleLayer
+                id="section-marker-circle"
+                style={{
+                  circleRadius: ['case', ['get', 'isPR'], 14, 12] as unknown as number,
+                  circleColor: ['case', ['get', 'isPR'], '#D4AF37', '#00BCD4'] as unknown as string,
+                  circleStrokeWidth: ['case', ['get', 'isPR'], 2.5, 2] as unknown as number,
+                  circleStrokeColor: '#FFFFFF',
+                }}
+              />
+              <SymbolLayer
+                id="section-marker-text"
+                style={{
+                  textField: ['get', 'label'] as unknown as string,
+                  textColor: '#FFFFFF',
+                  textSize: 10,
+                  textAnchor: 'center',
+                  textAllowOverlap: true,
+                  textIgnorePlacement: true,
+                }}
+              />
+            </ShapeSource>
 
             {/* Highlight marker from chart scrubbing — rendered last so it's on top of all layers */}
             {/* Uses ShapeSource + CircleLayer because MarkerView coordinate updates break native position binding */}
@@ -1212,52 +1242,36 @@ export const ActivityMapView = memo(function ActivityMapView({
           </ShapeSource>
 
           {/* PR markers at center of each PR section in fullscreen */}
-          {/* CRITICAL: Always render ALL markers - never return null to avoid iOS Fabric crash */}
-          {/* iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207) */}
-          {sectionOverlaysGeoJSON &&
-            sectionOverlaysGeoJSON
-              .filter((overlay) => overlay.isPR)
-              .map((overlay) => {
-                const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
-                const coords = sectionGeom?.coordinates;
-                const hasValidCoords = coords && coords.length > 0;
-
-                // Calculate center coordinate, default to [0,0] if invalid
-                let centerLng = 0;
-                let centerLat = 0;
-                let hasValidCenter = false;
-
-                if (hasValidCoords) {
-                  const midIndex = Math.floor(coords.length / 2);
-                  const centerCoord = coords[midIndex];
-                  if (
-                    centerCoord &&
-                    Number.isFinite(centerCoord[0]) &&
-                    Number.isFinite(centerCoord[1])
-                  ) {
-                    centerLng = centerCoord[0];
-                    centerLat = centerCoord[1];
-                    hasValidCenter = true;
-                  }
-                }
-
-                return (
-                  <MarkerView
-                    key={`fs-sectionMarker-${overlay.id}`}
-                    coordinate={[centerLng, centerLat]}
-                  >
-                    {hasValidCenter ? (
-                      <Pressable onPress={() => onSectionMarkerPress?.(overlay.id)} hitSlop={8}>
-                        <View style={styles.prMarker}>
-                          <Text style={styles.prMarkerText}>PR</Text>
-                        </View>
-                      </Pressable>
-                    ) : (
-                      <View />
-                    )}
-                  </MarkerView>
-                );
-              })}
+          {/* Geo-anchored via ShapeSource so markers track with pan/zoom */}
+          <ShapeSource
+            id="fs-section-markers-source"
+            shape={fullscreenPRMarkersGeoJSON}
+            onPress={(e) => {
+              const sectionId = e.features[0]?.properties?.sectionId as string | undefined;
+              if (sectionId) onSectionMarkerPress?.(sectionId);
+            }}
+          >
+            <CircleLayer
+              id="fs-section-marker-circle"
+              style={{
+                circleRadius: 14,
+                circleColor: '#D4AF37',
+                circleStrokeWidth: 2.5,
+                circleStrokeColor: '#FFFFFF',
+              }}
+            />
+            <SymbolLayer
+              id="fs-section-marker-text"
+              style={{
+                textField: ['get', 'label'] as unknown as string,
+                textColor: '#FFFFFF',
+                textSize: 10,
+                textAnchor: 'center',
+                textAllowOverlap: true,
+                textIgnorePlacement: true,
+              }}
+            />
+          </ShapeSource>
 
           {/* Start marker */}
           {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}

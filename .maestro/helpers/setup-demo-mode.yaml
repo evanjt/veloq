@@ -1,5 +1,6 @@
 # Launch app, enter demo mode if needed, wait for home screen
 # Works on emulators, simulators, and physical devices
+# Handles: login, system alerts, Activity Notifications, WhatsNewModal
 appId: com.veloq.app.dev
 ---
 - launchApp
@@ -27,6 +28,14 @@ appId: com.veloq.app.dev
       - tapOn:
           id: "login-demo-button"
 
+# After demo login, multiple dialogs may appear in sequence.
+# Wait for SOMETHING to show up (home screen, a dialog, or WhatsNewModal)
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+    optional: true
+
 # Dismiss any system alerts (e.g. "Not Now" for notifications)
 - runFlow:
     when:
@@ -41,17 +50,14 @@ appId: com.veloq.app.dev
     commands:
       - tapOn: "Done"
 
-# Dismiss WhatsNewModal if present (auto-triggers on new version)
+# Dismiss WhatsNewModal if present (auto-triggers on new app version)
 - runFlow:
     when:
       visible: "Skip"
     commands:
       - tapOn: "Skip"
-      - extendedWaitUntil:
-          notVisible: "Skip"
-          timeout: 3000
-          optional: true
 
+# Final wait for home screen (should be visible now after all dialogs dismissed)
 - extendedWaitUntil:
     visible:
       id: "home-screen"

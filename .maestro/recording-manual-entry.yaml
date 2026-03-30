@@ -1,5 +1,5 @@
 # Recording Manual Entry Test
-# Tests the manual entry flow: select ManualEntry type, verify form, discard
+# Tests the manual entry flow: select WeightTraining via All Activities, verify form, discard
 
 appId: com.veloq.app.dev
 tags:
@@ -12,14 +12,35 @@ tags:
 - tapOn:
     id: "record-fab"
 
-# Select WeightTraining — a manual-mode activity type (no GPS needed)
-# WeightTraining is the 6th item in the horizontal quick start bar and may be off-screen
+# Dismiss any "Resume previous recording?" dialog
+- runFlow:
+    when:
+      visible: "Discard"
+    commands:
+      - tapOn: "Discard"
+
+# Scroll down to reach the All Activities collapsible sections
+- scrollUntilVisible:
+    element:
+      text: "Gym & Fitness"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+
+# Expand the Gym & Fitness category to access WeightTraining
+- tapOn:
+    text: "Gym & Fitness"
+
+# Scroll WeightTraining to center of screen (away from tab bar overlap at bottom)
 - scrollUntilVisible:
     element:
       id: "record-type-WeightTraining"
-    direction: RIGHT
-    timeout: 15000
+    direction: DOWN
+    timeout: 5000
     speed: 40
+    centerElement: true
+
+# Wait for WeightTraining to be ready then tap
 - tapOn:
     id: "record-type-WeightTraining"
 
@@ -41,10 +62,13 @@ tags:
 
 - takeScreenshot: "recording-manual-entry-form"
 
-# Navigate back to discard and return to home
+# Navigate back to record type picker then to home
 - back
 
-# Verify return to the record type picker or home
+# Back again from record picker to home
+- back
+
+# Verify return to home screen
 - extendedWaitUntil:
     visible:
       id: "home-screen"

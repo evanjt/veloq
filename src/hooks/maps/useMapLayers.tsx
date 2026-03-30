@@ -8,9 +8,7 @@
  * Extracted from ActivityMapView.tsx — pure refactor, no behaviour change.
  */
 
-import React, { useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { MarkerView } from '@maplibre/maplibre-react-native';
+import { useMemo } from 'react';
 import type { LatLng } from '@/lib';
 import type { SectionOverlay } from '@/components/maps/ActivityMapView';
 
@@ -33,8 +31,6 @@ interface UseMapLayersParams {
   sectionOverlays?: SectionOverlay[] | null;
   /** Index into coordinates to highlight (from chart scrubbing) */
   highlightIndex?: number | null;
-  /** Called when a section marker is tapped on the map */
-  onSectionMarkerPress?: (sectionId: string) => void;
   /** Active tab — controls marker style (numbered on sections, PR on charts) */
   activeTab?: string;
 }
@@ -54,8 +50,10 @@ interface UseMapLayersResult {
   consolidatedSectionsGeoJSON: GeoJSON.FeatureCollection;
   /** Consolidated portion polylines GeoJSON (stable shape source) */
   consolidatedPortionsGeoJSON: GeoJSON.FeatureCollection;
-  /** Pre-built section marker elements (memoised for stable references) */
-  sectionMarkerElements: React.ReactNode[] | null;
+  /** GeoJSON for geo-anchored section markers (ShapeSource + CircleLayer + SymbolLayer) */
+  sectionMarkersGeoJSON: GeoJSON.FeatureCollection;
+  /** GeoJSON for PR-only section markers in fullscreen modal */
+  fullscreenPRMarkersGeoJSON: GeoJSON.FeatureCollection;
   /** Route coordinates in [lng, lat] format for BaseMapView / Map3DWebView */
   routeCoords: [number, number][];
   /** The highlighted point from chart selection, or null */
@@ -93,7 +91,6 @@ export function useMapLayers({
   routeOverlay,
   sectionOverlays,
   highlightIndex,
-  onSectionMarkerPress,
   activeTab,
 }: UseMapLayersParams): UseMapLayersResult {
   // ----- route line -----
@@ -245,84 +242,101 @@ export function useMapLayers({
       };
     }, [sectionOverlays]);
 
-  // ----- section marker elements -----
+  // ----- section marker GeoJSON -----
   // Sections tab: numbered markers (1, 2, 3...) for all sections
   // Charts tab: PR markers for PR sections only
-  const sectionMarkerElements = useMemo(() => {
-    if (!sectionOverlaysGeoJSON) return null;
+  // Uses GeoJSON + ShapeSource/CircleLayer/SymbolLayer so markers geo-anchor and track with pan/zoom.
+  // MarkerView was previously used but its coordinate updates break native position binding.
+  const sectionMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    if (!sectionOverlaysGeoJSON) return EMPTY_COLLECTION;
 
-    const overlaysToRender =
-      activeTab === 'sections'
-        ? sectionOverlaysGeoJSON
-        : sectionOverlaysGeoJSON.filter((o) => o.isPR);
-    if (overlaysToRender.length === 0) return null;
+    const isPRMarker = activeTab !== 'sections';
+    const overlaysToRender = isPRMarker
+      ? sectionOverlaysGeoJSON.filter((o) => o.isPR)
+      : sectionOverlaysGeoJSON;
+    if (overlaysToRender.length === 0) return EMPTY_COLLECTION;
 
-    return overlaysToRender.map((overlay, index) => {
+    const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
+
+    overlaysToRender.forEach((overlay, index) => {
       const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
       const portionGeom = overlay.portionGeo?.geometry as GeoJSON.LineString | undefined;
       const coords = portionGeom?.coordinates || sectionGeom?.coordinates;
-      const hasValidCoords = coords && coords.length >= 2;
+      if (!coords || coords.length < 2) return;
 
-      let markerLng = 0;
-      let markerLat = 0;
-      let hasValidMarkerPosition = false;
-
-      if (hasValidCoords) {
-        const midIndex = Math.floor(coords.length / 2);
-        const midCoord = coords[midIndex];
-        if (
-          midCoord &&
-          typeof midCoord[0] === 'number' &&
-          typeof midCoord[1] === 'number' &&
-          Number.isFinite(midCoord[0]) &&
-          Number.isFinite(midCoord[1])
-        ) {
-          const prevIndex = Math.max(0, midIndex - 1);
-          const nextIndex = Math.min(coords.length - 1, midIndex + 1);
-          const prevCoord = coords[prevIndex];
-          const nextCoord = coords[nextIndex];
-
-          const dx = nextCoord[0] - prevCoord[0];
-          const dy = nextCoord[1] - prevCoord[1];
-          const len = Math.sqrt(dx * dx + dy * dy);
-
-          const offsetDistance = 0.00035; // ~35 meters at equator
-          const offsetLng = len > 0 ? (-dy / len) * offsetDistance : 0;
-          const offsetLat = len > 0 ? (dx / len) * offsetDistance : 0;
-
-          markerLng = midCoord[0] + offsetLng;
-          markerLat = midCoord[1] + offsetLat;
-          hasValidMarkerPosition = Number.isFinite(markerLng) && Number.isFinite(markerLat);
-        }
+      const midIndex = Math.floor(coords.length / 2);
+      const midCoord = coords[midIndex];
+      if (
+        !midCoord ||
+        typeof midCoord[0] !== 'number' ||
+        typeof midCoord[1] !== 'number' ||
+        !Number.isFinite(midCoord[0]) ||
+        !Number.isFinite(midCoord[1])
+      ) {
+        return;
       }
 
-      const isPRMarker = activeTab !== 'sections';
+      const prevIndex = Math.max(0, midIndex - 1);
+      const nextIndex = Math.min(coords.length - 1, midIndex + 1);
+      const prevCoord = coords[prevIndex];
+      const nextCoord = coords[nextIndex];
 
-      return (
-        <MarkerView
-          key={`sectionMarker-${overlay.id}`}
-          coordinate={[markerLng, markerLat] as [number, number]}
-          anchor={{ x: 0.5, y: 0.5 }}
-        >
-          {hasValidMarkerPosition ? (
-            <Pressable onPress={() => onSectionMarkerPress?.(overlay.id)} hitSlop={8}>
-              {isPRMarker ? (
-                <View style={markerStyles.prMarker}>
-                  <Text style={markerStyles.prMarkerText}>PR</Text>
-                </View>
-              ) : (
-                <View style={markerStyles.numberedMarker}>
-                  <Text style={markerStyles.numberedMarkerText}>{index + 1}</Text>
-                </View>
-              )}
-            </Pressable>
-          ) : (
-            <View />
-          )}
-        </MarkerView>
-      );
+      const dx = nextCoord[0] - prevCoord[0];
+      const dy = nextCoord[1] - prevCoord[1];
+      const len = Math.sqrt(dx * dx + dy * dy);
+
+      const offsetDistance = 0.00035; // ~35 meters at equator
+      const offsetLng = len > 0 ? (-dy / len) * offsetDistance : 0;
+      const offsetLat = len > 0 ? (dx / len) * offsetDistance : 0;
+
+      const markerLng = midCoord[0] + offsetLng;
+      const markerLat = midCoord[1] + offsetLat;
+      if (!Number.isFinite(markerLng) || !Number.isFinite(markerLat)) return;
+
+      features.push({
+        type: 'Feature',
+        properties: {
+          sectionId: overlay.id,
+          label: isPRMarker ? 'PR' : String(index + 1),
+          isPR: isPRMarker,
+        },
+        geometry: { type: 'Point', coordinates: [markerLng, markerLat] },
+      });
     });
-  }, [sectionOverlaysGeoJSON, onSectionMarkerPress, activeTab]);
+
+    return { type: 'FeatureCollection', features };
+  }, [sectionOverlaysGeoJSON, activeTab]);
+
+  // ----- fullscreen PR marker GeoJSON -----
+  // Always PR-only; uses section geometry midpoint without perpendicular offset.
+  const fullscreenPRMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    if (!sectionOverlaysGeoJSON) return EMPTY_COLLECTION;
+
+    const prOverlays = sectionOverlaysGeoJSON.filter((o) => o.isPR);
+    if (prOverlays.length === 0) return EMPTY_COLLECTION;
+
+    const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
+
+    prOverlays.forEach((overlay) => {
+      const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
+      const coords = sectionGeom?.coordinates;
+      if (!coords || coords.length === 0) return;
+
+      const midIndex = Math.floor(coords.length / 2);
+      const midCoord = coords[midIndex];
+      if (!midCoord || !Number.isFinite(midCoord[0]) || !Number.isFinite(midCoord[1])) {
+        return;
+      }
+
+      features.push({
+        type: 'Feature',
+        properties: { sectionId: overlay.id, label: 'PR' },
+        geometry: { type: 'Point', coordinates: [midCoord[0], midCoord[1]] },
+      });
+    });
+
+    return { type: 'FeatureCollection', features };
+  }, [sectionOverlaysGeoJSON]);
 
   // ----- route coordinates in [lng, lat] for BaseMapView / Map3DWebView -----
   const routeCoords = useMemo(() => {
@@ -361,54 +375,10 @@ export function useMapLayers({
     sectionOverlaysGeoJSON,
     consolidatedSectionsGeoJSON,
     consolidatedPortionsGeoJSON,
-    sectionMarkerElements,
+    sectionMarkersGeoJSON,
+    fullscreenPRMarkersGeoJSON,
     routeCoords,
     highlightPoint,
     highlightGeoJSON,
   };
 }
-
-const markerStyles = StyleSheet.create({
-  prMarker: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#D4AF37',
-    borderWidth: 2.5,
-    borderColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-  prMarkerText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  numberedMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#00BCD4',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-  numberedMarkerText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-});

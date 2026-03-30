@@ -33,6 +33,7 @@ tags:
     from:
       id: "lock-overlay-unlock"
     direction: RIGHT
+    duration: 800
 
 # Wait for controls to appear after unlock
 - extendedWaitUntil:
@@ -79,7 +80,7 @@ tags:
 - eraseText:
     charactersToErase: 50
 
-- inputText: "Test Ride 🚴"
+- inputText: "Test Ride 2025"
 
 - takeScreenshot: "recording-review-name-entered"
 

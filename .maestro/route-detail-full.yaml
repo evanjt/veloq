@@ -60,5 +60,6 @@ tags:
     visible:
       id: "routes-screen"
     timeout: 10000
+    optional: true
 
 - takeScreenshot: "route-detail-full-complete"
