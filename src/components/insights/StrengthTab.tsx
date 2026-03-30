@@ -278,6 +278,51 @@ export const StrengthTab = React.memo(function StrengthTab() {
             </View>
           </View>
 
+          {/* Exercise detail list when muscle selected */}
+          {selectedVolume && selectedVolume.exerciseNames.length > 0 && (
+            <View style={[styles.exerciseCard, isDark && styles.exerciseCardDark]}>
+              <Text style={[styles.exerciseCardTitle, isDark && styles.exerciseCardTitleDark]}>
+                Exercises targeting{' '}
+                {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug}
+              </Text>
+              {selectedVolume.exerciseNames.map((name, idx) => (
+                <View
+                  key={name}
+                  style={[
+                    styles.exerciseCardItem,
+                    idx > 0 && styles.exerciseCardItemBorder,
+                    idx > 0 && isDark && styles.exerciseCardItemBorderDark,
+                  ]}
+                >
+                  <View style={styles.exerciseCardDot} />
+                  <Text style={[styles.exerciseCardName, isDark && styles.exerciseCardNameDark]}>
+                    {name}
+                  </Text>
+                </View>
+              ))}
+              {selectedVolume.totalWeightKg > 0 && (
+                <View style={[styles.exerciseCardTotal, isDark && styles.exerciseCardTotalDark]}>
+                  <Text
+                    style={[
+                      styles.exerciseCardTotalLabel,
+                      isDark && styles.exerciseCardTotalLabelDark,
+                    ]}
+                  >
+                    Total volume
+                  </Text>
+                  <Text
+                    style={[
+                      styles.exerciseCardTotalValue,
+                      isDark && styles.exerciseCardTotalValueDark,
+                    ]}
+                  >
+                    {formatWeight(selectedVolume.totalWeightKg, isMetric)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
           {/* Info card */}
           <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
             <View style={styles.infoRow}>
@@ -649,6 +694,78 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   totalValueDark: {
+    color: darkColors.textPrimary,
+  },
+  exerciseCard: {
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadius,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  exerciseCardDark: {
+    backgroundColor: darkColors.surface,
+  },
+  exerciseCardTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  exerciseCardTitleDark: {
+    color: darkColors.textSecondary,
+  },
+  exerciseCardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 8,
+  },
+  exerciseCardItemBorder: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+  },
+  exerciseCardItemBorderDark: {
+    borderTopColor: darkColors.border,
+  },
+  exerciseCardDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FC4C02',
+  },
+  exerciseCardName: {
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  exerciseCardNameDark: {
+    color: darkColors.textPrimary,
+  },
+  exerciseCardTotal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: spacing.sm,
+    marginTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  exerciseCardTotalDark: {
+    borderTopColor: darkColors.border,
+  },
+  exerciseCardTotalLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  exerciseCardTotalLabelDark: {
+    color: darkColors.textSecondary,
+  },
+  exerciseCardTotalValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  exerciseCardTotalValueDark: {
     color: darkColors.textPrimary,
   },
   infoCard: {
