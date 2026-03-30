@@ -31,7 +31,7 @@ import {
 } from './mapStyles';
 import type { ActivityBoundsItem } from '@/types';
 import { useEngineSections, useRouteSignatures, useRouteGroups } from '@/hooks/routes';
-import { useHeatmapTiles } from '@/hooks/maps/useHeatmapTiles';
+import { HEATMAP_TILE_URL_TEMPLATE } from '@/hooks/maps/useHeatmapTiles';
 import type { FrequentSection } from '@/types';
 import {
   ActivityPopup,
@@ -137,11 +137,6 @@ export function RegionalMapView({
 
   // Route groups for displaying routes on the map
   const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
-
-  // Heatmap tiles (raster overlay replacing vector traces)
-  const { tileUrlTemplate, tilesReady, generateForViewport } = useHeatmapTiles({
-    enabled: isMapFocused,
-  });
 
   // Camera, bounds, and pre-computed activity centers
   const { activityCenters, mapCenter, currentZoomRef, currentCenterRef, markUserInteracted } =
@@ -297,37 +292,6 @@ export function RegionalMapView({
     is3DMode,
     markUserInteracted,
   });
-
-  // Generate heatmap tiles once when map first has activities.
-  // Subsequent syncs clear tiles (in GlobalDataSync) and this re-fires
-  // because tilesReady becomes false.
-  const generateForViewportRef = useRef(generateForViewport);
-  generateForViewportRef.current = generateForViewport;
-  const hasRequestedRef = useRef(false);
-
-  // Reset generation flag when tiles are cleared (after sync)
-  useEffect(() => {
-    if (!tilesReady) hasRequestedRef.current = false;
-  }, [tilesReady]);
-
-  useEffect(() => {
-    if (!isMapFocused || activities.length === 0) return;
-    if (hasRequestedRef.current) return;
-    hasRequestedRef.current = true;
-
-    let minLat = 90,
-      maxLat = -90,
-      minLng = 180,
-      maxLng = -180;
-    for (const a of activities) {
-      const [[bMinLat, bMinLng], [bMaxLat, bMaxLng]] = a.bounds;
-      if (bMinLat < minLat) minLat = bMinLat;
-      if (bMaxLat > maxLat) maxLat = bMaxLat;
-      if (bMinLng < minLng) minLng = bMinLng;
-      if (bMaxLng > maxLng) maxLng = bMaxLng;
-    }
-    generateForViewportRef.current({ minLat, maxLat, minLng, maxLng });
-  }, [activities, isMapFocused]);
 
   // Clear selections when their corresponding group visibility is turned off
   useEffect(() => {
@@ -685,7 +649,7 @@ export function RegionalMapView({
           {/* Raster heatmap tiles — replaces vector traces for performance */}
           <RasterSource
             id="heatmap-tiles"
-            tileUrlTemplates={[tileUrlTemplate]}
+            tileUrlTemplates={[HEATMAP_TILE_URL_TEMPLATE]}
             minZoomLevel={8}
             maxZoomLevel={15}
             tileSize={256}

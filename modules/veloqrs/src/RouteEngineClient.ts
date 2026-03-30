@@ -36,6 +36,7 @@ import type {
   DownloadProgressResult,
 } from './generated/veloqrs';
 
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   flatCoordsToPoints,
   validateId,
@@ -159,6 +160,13 @@ class RouteEngineClient {
     if (result) {
       this.initialized = true;
       this.dbPath = dbPath;
+      // Configure heatmap tiles path so Rust generates tiles on background threads
+      const tilesPath = `${FileSystem.documentDirectory}heatmap-tiles/`;
+      try {
+        this.engine.heatmap().setTilesPath(tilesPath);
+      } catch {
+        // Non-critical — tiles just won't generate
+      }
       if (this.pendingMetrics) {
         this.timed('setActivityMetrics', () =>
           this.engine.activities().setMetrics(this.pendingMetrics!),
@@ -758,36 +766,8 @@ class RouteEngineClient {
   // ==========================================================================
   // Heatmap Tiles (Raster tile generation for map overlay)
   // ==========================================================================
-
-  /** Generate heatmap tiles for a bounding box at specified zoom levels. */
-  generateHeatmapTiles(
-    basePath: string,
-    minLat: number,
-    maxLat: number,
-    minLng: number,
-    maxLng: number,
-    minZoom: number,
-    maxZoom: number,
-  ): number {
-    if (!this.ready) return 0;
-    return this.timed('generateHeatmapTiles', () =>
-      this.engine.heatmap().generateTiles(basePath, minLat, maxLat, minLng, maxLng, minZoom, maxZoom),
-    );
-  }
-
-  /** Delete heatmap tiles that intersect with the given bounds. */
-  invalidateHeatmapTiles(
-    basePath: string,
-    minLat: number,
-    maxLat: number,
-    minLng: number,
-    maxLng: number,
-  ): number {
-    if (!this.ready) return 0;
-    return this.timed('invalidateHeatmapTiles', () =>
-      this.engine.heatmap().invalidateTiles(basePath, minLat, maxLat, minLng, maxLng),
-    );
-  }
+  // Tile generation is handled in Rust on background threads.
+  // Only clear is exposed to JS (for settings "clear cache").
 
   /** Clear all heatmap tiles from disk. */
   clearHeatmapTiles(basePath: string): number {

@@ -90,7 +90,6 @@ export {
 export { useCustomSections, useCustomSection } from './routes/useCustomSections';
 export { useUnifiedSections } from './routes/useUnifiedSections';
 export { useEngineMapActivities } from './maps';
-export { useHeatmapTiles, HEATMAP_TILES_DIR } from './maps';
 
 // Route Engine hooks (stateful Rust backend)
 export {
