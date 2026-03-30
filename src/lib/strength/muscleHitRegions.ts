@@ -110,7 +110,7 @@ export const BACK_POSITIONS: MusclePositions = {
 export const TAP_TARGET_RADIUS = 22;
 
 /** Max distance in dp to snap to a muscle during scrub */
-export const SCRUB_THRESHOLD = 40;
+export const SCRUB_THRESHOLD = 55;
 
 /** Body SVG intrinsic dimensions */
 const BODY_INTRINSIC_W = 200;

@@ -8,12 +8,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
-import {
-  findNearestMuscle,
-  FRONT_POSITIONS,
-  BACK_POSITIONS,
-  TAP_TARGET_RADIUS,
-} from '@/lib/strength/muscleHitRegions';
+import { findNearestMuscle } from '@/lib/strength/muscleHitRegions';
 
 const LOUPE_SIZE = 90;
 const LOUPE_OFFSET_Y = -100;
@@ -269,7 +264,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
               <View style={styles.loupeCrosshair} />
             </View>
           </Animated.View>
-          {/* DEBUG: Visualize hit regions in SVG-relative space */}
+          {/* Debug: uncomment to visualize hit regions
           {layoutSize && tappableSlugs && tappableSlugs.size > 0 && (
             <View style={StyleSheet.absoluteFill} pointerEvents="none">
               {(['front', 'back'] as const).map((side) => {
@@ -300,7 +295,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
                 });
               })}
             </View>
-          )}
+          )} */}
         </View>
       </Animated.View>
     </GestureDetector>

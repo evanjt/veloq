@@ -196,10 +196,10 @@ export const StrengthTab = React.memo(function StrengthTab() {
               defaultFill={isDark ? BODY_FILL_DARK : BODY_FILL_LIGHT}
             />
 
-            {/* Continuous scale bar */}
+            {/* Continuous scale bar — normalized 0-10 */}
             <View style={styles.scaleBarContainer}>
               <Text style={[styles.scaleLabel, isDark && styles.scaleLabelDark]}>
-                Volume (weighted sets)
+                Relative volume
               </Text>
               <View style={styles.scaleBar}>
                 <LinearGradient
@@ -210,10 +210,8 @@ export const StrengthTab = React.memo(function StrengthTab() {
                 />
               </View>
               <View style={styles.scaleLabels}>
-                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>0</Text>
-                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>
-                  {maxWeightedSets > 0 ? maxWeightedSets.toFixed(0) : ''}
-                </Text>
+                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>Low</Text>
+                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>High</Text>
               </View>
             </View>
           </View>
