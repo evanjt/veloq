@@ -44,6 +44,9 @@ pub mod patterns;
 // FIT file parser for strength training exercise data
 pub mod fit;
 
+// Raster tile generation for activity heatmaps
+pub mod tiles;
+
 /// Helper to calculate elapsed milliseconds from an Instant
 #[inline]
 pub(crate) fn elapsed_ms(start: std::time::Instant) -> u64 {

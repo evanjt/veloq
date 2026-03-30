@@ -9,6 +9,8 @@ import {
   ShapeSource,
   LineLayer,
   CircleLayer,
+  RasterSource,
+  RasterLayer,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +31,7 @@ import {
 } from './mapStyles';
 import type { ActivityBoundsItem } from '@/types';
 import { useEngineSections, useRouteSignatures, useRouteGroups } from '@/hooks/routes';
+import { useHeatmapTiles } from '@/hooks/maps/useHeatmapTiles';
 import type { FrequentSection } from '@/types';
 import {
   ActivityPopup,
@@ -134,6 +137,11 @@ export function RegionalMapView({
 
   // Route groups for displaying routes on the map
   const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
+
+  // Heatmap tiles (raster overlay replacing vector traces)
+  const { tileUrlTemplate, generateForViewport } = useHeatmapTiles({
+    enabled: isMapFocused,
+  });
 
   // Camera, bounds, and pre-computed activity centers
   const { activityCenters, mapCenter, currentZoomRef, currentCenterRef, markUserInteracted } =
@@ -289,6 +297,31 @@ export function RegionalMapView({
     is3DMode,
     markUserInteracted,
   });
+
+  // Generate heatmap tiles for the full activity extent.
+  // Fires once when we first have activities AND the map has focused,
+  // then re-fires after each sync (activities array reference changes).
+  const generateForViewportRef = useRef(generateForViewport);
+  generateForViewportRef.current = generateForViewport;
+  const hasGeneratedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isMapFocused || activities.length === 0) return;
+    // Compute full bounding box of all activities
+    let minLat = 90,
+      maxLat = -90,
+      minLng = 180,
+      maxLng = -180;
+    for (const a of activities) {
+      const [[bMinLat, bMinLng], [bMaxLat, bMaxLng]] = a.bounds;
+      if (bMinLat < minLat) minLat = bMinLat;
+      if (bMaxLat > maxLat) maxLat = bMaxLat;
+      if (bMinLng < minLng) minLng = bMinLng;
+      if (bMaxLng > maxLng) maxLng = bMaxLng;
+    }
+    hasGeneratedRef.current = true;
+    generateForViewportRef.current({ minLat, maxLat, minLng, maxLng });
+  }, [activities, isMapFocused]);
 
   // Clear selections when their corresponding group visibility is turned off
   useEffect(() => {
@@ -643,24 +676,30 @@ export function RegionalMapView({
             />
           </ShapeSource>
 
-          {/* GPS traces - simplified routes shown when zoomed in */}
+          {/* Raster heatmap tiles — replaces vector traces for performance */}
+          <RasterSource
+            id="heatmap-tiles"
+            tileUrlTemplates={[tileUrlTemplate]}
+            minZoomLevel={8}
+            maxZoomLevel={15}
+            tileSize={256}
+          >
+            <RasterLayer
+              id="heatmap-layer"
+              style={{
+                rasterOpacity: showTraces ? 0.85 : 0,
+              }}
+              belowLayerID="sectionsOutline"
+            />
+          </RasterSource>
+
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
+          {/* Vector traces replaced by raster heatmap above — keep source mounted with opacity 0 */}
           <ShapeSource id="activity-traces" shape={tracesGeoJSON}>
             <LineLayer
               id="tracesLine"
               style={{
-                lineColor: ['get', 'color'],
-                lineWidth: [
-                  'case',
-                  // Hide selected trace (full route shown instead)
-                  ['==', ['get', 'id'], selectedActivityId ?? ''],
-                  0,
-                  2,
-                ],
-                // Fabric crash fix: Control visibility via opacity, not feature count
-                lineOpacity: showTraces ? 0.4 : 0,
-                lineCap: 'round',
-                lineJoin: 'round',
+                lineOpacity: 0,
               }}
             />
           </ShapeSource>

@@ -41,6 +41,7 @@ mod routes;
 mod sections;
 mod fitness;
 mod strength;
+mod tiles;
 
 // ============================================================================
 // Name Translation Support

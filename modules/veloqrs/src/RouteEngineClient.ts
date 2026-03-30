@@ -756,6 +756,46 @@ class RouteEngineClient {
   }
 
   // ==========================================================================
+  // Heatmap Tiles (Raster tile generation for map overlay)
+  // ==========================================================================
+
+  /** Generate heatmap tiles for a bounding box at specified zoom levels. */
+  generateHeatmapTiles(
+    basePath: string,
+    minLat: number,
+    maxLat: number,
+    minLng: number,
+    maxLng: number,
+    minZoom: number,
+    maxZoom: number,
+  ): number {
+    if (!this.ready) return 0;
+    return this.timed('generateHeatmapTiles', () =>
+      this.engine.heatmap().generateTiles(basePath, minLat, maxLat, minLng, maxLng, minZoom, maxZoom),
+    );
+  }
+
+  /** Delete heatmap tiles that intersect with the given bounds. */
+  invalidateHeatmapTiles(
+    basePath: string,
+    minLat: number,
+    maxLat: number,
+    minLng: number,
+    maxLng: number,
+  ): number {
+    if (!this.ready) return 0;
+    return this.timed('invalidateHeatmapTiles', () =>
+      this.engine.heatmap().invalidateTiles(basePath, minLat, maxLat, minLng, maxLng),
+    );
+  }
+
+  /** Clear all heatmap tiles from disk. */
+  clearHeatmapTiles(basePath: string): number {
+    if (!this.ready) return 0;
+    return this.timed('clearHeatmapTiles', () => this.engine.heatmap().clearTiles(basePath));
+  }
+
+  // ==========================================================================
   // Activity Pattern Detection (K-means clustering)
   // ==========================================================================
 

@@ -30,6 +30,8 @@ import {
   getTerrainPreviewCacheSize,
 } from '@/lib/storage/terrainPreviewCache';
 import * as TileCacheService from '@/lib/maps/tileCacheService';
+import { HEATMAP_TILES_DIR } from '@/hooks/maps/useHeatmapTiles';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { CacheManagementPanel } from './CacheManagementPanel';
 import { StorageStatsPanel } from './StorageStatsPanel';
@@ -251,6 +253,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             await clearTerrainPreviews();
             await TileCacheService.clearAllPacks();
             emitClearTileCache();
+            getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
             setTerrainCacheSize(0);
             setTileCacheStats(null);
 

@@ -28,6 +28,7 @@ import {
   useRouteDataSync,
   useActivityBoundsCache,
   isInfiniteActivitiesStale,
+  useHeatmapTiles,
 } from '@/hooks';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import {
@@ -91,6 +92,9 @@ export function GlobalDataSync() {
   // Use the route data sync hook to automatically sync GPS data
   const { progress, isSyncing } = useRouteDataSync(activities, routeSettings.enabled);
 
+  // Heatmap tile invalidation after sync
+  const { clearAllTiles: clearHeatmapTiles } = useHeatmapTiles();
+
   // Invalidate caches when sync completes so data refreshes
   useEffect(() => {
     if (progress.status === 'complete') {
@@ -100,8 +104,11 @@ export function GlobalDataSync() {
       queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
       queryClient.invalidateQueries({ queryKey: ['powerCurve'] });
       queryClient.invalidateQueries({ queryKey: ['paceCurve'] });
+
+      // Clear heatmap tiles so they regenerate with new activity data on next map view
+      clearHeatmapTiles();
     }
-  }, [progress.status, queryClient]);
+  }, [progress.status, queryClient, clearHeatmapTiles]);
 
   // Unlock expansion after sync completes (with delay to let UI stabilize)
   useEffect(() => {

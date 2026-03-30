@@ -123,4 +123,8 @@ impl VeloqEngine {
     fn strength(&self) -> Arc<super::strength::StrengthManager> {
         Arc::new(super::strength::StrengthManager { _private: () })
     }
+
+    fn heatmap(&self) -> Arc<super::tiles::HeatmapManager> {
+        Arc::new(super::tiles::HeatmapManager { _private: () })
+    }
 }
