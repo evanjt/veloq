@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import type { Camera, OnPressEvent } from '@maplibre/maplibre-react-native';
+import type { Camera, OnPressEvent, ShapeSource } from '@maplibre/maplibre-react-native';
 import { LocationManager } from '@maplibre/maplibre-react-native';
 
 // Cache for last known location (avoid slow GPS re-acquisition)
@@ -34,6 +34,7 @@ interface UseMapHandlersOptions {
   showRoutes: boolean;
   setShowRoutes: (value: boolean | ((prev: boolean) => boolean)) => void;
   setSelectedRoute: (value: null) => void;
+  setClusterActivities: (value: ActivityBoundsItem[] | null) => void;
   userLocation: [number, number] | null;
   setUserLocation: (value: [number, number] | null) => void;
   setLocationLoading: (value: boolean) => void;
@@ -44,6 +45,7 @@ interface UseMapHandlersOptions {
   traceZoomThreshold: number;
   onCameraSettled?: (center: [number, number], zoom: number) => void;
   cameraRef: React.RefObject<React.ElementRef<typeof Camera> | null>;
+  clusterSourceRef: React.RefObject<React.ElementRef<typeof ShapeSource> | null>;
   map3DRef: React.RefObject<Map3DWebViewRef | null>;
   bearingAnim: Animated.Value;
   currentZoomLevel: React.MutableRefObject<number>;
@@ -56,7 +58,7 @@ interface UseMapHandlersResult {
   handleClosePopup: () => void;
   handleViewDetails: () => void;
   handleZoomToActivity: () => void;
-  handleMarkerPress: (event: OnPressEvent) => void;
+  handleClusterOrMarkerPress: (event: OnPressEvent) => void;
   handleMapPress: () => void;
   handleSectionPress: (event: OnPressEvent) => void;
   handleRegionIsChanging: (feature: GeoJSON.Feature) => void;
@@ -82,6 +84,7 @@ export function useMapHandlers({
   showRoutes,
   setShowRoutes,
   setSelectedRoute,
+  setClusterActivities,
   userLocation,
   setUserLocation,
   setLocationLoading,
@@ -92,6 +95,7 @@ export function useMapHandlers({
   traceZoomThreshold,
   onCameraSettled,
   cameraRef,
+  clusterSourceRef,
   map3DRef,
   bearingAnim,
   currentZoomLevel,
@@ -212,19 +216,48 @@ export function useMapHandlers({
     }, 600);
   }, [cameraRef]);
 
-  // Handle marker tap via ShapeSource press (Android only)
-  const handleMarkerPress = useCallback(
-    (event: OnPressEvent) => {
+  // Handle cluster or individual marker tap via ShapeSource press (Android only)
+  const handleClusterOrMarkerPress = useCallback(
+    async (event: OnPressEvent) => {
       const feature = event.features?.[0];
-      if (!feature?.properties?.id) return;
+      if (!feature) return;
 
-      const activityId = feature.properties.id;
+      // Cluster tap — zoom in or show popup
+      if (feature.properties?.cluster === true) {
+        const pointCount = feature.properties.point_count as number;
+        try {
+          if (pointCount <= 5 && clusterSourceRef.current) {
+            // Small cluster: zoom to expansion zoom
+            const expansionZoom = await clusterSourceRef.current.getClusterExpansionZoom(feature);
+            const coords = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
+            cameraRef.current?.setCamera({
+              centerCoordinate: coords,
+              zoomLevel: expansionZoom,
+              animationDuration: 400,
+              animationMode: 'flyTo',
+            });
+          } else if (clusterSourceRef.current) {
+            // Large cluster: show popup with activity list
+            const leaves = await clusterSourceRef.current.getClusterLeaves(feature, 50, 0);
+            const leafIds = leaves.features.map((f) => f.properties?.id as string).filter(Boolean);
+            const clusterActs = activities.filter((a) => leafIds.includes(a.id));
+            setClusterActivities(clusterActs);
+          }
+        } catch (e) {
+          if (__DEV__) console.warn('[cluster] Error handling cluster tap:', e);
+        }
+        return;
+      }
+
+      // Individual marker tap
+      const activityId = feature.properties?.id;
+      if (!activityId) return;
       const activity = activities.find((a) => a.id === activityId);
       if (activity) {
         handleMarkerTap(activity);
       }
     },
-    [activities, handleMarkerTap]
+    [activities, handleMarkerTap, clusterSourceRef, cameraRef, setClusterActivities]
   );
 
   // Handle map press - Android only (iOS uses onTouchEnd on container View)
@@ -541,7 +574,7 @@ export function useMapHandlers({
     handleClosePopup,
     handleViewDetails,
     handleZoomToActivity,
-    handleMarkerPress,
+    handleClusterOrMarkerPress,
     handleMapPress,
     handleSectionPress,
     handleRegionIsChanging,

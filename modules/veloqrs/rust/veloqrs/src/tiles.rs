@@ -11,8 +11,9 @@ use std::io::Cursor;
 use std::path::Path;
 use tracematch::GpsPoint;
 
-/// Tile size in pixels (256 is standard for MapLibre)
-pub const TILE_SIZE: u32 = 256;
+/// Tile size in pixels (512 for retina/2x quality on high-DPI mobile screens).
+/// MapLibre tileSize stays 256 — it treats 512px images as @2x automatically.
+pub const TILE_SIZE: u32 = 512;
 
 /// Heatmap configuration
 #[derive(Debug, Clone)]
@@ -24,7 +25,7 @@ pub struct HeatmapConfig {
 impl Default for HeatmapConfig {
     fn default() -> Self {
         Self {
-            min_zoom: 8,
+            min_zoom: 5,
             max_zoom: 15,
         }
     }
@@ -89,14 +90,14 @@ static COLOR_LUT: std::sync::LazyLock<[[u8; 4]; 256]> =
 // Zoom-Dependent Line Width
 // ============================================================================
 
-/// Get line width for a zoom level
+/// Get line width for a zoom level (doubled for 512px tile size)
 fn line_width_for_zoom(zoom: u8) -> f32 {
     match zoom {
-        0..=7 => 5.0,
-        8..=9 => 4.0,
-        10..=11 => 2.5,
-        12..=13 => 2.0,
-        _ => 1.5,
+        0..=7 => 10.0,
+        8..=9 => 8.0,
+        10..=11 => 5.0,
+        12..=13 => 4.0,
+        _ => 3.0,
     }
 }
 
@@ -173,8 +174,8 @@ pub fn gps_to_pixel(point: &GpsPoint, z: u8, tile_x: u32, tile_y: u32) -> Option
     let px = ((global_x - tile_x as f64) * TILE_SIZE as f64) as f32;
     let py = ((global_y - tile_y as f64) * TILE_SIZE as f64) as f32;
 
-    // Allow margin outside tile for line continuity
-    let margin = 50.0;
+    // Allow margin outside tile for line continuity (scaled for 512px tiles)
+    let margin = 100.0;
     if px >= -margin
         && px < (TILE_SIZE as f32 + margin)
         && py >= -margin
@@ -454,7 +455,8 @@ pub fn generate_heatmap_tile(
     }
 
     // Apply Gaussian blur at lower zoom levels for softness
-    let buf = if z <= 11 {
+    // Extended to z≤13 for 512px tiles (3x3 kernel covers fewer relative pixels)
+    let buf = if z <= 13 {
         gaussian_blur_3x3(&buf)
     } else {
         buf

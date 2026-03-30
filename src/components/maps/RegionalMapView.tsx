@@ -9,6 +9,7 @@ import {
   ShapeSource,
   LineLayer,
   CircleLayer,
+  SymbolLayer,
   RasterSource,
   RasterLayer,
 } from '@maplibre/maplibre-react-native';
@@ -37,8 +38,8 @@ import {
   ActivityPopup,
   SectionPopup,
   RoutePopup,
+  ClusterPopup,
   MapControlStack,
-  getMarkerSize,
   useMapHandlers,
   useMapCamera,
   useMapGeoJSON,
@@ -99,7 +100,9 @@ export function RegionalMapView({
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
   const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<SelectedRoute | null>(null);
+  const [clusterActivities, setClusterActivities] = useState<ActivityBoundsItem[] | null>(null);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
+  const clusterSourceRef = useRef<React.ElementRef<typeof ShapeSource>>(null);
 
   // iOS simulator tile loading retry mechanism
   const [mapKey, setMapKey] = useState(0);
@@ -252,7 +255,7 @@ export function RegionalMapView({
     handleClosePopup,
     handleViewDetails,
     handleZoomToActivity,
-    handleMarkerPress,
+    handleClusterOrMarkerPress,
     handleMapPress,
     handleSectionPress,
     handleRegionIsChanging,
@@ -276,6 +279,7 @@ export function RegionalMapView({
     showRoutes,
     setShowRoutes,
     setSelectedRoute,
+    setClusterActivities,
     userLocation,
     setUserLocation,
     setLocationLoading,
@@ -286,6 +290,7 @@ export function RegionalMapView({
     traceZoomThreshold: TRACE_ZOOM_THRESHOLD,
     onCameraSettled: handleCameraSettled,
     cameraRef,
+    clusterSourceRef,
     map3DRef,
     bearingAnim,
     currentZoomLevel,
@@ -382,11 +387,14 @@ export function RegionalMapView({
     setSelected,
     setSelectedSection,
     setSelectedRoute,
+    setClusterActivities,
     showActivities,
     showSections,
     showRoutes,
     show3D,
     handleMarkerTap,
+    clusterSourceRef,
+    cameraRef,
     currentZoomLevel,
     insetTop: insets.top,
   });
@@ -432,107 +440,84 @@ export function RegionalMapView({
           {/* CRITICAL: followUserLocation must be explicitly false to prevent auto-centering */}
           <Camera ref={cameraRef} followUserLocation={false} />
 
-          {/* Activity markers - visual only, taps handled by ShapeSource rendered later */}
-          {/* CRITICAL: Always render MarkerViews to avoid iOS crash during reconciliation */}
-          {/* Use opacity to hide instead of conditional rendering */}
-          {/* iOS CRASH FIX: Render ALL activities as MarkerViews (stable count) */}
-          {activities.map((activity) => {
-            const config = getActivityTypeConfig(activity.type);
-            // Use pre-computed center (no format detection during render!)
-            const center = activityCenters[activity.id];
-            const size = getMarkerSize(activity.distance);
-            const isSelected = selectedActivityId === activity.id;
-            const markerSize = isSelected ? size + 8 : size;
-            // Larger icon ratio to fill more of the marker
-            const iconSize = isSelected ? size * 0.75 : size * 0.7;
-            // Viewport culling via opacity - MarkerView stays mounted but hidden
-            const isInViewport =
-              activities.length < VIEWPORT_CULLING_THRESHOLD ||
-              !visibleActivityIds ||
-              visibleActivityIds.has(activity.id);
-            const isVisible = showActivities && !!center && isInViewport;
-
-            return (
-              <MarkerView
-                key={`marker-${activity.id}`}
-                coordinate={center || [0, 0]}
-                anchor={{ x: 0.5, y: 0.5 }}
-                allowOverlap={true}
-              >
-                {/* pointerEvents="none" is CRITICAL for Android - Pressable breaks marker rendering */}
-                <View
-                  pointerEvents="none"
-                  testID={`map-activity-marker-${activity.id}`}
-                  style={{
-                    width: markerSize,
-                    height: markerSize,
-                    borderRadius: markerSize / 2,
-                    backgroundColor: config.color,
-                    borderWidth: isSelected ? 2 : 1.5,
-                    borderColor: isSelected ? colors.primary : colors.textOnDark,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    opacity: isVisible ? 1 : 0,
-                    ...shadows.elevated,
-                  }}
-                >
-                  <MaterialCommunityIcons
-                    name={config.icon}
-                    size={iconSize}
-                    color={colors.textOnDark}
-                  />
-                </View>
-              </MarkerView>
-            );
-          })}
-
-          {/* Activity marker hit detection - invisible circles for queryRenderedFeaturesAtPoint */}
+          {/* Activity markers — clustered ShapeSource with native MapLibre clustering */}
+          {/* Replaces individual MarkerViews for better performance (GPU-rendered) */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS crash during view reconciliation */}
           <ShapeSource
-            id="activity-markers-hitarea"
+            ref={clusterSourceRef}
+            id="activity-clusters"
             shape={markersGeoJSON}
-            onPress={Platform.OS === 'android' && showActivities ? handleMarkerPress : undefined}
-            hitbox={{ width: 36, height: 36 }}
+            cluster={true}
+            clusterRadius={50}
+            clusterMaxZoomLevel={17}
+            onPress={
+              Platform.OS === 'android' && showActivities ? handleClusterOrMarkerPress : undefined
+            }
+            hitbox={{ width: 44, height: 44 }}
           >
-            {/* Invisible circles for hit detection - sized to match visual markers */}
+            {/* Cluster circles — sized by activity count */}
             <CircleLayer
-              id="marker-hitarea"
+              id="cluster-circles"
+              filter={['has', 'point_count']}
               style={{
-                circleRadius: showActivities
+                circleColor: colors.primary,
+                circleRadius: [
+                  'step',
+                  ['get', 'point_count'],
+                  18, // default: 1-4 activities
+                  5,
+                  22, // 5-9
+                  10,
+                  28, // 10-24
+                  25,
+                  34, // 25+
+                ],
+                circleOpacity: showActivities ? 0.9 : 0,
+                circleStrokeWidth: 2,
+                circleStrokeColor: 'rgba(255, 255, 255, 0.6)',
+                circleStrokeOpacity: showActivities ? 1 : 0,
+              }}
+            />
+            {/* Cluster count labels */}
+            <SymbolLayer
+              id="cluster-count"
+              filter={['has', 'point_count']}
+              style={{
+                textField: ['get', 'point_count_abbreviated'],
+                textSize: 13,
+                textColor: '#FFFFFF',
+                textAllowOverlap: true,
+                textIgnorePlacement: true,
+                visibility: showActivities ? 'visible' : 'none',
+              }}
+            />
+            {/* Individual unclustered activity points — colored by sport type */}
+            <CircleLayer
+              id="unclustered-point"
+              filter={['!', ['has', 'point_count']]}
+              style={{
+                circleColor: ['get', 'color'],
+                circleRadius: selectedActivityId
                   ? [
-                      'interpolate',
-                      ['linear'],
-                      ['zoom'],
-                      0,
-                      16, // World view: modest hitarea
-                      4,
-                      14, // Continental
+                      'case',
+                      ['==', ['get', 'id'], selectedActivityId],
+                      12, // Selected: larger
                       8,
-                      12, // Regional
-                      12,
-                      8, // City level - smaller to not overlap markers
-                      16,
-                      6, // Neighborhood - minimal, just for touch tolerance
                     ]
-                  : 0,
-                circleColor: '#000000',
-                // iOS requires higher opacity than Android to be queryable
-                circleOpacity: showActivities
+                  : 8,
+                circleOpacity: showActivities ? 1 : 0,
+                circleStrokeWidth: selectedActivityId
+                  ? ['case', ['==', ['get', 'id'], selectedActivityId], 2.5, 1.5]
+                  : 1.5,
+                circleStrokeColor: selectedActivityId
                   ? [
-                      'interpolate',
-                      ['linear'],
-                      ['zoom'],
-                      0,
-                      0.05, // World view - slightly visible for queryability
-                      8,
-                      0.03, // Regional - less visible
-                      12,
-                      0.02, // City level - barely visible
-                      16,
-                      0.01, // Neighborhood - nearly invisible
+                      'case',
+                      ['==', ['get', 'id'], selectedActivityId],
+                      colors.primary,
+                      'rgba(255, 255, 255, 0.8)',
                     ]
-                  : 0,
-                circleStrokeWidth: 0,
+                  : 'rgba(255, 255, 255, 0.8)',
+                circleStrokeOpacity: showActivities ? 1 : 0,
               }}
             />
           </ShapeSource>
@@ -553,16 +538,16 @@ export function RegionalMapView({
                 lineWidth: [
                   'case',
                   ['==', ['get', 'id'], selectedRoute?.id ?? ''],
-                  6, // Bold when selected
-                  3,
+                  7, // Bold when selected
+                  4,
                 ],
                 lineOpacity: [
                   'case',
                   ['==', ['get', 'id'], selectedRoute?.id ?? ''],
                   1, // Full opacity when selected
-                  0.7,
+                  0.8,
                 ],
-                lineDasharray: [3, 2],
+                lineDasharray: [4, 2],
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
@@ -616,28 +601,28 @@ export function RegionalMapView({
                 lineJoin: 'round',
               }}
             />
-            {/* Section outline for better visibility */}
+            {/* Section outline — white for contrast against orange heatmap */}
             <LineLayer
               id="sectionsOutline"
               style={{
-                lineColor: colors.textOnDark,
+                lineColor: '#FFFFFF',
                 lineWidth: selectedSection
                   ? [
                       'case',
                       ['==', ['get', 'id'], selectedSection.id],
-                      10, // Bold when selected
-                      6,
+                      12, // Bold when selected
+                      7,
                     ]
-                  : ['interpolate', ['linear'], ['zoom'], 10, 5, 14, 7, 18, 9],
+                  : ['interpolate', ['linear'], ['zoom'], 10, 6, 14, 8, 18, 10],
                 lineOpacity: showSections
                   ? selectedSection
                     ? [
                         'case',
                         ['==', ['get', 'id'], selectedSection.id],
-                        0.6, // More visible when selected
-                        0.4,
+                        0.7, // More visible when selected
+                        0.5,
                       ]
-                    : 0.4
+                    : 0.5
                   : 0,
                 lineCap: 'round',
                 lineJoin: 'round',
@@ -650,7 +635,7 @@ export function RegionalMapView({
           <RasterSource
             id="heatmap-tiles"
             tileUrlTemplates={[HEATMAP_TILE_URL_TEMPLATE]}
-            minZoomLevel={8}
+            minZoomLevel={5}
             maxZoomLevel={15}
             tileSize={256}
           >
@@ -879,6 +864,18 @@ export function RegionalMapView({
           onViewDetails={() => {
             setSelectedRoute(null);
             router.push(`/route/${selectedRoute.id}`);
+          }}
+        />
+      )}
+      {/* Cluster popup - shows when a cluster with many activities is tapped */}
+      {clusterActivities && clusterActivities.length > 0 && (
+        <ClusterPopup
+          activities={clusterActivities}
+          bottom={insets.bottom + 200}
+          onClose={() => setClusterActivities(null)}
+          onSelectActivity={(activity) => {
+            setClusterActivities(null);
+            handleMarkerTap(activity);
           }}
         />
       )}

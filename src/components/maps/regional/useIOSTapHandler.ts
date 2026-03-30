@@ -8,7 +8,7 @@
 
 import { useCallback, useRef } from 'react';
 import { Platform, type GestureResponderEvent } from 'react-native';
-import type { MapViewRef } from '@maplibre/maplibre-react-native';
+import type { Camera, MapViewRef, ShapeSource } from '@maplibre/maplibre-react-native';
 import type { ActivityBoundsItem, FrequentSection, ActivityType } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
 import type { SelectedRoute } from './types';
@@ -31,11 +31,14 @@ interface UseIOSTapHandlerOptions {
   setSelected: (v: SelectedActivity | null) => void;
   setSelectedSection: (v: FrequentSection | null) => void;
   setSelectedRoute: (v: SelectedRoute | null) => void;
+  setClusterActivities: (v: ActivityBoundsItem[] | null) => void;
   showActivities: boolean;
   showSections: boolean;
   showRoutes: boolean;
   show3D: boolean;
   handleMarkerTap: (activity: ActivityBoundsItem) => void;
+  clusterSourceRef: React.RefObject<React.ElementRef<typeof ShapeSource> | null>;
+  cameraRef: React.RefObject<React.ElementRef<typeof Camera> | null>;
   currentZoomLevel: React.MutableRefObject<number>;
   insetTop: number;
 }
@@ -59,11 +62,14 @@ export function useIOSTapHandler({
   setSelected,
   setSelectedSection,
   setSelectedRoute,
+  setClusterActivities,
   showActivities,
   showSections,
   showRoutes,
   show3D,
   handleMarkerTap,
+  clusterSourceRef,
+  cameraRef,
   currentZoomLevel,
   insetTop,
 }: UseIOSTapHandlerOptions): UseIOSTapHandlerResult {
@@ -98,7 +104,9 @@ export function useIOSTapHandler({
 
         // Build list of layers to query based on visibility
         const layersToQuery: string[] = [];
-        if (showActivities) layersToQuery.push('marker-hitarea');
+        if (showActivities) {
+          layersToQuery.push('cluster-circles', 'unclustered-point');
+        }
         if (showSections) layersToQuery.push('sectionsLine');
         if (showRoutes) layersToQuery.push('routesLine');
 
@@ -143,7 +151,40 @@ export function useIOSTapHandler({
 
           // Determine feature type by checking geometry and properties
           if (feature.geometry?.type === 'Point' && showActivities) {
-            // Activity marker hit
+            // Check if this is a cluster
+            if (feature.properties?.cluster === true) {
+              const pointCount = feature.properties.point_count as number;
+              try {
+                if (pointCount <= 5 && clusterSourceRef.current) {
+                  // Small cluster: zoom to expansion zoom
+                  const expansionZoom =
+                    await clusterSourceRef.current.getClusterExpansionZoom(feature);
+                  const coords = (feature.geometry as GeoJSON.Point).coordinates as [
+                    number,
+                    number,
+                  ];
+                  cameraRef.current?.setCamera({
+                    centerCoordinate: coords,
+                    zoomLevel: expansionZoom,
+                    animationDuration: 400,
+                    animationMode: 'flyTo',
+                  });
+                } else if (clusterSourceRef.current) {
+                  // Large cluster: show popup with activity list
+                  const leaves = await clusterSourceRef.current.getClusterLeaves(feature, 50, 0);
+                  const leafIds = leaves.features
+                    .map((f) => f.properties?.id as string)
+                    .filter(Boolean);
+                  const clusterActs = activities.filter((a) => leafIds.includes(a.id));
+                  setClusterActivities(clusterActs);
+                }
+              } catch (e) {
+                if (__DEV__) console.warn('[iOS tap] cluster error:', e);
+              }
+              return;
+            }
+
+            // Individual activity marker hit
             const activity = activities.find((a) => a.id === featureId);
             if (activity) {
               console.log('[iOS tap] HIT activity:', featureId);
@@ -205,11 +246,14 @@ export function useIOSTapHandler({
       setSelectedSection,
       selectedRoute,
       setSelectedRoute,
+      setClusterActivities,
       showActivities,
       showSections,
       showRoutes,
       currentZoomLevel,
       mapRef,
+      clusterSourceRef,
+      cameraRef,
     ]
   );
 

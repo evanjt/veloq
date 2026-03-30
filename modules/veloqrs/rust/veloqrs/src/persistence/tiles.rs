@@ -12,13 +12,32 @@ use std::path::Path;
 use std::sync::mpsc;
 use tracematch::{Bounds, GpsPoint};
 
+/// Tile format version — increment when tile size, zoom range, or rendering changes.
+/// Triggers automatic cache clear + regeneration on app upgrade.
+const TILE_FORMAT_VERSION: &str = "2";
+
 impl PersistentRouteEngine {
     /// Set the filesystem path where heatmap tiles are stored.
     /// Called once from JS at engine init time.
     /// If the engine already has activities, spawns background tile generation immediately.
     pub fn set_heatmap_tiles_path(&mut self, path: String) {
         info!("[heatmap] Tiles path set to: {}", path);
-        self.heatmap_tiles_path = Some(path);
+        self.heatmap_tiles_path = Some(path.clone());
+
+        // Check tile format version — clear stale tiles on upgrade
+        let version_file = Path::new(&path).join("version.txt");
+        let current_version = std::fs::read_to_string(&version_file)
+            .unwrap_or_default();
+        if current_version.trim() != TILE_FORMAT_VERSION {
+            info!(
+                "[heatmap] Tile format changed ({:?} → {}), clearing stale tiles",
+                current_version.trim(),
+                TILE_FORMAT_VERSION
+            );
+            tiles::clear_all_tiles(Path::new(&path));
+            std::fs::create_dir_all(&path).ok();
+            std::fs::write(&version_file, TILE_FORMAT_VERSION).ok();
+        }
 
         // If we already have activity data (existing user / upgrade),
         // generate tiles immediately so the map shows the heatmap on first view.
