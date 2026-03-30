@@ -15,6 +15,10 @@ const LOUPE_OFFSET_Y = -100;
 const LOUPE_SCALE = 2.5;
 const LONG_PRESS_MS = 200;
 
+// Body component intrinsic dimensions (from react-native-body-highlighter source)
+const BODY_INTRINSIC_W = 200;
+const BODY_INTRINSIC_H = 400;
+
 interface BodyPairWithLoupeProps {
   data: ReadonlyArray<ExtendedBodyPart>;
   gender: 'male' | 'female';
@@ -24,19 +28,11 @@ interface BodyPairWithLoupeProps {
   onMuscleTap?: (slug: string) => void;
   onMuscleScrub?: (slug: string) => void;
   tappableSlugs?: Set<string>;
-  /** Optional gap between front and back bodies (dp) */
   gap?: number;
-  /** Optional content rendered between front and back bodies (e.g. legend) */
   centerContent?: React.ReactNode;
-  /** Width of centerContent in dp (needed for coordinate math) */
   centerWidth?: number;
 }
 
-/**
- * Renders front + back body diagrams side by side with a single unified
- * gesture handler. The loupe scrub goes seamlessly from front to back.
- * Used by both activity detail and insights strength tab.
- */
 export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   data,
   gender,
@@ -66,18 +62,22 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   const loupeX = useSharedValue(0);
   const loupeY = useSharedValue(0);
   const loupeOpacity = useSharedValue(0);
-  // Which side the loupe is on: 0 = front (left), 1 = back (right)
   const loupeSide = useSharedValue(0);
-  // Offset of the magnified body inside the loupe
   const bodyOffsetX = useSharedValue(0);
   const bodyOffsetY = useSharedValue(0);
 
   const scrubCallback = onMuscleScrub ?? onMuscleTap;
 
+  // Sizes
+  const totalGap = gap + centerWidth;
+  const bodyPixelW = BODY_INTRINSIC_W * scale;
+  const bodyPixelH = BODY_INTRINSIC_H * scale;
+  // The loupe renders the body at a larger scale directly (no CSS transform)
+  const loupeScale = scale * LOUPE_SCALE;
+
   const handleScrubUpdate = useCallback(
     (x: number, y: number) => {
       if (!layoutSize || !tappableSlugs || tappableSlugs.size === 0 || !scrubCallback) return;
-      const totalGap = gap + centerWidth;
       const bodyW = (layoutSize.width - totalGap) / 2;
       const midpoint = bodyW + totalGap / 2;
       const side: 'front' | 'back' = x < midpoint ? 'front' : 'back';
@@ -88,7 +88,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
         scrubCallback(slug);
       }
     },
-    [layoutSize, tappableSlugs, scrubCallback]
+    [layoutSize, tappableSlugs, scrubCallback, totalGap]
   );
 
   const handleScrubEnd = useCallback(() => {
@@ -98,7 +98,6 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   const handleTap = useCallback(
     (x: number, y: number) => {
       if (!layoutSize || !tappableSlugs || tappableSlugs.size === 0 || !onMuscleTap) return;
-      const totalGap = gap + centerWidth;
       const bodyW = (layoutSize.width - totalGap) / 2;
       const midpoint = bodyW + totalGap / 2;
       const side: 'front' | 'back' = x < midpoint ? 'front' : 'back';
@@ -106,33 +105,33 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
       const slug = findNearestMuscle(localX, y, bodyW, layoutSize.height, side, tappableSlugs);
       if (slug) onMuscleTap(slug);
     },
-    [layoutSize, tappableSlugs, onMuscleTap]
+    [layoutSize, tappableSlugs, onMuscleTap, totalGap]
   );
-
-  // Body SVG intrinsic dimensions (from react-native-body-highlighter)
-  const bodyPixelW = 200 * scale;
-  const bodyPixelH = 400 * scale;
 
   const updateLoupePosition = (x: number, y: number) => {
     'worklet';
     loupeX.value = x;
     loupeY.value = y;
     if (layoutSize) {
-      const totalGap = gap + centerWidth;
       const bodyW = (layoutSize.width - totalGap) / 2;
       const midpoint = bodyW + totalGap / 2;
       const isBack = x >= midpoint;
       loupeSide.value = isBack ? 1 : 0;
 
+      // Touch position relative to the body's flex container
       const localX = isBack ? x - bodyW - totalGap : x;
-      // The Body SVG is centered in the flex container
+      // The body SVG is centered in its flex container
       const svgPadX = (bodyW - bodyPixelW) / 2;
-      // Touch position relative to the SVG itself
+      // Touch position on the SVG in SVG-local pixels
       const svgX = localX - svgPadX;
       const svgY = y;
 
-      bodyOffsetX.value = -svgX * LOUPE_SCALE + LOUPE_SIZE / 2;
-      bodyOffsetY.value = -svgY * LOUPE_SCALE + LOUPE_SIZE / 2;
+      // The loupe renders at loupeScale (= scale * LOUPE_SCALE)
+      // So svgX maps to svgX * (LOUPE_SCALE) in the loupe body
+      // (because the loupe body is loupeScale/scale = LOUPE_SCALE times bigger)
+      // We want this point at the center of the loupe clip (LOUPE_SIZE/2)
+      bodyOffsetX.value = LOUPE_SIZE / 2 - svgX * LOUPE_SCALE;
+      bodyOffsetY.value = LOUPE_SIZE / 2 - svgY * LOUPE_SCALE;
     }
   };
 
@@ -177,29 +176,20 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     };
   });
 
-  // Front body magnified inside loupe — visible when touch is on left half
+  // Loupe bodies use only translate (no scale transform — body is rendered at loupeScale directly)
   const loupeFrontStyle = useAnimatedStyle(() => {
     'worklet';
     return {
       opacity: loupeSide.value === 0 ? 1 : 0,
-      transform: [
-        { translateX: bodyOffsetX.value },
-        { translateY: bodyOffsetY.value },
-        { scale: LOUPE_SCALE },
-      ],
+      transform: [{ translateX: bodyOffsetX.value }, { translateY: bodyOffsetY.value }],
     };
   });
 
-  // Back body magnified inside loupe — visible when touch is on right half
   const loupeBackStyle = useAnimatedStyle(() => {
     'worklet';
     return {
       opacity: loupeSide.value === 1 ? 1 : 0,
-      transform: [
-        { translateX: bodyOffsetX.value },
-        { translateY: bodyOffsetY.value },
-        { scale: LOUPE_SCALE },
-      ],
+      transform: [{ translateX: bodyOffsetX.value }, { translateY: bodyOffsetY.value }],
     };
   });
 
@@ -232,32 +222,29 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
             />
           </View>
 
-          {/* Magnifying loupe with zoomed body */}
+          {/* Magnifying loupe — bodies rendered at larger scale, no CSS scale transform */}
           <Animated.View style={[styles.loupeContainer, loupeContainerStyle]} pointerEvents="none">
             <View style={styles.loupeClip}>
-              {/* Front body magnified */}
               <Animated.View style={[styles.loupeBody, loupeFrontStyle]}>
                 <Body
                   data={data}
                   gender={gender}
                   side="front"
-                  scale={scale}
+                  scale={loupeScale}
                   colors={colors}
                   defaultFill={defaultFill}
                 />
               </Animated.View>
-              {/* Back body magnified */}
               <Animated.View style={[styles.loupeBody, loupeBackStyle]}>
                 <Body
                   data={data}
                   gender={gender}
                   side="back"
-                  scale={scale}
+                  scale={loupeScale}
                   colors={colors}
                   defaultFill={defaultFill}
                 />
               </Animated.View>
-              {/* Center crosshair dot */}
               <View style={styles.loupeCrosshair} />
             </View>
           </Animated.View>
@@ -304,7 +291,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    transformOrigin: 'top left',
   },
   loupeCrosshair: {
     width: 6,
