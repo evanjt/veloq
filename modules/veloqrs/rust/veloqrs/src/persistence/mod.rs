@@ -242,6 +242,18 @@ impl SectionDetectionHandle {
     }
 }
 
+/// Handle for background heatmap tile generation.
+pub struct TileGenerationHandle {
+    receiver: mpsc::Receiver<u32>,
+}
+
+impl TileGenerationHandle {
+    /// Check if generation is complete (non-blocking). Returns tiles generated count.
+    pub fn try_recv(&self) -> Option<u32> {
+        self.receiver.try_recv().ok()
+    }
+}
+
 // ============================================================================
 // Helper Functions for Background Threads
 // ============================================================================
@@ -365,6 +377,9 @@ pub struct PersistentRouteEngine {
     match_config: MatchConfig,
     pub(crate) section_config: SectionConfig,
 
+    /// Path for heatmap tile output (set from JS at init)
+    pub(crate) heatmap_tiles_path: Option<String>,
+
     /// Single-entry cache for get_section_performances (avoids redundant computation
     /// when buckets + calendar both call it for the same section on detail load)
     perf_cache_section_id: Option<String>,
@@ -408,6 +423,7 @@ impl PersistentRouteEngine {
             sections_dirty: false,
             match_config: MatchConfig::default(),
             section_config: SectionConfig::default(),
+            heatmap_tiles_path: None,
             perf_cache_section_id: None,
             perf_cache_result: None,
         })
@@ -855,6 +871,10 @@ pub mod persistent_engine_ffi {
     /// Handle for tracking background section detection progress.
     /// Used by DetectionManager.
     pub static SECTION_DETECTION_HANDLE: Lazy<Mutex<Option<SectionDetectionHandle>>> =
+        Lazy::new(|| Mutex::new(None));
+
+    /// Handle for tracking background tile generation.
+    pub static TILE_GENERATION_HANDLE: Lazy<Mutex<Option<TileGenerationHandle>>> =
         Lazy::new(|| Mutex::new(None));
 }
 
