@@ -161,11 +161,17 @@ class RouteEngineClient {
       this.initialized = true;
       this.dbPath = dbPath;
       // Configure heatmap tiles path so Rust generates tiles on background threads
+      // Strip file:// prefix for plain filesystem path (Rust expects plain path, not URL)
       const tilesPath = `${FileSystem.documentDirectory}heatmap-tiles/`;
+      const normalizedTilesPath = tilesPath.startsWith('file://')
+        ? tilesPath.slice(7)
+        : tilesPath;
       try {
-        this.engine.heatmap().setTilesPath(tilesPath);
-      } catch {
+        console.log('[RouteEngineClient] Setting heatmap tiles path to:', normalizedTilesPath);
+        this.engine.heatmap().setTilesPath(normalizedTilesPath);
+      } catch (e) {
         // Non-critical — tiles just won't generate
+        console.warn('[RouteEngineClient] Failed to set heatmap tiles path:', e);
       }
       if (this.pendingMetrics) {
         this.timed('setActivityMetrics', () =>
@@ -1233,6 +1239,29 @@ class RouteEngineClient {
 
   hasStrengthData(): boolean {
     return this.timed('hasStrengthData', () => this.engine.strength().hasStrengthData());
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getExercisesForMuscle(startTs: number, endTs: number, muscleSlug: string): any {
+    return this.timed('getExercisesForMuscle', () =>
+      this.engine
+        .strength()
+        .getExercisesForMuscle(BigInt(startTs), BigInt(endTs), muscleSlug),
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getActivitiesForExercise(
+    startTs: number,
+    endTs: number,
+    muscleSlug: string,
+    exerciseCategory: number,
+  ): any {
+    return this.timed('getActivitiesForExercise', () =>
+      this.engine
+        .strength()
+        .getActivitiesForExercise(BigInt(startTs), BigInt(endTs), muscleSlug, exerciseCategory),
+    );
   }
 
   subscribe(event: string, callback: () => void): () => void {

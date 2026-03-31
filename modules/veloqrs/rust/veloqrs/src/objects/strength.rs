@@ -6,7 +6,10 @@
 use super::error::{with_engine, VeloqError};
 use crate::fit;
 use crate::http::ActivityFetcher;
-use crate::{FfiExerciseSet, FfiMuscleGroup, FfiMuscleVolume, FfiStrengthSummary};
+use crate::{
+    FfiExerciseActivities, FfiExerciseActivity, FfiExerciseSet, FfiExerciseSummary,
+    FfiMuscleExerciseSummary, FfiMuscleGroup, FfiMuscleVolume, FfiStrengthSummary,
+};
 use log::info;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -291,6 +294,177 @@ impl StrengthManager {
                 activity_count: activity_ids.len() as u32,
                 total_sets: total_active_sets,
             })
+        })?
+    }
+
+    /// Get exercise summaries for a specific muscle group within a date range.
+    /// Returns exercises grouped by frequency, sorted by activity count descending.
+    fn get_exercises_for_muscle(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+        muscle_slug: String,
+    ) -> Result<FfiMuscleExerciseSummary, VeloqError> {
+        with_engine(|e| {
+            let sets = e
+                .get_exercise_sets_in_range(start_ts, end_ts)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })?;
+
+            let period_days = ((end_ts - start_ts) / 86400).max(1) as u32;
+
+            // Per-exercise aggregation
+            struct ExAgg {
+                total_sets: u32,
+                total_weight_kg: f64,
+                activity_ids: std::collections::HashSet<String>,
+                has_primary: bool,
+            }
+            let mut exercise_map: std::collections::HashMap<u16, ExAgg> =
+                std::collections::HashMap::new();
+
+            for (_activity_id, set) in &sets {
+                let muscles = fit::exercise_muscle_groups(set.exercise_category);
+                let muscle_match = muscles.iter().find(|m| m.slug == muscle_slug);
+                if muscle_match.is_none() {
+                    continue;
+                }
+
+                let is_primary = muscle_match.unwrap().intensity == 2;
+                let agg = exercise_map
+                    .entry(set.exercise_category)
+                    .or_insert(ExAgg {
+                        total_sets: 0,
+                        total_weight_kg: 0.0,
+                        activity_ids: std::collections::HashSet::new(),
+                        has_primary: false,
+                    });
+
+                agg.total_sets += 1;
+                agg.total_weight_kg +=
+                    set.weight_kg.unwrap_or(0.0) * set.repetitions.unwrap_or(1) as f64;
+                agg.activity_ids.insert(_activity_id.clone());
+                if is_primary {
+                    agg.has_primary = true;
+                }
+            }
+
+            let mut exercises: Vec<FfiExerciseSummary> = exercise_map
+                .into_iter()
+                .map(|(category, agg)| {
+                    let activity_count = agg.activity_ids.len() as u32;
+                    let frequency_days = if activity_count > 0 {
+                        period_days as f64 / activity_count as f64
+                    } else {
+                        0.0
+                    };
+                    FfiExerciseSummary {
+                        exercise_name: fit::exercise_display_name(category, None),
+                        exercise_category: category,
+                        frequency_days,
+                        total_sets: agg.total_sets,
+                        total_weight_kg: agg.total_weight_kg,
+                        activity_count,
+                        is_primary: agg.has_primary,
+                    }
+                })
+                .collect();
+
+            // Sort by activity count descending, then by total sets
+            exercises.sort_by(|a, b| {
+                b.activity_count
+                    .cmp(&a.activity_count)
+                    .then_with(|| b.total_sets.cmp(&a.total_sets))
+            });
+
+            Ok(FfiMuscleExerciseSummary {
+                exercises,
+                period_days,
+            })
+        })?
+    }
+
+    /// Get activities for a specific exercise filtered by muscle group.
+    /// Returns activities sorted by date descending with per-activity stats.
+    fn get_activities_for_exercise(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+        muscle_slug: String,
+        exercise_category: u16,
+    ) -> Result<FfiExerciseActivities, VeloqError> {
+        with_engine(|e| {
+            let sets = e
+                .get_exercise_sets_in_range(start_ts, end_ts)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })?;
+
+            // Per-activity aggregation, filtered by muscle + exercise
+            struct ActAgg {
+                total_sets: u32,
+                total_weight_kg: f64,
+                has_primary: bool,
+            }
+            let mut activity_map: std::collections::HashMap<String, ActAgg> =
+                std::collections::HashMap::new();
+
+            for (activity_id, set) in &sets {
+                if set.exercise_category != exercise_category {
+                    continue;
+                }
+
+                let muscles = fit::exercise_muscle_groups(set.exercise_category);
+                let muscle_match = muscles.iter().find(|m| m.slug == muscle_slug);
+                if muscle_match.is_none() {
+                    continue;
+                }
+
+                let is_primary = muscle_match.unwrap().intensity == 2;
+                let agg = activity_map
+                    .entry(activity_id.clone())
+                    .or_insert(ActAgg {
+                        total_sets: 0,
+                        total_weight_kg: 0.0,
+                        has_primary: false,
+                    });
+
+                agg.total_sets += 1;
+                agg.total_weight_kg +=
+                    set.weight_kg.unwrap_or(0.0) * set.repetitions.unwrap_or(1) as f64;
+                if is_primary {
+                    agg.has_primary = true;
+                }
+            }
+
+            // Fetch activity names
+            let activity_ids: Vec<String> = activity_map.keys().cloned().collect();
+            let names = e
+                .get_activity_names(&activity_ids)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })?;
+
+            let mut activities: Vec<FfiExerciseActivity> = activity_map
+                .into_iter()
+                .filter_map(|(id, agg)| {
+                    let (name, date) = names.get(&id)?;
+                    Some(FfiExerciseActivity {
+                        activity_id: id,
+                        activity_name: name.clone(),
+                        date: *date,
+                        sets: agg.total_sets,
+                        total_weight_kg: agg.total_weight_kg,
+                        is_primary: agg.has_primary,
+                    })
+                })
+                .collect();
+
+            // Sort by date descending
+            activities.sort_by(|a, b| b.date.cmp(&a.date));
+
+            Ok(FfiExerciseActivities { activities })
         })?
     }
 

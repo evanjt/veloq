@@ -165,4 +165,36 @@ impl PersistentRouteEngine {
         )?;
         Ok(count as u32)
     }
+
+    /// Get activity name and date for a set of activity IDs.
+    /// Returns a HashMap from activity_id to (name, date).
+    pub fn get_activity_names(
+        &self,
+        activity_ids: &[String],
+    ) -> SqlResult<std::collections::HashMap<String, (String, i64)>> {
+        if activity_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        let placeholders = activity_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            "SELECT activity_id, name, date FROM activity_metrics WHERE activity_id IN ({})",
+            placeholders
+        );
+        let mut stmt = self.db.prepare(&sql)?;
+        let rows = stmt.query_map(rusqlite::params_from_iter(activity_ids.iter()), |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        })?;
+
+        let mut result = std::collections::HashMap::new();
+        for row in rows {
+            let (id, name, date) = row?;
+            result.insert(id, (name, date));
+        }
+        Ok(result)
+    }
 }

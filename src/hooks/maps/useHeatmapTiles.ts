@@ -14,7 +14,7 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 const HEATMAP_DIR = `${FileSystem.documentDirectory}heatmap-tiles/`;
 
 /** file:// URL template for MapLibre RasterSource */
-export const HEATMAP_TILE_URL_TEMPLATE = `file://${HEATMAP_DIR}{z}/{x}/{y}.png`;
+export const HEATMAP_TILE_URL_TEMPLATE = `${HEATMAP_DIR}{z}/{x}/{y}.png`;
 
 /** The base directory where heatmap tiles are stored */
 export const HEATMAP_TILES_DIR = HEATMAP_DIR;

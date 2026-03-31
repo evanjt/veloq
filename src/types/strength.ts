@@ -18,3 +18,30 @@ export interface StrengthSummary {
 }
 
 export type StrengthPeriod = 'week' | '4weeks' | '3months' | '6months';
+
+/** Summary of a single exercise targeting a muscle group. */
+export interface ExerciseSummary {
+  exerciseName: string;
+  exerciseCategory: number;
+  frequencyDays: number;
+  totalSets: number;
+  totalWeightKg: number;
+  activityCount: number;
+  isPrimary: boolean;
+}
+
+/** Exercise summaries for a specific muscle group over a period. */
+export interface MuscleExerciseSummary {
+  exercises: ExerciseSummary[];
+  periodDays: number;
+}
+
+/** A single activity containing a specific exercise. */
+export interface ExerciseActivity {
+  activityId: string;
+  activityName: string;
+  date: number;
+  sets: number;
+  totalWeightKg: number;
+  isPrimary: boolean;
+}

@@ -1562,3 +1562,58 @@ pub struct FfiStrengthSummary {
     /// Total active sets across all activities
     pub total_sets: u32,
 }
+
+// ============================================================================
+// Muscle Exercise Detail Types
+// ============================================================================
+
+/// Exercise summary for a specific muscle group within a date range.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiExerciseSummary {
+    /// Human-readable exercise name
+    pub exercise_name: String,
+    /// FIT exercise category ID (pass back for drill-down query)
+    pub exercise_category: u16,
+    /// Average days between sessions (period_days / activity_count)
+    pub frequency_days: f64,
+    /// Total active sets across all activities
+    pub total_sets: u32,
+    /// Total volume load in kg (weight × reps)
+    pub total_weight_kg: f64,
+    /// Number of distinct activities containing this exercise
+    pub activity_count: u32,
+    /// True if the muscle is a primary target for at least one occurrence
+    pub is_primary: bool,
+}
+
+/// Exercise summaries grouped by frequency for a muscle group.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMuscleExerciseSummary {
+    /// Exercises targeting the muscle, sorted by activity_count DESC
+    pub exercises: Vec<FfiExerciseSummary>,
+    /// Number of days in the selected period
+    pub period_days: u32,
+}
+
+/// An activity containing a specific exercise, with per-activity stats.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiExerciseActivity {
+    /// Activity ID for navigation
+    pub activity_id: String,
+    /// Activity display name
+    pub activity_name: String,
+    /// Activity date as Unix timestamp (seconds)
+    pub date: i64,
+    /// Number of sets of this exercise in the activity
+    pub sets: u32,
+    /// Total volume load in kg (weight × reps) for this exercise in this activity
+    pub total_weight_kg: f64,
+    /// Whether the muscle is a primary target for this exercise
+    pub is_primary: bool,
+}
+
+/// Activities for a specific exercise, sorted by date DESC.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiExerciseActivities {
+    pub activities: Vec<FfiExerciseActivity>,
+}

@@ -5,17 +5,20 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
 import { BodyPairWithLoupe } from '@/components/activity/BodyPairWithLoupe';
 import { useTheme, useMetricSystem } from '@/hooks';
-import { useStrengthVolume } from '@/hooks/activities/useStrengthVolume';
+import {
+  useStrengthVolume,
+  useExercisesForMuscle,
+  useActivitiesForExercise,
+} from '@/hooks/activities/useStrengthVolume';
 import { useAthlete } from '@/hooks';
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { colors, darkColors, spacing, typography, opacity, layout } from '@/theme';
-import type { StrengthPeriod, MuscleVolume } from '@/types';
+import type { StrengthPeriod, MuscleVolume, ExerciseSummary } from '@/types';
 
-const PRIMARY_COLOR = '#FC4C02';
-const SECONDARY_COLOR = '#FCA67A';
 // 5-step color ramp from light to saturated for continuous heat map
 const BODY_COLORS: readonly string[] = [
   '#FDDCC4', // 1 - very light
@@ -43,10 +46,18 @@ export const StrengthTab = React.memo(function StrengthTab() {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
   const { data: athlete } = useAthlete();
+  const router = useRouter();
   const [period, setPeriod] = useState<StrengthPeriod>('4weeks');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
+  const [expandedExercise, setExpandedExercise] = useState<number | null>(null);
 
   const { data: summary, isLoading } = useStrengthVolume(period);
+  const { data: exerciseSummary } = useExercisesForMuscle(period, selectedMuscle);
+  const { data: exerciseActivities } = useActivitiesForExercise(
+    period,
+    selectedMuscle,
+    expandedExercise
+  );
 
   const gender = athlete?.sex === 'F' ? 'female' : 'male';
 
@@ -81,6 +92,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
 
   const handleMuscleTap = useCallback((slug: string) => {
     setSelectedMuscle((prev) => (prev === slug ? null : slug));
+    setExpandedExercise(null);
   }, []);
 
   const handleMuscleScrub = useCallback((slug: string) => {
@@ -178,68 +190,43 @@ export const StrengthTab = React.memo(function StrengthTab() {
 
           {/* Body diagrams */}
           <View style={[styles.bodyCard, isDark && styles.bodyCardDark]}>
-            {/* Header: title/hint OR inline muscle detail */}
+            {/* Stable header: always shows title + a single-line subtitle */}
+            <Text style={[styles.bodyTitle, isDark && styles.bodyTitleDark]}>
+              Muscle Group Volume
+            </Text>
             {selectedVolume ? (
-              <View style={styles.inlineDetail}>
-                <View style={styles.inlineDetailHeader}>
-                  <View style={styles.inlineDetailNameRow}>
-                    <View
-                      style={[
-                        styles.inlineDetailDot,
-                        { backgroundColor: selectedVolume.primarySets > 0 ? '#FC4C02' : '#FCA67A' },
-                      ]}
-                    />
-                    <Text
-                      style={[styles.inlineDetailName, isDark && styles.inlineDetailNameDark]}
-                      numberOfLines={1}
-                    >
-                      {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ??
-                        selectedVolume.slug}
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={() => setSelectedMuscle(null)} hitSlop={12}>
-                    <MaterialCommunityIcons
-                      name="close"
-                      size={16}
-                      color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                </View>
-                <Text style={[styles.inlineDetailStats, isDark && styles.inlineDetailStatsDark]}>
+              <TouchableOpacity
+                style={styles.subtitleRow}
+                onPress={() => setSelectedMuscle(null)}
+                activeOpacity={0.7}
+              >
+                <View
+                  style={[
+                    styles.subtitleDot,
+                    { backgroundColor: selectedVolume.primarySets > 0 ? '#FC4C02' : '#FCA67A' },
+                  ]}
+                />
+                <Text
+                  style={[styles.subtitleText, isDark && styles.subtitleTextDark]}
+                  numberOfLines={1}
+                >
+                  {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug} ·{' '}
                   {selectedVolume.weightedSets % 1 === 0
                     ? selectedVolume.weightedSets.toFixed(0)
                     : selectedVolume.weightedSets.toFixed(1)}{' '}
-                  weighted sets · {selectedVolume.primarySets} primary ·{' '}
-                  {selectedVolume.secondarySets} secondary
+                  sets
                   {selectedVolume.totalReps > 0 ? ` · ${selectedVolume.totalReps} reps` : ''}
                 </Text>
-                {selectedVolume.exerciseNames.length > 0 && (
-                  <View style={styles.inlineExerciseRow}>
-                    {selectedVolume.exerciseNames.map((name) => (
-                      <View key={name} style={styles.inlineExerciseChip}>
-                        <View style={styles.inlineExerciseDot} />
-                        <Text
-                          style={[
-                            styles.inlineExerciseText,
-                            isDark && styles.inlineExerciseTextDark,
-                          ]}
-                        >
-                          {name}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
+                <MaterialCommunityIcons
+                  name="close"
+                  size={14}
+                  color={isDark ? darkColors.textMuted : colors.textDisabled}
+                />
+              </TouchableOpacity>
             ) : (
-              <>
-                <Text style={[styles.bodyTitle, isDark && styles.bodyTitleDark]}>
-                  Muscle Group Volume
-                </Text>
-                <Text style={[styles.bodyHint, isDark && styles.bodyHintDark]}>
-                  Tap a muscle group for details
-                </Text>
-              </>
+              <Text style={[styles.bodyHint, isDark && styles.bodyHintDark]}>
+                Tap a muscle group for details
+              </Text>
             )}
 
             <BodyPairWithLoupe
@@ -279,27 +266,100 @@ export const StrengthTab = React.memo(function StrengthTab() {
           </View>
 
           {/* Exercise detail list when muscle selected */}
-          {selectedVolume && selectedVolume.exerciseNames.length > 0 && (
+          {selectedVolume && exerciseSummary && exerciseSummary.exercises.length > 0 && (
             <View style={[styles.exerciseCard, isDark && styles.exerciseCardDark]}>
               <Text style={[styles.exerciseCardTitle, isDark && styles.exerciseCardTitleDark]}>
                 Exercises targeting{' '}
                 {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug}
               </Text>
-              {selectedVolume.exerciseNames.map((name, idx) => (
-                <View
-                  key={name}
-                  style={[
-                    styles.exerciseCardItem,
-                    idx > 0 && styles.exerciseCardItemBorder,
-                    idx > 0 && isDark && styles.exerciseCardItemBorderDark,
-                  ]}
-                >
-                  <View style={styles.exerciseCardDot} />
-                  <Text style={[styles.exerciseCardName, isDark && styles.exerciseCardNameDark]}>
-                    {name}
-                  </Text>
-                </View>
-              ))}
+              {exerciseSummary.exercises.map((exercise: ExerciseSummary, idx: number) => {
+                const isExpanded = expandedExercise === exercise.exerciseCategory;
+                return (
+                  <View key={exercise.exerciseCategory}>
+                    <TouchableOpacity
+                      style={[
+                        styles.exerciseCardItem,
+                        idx > 0 && styles.exerciseCardItemBorder,
+                        idx > 0 && isDark && styles.exerciseCardItemBorderDark,
+                      ]}
+                      onPress={() =>
+                        setExpandedExercise(isExpanded ? null : exercise.exerciseCategory)
+                      }
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.exerciseCardDot} />
+                      <View style={styles.exerciseCardContent}>
+                        <View style={styles.exerciseCardNameRow}>
+                          <Text
+                            style={[styles.exerciseCardName, isDark && styles.exerciseCardNameDark]}
+                            numberOfLines={1}
+                          >
+                            {exercise.exerciseName}
+                          </Text>
+                          <MaterialCommunityIcons
+                            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                            size={16}
+                            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                          />
+                        </View>
+                        <Text
+                          style={[styles.exerciseCardMeta, isDark && styles.exerciseCardMetaDark]}
+                        >
+                          {exercise.totalSets} sets · {exercise.activityCount}{' '}
+                          {exercise.activityCount === 1 ? 'workout' : 'workouts'}
+                          {exercise.totalWeightKg > 0
+                            ? ` · ${formatWeight(exercise.totalWeightKg, isMetric)}`
+                            : ''}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Expanded: per-activity breakdown */}
+                    {isExpanded && exerciseActivities && exerciseActivities.length > 0 && (
+                      <View style={[styles.activityList, isDark && styles.activityListDark]}>
+                        {exerciseActivities.map((activity) => (
+                          <TouchableOpacity
+                            key={activity.activityId}
+                            style={styles.activityRow}
+                            onPress={() => router.push(`/activity/${activity.activityId}`)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.activityRowLeft}>
+                              <Text
+                                style={[styles.activityName, isDark && styles.activityNameDark]}
+                                numberOfLines={1}
+                              >
+                                {activity.activityName}
+                              </Text>
+                              <Text
+                                style={[styles.activityDate, isDark && styles.activityDateDark]}
+                              >
+                                {new Date(activity.date * 1000).toLocaleDateString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </Text>
+                            </View>
+                            <Text
+                              style={[styles.activityStats, isDark && styles.activityStatsDark]}
+                            >
+                              {activity.sets} sets
+                              {activity.totalWeightKg > 0
+                                ? ` · ${formatWeight(activity.totalWeightKg, isMetric)}`
+                                : ''}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                    {isExpanded && exerciseActivities && exerciseActivities.length === 0 && (
+                      <View style={[styles.activityList, isDark && styles.activityListDark]}>
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
               {selectedVolume.totalWeightKg > 0 && (
                 <View style={[styles.exerciseCardTotal, isDark && styles.exerciseCardTotalDark]}>
                   <Text
@@ -451,66 +511,6 @@ const styles = StyleSheet.create({
   bodyTitleDark: {
     color: darkColors.textPrimary,
   },
-  // Inline detail (replaces title when muscle selected)
-  inlineDetail: {
-    paddingHorizontal: spacing.xs,
-    paddingBottom: spacing.xs,
-  },
-  inlineDetailHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  inlineDetailNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  inlineDetailDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  inlineDetailName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  inlineDetailNameDark: {
-    color: darkColors.textPrimary,
-  },
-  inlineDetailStats: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-    marginBottom: 4,
-  },
-  inlineDetailStatsDark: {
-    color: darkColors.textSecondary,
-  },
-  inlineExerciseRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  inlineExerciseChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  inlineExerciseDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#FC4C02',
-  },
-  inlineExerciseText: {
-    fontSize: 12,
-    color: colors.textPrimary,
-  },
-  inlineExerciseTextDark: {
-    color: darkColors.textPrimary,
-  },
   bodyHint: {
     fontSize: 11,
     color: colors.textDisabled,
@@ -520,6 +520,25 @@ const styles = StyleSheet.create({
   },
   bodyHintDark: {
     color: darkColors.textMuted,
+  },
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginBottom: spacing.xs,
+  },
+  subtitleDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  subtitleText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  subtitleTextDark: {
+    color: darkColors.textSecondary,
   },
   scaleBarContainer: {
     paddingHorizontal: spacing.md,
@@ -554,147 +573,6 @@ const styles = StyleSheet.create({
   },
   scaleValueDark: {
     color: darkColors.textSecondary,
-  },
-  detailCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  detailCardDark: {
-    backgroundColor: darkColors.surface,
-  },
-  detailHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  detailTitle: {
-    ...typography.cardTitle,
-    color: colors.textPrimary,
-  },
-  detailTitleDark: {
-    color: darkColors.textPrimary,
-  },
-  detailStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    marginBottom: spacing.sm,
-  },
-  detailStatsRowDark: {
-    backgroundColor: darkColors.background,
-  },
-  detailStat: {
-    alignItems: 'center',
-  },
-  detailStatValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  detailStatValueDark: {
-    color: darkColors.textPrimary,
-  },
-  detailStatLabel: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  detailStatLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  contextRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.xs,
-    borderRadius: 6,
-    backgroundColor: colors.background,
-    marginBottom: spacing.sm,
-  },
-  contextRowDark: {
-    backgroundColor: darkColors.background,
-  },
-  contextText: {
-    flex: 1,
-    fontSize: 11,
-    color: colors.textDisabled,
-    lineHeight: 16,
-  },
-  contextTextDark: {
-    color: darkColors.textMuted,
-  },
-  exerciseList: {
-    marginBottom: spacing.sm,
-  },
-  exerciseListTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: spacing.xs,
-  },
-  exerciseListTitleDark: {
-    color: darkColors.textSecondary,
-  },
-  exerciseItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    gap: 8,
-  },
-  exerciseItemBorder: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-  },
-  exerciseItemBorderDark: {
-    borderTopColor: darkColors.border,
-  },
-  exerciseBullet: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: PRIMARY_COLOR,
-  },
-  exerciseName: {
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-  exerciseNameDark: {
-    color: darkColors.textPrimary,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-  },
-  totalRowDark: {
-    borderTopColor: darkColors.border,
-  },
-  totalLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  totalLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  totalValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  totalValueDark: {
-    color: darkColors.textPrimary,
   },
   exerciseCard: {
     backgroundColor: colors.surface,
@@ -733,12 +611,72 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: '#FC4C02',
   },
+  exerciseCardContent: {
+    flex: 1,
+  },
+  exerciseCardNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   exerciseCardName: {
+    flex: 1,
     fontSize: 15,
     color: colors.textPrimary,
   },
   exerciseCardNameDark: {
     color: darkColors.textPrimary,
+  },
+  exerciseCardMeta: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  exerciseCardMetaDark: {
+    color: darkColors.textSecondary,
+  },
+  activityList: {
+    marginLeft: 14,
+    paddingLeft: spacing.sm,
+    borderLeftWidth: 1,
+    borderLeftColor: colors.divider,
+    marginBottom: spacing.xs,
+  },
+  activityListDark: {
+    borderLeftColor: darkColors.border,
+  },
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    paddingHorizontal: spacing.xs,
+  },
+  activityRowLeft: {
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  activityName: {
+    fontSize: 13,
+    color: colors.textPrimary,
+  },
+  activityNameDark: {
+    color: darkColors.textPrimary,
+  },
+  activityDate: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  activityDateDark: {
+    color: darkColors.textSecondary,
+  },
+  activityStats: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  activityStatsDark: {
+    color: darkColors.textSecondary,
   },
   exerciseCardTotal: {
     flexDirection: 'row',
