@@ -25,7 +25,9 @@ export function useInsights(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   preComputedInsightsData?: any,
   /** When true, never make own getInsightsData FFI call — wait for preComputedInsightsData */
-  skipOwnFfiCall = false
+  skipOwnFfiCall = false,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  preComputedSummaryCardData?: any
 ): {
   insights: Insight[];
   topInsight: Insight | null;
@@ -59,9 +61,12 @@ export function useInsights(
 
       // Use pre-computed data from getStartupData when available
       let data = preComputedInsightsData;
+      let summaryData = preComputedSummaryCardData;
       if (!data) {
         if (skipOwnFfiCall) return;
-        data = fetchInsightsDataFromEngine();
+        const fetched = fetchInsightsDataFromEngine();
+        data = fetched?.insightsData ?? null;
+        summaryData = fetched?.summaryCardData ?? null;
       }
 
       if (!data || !isMountedRef.current) return;
@@ -70,7 +75,8 @@ export function useInsights(
       const result = computeInsightsFromData(
         data,
         wellnessData ?? null,
-        t as (key: string, params?: Record<string, string | number>) => string
+        t as (key: string, params?: Record<string, string | number>) => string,
+        summaryData
       );
 
       if (isMountedRef.current) {
@@ -80,7 +86,7 @@ export function useInsights(
 
     return () => handle.cancel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trigger, preComputedInsightsData, wellnessData, t]);
+  }, [trigger, preComputedInsightsData, preComputedSummaryCardData, wellnessData, t]);
 
   // Stabilise reference -- only update when insight IDs actually change
   const prevInsightsRef = useRef<Insight[]>([]);

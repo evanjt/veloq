@@ -418,6 +418,7 @@ export function RegionalMapView({
             sectionsGeoJSON={showSections ? (sectionsGeoJSON ?? undefined) : undefined}
             // In 3D mode, use showActivities directly (no zoom check - 3D doesn't track zoom)
             tracesGeoJSON={showActivities ? (tracesGeoJSON ?? undefined) : undefined}
+            showHeatmap={showActivities}
           />
         </ComponentErrorBoundary>
       ) : (
@@ -636,15 +637,17 @@ export function RegionalMapView({
             id="heatmap-tiles"
             tileUrlTemplates={[HEATMAP_TILE_URL_TEMPLATE]}
             minZoomLevel={5}
-            maxZoomLevel={15}
+            maxZoomLevel={17}
             tileSize={256}
           >
             <RasterLayer
               id="heatmap-layer"
               style={{
-                rasterOpacity: showActivities ? 0.85 : 0,
+                rasterOpacity: showActivities ? 0.72 : 0,
+                rasterResampling: 'linear',
+                rasterFadeDuration: 0,
               }}
-              belowLayerID="sectionsOutline"
+              belowLayerID="cluster-circles"
             />
           </RasterSource>
 

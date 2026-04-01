@@ -401,6 +401,13 @@
     "title": "Forme physique",
     "toBuildFitness": "pour développer votre forme. Soyez",
     "toPreventOvertraining": "pour éviter le surentraînement.",
+    "guidance": {
+      "highRisk": "La fatigue accumulée est très élevée. Envisagez du repos ou des séances faciles jusqu'à ce que la forme dépasse -30.",
+      "optimal": "Zone d'entraînement productive. Votre corps absorbe efficacement le stress d'entraînement.",
+      "greyZone": "Charge d'entraînement modérée. Ni reposé ni très fatigué — zone de maintien.",
+      "fresh": "Bien reposé. Bon moment pour une course ou un test d'intensité. La forme peut baisser si cela dure.",
+      "transition": "Très reposé mais perte de stimulus de forme. Envisagez de reprendre l'entraînement structuré."
+    },
     "tsb": "TSB",
     "understandingMetrics": "Comprendre les métriques"
   },

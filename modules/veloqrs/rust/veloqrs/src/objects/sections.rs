@@ -1,4 +1,4 @@
-use super::error::{with_engine, VeloqError};
+use super::error::{VeloqError, with_engine};
 use crate::sections::SectionType;
 use std::sync::Arc;
 
@@ -37,7 +37,10 @@ impl SectionManager {
         })
     }
 
-    fn get_by_type(&self, section_type: Option<String>) -> Result<Vec<crate::FfiSection>, VeloqError> {
+    fn get_by_type(
+        &self,
+        section_type: Option<String>,
+    ) -> Result<Vec<crate::FfiSection>, VeloqError> {
         let st = section_type.as_deref().and_then(SectionType::from_str);
         with_engine(|e| {
             e.get_sections_by_type(st)
@@ -56,18 +59,31 @@ impl SectionManager {
         })
     }
 
-    fn get_by_id(&self, section_id: String) -> Result<Option<crate::FfiFrequentSection>, VeloqError> {
-        with_engine(|e| e.get_section_by_id(&section_id).map(crate::FfiFrequentSection::from))
+    fn get_by_id(
+        &self,
+        section_id: String,
+    ) -> Result<Option<crate::FfiFrequentSection>, VeloqError> {
+        with_engine(|e| {
+            e.get_section_by_id(&section_id)
+                .map(crate::FfiFrequentSection::from)
+        })
     }
 
-    fn get_summaries(&self, sport_type: Option<String>) -> Result<Vec<crate::SectionSummary>, VeloqError> {
+    fn get_summaries(
+        &self,
+        sport_type: Option<String>,
+    ) -> Result<Vec<crate::SectionSummary>, VeloqError> {
         with_engine(|e| match sport_type {
             Some(ref sport) => e.get_section_summaries_for_sport(sport),
             None => e.get_section_summaries(),
         })
     }
 
-    fn get_ranked(&self, sport_type: String, limit: u32) -> Result<Vec<crate::FfiRankedSection>, VeloqError> {
+    fn get_ranked(
+        &self,
+        sport_type: String,
+        limit: u32,
+    ) -> Result<Vec<crate::FfiRankedSection>, VeloqError> {
         with_engine(|e| e.get_ranked_sections(&sport_type, limit))
     }
 
@@ -101,15 +117,22 @@ impl SectionManager {
         })
     }
 
-    fn get_performances(&self, section_id: String, sport_type: Option<String>) -> Result<crate::FfiSectionPerformanceResult, VeloqError> {
+    fn get_performances(
+        &self,
+        section_id: String,
+        sport_type: Option<String>,
+    ) -> Result<crate::FfiSectionPerformanceResult, VeloqError> {
         with_engine(|e| {
             crate::FfiSectionPerformanceResult::from(
-                e.get_section_performances_filtered(&section_id, sport_type.as_deref())
+                e.get_section_performances_filtered(&section_id, sport_type.as_deref()),
             )
         })
     }
 
-    fn get_excluded_performances(&self, section_id: String) -> Result<crate::FfiSectionPerformanceResult, VeloqError> {
+    fn get_excluded_performances(
+        &self,
+        section_id: String,
+    ) -> Result<crate::FfiSectionPerformanceResult, VeloqError> {
         with_engine(|e| {
             let records = e.get_excluded_section_performances(&section_id);
             crate::FfiSectionPerformanceResult::from(crate::SectionPerformanceResult {
@@ -123,14 +146,20 @@ impl SectionManager {
         })
     }
 
-    fn get_calendar_summary(&self, section_id: String) -> Result<Option<crate::FfiCalendarSummary>, VeloqError> {
+    fn get_calendar_summary(
+        &self,
+        section_id: String,
+    ) -> Result<Option<crate::FfiCalendarSummary>, VeloqError> {
         with_engine(|e| {
             e.get_section_calendar_summary(&section_id)
                 .map(crate::FfiCalendarSummary::from)
         })
     }
 
-    fn get_reference_info(&self, section_id: String) -> Result<crate::FfiSectionReferenceInfo, VeloqError> {
+    fn get_reference_info(
+        &self,
+        section_id: String,
+    ) -> Result<crate::FfiSectionReferenceInfo, VeloqError> {
         with_engine(|e| {
             e.get_section(&section_id)
                 .map(|s| crate::FfiSectionReferenceInfo {
@@ -159,7 +188,11 @@ impl SectionManager {
     }
 
     fn set_name(&self, section_id: String, name: String) -> Result<(), VeloqError> {
-        let name_opt = if name.is_empty() { None } else { Some(name.as_str()) };
+        let name_opt = if name.is_empty() {
+            None
+        } else {
+            Some(name.as_str())
+        };
         with_engine(|e| {
             e.set_section_name(&section_id, name_opt)
                 .map_err(|e| VeloqError::Database {
@@ -182,8 +215,10 @@ impl SectionManager {
         start_index: Option<u32>,
         end_index: Option<u32>,
     ) -> Result<String, VeloqError> {
-        let polyline: Vec<tracematch::GpsPoint> =
-            polyline.into_iter().map(tracematch::GpsPoint::from).collect();
+        let polyline: Vec<tracematch::GpsPoint> = polyline
+            .into_iter()
+            .map(tracematch::GpsPoint::from)
+            .collect();
 
         let computed_distance = tracematch::matching::calculate_route_distance(&polyline);
 
@@ -336,7 +371,11 @@ impl SectionManager {
         })?
     }
 
-    fn set_superseded(&self, auto_section_id: String, custom_section_id: String) -> Result<(), VeloqError> {
+    fn set_superseded(
+        &self,
+        auto_section_id: String,
+        custom_section_id: String,
+    ) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.set_superseded(&auto_section_id, &custom_section_id)
                 .map_err(|e| VeloqError::Database { msg: e })
@@ -357,7 +396,10 @@ impl SectionManager {
         })?
     }
 
-    fn import_superseded_map(&self, entries: Vec<crate::FfiSupersededEntry>) -> Result<u32, VeloqError> {
+    fn import_superseded_map(
+        &self,
+        entries: Vec<crate::FfiSupersededEntry>,
+    ) -> Result<u32, VeloqError> {
         with_engine(|e| {
             let map: Vec<(String, Vec<String>)> = entries
                 .into_iter()
@@ -369,7 +411,10 @@ impl SectionManager {
     }
 
     /// Get ALL section summaries including disabled/superseded (for restore UI).
-    fn get_all_summaries_including_hidden(&self, sport_type: Option<String>) -> Result<Vec<crate::SectionSummary>, VeloqError> {
+    fn get_all_summaries_including_hidden(
+        &self,
+        sport_type: Option<String>,
+    ) -> Result<Vec<crate::SectionSummary>, VeloqError> {
         with_engine(|e| match sport_type {
             Some(ref sport) => {
                 // Use the unfiltered variant

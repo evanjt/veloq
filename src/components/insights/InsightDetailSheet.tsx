@@ -7,6 +7,7 @@ import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, typography, opacity, colorWithOpacity } from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
+import { InsightQuickTake } from './InsightQuickTake';
 import type { Insight } from '@/types';
 
 const SHEET_HEIGHT = Dimensions.get('window').height * 0.85;
@@ -36,8 +37,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   const contentHandlesNav =
     insight.category === 'section_pr' ||
     insight.category === 'tsb_form' ||
-    insight.category === 'stale_pr' ||
-    insight.category === 'section_cluster';
+    insight.category === 'stale_pr';
   const hasNavTarget = !!insight.navigationTarget && !contentHandlesNav;
 
   return (
@@ -96,6 +96,8 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
           {insight.body ? (
             <Text style={[styles.body, isDark && styles.bodyDark]}>{insight.body}</Text>
           ) : null}
+
+          <InsightQuickTake insight={insight} />
 
           {/* Category-specific content */}
           <View style={styles.contentSection}>

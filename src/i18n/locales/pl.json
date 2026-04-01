@@ -401,6 +401,13 @@
     "title": "Kondycja i forma",
     "toBuildFitness": "aby budować kondycję. Bądź",
     "toPreventOvertraining": "aby zapobiec przetrenowaniu.",
+    "guidance": {
+      "highRisk": "Zmęczenie jest bardzo wysokie. Rozważ odpoczynek lub lekkie sesje, aż forma przekroczy -30.",
+      "optimal": "Produktywna strefa treningowa. Twój organizm skutecznie przyswaja obciążenie treningowe.",
+      "greyZone": "Umiarkowane obciążenie treningowe. Ani wypoczęty, ani mocno zmęczony — strefa utrzymania.",
+      "fresh": "Dobrze wypoczęty. Dobry moment na zawody lub test intensywności. Forma może spadać, jeśli utrzymasz ten stan.",
+      "transition": "Bardzo wypoczęty, ale tracisz bodziec treningowy. Rozważ powrót do ustrukturyzowanego treningu."
+    },
     "tsb": "TSB",
     "understandingMetrics": "Zrozumienie metryk"
   },

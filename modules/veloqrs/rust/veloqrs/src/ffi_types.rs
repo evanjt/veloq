@@ -1123,7 +1123,11 @@ impl From<crate::CalendarYearSummary> for FfiCalendarYearSummary {
             traversal_count: y.traversal_count,
             forward: y.forward.map(FfiCalendarDirectionBest::from),
             reverse: y.reverse.map(FfiCalendarDirectionBest::from),
-            months: y.months.into_iter().map(FfiCalendarMonthSummary::from).collect(),
+            months: y
+                .months
+                .into_iter()
+                .map(FfiCalendarMonthSummary::from)
+                .collect(),
         }
     }
 }
@@ -1145,7 +1149,11 @@ pub struct FfiCalendarSummary {
 impl From<crate::CalendarSummary> for FfiCalendarSummary {
     fn from(s: crate::CalendarSummary) -> Self {
         Self {
-            years: s.years.into_iter().map(FfiCalendarYearSummary::from).collect(),
+            years: s
+                .years
+                .into_iter()
+                .map(FfiCalendarYearSummary::from)
+                .collect(),
             forward_pr: s.forward_pr.map(FfiCalendarDirectionBest::from),
             reverse_pr: s.reverse_pr.map(FfiCalendarDirectionBest::from),
             section_distance: s.section_distance,

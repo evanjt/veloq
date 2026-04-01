@@ -6,9 +6,7 @@ import { StalePRContent } from './StalePRContent';
 import { TsbFormContent } from './TsbFormContent';
 import { HrvTrendContent } from './HrvTrendContent';
 import { PeriodComparisonContent } from './PeriodComparisonContent';
-import { WeeklyLoadContent } from './WeeklyLoadContent';
 import { FitnessMilestoneContent } from './FitnessMilestoneContent';
-import { ConsistencyContent } from './ConsistencyContent';
 import { EfficiencyTrendContent } from './EfficiencyTrendContent';
 import { SupportingDataSection } from '../SupportingDataSection';
 
@@ -34,14 +32,12 @@ export const InsightDetailContent = React.memo(function InsightDetailContent({
       return <HrvTrendContent insight={insight} />;
     case 'period_comparison':
       return <PeriodComparisonContent insight={insight} />;
-    case 'weekly_load':
-      return <WeeklyLoadContent insight={insight} />;
     case 'fitness_milestone':
       return <FitnessMilestoneContent insight={insight} />;
-    case 'training_consistency':
-      return <ConsistencyContent insight={insight} />;
     case 'stale_pr':
       return <StalePRContent insight={insight} />;
+    case 'section_cluster':
+      return <SectionTrendContent insight={insight} />;
     case 'efficiency_trend':
       return <EfficiencyTrendContent insight={insight} />;
     default:

@@ -377,10 +377,7 @@ impl ActivityFetcher {
     /// Download the raw FIT file for an activity.
     /// Returns the binary data or an error message.
     pub async fn download_fit_file(&self, activity_id: &str) -> Result<Vec<u8>, String> {
-        let url = format!(
-            "https://intervals.icu/api/v1/activity/{}/file",
-            activity_id
-        );
+        let url = format!("https://intervals.icu/api/v1/activity/{}/file", activity_id);
 
         let response = self
             .client

@@ -618,6 +618,10 @@ class RouteEngineClient {
     sectionLimit = 20,
     sectionOffset = 0,
     minGroupActivityCount = 2,
+    prioritizeNearestGroups = false,
+    prioritizeNearestSections = false,
+    userLat = Number.NaN,
+    userLng = Number.NaN,
   ): FfiRoutesScreenData | undefined {
     if (!this.ready) return undefined;
     try {
@@ -630,6 +634,10 @@ class RouteEngineClient {
             sectionLimit,
             sectionOffset,
             minGroupActivityCount,
+            prioritizeNearestGroups,
+            prioritizeNearestSections,
+            userLat,
+            userLng,
           ),
       );
     } catch {
@@ -779,6 +787,16 @@ class RouteEngineClient {
   clearHeatmapTiles(basePath: string): number {
     if (!this.ready) return 0;
     return this.timed('clearHeatmapTiles', () => this.engine.heatmap().clearTiles(basePath));
+  }
+
+  /** Poll tile generation status: 'idle' | 'running' | 'complete' */
+  pollTileGeneration(): string {
+    if (!this.ready) return 'idle';
+    try {
+      return this.engine.heatmap().poll();
+    } catch {
+      return 'error';
+    }
   }
 
   // ==========================================================================

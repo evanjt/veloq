@@ -79,6 +79,7 @@ export interface InsightInputData {
   previousPeriod: PeriodStats | null;
   ftpTrend: FtpTrend | null;
   paceTrend: PaceTrend | null;
+  swimPaceTrend?: PaceTrend | null;
   recentPRs: SectionPR[];
   todayPattern: ActivityPattern | null;
   sectionTrends: SectionTrendData[];
@@ -216,6 +217,7 @@ function addRestDayInsights(
               count: cur.count,
               duration: formatDurationCompact(cur.totalDuration),
             }),
+            navigationTarget: '/training',
             timestamp: now,
             methodology: {
               name: 'Intensity distribution',
@@ -520,13 +522,13 @@ function addPeriodComparisonInsights(
     comparisonData: {
       current: {
         label: t('insights.data.thisWeek'),
-        value: useTss ? Math.round(cur.totalTss) : formatDurationCompact(cur.totalDuration),
-        unit: useTss ? 'TSS' : undefined,
+        value: useTss ? Math.round(cur.totalTss) : Math.round(cur.totalDuration / 60),
+        unit: useTss ? 'TSS' : 'min',
       },
       previous: {
         label: t('insights.data.lastWeek'),
-        value: useTss ? Math.round(prev.totalTss) : formatDurationCompact(prev.totalDuration),
-        unit: useTss ? 'TSS' : undefined,
+        value: useTss ? Math.round(prev.totalTss) : Math.round(prev.totalDuration / 60),
+        unit: useTss ? 'TSS' : 'min',
       },
       change: {
         label: t('insights.data.change'),
@@ -556,6 +558,7 @@ function addPeriodComparisonInsights(
         iconColor: '#66BB6A',
         title: t(upKey, { percent }),
         body,
+        navigationTarget: '/routes?tab=routes',
         timestamp: now,
         methodology: comparisonMethodology,
         supportingData: comparisonSupportingData,
@@ -571,6 +574,7 @@ function addPeriodComparisonInsights(
         iconColor: '#FFA726',
         title: t(downKey, { percent }),
         body,
+        navigationTarget: '/routes?tab=routes',
         timestamp: now,
         methodology: comparisonMethodology,
         supportingData: comparisonSupportingData,
@@ -612,6 +616,7 @@ function addFitnessMilestoneInsights(
             current: Math.round(ftp.latestFtp),
             change: delta,
           }),
+          navigationTarget: '/fitness',
           timestamp: now,
           supportingData: {
             dataPoints: [
@@ -664,6 +669,7 @@ function addFitnessMilestoneInsights(
           icon: 'run-fast',
           iconColor: '#66BB6A',
           title: t('insights.paceImproved', { delta: deltaSecs }),
+          navigationTarget: '/fitness',
           timestamp: now,
           supportingData: {
             dataPoints: [
@@ -721,7 +727,8 @@ function addStalePRInsights(
   const opportunities = detectStalePROpportunities({
     sections,
     ftpTrend: data.ftpTrend,
-    paceTrend: data.paceTrend,
+    runPaceTrend: data.paceTrend,
+    swimPaceTrend: data.swimPaceTrend ?? null,
     recentPRs: data.recentPRs,
   });
 
@@ -764,7 +771,7 @@ function addStalePRInsights(
         title: t('insights.stalePr.groupTitle', { count: filtered.length }),
         subtitle: subtitleParts.join(', '),
         body: filtered.map((o) => o.sectionName).join(', '),
-        navigationTarget: `/section/${first.sectionId}`,
+        navigationTarget: '/routes?tab=sections',
         timestamp: now,
         supportingData: {
           sections: filtered.map((o) => ({

@@ -225,6 +225,10 @@ interface NativeModuleInterface {
     basePath: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_heatmapmanager_poll(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
     ptr: bigint,
     path: Uint8Array,
@@ -327,6 +331,10 @@ interface NativeModuleInterface {
     sectionLimit: number,
     sectionOffset: number,
     minGroupActivityCount: number,
+    prioritizeNearestGroups: number,
+    prioritizeNearestSections: number,
+    userLat: number,
+    userLng: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_summaries(
@@ -614,9 +622,24 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_activities_for_exercise(
+    ptr: bigint,
+    startTs: bigint,
+    endTs: bigint,
+    muscleSlug: Uint8Array,
+    exerciseCategory: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercise_sets(
     ptr: bigint,
     activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercises_for_muscle(
+    ptr: bigint,
+    startTs: bigint,
+    endTs: bigint,
+    muscleSlug: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_muscle_groups(
@@ -777,6 +800,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(): number;
+  ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_bounds_for_range(): number;
@@ -838,7 +862,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_activities_for_exercise(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_sets(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercises_for_muscle(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_groups(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_strength_summary(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_unprocessed_strength_ids(): number;

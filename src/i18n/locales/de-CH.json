@@ -401,6 +401,13 @@
     "title": "Fitness & Form",
     "toBuildFitness": "zum Fitness ufbaue. Bis",
     "toPreventOvertraining": "zum Übertraining vermide.",
+    "guidance": {
+      "highRisk": "Di Aafüelig isch sehr hööch. Lueg dass du di schön schonsch oder liicht trainiersch, bis d Form wider über -30 isch.",
+      "optimal": "Produktivs Training. Di Körper nimmt d Belaschtig guet uuf.",
+      "greyZone": "Mittleri Belaschtig. Weder uuspangeret no müed — Erhaltigszone.",
+      "fresh": "Guet erhoolt. Ideali Zyt für s Ränne oder en Härte-Test. Wenn z lang, chunnt d Fitness abe.",
+      "transition": "Sehr erhoolt, aber d Fitness stagniert. Lueg, dass du wider mit em strukturierte Training aafahsch."
+    },
     "tsb": "TSB",
     "understandingMetrics": "D Zahle verstaa"
   },

@@ -13,7 +13,6 @@ export interface NotificationPreferences {
     sectionPr: boolean;
     fitnessMilestone: boolean;
     periodComparison: boolean;
-    activityPattern: boolean;
   };
 }
 
@@ -24,7 +23,6 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
     sectionPr: true,
     fitnessMilestone: true,
     periodComparison: true,
-    activityPattern: true,
   },
 };
 

@@ -401,6 +401,13 @@
     "title": "Forma e condizione",
     "toBuildFitness": "per costruire forma. Sii",
     "toPreventOvertraining": "per prevenire il sovrallenamento.",
+    "guidance": {
+      "highRisk": "L'affaticamento accumulato è molto alto. Considera riposo o sessioni leggere finché la forma non supera -30.",
+      "optimal": "Zona di allenamento produttiva. Il tuo corpo sta assorbendo lo stress dell'allenamento in modo efficace.",
+      "greyZone": "Carico di allenamento moderato. Né riposato né molto affaticato — territorio di mantenimento.",
+      "fresh": "Ben riposato. Buon momento per una gara o un test ad alta intensità. La forma può calare se prolungata.",
+      "transition": "Molto riposato ma perdi lo stimolo di forma. Considera di riprendere l'allenamento strutturato."
+    },
     "tsb": "TSB",
     "understandingMetrics": "Capire le metriche"
   },

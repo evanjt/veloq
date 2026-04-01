@@ -14,8 +14,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAthlete, useTheme } from '@/hooks';
 import {
-  getThemePreference,
   setThemePreference,
+  useThemePreferenceStore,
   useSportPreference,
   useLanguageStore,
   useUnitPreference,
@@ -46,7 +46,7 @@ export default function SettingsScreen() {
 
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
+  const themePreference = useThemePreferenceStore((s) => s.preference);
   const [showLanguages, setShowLanguages] = useState(false);
 
   // Scroll-to-anchor support
@@ -83,19 +83,8 @@ export default function SettingsScreen() {
   const setUnitPreference = useUnitPreference((s) => s.setUnitPreference);
   const intervalsPreferences = useUnitPreference((s) => s.intervalsPreferences);
 
-  // Load saved theme preference on mount
-  useEffect(() => {
-    getThemePreference()
-      .then(setThemePreferenceState)
-      .catch(() => {
-        // Default to system preference on error
-        setThemePreferenceState('system');
-      });
-  }, []);
-
   const handleThemeChange = async (value: string) => {
     const preference = value as ThemePreference;
-    setThemePreferenceState(preference);
     await setThemePreference(preference);
   };
 

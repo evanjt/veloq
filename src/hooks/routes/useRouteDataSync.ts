@@ -308,6 +308,17 @@ export function useRouteDataSync(
               }
               routeEngine.triggerRefresh('groups');
               routeEngine.triggerRefresh('sections');
+
+              // Poll heatmap tile generation (runs on Rust background thread)
+              const tileStatus = routeEngine.pollTileGeneration();
+              if (tileStatus === 'running' && isMountedRef.current) {
+                const tileStartTime = Date.now();
+                while (isMountedRef.current) {
+                  await new Promise((resolve) => setTimeout(resolve, 200));
+                  const s = routeEngine.pollTileGeneration();
+                  if (s !== 'running' || Date.now() - tileStartTime > 10000) break;
+                }
+              }
             }
           } else if (__DEV__) {
             console.log('[RouteDataSync] No new activities to sync');

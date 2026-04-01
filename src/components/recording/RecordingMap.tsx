@@ -14,7 +14,6 @@ import { darkColors } from '@/theme';
 
 const BRAND_COLOR = '#FC4C02';
 const EXCLUDED_COLOR = 'rgba(150, 150, 150, 0.5)';
-const GUIDANCE_COLOR = 'rgba(100, 140, 200, 0.5)';
 const POSITION_DOT_COLOR = '#2563EB';
 const POSITION_DOT_HALO = '#FFFFFF';
 
@@ -24,7 +23,6 @@ interface RecordingMapProps {
   fitBounds?: boolean; // When true, fit camera to route bounds instead of following position
   trimStart?: number; // Index for trim start (used with fitBounds)
   trimEnd?: number; // Index for trim end (used with fitBounds)
-  guidancePolyline?: [number, number][]; // Optional [lat, lng] reference line for route guidance
   style?: ViewStyle;
 }
 
@@ -34,7 +32,6 @@ function RecordingMapInner({
   fitBounds,
   trimStart,
   trimEnd,
-  guidancePolyline,
   style,
 }: RecordingMapProps) {
   const { preferences } = useMapPreferences();
@@ -106,20 +103,6 @@ function RecordingMapInner({
     return { type: 'FeatureCollection', features };
   }, [validCoords, hasTrim, trimStart, trimEnd]);
 
-  // Guidance polyline GeoJSON (optional reference route)
-  const guidanceGeoJSON = useMemo((): GeoJSON.Feature | null => {
-    if (!guidancePolyline || guidancePolyline.length < 2) return null;
-    const coords = guidancePolyline
-      .map(([lat, lng]) => [lng, lat] as [number, number])
-      .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
-    if (coords.length < 2) return null;
-    return {
-      type: 'Feature',
-      properties: {},
-      geometry: { type: 'LineString', coordinates: coords },
-    };
-  }, [guidancePolyline]);
-
   // Current position as GeoJSON point
   const positionGeoJSON = useMemo((): GeoJSON.Feature | null => {
     if (!currentLocation) return null;
@@ -179,22 +162,6 @@ function RecordingMapInner({
             zoomLevel={15}
             animationDuration={500}
           />
-        )}
-
-        {/* Guidance reference route (dashed, behind everything) */}
-        {guidanceGeoJSON && (
-          <ShapeSource id="guidanceRoute" shape={guidanceGeoJSON}>
-            <LineLayer
-              id="guidanceRouteLine"
-              style={{
-                lineColor: GUIDANCE_COLOR,
-                lineWidth: 4,
-                lineCap: 'round',
-                lineJoin: 'round',
-                lineDasharray: [2, 3],
-              }}
-            />
-          </ShapeSource>
         )}
 
         {/* Excluded route portions (grey, behind active) */}

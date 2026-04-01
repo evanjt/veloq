@@ -1,6 +1,6 @@
-use super::error::{with_engine, VeloqError};
-use crate::persistence::{PersistentEngineStats, NAME_TRANSLATIONS, PERSISTENT_ENGINE};
+use super::error::{VeloqError, with_engine};
 use crate::init_logging;
+use crate::persistence::{NAME_TRANSLATIONS, PERSISTENT_ENGINE, PersistentEngineStats};
 use log::info;
 use std::sync::Arc;
 
@@ -63,19 +63,16 @@ impl VeloqEngine {
 
     fn cleanup_old_activities(&self, retention_days: u32) -> Result<u32, VeloqError> {
         with_engine(|e| {
-            match e.cleanup_old_activities(retention_days) {
-                Ok(count) => {
-                    if retention_days > 0 && count > 0 {
-                        info!("[VeloqEngine] Cleanup: {} activities removed", count);
-                    }
-                    count
-                }
-                Err(e) => {
-                    log::error!("[VeloqEngine] Cleanup failed: {:?}", e);
-                    0
-                }
+            let count =
+                e.cleanup_old_activities(retention_days)
+                    .map_err(|e| VeloqError::Database {
+                        msg: format!("{}", e),
+                    })?;
+            if retention_days > 0 && count > 0 {
+                info!("[VeloqEngine] Cleanup: {} activities removed", count);
             }
-        })
+            Ok(count)
+        })?
     }
 
     fn mark_for_recomputation(&self) -> Result<(), VeloqError> {

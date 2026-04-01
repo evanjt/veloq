@@ -1,7 +1,7 @@
 //! Strength training: exercise set storage and FIT file processing status.
 
-use rusqlite::{Result as SqlResult, params};
 use crate::fit::FitExerciseSet;
+use rusqlite::{Result as SqlResult, params};
 
 use super::PersistentRouteEngine;
 
@@ -65,11 +65,7 @@ impl PersistentRouteEngine {
         self.db.execute(
             "INSERT OR REPLACE INTO fit_file_status (activity_id, processed_at, has_sets)
              VALUES (?, ?, ?)",
-            params![
-                activity_id,
-                chrono::Utc::now().timestamp(),
-                has_sets as i32,
-            ],
+            params![activity_id, chrono::Utc::now().timestamp(), has_sets as i32,],
         )?;
         Ok(())
     }
@@ -91,16 +87,19 @@ impl PersistentRouteEngine {
         }
 
         let processed: std::collections::HashSet<String> = {
-            let placeholders = activity_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let placeholders = activity_ids
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(",");
             let sql = format!(
                 "SELECT activity_id FROM fit_file_status WHERE activity_id IN ({})",
                 placeholders
             );
             let mut stmt = self.db.prepare(&sql)?;
-            let rows = stmt.query_map(
-                rusqlite::params_from_iter(activity_ids.iter()),
-                |row| row.get::<_, String>(0),
-            )?;
+            let rows = stmt.query_map(rusqlite::params_from_iter(activity_ids.iter()), |row| {
+                row.get::<_, String>(0)
+            })?;
             rows.filter_map(|r| r.ok()).collect()
         };
 
@@ -176,7 +175,11 @@ impl PersistentRouteEngine {
             return Ok(std::collections::HashMap::new());
         }
 
-        let placeholders = activity_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let placeholders = activity_ids
+            .iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(",");
         let sql = format!(
             "SELECT activity_id, name, date FROM activity_metrics WHERE activity_id IN ({})",
             placeholders

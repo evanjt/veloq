@@ -401,6 +401,13 @@
     "title": "Fitness og form",
     "toBuildFitness": "for at opbygge fitness. Vær",
     "toPreventOvertraining": "for at forhindre overtræning.",
+    "guidance": {
+      "highRisk": "Den akkumulerede træthed er meget høj. Overvej hvile eller lette pas, indtil formen stiger over -30.",
+      "optimal": "Produktiv træningszone. Din krop optager træningsbelastningen effektivt.",
+      "greyZone": "Moderat træningsbelastning. Hverken udhvilet eller meget træt — vedligeholdelsesområde.",
+      "fresh": "Godt udhvilet. Godt tidspunkt for et løb eller en intensiv test. Formen kan falde, hvis det opretholdes.",
+      "transition": "Meget udhvilet, men mister formstimulus. Overvej at genoptage struktureret træning."
+    },
     "tsb": "TSB",
     "understandingMetrics": "Forstå målingerne"
   },

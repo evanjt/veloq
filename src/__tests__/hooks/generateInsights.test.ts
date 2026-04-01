@@ -423,6 +423,10 @@ describe('generateInsights', () => {
       const vol = result.find((i) => i.id === 'period_comparison-volume');
       expect(vol).toBeDefined();
       expect(vol!.title).toContain('weeklyVolumeUp');
+      expect(vol!.supportingData!.comparisonData!.current.value).toBe(120);
+      expect(vol!.supportingData!.comparisonData!.current.unit).toBe('min');
+      expect(vol!.supportingData!.comparisonData!.previous.value).toBe(83);
+      expect(vol!.supportingData!.comparisonData!.previous.unit).toBe('min');
     });
 
     it('change context is always neutral (no warning)', () => {
@@ -575,6 +579,7 @@ describe('generateInsights', () => {
       const intensity = result.find((i) => i.id === 'rest_day-intensity-context');
       expect(intensity).toBeDefined();
       expect(intensity!.category).toBe('intensity_context');
+      expect(intensity!.navigationTarget).toBe('/training');
     });
 
     // Rest-day section trends removed — handled by sport-grouped cluster insights
@@ -618,6 +623,80 @@ describe('generateInsights', () => {
       for (let i = 1; i < result.length; i++) {
         expect(result[i].priority).toBeGreaterThanOrEqual(result[i - 1].priority);
       }
+    });
+  });
+
+  describe('navigation coverage', () => {
+    it('generated insight categories include navigation targets for current detail flows', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          isRestDay: true,
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 240 },
+          previousPeriod: { count: 4, totalDuration: 5400, totalDistance: 70000, totalTss: 180 },
+          ftpTrend: {
+            latestFtp: 265,
+            latestDate: BigInt(1000),
+            previousFtp: 255,
+            previousDate: BigInt(500),
+          },
+          recentPRs: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 1 }],
+          sectionTrends: [
+            {
+              sectionId: 's1',
+              sectionName: 'Hill',
+              trend: 1,
+              medianRecentSecs: 320,
+              bestTimeSecs: 300,
+              traversalCount: 8,
+              sportType: 'Ride',
+            },
+            {
+              sectionId: 's2',
+              sectionName: 'Valley',
+              trend: 1,
+              medianRecentSecs: 420,
+              bestTimeSecs: 390,
+              traversalCount: 6,
+              sportType: 'Ride',
+            },
+          ],
+          allSectionTrends: [
+            {
+              sectionId: 's1',
+              sectionName: 'Hill',
+              trend: 1,
+              medianRecentSecs: 320,
+              bestTimeSecs: 300,
+              traversalCount: 8,
+              sportType: 'Ride',
+            },
+            {
+              sectionId: 's2',
+              sectionName: 'Valley',
+              trend: 1,
+              medianRecentSecs: 420,
+              bestTimeSecs: 390,
+              traversalCount: 6,
+              sportType: 'Ride',
+            },
+          ],
+          formTsb: -5,
+          formCtl: 60,
+          formAtl: 65,
+          wellnessWindow: [
+            { date: '2026-02-15', hrv: 55, ctl: 60, atl: 65 },
+            { date: '2026-02-16', hrv: 57, ctl: 60, atl: 65 },
+            { date: '2026-02-17', hrv: 59, ctl: 60, atl: 65 },
+          ],
+        },
+        mockT
+      );
+
+      expect(result.length).toBeGreaterThan(0);
+      result.forEach((insight) => {
+        expect(insight.navigationTarget).toBeDefined();
+      });
     });
   });
 

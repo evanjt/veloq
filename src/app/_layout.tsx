@@ -4,13 +4,16 @@ import { enableFreeze } from 'react-native-screens';
 enableFreeze(true);
 
 import { LogBox } from 'react-native';
-LogBox.ignoreAllLogs();
+if (!__DEV__) {
+  // Keep production logs quieter without hiding warnings while developing.
+  LogBox.ignoreLogs(['Require cycle:', 'Sending `onAnimatedValueUpdate`']);
+}
 
 import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
-import { PaperProvider } from 'react-native-paper';
+import { PaperProvider, Text } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
-import { AppState, useColorScheme, View, ActivityIndicator, Platform } from 'react-native';
+import { AppState, View, ActivityIndicator, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
@@ -22,6 +25,7 @@ import {
   NetworkProvider,
   TopSafeAreaProvider,
   initializeTheme,
+  useResolvedColorScheme,
   useAuthStore,
   initializeSportPreference,
   initializeHRZones,
@@ -48,12 +52,12 @@ import {
   DemoBanner,
   GlobalDataSync,
   OfflineBanner,
+  EngineInitBanner,
   BottomTabBar,
   GlobalErrorBoundary,
   WhatsNewModal,
   TourReturnPill,
 } from '@/components/ui';
-import { RecordingBanner } from '@/components/recording/RecordingBanner';
 import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 import {
@@ -228,42 +232,68 @@ const SCREENSHOT_MODE = __DEV__ && false;
 
 export default function RootLayout() {
   const [appReady, setAppReady] = useState(false);
-  const colorScheme = useColorScheme();
+  const [startupError, setStartupError] = useState<string | null>(null);
+  const colorScheme = useResolvedColorScheme();
   const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
   const initializeAuth = useAuthStore((state) => state.initialize);
 
   // Initialize theme, auth, sport preference, HR zones, route settings, and i18n on app start
   useEffect(() => {
     async function initialize() {
-      // Configure MapLibre logger early (safe to do now that native modules are loaded)
-      configureMapLibreLogger();
+      try {
+        // Configure MapLibre logger early (safe to do now that native modules are loaded)
+        configureMapLibreLogger();
 
-      // Initialize language first to get the saved locale
-      const savedLocale = await initializeLanguage();
-      // Then initialize i18n with the saved locale
-      await initializeI18n(savedLocale);
-      // Initialize other providers in parallel
-      // Dashboard preferences uses 'Cycling' fallback if sport preference isn't loaded yet
-      await Promise.all([
-        initializeTheme(),
-        initializeAuth(),
-        initializeSportPreference(),
-        initializeUnitPreference(),
-        initializeHRZones(),
-        initializeRouteSettings(),
-        initializeSupersededSections(),
-        initializeDisabledSections(),
-        initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
-        initializeDebugStore(),
-        initializeTileCacheStore(),
-        initializeWhatsNewStore(),
-        initializeInsightsStore(),
-        initializeRecordingPreferences(),
-        initializeUploadPermission(),
-        initializeNotificationPreferences(),
-      ]);
+        // Initialize language first to get the saved locale
+        const savedLocale = await initializeLanguage();
+        // Then initialize i18n with the saved locale
+        await initializeI18n(savedLocale);
+        // Initialize other providers in parallel
+        // Dashboard preferences uses 'Cycling' fallback if sport preference isn't loaded yet
+        const results = await Promise.allSettled([
+          initializeTheme(),
+          initializeAuth(),
+          initializeSportPreference(),
+          initializeUnitPreference(),
+          initializeHRZones(),
+          initializeRouteSettings(),
+          initializeSupersededSections(),
+          initializeDisabledSections(),
+          initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
+          initializeDebugStore(),
+          initializeTileCacheStore(),
+          initializeWhatsNewStore(),
+          initializeInsightsStore(),
+          initializeRecordingPreferences(),
+          initializeUploadPermission(),
+          initializeNotificationPreferences(),
+        ]);
+
+        const failed = results.filter((result) => result.status === 'rejected');
+        if (failed.length > 0) {
+          const firstError = failed[0] as PromiseRejectedResult;
+          const message =
+            firstError.reason instanceof Error
+              ? firstError.reason.message
+              : String(firstError.reason ?? 'Unknown startup error');
+          setStartupError(message);
+          if (__DEV__) {
+            console.warn(
+              `[AppInit] ${failed.length} initializer(s) failed. First error: ${message}`
+            );
+          }
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown startup error';
+        setStartupError(message);
+        if (__DEV__) {
+          console.error('[AppInit] Fatal initialization error:', error);
+        }
+      } finally {
+        setAppReady(true);
+      }
     }
-    initialize().finally(() => setAppReady(true));
+    initialize();
   }, [initializeAuth]);
 
   // Set up notification handlers once on mount
@@ -319,8 +349,45 @@ export default function RootLayout() {
                     animated
                   />
                   <AuthGate>
+                    {startupError ? (
+                      <View
+                        style={{
+                          backgroundColor: colorScheme === 'dark' ? '#3F2A17' : '#FEF3C7',
+                          borderBottomWidth: 1,
+                          borderBottomColor: colorScheme === 'dark' ? '#92400E' : '#F59E0B',
+                          paddingHorizontal: 16,
+                          paddingVertical: 10,
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <ActivityIndicator size="small" color="#F59E0B" />
+                          <Text
+                            style={{
+                              flex: 1,
+                              color: colorScheme === 'dark' ? '#FDE68A' : '#92400E',
+                              fontSize: 13,
+                              lineHeight: 18,
+                            }}
+                          >
+                            Startup completed with errors. Some features may be unavailable.
+                          </Text>
+                        </View>
+                        {__DEV__ ? (
+                          <Text
+                            style={{
+                              marginTop: 4,
+                              color: colorScheme === 'dark' ? '#FCD34D' : '#B45309',
+                              fontSize: 12,
+                            }}
+                            numberOfLines={2}
+                          >
+                            {startupError}
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : null}
                     <OfflineBanner />
-                    <RecordingBanner />
+                    <EngineInitBanner />
                     <GlobalDataSync />
                     <DemoBanner />
                     <WhatsNewModal />

@@ -401,6 +401,13 @@
     "title": "Fitness & Form",
     "toBuildFitness": "um Fitness aufzubauen. Sei",
     "toPreventOvertraining": "um Übertraining zu vermeiden.",
+    "guidance": {
+      "highRisk": "Die angesammelte Ermüdung ist sehr hoch. Erhole dich oder trainiere leicht, bis die Form über -30 steigt.",
+      "optimal": "Produktiver Trainingsbereich. Dein Körper verarbeitet den Trainingsstress effektiv.",
+      "greyZone": "Mittlere Trainingsbelastung. Weder erholt noch stark ermüdet — Erhaltungsbereich.",
+      "fresh": "Gut erholt. Guter Zeitpunkt für ein Rennen oder einen harten Test. Bei dauerhafter Ruhe kann die Fitness sinken.",
+      "transition": "Sehr erholt, aber der Fitnessreiz fehlt. Erwäge, das strukturierte Training wieder aufzunehmen."
+    },
     "tsb": "TSB",
     "understandingMetrics": "Die Metriken verstehen"
   },

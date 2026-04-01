@@ -24,6 +24,13 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
   const changeStr = changePoint ? String(changePoint.value) : '';
   const changeUnit = changePoint?.unit ?? '';
   const isPositive = changePoint?.context === 'good';
+  const isPowerMilestone = currentPoint.unit === 'W';
+  const contextSummary = isPowerMilestone
+    ? 'A higher FTP matters most when it also shows up in repeatable efforts, not just a single detection point.'
+    : 'A faster threshold pace matters most when it carries through to repeat sections and controlled hard sessions.';
+  const compareNext = isPowerMilestone
+    ? 'Compare this rise against recent section results and zone distribution before treating it as a settled new baseline.'
+    : 'Compare this change against recent section results and threshold sessions before treating it as a settled new baseline.';
 
   const lineColor = isDark ? darkColors.border : colors.border;
   const dotColor = isPositive ? '#22C55E' : '#F59E0B';
@@ -101,6 +108,14 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
             </Text>
           </View>
         </View>
+      </View>
+
+      <View style={[styles.contextCard, isDark && styles.contextCardDark]}>
+        <Text style={[styles.contextHeading, isDark && styles.contextHeadingDark]}>
+          How to read this change
+        </Text>
+        <Text style={[styles.contextBody, isDark && styles.contextBodyDark]}>{contextSummary}</Text>
+        <Text style={[styles.contextMeta, isDark && styles.contextMetaDark]}>{compareNext}</Text>
       </View>
     </View>
   );
@@ -204,5 +219,38 @@ const styles = StyleSheet.create({
   },
   timelineValueGood: {
     color: '#22C55E',
+  },
+  contextCard: {
+    backgroundColor: opacity.overlay.subtle,
+    borderRadius: 10,
+    padding: spacing.sm,
+    gap: 4,
+  },
+  contextCardDark: {
+    backgroundColor: opacity.overlayDark.light,
+  },
+  contextHeading: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  contextHeadingDark: {
+    color: darkColors.textPrimary,
+  },
+  contextBody: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textSecondary,
+  },
+  contextBodyDark: {
+    color: darkColors.textSecondary,
+  },
+  contextMeta: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  contextMetaDark: {
+    color: darkColors.textPrimary,
   },
 });

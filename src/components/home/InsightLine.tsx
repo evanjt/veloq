@@ -15,20 +15,20 @@ const MAX_DISPLAY = 5;
 /** Categories worth showing in a single-line home screen context */
 const HOME_CATEGORIES: Set<InsightCategory> = new Set([
   'section_pr',
-  'activity_pattern',
   'fitness_milestone',
   'section_cluster',
+  'strength_progression',
+  'strength_balance',
 ]);
 
 const CATEGORY_COLORS: Record<string, string> = {
   section_pr: '#FFD700',
   fitness_milestone: '#4CAF50',
   period_comparison: '#2196F3',
-  activity_pattern: '#9C27B0',
-  training_consistency: '#FF9800',
+  strength_progression: '#F97316',
+  strength_balance: '#EF4444',
   hrv_trend: '#66BB6A',
   tsb_form: '#42A5F5',
-  weekly_load: '#FFA726',
   intensity_context: '#FFA726',
   stale_pr: '#FF9800',
   section_cluster: '#66BB6A',

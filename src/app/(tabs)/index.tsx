@@ -29,7 +29,6 @@ import {
 import type { Activity } from '@/types';
 import { useDashboardPreferences, useMapPreferences } from '@/providers';
 import { ActivityCard } from '@/components/activity';
-import { RecordFAB } from '@/components/recording/RecordFAB';
 import {
   NetworkErrorState,
   ErrorStatePreset,
@@ -38,7 +37,6 @@ import {
 } from '@/components/ui';
 import { SummaryCard, InsightLine } from '@/components/home';
 import { useStartupData } from '@/hooks/home/useStartupData';
-import { PermissionUpgradeBanner } from '@/components/recording/PermissionUpgradeBanner';
 import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
@@ -184,7 +182,7 @@ export default function FeedScreen() {
 
   // useInsights uses pre-computed data from startup — never makes its own FFI call on feed
   const t3 = PERF_DEBUG ? performance.now() : 0;
-  const { insights } = useInsights(startupData?.insightsData, true);
+  const { insights } = useInsights(startupData?.insightsData, true, startupData?.summaryCardData);
   if (PERF_DEBUG && performance.now() - t3 > 5)
     console.log(`  ⏱ useInsights: ${(performance.now() - t3).toFixed(1)}ms`);
 
@@ -325,9 +323,6 @@ export default function FeedScreen() {
   const renderListHeader = useCallback(
     () => (
       <>
-        {/* Permission banner inside scroll area to avoid layout shifts */}
-        <PermissionUpgradeBanner />
-
         {/* Search bar + filter chips — initially hidden by scrollToOffset */}
         <View style={styles.searchSection}>
           <View style={styles.searchContainer}>
@@ -540,8 +535,6 @@ export default function FeedScreen() {
 
         {/* Hidden WebView for generating 3D terrain snapshots — deferred to avoid startup cost */}
         {snapshotWebViewReady && <TerrainSnapshotWebView ref={snapshotRef} />}
-
-        <RecordFAB />
       </ScreenSafeAreaView>
     </ScreenErrorBoundary>
   );

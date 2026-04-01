@@ -10,14 +10,23 @@ import { BodyPairWithLoupe } from '@/components/activity/BodyPairWithLoupe';
 import { useTheme, useMetricSystem } from '@/hooks';
 import {
   useStrengthVolume,
+  useStrengthProgression,
   useExercisesForMuscle,
   useActivitiesForExercise,
 } from '@/hooks/activities/useStrengthVolume';
 import { useAthlete } from '@/hooks';
+import { buildStrengthBalancePairs } from '@/lib/strength/analysis';
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { colors, darkColors, spacing, typography, opacity, layout } from '@/theme';
-import type { StrengthPeriod, MuscleVolume, ExerciseSummary } from '@/types';
+import type {
+  StrengthPeriod,
+  MuscleVolume,
+  ExerciseSummary,
+  StrengthBalancePair,
+  StrengthBalanceStatus,
+  StrengthProgression,
+} from '@/types';
 
 // 5-step color ramp from light to saturated for continuous heat map
 const BODY_COLORS: readonly string[] = [
@@ -41,6 +50,52 @@ function formatWeight(kg: number, isMetric: boolean): string {
   return `${Math.round(kg * 2.20462)} lbs`;
 }
 
+function formatSetCount(sets: number): string {
+  return sets % 1 === 0 ? sets.toFixed(0) : sets.toFixed(1);
+}
+
+function formatBalanceRatio(pair: StrengthBalancePair): string {
+  if (pair.ratio == null) return 'No signal';
+  if (!Number.isFinite(pair.ratio)) return 'One-sided';
+  return `${pair.ratio.toFixed(pair.ratio >= 10 ? 0 : 1)}x`;
+}
+
+function getBalanceStatusLabel(status: StrengthBalanceStatus): string {
+  switch (status) {
+    case 'balanced':
+      return 'Balanced';
+    case 'watch':
+      return 'Watch';
+    case 'imbalanced':
+      return 'Imbalanced';
+    case 'one-sided':
+      return 'One-sided';
+    default:
+      return 'Low signal';
+  }
+}
+
+function getStrengthProgressSummary(progression: StrengthProgression): string {
+  const hasRecentVolume = progression.points.some((point) => point.weightedSets > 0);
+  if (!hasRecentVolume) {
+    return 'No volume landed in the last 4 weeks, so this muscle is only showing up in the wider selected period.';
+  }
+
+  if (progression.changePct == null) {
+    return 'Volume appeared in the most recent two weeks after a quieter start to the month.';
+  }
+
+  if (progression.trend === 'up') {
+    return `Recent 2-week average is ${Math.abs(progression.changePct).toFixed(0)}% above the prior 2 weeks.`;
+  }
+
+  if (progression.trend === 'down') {
+    return `Recent 2-week average is ${Math.abs(progression.changePct).toFixed(0)}% below the prior 2 weeks.`;
+  }
+
+  return 'Recent 2-week average is holding steady versus the earlier part of the month.';
+}
+
 export const StrengthTab = React.memo(function StrengthTab() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
@@ -52,6 +107,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
   const [expandedExercise, setExpandedExercise] = useState<number | null>(null);
 
   const { data: summary, isLoading } = useStrengthVolume(period);
+  const { data: progression } = useStrengthProgression(selectedMuscle);
   const { data: exerciseSummary } = useExercisesForMuscle(period, selectedMuscle);
   const { data: exerciseActivities } = useActivitiesForExercise(
     period,
@@ -89,6 +145,25 @@ export const StrengthTab = React.memo(function StrengthTab() {
     if (!selectedMuscle || !summary) return null;
     return summary.muscleVolumes.find((v) => v.slug === selectedMuscle) ?? null;
   }, [selectedMuscle, summary]);
+
+  const balancePairs = useMemo(
+    () => buildStrengthBalancePairs(summary?.muscleVolumes ?? []),
+    [summary]
+  );
+
+  const visibleBalancePairs = useMemo(
+    () => balancePairs.filter((pair) => pair.status !== 'insufficient'),
+    [balancePairs]
+  );
+
+  const featuredBalancePair = visibleBalancePairs[0] ?? null;
+  const hasRecentProgression = progression
+    ? progression.points.some((point) => point.weightedSets > 0)
+    : false;
+  const maxProgressWeightedSets = useMemo(() => {
+    if (!progression) return 1;
+    return Math.max(...progression.points.map((point) => point.weightedSets), 1);
+  }, [progression]);
 
   const handleMuscleTap = useCallback((slug: string) => {
     setSelectedMuscle((prev) => (prev === slug ? null : slug));
@@ -264,6 +339,228 @@ export const StrengthTab = React.memo(function StrengthTab() {
               </View>
             </View>
           </View>
+
+          {visibleBalancePairs.length > 0 ? (
+            <View style={[styles.balanceCard, isDark && styles.balanceCardDark]}>
+              <View style={styles.balanceHeader}>
+                <View>
+                  <Text style={[styles.balanceTitle, isDark && styles.balanceTitleDark]}>
+                    Balance check
+                  </Text>
+                  <Text style={[styles.balanceSubtitle, isDark && styles.balanceSubtitleDark]}>
+                    Antagonist pairs in the current {periodLabel}
+                  </Text>
+                </View>
+                {featuredBalancePair ? (
+                  <View
+                    style={[
+                      styles.balanceHeroBadge,
+                      featuredBalancePair.status === 'balanced'
+                        ? styles.balanceHeroBadgeBalanced
+                        : styles.balanceHeroBadgeAlert,
+                    ]}
+                  >
+                    <Text style={styles.balanceHeroBadgeText}>
+                      {formatBalanceRatio(featuredBalancePair)}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {featuredBalancePair ? (
+                <Text style={[styles.balanceHeroText, isDark && styles.balanceHeroTextDark]}>
+                  {featuredBalancePair.status === 'balanced'
+                    ? 'Tracked upper and lower-body pairs sit near parity this period.'
+                    : `${featuredBalancePair.dominantLabel ?? 'One side'} extends above ${
+                        featuredBalancePair.dominantSlug === featuredBalancePair.leftSlug
+                          ? featuredBalancePair.rightLabel
+                          : featuredBalancePair.leftLabel
+                      } in ${featuredBalancePair.label.toLowerCase()}.`}
+                </Text>
+              ) : null}
+
+              {visibleBalancePairs.map((pair, index) => (
+                <View
+                  key={pair.id}
+                  style={[
+                    styles.balanceRow,
+                    index > 0 && styles.balanceRowBorder,
+                    index > 0 && isDark && styles.balanceRowBorderDark,
+                  ]}
+                >
+                  <View style={styles.balanceRowHeader}>
+                    <Text style={[styles.balanceRowTitle, isDark && styles.balanceRowTitleDark]}>
+                      {pair.label}
+                    </Text>
+                    <View
+                      style={[
+                        styles.balanceStatusBadge,
+                        pair.status === 'balanced'
+                          ? styles.balanceStatusBalanced
+                          : pair.status === 'watch'
+                            ? styles.balanceStatusWatch
+                            : styles.balanceStatusImbalanced,
+                      ]}
+                    >
+                      <Text style={styles.balanceStatusText}>
+                        {getBalanceStatusLabel(pair.status)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.balanceValueRow}>
+                    <Text style={[styles.balanceValueText, isDark && styles.balanceValueTextDark]}>
+                      {pair.leftLabel} {formatSetCount(pair.leftWeightedSets)}
+                    </Text>
+                    <Text style={[styles.balanceValueText, isDark && styles.balanceValueTextDark]}>
+                      {pair.rightLabel} {formatSetCount(pair.rightWeightedSets)}
+                    </Text>
+                  </View>
+
+                  <View style={[styles.balanceScale, isDark && styles.balanceScaleDark]}>
+                    <View
+                      style={[
+                        styles.balanceScaleSide,
+                        { flex: Math.max(pair.leftWeightedSets, 0.2) },
+                      ]}
+                    />
+                    <View style={styles.balanceScaleGap} />
+                    <View
+                      style={[
+                        styles.balanceScaleSideSecondary,
+                        { flex: Math.max(pair.rightWeightedSets, 0.2) },
+                      ]}
+                    />
+                  </View>
+
+                  <Text style={[styles.balanceRatioText, isDark && styles.balanceRatioTextDark]}>
+                    {formatBalanceRatio(pair)}
+                  </Text>
+                </View>
+              ))}
+
+              <Text style={[styles.balanceFootnote, isDark && styles.balanceFootnoteDark]}>
+                Ratios compare weighted sets, where primary work counts as 1.0 and secondary work
+                counts as 0.5.
+              </Text>
+            </View>
+          ) : null}
+
+          {selectedVolume && progression ? (
+            <View style={[styles.progressCard, isDark && styles.progressCardDark]}>
+              <View style={styles.progressHeader}>
+                <View style={styles.progressHeaderText}>
+                  <Text style={[styles.progressTitle, isDark && styles.progressTitleDark]}>
+                    {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug}{' '}
+                    progression
+                  </Text>
+                  <Text style={[styles.progressSubtitle, isDark && styles.progressSubtitleDark]}>
+                    Last 4 weeks
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.progressBadge,
+                    progression.trend === 'up'
+                      ? styles.progressBadgeUp
+                      : progression.trend === 'down'
+                        ? styles.progressBadgeDown
+                        : styles.progressBadgeFlat,
+                  ]}
+                >
+                  <Text style={styles.progressBadgeText}>
+                    {progression.changePct == null
+                      ? 'New signal'
+                      : `${progression.changePct > 0 ? '+' : ''}${Math.round(
+                          progression.changePct
+                        )}%`}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={[styles.progressSummary, isDark && styles.progressSummaryDark]}>
+                {getStrengthProgressSummary(progression)}
+              </Text>
+
+              {hasRecentProgression ? (
+                <>
+                  <View style={styles.progressBarsRow}>
+                    {progression.points.map((point, index) => (
+                      <View key={point.label} style={styles.progressBarColumn}>
+                        <Text
+                          style={[styles.progressBarValue, isDark && styles.progressBarValueDark]}
+                        >
+                          {formatSetCount(point.weightedSets)}
+                        </Text>
+                        <View
+                          style={[styles.progressBarTrack, isDark && styles.progressBarTrackDark]}
+                        >
+                          <View
+                            style={[
+                              styles.progressBarFill,
+                              index === progression.points.length - 1
+                                ? styles.progressBarFillCurrent
+                                : styles.progressBarFillPast,
+                              {
+                                height: Math.max(
+                                  8,
+                                  (point.weightedSets / maxProgressWeightedSets) * 82
+                                ),
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text
+                          style={[styles.progressBarLabel, isDark && styles.progressBarLabelDark]}
+                        >
+                          {point.label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <View style={styles.progressMetaRow}>
+                    <View style={[styles.progressMetaBox, isDark && styles.progressMetaBoxDark]}>
+                      <Text
+                        style={[styles.progressMetaValue, isDark && styles.progressMetaValueDark]}
+                      >
+                        {formatSetCount(progression.recentAverage)}
+                      </Text>
+                      <Text
+                        style={[styles.progressMetaLabel, isDark && styles.progressMetaLabelDark]}
+                      >
+                        Recent avg
+                      </Text>
+                    </View>
+                    <View style={[styles.progressMetaBox, isDark && styles.progressMetaBoxDark]}>
+                      <Text
+                        style={[styles.progressMetaValue, isDark && styles.progressMetaValueDark]}
+                      >
+                        {formatSetCount(progression.baselineAverage)}
+                      </Text>
+                      <Text
+                        style={[styles.progressMetaLabel, isDark && styles.progressMetaLabelDark]}
+                      >
+                        Earlier avg
+                      </Text>
+                    </View>
+                    <View style={[styles.progressMetaBox, isDark && styles.progressMetaBoxDark]}>
+                      <Text
+                        style={[styles.progressMetaValue, isDark && styles.progressMetaValueDark]}
+                      >
+                        {formatSetCount(progression.peakWeightedSets)}
+                      </Text>
+                      <Text
+                        style={[styles.progressMetaLabel, isDark && styles.progressMetaLabelDark]}
+                      >
+                        Peak week
+                      </Text>
+                    </View>
+                  </View>
+                </>
+              ) : null}
+            </View>
+          ) : null}
 
           {/* Exercise detail list when muscle selected */}
           {selectedVolume && exerciseSummary && exerciseSummary.exercises.length > 0 && (
@@ -492,6 +789,164 @@ const styles = StyleSheet.create({
   statLabelDark: {
     color: darkColors.textSecondary,
   },
+  balanceCard: {
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadius,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  balanceCardDark: {
+    backgroundColor: darkColors.surface,
+  },
+  balanceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  balanceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  balanceTitleDark: {
+    color: darkColors.textPrimary,
+  },
+  balanceSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  balanceSubtitleDark: {
+    color: darkColors.textSecondary,
+  },
+  balanceHeroBadge: {
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  balanceHeroBadgeBalanced: {
+    backgroundColor: '#22C55E18',
+  },
+  balanceHeroBadgeAlert: {
+    backgroundColor: '#F9731618',
+  },
+  balanceHeroBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  balanceHeroText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  balanceHeroTextDark: {
+    color: darkColors.textSecondary,
+  },
+  balanceRow: {
+    paddingVertical: spacing.sm,
+  },
+  balanceRowBorder: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+  },
+  balanceRowBorderDark: {
+    borderTopColor: darkColors.border,
+  },
+  balanceRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  balanceRowTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  balanceRowTitleDark: {
+    color: darkColors.textPrimary,
+  },
+  balanceStatusBadge: {
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  balanceStatusBalanced: {
+    backgroundColor: '#22C55E18',
+  },
+  balanceStatusWatch: {
+    backgroundColor: '#F59E0B18',
+  },
+  balanceStatusImbalanced: {
+    backgroundColor: '#EF444418',
+  },
+  balanceStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  balanceValueRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs,
+    gap: spacing.sm,
+  },
+  balanceValueText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  balanceValueTextDark: {
+    color: darkColors.textSecondary,
+  },
+  balanceScale: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
+    backgroundColor: opacity.overlay.light,
+    marginTop: spacing.xs,
+  },
+  balanceScaleDark: {
+    backgroundColor: opacity.overlayDark.medium,
+  },
+  balanceScaleSide: {
+    height: '100%',
+    backgroundColor: '#FC4C02',
+  },
+  balanceScaleSideSecondary: {
+    height: '100%',
+    backgroundColor: '#FB8C4E',
+  },
+  balanceScaleGap: {
+    width: 2,
+    height: '100%',
+    backgroundColor: colors.surface,
+  },
+  balanceRatioText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginTop: 6,
+  },
+  balanceRatioTextDark: {
+    color: darkColors.textPrimary,
+  },
+  balanceFootnote: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  balanceFootnoteDark: {
+    color: darkColors.textSecondary,
+  },
   bodyCard: {
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadius,
@@ -572,6 +1027,146 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   scaleValueDark: {
+    color: darkColors.textSecondary,
+  },
+  progressCard: {
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadius,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  progressCardDark: {
+    backgroundColor: darkColors.surface,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  progressHeaderText: {
+    flex: 1,
+  },
+  progressTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  progressTitleDark: {
+    color: darkColors.textPrimary,
+  },
+  progressSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  progressSubtitleDark: {
+    color: darkColors.textSecondary,
+  },
+  progressBadge: {
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  progressBadgeUp: {
+    backgroundColor: '#22C55E18',
+  },
+  progressBadgeDown: {
+    backgroundColor: '#F59E0B18',
+  },
+  progressBadgeFlat: {
+    backgroundColor: '#64748B18',
+  },
+  progressBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  progressSummary: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+  },
+  progressSummaryDark: {
+    color: darkColors.textSecondary,
+  },
+  progressBarsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  progressBarColumn: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  progressBarValue: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  progressBarValueDark: {
+    color: darkColors.textSecondary,
+  },
+  progressBarTrack: {
+    width: '100%',
+    height: 82,
+    borderRadius: 12,
+    backgroundColor: opacity.overlay.light,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  progressBarTrackDark: {
+    backgroundColor: opacity.overlayDark.medium,
+  },
+  progressBarFill: {
+    width: '100%',
+    borderRadius: 12,
+  },
+  progressBarFillCurrent: {
+    backgroundColor: '#FC4C02',
+  },
+  progressBarFillPast: {
+    backgroundColor: '#FB8C4E',
+  },
+  progressBarLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  progressBarLabelDark: {
+    color: darkColors.textSecondary,
+  },
+  progressMetaRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  progressMetaBox: {
+    flex: 1,
+    backgroundColor: opacity.overlay.subtle,
+    borderRadius: 10,
+    padding: spacing.sm,
+    alignItems: 'center',
+  },
+  progressMetaBoxDark: {
+    backgroundColor: opacity.overlayDark.light,
+  },
+  progressMetaValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  progressMetaValueDark: {
+    color: darkColors.textPrimary,
+  },
+  progressMetaLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  progressMetaLabelDark: {
     color: darkColors.textSecondary,
   },
   exerciseCard: {

@@ -1,12 +1,10 @@
 //! Route groups: loading, grouping, matching, consensus routes, names.
 
+use crate::{Bounds, GpsPoint, RouteGroup, geo_utils};
+use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::HashMap;
-use rusqlite::{Result as SqlResult, params};
-use crate::{
-    Bounds, GpsPoint, RouteGroup, geo_utils,
-};
 
-use super::{get_route_word, GroupSummary, PersistentRouteEngine};
+use super::{GroupSummary, PersistentRouteEngine, get_route_word};
 
 impl PersistentRouteEngine {
     // ========================================================================
@@ -28,8 +26,10 @@ impl PersistentRouteEngine {
             self.groups = stmt
                 .query_map([], |row| {
                     let activity_ids_json: String = row.get(2)?;
-                    let activity_ids: Vec<String> =
-                        serde_json::from_str(&activity_ids_json).unwrap_or_default();
+                    let activity_ids: Vec<String> = serde_json::from_str(&activity_ids_json)
+                        .map_err(|e| {
+                            rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
+                        })?;
 
                     let bounds =
                         if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
@@ -62,7 +62,13 @@ impl PersistentRouteEngine {
                         best_activity_id: None,
                     })
                 })?
-                .filter_map(|r| r.ok())
+                .filter_map(|r| match r {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        log::warn!("Skipping malformed row during group loading: {:?}", e);
+                        None
+                    }
+                })
                 .collect();
         }
 
@@ -104,14 +110,21 @@ impl PersistentRouteEngine {
             .query_map([], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             })?
-            .filter_map(|r| r.ok())
+            .filter_map(|r| match r {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::warn!("Skipping malformed row during route name loading: {:?}", e);
+                    None
+                }
+            })
             .collect();
 
         // Clean up orphaned route_names (names for routes that no longer exist)
         let current_group_ids: std::collections::HashSet<&str> =
             self.groups.iter().map(|g| g.group_id.as_str()).collect();
 
-        let orphaned_ids: Vec<String> = names.keys()
+        let orphaned_ids: Vec<String> = names
+            .keys()
             .filter(|id| !current_group_ids.contains(id.as_str()))
             .cloned()
             .collect();
@@ -121,7 +134,9 @@ impl PersistentRouteEngine {
                 "tracematch: [PersistentEngine] load_route_names: Cleaning up {} orphaned route names",
                 orphaned_ids.len()
             );
-            let mut delete_stmt = self.db.prepare("DELETE FROM route_names WHERE route_id = ?")?;
+            let mut delete_stmt = self
+                .db
+                .prepare("DELETE FROM route_names WHERE route_id = ?")?;
             for id in &orphaned_ids {
                 delete_stmt.execute(params![id])?;
                 names.remove(id);
@@ -145,7 +160,8 @@ impl PersistentRouteEngine {
             let route_word = get_route_word();
 
             // Collect which numbers are already taken (check both old and new patterns)
-            let mut taken_numbers: std::collections::HashSet<u32> = std::collections::HashSet::new();
+            let mut taken_numbers: std::collections::HashSet<u32> =
+                std::collections::HashSet::new();
             for name in names.values() {
                 // New pattern: "Route N"
                 let prefix = format!("{} ", route_word);
@@ -155,7 +171,15 @@ impl PersistentRouteEngine {
                     }
                 }
                 // Old pattern: "{Sport} Route N" — still recognize for numbering
-                for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
+                for sport in [
+                    "Ride",
+                    "Run",
+                    "Hike",
+                    "Walk",
+                    "Swim",
+                    "VirtualRide",
+                    "VirtualRun",
+                ] {
                     let old_prefix = format!("{} {} ", sport, route_word);
                     if name.starts_with(&old_prefix) {
                         if let Ok(num) = name[old_prefix.len()..].parse::<u32>() {
@@ -166,9 +190,9 @@ impl PersistentRouteEngine {
             }
 
             // Generate and insert names for groups without names
-            let mut insert_stmt = self
-                .db
-                .prepare("INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)")?;
+            let mut insert_stmt = self.db.prepare(
+                "INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)",
+            )?;
 
             // Track next available number (no longer per-sport)
             let mut counter: u32 = 0;
@@ -193,7 +217,15 @@ impl PersistentRouteEngine {
         // "Walk Route 1" → "Route 1", with conflict resolution
         {
             let route_word = get_route_word();
-            let sports = ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"];
+            let sports = [
+                "Ride",
+                "Run",
+                "Hike",
+                "Walk",
+                "Swim",
+                "VirtualRide",
+                "VirtualRun",
+            ];
             let mut renames: Vec<(String, u32)> = Vec::new(); // (route_id, number)
             for (id, name) in &names {
                 for sport in &sports {
@@ -219,9 +251,9 @@ impl PersistentRouteEngine {
                 }
 
                 let mut next = renames.iter().map(|(_, n)| *n).max().unwrap_or(0);
-                let mut update_stmt = self.db.prepare(
-                    "UPDATE route_names SET custom_name = ? WHERE route_id = ?"
-                )?;
+                let mut update_stmt = self
+                    .db
+                    .prepare("UPDATE route_names SET custom_name = ? WHERE route_id = ?")?;
 
                 // Group by number to resolve conflicts
                 let mut by_num: HashMap<u32, Vec<String>> = HashMap::new();
@@ -231,13 +263,18 @@ impl PersistentRouteEngine {
 
                 for (num, ids) in &by_num {
                     // Sort by activity count (prefer group with more activities)
-                    let mut sorted_ids: Vec<(&str, usize)> = ids.iter().map(|id| {
-                        let count = self.groups.iter()
-                            .find(|g| &g.group_id == id)
-                            .map(|g| g.activity_ids.len())
-                            .unwrap_or(0);
-                        (id.as_str(), count)
-                    }).collect();
+                    let mut sorted_ids: Vec<(&str, usize)> = ids
+                        .iter()
+                        .map(|id| {
+                            let count = self
+                                .groups
+                                .iter()
+                                .find(|g| &g.group_id == id)
+                                .map(|g| g.activity_ids.len())
+                                .unwrap_or(0);
+                            (id.as_str(), count)
+                        })
+                        .collect();
                     sorted_ids.sort_by(|a, b| b.1.cmp(&a.1));
 
                     for (i, (id, _)) in sorted_ids.iter().enumerate() {
@@ -247,7 +284,9 @@ impl PersistentRouteEngine {
                         } else {
                             loop {
                                 next += 1;
-                                if !used.contains(&next) { break; }
+                                if !used.contains(&next) {
+                                    break;
+                                }
                             }
                             used.insert(next);
                             next
@@ -314,7 +353,8 @@ impl PersistentRouteEngine {
 
         // Phase 2: Group signatures and capture match info (uses parallel rayon)
         let group_start = Instant::now();
-        let result = tracematch::group_signatures_parallel_with_matches(&signatures, &self.match_config);
+        let result =
+            tracematch::group_signatures_parallel_with_matches(&signatures, &self.match_config);
 
         let group_ms = group_start.elapsed().as_millis();
         log::info!(
@@ -355,7 +395,9 @@ impl PersistentRouteEngine {
 
         // Phase 4: Save to database
         let save_start = Instant::now();
-        self.save_groups().ok();
+        if let Err(e) = self.save_groups() {
+            log::error!("tracematch: Failed to save groups to database: {}", e);
+        }
         let save_ms = save_start.elapsed().as_millis();
         self.groups_dirty = false;
 
@@ -536,17 +578,28 @@ impl PersistentRouteEngine {
 
         // Load existing route names to preserve user-set names
         let existing_names: HashMap<String, String> = {
-            let mut stmt = self.db.prepare("SELECT route_id, custom_name FROM route_names")?;
-            stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
-                .filter_map(|r| r.ok())
-                .collect()
+            let mut stmt = self
+                .db
+                .prepare("SELECT route_id, custom_name FROM route_names")?;
+            stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .filter_map(|r| match r {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::warn!("Skipping malformed row during route name loading: {:?}", e);
+                    None
+                }
+            })
+            .collect()
         };
 
         // Clean up orphaned route_names (names for routes that no longer exist)
         let current_group_ids: std::collections::HashSet<&str> =
             self.groups.iter().map(|g| g.group_id.as_str()).collect();
 
-        let orphaned_ids: Vec<String> = existing_names.keys()
+        let orphaned_ids: Vec<String> = existing_names
+            .keys()
             .filter(|id| !current_group_ids.contains(id.as_str()))
             .cloned()
             .collect();
@@ -556,7 +609,9 @@ impl PersistentRouteEngine {
                 "tracematch: [PersistentEngine] Cleaning up {} orphaned route names",
                 orphaned_ids.len()
             );
-            let mut delete_stmt = self.db.prepare("DELETE FROM route_names WHERE route_id = ?")?;
+            let mut delete_stmt = self
+                .db
+                .prepare("DELETE FROM route_names WHERE route_id = ?")?;
             for id in &orphaned_ids {
                 delete_stmt.execute(params![id])?;
             }
@@ -564,10 +619,20 @@ impl PersistentRouteEngine {
 
         // Rebuild existing_names after cleanup
         let existing_names: HashMap<String, String> = {
-            let mut stmt = self.db.prepare("SELECT route_id, custom_name FROM route_names")?;
-            stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
-                .filter_map(|r| r.ok())
-                .collect()
+            let mut stmt = self
+                .db
+                .prepare("SELECT route_id, custom_name FROM route_names")?;
+            stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .filter_map(|r| match r {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::warn!("Skipping malformed row during route name rebuild: {:?}", e);
+                    None
+                }
+            })
+            .collect()
         };
 
         let route_word = get_route_word();
@@ -576,11 +641,22 @@ impl PersistentRouteEngine {
         // Only count names that follow the auto-generated pattern (e.g., "Run Route 1")
         let mut taken_numbers: HashMap<String, std::collections::HashSet<u32>> = HashMap::new();
         for name in existing_names.values() {
-            for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
+            for sport in [
+                "Ride",
+                "Run",
+                "Hike",
+                "Walk",
+                "Swim",
+                "VirtualRide",
+                "VirtualRun",
+            ] {
                 let prefix = format!("{} {} ", sport, route_word);
                 if name.starts_with(&prefix) {
                     if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                        taken_numbers.entry(sport.to_string()).or_default().insert(num);
+                        taken_numbers
+                            .entry(sport.to_string())
+                            .or_default()
+                            .insert(num);
                     }
                 }
             }
@@ -595,15 +671,16 @@ impl PersistentRouteEngine {
         )?;
 
         // Prepare statement for inserting new route names
-        let mut name_stmt = self.db.prepare(
-            "INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)"
-        )?;
+        let mut name_stmt = self
+            .db
+            .prepare("INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)")?;
 
         // Sort groups by sport type and activity count (most activities first)
         // This ensures consistent, predictable numbering
         let mut sorted_groups: Vec<&tracematch::RouteGroup> = self.groups.iter().collect();
         sorted_groups.sort_by(|a, b| {
-            a.sport_type.cmp(&b.sport_type)
+            a.sport_type
+                .cmp(&b.sport_type)
                 .then_with(|| b.activity_ids.len().cmp(&a.activity_ids.len()))
         });
 
@@ -611,7 +688,8 @@ impl PersistentRouteEngine {
         let mut sport_counters: HashMap<String, u32> = HashMap::new();
 
         for group in sorted_groups {
-            let activity_ids_json = serde_json::to_string(&group.activity_ids).unwrap_or_default();
+            let activity_ids_json = serde_json::to_string(&group.activity_ids)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
             stmt.execute(params![
                 group.group_id,
                 group.representative_id,
@@ -734,20 +812,38 @@ impl PersistentRouteEngine {
 
                 // Parse activity_ids for sport type lookup
                 let activity_ids_json: String = row.get(3)?;
-                let activity_ids: Vec<String> = serde_json::from_str(&activity_ids_json).unwrap_or_default();
+                let activity_ids: Vec<String> =
+                    serde_json::from_str(&activity_ids_json).map_err(|e| {
+                        rusqlite::Error::FromSqlConversionFailure(3, Type::Text, Box::new(e))
+                    })?;
 
-                Ok((GroupSummary {
-                    group_id,
-                    representative_id,
-                    sport_type,
-                    activity_count,
-                    custom_name,
-                    bounds,
-                    sport_types: vec![], // populated below
-                }, activity_ids))
+                Ok((
+                    GroupSummary {
+                        group_id,
+                        representative_id,
+                        sport_type,
+                        activity_count,
+                        custom_name,
+                        bounds,
+                        sport_types: vec![], // populated below
+                    },
+                    activity_ids,
+                ))
             })
             .ok()
-            .map(|iter| iter.filter_map(|r| r.ok()).collect::<Vec<_>>())
+            .map(|iter| {
+                iter.filter_map(|r| match r {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        log::warn!(
+                            "Skipping malformed row during group summary loading: {:?}",
+                            e
+                        );
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
+            })
             .unwrap_or_default();
 
         // Populate sport_types from activity_metrics lookup
@@ -801,8 +897,10 @@ impl PersistentRouteEngine {
                     let activity_ids_json: String = row.get(2)?;
                     let sport_type: String = row.get(3)?;
 
-                    let activity_ids: Vec<String> =
-                        serde_json::from_str(&activity_ids_json).unwrap_or_default();
+                    let activity_ids: Vec<String> = serde_json::from_str(&activity_ids_json)
+                        .map_err(|e| {
+                            rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
+                        })?;
 
                     let bounds =
                         if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
@@ -868,7 +966,9 @@ impl PersistentRouteEngine {
                 params![group_id],
                 |row| {
                     let json: String = row.get(0)?;
-                    Ok(serde_json::from_str(&json).unwrap_or_default())
+                    serde_json::from_str(&json).map_err(|e| {
+                        rusqlite::Error::FromSqlConversionFailure(0, Type::Text, Box::new(e))
+                    })
                 },
             )
             .ok()
@@ -877,7 +977,10 @@ impl PersistentRouteEngine {
     /// Batch-load simplified signature polylines for multiple activity IDs.
     /// Returns a map of activity_id → flat [lat, lng, lat, lng, ...] coordinates.
     /// Uses the signatures table (MessagePack BLOBs with ~100 simplified points).
-    pub(super) fn get_representative_polylines_batch(&self, activity_ids: &[&str]) -> HashMap<String, Vec<f64>> {
+    pub(super) fn get_representative_polylines_batch(
+        &self,
+        activity_ids: &[&str],
+    ) -> HashMap<String, Vec<f64>> {
         if activity_ids.is_empty() {
             return HashMap::new();
         }
@@ -908,7 +1011,9 @@ impl PersistentRouteEngine {
             .query_map(params.as_slice(), |row| {
                 let activity_id: String = row.get(0)?;
                 let points_blob: Vec<u8> = row.get(1)?;
-                let points: Vec<GpsPoint> = rmp_serde::from_slice(&points_blob).unwrap_or_default();
+                let points: Vec<GpsPoint> = rmp_serde::from_slice(&points_blob).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(1, Type::Blob, Box::new(e))
+                })?;
                 let flat_coords: Vec<f64> = points
                     .iter()
                     .flat_map(|p| vec![p.latitude, p.longitude])
@@ -916,7 +1021,19 @@ impl PersistentRouteEngine {
                 Ok((activity_id, flat_coords))
             })
             .ok()
-            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            .map(|iter| {
+                iter.filter_map(|r| match r {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        log::warn!(
+                            "Skipping malformed row during batch polyline loading: {:?}",
+                            e
+                        );
+                        None
+                    }
+                })
+                .collect()
+            })
             .unwrap_or_default();
 
         results
@@ -1053,7 +1170,10 @@ impl PersistentRouteEngine {
     pub fn get_all_route_names(&self) -> HashMap<String, String> {
         // Query the database directly to ensure we get the latest names
         let mut result = HashMap::new();
-        if let Ok(mut stmt) = self.db.prepare("SELECT route_id, custom_name FROM route_names") {
+        if let Ok(mut stmt) = self
+            .db
+            .prepare("SELECT route_id, custom_name FROM route_names")
+        {
             if let Ok(rows) = stmt.query_map([], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             }) {
@@ -1071,7 +1191,11 @@ impl PersistentRouteEngine {
 
     /// Exclude an activity from a route's analysis.
     /// Sets the `excluded` flag to 1 on the activity_matches row.
-    pub fn exclude_activity_from_route(&mut self, route_id: &str, activity_id: &str) -> Result<(), String> {
+    pub fn exclude_activity_from_route(
+        &mut self,
+        route_id: &str,
+        activity_id: &str,
+    ) -> Result<(), String> {
         self.db
             .execute(
                 "UPDATE activity_matches SET excluded = 1 WHERE route_id = ? AND activity_id = ?",
@@ -1083,7 +1207,11 @@ impl PersistentRouteEngine {
 
     /// Re-include a previously excluded activity in a route's analysis.
     /// Sets the `excluded` flag back to 0 on the activity_matches row.
-    pub fn include_activity_in_route(&mut self, route_id: &str, activity_id: &str) -> Result<(), String> {
+    pub fn include_activity_in_route(
+        &mut self,
+        route_id: &str,
+        activity_id: &str,
+    ) -> Result<(), String> {
         self.db
             .execute(
                 "UPDATE activity_matches SET excluded = 0 WHERE route_id = ? AND activity_id = ?",
@@ -1096,13 +1224,25 @@ impl PersistentRouteEngine {
     /// Get activity IDs that are excluded from a route.
     pub fn get_excluded_route_activity_ids(&self, route_id: &str) -> Vec<String> {
         let mut stmt = match self.db.prepare(
-            "SELECT DISTINCT activity_id FROM activity_matches WHERE route_id = ? AND excluded = 1"
+            "SELECT DISTINCT activity_id FROM activity_matches WHERE route_id = ? AND excluded = 1",
         ) {
             Ok(s) => s,
             Err(_) => return Vec::new(),
         };
         stmt.query_map(params![route_id], |row| row.get(0))
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .map(|rows| {
+                rows.filter_map(|r| match r {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        log::warn!(
+                            "Skipping malformed row during excluded activity loading: {:?}",
+                            e
+                        );
+                        None
+                    }
+                })
+                .collect()
+            })
             .unwrap_or_default()
     }
 }

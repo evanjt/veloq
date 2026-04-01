@@ -8,8 +8,10 @@ import React, {
 } from 'react';
 import { View, StyleSheet, PixelRatio } from 'react-native';
 import { WebView } from 'react-native-webview';
+import * as FileSystem from 'expo-file-system/legacy';
 import { colors, darkColors } from '@/theme';
 import { getBoundsFromPoints } from '@/lib';
+import { HEATMAP_TILES_DIR } from '@/hooks/maps/useHeatmapTiles';
 import type { MapStyleType } from './mapStyles';
 import {
   getCombinedSatelliteStyle3D,
@@ -47,6 +49,8 @@ interface Map3DWebViewProps {
   tracesGeoJSON?: GeoJSON.FeatureCollection;
   /** Highlight marker position as [lng, lat] (from chart scrubbing) */
   highlightCoordinate?: [number, number] | null;
+  /** Whether to show the heatmap raster overlay */
+  showHeatmap?: boolean;
 }
 
 export interface Map3DWebViewRef {
@@ -99,6 +103,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       sectionsGeoJSON,
       tracesGeoJSON,
       highlightCoordinate,
+      showHeatmap = false,
       onMapReady,
       onBearingChange,
       onCameraStateChange,
@@ -293,6 +298,71 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             // Save camera state for restoration
             savedCameraRef.current = data.camera;
             onCameraStateChange?.(data.camera);
+          } else if (data.type === 'heatmapTileRequest' && data.requestId && data.tilePath) {
+            // Heatmap tile request from WebView — read PNG from filesystem, return as base64
+            const fullPath = `${HEATMAP_TILES_DIR}${data.tilePath}`;
+            FileSystem.getInfoAsync(fullPath)
+              .then((info) => {
+                if (info.exists && info.size > 0) {
+                  return FileSystem.readAsStringAsync(fullPath, {
+                    encoding: FileSystem.EncodingType.Base64,
+                  });
+                }
+                return null;
+              })
+              .then((base64) => {
+                if (!webViewRef.current) return;
+                if (base64) {
+                  webViewRef.current.injectJavaScript(`
+                  (function() {
+                    var req = window._heatmapRequests && window._heatmapRequests['${data.requestId}'];
+                    if (req) {
+                      var binary = atob('${base64}');
+                      var blob = new Blob([binary], { type: 'image/png' });
+                      var url = URL.createObjectURL(blob);
+                      var img = new Image();
+                      img.onload = function() {
+                        URL.revokeObjectURL(url);
+                        req.resolve({ data: img });
+                        delete window._heatmapRequests['${data.requestId}'];
+                      };
+                      img.onerror = function() {
+                        URL.revokeObjectURL(url);
+                        req.reject(new Error('heatmap image decode failed'));
+                        delete window._heatmapRequests['${data.requestId}'];
+                      };
+                      img.src = url;
+                    }
+                  })();
+                  true;
+                `);
+                } else {
+                  // Tile not found
+                  webViewRef.current.injectJavaScript(`
+                  (function() {
+                    var req = window._heatmapRequests && window._heatmapRequests['${data.requestId}'];
+                    if (req) {
+                      req.reject(new Error('not found'));
+                      delete window._heatmapRequests['${data.requestId}'];
+                    }
+                  })();
+                  true;
+                `);
+                }
+              })
+              .catch(() => {
+                // Read error
+                webViewRef.current?.injectJavaScript(`
+                (function() {
+                  var req = window._heatmapRequests && window._heatmapRequests['${data.requestId}'];
+                  if (req) {
+                    req.reject(new Error('read error'));
+                    delete window._heatmapRequests['${data.requestId}'];
+                  }
+                })();
+                true;
+              `);
+              });
           }
         } catch {
           // Ignore parse errors
@@ -422,6 +492,29 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 
             window.map.setStyle(styleObj);
             console.log('[3D] Style changed via setStyle()');
+
+            // Re-add heatmap raster overlay (setStyle clears all sources/layers)
+            window.map.once('style.load', function() {
+              if (!window.map.getSource('heatmap-tiles')) {
+                window.map.addSource('heatmap-tiles', {
+                  type: 'raster',
+                  tiles: ['heatmap-file://{z}/{x}/{y}.png'],
+                  tileSize: 256,
+                  minzoom: 5,
+                  maxzoom: 17
+                });
+                window.map.addLayer({
+                  id: 'heatmap-layer',
+                  type: 'raster',
+                  source: 'heatmap-tiles',
+                  paint: {
+                    'raster-opacity': ${showHeatmap} ? 0.72 : 0,
+                    'raster-fade-duration': 0,
+                    'raster-resampling': 'linear'
+                  }
+                }, 'route-outline');
+              }
+            });
           }
 
           var styleJSON = ${styleConfig};
@@ -493,6 +586,17 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         `);
       }
     }, [highlightCoordinate]);
+
+    // Toggle heatmap visibility dynamically (without regenerating HTML)
+    useEffect(() => {
+      if (!webViewRef.current || !mapReadyRef.current) return;
+      webViewRef.current.injectJavaScript(`
+        if (window.map && window.map.getLayer('heatmap-layer')) {
+          window.map.setPaintProperty('heatmap-layer', 'raster-opacity', ${showHeatmap} ? 0.72 : 0);
+        }
+        true;
+      `);
+    }, [showHeatmap]);
 
     // Reload WebView on crash (iOS content process termination / Android render process gone)
     const handleWebViewCrash = useCallback(() => {
@@ -721,6 +825,28 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             return r.arrayBuffer().then(function(d) { return { data: d }; });
           });
         });
+      });
+    });
+
+    // Heatmap tile protocol — reads PNG tiles from device filesystem via RN bridge
+    window._heatmapRequests = {};
+    maplibregl.addProtocol('heatmap-file', function(params) {
+      var tilePath = params.url.replace('heatmap-file://', '');
+      return new Promise(function(resolve, reject) {
+        var requestId = '_ht_' + Date.now() + '_' + Math.random().toString(36).substr(2);
+        window._heatmapRequests[requestId] = { resolve: resolve, reject: reject };
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'heatmapTileRequest',
+          requestId: requestId,
+          tilePath: tilePath
+        }));
+        // Timeout after 10s to prevent stuck requests
+        setTimeout(function() {
+          if (window._heatmapRequests[requestId]) {
+            delete window._heatmapRequests[requestId];
+            reject(new Error('heatmap tile timeout'));
+          }
+        }, 10000);
       });
     });
 
@@ -955,6 +1081,26 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         layout: { visibility: 'none' },
       });
 
+      // Heatmap raster overlay (reads tiles from device filesystem via heatmap-file:// protocol)
+      var showHeatmap = ${showHeatmap};
+      map.addSource('heatmap-tiles', {
+        type: 'raster',
+        tiles: ['heatmap-file://{z}/{x}/{y}.png'],
+        tileSize: 256,
+        minzoom: 5,
+        maxzoom: 17
+      });
+      map.addLayer({
+        id: 'heatmap-layer',
+        type: 'raster',
+        source: 'heatmap-tiles',
+        paint: {
+          'raster-opacity': showHeatmap ? 0.72 : 0,
+          'raster-fade-duration': 0,
+          'raster-resampling': 'linear'
+        }
+      }, 'route-outline');
+
       // Terrain-first ready detection — only wait for DEM terrain and route sources,
       // not ALL tiles. At 60° pitch, horizon vector/label tiles are deprioritized and
       // may never fully load, causing the old areTilesLoaded() to always hit the timeout.
@@ -1038,6 +1184,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       routeColor,
       initialPitch,
       terrainExaggeration,
+      showHeatmap,
       // NOTE: GeoJSON props are NOT dependencies - they're updated via injectJavaScript
     ]);
 

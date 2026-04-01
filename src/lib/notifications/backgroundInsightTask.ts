@@ -7,7 +7,11 @@ import {
   fetchInsightsDataFromEngine,
 } from '@/hooks/insights/computeInsightsData';
 import type { WellnessInput } from '@/hooks/insights/computeInsightsData';
-import { formatInsightNotification, pickBestInsightForNotification } from './insightNotification';
+import {
+  filterInsightsForNotificationPreferences,
+  formatInsightNotification,
+  pickBestInsightForNotification,
+} from './insightNotification';
 import { presentInsightNotification } from './notificationService';
 import { computeInsightFingerprint } from '@/providers/InsightsStore';
 import type { NotificationPreferences } from '@/providers/NotificationPreferencesStore';
@@ -20,24 +24,9 @@ export const BACKGROUND_INSIGHT_TASK = 'veloq-background-insight';
 const FINGERPRINT_KEY = 'veloq-insights-fingerprint';
 const PREFS_KEY = 'veloq-notification-preferences';
 
-/**
- * Category → preference key mapping for all insight types.
- * Categories without a preference key are always allowed.
- */
-const CATEGORY_PREFS: Record<string, keyof NotificationPreferences['categories'] | null> = {
-  section_pr: 'sectionPr',
-  fitness_milestone: 'fitnessMilestone',
-  period_comparison: 'periodComparison',
-  activity_pattern: 'activityPattern',
-  tsb_form: null,
-  hrv_trend: null,
-  stale_pr: null,
-  section_cluster: null,
-  efficiency_trend: null,
-};
-
 /** Max time to wait for GPS download (15 seconds) */
 const GPS_DOWNLOAD_TIMEOUT_MS = 15_000;
+const GPS_DOWNLOAD_POLL_MS = 250;
 
 /**
  * Read notification preferences directly from AsyncStorage.
@@ -57,6 +46,24 @@ interface ActivityInfo {
   name: string;
   type: string;
   ingested: boolean;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForDownloadCompletion(
+  getDownloadProgress: () => { active: boolean }
+): Promise<boolean> {
+  const deadline = Date.now() + GPS_DOWNLOAD_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const progress = getDownloadProgress();
+    if (!progress.active) {
+      return true;
+    }
+    await sleep(GPS_DOWNLOAD_POLL_MS);
+  }
+  return false;
 }
 
 /**
@@ -101,16 +108,10 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
 
     startFetchAndStore(authHeader, [activityId], [{ activityId, sportType: activityInfo.type }]);
 
-    // Busy-wait for Rust thread (setTimeout unreliable when backgrounded)
     const startTime = Date.now();
-    while (Date.now() - startTime < GPS_DOWNLOAD_TIMEOUT_MS) {
-      await Promise.resolve();
-      const progress = getDownloadProgress();
-      if (!progress.active) break;
-      const busyEnd = Date.now() + 50;
-      while (Date.now() < busyEnd) {
-        /* spin */
-      }
+    const completed = await waitForDownloadCompletion(getDownloadProgress);
+    if (!completed) {
+      log.warn(`GPS ingest timed out after ${GPS_DOWNLOAD_TIMEOUT_MS}ms for ${activityId}`);
     }
 
     const result = takeFetchAndStoreResult();
@@ -139,7 +140,8 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
 function buildActivityNotificationBody(
   activityId: string,
   activityName: string,
-  newInsights: Insight[]
+  newInsights: Insight[],
+  prefs: NotificationPreferences
 ): string {
   try {
     const { routeEngine } = require('veloqrs');
@@ -163,7 +165,7 @@ function buildActivityNotificationBody(
         }
       }
 
-      if (prCount > 0) {
+      if (prCount > 0 && prefs.categories.sectionPr) {
         if (prCount === 1) {
           return `${activityName} — PR on ${prSectionName}`;
         }
@@ -262,27 +264,40 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     }
 
     // 6. Generate insights (now includes new activity if ingested)
-    const ffiData = fetchInsightsDataFromEngine();
-    const insights = ffiData ? computeInsightsFromData(ffiData, wellnessData, t) : [];
+    const enginePayload = fetchInsightsDataFromEngine();
+    const insights = enginePayload
+      ? computeInsightsFromData(
+          enginePayload.insightsData,
+          wellnessData,
+          t,
+          enginePayload.summaryCardData
+        )
+      : [];
 
     // 7. Find insights that are NEW (caused by this activity)
     const storedFingerprint = await AsyncStorage.getItem(FINGERPRINT_KEY);
     const previousIds = new Set((storedFingerprint ?? '').split('|'));
     const newInsights = insights.filter((i) => !previousIds.has(i.id));
+    const allowedNewInsights = filterInsightsForNotificationPreferences(newInsights, prefs);
 
     // 8. Build activity-centric notification
     if (isActivityEvent) {
       const activityName = activityInfo?.name ?? t('notifications.activityRecorded.title');
-      const body = buildActivityNotificationBody(activityId!, activityName, newInsights);
+      const body = buildActivityNotificationBody(
+        activityId!,
+        activityName,
+        allowedNewInsights,
+        prefs
+      );
 
       await presentInsightNotification(t('notifications.activityRecorded.title'), body, {
         route: activityId ? `/activity/${activityId}` : '/',
         activityId: activityId || undefined,
       });
       log.log(`Notification sent: ${body}`);
-    } else if (newInsights.length > 0) {
+    } else if (allowedNewInsights.length > 0) {
       // Non-activity event (fitness update, wellness change) with new insights
-      const bestInsight = pickBestInsightForNotification(newInsights);
+      const bestInsight = pickBestInsightForNotification(allowedNewInsights);
       if (bestInsight) {
         const content = formatInsightNotification(bestInsight, t);
         await presentInsightNotification(content.title, content.body, content.data);

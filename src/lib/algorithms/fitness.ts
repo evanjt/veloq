@@ -64,3 +64,12 @@ export const FORM_ZONE_BOUNDARIES: Record<FormZone, { min: number; max: number }
   optimal: { min: -30, max: -10 },
   highRisk: { min: -50, max: -30 },
 };
+
+/** i18n keys for contextual guidance per form zone */
+export const FORM_ZONE_GUIDANCE_KEYS: Record<FormZone, string> = {
+  highRisk: 'fitnessScreen.guidance.highRisk',
+  optimal: 'fitnessScreen.guidance.optimal',
+  greyZone: 'fitnessScreen.guidance.greyZone',
+  fresh: 'fitnessScreen.guidance.fresh',
+  transition: 'fitnessScreen.guidance.transition',
+};

@@ -178,6 +178,30 @@ describe('detectStalePROpportunities', () => {
       expect(detectStalePROpportunities(input)).toEqual([]);
     });
 
+    it('does not flag unsupported section sports from cycling FTP alone', () => {
+      const input: StalePRInput = {
+        sections: [
+          {
+            sectionId: 'h1',
+            sectionName: 'Alpine Hike',
+            bestTimeSecs: 1800,
+            traversalCount: 6,
+            lastTraversalTs: NOW_TS - 60 * DAYS,
+            sportType: 'Hike',
+          },
+        ],
+        ftpTrend: {
+          latestFtp: 220,
+          latestDate: NOW_TS,
+          previousFtp: 200,
+          previousDate: NOW_TS - 90 * DAYS,
+        },
+        paceTrend: null,
+        recentPRs: [],
+      };
+      expect(detectStalePROpportunities(input)).toEqual([]);
+    });
+
     it('latestFtp is undefined', () => {
       const input: StalePRInput = {
         sections: [
@@ -595,6 +619,41 @@ describe('detectStalePROpportunities', () => {
       expect(running.currentValue).toBe(260);
       expect(running.previousValue).toBe(290);
       expect(running.unit).toBe('min/km');
+    });
+  });
+
+  describe('swimming sections', () => {
+    it('finds opportunity when swim pace improved for a swimming section', () => {
+      const input: StalePRInput = {
+        sections: [
+          {
+            sectionId: 'sw1',
+            sectionName: 'Pool Set',
+            bestTimeSecs: 95,
+            traversalCount: 7,
+            lastTraversalTs: NOW_TS - 50 * DAYS,
+            sportType: 'Swim',
+          },
+        ],
+        ftpTrend: null,
+        runPaceTrend: null,
+        swimPaceTrend: {
+          latestPace: 90,
+          latestDate: NOW_TS,
+          previousPace: 100,
+          previousDate: NOW_TS - 90 * DAYS,
+        },
+        recentPRs: [],
+      };
+
+      const result = detectStalePROpportunities(input);
+      expect(result).toHaveLength(1);
+      expect(result[0].sectionId).toBe('sw1');
+      expect(result[0].fitnessMetric).toBe('pace');
+      expect(result[0].currentValue).toBe(90);
+      expect(result[0].previousValue).toBe(100);
+      expect(result[0].gainPercent).toBe(10);
+      expect(result[0].unit).toBe('min/100m');
     });
   });
 

@@ -1,8 +1,73 @@
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { generateInsights } from './generateInsights';
+import { generateStrengthInsights } from './strengthInsights';
 import type { Insight } from '@/types';
+import type { StrengthSummary } from '@/types';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
+
+function getTrailingStrengthRanges(): Array<{ startTs: number; endTs: number }> {
+  const end = new Date();
+  end.setHours(23, 59, 59, 0);
+
+  const ranges: Array<{ startTs: number; endTs: number }> = [];
+  for (let index = 3; index >= 0; index -= 1) {
+    const rangeEnd = new Date(end);
+    rangeEnd.setDate(rangeEnd.getDate() - index * 7);
+
+    const rangeStart = new Date(rangeEnd);
+    rangeStart.setDate(rangeStart.getDate() - 6);
+    rangeStart.setHours(0, 0, 0, 0);
+
+    ranges.push({
+      startTs: Math.floor(rangeStart.getTime() / 1000),
+      endTs: Math.floor(rangeEnd.getTime() / 1000),
+    });
+  }
+
+  return ranges;
+}
+
+function getTrailingMonthRange(): { startTs: number; endTs: number } {
+  const end = new Date();
+  end.setHours(23, 59, 59, 0);
+  const start = new Date(end);
+  start.setDate(start.getDate() - 27);
+  start.setHours(0, 0, 0, 0);
+
+  return {
+    startTs: Math.floor(start.getTime() / 1000),
+    endTs: Math.floor(end.getTime() / 1000),
+  };
+}
+
+function normalizeStrengthSummary(raw: {
+  muscleVolumes?: Array<{
+    slug: string;
+    primarySets: number;
+    secondarySets: number;
+    weightedSets: number;
+    totalReps: number;
+    totalWeightKg: number;
+    exerciseNames: string[];
+  }>;
+  activityCount?: number;
+  totalSets?: number;
+}): StrengthSummary {
+  return {
+    muscleVolumes: (raw.muscleVolumes ?? []).map((volume) => ({
+      slug: volume.slug,
+      primarySets: volume.primarySets,
+      secondarySets: volume.secondarySets,
+      weightedSets: volume.weightedSets,
+      totalReps: volume.totalReps,
+      totalWeightKg: volume.totalWeightKg,
+      exerciseNames: volume.exerciseNames,
+    })),
+    activityCount: raw.activityCount ?? 0,
+    totalSets: raw.totalSets ?? 0,
+  };
+}
 
 /**
  * Wellness data needed for insight generation.
@@ -18,6 +83,13 @@ export interface WellnessInput {
   hrv?: number | null;
   restingHR?: number | null;
   sleepSecs?: number | null;
+}
+
+interface InsightsEnginePayload {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  insightsData: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  summaryCardData: any | null;
 }
 
 /**
@@ -37,7 +109,9 @@ export function computeInsightsFromData(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ffiData: any,
   wellnessData: WellnessInput[] | null,
-  t: TFunc
+  t: TFunc,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  summaryCardData?: any | null
 ): Insight[] {
   if (!ffiData) return [];
 
@@ -218,12 +292,13 @@ export function computeInsightsFromData(
       }
     }
 
-    return generateInsights(
+    const coreInsights = generateInsights(
       {
         currentPeriod: toPeriod(ffiData.currentWeek),
         previousPeriod: toPeriod(ffiData.previousWeek),
         ftpTrend: ffiData.ftpTrend ?? null,
         paceTrend: ffiData.runPaceTrend ?? null,
+        swimPaceTrend: ffiData.swimPaceTrend ?? summaryCardData?.swimPaceTrend ?? null,
         recentPRs,
         todayPattern: ffiData.todayPattern ?? null,
         sectionTrends,
@@ -256,6 +331,32 @@ export function computeInsightsFromData(
       },
       t
     );
+
+    let strengthInsights: Insight[] = [];
+    if (
+      engine &&
+      typeof engine.hasStrengthData === 'function' &&
+      typeof engine.getStrengthSummary === 'function'
+    ) {
+      try {
+        if (engine.hasStrengthData()) {
+          const monthlyRange = getTrailingMonthRange();
+          const monthlySummary = normalizeStrengthSummary(
+            engine.getStrengthSummary(monthlyRange.startTs, monthlyRange.endTs)
+          );
+          const weeklySummaries = getTrailingStrengthRanges().map((range) =>
+            normalizeStrengthSummary(engine.getStrengthSummary(range.startTs, range.endTs))
+          );
+          strengthInsights = generateStrengthInsights(monthlySummary, weeklySummaries, Date.now());
+        }
+      } catch {
+        strengthInsights = [];
+      }
+    }
+
+    return [...coreInsights, ...strengthInsights].sort(
+      (a, b) => a.priority - b.priority || b.timestamp - a.timestamp
+    );
   } catch {
     return [];
   }
@@ -265,9 +366,7 @@ export function computeInsightsFromData(
  * Fetch FFI insights data from the engine.
  * Pure function — calls synchronous FFI, no React.
  */
-export function fetchInsightsDataFromEngine(): ReturnType<
-  NonNullable<ReturnType<typeof getRouteEngine>>['getInsightsData']
-> | null {
+export function fetchInsightsDataFromEngine(): InsightsEnginePayload | null {
   const engine = getRouteEngine();
   if (!engine) return null;
 
@@ -288,14 +387,27 @@ export function fetchInsightsDataFromEngine(): ReturnType<
 
   const toTs = (d: Date) => Math.floor(d.getTime() / 1000);
 
-  return (
+  const currentStart = toTs(startOfWeek);
+  const currentEnd = toTs(now);
+  const prevStart = toTs(startOfLastWeek);
+  const prevEnd = toTs(startOfWeek);
+  const chronicStart = toTs(fourWeeksAgo);
+  const todayStartTs = toTs(todayStart);
+
+  const insightsData =
     engine.getInsightsData(
-      toTs(startOfWeek),
-      toTs(now),
-      toTs(startOfLastWeek),
-      toTs(startOfWeek),
-      toTs(fourWeeksAgo),
-      toTs(todayStart)
-    ) ?? null
-  );
+      currentStart,
+      currentEnd,
+      prevStart,
+      prevEnd,
+      chronicStart,
+      todayStartTs
+    ) ?? null;
+
+  if (!insightsData) return null;
+
+  return {
+    insightsData,
+    summaryCardData: engine.getSummaryCardData(currentStart, currentEnd, prevStart, prevEnd),
+  };
 }

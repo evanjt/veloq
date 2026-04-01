@@ -8,6 +8,7 @@ import { useMemo } from 'react';
 import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
 import type { Activity, IntervalsDTO } from '@/types';
+import { useAuthStore } from '@/providers/AuthStore';
 
 interface UseActivitiesOptions {
   /** Number of days to fetch (from today backwards) */
@@ -28,6 +29,7 @@ interface UseActivitiesOptions {
  */
 export function useActivities(options: UseActivitiesOptions = {}) {
   const { days, oldest, newest, includeStats = false, enabled = true } = options;
+  const athleteId = useAuthStore((s) => s.athleteId);
 
   // Calculate date range
   let queryOldest = oldest;
@@ -42,7 +44,13 @@ export function useActivities(options: UseActivitiesOptions = {}) {
   }
 
   return useQuery<Activity[]>({
-    queryKey: ['activities', queryOldest, queryNewest, includeStats ? 'stats' : 'base'],
+    queryKey: [
+      'activities',
+      athleteId ?? 'anon',
+      queryOldest,
+      queryNewest,
+      includeStats ? 'stats' : 'base',
+    ],
     queryFn: () =>
       intervalsApi.getActivities({
         oldest: queryOldest,
@@ -54,7 +62,7 @@ export function useActivities(options: UseActivitiesOptions = {}) {
     gcTime: 1000 * 60 * 60, // 1 hour - keep in memory for navigation
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: true, // Pick up new activities on foreground
-    enabled,
+    enabled: enabled && !!athleteId,
   });
 }
 
@@ -72,9 +80,10 @@ const PAGE_SIZE_DAYS = 30;
  */
 export function useInfiniteActivities(options: { includeStats?: boolean } = {}) {
   const { includeStats = false } = options;
+  const athleteId = useAuthStore((s) => s.athleteId);
 
   const query = useInfiniteQuery<Activity[], Error>({
-    queryKey: ['activities-infinite', includeStats ? 'stats' : 'base'],
+    queryKey: ['activities-infinite', athleteId ?? 'anon', includeStats ? 'stats' : 'base'],
     queryFn: async ({ pageParam }) => {
       const { oldest, newest } = pageParam as {
         oldest: string;
@@ -120,6 +129,7 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
     // 'always' bypasses staleTime so new activities appear immediately on foreground
     refetchOnWindowFocus: 'always',
     maxPages: 10, // Evict old pages to prevent memory growth
+    enabled: !!athleteId,
   });
 
   // All activities flattened from loaded pages
@@ -188,7 +198,8 @@ export function useActivityIntervals(id: string) {
  * is needed to re-evaluate `initialPageParam` with today's date.
  */
 export function isInfiniteActivitiesStale(queryClient: QueryClient): boolean {
-  const state = queryClient.getQueryState(['activities-infinite', 'base']);
+  const athleteId = useAuthStore.getState().athleteId ?? 'anon';
+  const state = queryClient.getQueryState(['activities-infinite', athleteId, 'base']);
   if (!state?.data) return false;
   const pageParams = (state.data as { pageParams?: Array<{ newest?: string }> }).pageParams;
   const firstNewest = pageParams?.[0]?.newest;

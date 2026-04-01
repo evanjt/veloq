@@ -401,6 +401,13 @@
     "title": "体能与状态",
     "toBuildFitness": "训练以提升体能。在",
     "toPreventOvertraining": "以防止过度训练。",
+    "guidance": {
+      "highRisk": "累积疲劳非常高。考虑休息或轻松训练，直到状态回升到-30以上。",
+      "optimal": "高效训练区间。你的身体正在有效吸收训练负荷。",
+      "greyZone": "中等训练负荷。既不恢复也不严重疲劳 — 维持区间。",
+      "fresh": "充分恢复。适合比赛或高强度测试的好时机。如果持续太久体能可能下降。",
+      "transition": "非常恢复但失去体能刺激。考虑恢复有计划的训练。"
+    },
     "tsb": "TSB",
     "understandingMetrics": "了解指标"
   },

@@ -82,20 +82,16 @@ pub fn parse_fit_sets(data: &[u8]) -> Vec<FitExerciseSet> {
                         repetitions = Some(*v);
                     }
                 }
-                "weight" => {
-                    match field.value() {
-                        fitparser::Value::Float64(v) => weight_kg = Some(*v),
-                        fitparser::Value::UInt16(v) => weight_kg = Some(*v as f64 / 16.0),
-                        _ => {}
-                    }
-                }
-                "duration" => {
-                    match field.value() {
-                        fitparser::Value::Float64(v) => duration_secs = Some(*v),
-                        fitparser::Value::UInt32(v) => duration_secs = Some(*v as f64 / 1000.0),
-                        _ => {}
-                    }
-                }
+                "weight" => match field.value() {
+                    fitparser::Value::Float64(v) => weight_kg = Some(*v),
+                    fitparser::Value::UInt16(v) => weight_kg = Some(*v as f64 / 16.0),
+                    _ => {}
+                },
+                "duration" => match field.value() {
+                    fitparser::Value::Float64(v) => duration_secs = Some(*v),
+                    fitparser::Value::UInt32(v) => duration_secs = Some(*v as f64 / 1000.0),
+                    _ => {}
+                },
                 "start_time" => {
                     if let fitparser::Value::Timestamp(dt) = field.value() {
                         start_time = Some(dt.timestamp());
@@ -206,38 +202,47 @@ pub struct MuscleActivation {
 /// Returns slugs matching react-native-body-highlighter's data format.
 pub fn exercise_muscle_groups(category: u16) -> Vec<MuscleActivation> {
     let (primary, secondary): (&[&str], &[&str]) = match category {
-        0 => (&["chest", "triceps"], &["deltoids"]),                       // Bench Press
-        1 => (&["calves"], &[]),                                           // Calf Raise
-        2 => (&[], &[]),                                                   // Cardio
-        3 => (&["forearm", "trapezius"], &["abs", "obliques"]),            // Carry
-        4 => (&["obliques", "abs"], &["deltoids"]),                        // Chop
-        5 => (&["abs", "obliques"], &["lower-back"]),                      // Core
-        6 => (&["abs"], &["obliques"]),                                    // Crunch
-        7 => (&["biceps"], &["forearm"]),                                  // Curl
-        8 => (&["hamstring", "gluteal", "lower-back"], &["trapezius", "forearm"]), // Deadlift
-        9 => (&["chest"], &["deltoids"]),                                  // Flye
-        10 => (&["gluteal"], &["hamstring"]),                              // Hip Raise
-        11 => (&["gluteal"], &["adductors"]),                              // Hip Stability
-        12 => (&["gluteal", "hamstring"], &["abs"]),                       // Hip Swing
-        13 => (&["lower-back"], &["gluteal", "hamstring"]),                // Hyperextension
-        14 => (&["deltoids"], &["trapezius"]),                             // Lateral Raise
-        15 => (&["hamstring"], &["calves"]),                               // Leg Curl
-        16 => (&["abs"], &["obliques"]),                                   // Leg Raise
-        17 => (&["quadriceps", "gluteal"], &["hamstring", "calves"]),      // Lunge
-        18 => (&["quadriceps", "gluteal", "trapezius"], &["deltoids", "hamstring"]), // Olympic Lift
-        19 => (&["abs", "obliques"], &["lower-back"]),                     // Plank
-        20 => (&["quadriceps", "calves"], &["hamstring", "gluteal"]),      // Plyo
-        21 => (&["upper-back", "biceps"], &["forearm", "deltoids"]),       // Pull Up
-        22 => (&["chest", "triceps"], &["deltoids", "abs"]),               // Push Up
-        23 => (&["upper-back", "biceps"], &["lower-back", "forearm"]),     // Row
-        24 => (&["deltoids", "triceps"], &["trapezius"]),                  // Shoulder Press
-        25 => (&["deltoids"], &["trapezius"]),                             // Shoulder Stability
-        26 => (&["trapezius"], &[]),                                       // Shrug
-        27 => (&["abs"], &["obliques"]),                                   // Sit Up
-        28 => (&["quadriceps", "gluteal"], &["hamstring", "calves", "lower-back"]), // Squat
+        0 => (&["chest", "triceps"], &["deltoids"]), // Bench Press
+        1 => (&["calves"], &[]),                     // Calf Raise
+        2 => (&[], &[]),                             // Cardio
+        3 => (&["forearm", "trapezius"], &["abs", "obliques"]), // Carry
+        4 => (&["obliques", "abs"], &["deltoids"]),  // Chop
+        5 => (&["abs", "obliques"], &["lower-back"]), // Core
+        6 => (&["abs"], &["obliques"]),              // Crunch
+        7 => (&["biceps"], &["forearm"]),            // Curl
+        8 => (
+            &["hamstring", "gluteal", "lower-back"],
+            &["trapezius", "forearm"],
+        ), // Deadlift
+        9 => (&["chest"], &["deltoids"]),            // Flye
+        10 => (&["gluteal"], &["hamstring"]),        // Hip Raise
+        11 => (&["gluteal"], &["adductors"]),        // Hip Stability
+        12 => (&["gluteal", "hamstring"], &["abs"]), // Hip Swing
+        13 => (&["lower-back"], &["gluteal", "hamstring"]), // Hyperextension
+        14 => (&["deltoids"], &["trapezius"]),       // Lateral Raise
+        15 => (&["hamstring"], &["calves"]),         // Leg Curl
+        16 => (&["abs"], &["obliques"]),             // Leg Raise
+        17 => (&["quadriceps", "gluteal"], &["hamstring", "calves"]), // Lunge
+        18 => (
+            &["quadriceps", "gluteal", "trapezius"],
+            &["deltoids", "hamstring"],
+        ), // Olympic Lift
+        19 => (&["abs", "obliques"], &["lower-back"]), // Plank
+        20 => (&["quadriceps", "calves"], &["hamstring", "gluteal"]), // Plyo
+        21 => (&["upper-back", "biceps"], &["forearm", "deltoids"]), // Pull Up
+        22 => (&["chest", "triceps"], &["deltoids", "abs"]), // Push Up
+        23 => (&["upper-back", "biceps"], &["lower-back", "forearm"]), // Row
+        24 => (&["deltoids", "triceps"], &["trapezius"]), // Shoulder Press
+        25 => (&["deltoids"], &["trapezius"]),       // Shoulder Stability
+        26 => (&["trapezius"], &[]),                 // Shrug
+        27 => (&["abs"], &["obliques"]),             // Sit Up
+        28 => (
+            &["quadriceps", "gluteal"],
+            &["hamstring", "calves", "lower-back"],
+        ), // Squat
         29 => (&["quadriceps", "chest", "deltoids"], &["abs", "triceps"]), // Total Body
-        30 => (&["triceps"], &[]),                                         // Triceps Extension
-        _ => (&[], &[]),                                                   // Unknown / Warm Up / Run
+        30 => (&["triceps"], &[]),                   // Triceps Extension
+        _ => (&[], &[]),                             // Unknown / Warm Up / Run
     };
 
     let mut groups = Vec::new();
@@ -299,8 +304,16 @@ mod tests {
     fn test_muscle_groups() {
         let groups = exercise_muscle_groups(0); // Bench Press
         assert!(groups.iter().any(|g| g.slug == "chest" && g.intensity == 2));
-        assert!(groups.iter().any(|g| g.slug == "triceps" && g.intensity == 2));
-        assert!(groups.iter().any(|g| g.slug == "deltoids" && g.intensity == 1));
+        assert!(
+            groups
+                .iter()
+                .any(|g| g.slug == "triceps" && g.intensity == 2)
+        );
+        assert!(
+            groups
+                .iter()
+                .any(|g| g.slug == "deltoids" && g.intensity == 1)
+        );
     }
 
     #[test]
@@ -330,8 +343,16 @@ mod tests {
 
         let groups = aggregate_muscle_groups(&sets);
         assert!(groups.iter().any(|g| g.slug == "chest" && g.intensity == 2));
-        assert!(groups.iter().any(|g| g.slug == "biceps" && g.intensity == 2));
-        assert!(groups.iter().any(|g| g.slug == "forearm" && g.intensity == 1));
+        assert!(
+            groups
+                .iter()
+                .any(|g| g.slug == "biceps" && g.intensity == 2)
+        );
+        assert!(
+            groups
+                .iter()
+                .any(|g| g.slug == "forearm" && g.intensity == 1)
+        );
     }
 
     #[test]

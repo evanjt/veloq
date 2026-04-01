@@ -3,7 +3,7 @@
 //! Downloads FIT files from intervals.icu, parses exercise sets,
 //! caches in SQLite, and returns structured data to TypeScript.
 
-use super::error::{with_engine, VeloqError};
+use super::error::{VeloqError, with_engine};
 use crate::fit;
 use crate::http::ActivityFetcher;
 use crate::{
@@ -30,9 +30,11 @@ impl StrengthManager {
     /// Returns empty vec if not yet downloaded/parsed.
     fn get_exercise_sets(&self, activity_id: String) -> Result<Vec<FfiExerciseSet>, VeloqError> {
         with_engine(|e| {
-            let sets = e.get_exercise_sets(&activity_id).map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })?;
+            let sets = e
+                .get_exercise_sets(&activity_id)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })?;
             Ok(sets_to_ffi(&activity_id, &sets))
         })?
     }
@@ -40,9 +42,10 @@ impl StrengthManager {
     /// Check if FIT file has been processed for this activity.
     fn is_fit_processed(&self, activity_id: String) -> Result<bool, VeloqError> {
         with_engine(|e| {
-            e.is_fit_processed(&activity_id).map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })
+            e.is_fit_processed(&activity_id)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
         })?
     }
 
@@ -72,7 +75,11 @@ impl StrengthManager {
 
         match fit_data {
             Ok(data) => {
-                info!("[Strength] Downloaded {} bytes for {}", data.len(), activity_id);
+                info!(
+                    "[Strength] Downloaded {} bytes for {}",
+                    data.len(),
+                    activity_id
+                );
 
                 // Parse exercise sets
                 let sets = fit::parse_fit_sets(&data);
@@ -83,15 +90,17 @@ impl StrengthManager {
                 // Store in SQLite and mark as processed
                 with_engine(|e| {
                     if has_sets {
-                        e.store_exercise_sets(&activity_id, &sets)
-                            .map_err(|e| VeloqError::Database {
+                        e.store_exercise_sets(&activity_id, &sets).map_err(|e| {
+                            VeloqError::Database {
                                 msg: format!("{}", e),
-                            })?;
-                    }
-                    e.mark_fit_processed(&activity_id, has_sets)
-                        .map_err(|e| VeloqError::Database {
-                            msg: format!("{}", e),
+                            }
                         })?;
+                    }
+                    e.mark_fit_processed(&activity_id, has_sets).map_err(|e| {
+                        VeloqError::Database {
+                            msg: format!("{}", e),
+                        }
+                    })?;
                     Ok(sets_to_ffi(&activity_id, &sets))
                 })?
             }
@@ -99,9 +108,19 @@ impl StrengthManager {
                 info!("[Strength] FIT download failed for {}: {}", activity_id, e);
 
                 // Mark as processed (no sets) so we don't retry on 404
-                let _ = with_engine(|engine| {
-                    let _ = engine.mark_fit_processed(&activity_id, false);
-                });
+                if let Err(err) = with_engine(|engine| {
+                    engine.mark_fit_processed(&activity_id, false).map_err(|e| {
+                        VeloqError::Database {
+                            msg: format!("{}", e),
+                        }
+                    })
+                }) {
+                    log::error!(
+                        "[Strength] Failed to mark {} as processed: {}",
+                        activity_id,
+                        err
+                    );
+                }
 
                 Ok(Vec::new())
             }
@@ -144,10 +163,8 @@ impl StrengthManager {
                 msg: format!("Failed to create runtime: {}", e),
             })?;
 
-        let fetcher =
-            ActivityFetcher::with_auth_header(auth_header).map_err(|e| VeloqError::Database {
-                msg: e,
-            })?;
+        let fetcher = ActivityFetcher::with_auth_header(auth_header)
+            .map_err(|e| VeloqError::Database { msg: e })?;
 
         let mut processed = Vec::new();
 
@@ -159,23 +176,21 @@ impl StrengthManager {
                     let sets = fit::parse_fit_sets(&data);
                     let has_sets = !sets.is_empty();
 
-                    info!(
-                        "[Strength] Parsed {} sets for {}",
-                        sets.len(),
-                        activity_id
-                    );
+                    info!("[Strength] Parsed {} sets for {}", sets.len(), activity_id);
 
                     let stored = with_engine(|e| -> Result<(), VeloqError> {
                         if has_sets {
-                            e.store_exercise_sets(activity_id, &sets)
-                                .map_err(|e| VeloqError::Database {
+                            e.store_exercise_sets(activity_id, &sets).map_err(|e| {
+                                VeloqError::Database {
                                     msg: format!("{}", e),
-                                })?;
-                        }
-                        e.mark_fit_processed(activity_id, has_sets)
-                            .map_err(|e| VeloqError::Database {
-                                msg: format!("{}", e),
+                                }
                             })?;
+                        }
+                        e.mark_fit_processed(activity_id, has_sets).map_err(|e| {
+                            VeloqError::Database {
+                                msg: format!("{}", e),
+                            }
+                        })?;
                         Ok(())
                     })?;
 
@@ -184,14 +199,20 @@ impl StrengthManager {
                     }
                 }
                 Err(e) => {
-                    info!(
-                        "[Strength] FIT download failed for {}: {}",
-                        activity_id, e
-                    );
+                    info!("[Strength] FIT download failed for {}: {}", activity_id, e);
                     // Mark as processed so we don't retry on 404
-                    let _ = with_engine(|e| {
-                        let _ = e.mark_fit_processed(activity_id, false);
-                    });
+                    if let Err(err) = with_engine(|e| {
+                        e.mark_fit_processed(activity_id, false)
+                            .map_err(|e| VeloqError::Database {
+                                msg: format!("{}", e),
+                            })
+                    }) {
+                        log::error!(
+                            "[Strength] Failed to mark {} as processed: {}",
+                            activity_id,
+                            err
+                        );
+                    }
                 }
             }
         }
@@ -269,8 +290,7 @@ impl StrengthManager {
             let mut muscle_volumes: Vec<FfiMuscleVolume> = muscle_map
                 .into_iter()
                 .map(|(slug, agg)| {
-                    let weighted_sets =
-                        agg.primary_sets as f64 + agg.secondary_sets as f64 * 0.5;
+                    let weighted_sets = agg.primary_sets as f64 + agg.secondary_sets as f64 * 0.5;
                     let mut names: Vec<String> = agg.exercise_names.into_iter().collect();
                     names.sort();
                     FfiMuscleVolume {
@@ -286,8 +306,7 @@ impl StrengthManager {
                 .collect();
 
             // Sort by weighted sets descending
-            muscle_volumes
-                .sort_by(|a, b| b.weighted_sets.partial_cmp(&a.weighted_sets).unwrap());
+            muscle_volumes.sort_by(|a, b| b.weighted_sets.partial_cmp(&a.weighted_sets).unwrap());
 
             Ok(FfiStrengthSummary {
                 muscle_volumes,
@@ -332,14 +351,12 @@ impl StrengthManager {
                 }
 
                 let is_primary = muscle_match.unwrap().intensity == 2;
-                let agg = exercise_map
-                    .entry(set.exercise_category)
-                    .or_insert(ExAgg {
-                        total_sets: 0,
-                        total_weight_kg: 0.0,
-                        activity_ids: std::collections::HashSet::new(),
-                        has_primary: false,
-                    });
+                let agg = exercise_map.entry(set.exercise_category).or_insert(ExAgg {
+                    total_sets: 0,
+                    total_weight_kg: 0.0,
+                    activity_ids: std::collections::HashSet::new(),
+                    has_primary: false,
+                });
 
                 agg.total_sets += 1;
                 agg.total_weight_kg +=
@@ -422,13 +439,11 @@ impl StrengthManager {
                 }
 
                 let is_primary = muscle_match.unwrap().intensity == 2;
-                let agg = activity_map
-                    .entry(activity_id.clone())
-                    .or_insert(ActAgg {
-                        total_sets: 0,
-                        total_weight_kg: 0.0,
-                        has_primary: false,
-                    });
+                let agg = activity_map.entry(activity_id.clone()).or_insert(ActAgg {
+                    total_sets: 0,
+                    total_weight_kg: 0.0,
+                    has_primary: false,
+                });
 
                 agg.total_sets += 1;
                 agg.total_weight_kg +=
@@ -440,11 +455,11 @@ impl StrengthManager {
 
             // Fetch activity names
             let activity_ids: Vec<String> = activity_map.keys().cloned().collect();
-            let names = e
-                .get_activity_names(&activity_ids)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })?;
+            let names =
+                e.get_activity_names(&activity_ids)
+                    .map_err(|err| VeloqError::Database {
+                        msg: format!("{}", err),
+                    })?;
 
             let mut activities: Vec<FfiExerciseActivity> = activity_map
                 .into_iter()
@@ -484,9 +499,11 @@ impl StrengthManager {
     /// Returns slugs matching react-native-body-highlighter format.
     fn get_muscle_groups(&self, activity_id: String) -> Result<Vec<FfiMuscleGroup>, VeloqError> {
         with_engine(|e| {
-            let sets = e.get_exercise_sets(&activity_id).map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })?;
+            let sets = e
+                .get_exercise_sets(&activity_id)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })?;
 
             let groups = fit::aggregate_muscle_groups(&sets);
             Ok(groups

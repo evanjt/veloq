@@ -47,9 +47,6 @@ interface RecordingState {
   connectedSensors: SensorInfo[];
   // Internal: track pause start for duration accumulation
   _pauseStart: number | null;
-  // Future: route/section guidance
-  guidanceSection: { id: string; polyline: [number, number][] } | null;
-  guidanceRoute: { id: string; polyline: [number, number][] } | null;
   // Actions
   startRecording: (type: ActivityType, mode: RecordingMode, pairedEventId?: number) => void;
   pauseRecording: () => void;
@@ -76,8 +73,6 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   pairedEventId: null,
   connectedSensors: [],
   _pauseStart: null,
-  guidanceSection: null,
-  guidanceRoute: null,
 
   startRecording: (type, mode, pairedEventId) => {
     set({
@@ -273,8 +268,6 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       pairedEventId: null,
       connectedSensors: [],
       _pauseStart: null,
-      guidanceSection: null,
-      guidanceRoute: null,
     });
   },
 }));

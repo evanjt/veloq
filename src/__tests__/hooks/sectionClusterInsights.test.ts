@@ -74,7 +74,7 @@ describe('generateSectionClusterInsights', () => {
 
     const insight = result[0];
     expect(insight.id).toBe('section_cluster-improving');
-    expect(insight.category).toBe('section_pr');
+    expect(insight.category).toBe('section_cluster');
     expect(insight.priority).toBe(3);
     expect(insight.iconColor).toBe('#66BB6A');
     expect(insight.title).toContain('count: 3');
@@ -189,10 +189,10 @@ describe('generateSectionClusterInsights', () => {
     expect(result[0].timestamp).toBe(customNow);
   });
 
-  it('does not set navigationTarget (content handles its own navigation)', () => {
+  it('sets navigationTarget to the route workspace section view', () => {
     const trends = [makeTrend('s1', 'A', 1), makeTrend('s2', 'B', 1)];
     const result = generateSectionClusterInsights(trends, NOW, mockT);
-    expect(result[0].navigationTarget).toBeUndefined();
+    expect(result[0].navigationTarget).toBe('/routes?tab=sections');
   });
 
   it('limits to MAX_CLUSTER_INSIGHTS (2)', () => {

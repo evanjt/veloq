@@ -20,26 +20,25 @@
 //!    - Detected sections
 
 use std::collections::{HashMap, HashSet};
-use std::sync::mpsc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex, RwLock};
 
 use crate::sections::SectionSummary;
-use rusqlite::{Connection, Result as SqlResult};
-use rstar::{AABB, RTree, RTreeObject};
 use crate::{
-    ActivityMatchInfo, ActivityMetrics, Bounds, FrequentSection,
-    GpsPoint, MatchConfig, RouteGroup, RouteSignature,
-    SectionConfig, SectionPerformanceResult,
+    ActivityMatchInfo, ActivityMetrics, Bounds, FrequentSection, GpsPoint, MatchConfig, RouteGroup,
+    RouteSignature, SectionConfig, SectionPerformanceResult,
 };
 use lru::LruCache;
 use once_cell::sync::Lazy;
+use rstar::{AABB, RTree, RTreeObject};
+use rusqlite::{Connection, Result as SqlResult};
 
-mod schema;
 mod activities;
-mod routes;
-mod sections;
 mod fitness;
+mod routes;
+mod schema;
+mod sections;
 mod strength;
 mod tiles;
 
@@ -81,6 +80,35 @@ fn get_section_word() -> String {
         .read()
         .map(|t| t.section_word.clone())
         .unwrap_or_else(|_| "Section".to_string())
+}
+
+fn haversine_distance_meters(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
+    const EARTH_RADIUS_M: f64 = 6_371_000.0;
+
+    let dlat = (lat2 - lat1).to_radians();
+    let dlng = (lng2 - lng1).to_radians();
+    let lat1 = lat1.to_radians();
+    let lat2 = lat2.to_radians();
+
+    let a = (dlat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dlng / 2.0).sin().powi(2);
+    let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
+
+    EARTH_RADIUS_M * c
+}
+
+fn bounds_center_distance_meters(
+    bounds: Option<&crate::FfiBounds>,
+    user_lat: f64,
+    user_lng: f64,
+) -> f64 {
+    let Some(bounds) = bounds else {
+        return f64::INFINITY;
+    };
+
+    let center_lat = (bounds.min_lat + bounds.max_lat) / 2.0;
+    let center_lng = (bounds.min_lng + bounds.max_lng) / 2.0;
+
+    haversine_distance_meters(user_lat, user_lng, center_lat, center_lng)
 }
 
 #[derive(Debug, Clone)]
@@ -162,7 +190,6 @@ pub struct SectionDetectionProgress {
     pub total: Arc<AtomicU32>,
 }
 
-
 impl SectionDetectionProgress {
     pub fn new() -> Self {
         Self {
@@ -218,7 +245,6 @@ pub struct SectionDetectionHandle {
     /// Shared progress state
     pub progress: SectionDetectionProgress,
 }
-
 
 impl SectionDetectionHandle {
     /// Check if detection is complete (non-blocking).
@@ -386,7 +412,6 @@ pub struct PersistentRouteEngine {
     perf_cache_result: Option<SectionPerformanceResult>,
 }
 
-
 impl PersistentRouteEngine {
     /// Invalidate the single-entry performance cache.
     /// Call after any mutation that affects sections, time streams, or activity metrics.
@@ -434,7 +459,6 @@ impl PersistentRouteEngine {
         Self::new(":memory:")
     }
 
-
     /// Load all metadata and groups from the database.
     pub fn load(&mut self) -> SqlResult<()> {
         self.load_metadata()?;
@@ -455,8 +479,6 @@ impl PersistentRouteEngine {
 
         Ok(())
     }
-
-
 
     // ========================================================================
     // Configuration
@@ -570,7 +592,8 @@ impl PersistentRouteEngine {
                 // Add to in-memory metrics
                 let mut clone_metrics = metrics.clone();
                 clone_metrics.activity_id = clone_id.clone();
-                self.activity_metrics.insert(clone_id.clone(), clone_metrics);
+                self.activity_metrics
+                    .insert(clone_id.clone(), clone_metrics);
             }
 
             // Copy section_activities entries
@@ -659,7 +682,13 @@ impl PersistentRouteEngine {
         section_limit: u32,
         section_offset: u32,
         min_group_activity_count: u32,
+        prioritize_nearest_groups: bool,
+        prioritize_nearest_sections: bool,
+        user_lat: f64,
+        user_lng: f64,
     ) -> crate::FfiRoutesScreenData {
+        let has_user_location = user_lat.is_finite() && user_lng.is_finite();
+
         // Get date range from activity_metrics
         let (oldest_date, newest_date): (Option<i64>, Option<i64>) = self
             .db
@@ -675,7 +704,18 @@ impl PersistentRouteEngine {
         if min_group_activity_count > 0 {
             raw_summaries.retain(|g| g.activity_count >= min_group_activity_count);
         }
-        raw_summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count));
+        if prioritize_nearest_groups && has_user_location {
+            raw_summaries.sort_by(|a, b| {
+                let dist_a = bounds_center_distance_meters(a.bounds.as_ref(), user_lat, user_lng);
+                let dist_b = bounds_center_distance_meters(b.bounds.as_ref(), user_lat, user_lng);
+                dist_a
+                    .partial_cmp(&dist_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| b.activity_count.cmp(&a.activity_count))
+            });
+        } else {
+            raw_summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count));
+        }
         let total_groups = raw_summaries.len();
         let paged_summaries: Vec<_> = raw_summaries
             .into_iter()
@@ -685,7 +725,10 @@ impl PersistentRouteEngine {
         let has_more_groups = total_groups > (group_offset as usize + paged_summaries.len());
 
         // Batch-load representative polylines from signatures table (1 query instead of N)
-        let rep_ids: Vec<&str> = paged_summaries.iter().map(|g| g.representative_id.as_str()).collect();
+        let rep_ids: Vec<&str> = paged_summaries
+            .iter()
+            .map(|g| g.representative_id.as_str())
+            .collect();
         let rep_polylines = self.get_representative_polylines_batch(&rep_ids);
 
         let groups: Vec<crate::FfiGroupWithPolyline> = paged_summaries
@@ -717,15 +760,25 @@ impl PersistentRouteEngine {
 
         // Get section summaries, sort by visit_count DESC, apply limit/offset
         let mut raw_sections = self.get_section_summaries();
-        raw_sections.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
+        if prioritize_nearest_sections && has_user_location {
+            raw_sections.sort_by(|a, b| {
+                let dist_a = bounds_center_distance_meters(a.bounds.as_ref(), user_lat, user_lng);
+                let dist_b = bounds_center_distance_meters(b.bounds.as_ref(), user_lat, user_lng);
+                dist_a
+                    .partial_cmp(&dist_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| b.visit_count.cmp(&a.visit_count))
+            });
+        } else {
+            raw_sections.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
+        }
         let total_sections = raw_sections.len();
         let paged_sections: Vec<_> = raw_sections
             .into_iter()
             .skip(section_offset as usize)
             .take(section_limit as usize)
             .collect();
-        let has_more_sections =
-            total_sections > (section_offset as usize + paged_sections.len());
+        let has_more_sections = total_sections > (section_offset as usize + paged_sections.len());
 
         // Batch-load section polylines (1 query instead of N)
         let section_ids: Vec<&str> = paged_sections.iter().map(|s| s.id.as_str()).collect();
@@ -734,10 +787,7 @@ impl PersistentRouteEngine {
         let sections: Vec<crate::FfiSectionWithPolyline> = paged_sections
             .into_iter()
             .map(|s| {
-                let polyline = section_polylines
-                    .get(&s.id)
-                    .cloned()
-                    .unwrap_or_default();
+                let polyline = section_polylines.get(&s.id).cloned().unwrap_or_default();
                 crate::FfiSectionWithPolyline {
                     id: s.id,
                     name: s.name,
@@ -833,7 +883,8 @@ pub mod persistent_engine_ffi {
                 if let Err(e) = std::fs::create_dir_all(parent) {
                     log::error!(
                         "tracematch: [PersistentEngine] Failed to create directory {:?}: {}",
-                        parent, e
+                        parent,
+                        e
                     );
                     return false;
                 }
@@ -861,7 +912,8 @@ pub mod persistent_engine_ffi {
             Err(e) => {
                 log::error!(
                     "tracematch: [PersistentEngine] Failed to initialize with path '{}': {:?}",
-                    db_path, e
+                    db_path,
+                    e
                 );
                 false
             }
@@ -888,7 +940,7 @@ pub fn compute_polyline_overlap(
     coords_b: Vec<f64>,
     threshold_meters: f64,
 ) -> f64 {
-    use rstar::{RTree, AABB};
+    use rstar::{AABB, RTree};
 
     if coords_a.len() < 2 || coords_b.len() < 2 {
         return 0.0;
@@ -897,10 +949,7 @@ pub fn compute_polyline_overlap(
     let points_a_count = coords_a.len() / 2;
 
     // Build R-tree from polyline B
-    let points_b: Vec<[f64; 2]> = coords_b
-        .chunks_exact(2)
-        .map(|c| [c[0], c[1]])
-        .collect();
+    let points_b: Vec<[f64; 2]> = coords_b.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
     let rtree = RTree::bulk_load(points_b);
 
     // Approximate threshold in degrees (rough: 1 degree ≈ 111km at equator)
@@ -919,8 +968,16 @@ pub fn compute_polyline_overlap(
 
         let mut found = false;
         for &[lat_b, lng_b] in rtree.locate_in_envelope(&envelope) {
-            let pa = tracematch::GpsPoint { latitude: lat_a, longitude: lng_a, elevation: None };
-            let pb = tracematch::GpsPoint { latitude: lat_b, longitude: lng_b, elevation: None };
+            let pa = tracematch::GpsPoint {
+                latitude: lat_a,
+                longitude: lng_a,
+                elevation: None,
+            };
+            let pb = tracematch::GpsPoint {
+                latitude: lat_b,
+                longitude: lng_b,
+                elevation: None,
+            };
             let dist = tracematch::geo_utils::haversine_distance(&pa, &pb);
             if dist <= threshold_meters {
                 found = true;
@@ -1119,10 +1176,18 @@ mod tests {
         // Add two activities with the same route
         let coords = sample_coords();
         engine
-            .add_activity("activity-1".to_string(), coords.clone(), "cycling".to_string())
+            .add_activity(
+                "activity-1".to_string(),
+                coords.clone(),
+                "cycling".to_string(),
+            )
             .unwrap();
         engine
-            .add_activity("activity-2".to_string(), coords.clone(), "cycling".to_string())
+            .add_activity(
+                "activity-2".to_string(),
+                coords.clone(),
+                "cycling".to_string(),
+            )
             .unwrap();
 
         // Create and apply a FrequentSection with activity-1 as the representative
@@ -1135,17 +1200,30 @@ mod tests {
         engine.apply_sections(vec![section]).unwrap();
 
         // Verify initial state (from DATABASE, not in-memory cache)
-        let db_section = engine.get_section("sec_cycling_1").expect("Section should exist");
-        assert_eq!(db_section.representative_activity_id, Some("activity-1".to_string()));
+        let db_section = engine
+            .get_section("sec_cycling_1")
+            .expect("Section should exist");
+        assert_eq!(
+            db_section.representative_activity_id,
+            Some("activity-1".to_string())
+        );
         assert!(!db_section.is_user_defined);
 
         // Set activity-2 as the new reference
         let result = engine.set_section_reference("sec_cycling_1", "activity-2");
-        assert!(result.is_ok(), "set_section_reference should succeed for auto-detected sections");
+        assert!(
+            result.is_ok(),
+            "set_section_reference should succeed for auto-detected sections"
+        );
 
         // Verify the reference was changed (from DATABASE)
-        let db_section = engine.get_section("sec_cycling_1").expect("Section should exist");
-        assert_eq!(db_section.representative_activity_id, Some("activity-2".to_string()));
+        let db_section = engine
+            .get_section("sec_cycling_1")
+            .expect("Section should exist");
+        assert_eq!(
+            db_section.representative_activity_id,
+            Some("activity-2".to_string())
+        );
         assert!(db_section.is_user_defined);
     }
 
@@ -1178,10 +1256,18 @@ mod tests {
 
         // Add activities
         engine
-            .add_activity("activity-short".to_string(), section_coords.clone(), "cycling".to_string())
+            .add_activity(
+                "activity-short".to_string(),
+                section_coords.clone(),
+                "cycling".to_string(),
+            )
             .unwrap();
         engine
-            .add_activity("activity-long".to_string(), long_activity_coords.clone(), "cycling".to_string())
+            .add_activity(
+                "activity-long".to_string(),
+                long_activity_coords.clone(),
+                "cycling".to_string(),
+            )
             .unwrap();
 
         // Create auto-detected section with the SHORT polyline
@@ -1194,8 +1280,14 @@ mod tests {
         engine.apply_sections(vec![section]).unwrap();
 
         // Verify initial state from DATABASE (not in-memory cache)
-        let db_section = engine.get_section("sec_cycling_auto").expect("Section should exist in DB");
-        assert_eq!(db_section.polyline.len(), 50, "Initial section should have 50 points");
+        let db_section = engine
+            .get_section("sec_cycling_auto")
+            .expect("Section should exist in DB");
+        assert_eq!(
+            db_section.polyline.len(),
+            50,
+            "Initial section should have 50 points"
+        );
         let initial_distance = compute_test_polyline_distance(&db_section.polyline);
 
         // Set the LONG activity as the new reference
@@ -1203,7 +1295,9 @@ mod tests {
         assert!(result.is_ok());
 
         // CRITICAL ASSERTION: Read from DATABASE after update
-        let db_section = engine.get_section("sec_cycling_auto").expect("Section should exist in DB");
+        let db_section = engine
+            .get_section("sec_cycling_auto")
+            .expect("Section should exist in DB");
 
         // Polyline should be approximately the same length (NOT the full 200 points)
         // Allow some variance since spatial extraction may include slightly more/fewer points
@@ -1221,7 +1315,8 @@ mod tests {
             distance_ratio > 0.8 && distance_ratio < 1.2,
             "BUG: Distance changed significantly from {} to {}! \
              Expected approximately the same distance after setting new reference.",
-            initial_distance, new_distance
+            initial_distance,
+            new_distance
         );
 
         // Representative should be updated
@@ -1246,14 +1341,27 @@ mod tests {
             .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278 + i as f64 * 0.0005))
             .collect();
         let coords_2: Vec<GpsPoint> = (0..50)
-            .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001 + 0.0001, -0.1278 + i as f64 * 0.0005))
+            .map(|i| {
+                GpsPoint::new(
+                    51.5074 + i as f64 * 0.001 + 0.0001,
+                    -0.1278 + i as f64 * 0.0005,
+                )
+            })
             .collect();
 
         engine
-            .add_activity("activity-1".to_string(), coords_1.clone(), "cycling".to_string())
+            .add_activity(
+                "activity-1".to_string(),
+                coords_1.clone(),
+                "cycling".to_string(),
+            )
             .unwrap();
         engine
-            .add_activity("activity-2".to_string(), coords_2.clone(), "cycling".to_string())
+            .add_activity(
+                "activity-2".to_string(),
+                coords_2.clone(),
+                "cycling".to_string(),
+            )
             .unwrap();
 
         // Create auto-detected section with consensus polyline from both activities
@@ -1276,18 +1384,27 @@ mod tests {
         engine.apply_sections(vec![section]).unwrap();
 
         // Set reference to activity-1 (marks as user_defined)
-        engine.set_section_reference("sec_cycling_consensus", "activity-1").unwrap();
+        engine
+            .set_section_reference("sec_cycling_consensus", "activity-1")
+            .unwrap();
 
         // Verify it's now user-defined (from DATABASE)
-        let db_section = engine.get_section("sec_cycling_consensus").expect("Section should exist");
-        assert!(db_section.is_user_defined, "Section should be user-defined after set_section_reference");
+        let db_section = engine
+            .get_section("sec_cycling_consensus")
+            .expect("Section should exist");
+        assert!(
+            db_section.is_user_defined,
+            "Section should be user-defined after set_section_reference"
+        );
 
         // Now reset the reference
         let result = engine.reset_section_reference("sec_cycling_consensus");
         assert!(result.is_ok());
 
         // CRITICAL ASSERTION: After reset, read from DATABASE
-        let db_section = engine.get_section("sec_cycling_consensus").expect("Section should exist");
+        let db_section = engine
+            .get_section("sec_cycling_consensus")
+            .expect("Section should exist");
 
         // Should not be user-defined anymore
         assert!(
@@ -1309,7 +1426,11 @@ mod tests {
 
         for i in 0..10 {
             engine
-                .add_activity(format!("activity-{}", i), coords.clone(), "cycling".to_string())
+                .add_activity(
+                    format!("activity-{}", i),
+                    coords.clone(),
+                    "cycling".to_string(),
+                )
                 .unwrap();
         }
 
@@ -1334,7 +1455,8 @@ mod tests {
 
         // CRITICAL ASSERTION: After save, activity_traces should be cleared from in-memory sections
         // to prevent memory leak
-        let in_memory_section_traces_empty = engine.sections.iter().all(|s| s.activity_traces.is_empty());
+        let in_memory_section_traces_empty =
+            engine.sections.iter().all(|s| s.activity_traces.is_empty());
         assert!(
             in_memory_section_traces_empty,
             "BUG: Memory leak! activity_traces should be cleared after save. \
@@ -1360,10 +1482,18 @@ mod tests {
             .collect();
 
         engine
-            .add_activity("activity-short".to_string(), coords.clone(), "cycling".to_string())
+            .add_activity(
+                "activity-short".to_string(),
+                coords.clone(),
+                "cycling".to_string(),
+            )
             .unwrap();
         engine
-            .add_activity("activity-long".to_string(), long_coords.clone(), "cycling".to_string())
+            .add_activity(
+                "activity-long".to_string(),
+                long_coords.clone(),
+                "cycling".to_string(),
+            )
             .unwrap();
 
         // Create section with CORRECT distance matching the polyline
@@ -1378,21 +1508,28 @@ mod tests {
         engine.apply_sections(vec![section]).unwrap();
 
         // Get initial state from DB
-        let db_section_before = engine.get_section("sec_integrity").expect("Section should exist");
+        let db_section_before = engine
+            .get_section("sec_integrity")
+            .expect("Section should exist");
         let initial_distance = db_section_before.distance_meters;
 
         // Set reference to the longer activity
-        engine.set_section_reference("sec_integrity", "activity-long").unwrap();
+        engine
+            .set_section_reference("sec_integrity", "activity-long")
+            .unwrap();
 
         // Read from DATABASE after update
-        let db_section = engine.get_section("sec_integrity").expect("Section should exist");
+        let db_section = engine
+            .get_section("sec_integrity")
+            .expect("Section should exist");
 
         // Distance should be approximately the same (within 20% since we're extracting matching portion)
         let distance_ratio = db_section.distance_meters / initial_distance;
         assert!(
             distance_ratio > 0.8 && distance_ratio < 1.2,
             "Distance changed too much. Before: {}, After: {}",
-            initial_distance, db_section.distance_meters
+            initial_distance,
+            db_section.distance_meters
         );
 
         // CRITICAL: Verify stored distance matches computed distance from polyline (data integrity)
@@ -1401,7 +1538,8 @@ mod tests {
         assert!(
             integrity_diff < 10.0, // Allow 10m tolerance
             "Stored distance ({}) doesn't match polyline distance ({})! Data integrity issue.",
-            db_section.distance_meters, computed_distance
+            db_section.distance_meters,
+            computed_distance
         );
     }
 
@@ -1410,15 +1548,18 @@ mod tests {
         if points.len() < 2 {
             return 0.0;
         }
-        points.windows(2).map(|w| {
-            let dlat = (w[1].latitude - w[0].latitude).to_radians();
-            let dlon = (w[1].longitude - w[0].longitude).to_radians();
-            let a = (dlat / 2.0).sin().powi(2)
-                + w[0].latitude.to_radians().cos()
-                * w[1].latitude.to_radians().cos()
-                * (dlon / 2.0).sin().powi(2);
-            6_371_000.0 * 2.0 * a.sqrt().asin()
-        }).sum()
+        points
+            .windows(2)
+            .map(|w| {
+                let dlat = (w[1].latitude - w[0].latitude).to_radians();
+                let dlon = (w[1].longitude - w[0].longitude).to_radians();
+                let a = (dlat / 2.0).sin().powi(2)
+                    + w[0].latitude.to_radians().cos()
+                        * w[1].latitude.to_radians().cos()
+                        * (dlon / 2.0).sin().powi(2);
+                6_371_000.0 * 2.0 * a.sqrt().asin()
+            })
+            .sum()
     }
 
     /// Test that set_section_reference re-matches activities against the new polyline.
@@ -1439,7 +1580,12 @@ mod tests {
 
         // Activity 2: overlaps with section (same area)
         let activity2_coords: Vec<GpsPoint> = (0..55)
-            .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278 + i as f64 * 0.0005 + 0.0001))
+            .map(|i| {
+                GpsPoint::new(
+                    51.5074 + i as f64 * 0.001,
+                    -0.1278 + i as f64 * 0.0005 + 0.0001,
+                )
+            })
             .collect();
 
         // Activity 3: does NOT overlap (different area entirely)
@@ -1448,29 +1594,61 @@ mod tests {
             .collect();
 
         // Add activities
-        engine.add_activity("activity-1".to_string(), activity1_coords.clone(), "cycling".to_string()).unwrap();
-        engine.add_activity("activity-2".to_string(), activity2_coords.clone(), "cycling".to_string()).unwrap();
-        engine.add_activity("activity-3".to_string(), activity3_coords.clone(), "cycling".to_string()).unwrap();
+        engine
+            .add_activity(
+                "activity-1".to_string(),
+                activity1_coords.clone(),
+                "cycling".to_string(),
+            )
+            .unwrap();
+        engine
+            .add_activity(
+                "activity-2".to_string(),
+                activity2_coords.clone(),
+                "cycling".to_string(),
+            )
+            .unwrap();
+        engine
+            .add_activity(
+                "activity-3".to_string(),
+                activity3_coords.clone(),
+                "cycling".to_string(),
+            )
+            .unwrap();
 
         // Create section with all 3 activities (even though activity-3 doesn't actually overlap)
         let section = create_test_frequent_section(
             "sec_rematch_test",
             "activity-1",
-            vec!["activity-1".to_string(), "activity-2".to_string(), "activity-3".to_string()],
+            vec![
+                "activity-1".to_string(),
+                "activity-2".to_string(),
+                "activity-3".to_string(),
+            ],
             section_coords.clone(),
         );
         engine.apply_sections(vec![section]).unwrap();
 
         // Verify initial state: all 3 activities are associated
-        let db_section = engine.get_section("sec_rematch_test").expect("Section should exist");
-        assert_eq!(db_section.activity_ids.len(), 3, "Initial section should have 3 activities");
+        let db_section = engine
+            .get_section("sec_rematch_test")
+            .expect("Section should exist");
+        assert_eq!(
+            db_section.activity_ids.len(),
+            3,
+            "Initial section should have 3 activities"
+        );
 
         // Set activity-1 as reference (this triggers re-matching)
-        engine.set_section_reference("sec_rematch_test", "activity-1").unwrap();
+        engine
+            .set_section_reference("sec_rematch_test", "activity-1")
+            .unwrap();
 
         // After re-matching, only activities 1 and 2 should remain (they overlap)
         // Activity 3 should be removed (it's in a completely different area)
-        let db_section = engine.get_section("sec_rematch_test").expect("Section should exist");
+        let db_section = engine
+            .get_section("sec_rematch_test")
+            .expect("Section should exist");
 
         // Activity-3 should have been removed (doesn't overlap)
         assert!(
@@ -1488,5 +1666,4 @@ mod tests {
             "Activity-2 should still be present after re-matching"
         );
     }
-
 }

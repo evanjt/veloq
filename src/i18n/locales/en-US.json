@@ -402,7 +402,14 @@
     "toBuildFitness": "to build fitness. Be",
     "toPreventOvertraining": "to prevent overtraining.",
     "tsb": "TSB",
-    "understandingMetrics": "Understanding the Metrics"
+    "understandingMetrics": "Understanding the Metrics",
+    "guidance": {
+      "highRisk": "Accumulated fatigue is very high. Consider rest or easy sessions until form rises above -30.",
+      "optimal": "Productive training range. Your body is absorbing training stress effectively.",
+      "greyZone": "Moderate training load. Neither rested nor heavily fatigued — maintenance territory.",
+      "fresh": "Well-rested. Good timing for a race or high-intensity test. Fitness may decline if sustained.",
+      "transition": "Very rested but losing fitness stimulus. Consider resuming structured training."
+    }
   },
   "formZones": {
     "transition": "Transition",

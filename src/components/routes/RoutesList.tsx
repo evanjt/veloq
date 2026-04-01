@@ -32,7 +32,7 @@ import { DataRangeFooter } from './DataRangeFooter';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 import { toActivityType } from '@/types/routes';
 
-type SortOption = 'activities' | 'name' | 'nearby';
+export type RoutesSortOption = 'activities' | 'name' | 'nearby';
 
 interface RoutesListProps {
   /** Callback when list is pulled to refresh */
@@ -51,6 +51,12 @@ interface RoutesListProps {
   hasMore?: boolean;
   /** User's current location for "Nearby" sort */
   userLocation?: LatLng | null;
+  /** Total routes count for the header summary */
+  totalGroupCount?: number;
+  /** Active sort option */
+  sortOption: RoutesSortOption;
+  /** Called when sort changes */
+  onSortChange: (next: RoutesSortOption) => void;
 }
 
 // Memoized routes list - only updates when route count changes
@@ -161,21 +167,14 @@ export function RoutesList({
   onLoadMore,
   hasMore = false,
   userLocation,
+  totalGroupCount,
+  sortOption,
+  onSortChange,
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortOption, setSortOption] = useState<SortOption>(userLocation ? 'nearby' : 'activities');
-  const sortInitRef = useRef(false);
-
-  // Switch to 'nearby' sort once location first becomes available
-  useEffect(() => {
-    if (userLocation && !sortInitRef.current) {
-      sortInitRef.current = true;
-      setSortOption('nearby');
-    }
-  }, [userLocation]);
 
   // Convert batch groups to RouteGroup format for RouteRow
   const allGroups = useMemo(() => {
@@ -209,16 +208,13 @@ export function RoutesList({
       filtered = filtered.filter((g) => g.name?.toLowerCase().includes(query));
     }
     // Apply sort
-    if (sortOption === 'name') {
+    if (sortOption === 'activities') {
+      filtered.sort((a, b) => b.activityCount - a.activityCount);
+    } else if (sortOption === 'name') {
       filtered.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
-    } else if (sortOption === 'nearby' && userLocation) {
-      filtered.sort((a, b) => {
-        const distA = a.center ? haversineDistance(userLocation, a.center) : Infinity;
-        const distB = b.center ? haversineDistance(userLocation, b.center) : Infinity;
-        return distA - distB;
-      });
     }
-    // 'activities' is the default order from engine (activityCount DESC)
+
+    // Preserve native order for nearby sorting so pagination stays correct.
     return filtered;
   }, [allGroups, selectedSportFilter, searchQuery, sortOption, userLocation]);
 
@@ -259,24 +255,26 @@ export function RoutesList({
     return [] as DiscoveredRouteInfo[];
   }, []);
 
-  const sortOptions: SortOption[] = useMemo(() => {
-    const opts: SortOption[] = ['activities', 'name'];
-    if (userLocation) opts.push('nearby');
+  const sortOptions: RoutesSortOption[] = useMemo(() => {
+    const opts: RoutesSortOption[] = ['activities', 'name'];
+    if (userLocation) opts.unshift('nearby');
     return opts;
   }, [userLocation]);
 
-  const sortLabelKeys: Record<SortOption, string> = {
+  const sortLabelKeys: Record<RoutesSortOption, string> = {
     activities: 'routes.sortActivities',
     name: 'routes.sortNameAZ',
     nearby: 'routes.sortNearby',
   };
 
   const handleCycleSort = useCallback(() => {
-    setSortOption((current) => {
-      const idx = sortOptions.indexOf(current);
-      return sortOptions[(idx + 1) % sortOptions.length];
-    });
-  }, [sortOptions]);
+    const idx = sortOptions.indexOf(sortOption);
+    const nextIndex = idx >= 0 ? (idx + 1) % sortOptions.length : 0;
+    onSortChange(sortOptions[nextIndex]);
+  }, [onSortChange, sortOption, sortOptions]);
+
+  const displayRouteCount = totalGroupCount ?? allGroups.length;
+  const routeInfoText = 'Routes are whole activities you repeat on similar paths.';
 
   const renderHeader = () => (
     <View>
@@ -392,6 +390,17 @@ export function RoutesList({
       {/* Search and sport filters — outside FlatList to prevent keyboard dismissal */}
       {!showProcessing && allGroups.length > 0 && (
         <View style={styles.filterHeader}>
+          <View style={[styles.infoNotice, isDark && styles.infoNoticeDark]}>
+            <MaterialCommunityIcons
+              name="information-outline"
+              size={14}
+              color={isDark ? darkColors.textDisabled : colors.textDisabled}
+            />
+            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>{routeInfoText}</Text>
+          </View>
+          <Text style={[styles.summaryText, isDark && styles.summaryTextDark]}>
+            {displayRouteCount} {t('trainingScreen.routes')}
+          </Text>
           <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>
             <MaterialCommunityIcons
               name="magnify"
@@ -524,6 +533,33 @@ const styles = StyleSheet.create({
   },
   filterHeader: {
     marginBottom: spacing.sm,
+  },
+  infoNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginHorizontal: spacing.md,
+  },
+  infoNoticeDark: {},
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textDisabled,
+    lineHeight: 16,
+  },
+  infoTextDark: {
+    color: darkColors.textDisabled,
+  },
+  summaryText: {
+    marginHorizontal: spacing.md,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  summaryTextDark: {
+    color: darkColors.textPrimary,
   },
   list: {
     paddingTop: spacing.md,

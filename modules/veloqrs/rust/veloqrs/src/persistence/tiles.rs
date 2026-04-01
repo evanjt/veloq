@@ -7,14 +7,19 @@
 use super::{PersistentRouteEngine, TileGenerationHandle};
 use crate::tiles;
 use log::info;
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::mpsc;
 use tracematch::{Bounds, GpsPoint};
 
 /// Tile format version — increment when tile size, zoom range, or rendering changes.
 /// Triggers automatic cache clear + regeneration on app upgrade.
-const TILE_FORMAT_VERSION: &str = "2";
+const TILE_FORMAT_VERSION: &str = "5";
+
+/// Expand activity bounds slightly so line antialiasing and low-zoom blur can bleed into
+/// neighboring tiles without getting clipped by strict metadata bounds.
+const TILE_ENUMERATION_MARGIN_DEGREES: f64 = 0.002;
 
 impl PersistentRouteEngine {
     /// Set the filesystem path where heatmap tiles are stored.
@@ -26,8 +31,7 @@ impl PersistentRouteEngine {
 
         // Check tile format version — clear stale tiles on upgrade
         let version_file = Path::new(&path).join("version.txt");
-        let current_version = std::fs::read_to_string(&version_file)
-            .unwrap_or_default();
+        let current_version = std::fs::read_to_string(&version_file).unwrap_or_default();
         if current_version.trim() != TILE_FORMAT_VERSION {
             info!(
                 "[heatmap] Tile format changed ({:?} → {}), clearing stale tiles",
@@ -35,17 +39,27 @@ impl PersistentRouteEngine {
                 TILE_FORMAT_VERSION
             );
             tiles::clear_all_tiles(Path::new(&path));
-            std::fs::create_dir_all(&path).ok();
-            std::fs::write(&version_file, TILE_FORMAT_VERSION).ok();
+            if let Err(e) = std::fs::create_dir_all(&path) {
+                log::warn!(
+                    "[heatmap] Failed to create tiles directory {:?}: {}",
+                    path,
+                    e
+                );
+            }
+            if let Err(e) = std::fs::write(&version_file, TILE_FORMAT_VERSION) {
+                log::warn!(
+                    "[heatmap] Failed to write version file {:?}: {}",
+                    version_file,
+                    e
+                );
+            }
         }
 
         // If we already have activity data (existing user / upgrade),
         // generate tiles immediately so the map shows the heatmap on first view.
         if !self.activity_metadata.is_empty() {
             if let Some(handle) = self.generate_tiles_background() {
-                if let Ok(mut guard) =
-                    super::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock()
-                {
+                if let Ok(mut guard) = super::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock() {
                     *guard = Some(handle);
                 }
             }
@@ -86,6 +100,25 @@ impl PersistentRouteEngine {
     pub fn clear_heatmap_tiles(&self, base_path: &str) -> u32 {
         tiles::clear_all_tiles(Path::new(base_path))
     }
+
+    /// Delete heatmap tiles within a geographic bounding box across all zoom levels.
+    /// Used when activities are removed to prevent stale heatmap traces.
+    pub fn invalidate_tiles_for_bounds(&self, bounds: &Bounds) -> u32 {
+        if let Some(ref tiles_path) = self.heatmap_tiles_path {
+            let config = tiles::HeatmapConfig::default();
+            tiles::invalidate_tiles_in_bounds(
+                Path::new(tiles_path),
+                bounds.min_lat,
+                bounds.max_lat,
+                bounds.min_lng,
+                bounds.max_lng,
+                config.min_zoom,
+                config.max_zoom,
+            )
+        } else {
+            0
+        }
+    }
 }
 
 /// Generate heatmap tiles on a background thread.
@@ -95,25 +128,25 @@ fn background_generate_tiles(db_path: &str, tiles_path: &str, all_bounds: &[Boun
     let base = Path::new(tiles_path);
     let config = tiles::HeatmapConfig::default();
 
-    // Compute global bounds from all activities
-    let mut min_lat = 90.0_f64;
-    let mut max_lat = -90.0_f64;
-    let mut min_lng = 180.0_f64;
-    let mut max_lng = -180.0_f64;
+    // Enumerate tile coordinates from each activity bounds rather than the full global bbox.
+    // This keeps higher zoom generation tractable for users with travel far apart.
+    let mut tile_coords_set: HashSet<(u8, u32, u32)> = HashSet::new();
     for b in all_bounds {
-        min_lat = min_lat.min(b.min_lat);
-        max_lat = max_lat.max(b.max_lat);
-        min_lng = min_lng.min(b.min_lng);
-        max_lng = max_lng.max(b.max_lng);
-    }
+        let min_lat =
+            (b.min_lat - TILE_ENUMERATION_MARGIN_DEGREES).clamp(-85.051_128_78, 85.051_128_78);
+        let max_lat =
+            (b.max_lat + TILE_ENUMERATION_MARGIN_DEGREES).clamp(-85.051_128_78, 85.051_128_78);
+        let min_lng = (b.min_lng - TILE_ENUMERATION_MARGIN_DEGREES).clamp(-180.0, 180.0);
+        let max_lng = (b.max_lng + TILE_ENUMERATION_MARGIN_DEGREES).clamp(-180.0, 180.0);
 
-    // Enumerate all tile coordinates, regenerating every tile (overwrite in-place, no flicker)
-    let mut tile_coords: Vec<(u8, u32, u32)> = Vec::new();
-    for z in config.min_zoom..=config.max_zoom {
-        for (x, y) in tiles::tiles_for_bounds(min_lat, max_lat, min_lng, max_lng, z) {
-            tile_coords.push((z, x, y));
+        for z in config.min_zoom..=config.max_zoom {
+            for (x, y) in tiles::tiles_for_bounds(min_lat, max_lat, min_lng, max_lng, z) {
+                tile_coords_set.insert((z, x, y));
+            }
         }
     }
+    let mut tile_coords: Vec<(u8, u32, u32)> = tile_coords_set.into_iter().collect();
+    tile_coords.sort_unstable();
 
     if tile_coords.is_empty() {
         return 0;
@@ -204,7 +237,18 @@ fn load_gps_track(conn: &Connection, activity_id: &str) -> Option<Vec<GpsPoint>>
         params![activity_id],
         |row| {
             let blob: Vec<u8> = row.get(0)?;
-            Ok(rmp_serde::from_slice(&blob).unwrap_or_default())
+            match rmp_serde::from_slice(&blob) {
+                Ok(track) => Ok(track),
+                Err(e) => {
+                    log::warn!(
+                        "[heatmap] Failed to deserialize GPS track for activity {}: {}",
+                        activity_id,
+                        e
+                    );
+                    // Return empty track so one bad record doesn't halt tile generation
+                    Ok(Vec::new())
+                }
+            }
         },
     )
     .ok()

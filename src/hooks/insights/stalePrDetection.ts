@@ -55,7 +55,10 @@ export interface StalePRPaceTrend {
 export interface StalePRInput {
   sections: StalePRSectionData[];
   ftpTrend: StalePRFtpTrend | null;
-  paceTrend: StalePRPaceTrend | null;
+  /** Backward-compatible alias for running pace trend. */
+  paceTrend?: StalePRPaceTrend | null;
+  runPaceTrend?: StalePRPaceTrend | null;
+  swimPaceTrend?: StalePRPaceTrend | null;
   recentPRs: StalePRRecentPR[];
 }
 
@@ -93,7 +96,8 @@ const MAX_OPPORTUNITIES = 3;
 function getFitnessImprovement(
   sportType: string | undefined,
   ftpTrend: StalePRFtpTrend | null,
-  paceTrend: StalePRPaceTrend | null
+  runPaceTrend: StalePRPaceTrend | null,
+  swimPaceTrend: StalePRPaceTrend | null
 ): {
   metric: 'power' | 'pace';
   current: number;
@@ -101,9 +105,18 @@ function getFitnessImprovement(
   gain: number;
   unit: string;
 } | null {
-  const isRunning = sportType === 'Run' || sportType === 'Swim';
+  const isRunning = sportType === 'Run' || sportType === 'VirtualRun' || sportType === 'TrailRun';
+  const isSwimming = sportType === 'Swim' || sportType === 'OpenWaterSwim';
+  const isCycling =
+    sportType === 'Ride' ||
+    sportType === 'VirtualRide' ||
+    sportType === 'MountainBikeRide' ||
+    sportType === 'GravelRide' ||
+    sportType === 'Handcycle' ||
+    sportType === 'Velomobile';
+  const paceTrend = isRunning ? runPaceTrend : isSwimming ? swimPaceTrend : null;
 
-  if (isRunning && paceTrend) {
+  if ((isRunning || isSwimming) && paceTrend) {
     const cur = paceTrend.latestPace;
     const prev = paceTrend.previousPace;
     if (cur == null || prev == null || !Number.isFinite(cur) || !Number.isFinite(prev)) return null;
@@ -116,11 +129,11 @@ function getFitnessImprovement(
       current: cur,
       previous: prev,
       gain: Math.round(gainPercent * 10) / 10,
-      unit: 'min/km',
+      unit: isSwimming ? 'min/100m' : 'min/km',
     };
   }
 
-  if (!isRunning && ftpTrend) {
+  if (isCycling && ftpTrend) {
     const cur = ftpTrend.latestFtp;
     const prev = ftpTrend.previousFtp;
     if (cur == null || prev == null || !Number.isFinite(cur) || !Number.isFinite(prev)) return null;
@@ -147,10 +160,11 @@ function getFitnessImprovement(
  * relevant fitness metric has improved by 3%+.
  */
 export function detectStalePROpportunities(input: StalePRInput): StalePROpportunity[] {
-  const { sections, ftpTrend, paceTrend, recentPRs } = input;
+  const { sections, ftpTrend, paceTrend, runPaceTrend, swimPaceTrend, recentPRs } = input;
+  const resolvedRunPaceTrend = runPaceTrend ?? paceTrend ?? null;
 
   // No fitness data at all → nothing to flag
-  if (!ftpTrend && !paceTrend) return [];
+  if (!ftpTrend && !resolvedRunPaceTrend && !swimPaceTrend) return [];
 
   // Build a set of section IDs that had a recent PR (within 30 days)
   const recentPRSectionIds = new Set(
@@ -171,7 +185,12 @@ export function detectStalePROpportunities(input: StalePRInput): StalePROpportun
     }
 
     // Get sport-appropriate fitness improvement
-    const improvement = getFitnessImprovement(section.sportType, ftpTrend, paceTrend);
+    const improvement = getFitnessImprovement(
+      section.sportType,
+      ftpTrend,
+      resolvedRunPaceTrend,
+      swimPaceTrend ?? null
+    );
     if (!improvement) continue;
 
     opportunities.push({

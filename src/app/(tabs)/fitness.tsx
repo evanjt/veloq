@@ -24,7 +24,6 @@ import {
 } from '@/components/stats';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { NetworkErrorState, ErrorStatePreset, ScreenErrorBoundary } from '@/components/ui';
-import { RecordFAB } from '@/components/recording/RecordFAB';
 import {
   useWellness,
   useActivities,
@@ -481,6 +480,20 @@ export default function FitnessScreen() {
                   onDateSelect={handleDateSelect}
                   onInteractionChange={handleInteractionChange}
                 />
+                {/* Contextual form zone guidance */}
+                {formZone && (
+                  <View
+                    style={[
+                      styles.guidanceCard,
+                      isDark && styles.guidanceCardDark,
+                      { borderLeftColor: FORM_ZONE_COLORS[formZone] },
+                    ]}
+                  >
+                    <Text style={[styles.guidanceText, isDark && styles.guidanceTextDark]}>
+                      {t(`fitnessScreen.guidance.${formZone}` as never)}
+                    </Text>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -493,7 +506,9 @@ export default function FitnessScreen() {
                 style={[
                   styles.sportToggleButton,
                   isDark && styles.sportToggleButtonDark,
-                  sportMode === sport && { backgroundColor: SPORT_COLORS[sport] },
+                  sportMode === sport && {
+                    backgroundColor: SPORT_COLORS[sport],
+                  },
                 ]}
                 onPress={() => setSportMode(sport)}
                 activeOpacity={0.7}
@@ -748,7 +763,9 @@ export default function FitnessScreen() {
                     <Text
                       style={[
                         styles.headerValue,
-                        { color: decouplingValue.isGood ? colors.success : colors.warning },
+                        {
+                          color: decouplingValue.isGood ? colors.success : colors.warning,
+                        },
                       ]}
                     >
                       {decouplingValue.value.toFixed(1)}%
@@ -852,8 +869,6 @@ export default function FitnessScreen() {
             </View>
           </View>
         </ScrollView>
-
-        <RecordFAB />
       </ScreenSafeAreaView>
     </ScreenErrorBoundary>
   );
@@ -983,6 +998,26 @@ const styles = StyleSheet.create({
   },
   formSectionDark: {
     borderTopColor: opacity.overlayDark.medium,
+  },
+  guidanceCard: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  guidanceCardDark: {
+    backgroundColor: darkColors.surface,
+  },
+  guidanceText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  guidanceTextDark: {
+    color: darkColors.textSecondary,
   },
   chartTitle: {
     ...typography.bodySmall,

@@ -401,6 +401,13 @@
     "title": "Forma e condicionamento",
     "toBuildFitness": "para construir condicionamento. Esteja",
     "toPreventOvertraining": "para prevenir overtraining.",
+    "guidance": {
+      "highRisk": "O cansaço acumulado está muito alto. Considere descansar ou fazer sessões leves até a forma subir acima de -30.",
+      "optimal": "Zona de treino produtiva. Seu corpo está absorvendo o estresse do treino de forma eficaz.",
+      "greyZone": "Carga de treino moderada. Nem descansado nem muito cansado — território de manutenção.",
+      "fresh": "Bem descansado. Momento ideal para uma prova ou teste de intensidade. A forma pode cair se mantido por muito tempo.",
+      "transition": "Muito descansado mas perdendo estímulo de forma. Considere retomar o treino estruturado."
+    },
     "tsb": "TSB",
     "understandingMetrics": "Entendendo as metricas"
   },

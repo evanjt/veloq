@@ -401,6 +401,13 @@
     "title": "Fitheid & Vorm",
     "toBuildFitness": "om fitheid op te bouwen. Wees",
     "toPreventOvertraining": "om overtraining te voorkomen.",
+    "guidance": {
+      "highRisk": "De opgebouwde vermoeidheid is erg hoog. Overweeg rust of lichte sessies tot de vorm boven -30 stijgt.",
+      "optimal": "Productieve trainingszone. Je lichaam verwerkt de trainingsbelasting goed.",
+      "greyZone": "Gemiddelde trainingsbelasting. Niet uitgerust en niet erg vermoeid — onderhoudsgebied.",
+      "fresh": "Goed uitgerust. Ideaal moment voor een wedstrijd of intensieve test. De fitheid kan dalen als je hier te lang blijft.",
+      "transition": "Zeer uitgerust maar de fitheid stimulu vermindert. Overweeg om gestructureerd training te hervatten."
+    },
     "tsb": "TSB",
     "understandingMetrics": "De statistieken begrijpen"
   },

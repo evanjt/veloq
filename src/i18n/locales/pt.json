@@ -401,6 +401,13 @@
     "title": "Forma e condicao",
     "toBuildFitness": "para construir condicao. Esteja",
     "toPreventOvertraining": "para prevenir sobretreino.",
+    "guidance": {
+      "highRisk": "A fadiga acumulada está muito elevada. Considere descanso ou sessões leves até a forma subir acima de -30.",
+      "optimal": "Zona de treino produtiva. O seu corpo está a absorver o stress do treino de forma eficaz.",
+      "greyZone": "Carga de treino moderada. Nem descansado nem muito fatigado — zona de manutenção.",
+      "fresh": "Bem descansado. Bom momento para uma prova ou teste de intensidade. A forma pode diminuir se mantido.",
+      "transition": "Muito descansado mas a perder estímulo de forma. Considere retomar o treino estruturado."
+    },
     "tsb": "TSB",
     "understandingMetrics": "Compreender as metricas"
   },

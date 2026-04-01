@@ -401,6 +401,13 @@
     "title": "Forma física",
     "toBuildFitness": "para ganar forma. Mantente",
     "toPreventOvertraining": "para prevenir el sobreentrenamiento.",
+    "guidance": {
+      "highRisk": "La fatiga acumulada es muy alta. Considera descansar o hacer sesiones suaves hasta que la forma supere -30.",
+      "optimal": "Rango de entrenamiento productivo. Tu cuerpo está absorbiendo el estrés del entrenamiento eficazmente.",
+      "greyZone": "Carga de entrenamiento moderada. Ni descansado ni muy fatigado — territorio de mantenimiento.",
+      "fresh": "Bien descansado. Buen momento para una carrera o test de intensidad. La forma física puede bajar si se mantiene.",
+      "transition": "Muy descansado pero perdiendo estímulo de forma. Considera retomar el entrenamiento estructurado."
+    },
     "tsb": "TSB",
     "understandingMetrics": "Entendiendo las métricas"
   },

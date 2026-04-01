@@ -126,13 +126,6 @@ export function NotificationSection() {
               onToggle={(v) => setCategoryEnabled('periodComparison', v)}
               isDark={isDark}
             />
-            <CategoryRow
-              label={t('notifications.settings.activityPattern')}
-              icon="calendar-clock"
-              value={categories.activityPattern}
-              onToggle={(v) => setCategoryEnabled('activityPattern', v)}
-              isDark={isDark}
-            />
 
             <SectionDivider />
             <Text style={[styles.stravaNote, isDark && styles.textMuted]}>

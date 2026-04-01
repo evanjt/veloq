@@ -64,6 +64,10 @@ interface SectionsListProps {
   totalSectionCount?: number;
   /** User's current location for "Nearby" sort */
   userLocation?: LatLng | null;
+  /** Active sort option */
+  sortOption: SectionsSortOption;
+  /** Called when sort changes */
+  onSortChange: (next: SectionsSortOption) => void;
 }
 
 type HiddenFilters = {
@@ -72,7 +76,7 @@ type HiddenFilters = {
   disabled: boolean;
 };
 
-type SortOption = 'visits' | 'distance' | 'name' | 'nearby';
+export type SectionsSortOption = 'visits' | 'distance' | 'name' | 'nearby';
 
 /**
  * Convert batch SectionWithPolyline to FrequentSection for useUnifiedSections.
@@ -244,6 +248,8 @@ export function SectionsList({
   hasMore = false,
   totalSectionCount,
   userLocation,
+  sortOption,
+  onSortChange,
 }: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -253,17 +259,7 @@ export function SectionsList({
     disabled: true, // Hidden sections are hidden by default
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortOption, setSortOption] = useState<SortOption>(userLocation ? 'nearby' : 'visits');
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | null>(null);
-  const sortInitRef = useRef(false);
-
-  // Switch to 'nearby' sort once location first becomes available
-  React.useEffect(() => {
-    if (userLocation && !sortInitRef.current) {
-      sortInitRef.current = true;
-      setSortOption('nearby');
-    }
-  }, [userLocation]);
 
   // Convert batch sections to FrequentSection[] for preloading into useUnifiedSections
   const preloadedEngineSections = useMemo(() => {
@@ -360,18 +356,15 @@ export function SectionsList({
     }
 
     // Apply sort
-    if (sortOption === 'distance') {
+    if (sortOption === 'visits') {
+      regular.sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0));
+    } else if (sortOption === 'distance') {
       regular.sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
     } else if (sortOption === 'name') {
       regular.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
-    } else if (sortOption === 'nearby' && userLocation) {
-      regular.sort((a, b) => {
-        const distA = a.center ? haversineDistance(userLocation, a.center) : Infinity;
-        const distB = b.center ? haversineDistance(userLocation, b.center) : Infinity;
-        return distA - distB;
-      });
     }
-    // 'visits' is the default order from useUnifiedSections (visitCount DESC)
+
+    // Preserve native order for nearby sorting so pagination stays correct.
 
     return { regularSections: regular, potentialSections: potential };
   }, [unifiedSections, hiddenFilters, searchQuery, sortOption, selectedSportFilter, userLocation]);
@@ -486,13 +479,13 @@ export function SectionsList({
     );
   };
 
-  const sortOptions: SortOption[] = useMemo(() => {
-    const opts: SortOption[] = ['visits', 'distance', 'name'];
-    if (userLocation) opts.push('nearby');
+  const sortOptions: SectionsSortOption[] = useMemo(() => {
+    const opts: SectionsSortOption[] = ['visits', 'distance', 'name'];
+    if (userLocation) opts.unshift('nearby');
     return opts;
   }, [userLocation]);
 
-  const sortLabelKeys: Record<SortOption, string> = {
+  const sortLabelKeys: Record<SectionsSortOption, string> = {
     visits: 'routes.sortMostVisited',
     distance: 'routes.sortDistance',
     name: 'routes.sortNameAZ',
@@ -500,11 +493,12 @@ export function SectionsList({
   };
 
   const handleCycleSort = useCallback(() => {
-    setSortOption((current) => {
-      const idx = sortOptions.indexOf(current);
-      return sortOptions[(idx + 1) % sortOptions.length];
-    });
-  }, [sortOptions]);
+    const idx = sortOptions.indexOf(sortOption);
+    const nextIndex = idx >= 0 ? (idx + 1) % sortOptions.length : 0;
+    onSortChange(sortOptions[nextIndex]);
+  }, [onSortChange, sortOption, sortOptions]);
+
+  const displaySectionCount = totalSectionCount ?? totalCount;
 
   const renderHeader = () => (
     <View style={styles.header}>
@@ -596,29 +590,6 @@ export function SectionsList({
             </TouchableOpacity>
           )}
         </View>
-      )}
-
-      {/* Sort control */}
-      {regularSections.length > 1 && (
-        <TouchableOpacity
-          style={[styles.sortControl, isDark && styles.sortControlDark]}
-          onPress={handleCycleSort}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons
-            name="sort"
-            size={14}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-          <Text style={[styles.sortText, isDark && styles.sortTextDark]}>
-            {t(sortLabelKeys[sortOption] as never)}
-          </Text>
-          <MaterialCommunityIcons
-            name="chevron-down"
-            size={14}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        </TouchableOpacity>
       )}
 
       {/* Potential section suggestions */}
@@ -749,6 +720,9 @@ export function SectionsList({
             {t('routes.frequentSectionsInfo')}
           </Text>
         </View>
+        <Text style={[styles.summaryText, isDark && styles.summaryTextDark]}>
+          {displaySectionCount} {t('trainingScreen.sections')}
+        </Text>
         <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>
           <MaterialCommunityIcons
             name="magnify"
@@ -813,6 +787,27 @@ export function SectionsList({
               );
             })}
           </View>
+        )}
+        {regularSections.length > 1 && (
+          <TouchableOpacity
+            style={[styles.sortControl, isDark && styles.sortControlDark]}
+            onPress={handleCycleSort}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="sort"
+              size={14}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            />
+            <Text style={[styles.sortText, isDark && styles.sortTextDark]}>
+              {t(sortLabelKeys[sortOption] as never)}
+            </Text>
+            <MaterialCommunityIcons
+              name="chevron-down"
+              size={14}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            />
+          </TouchableOpacity>
         )}
       </View>
 
@@ -896,6 +891,15 @@ const styles = StyleSheet.create({
   },
   infoTextDark: {
     color: darkColors.textDisabled,
+  },
+  summaryText: {
+    marginHorizontal: spacing.md,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  summaryTextDark: {
+    color: darkColors.textPrimary,
   },
   sportFilterRow: {
     flexDirection: 'row',

@@ -365,7 +365,9 @@ pub fn start_fetch_and_store(
                 engine.generate_tiles_background()
             });
             if let Some(Some(h)) = handle {
-                if let Ok(mut guard) = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock() {
+                if let Ok(mut guard) =
+                    crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock()
+                {
                     *guard = Some(h);
                 }
             }

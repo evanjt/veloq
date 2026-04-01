@@ -3,6 +3,8 @@ export {
   initializeTheme,
   setThemePreference,
   getThemePreference,
+  useThemePreferenceStore,
+  useResolvedColorScheme,
   type ThemePreference,
 } from './ThemeProvider';
 export {

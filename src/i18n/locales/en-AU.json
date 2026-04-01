@@ -401,6 +401,13 @@
     "title": "Fitness & Form",
     "toBuildFitness": "to get fitter. Be",
     "toPreventOvertraining": "or you'll end up cooked.",
+    "guidance": {
+      "highRisk": "Fatigue is well and truly stacked up. Chuck a rest day or easy spin in until form gets above -30.",
+      "optimal": "Smashing it — productive training zone. Your body's handling the load nicely.",
+      "greyZone": "Cruising along — not fresh, not cooked. Maintenance territory.",
+      "fresh": "Feeling fresh. Prime time for a crack at a race or a big effort. Don't stay here too long or fitness drops off.",
+      "transition": "Very rested but losing fitness stimulus. Time to get back into it."
+    },
     "tsb": "TSB",
     "understandingMetrics": "What's all this mean?"
   },

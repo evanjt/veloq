@@ -187,7 +187,7 @@ function makeClusterInsight(
 
   return {
     id: `section_cluster-${direction}${sportSuffix}`,
-    category: 'section_pr',
+    category: 'section_cluster',
     priority: 3,
     icon: isImproving ? 'trending-up' : 'map-marker-path',
     iconColor: isImproving ? '#66BB6A' : '#FFA726',
@@ -195,6 +195,7 @@ function makeClusterInsight(
       ? t('insights.sectionCluster.improvingTitle', { count })
       : t('insights.sectionCluster.decliningTitle', { count }),
     subtitle: sport ? t('insights.sectionCluster.subtitle', { count, sport }) : undefined,
+    navigationTarget: '/routes?tab=sections',
     timestamp: now,
     isNew: false,
     supportingData,

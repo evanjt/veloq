@@ -26,7 +26,7 @@ impl Default for HeatmapConfig {
     fn default() -> Self {
         Self {
             min_zoom: 5,
-            max_zoom: 15,
+            max_zoom: 17,
         }
     }
 }
@@ -36,20 +36,21 @@ impl Default for HeatmapConfig {
 // ============================================================================
 
 /// Pre-computed 256-entry color lookup table mapping intensity to RGBA.
-/// Gradient: transparent → dark blue → purple → orange → yellow → white-hot.
+/// Gradient: transparent → warm amber → orange → pale highlight.
+/// Tuned to keep the basemap visible while letting overlap brighten naturally.
 fn build_color_lut() -> [[u8; 4]; 256] {
     let mut lut = [[0u8; 4]; 256];
 
     // Gradient stops: (intensity, r, g, b, a)
     let stops: &[(f32, f32, f32, f32, f32)] = &[
-        (0.0, 0.0, 0.0, 0.0, 0.0),           // transparent
-        (0.02, 30.0, 30.0, 100.0, 80.0),      // dark blue, subtle
-        (0.10, 60.0, 40.0, 140.0, 140.0),     // purple
-        (0.25, 180.0, 60.0, 30.0, 185.0),     // dark orange
-        (0.45, 252.0, 76.0, 2.0, 210.0),      // brand orange #FC4C02
-        (0.65, 252.0, 160.0, 40.0, 230.0),    // yellow-orange
-        (0.85, 255.0, 230.0, 140.0, 245.0),   // warm yellow
-        (1.0, 255.0, 255.0, 220.0, 255.0),    // white-hot
+        (0.0, 0.0, 0.0, 0.0, 0.0),          // transparent
+        (0.04, 250.0, 128.0, 36.0, 24.0),   // subtle amber
+        (0.14, 252.0, 110.0, 24.0, 76.0),   // visible single-trace orange
+        (0.32, 252.0, 92.0, 16.0, 124.0),   // brand-adjacent orange
+        (0.58, 252.0, 76.0, 2.0, 172.0),    // Strava-like hot orange
+        (0.80, 255.0, 164.0, 72.0, 212.0),  // warm overlap highlight
+        (0.94, 255.0, 221.0, 156.0, 236.0), // pale gold
+        (1.0, 255.0, 247.0, 220.0, 246.0),  // soft highlight, not full white
     ];
 
     for i in 1..256 {
@@ -83,8 +84,17 @@ fn build_color_lut() -> [[u8; 4]; 256] {
 }
 
 /// Cached color LUT (built once)
-static COLOR_LUT: std::sync::LazyLock<[[u8; 4]; 256]> =
-    std::sync::LazyLock::new(build_color_lut);
+static COLOR_LUT: std::sync::LazyLock<[[u8; 4]; 256]> = std::sync::LazyLock::new(build_color_lut);
+
+/// Cached fully transparent PNG used for empty raster tiles.
+static EMPTY_TILE_PNG: std::sync::LazyLock<Vec<u8>> = std::sync::LazyLock::new(|| {
+    let img: RgbaImage = ImageBuffer::from_pixel(TILE_SIZE, TILE_SIZE, Rgba([0, 0, 0, 0]));
+    let mut png_data = Vec::new();
+    let mut cursor = Cursor::new(&mut png_data);
+    img.write_to(&mut cursor, image::ImageFormat::Png)
+        .expect("Empty tile PNG encoding failed");
+    png_data
+});
 
 // ============================================================================
 // Zoom-Dependent Line Width
@@ -93,21 +103,37 @@ static COLOR_LUT: std::sync::LazyLock<[[u8; 4]; 256]> =
 /// Get line width for a zoom level (doubled for 512px tile size)
 fn line_width_for_zoom(zoom: u8) -> f32 {
     match zoom {
-        0..=7 => 10.0,
-        8..=9 => 8.0,
-        10..=11 => 5.0,
-        12..=13 => 4.0,
-        _ => 3.0,
+        0..=6 => 6.0,
+        7..=8 => 5.0,
+        9..=10 => 4.0,
+        11..=12 => 3.2,
+        13..=14 => 2.6,
+        15 => 2.1,
+        16 => 1.7,
+        _ => 1.4,
     }
 }
 
 /// Base intensity per line draw (higher at low zoom for visibility)
-fn line_intensity_for_zoom(zoom: u8) -> u8 {
+fn line_intensity_for_zoom(zoom: u8) -> f32 {
     match zoom {
-        0..=9 => 50,
-        10..=11 => 40,
-        12..=13 => 35,
-        _ => 30,
+        0..=8 => 18.0,
+        9..=11 => 16.0,
+        12..=14 => 14.0,
+        15..=16 => 12.0,
+        _ => 10.0,
+    }
+}
+
+/// Exposure for mapping accumulated line intensity into the color LUT.
+/// Lower values make sparse traces brighter; higher values preserve detail in dense overlap.
+fn intensity_exposure_for_zoom(zoom: u8) -> f32 {
+    match zoom {
+        0..=8 => 54.0,
+        9..=11 => 42.0,
+        12..=14 => 32.0,
+        15..=16 => 24.0,
+        _ => 18.0,
     }
 }
 
@@ -229,7 +255,7 @@ pub fn tiles_for_bounds(
 
 /// Intensity buffer for accumulating line draws before color mapping
 pub struct IntensityBuffer {
-    data: Vec<u8>,
+    data: Vec<u16>,
     width: u32,
     height: u32,
 }
@@ -237,7 +263,7 @@ pub struct IntensityBuffer {
 impl IntensityBuffer {
     fn new(width: u32, height: u32) -> Self {
         Self {
-            data: vec![0u8; (width * height) as usize],
+            data: vec![0u16; (width * height) as usize],
             width,
             height,
         }
@@ -245,7 +271,7 @@ impl IntensityBuffer {
 
     /// Additively accumulate intensity at a pixel
     #[inline]
-    fn add(&mut self, x: i32, y: i32, value: u8) {
+    fn add(&mut self, x: i32, y: i32, value: u16) {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
             return;
         }
@@ -255,15 +281,15 @@ impl IntensityBuffer {
 
     /// Additively accumulate a fractional intensity at a pixel
     #[inline]
-    fn add_f(&mut self, x: i32, y: i32, brightness: f32, base_intensity: u8) {
-        let value = (base_intensity as f32 * brightness.clamp(0.0, 1.0)) as u8;
+    fn add_f(&mut self, x: i32, y: i32, brightness: f32, base_intensity: f32) {
+        let value = (base_intensity * brightness.clamp(0.0, 1.0)).round() as u16;
         if value > 0 {
             self.add(x, y, value);
         }
     }
 
     #[inline]
-    fn get(&self, x: u32, y: u32) -> u8 {
+    fn get(&self, x: u32, y: u32) -> u16 {
         self.data[(y * self.width + x) as usize]
     }
 
@@ -273,7 +299,57 @@ impl IntensityBuffer {
     }
 }
 
-/// Draw a line with antialiasing using Wu's algorithm onto the intensity buffer
+#[inline]
+fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
+    if edge0 >= edge1 {
+        return if x >= edge1 { 1.0 } else { 0.0 };
+    }
+    let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+#[inline]
+fn distance_to_segment(px: f32, py: f32, x0: f32, y0: f32, x1: f32, y1: f32) -> f32 {
+    let dx = x1 - x0;
+    let dy = y1 - y0;
+    let len_sq = dx * dx + dy * dy;
+
+    if len_sq <= 0.0001 {
+        let ddx = px - x0;
+        let ddy = py - y0;
+        return (ddx * ddx + ddy * ddy).sqrt();
+    }
+
+    let t = (((px - x0) * dx + (py - y0) * dy) / len_sq).clamp(0.0, 1.0);
+    let proj_x = x0 + dx * t;
+    let proj_y = y0 + dy * t;
+    let ddx = px - proj_x;
+    let ddy = py - proj_y;
+    (ddx * ddx + ddy * ddy).sqrt()
+}
+
+fn draw_disc_intensity(buf: &mut IntensityBuffer, cx: f32, cy: f32, radius: f32, intensity: f32) {
+    let aa = 1.0;
+    let outer = radius + aa;
+    let min_x = (cx - outer).floor().max(0.0) as i32;
+    let max_x = (cx + outer).ceil().min(buf.width as f32 - 1.0) as i32;
+    let min_y = (cy - outer).floor().max(0.0) as i32;
+    let max_y = (cy + outer).ceil().min(buf.height as f32 - 1.0) as i32;
+
+    for y in min_y..=max_y {
+        for x in min_x..=max_x {
+            let px = x as f32 + 0.5;
+            let py = y as f32 + 0.5;
+            let dx = px - cx;
+            let dy = py - cy;
+            let dist = (dx * dx + dy * dy).sqrt();
+            let coverage = 1.0 - smoothstep(radius, outer, dist);
+            buf.add_f(x, y, coverage, intensity);
+        }
+    }
+}
+
+/// Draw a line as a filled, antialiased stroke with round caps.
 fn draw_line_intensity(
     buf: &mut IntensityBuffer,
     x0: f32,
@@ -281,102 +357,31 @@ fn draw_line_intensity(
     x1: f32,
     y1: f32,
     width: f32,
-    intensity: u8,
+    intensity: f32,
 ) {
-    if width > 1.5 {
-        let dx = x1 - x0;
-        let dy = y1 - y0;
-        let len = (dx * dx + dy * dy).sqrt();
-        if len < 0.001 {
-            return;
-        }
-
-        let px = -dy / len;
-        let py = dx / len;
-        let half_width = width / 2.0;
-        let steps = (width.ceil() as i32).max(3);
-
-        for i in 0..steps {
-            let offset = -half_width + (i as f32 / (steps - 1) as f32) * width;
-            let ox = px * offset;
-            let oy = py * offset;
-            draw_line_wu_intensity(buf, x0 + ox, y0 + oy, x1 + ox, y1 + oy, intensity);
-        }
-    } else {
-        draw_line_wu_intensity(buf, x0, y0, x1, y1, intensity);
-    }
-}
-
-/// Wu's antialiased line algorithm on intensity buffer
-fn draw_line_wu_intensity(
-    buf: &mut IntensityBuffer,
-    mut x0: f32,
-    mut y0: f32,
-    mut x1: f32,
-    mut y1: f32,
-    intensity: u8,
-) {
-    let steep = (y1 - y0).abs() > (x1 - x0).abs();
-
-    if steep {
-        std::mem::swap(&mut x0, &mut y0);
-        std::mem::swap(&mut x1, &mut y1);
-    }
-    if x0 > x1 {
-        std::mem::swap(&mut x0, &mut x1);
-        std::mem::swap(&mut y0, &mut y1);
-    }
-
+    let radius = (width * 0.5).max(0.75);
+    let aa = 1.0;
+    let outer = radius + aa;
     let dx = x1 - x0;
     let dy = y1 - y0;
-    let gradient = if dx.abs() < 0.001 { 1.0 } else { dy / dx };
 
-    // First endpoint
-    let xend = x0.round();
-    let yend = y0 + gradient * (xend - x0);
-    let xgap = 1.0 - (x0 + 0.5).fract();
-    let xpxl1 = xend as i32;
-    let ypxl1 = yend.floor() as i32;
-
-    if steep {
-        buf.add_f(ypxl1, xpxl1, (1.0 - yend.fract()) * xgap, intensity);
-        buf.add_f(ypxl1 + 1, xpxl1, yend.fract() * xgap, intensity);
-    } else {
-        buf.add_f(xpxl1, ypxl1, (1.0 - yend.fract()) * xgap, intensity);
-        buf.add_f(xpxl1, ypxl1 + 1, yend.fract() * xgap, intensity);
+    if dx.abs() < 0.001 && dy.abs() < 0.001 {
+        draw_disc_intensity(buf, x0, y0, radius, intensity);
+        return;
     }
 
-    let mut intery = yend + gradient;
+    let min_x = (x0.min(x1) - outer).floor().max(0.0) as i32;
+    let max_x = (x0.max(x1) + outer).ceil().min(buf.width as f32 - 1.0) as i32;
+    let min_y = (y0.min(y1) - outer).floor().max(0.0) as i32;
+    let max_y = (y0.max(y1) + outer).ceil().min(buf.height as f32 - 1.0) as i32;
 
-    // Second endpoint
-    let xend = x1.round();
-    let yend = y1 + gradient * (xend - x1);
-    let xgap = (x1 + 0.5).fract();
-    let xpxl2 = xend as i32;
-    let ypxl2 = yend.floor() as i32;
-
-    if steep {
-        buf.add_f(ypxl2, xpxl2, (1.0 - yend.fract()) * xgap, intensity);
-        buf.add_f(ypxl2 + 1, xpxl2, yend.fract() * xgap, intensity);
-    } else {
-        buf.add_f(xpxl2, ypxl2, (1.0 - yend.fract()) * xgap, intensity);
-        buf.add_f(xpxl2, ypxl2 + 1, yend.fract() * xgap, intensity);
-    }
-
-    // Main loop
-    if steep {
-        for x in (xpxl1 + 1)..xpxl2 {
-            let y = intery.floor() as i32;
-            buf.add_f(y, x, 1.0 - intery.fract(), intensity);
-            buf.add_f(y + 1, x, intery.fract(), intensity);
-            intery += gradient;
-        }
-    } else {
-        for x in (xpxl1 + 1)..xpxl2 {
-            let y = intery.floor() as i32;
-            buf.add_f(x, y, 1.0 - intery.fract(), intensity);
-            buf.add_f(x, y + 1, intery.fract(), intensity);
-            intery += gradient;
+    for y in min_y..=max_y {
+        for x in min_x..=max_x {
+            let px = x as f32 + 0.5;
+            let py = y as f32 + 0.5;
+            let dist = distance_to_segment(px, py, x0, y0, x1, y1);
+            let coverage = 1.0 - smoothstep(radius, outer, dist);
+            buf.add_f(x, y, coverage, intensity);
         }
     }
 }
@@ -397,15 +402,16 @@ fn gaussian_blur_3x3(buf: &IntensityBuffer) -> IntensityBuffer {
 
     for y in 0..h {
         for x in 0..w {
-            let mut sum: u16 = 0;
+            let mut sum: u32 = 0;
             for ky in 0..3i32 {
                 for kx in 0..3i32 {
                     let sx = (x + kx - 1).clamp(0, w - 1) as u32;
                     let sy = (y + ky - 1).clamp(0, h - 1) as u32;
-                    sum += buf.get(sx, sy) as u16 * kernel[ky as usize][kx as usize];
+                    sum += buf.get(sx, sy) as u32 * kernel[ky as usize][kx as usize] as u32;
                 }
             }
-            out.data[(y as u32 * buf.width + x as u32) as usize] = (sum >> 4) as u8;
+            out.data[(y as u32 * buf.width + x as u32) as usize] =
+                ((sum >> 4).min(u16::MAX as u32)) as u16;
         }
     }
     out
@@ -417,12 +423,7 @@ fn gaussian_blur_3x3(buf: &IntensityBuffer) -> IntensityBuffer {
 
 /// Generate a single heatmap tile from GPS tracks.
 /// Returns PNG bytes, or None if the tile contains no data.
-pub fn generate_heatmap_tile(
-    z: u8,
-    x: u32,
-    y: u32,
-    tracks: &[Vec<GpsPoint>],
-) -> Option<Vec<u8>> {
+pub fn generate_heatmap_tile(z: u8, x: u32, y: u32, tracks: &[Vec<GpsPoint>]) -> Option<Vec<u8>> {
     let line_width = line_width_for_zoom(z);
     let intensity = line_intensity_for_zoom(z);
 
@@ -454,22 +455,21 @@ pub fn generate_heatmap_tile(
         return None;
     }
 
-    // Apply Gaussian blur at lower zoom levels for softness
-    // Extended to z≤13 for 512px tiles (3x3 kernel covers fewer relative pixels)
-    let buf = if z <= 13 {
-        gaussian_blur_3x3(&buf)
-    } else {
-        buf
-    };
+    // Apply Gaussian blur only at lower zoom levels where density matters more than street detail.
+    let buf = if z <= 9 { gaussian_blur_3x3(&buf) } else { buf };
 
-    // Map intensity buffer to RGBA using color LUT
+    // Map intensity buffer to RGBA using a fixed exposure curve.
+    // This preserves overlap without letting moderate-density tiles blow out to white.
     let lut = &*COLOR_LUT;
+    let exposure = intensity_exposure_for_zoom(z);
     let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
     for y_px in 0..TILE_SIZE {
         for x_px in 0..TILE_SIZE {
             let val = buf.get(x_px, y_px);
             if val > 0 {
-                let c = lut[val as usize];
+                let normalized = (1.0 - (-(val as f32) / exposure).exp()).clamp(0.0, 1.0);
+                let lut_idx = (normalized * 255.0).round().clamp(1.0, 255.0) as usize;
+                let c = lut[lut_idx];
                 img.put_pixel(x_px, y_px, Rgba(c));
             }
         }
@@ -492,9 +492,7 @@ pub fn generate_tiles_parallel(
 ) -> Vec<(u8, u32, u32, Vec<u8>)> {
     tile_coords
         .par_iter()
-        .filter_map(|&(z, x, y)| {
-            generate_heatmap_tile(z, x, y, tracks).map(|png| (z, x, y, png))
-        })
+        .filter_map(|&(z, x, y)| generate_heatmap_tile(z, x, y, tracks).map(|png| (z, x, y, png)))
         .collect()
 }
 
@@ -505,14 +503,16 @@ pub fn save_tile(base_path: &Path, z: u8, x: u32, y: u32, png_data: &[u8]) -> st
     std::fs::write(tile_dir.join(format!("{}.png", y)), png_data)
 }
 
-/// Write a 0-byte sentinel file to mark an empty tile (prevents re-generation)
+/// Write a valid transparent PNG to mark an empty tile (prevents re-generation).
+/// MapLibre still decodes requested raster tiles, so a 0-byte sentinel will log
+/// bitmap decode errors on Android.
 pub fn save_empty_sentinel(base_path: &Path, z: u8, x: u32, y: u32) -> std::io::Result<()> {
     let tile_dir = base_path.join(z.to_string()).join(x.to_string());
     std::fs::create_dir_all(&tile_dir)?;
-    std::fs::write(tile_dir.join(format!("{}.png", y)), &[])
+    std::fs::write(tile_dir.join(format!("{}.png", y)), &*EMPTY_TILE_PNG)
 }
 
-/// Check if a tile file already exists on disk (including 0-byte sentinels)
+/// Check if a tile file already exists on disk (including transparent empty tiles)
 pub fn tile_exists(base_path: &Path, z: u8, x: u32, y: u32) -> bool {
     base_path
         .join(z.to_string())
@@ -661,7 +661,19 @@ mod tests {
         buf.add(5, 5, 100);
         buf.add(5, 5, 100);
         assert_eq!(buf.get(5, 5), 200);
-        buf.add(5, 5, 100);
-        assert_eq!(buf.get(5, 5), 255); // saturates
+        buf.add(5, 5, u16::MAX);
+        assert_eq!(buf.get(5, 5), u16::MAX);
+    }
+
+    #[test]
+    fn test_thick_line_rasterization_produces_solid_center() {
+        let mut buf = IntensityBuffer::new(32, 32);
+        draw_line_intensity(&mut buf, 4.0, 16.0, 28.0, 16.0, 6.0, 24.0);
+
+        for x in 6..27 {
+            assert!(buf.get(x, 16) > 0, "expected solid stroke center at x={x}");
+        }
+        assert!(buf.get(16, 14) > 0);
+        assert!(buf.get(16, 18) > 0);
     }
 }

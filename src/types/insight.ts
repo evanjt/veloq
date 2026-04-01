@@ -3,11 +3,10 @@ export type InsightCategory =
   | 'stale_pr'
   | 'fitness_milestone'
   | 'period_comparison'
-  | 'activity_pattern'
-  | 'training_consistency'
+  | 'strength_progression'
+  | 'strength_balance'
   | 'hrv_trend'
   | 'tsb_form'
-  | 'weekly_load'
   | 'intensity_context'
   | 'section_cluster'
   | 'efficiency_trend';

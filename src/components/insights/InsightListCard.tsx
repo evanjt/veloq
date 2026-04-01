@@ -12,13 +12,13 @@ const CATEGORY_COLORS: Record<string, string> = {
   section_pr: '#FFD700',
   fitness_milestone: '#4CAF50',
   period_comparison: '#2196F3',
-  activity_pattern: '#9C27B0',
-  training_consistency: '#FF9800',
+  strength_progression: '#F97316',
+  strength_balance: '#EF4444',
   hrv_trend: '#66BB6A',
   tsb_form: '#42A5F5',
-  weekly_load: '#FFA726',
   intensity_context: '#FFA726',
   stale_pr: '#FF9800',
+  section_cluster: '#66BB6A',
   efficiency_trend: '#66BB6A',
 };
 
@@ -59,11 +59,27 @@ function getInlineMetric(insight: Insight): { value: string; context?: string } 
       }
       return null;
     }
-    case 'period_comparison':
-    case 'weekly_load': {
+    case 'period_comparison': {
       if (comp) {
         return {
           value: String(comp.change.value),
+        };
+      }
+      return null;
+    }
+    case 'strength_progression': {
+      if (comp) {
+        return {
+          value: String(comp.change.value),
+        };
+      }
+      return null;
+    }
+    case 'strength_balance': {
+      const ratioPoint = dp?.find((d) => d.label === 'Ratio');
+      if (ratioPoint) {
+        return {
+          value: String(ratioPoint.value),
         };
       }
       return null;
@@ -164,7 +180,12 @@ export const InsightListCard = React.memo(function InsightListCard({
   const metric = useMemo(() => getInlineMetric(insight), [insight]);
   const sparkData = useMemo(() => getSparklineData(insight), [insight]);
 
-  const contextColor = metric?.context?.startsWith('+') ? colors.success : colors.warning;
+  const contextColor =
+    metric?.context == null
+      ? colors.warning
+      : metric.context.startsWith('+')
+        ? colors.success
+        : colors.warning;
 
   const handlePress = useCallback(() => onPress(insight), [onPress, insight]);
 

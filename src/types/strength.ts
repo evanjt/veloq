@@ -19,6 +19,48 @@ export interface StrengthSummary {
 
 export type StrengthPeriod = 'week' | '4weeks' | '3months' | '6months';
 
+export interface StrengthProgressPoint {
+  label: string;
+  startTs: number;
+  endTs: number;
+  weightedSets: number;
+  activityCount: number;
+}
+
+export type StrengthProgressTrend = 'up' | 'down' | 'flat';
+
+export interface StrengthProgression {
+  muscleSlug: string;
+  points: StrengthProgressPoint[];
+  recentAverage: number;
+  baselineAverage: number;
+  peakWeightedSets: number;
+  changePct: number | null;
+  trend: StrengthProgressTrend;
+}
+
+export type StrengthBalanceStatus =
+  | 'balanced'
+  | 'watch'
+  | 'imbalanced'
+  | 'one-sided'
+  | 'insufficient';
+
+export interface StrengthBalancePair {
+  id: string;
+  label: string;
+  leftSlug: string;
+  rightSlug: string;
+  leftLabel: string;
+  rightLabel: string;
+  leftWeightedSets: number;
+  rightWeightedSets: number;
+  dominantSlug: string | null;
+  dominantLabel: string | null;
+  ratio: number | null;
+  status: StrengthBalanceStatus;
+}
+
 /** Summary of a single exercise targeting a muscle group. */
 export interface ExerciseSummary {
   exerciseName: string;

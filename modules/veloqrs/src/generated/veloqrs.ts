@@ -1700,6 +1700,159 @@ const FfiConverterTypeFfiEfficiencyTrend = (() => {
 })();
 
 /**
+ * Activities for a specific exercise, sorted by date DESC.
+ */
+export type FfiExerciseActivities = {
+  activities: Array<FfiExerciseActivity>;
+};
+
+/**
+ * Generated factory for {@link FfiExerciseActivities} record objects.
+ */
+export const FfiExerciseActivities = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiExerciseActivities,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiExerciseActivities}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiExerciseActivities}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiExerciseActivities>,
+  });
+})();
+
+const FfiConverterTypeFfiExerciseActivities = (() => {
+  type TypeName = FfiExerciseActivities;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activities: FfiConverterArrayTypeFfiExerciseActivity.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterArrayTypeFfiExerciseActivity.write(value.activities, into);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterArrayTypeFfiExerciseActivity.allocationSize(
+        value.activities,
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * An activity containing a specific exercise, with per-activity stats.
+ */
+export type FfiExerciseActivity = {
+  /**
+   * Activity ID for navigation
+   */
+  activityId: string;
+  /**
+   * Activity display name
+   */
+  activityName: string;
+  /**
+   * Activity date as Unix timestamp (seconds)
+   */
+  date: /*i64*/ bigint;
+  /**
+   * Number of sets of this exercise in the activity
+   */
+  sets: /*u32*/ number;
+  /**
+   * Total volume load in kg (weight × reps) for this exercise in this activity
+   */
+  totalWeightKg: /*f64*/ number;
+  /**
+   * Whether the muscle is a primary target for this exercise
+   */
+  isPrimary: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiExerciseActivity} record objects.
+ */
+export const FfiExerciseActivity = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiExerciseActivity, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiExerciseActivity}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiExerciseActivity}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiExerciseActivity>,
+  });
+})();
+
+const FfiConverterTypeFfiExerciseActivity = (() => {
+  type TypeName = FfiExerciseActivity;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityId: FfiConverterString.read(from),
+        activityName: FfiConverterString.read(from),
+        date: FfiConverterInt64.read(from),
+        sets: FfiConverterUInt32.read(from),
+        totalWeightKg: FfiConverterFloat64.read(from),
+        isPrimary: FfiConverterBool.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.activityId, into);
+      FfiConverterString.write(value.activityName, into);
+      FfiConverterInt64.write(value.date, into);
+      FfiConverterUInt32.write(value.sets, into);
+      FfiConverterFloat64.write(value.totalWeightKg, into);
+      FfiConverterBool.write(value.isPrimary, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterString.allocationSize(value.activityName) +
+        FfiConverterInt64.allocationSize(value.date) +
+        FfiConverterUInt32.allocationSize(value.sets) +
+        FfiConverterFloat64.allocationSize(value.totalWeightKg) +
+        FfiConverterBool.allocationSize(value.isPrimary)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A single exercise set from a FIT file, exposed to TypeScript.
  */
 export type FfiExerciseSet = {
@@ -1788,6 +1941,108 @@ const FfiConverterTypeFfiExerciseSet = (() => {
         FfiConverterOptionalUInt16.allocationSize(value.repetitions) +
         FfiConverterOptionalFloat64.allocationSize(value.weightKg) +
         FfiConverterOptionalFloat64.allocationSize(value.durationSecs)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Exercise summary for a specific muscle group within a date range.
+ */
+export type FfiExerciseSummary = {
+  /**
+   * Human-readable exercise name
+   */
+  exerciseName: string;
+  /**
+   * FIT exercise category ID (pass back for drill-down query)
+   */
+  exerciseCategory: /*u16*/ number;
+  /**
+   * Average days between sessions (period_days / activity_count)
+   */
+  frequencyDays: /*f64*/ number;
+  /**
+   * Total active sets across all activities
+   */
+  totalSets: /*u32*/ number;
+  /**
+   * Total volume load in kg (weight × reps)
+   */
+  totalWeightKg: /*f64*/ number;
+  /**
+   * Number of distinct activities containing this exercise
+   */
+  activityCount: /*u32*/ number;
+  /**
+   * True if the muscle is a primary target for at least one occurrence
+   */
+  isPrimary: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiExerciseSummary} record objects.
+ */
+export const FfiExerciseSummary = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiExerciseSummary, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiExerciseSummary}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiExerciseSummary}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiExerciseSummary>,
+  });
+})();
+
+const FfiConverterTypeFfiExerciseSummary = (() => {
+  type TypeName = FfiExerciseSummary;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        exerciseName: FfiConverterString.read(from),
+        exerciseCategory: FfiConverterUInt16.read(from),
+        frequencyDays: FfiConverterFloat64.read(from),
+        totalSets: FfiConverterUInt32.read(from),
+        totalWeightKg: FfiConverterFloat64.read(from),
+        activityCount: FfiConverterUInt32.read(from),
+        isPrimary: FfiConverterBool.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.exerciseName, into);
+      FfiConverterUInt16.write(value.exerciseCategory, into);
+      FfiConverterFloat64.write(value.frequencyDays, into);
+      FfiConverterUInt32.write(value.totalSets, into);
+      FfiConverterFloat64.write(value.totalWeightKg, into);
+      FfiConverterUInt32.write(value.activityCount, into);
+      FfiConverterBool.write(value.isPrimary, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.exerciseName) +
+        FfiConverterUInt16.allocationSize(value.exerciseCategory) +
+        FfiConverterFloat64.allocationSize(value.frequencyDays) +
+        FfiConverterUInt32.allocationSize(value.totalSets) +
+        FfiConverterFloat64.allocationSize(value.totalWeightKg) +
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterBool.allocationSize(value.isPrimary)
       );
     }
   }
@@ -2588,6 +2843,76 @@ const FfiConverterTypeFfiMultiScaleSectionResult = (() => {
           value.potentials,
         ) +
         FfiConverterTypeFfiDetectionStats.allocationSize(value.stats)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Exercise summaries grouped by frequency for a muscle group.
+ */
+export type FfiMuscleExerciseSummary = {
+  /**
+   * Exercises targeting the muscle, sorted by activity_count DESC
+   */
+  exercises: Array<FfiExerciseSummary>;
+  /**
+   * Number of days in the selected period
+   */
+  periodDays: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiMuscleExerciseSummary} record objects.
+ */
+export const FfiMuscleExerciseSummary = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiMuscleExerciseSummary,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiMuscleExerciseSummary}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiMuscleExerciseSummary}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiMuscleExerciseSummary>,
+  });
+})();
+
+const FfiConverterTypeFfiMuscleExerciseSummary = (() => {
+  type TypeName = FfiMuscleExerciseSummary;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        exercises: FfiConverterArrayTypeFfiExerciseSummary.read(from),
+        periodDays: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterArrayTypeFfiExerciseSummary.write(value.exercises, into);
+      FfiConverterUInt32.write(value.periodDays, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterArrayTypeFfiExerciseSummary.allocationSize(
+          value.exercises,
+        ) + FfiConverterUInt32.allocationSize(value.periodDays)
       );
     }
   }
@@ -6991,6 +7316,10 @@ export interface HeatmapManagerInterface {
    */
   clearTiles(basePath: string) /*throws*/ : /*u32*/ number;
   /**
+   * Poll tile generation progress: "idle" | "running" | "complete"
+   */
+  poll() /*throws*/ : string;
+  /**
    * Set the filesystem path for heatmap tile storage.
    * Called once at engine init from JS (documentDirectory + "heatmap-tiles/").
    */
@@ -7032,6 +7361,26 @@ export class HeatmapManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
             uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(basePath),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Poll tile generation progress: "idle" | "running" | "complete"
+   */
+  public poll(): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_poll(
+            uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -7389,6 +7738,10 @@ export interface RouteManagerInterface {
     sectionLimit: /*u32*/ number,
     sectionOffset: /*u32*/ number,
     minGroupActivityCount: /*u32*/ number,
+    prioritizeNearestGroups: boolean,
+    prioritizeNearestSections: boolean,
+    userLat: /*f64*/ number,
+    userLng: /*f64*/ number,
   ) /*throws*/ : FfiRoutesScreenData;
   getSummaries() /*throws*/ : Array<GroupSummary>;
   getSummariesWithCount() /*throws*/ : FfiGroupSummariesResult;
@@ -7575,6 +7928,10 @@ export class RouteManager
     sectionLimit: /*u32*/ number,
     sectionOffset: /*u32*/ number,
     minGroupActivityCount: /*u32*/ number,
+    prioritizeNearestGroups: boolean,
+    prioritizeNearestSections: boolean,
+    userLat: /*f64*/ number,
+    userLng: /*f64*/ number,
   ): FfiRoutesScreenData /*throws*/ {
     return FfiConverterTypeFfiRoutesScreenData.lift(
       uniffiCaller.rustCallWithError(
@@ -7589,6 +7946,10 @@ export class RouteManager
             FfiConverterUInt32.lower(sectionLimit),
             FfiConverterUInt32.lower(sectionOffset),
             FfiConverterUInt32.lower(minGroupActivityCount),
+            FfiConverterBool.lower(prioritizeNearestGroups),
+            FfiConverterBool.lower(prioritizeNearestSections),
+            FfiConverterFloat64.lower(userLat),
+            FfiConverterFloat64.lower(userLng),
             callStatus,
           );
         },
@@ -8867,10 +9228,29 @@ export interface StrengthManagerInterface {
     activityId: string,
   ) /*throws*/ : Array<FfiExerciseSet>;
   /**
+   * Get activities for a specific exercise filtered by muscle group.
+   * Returns activities sorted by date descending with per-activity stats.
+   */
+  getActivitiesForExercise(
+    startTs: /*i64*/ bigint,
+    endTs: /*i64*/ bigint,
+    muscleSlug: string,
+    exerciseCategory: /*u16*/ number,
+  ) /*throws*/ : FfiExerciseActivities;
+  /**
    * Get cached exercise sets for an activity (from SQLite).
    * Returns empty vec if not yet downloaded/parsed.
    */
   getExerciseSets(activityId: string) /*throws*/ : Array<FfiExerciseSet>;
+  /**
+   * Get exercise summaries for a specific muscle group within a date range.
+   * Returns exercises grouped by frequency, sorted by activity count descending.
+   */
+  getExercisesForMuscle(
+    startTs: /*i64*/ bigint,
+    endTs: /*i64*/ bigint,
+    muscleSlug: string,
+  ) /*throws*/ : FfiMuscleExerciseSummary;
   /**
    * Get aggregated muscle groups for an activity.
    * Returns slugs matching react-native-body-highlighter format.
@@ -8976,6 +9356,36 @@ export class StrengthManager
   }
 
   /**
+   * Get activities for a specific exercise filtered by muscle group.
+   * Returns activities sorted by date descending with per-activity stats.
+   */
+  public getActivitiesForExercise(
+    startTs: /*i64*/ bigint,
+    endTs: /*i64*/ bigint,
+    muscleSlug: string,
+    exerciseCategory: /*u16*/ number,
+  ): FfiExerciseActivities /*throws*/ {
+    return FfiConverterTypeFfiExerciseActivities.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_activities_for_exercise(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            FfiConverterInt64.lower(startTs),
+            FfiConverterInt64.lower(endTs),
+            FfiConverterString.lower(muscleSlug),
+            FfiConverterUInt16.lower(exerciseCategory),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
    * Get cached exercise sets for an activity (from SQLite).
    * Returns empty vec if not yet downloaded/parsed.
    */
@@ -8989,6 +9399,34 @@ export class StrengthManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercise_sets(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get exercise summaries for a specific muscle group within a date range.
+   * Returns exercises grouped by frequency, sorted by activity count descending.
+   */
+  public getExercisesForMuscle(
+    startTs: /*i64*/ bigint,
+    endTs: /*i64*/ bigint,
+    muscleSlug: string,
+  ): FfiMuscleExerciseSummary /*throws*/ {
+    return FfiConverterTypeFfiMuscleExerciseSummary.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercises_for_muscle(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            FfiConverterInt64.lower(startTs),
+            FfiConverterInt64.lower(endTs),
+            FfiConverterString.lower(muscleSlug),
             callStatus,
           );
         },
@@ -9709,9 +10147,19 @@ const FfiConverterArrayTypeFfiEfficiencyPoint = new FfiConverterArray(
   FfiConverterTypeFfiEfficiencyPoint,
 );
 
+// FfiConverter for Array<FfiExerciseActivity>
+const FfiConverterArrayTypeFfiExerciseActivity = new FfiConverterArray(
+  FfiConverterTypeFfiExerciseActivity,
+);
+
 // FfiConverter for Array<FfiExerciseSet>
 const FfiConverterArrayTypeFfiExerciseSet = new FfiConverterArray(
   FfiConverterTypeFfiExerciseSet,
+);
+
+// FfiConverter for Array<FfiExerciseSummary>
+const FfiConverterArrayTypeFfiExerciseSummary = new FfiConverterArray(
+  FfiConverterTypeFfiExerciseSummary,
 );
 
 // FfiConverter for Array<FfiFrequentSection>
@@ -10129,6 +10577,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll() !==
+    46272
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_heatmapmanager_poll",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path() !==
     55939
   ) {
@@ -10234,7 +10690,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_screen_data() !==
-    57932
+    49809
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_routemanager_get_screen_data",
@@ -10617,11 +11073,27 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_activities_for_exercise() !==
+    26174
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_get_activities_for_exercise",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_sets() !==
     18738
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_sets",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercises_for_muscle() !==
+    54204
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_get_exercises_for_muscle",
     );
   }
   if (
@@ -10904,7 +11376,10 @@ export default Object.freeze({
     FfiConverterTypeFfiDirectionStats,
     FfiConverterTypeFfiEfficiencyPoint,
     FfiConverterTypeFfiEfficiencyTrend,
+    FfiConverterTypeFfiExerciseActivities,
+    FfiConverterTypeFfiExerciseActivity,
     FfiConverterTypeFfiExerciseSet,
+    FfiConverterTypeFfiExerciseSummary,
     FfiConverterTypeFfiFrequentSection,
     FfiConverterTypeFfiFtpTrend,
     FfiConverterTypeFfiGpsPoint,
@@ -10914,6 +11389,7 @@ export default Object.freeze({
     FfiConverterTypeFfiInsightsData,
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMultiScaleSectionResult,
+    FfiConverterTypeFfiMuscleExerciseSummary,
     FfiConverterTypeFfiMuscleGroup,
     FfiConverterTypeFfiMuscleVolume,
     FfiConverterTypeFfiPaceTrend,
