@@ -45,6 +45,7 @@ import {
   SectionPerformanceSection,
   SectionStatsCards,
   SectionInfoCard,
+  MergeConfirmDialog,
 } from '@/components/section';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import {
@@ -94,7 +95,7 @@ export default function SectionDetailScreen() {
 
   // Nearby sections and merge candidates
   const { nearby } = useNearbySections(id);
-  const { candidates: mergeCandidates } = useMergeSections(id);
+  const { candidates: mergeCandidates, merge: mergeSections, isMerging } = useMergeSections(id);
   const { rescan, isScanning: isRematching } = useSectionRescan();
 
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
@@ -105,6 +106,8 @@ export default function SectionDetailScreen() {
   const [isScrubbing, setIsScrubbing] = useState(false);
   // Defer map loading until after first paint for faster perceived load
   const [mapReady, setMapReady] = useState(false);
+  // Merge dialog state
+  const [mergeTarget, setMergeTarget] = useState<(typeof mergeCandidates)[number] | null>(null);
 
   // Time range for chart data (passed to useSectionChartData)
   const [sectionTimeRange] = useState<SectionTimeRange>('1y');
@@ -848,14 +851,12 @@ export default function SectionDetailScreen() {
             {mergeCandidates.length > 0 && (
               <TouchableOpacity
                 style={[styles.mergeBanner, isDark && styles.mergeBannerDark]}
-                onPress={() => router.push(`/section/${mergeCandidates[0].sectionId}`)}
+                onPress={() => setMergeTarget(mergeCandidates[0])}
                 activeOpacity={0.8}
               >
                 <MaterialCommunityIcons name="call-merge" size={18} color={colors.info} />
                 <Text style={[styles.mergeBannerText, isDark && styles.mergeBannerTextDark]}>
-                  {mergeCandidates.length === 1
-                    ? '1 similar section nearby'
-                    : `${mergeCandidates.length} similar sections nearby`}
+                  {t('sections.similarNearbyCount', { count: mergeCandidates.length })}
                 </Text>
                 <MaterialCommunityIcons
                   name="chevron-right"
@@ -1049,6 +1050,34 @@ export default function SectionDetailScreen() {
           </View>
         </ScrollView>
       </View>
+      {mergeTarget && section && (
+        <MergeConfirmDialog
+          visible={!!mergeTarget}
+          primary={{
+            id: section.id,
+            name: section.name ?? section.id,
+            sportType: section.sportType,
+            visitCount: section.visitCount,
+            distanceMeters: section.distanceMeters,
+          }}
+          secondary={{
+            id: mergeTarget.sectionId,
+            name: mergeTarget.name ?? mergeTarget.sectionId,
+            sportType: mergeTarget.sportType,
+            visitCount: mergeTarget.visitCount,
+            distanceMeters: mergeTarget.distanceMeters,
+          }}
+          onConfirm={(primaryId, secondaryId) => {
+            const result = mergeSections(primaryId, secondaryId);
+            setMergeTarget(null);
+            if (result && result !== id) {
+              router.replace(`/section/${result}`);
+            }
+          }}
+          onCancel={() => setMergeTarget(null)}
+          loading={isMerging}
+        />
+      )}
     </ScreenErrorBoundary>
   );
 }

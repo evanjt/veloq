@@ -965,6 +965,28 @@ export interface TranslationResource {
     groupingDescription: string;
     performanceHistory: string;
     traversalsSummary: string;
+    scanForMatches: string;
+    scanForMore: string;
+    scanning: string;
+    noMatchesFound: string;
+    noSectionsFound: string;
+    matchQuality: string;
+    addToSection: string;
+    nearbySections: string;
+    nearbySectionsCount: string;
+    similarNearby: string;
+    similarNearbyCount: string;
+    mergeSections: string;
+    mergeKeepMessage: string;
+    mergeInto: string;
+    mergeSuccess: string;
+    rescan: string;
+    rescanComplete: string;
+    forceRedetect: string;
+    rematchActivities: string;
+    awayDistance: string;
+    viewSection: string;
+    merge: string;
   };
 
   engine: {

@@ -6,6 +6,7 @@
 import React, { memo, useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { getActivityIcon } from '@/lib/utils/activityUtils';
 import { colors, darkColors, spacing, typography, layout, shadows } from '@/theme';
@@ -35,6 +36,7 @@ export const MergeConfirmDialog = memo(function MergeConfirmDialog({
   onCancel,
   loading,
 }: MergeConfirmDialogProps) {
+  const { t } = useTranslation();
   const { isDark } = useTheme();
   const bg = isDark ? darkColors.surface : colors.surface;
   const text = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -66,7 +68,7 @@ export const MergeConfirmDialog = memo(function MergeConfirmDialog({
             color={textSecondary}
           />
           <Text style={[styles.optionStat, { color: textSecondary }]}>
-            {section.visitCount} visits
+            {t('sections.visitsCount', { count: section.visitCount })}
           </Text>
           <Text style={[styles.optionStat, { color: textSecondary }]}>
             {Math.round(section.distanceMeters)}m
@@ -80,9 +82,9 @@ export const MergeConfirmDialog = memo(function MergeConfirmDialog({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.overlay}>
         <View style={[styles.dialog, { backgroundColor: bg }]}>
-          <Text style={[styles.title, { color: text }]}>Merge sections</Text>
+          <Text style={[styles.title, { color: text }]}>{t('sections.mergeSections')}</Text>
           <Text style={[styles.subtitle, { color: textSecondary }]}>
-            Choose which section to keep. All traversal history will be preserved.
+            {t('sections.mergeKeepMessage')}
           </Text>
 
           <View style={styles.options}>
@@ -91,12 +93,17 @@ export const MergeConfirmDialog = memo(function MergeConfirmDialog({
           </View>
 
           <Text style={[styles.info, { color: textSecondary }]}>
-            "{actualSecondary.name}" will be merged into "{actualPrimary.name}"
+            {t('sections.mergeInto', {
+              secondary: actualSecondary.name,
+              primary: actualPrimary.name,
+            })}
           </Text>
 
           <View style={styles.actions}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onCancel} activeOpacity={0.7}>
-              <Text style={[styles.cancelText, { color: textSecondary }]}>Cancel</Text>
+              <Text style={[styles.cancelText, { color: textSecondary }]}>
+                {t('common.cancel')}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.mergeBtn, loading && styles.mergeBtnDisabled]}
@@ -107,7 +114,7 @@ export const MergeConfirmDialog = memo(function MergeConfirmDialog({
               {loading ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.mergeText}>Merge</Text>
+                <Text style={styles.mergeText}>{t('sections.merge')}</Text>
               )}
             </TouchableOpacity>
           </View>

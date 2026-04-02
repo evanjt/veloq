@@ -418,7 +418,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
               <MaterialCommunityIcons name="magnify" size={18} color={colors.primary} />
             )}
             <Text style={[styles.scanButtonText, isDark && styles.scanButtonTextDark]}>
-              Scan for matches
+              {t('sections.scanForMatches')}
             </Text>
           </TouchableOpacity>
         )}
@@ -443,8 +443,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
               {match.sectionName || match.sectionId.slice(0, 8)}
             </Text>
             <Text style={[styles.scanMatchMeta, isDark && { color: darkColors.textSecondary }]}>
-              {formatDistance(match.distanceMeters, isMetric)} · {quality}% match
-              {!match.sameDirection ? ' · reverse' : ''}
+              {formatDistance(match.distanceMeters, isMetric)} ·{' '}
+              {t('sections.matchQuality', { quality })}
+              {!match.sameDirection ? ` · ${t('sections.reverse')}` : ''}
             </Text>
           </View>
           <TouchableOpacity
@@ -453,7 +454,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
             activeOpacity={0.7}
             disabled={isScanning}
           >
-            <Text style={styles.addMatchButtonText}>Add</Text>
+            <Text style={styles.addMatchButtonText}>{t('sections.addToSection')}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -478,7 +479,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
             ) : (
               <MaterialCommunityIcons name="magnify" size={14} color={colors.primary} />
             )}
-            <Text style={styles.scanLinkText}>Scan for more sections</Text>
+            <Text style={styles.scanLinkText}>{t('sections.scanForMore')}</Text>
           </TouchableOpacity>
         )}
 
@@ -487,7 +488,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           <View style={styles.scanningContainer}>
             <ActivityIndicator size={20} color={colors.primary} />
             <Text style={[styles.scanningText, isDark && { color: darkColors.textSecondary }]}>
-              Scanning...
+              {t('sections.scanning')}
             </Text>
           </View>
         )}
@@ -496,8 +497,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         {hasScanned && !isScanning && filteredScanMatches.length > 0 && (
           <View style={styles.scanResultsContainer}>
             <Text style={[styles.scanResultsTitle, isDark && { color: darkColors.textPrimary }]}>
-              {filteredScanMatches.length} additional{' '}
-              {filteredScanMatches.length === 1 ? 'match' : 'matches'} found
+              {t('sections.nearbySectionsCount', { count: filteredScanMatches.length })}
             </Text>
             {filteredScanMatches.map(renderScanMatch)}
           </View>
@@ -507,7 +507,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         {hasScanned && !isScanning && filteredScanMatches.length === 0 && (
           <View style={styles.scanNoResults}>
             <Text style={[styles.scanNoResultsText, isDark && { color: darkColors.textSecondary }]}>
-              No additional sections found
+              {t('sections.noMatchesFound')}
             </Text>
           </View>
         )}
