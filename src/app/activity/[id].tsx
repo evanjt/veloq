@@ -17,6 +17,7 @@ import {
   useGpxExport,
   useSectionOverlays,
   useSectionTimeStreams,
+  useActivityRematch,
 } from '@/hooks';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
@@ -145,6 +146,14 @@ export default function ActivityDetailScreen() {
 
   // Get auto-detected sections from engine that include this activity
   const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);
+
+  // Scan for additional section matches
+  const {
+    matches: scanMatches,
+    scan: scanForSections,
+    rematch: rematchSection,
+    isRematching,
+  } = useActivityRematch();
 
   // Filter custom sections that match this activity
   const customMatchedSections = useMemo(() => {
@@ -579,6 +588,10 @@ export default function ActivityDetailScreen() {
             onSectionCreationModeChange={setSectionCreationMode}
             getSectionBestTime={getSectionBestTime}
             removeSection={removeSection}
+            scanMatches={scanMatches}
+            isScanning={isRematching}
+            onScan={() => scanForSections(id)}
+            onRematch={(sectionId) => rematchSection(id, sectionId)}
           />
         )}
       </SwipeableTabs>

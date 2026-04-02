@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
-import { useTheme, useCacheDays } from '@/hooks';
+import { useTheme, useCacheDays, useSectionRescan } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -303,6 +303,7 @@ export function SectionsList({
   }, [unifiedSections]);
 
   const { createSection, removeSection } = useCustomSections();
+  const { rescan, isScanning } = useSectionRescan();
 
   const trueAutoCount = totalSectionCount != null ? totalSectionCount : autoCount;
   const trueDisabledCount = disabledCount;
@@ -497,6 +498,12 @@ export function SectionsList({
     const nextIndex = idx >= 0 ? (idx + 1) % sortOptions.length : 0;
     onSortChange(sortOptions[nextIndex]);
   }, [onSortChange, sortOption, sortOptions]);
+
+  const handleRescan = useCallback(() => {
+    if (!isScanning) {
+      rescan(selectedSportFilter ?? undefined);
+    }
+  }, [isScanning, rescan, selectedSportFilter]);
 
   const displaySectionCount = totalSectionCount ?? totalCount;
 
@@ -788,27 +795,49 @@ export function SectionsList({
             })}
           </View>
         )}
-        {regularSections.length > 1 && (
+        <View style={styles.sortRow}>
           <TouchableOpacity
-            style={[styles.sortControl, isDark && styles.sortControlDark]}
-            onPress={handleCycleSort}
+            style={styles.rescanButton}
+            onPress={handleRescan}
+            disabled={isScanning}
             activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <MaterialCommunityIcons
-              name="sort"
-              size={14}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
-            <Text style={[styles.sortText, isDark && styles.sortTextDark]}>
-              {t(sortLabelKeys[sortOption] as never)}
-            </Text>
-            <MaterialCommunityIcons
-              name="chevron-down"
-              size={14}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
+            {isScanning ? (
+              <ActivityIndicator
+                size={14}
+                color={isDark ? darkColors.textDisabled : colors.textDisabled}
+              />
+            ) : (
+              <MaterialCommunityIcons
+                name="reload"
+                size={16}
+                color={isDark ? darkColors.textDisabled : colors.textDisabled}
+              />
+            )}
           </TouchableOpacity>
-        )}
+          {regularSections.length > 1 && (
+            <TouchableOpacity
+              style={[styles.sortControl, isDark && styles.sortControlDark]}
+              onPress={handleCycleSort}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="sort"
+                size={14}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
+              <Text style={[styles.sortText, isDark && styles.sortTextDark]}>
+                {t(sortLabelKeys[sortOption] as never)}
+              </Text>
+              <MaterialCommunityIcons
+                name="chevron-down"
+                size={14}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <FlatList
@@ -1024,14 +1053,25 @@ const styles = StyleSheet.create({
   searchInputDark: {
     color: colors.textOnDark,
   },
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
+  rescanButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   sortControl: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-end',
     gap: 4,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.sm,
-    marginRight: spacing.md,
+    paddingHorizontal: spacing.sm,
+    height: 44,
   },
   sortControlDark: {},
   sortText: {

@@ -8,3 +8,4 @@ export { SectionScatterChart } from './SectionScatterChart';
 export type { SectionScatterChartProps } from './SectionScatterChart';
 export { SectionInfoCard } from './SectionInfoCard';
 export type { SectionInfoCardProps } from './SectionInfoCard';
+export { MergeConfirmDialog } from './MergeConfirmDialog';

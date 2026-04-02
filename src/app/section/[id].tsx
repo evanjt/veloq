@@ -29,6 +29,9 @@ import {
   useCacheDays,
   useGpxExport,
   useSectionChartData,
+  useNearbySections,
+  useMergeSections,
+  useSectionRescan,
 } from '@/hooks';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionTrim } from '@/hooks/routes/useSectionTrim';
@@ -88,6 +91,11 @@ export default function SectionDetailScreen() {
   const debugEnabled = useDebugStore((s) => s.enabled);
   const { getPageMetrics } = useFFITimer();
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
+
+  // Nearby sections and merge candidates
+  const { nearby } = useNearbySections(id);
+  const { candidates: mergeCandidates } = useMergeSections(id);
+  const { rescan, isScanning: isRematching } = useSectionRescan();
 
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
@@ -402,6 +410,11 @@ export default function SectionDetailScreen() {
     setIsScrubbing(scrubbing);
   }, []);
 
+  const handleRematchActivities = useCallback(() => {
+    if (!section?.sportType) return;
+    rescan(section.sportType);
+  }, [section?.sportType, rescan]);
+
   // Load excluded activity IDs for this section
   useEffect(() => {
     if (!id) return;
@@ -616,6 +629,14 @@ export default function SectionDetailScreen() {
     }
   }, [section?.id]);
 
+  // Prepare nearby polylines for map overlay
+  const nearbyPolylines = useMemo(() => {
+    if (!nearby || nearby.length === 0) return undefined;
+    return nearby
+      .filter((n) => n.polylineCoords && n.polylineCoords.length >= 4)
+      .map((n) => ({ id: n.id, polylineCoords: n.polylineCoords }));
+  }, [nearby]);
+
   const isRunning = effectiveSportType
     ? isRunningActivity(effectiveSportType as ActivityType)
     : section
@@ -743,6 +764,7 @@ export default function SectionDetailScreen() {
             highlightedLapPoints={highlightedActivityPoints}
             allActivityTraces={allActivityTraces}
             isScrubbing={isScrubbing}
+            nearbyPolylines={nearbyPolylines}
             onBack={() => router.back()}
             onStartTrim={startTrim}
             onDeleteSection={handleDeleteSection}
@@ -757,6 +779,8 @@ export default function SectionDetailScreen() {
             onCancelTrim={cancelTrim}
             onResetBounds={resetBounds}
             onToggleExpand={toggleExpand}
+            onRematchActivities={handleRematchActivities}
+            isRematching={isRematching}
           />
 
           {/* Sport type pills for cross-sport sections */}
@@ -817,6 +841,27 @@ export default function SectionDetailScreen() {
                 <Text style={styles.disabledBannerText}>
                   {t('sections.removed')} — {t('sections.restoreSection')}
                 </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Merge candidates banner */}
+            {mergeCandidates.length > 0 && (
+              <TouchableOpacity
+                style={[styles.mergeBanner, isDark && styles.mergeBannerDark]}
+                onPress={() => router.push(`/section/${mergeCandidates[0].sectionId}`)}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="call-merge" size={18} color={colors.info} />
+                <Text style={[styles.mergeBannerText, isDark && styles.mergeBannerTextDark]}>
+                  {mergeCandidates.length === 1
+                    ? '1 similar section nearby'
+                    : `${mergeCandidates.length} similar sections nearby`}
+                </Text>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={18}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                />
               </TouchableOpacity>
             )}
 
@@ -1125,6 +1170,30 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.warning,
+  },
+  mergeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.info + '10',
+    borderWidth: 1,
+    borderColor: colors.info + '25',
+    borderRadius: layout.borderRadius,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  mergeBannerDark: {
+    backgroundColor: colors.info + '15',
+    borderColor: colors.info + '30',
+  },
+  mergeBannerText: {
+    flex: 1,
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '500',
+    color: colors.info,
+  },
+  mergeBannerTextDark: {
+    color: colors.infoLight,
   },
   emptyContainer: {
     flex: 1,

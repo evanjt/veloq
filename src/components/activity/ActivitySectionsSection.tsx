@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
   FlatList,
@@ -8,8 +8,9 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { SectionMatch as FfiSectionMatch } from 'veloqrs';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
@@ -22,7 +23,7 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 import { castDirection, fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
 import type { Section, ActivityType, PerformanceDataPoint } from '@/types';
-import { getSectionStyle, navigateTo } from '@/lib';
+import { getSectionStyle, navigateTo, formatDistance } from '@/lib';
 import { colors, darkColors, spacing } from '@/theme';
 
 type UnifiedSectionItem =
@@ -44,6 +45,14 @@ interface ActivitySectionsSectionProps {
   onSectionCreationModeChange: (mode: boolean) => void;
   getSectionBestTime: (sectionId: string) => number | undefined;
   removeSection: (sectionId: string) => Promise<void>;
+  /** Scan results from useActivityRematch */
+  scanMatches: FfiSectionMatch[];
+  /** Whether a scan is in progress */
+  isScanning: boolean;
+  /** Trigger a scan for this activity */
+  onScan: () => void;
+  /** Force-match to a specific section */
+  onRematch: (sectionId: string) => boolean;
 }
 
 /** Build chart data from section performance FFI result */
@@ -87,12 +96,49 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   onHighlightedSectionIdChange,
   onSectionCreationModeChange,
   removeSection,
+  scanMatches,
+  isScanning,
+  onScan,
+  onRematch,
 }: ActivitySectionsSectionProps) {
   const { t } = useTranslation();
 
   // Track open swipeable refs to close them when another opens
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
   const openSwipeableRef = useRef<string | null>(null);
+
+  // Track which scan matches have been successfully added
+  const [addedSectionIds, setAddedSectionIds] = useState(new Set<string>());
+
+  // Whether a scan has been performed
+  const hasScanned = scanMatches.length > 0 || addedSectionIds.size > 0;
+
+  // Filter scan results: exclude sections already in the matched list and already added
+  const existingSectionIds = useMemo(
+    () =>
+      new Set(
+        unifiedSections.map((s) => (s.type === 'engine' ? s.match.section.id : s.section.id))
+      ),
+    [unifiedSections]
+  );
+
+  const filteredScanMatches = useMemo(
+    () =>
+      scanMatches.filter(
+        (m) => !existingSectionIds.has(m.sectionId) && !addedSectionIds.has(m.sectionId)
+      ),
+    [scanMatches, existingSectionIds, addedSectionIds]
+  );
+
+  const handleRematch = useCallback(
+    (sectionId: string) => {
+      const success = onRematch(sectionId);
+      if (success) {
+        setAddedSectionIds((prev) => new Set(prev).add(sectionId));
+      }
+    },
+    [onRematch]
+  );
 
   // Batch-load performance data for all sections
   const plotDataMap = useMemo((): Map<string, InlineSectionData> => {
@@ -359,14 +405,113 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         <Text style={[styles.emptyStateDescription, isDark && styles.textMuted]}>
           {t('activityDetail.noMatchedSectionsDescription')}
         </Text>
+        {!hasScanned && (
+          <TouchableOpacity
+            style={[styles.scanButton, isDark && styles.scanButtonDark]}
+            onPress={onScan}
+            activeOpacity={0.7}
+            disabled={isScanning}
+          >
+            {isScanning ? (
+              <ActivityIndicator size={18} color={colors.primary} />
+            ) : (
+              <MaterialCommunityIcons name="magnify" size={18} color={colors.primary} />
+            )}
+            <Text style={[styles.scanButtonText, isDark && styles.scanButtonTextDark]}>
+              Scan for matches
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
-  }, [isDark, t]);
+  }, [isDark, t, hasScanned, isScanning, onScan]);
+
+  // Render a single scan match result row
+  const renderScanMatch = useCallback(
+    (match: FfiSectionMatch) => {
+      const quality = Math.round(match.matchQuality * 100);
+      return (
+        <View
+          key={match.sectionId}
+          style={[styles.scanMatchRow, isDark && styles.scanMatchRowDark]}
+        >
+          <View style={styles.scanMatchInfo}>
+            <Text
+              numberOfLines={1}
+              style={[styles.scanMatchName, isDark && { color: darkColors.textPrimary }]}
+            >
+              {match.sectionName || match.sectionId.slice(0, 8)}
+            </Text>
+            <Text style={[styles.scanMatchMeta, isDark && { color: darkColors.textSecondary }]}>
+              {formatDistance(match.distanceMeters, isMetric)} · {quality}% match
+              {!match.sameDirection ? ' · reverse' : ''}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.addMatchButton}
+            onPress={() => handleRematch(match.sectionId)}
+            activeOpacity={0.7}
+            disabled={isScanning}
+          >
+            <Text style={styles.addMatchButtonText}>Add</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    },
+    [isDark, isMetric, isScanning, handleRematch]
+  );
 
   // Render footer for section list
   const renderSectionsListFooter = useCallback(() => {
     return (
       <>
+        {/* Scan trigger: show "Scan for more sections" link when sections exist */}
+        {unifiedSections.length > 0 && !hasScanned && (
+          <TouchableOpacity
+            style={styles.scanLink}
+            onPress={onScan}
+            activeOpacity={0.7}
+            disabled={isScanning}
+          >
+            {isScanning ? (
+              <ActivityIndicator size={14} color={colors.primary} />
+            ) : (
+              <MaterialCommunityIcons name="magnify" size={14} color={colors.primary} />
+            )}
+            <Text style={styles.scanLinkText}>Scan for more sections</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Scanning indicator */}
+        {isScanning && hasScanned && (
+          <View style={styles.scanningContainer}>
+            <ActivityIndicator size={20} color={colors.primary} />
+            <Text style={[styles.scanningText, isDark && { color: darkColors.textSecondary }]}>
+              Scanning...
+            </Text>
+          </View>
+        )}
+
+        {/* Scan results */}
+        {hasScanned && !isScanning && filteredScanMatches.length > 0 && (
+          <View style={styles.scanResultsContainer}>
+            <Text style={[styles.scanResultsTitle, isDark && { color: darkColors.textPrimary }]}>
+              {filteredScanMatches.length} additional{' '}
+              {filteredScanMatches.length === 1 ? 'match' : 'matches'} found
+            </Text>
+            {filteredScanMatches.map(renderScanMatch)}
+          </View>
+        )}
+
+        {/* Scan performed but no new results */}
+        {hasScanned && !isScanning && filteredScanMatches.length === 0 && (
+          <View style={styles.scanNoResults}>
+            <Text style={[styles.scanNoResultsText, isDark && { color: darkColors.textSecondary }]}>
+              No additional sections found
+            </Text>
+          </View>
+        )}
+
         {coordinates.length > 0 && !sectionCreationMode && (
           <TouchableOpacity
             style={[styles.createSectionButton, isDark && styles.createSectionButtonDark]}
@@ -381,7 +526,20 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         <DataRangeFooter days={cacheDays} isDark={isDark} />
       </>
     );
-  }, [coordinates.length, sectionCreationMode, isDark, cacheDays, t, onSectionCreationModeChange]);
+  }, [
+    coordinates.length,
+    sectionCreationMode,
+    isDark,
+    cacheDays,
+    t,
+    onSectionCreationModeChange,
+    unifiedSections.length,
+    hasScanned,
+    isScanning,
+    filteredScanMatches,
+    onScan,
+    renderScanMatch,
+  ]);
 
   return (
     <View
@@ -499,5 +657,113 @@ const styles = StyleSheet.create({
   },
   enableSwipeAction: {
     backgroundColor: colors.success,
+  },
+  // Scan button (empty state)
+  scanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  scanButtonDark: {
+    borderColor: colors.primary,
+  },
+  scanButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  scanButtonTextDark: {
+    color: colors.primary,
+  },
+  // Scan link (footer, when sections exist)
+  scanLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    marginHorizontal: spacing.md,
+  },
+  scanLinkText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  // Scanning indicator
+  scanningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  scanningText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  // Scan results
+  scanResultsContainer: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
+  scanResultsTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.sm,
+  },
+  scanMatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  scanMatchRowDark: {
+    backgroundColor: darkColors.surface,
+  },
+  scanMatchInfo: {
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  scanMatchName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  scanMatchMeta: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  addMatchButton: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+  },
+  addMatchButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textOnPrimary,
+  },
+  // No results
+  scanNoResults: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  scanNoResultsText: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
 });

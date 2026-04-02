@@ -104,6 +104,9 @@ export function RegionalMapView({
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
   const clusterSourceRef = useRef<React.ElementRef<typeof ShapeSource>>(null);
 
+  // Track whether user manually toggled sections (if so, don't auto-show/hide)
+  const userToggledSectionsRef = useRef(false);
+
   // iOS simulator tile loading retry mechanism
   const [mapKey, setMapKey] = useState(0);
   const retryCountRef = useRef(0);
@@ -259,10 +262,10 @@ export function RegionalMapView({
     handleMapPress,
     handleSectionPress,
     handleRegionIsChanging,
-    handleRegionDidChange,
+    handleRegionDidChange: baseHandleRegionDidChange,
     handleGetLocation,
     toggleActivities,
-    toggleSections,
+    toggleSections: baseToggleSections,
     toggleRoutes,
     resetOrientation,
     handleFitAll,
@@ -297,6 +300,34 @@ export function RegionalMapView({
     is3DMode,
     markUserInteracted,
   });
+
+  // Auto-show sections when zoomed in to neighborhood level, auto-hide when zoomed out.
+  // Manual toggles (via the control button) take precedence and disable auto-behavior.
+  const SECTIONS_AUTO_SHOW_ZOOM = 13;
+  const SECTIONS_AUTO_HIDE_ZOOM = 11;
+
+  const toggleSections = useCallback(() => {
+    userToggledSectionsRef.current = true;
+    baseToggleSections();
+  }, [baseToggleSections]);
+
+  const handleRegionDidChange = useCallback(
+    (feature: GeoJSON.Feature) => {
+      baseHandleRegionDidChange(feature);
+
+      if (userToggledSectionsRef.current) return;
+
+      const zoomLevel = (feature.properties as { zoomLevel?: number } | undefined)?.zoomLevel;
+      if (zoomLevel === undefined) return;
+
+      if (zoomLevel >= SECTIONS_AUTO_SHOW_ZOOM && !showSections) {
+        setShowSections(true);
+      } else if (zoomLevel < SECTIONS_AUTO_HIDE_ZOOM && showSections) {
+        setShowSections(false);
+      }
+    },
+    [baseHandleRegionDidChange, showSections]
+  );
 
   // Clear selections when their corresponding group visibility is turned off
   useEffect(() => {

@@ -105,6 +105,8 @@ interface SectionMapViewProps {
   trimRange?: { start: number; end: number } | null;
   /** Extension track for expanding section bounds - shown as faded line beyond the section */
   extensionTrack?: RoutePoint[] | null;
+  /** Nearby section polylines to render as muted gray overlays. Each entry has flat [lat,lng,...] coords. */
+  nearbyPolylines?: Array<{ id: string; polylineCoords: number[] }>;
 }
 
 export const SectionMapView = memo(function SectionMapView({
@@ -119,6 +121,7 @@ export const SectionMapView = memo(function SectionMapView({
   isScrubbing = false,
   trimRange = null,
   extensionTrack = null,
+  nearbyPolylines,
 }: SectionMapViewProps) {
   const { t } = useTranslation();
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -355,6 +358,36 @@ export const SectionMapView = memo(function SectionMapView({
     };
   }, [extensionTrack]);
 
+  // Create FeatureCollection for nearby section polylines (muted gray overlays)
+  const nearbyGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    if (!nearbyPolylines || nearbyPolylines.length === 0) return emptyCollection;
+    const features = nearbyPolylines
+      .map((entry) => {
+        const coords = entry.polylineCoords;
+        // Flat array: [lat, lng, lat, lng, ...]
+        if (!coords || coords.length < 4) return null;
+        const coordinates: [number, number][] = [];
+        for (let i = 0; i < coords.length - 1; i += 2) {
+          const lat = coords[i];
+          const lng = coords[i + 1];
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            coordinates.push([lng, lat]);
+          }
+        }
+        if (coordinates.length < 2) return null;
+        return {
+          type: 'Feature' as const,
+          properties: { sectionId: entry.id },
+          geometry: {
+            type: 'LineString' as const,
+            coordinates,
+          },
+        };
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+    return { type: 'FeatureCollection', features };
+  }, [nearbyPolylines]);
+
   // Create FeatureCollection with ALL activity traces for fast scrubbing
   const allTracesFeatureCollection = useMemo((): GeoJSON.FeatureCollection => {
     if (!allActivityTraces || Object.keys(allActivityTraces).length === 0) return emptyCollection;
@@ -494,6 +527,21 @@ export const SectionMapView = memo(function SectionMapView({
           padding: { paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 },
         }}
       />
+
+      {/* Nearby section polylines (muted gray, rendered behind everything) */}
+      <ShapeSource id="nearbySource" shape={nearbyGeoJSON}>
+        <LineLayer
+          id="nearbyLine"
+          style={{
+            lineColor: '#888888',
+            lineOpacity: 0.4,
+            lineWidth: 3,
+            lineCap: 'round',
+            lineJoin: 'round',
+            lineDasharray: [2, 2],
+          }}
+        />
+      </ShapeSource>
 
       {/* Shadow track (full activity route) */}
       {/* CRITICAL: Always render all ShapeSources to avoid iOS crash during view reconciliation */}
