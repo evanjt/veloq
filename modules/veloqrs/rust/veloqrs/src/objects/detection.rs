@@ -98,6 +98,35 @@ impl DetectionManager {
         }))
     }
 
+    /// Force full re-detection by clearing processed activity IDs first.
+    /// This ensures all activities are re-evaluated against sections.
+    /// Returns false if detection is already running.
+    fn force_redetect(&self, sport_filter: Option<String>) -> Result<bool, VeloqError> {
+        {
+            let handle_guard = SECTION_DETECTION_HANDLE
+                .lock()
+                .map_err(|_| VeloqError::LockFailed)?;
+            if handle_guard.is_some() {
+                info!("tracematch: [DetectionManager] Cannot force redetect: detection already running");
+                return Ok(false);
+            }
+        }
+
+        // Clear processed activity IDs to force full re-evaluation
+        with_engine(|e| {
+            e.clear_processed_activity_ids();
+        })?;
+
+        let handle = with_engine(|e| e.detect_sections_background(sport_filter))?;
+
+        let mut handle_guard = SECTION_DETECTION_HANDLE
+            .lock()
+            .map_err(|_| VeloqError::LockFailed)?;
+        *handle_guard = Some(handle);
+        info!("tracematch: [DetectionManager] Forced full section re-detection started");
+        Ok(true)
+    }
+
     fn detect_potentials(
         &self,
         sport_filter: Option<String>,

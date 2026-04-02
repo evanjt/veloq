@@ -468,4 +468,162 @@ impl SectionManager {
                 .collect()
         })
     }
+
+    /// Match an activity's GPS track against all existing sections.
+    /// Returns all matches found (may be empty if activity doesn't traverse any section).
+    fn match_activity_to_sections(
+        &self,
+        activity_id: String,
+    ) -> Result<Vec<crate::FfiSectionMatch>, VeloqError> {
+        with_engine(|engine| {
+            let track = match engine.get_gps_track(&activity_id) {
+                Some(t) if t.len() >= 3 => t,
+                _ => return vec![],
+            };
+
+            let sections = engine.get_sections();
+            if sections.is_empty() {
+                return vec![];
+            }
+
+            let config = tracematch::SectionConfig::default();
+            let matches =
+                tracematch::sections::optimized::find_sections_in_route(&track, sections, &config);
+
+            matches
+                .into_iter()
+                .map(|m| {
+                    let section = sections.iter().find(|s| s.id == m.section_id);
+                    let portion_slice = &track
+                        [m.start_index as usize..(m.end_index as usize).min(track.len())];
+                    let distance =
+                        tracematch::matching::calculate_route_distance(portion_slice);
+                    crate::FfiSectionMatch {
+                        section_id: m.section_id,
+                        section_name: section.and_then(|s| s.name.clone()),
+                        sport_type: section
+                            .map(|s| s.sport_type.clone())
+                            .unwrap_or_default(),
+                        start_index: m.start_index,
+                        end_index: m.end_index,
+                        match_quality: m.match_quality,
+                        same_direction: m.same_direction,
+                        distance_meters: distance,
+                    }
+                })
+                .collect()
+        })
+    }
+
+    /// Force-match a single activity to a specific section with relaxed thresholds.
+    /// Returns true if a match was found and the section_activities row was inserted.
+    fn rematch_activity_to_section(
+        &self,
+        activity_id: String,
+        section_id: String,
+    ) -> Result<bool, VeloqError> {
+        with_engine(|engine| {
+            let track = match engine.get_gps_track(&activity_id) {
+                Some(t) if t.len() >= 3 => t,
+                _ => return false,
+            };
+
+            let section = match engine.get_sections().iter().find(|s| s.id == section_id) {
+                Some(s) => s.clone(),
+                None => return false,
+            };
+
+            if section.polyline.is_empty() {
+                return false;
+            }
+
+            // Use relaxed threshold: proximity * 2.5 (wider than the standard * 2.0)
+            let config = tracematch::SectionConfig::default();
+            let threshold = config.proximity_threshold * 2.5;
+
+            let spans = tracematch::sections::optimized::find_all_section_spans_in_route(
+                &track,
+                &section.polyline,
+                threshold,
+            );
+
+            // Accept matches at 40% quality (more lenient than normal 50%)
+            let best_span = spans
+                .into_iter()
+                .filter(|(_, _, quality, _)| *quality >= 0.4)
+                .max_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
+
+            if let Some((start, end, _quality, same_dir)) = best_span {
+                let portion_slice = &track[start..end.min(track.len())];
+                let distance = tracematch::matching::calculate_route_distance(portion_slice);
+                let direction = if same_dir {
+                    tracematch::Direction::Same
+                } else {
+                    tracematch::Direction::Reverse
+                };
+
+                match engine.insert_section_activity(
+                    &section_id,
+                    &activity_id,
+                    &direction,
+                    start as u32,
+                    end as u32,
+                    distance,
+                ) {
+                    Ok(_) => {
+                        engine.refresh_section_in_memory(&section_id);
+                        true
+                    }
+                    Err(e) => {
+                        log::warn!(
+                            "tracematch: [rematch] Failed to insert section_activity: {}",
+                            e
+                        );
+                        false
+                    }
+                }
+            } else {
+                false
+            }
+        })
+    }
+
+    /// Get sections near a given section within a radius.
+    /// Returns summaries with polyline coordinates for map overlay rendering.
+    fn get_nearby_sections(
+        &self,
+        section_id: String,
+        radius_meters: f64,
+    ) -> Result<Vec<crate::FfiNearbySectionSummary>, VeloqError> {
+        with_engine(|engine| {
+            engine.get_nearby_sections(&section_id, radius_meters)
+        })
+    }
+
+    /// Find sections that are candidates for merging with the given section.
+    /// Candidates have >30% polyline overlap or centers within 300m with similar distances.
+    fn get_merge_candidates(
+        &self,
+        section_id: String,
+    ) -> Result<Vec<crate::FfiMergeCandidate>, VeloqError> {
+        with_engine(|engine| {
+            engine.get_merge_candidates(&section_id)
+        })
+    }
+
+    /// Merge two sections. Moves all traversal history from secondary into primary.
+    /// Recomputes consensus polyline. Deletes secondary. Returns the primary section ID.
+    fn merge_sections(
+        &self,
+        primary_id: String,
+        secondary_id: String,
+    ) -> Result<String, VeloqError> {
+        with_engine(|engine| {
+            engine
+                .merge_user_sections(&primary_id, &secondary_id)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
+    }
 }

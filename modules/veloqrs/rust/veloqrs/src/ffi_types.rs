@@ -1625,3 +1625,46 @@ pub struct FfiExerciseActivity {
 pub struct FfiExerciseActivities {
     pub activities: Vec<FfiExerciseActivity>,
 }
+
+// ============================================================================
+// Section Matching & Merge Types
+// ============================================================================
+
+/// Result of matching an activity's GPS track against existing sections.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionMatch {
+    pub section_id: String,
+    pub section_name: Option<String>,
+    pub sport_type: String,
+    pub start_index: u64,
+    pub end_index: u64,
+    pub match_quality: f64,
+    pub same_direction: bool,
+    pub distance_meters: f64,
+}
+
+/// Candidate for merging with another section.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMergeCandidate {
+    pub section_id: String,
+    pub name: Option<String>,
+    pub sport_type: String,
+    pub distance_meters: f64,
+    pub visit_count: u32,
+    pub overlap_pct: f64,
+    pub center_distance_meters: f64,
+}
+
+/// Nearby section summary with distance info and polyline for map rendering.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiNearbySectionSummary {
+    pub id: String,
+    pub section_type: String,
+    pub name: Option<String>,
+    pub sport_type: String,
+    pub distance_meters: f64,
+    pub visit_count: u32,
+    pub center_distance_meters: f64,
+    /// Flat polyline coordinates [lat, lng, lat, lng, ...] for map overlay
+    pub polyline_coords: Vec<f64>,
+}
