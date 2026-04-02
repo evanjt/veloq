@@ -688,6 +688,7 @@
   },
   "insights": {
     "title": "Insights",
+    "strength": "Strength",
     "noInsights": "Insights will appear as you train",
     "noInsightsHint": "Complete more activities to see personalized insights",
     "sectionPr": "PR on {{name}}",
@@ -844,7 +845,27 @@
       "subtitle": "{{hrChange}} bpm lower over {{efforts}} efforts",
       "body": "Over {{efforts}} efforts on {{name}}, your heart rate at the same pace has dropped by {{hrChange}} bpm."
     },
-    "strength": "Strength"
+    "teaser": {
+      "workoutToday": "{{name}} today",
+      "prOpportunity": "PR opportunity on {{name}}",
+      "usualPattern": "{{day}} you usually {{sport}} ~{{duration}}",
+      "improving": "improving ↑",
+      "stable": "stable"
+    },
+    "strengthBalance": {
+      "volumeSplit": "Volume split",
+      "balanced": "Balanced",
+      "watch": "Watch",
+      "imbalanced": "Imbalanced",
+      "oneSided": "One-sided",
+      "lowSignal": "Low signal",
+      "noSignal": "No signal",
+      "noRecentVolume": "No volume in the last 4 weeks — only appearing in the wider selected period.",
+      "volumeAppeared": "Volume appeared in the last two weeks after a quieter start.",
+      "volumeUp": "Recent 2-week average is {{percent}}% above the prior 2 weeks.",
+      "volumeDown": "Recent 2-week average is {{percent}}% below the prior 2 weeks.",
+      "volumeSteady": "Recent 2-week average is holding steady versus the earlier part of the month."
+    }
   },
   "routeDetail": {
     "avgTime": "Avg Time",

@@ -423,6 +423,7 @@
   },
   "insights": {
     "title": "Analizy",
+    "strength": "Strength",
     "noInsights": "Analizy pojawią się w miarę treningów",
     "noInsightsHint": "Ukończ więcej aktywności, aby zobaczyć spersonalizowane analizy",
     "sectionPr": "PR na {{name}}",
@@ -579,7 +580,27 @@
       "subtitle": "{{hrChange}} bpm mniej w {{efforts}} powtórzeniach",
       "body": "W {{efforts}} powtórzeniach na {{name}} tętno przy tym samym tempie spadło o {{hrChange}} bpm."
     },
-    "strength": "Strength"
+    "teaser": {
+      "workoutToday": "{{name}} dzisiaj",
+      "prOpportunity": "Szansa na rekord na {{name}}",
+      "usualPattern": "W {{day}} zwykle {{sport}} ~{{duration}}",
+      "improving": "poprawa ↑",
+      "stable": "stabilnie"
+    },
+    "strengthBalance": {
+      "volumeSplit": "Rozkład objętości",
+      "balanced": "Zrównoważony",
+      "watch": "Obserwuj",
+      "imbalanced": "Niezrównoważony",
+      "oneSided": "Jednostronny",
+      "lowSignal": "Słaby sygnał",
+      "noSignal": "Brak sygnału",
+      "noRecentVolume": "Brak objętości w ostatnich 4 tygodniach — pojawia się tylko w szerszym okresie.",
+      "volumeAppeared": "Objętość pojawiła się w ostatnich dwóch tygodniach po spokojniejszym początku.",
+      "volumeUp": "Średnia z ostatnich 2 tygodni jest {{percent}}% powyżej poprzednich 2 tygodni.",
+      "volumeDown": "Średnia z ostatnich 2 tygodni jest {{percent}}% poniżej poprzednich 2 tygodni.",
+      "volumeSteady": "Średnia z ostatnich 2 tygodni jest stabilna w porównaniu z początkiem miesiąca."
+    }
   },
   "licenses": {
     "footer": "Dotknij dowolnej plakietki licencji, aby zobaczyć pełny tekst. Dotknij ikony linku, aby odwiedzić repozytorium projektu.",

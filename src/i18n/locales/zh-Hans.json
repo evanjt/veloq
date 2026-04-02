@@ -423,6 +423,7 @@
   },
   "insights": {
     "title": "洞察",
+    "strength": "Strength",
     "noInsights": "训练后将显示洞察",
     "noInsightsHint": "完成更多活动以查看个性化洞察",
     "sectionPr": "{{name}}上的PR",
@@ -579,7 +580,27 @@
       "subtitle": "{{efforts}}次中降低{{hrChange}}bpm",
       "body": "在{{name}}的{{efforts}}次中，相同配速下心率降低了{{hrChange}}bpm。"
     },
-    "strength": "Strength"
+    "teaser": {
+      "workoutToday": "今天{{name}}",
+      "prOpportunity": "{{name}}上的PR机会",
+      "usualPattern": "{{day}}你通常{{sport}} ~{{duration}}",
+      "improving": "提升中 ↑",
+      "stable": "稳定"
+    },
+    "strengthBalance": {
+      "volumeSplit": "训练量分布",
+      "balanced": "均衡",
+      "watch": "关注",
+      "imbalanced": "不均衡",
+      "oneSided": "偏向一侧",
+      "lowSignal": "数据不足",
+      "noSignal": "无数据",
+      "noRecentVolume": "最近4周无训练量 — 仅在更大的选定时段中显示。",
+      "volumeAppeared": "经过较平静的开始后，最近两周出现了训练量。",
+      "volumeUp": "最近2周平均值比前2周高{{percent}}%。",
+      "volumeDown": "最近2周平均值比前2周低{{percent}}%。",
+      "volumeSteady": "最近2周平均值与月初相比保持稳定。"
+    }
   },
   "licenses": {
     "footer": "点击任何许可证徽章查看完整许可证文本。点击链接图标访问项目仓库。",

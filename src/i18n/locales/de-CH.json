@@ -423,6 +423,7 @@
   },
   "insights": {
     "title": "S Wichigschte",
+    "strength": "Strength",
     "noInsights": "Tipps chömed wenn du trainiersch",
     "noInsightsHint": "Mach meh Aktivitäte für persönlichi Tipps",
     "sectionPr": "PR uf {{name}}!",
@@ -579,7 +580,27 @@
       "subtitle": "{{hrChange}} bpm tüüfer über {{efforts}} Versüech",
       "body": "Über {{efforts}} Versüech uf {{name}} isch dini Härzfrequänz bim gliiche Tempo um {{hrChange}} bpm gsunke."
     },
-    "strength": "Strength"
+    "teaser": {
+      "workoutToday": "{{name}} hüt",
+      "prOpportunity": "PR-Chance uf {{name}}",
+      "usualPattern": "{{day}} machsch normalerwiis {{sport}} ~{{duration}}",
+      "improving": "wird besser ↑",
+      "stable": "stabil"
+    },
+    "strengthBalance": {
+      "volumeSplit": "Volume-Uffteilig",
+      "balanced": "Usgliche",
+      "watch": "Beobachte",
+      "imbalanced": "Unusgliche",
+      "oneSided": "Eiisitig",
+      "lowSignal": "Wenig Date",
+      "noSignal": "Kei Date",
+      "noRecentVolume": "Keis Volume ide letzte 4 Wuche — erschint nur im erwiiterte Ziitraum.",
+      "volumeAppeared": "Volume isch ide letzte zwei Wuche ufftaucht nach emene rüehigere Start.",
+      "volumeUp": "De 2-Wuche-Schnitt ligt {{percent}}% über de vorherige 2 Wuche.",
+      "volumeDown": "De 2-Wuche-Schnitt ligt {{percent}}% unter de vorherige 2 Wuche.",
+      "volumeSteady": "De 2-Wuche-Schnitt isch stabil im Vergliich zum Monatsaafang."
+    }
   },
   "licenses": {
     "footer": "Tipp uf es Lizenz-Badge um de voll Text z gseh. Tipp ufs Link-Symbol um s Projekt-Repository z bsueche.",

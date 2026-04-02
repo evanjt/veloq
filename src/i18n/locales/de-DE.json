@@ -423,6 +423,7 @@
   },
   "insights": {
     "title": "Einblicke",
+    "strength": "Strength",
     "noInsights": "Einblicke erscheinen mit dem Training",
     "noInsightsHint": "Absolviere mehr Aktivitäten für personalisierte Einblicke",
     "sectionPr": "PR auf {{name}}",
@@ -579,7 +580,27 @@
       "subtitle": "{{hrChange}} bpm niedriger über {{efforts}} Versuche",
       "body": "Über {{efforts}} Versuche auf {{name}} ist deine Herzfrequenz bei gleichem Tempo um {{hrChange}} bpm gesunken."
     },
-    "strength": "Strength"
+    "teaser": {
+      "workoutToday": "{{name}} heute",
+      "prOpportunity": "PR-Chance auf {{name}}",
+      "usualPattern": "{{day}} fährst/läufst du normalerweise {{sport}} ~{{duration}}",
+      "improving": "besser werdend ↑",
+      "stable": "stabil"
+    },
+    "strengthBalance": {
+      "volumeSplit": "Volumenverteilung",
+      "balanced": "Ausgeglichen",
+      "watch": "Beobachten",
+      "imbalanced": "Unausgeglichen",
+      "oneSided": "Einseitig",
+      "lowSignal": "Wenig Daten",
+      "noSignal": "Keine Daten",
+      "noRecentVolume": "Kein Volumen in den letzten 4 Wochen — erscheint nur im erweiterten Zeitraum.",
+      "volumeAppeared": "Volumen in den letzten zwei Wochen nach einem ruhigeren Start.",
+      "volumeUp": "Der 2-Wochen-Durchschnitt liegt {{percent}}% über den vorherigen 2 Wochen.",
+      "volumeDown": "Der 2-Wochen-Durchschnitt liegt {{percent}}% unter den vorherigen 2 Wochen.",
+      "volumeSteady": "Der 2-Wochen-Durchschnitt ist stabil im Vergleich zum Monatsbeginn."
+    }
   },
   "licenses": {
     "footer": "Tippe auf ein Lizenz-Badge um den vollständigen Lizenztext anzuzeigen. Tippe auf das Link-Symbol um das Projekt-Repository zu besuchen.",

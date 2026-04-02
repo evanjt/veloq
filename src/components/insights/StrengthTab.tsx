@@ -55,45 +55,8 @@ function formatSetCount(sets: number): string {
 }
 
 function formatBalanceRatio(pair: StrengthBalancePair): string {
-  if (pair.ratio == null) return 'No signal';
-  if (!Number.isFinite(pair.ratio)) return 'One-sided';
+  if (pair.ratio == null || !Number.isFinite(pair.ratio)) return '\u2014';
   return `${pair.ratio.toFixed(pair.ratio >= 10 ? 0 : 1)}x`;
-}
-
-function getBalanceStatusLabel(status: StrengthBalanceStatus): string {
-  switch (status) {
-    case 'balanced':
-      return 'Balanced';
-    case 'watch':
-      return 'Watch';
-    case 'imbalanced':
-      return 'Imbalanced';
-    case 'one-sided':
-      return 'One-sided';
-    default:
-      return 'Low signal';
-  }
-}
-
-function getStrengthProgressSummary(progression: StrengthProgression): string {
-  const hasRecentVolume = progression.points.some((point) => point.weightedSets > 0);
-  if (!hasRecentVolume) {
-    return 'No volume landed in the last 4 weeks, so this muscle is only showing up in the wider selected period.';
-  }
-
-  if (progression.changePct == null) {
-    return 'Volume appeared in the most recent two weeks after a quieter start to the month.';
-  }
-
-  if (progression.trend === 'up') {
-    return `Recent 2-week average is ${Math.abs(progression.changePct).toFixed(0)}% above the prior 2 weeks.`;
-  }
-
-  if (progression.trend === 'down') {
-    return `Recent 2-week average is ${Math.abs(progression.changePct).toFixed(0)}% below the prior 2 weeks.`;
-  }
-
-  return 'Recent 2-week average is holding steady versus the earlier part of the month.';
 }
 
 export const StrengthTab = React.memo(function StrengthTab() {
@@ -390,7 +353,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
               <View style={styles.balanceHeader}>
                 <View>
                   <Text style={[styles.balanceTitle, isDark && styles.balanceTitleDark]}>
-                    Volume split
+                    {t('insights.strengthBalance.volumeSplit')}
                   </Text>
                   <Text style={[styles.balanceSubtitle, isDark && styles.balanceSubtitleDark]}>
                     Observed across tracked antagonist pairs in the current {periodLabel}
@@ -448,7 +411,15 @@ export const StrengthTab = React.memo(function StrengthTab() {
                       ]}
                     >
                       <Text style={styles.balanceStatusText}>
-                        {getBalanceStatusLabel(pair.status)}
+                        {pair.status === 'balanced'
+                          ? t('insights.strengthBalance.balanced')
+                          : pair.status === 'watch'
+                            ? t('insights.strengthBalance.watch')
+                            : pair.status === 'imbalanced'
+                              ? t('insights.strengthBalance.imbalanced')
+                              : pair.status === 'one-sided'
+                                ? t('insights.strengthBalance.oneSided')
+                                : t('insights.strengthBalance.lowSignal')}
                       </Text>
                     </View>
                   </View>
@@ -524,7 +495,19 @@ export const StrengthTab = React.memo(function StrengthTab() {
               </View>
 
               <Text style={[styles.progressSummary, isDark && styles.progressSummaryDark]}>
-                {getStrengthProgressSummary(progression)}
+                {!progression.points.some((p) => p.weightedSets > 0)
+                  ? t('insights.strengthBalance.noRecentVolume')
+                  : progression.changePct == null
+                    ? t('insights.strengthBalance.volumeAppeared')
+                    : progression.trend === 'up'
+                      ? t('insights.strengthBalance.volumeUp', {
+                          percent: Math.abs(progression.changePct).toFixed(0),
+                        })
+                      : progression.trend === 'down'
+                        ? t('insights.strengthBalance.volumeDown', {
+                            percent: Math.abs(progression.changePct).toFixed(0),
+                          })
+                        : t('insights.strengthBalance.volumeSteady')}
               </Text>
 
               {hasRecentProgression ? (

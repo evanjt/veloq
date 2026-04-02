@@ -613,6 +613,27 @@ export interface TranslationResource {
     viewDetails: string;
     today: string;
     tomorrow: string;
+    teaser: {
+      workoutToday: string;
+      prOpportunity: string;
+      usualPattern: string;
+      improving: string;
+      stable: string;
+    };
+    strengthBalance: {
+      volumeSplit: string;
+      balanced: string;
+      watch: string;
+      imbalanced: string;
+      oneSided: string;
+      lowSignal: string;
+      noSignal: string;
+      noRecentVolume: string;
+      volumeAppeared: string;
+      volumeUp: string;
+      volumeDown: string;
+      volumeSteady: string;
+    };
   };
 
   fitnessScreen: {

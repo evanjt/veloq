@@ -423,6 +423,7 @@
   },
   "insights": {
     "title": "Insights",
+    "strength": "Strength",
     "noInsights": "Insights aparecerão conforme você treina",
     "noInsightsHint": "Complete mais atividades para ver insights personalizados",
     "sectionPr": "PR em {{name}}",
@@ -579,7 +580,27 @@
       "subtitle": "{{hrChange}} bpm a menos em {{efforts}} esforços",
       "body": "Em {{efforts}} esforços em {{name}}, sua frequência cardíaca no mesmo ritmo caiu {{hrChange}} bpm."
     },
-    "strength": "Strength"
+    "teaser": {
+      "workoutToday": "{{name}} hoje",
+      "prOpportunity": "Oportunidade de RP em {{name}}",
+      "usualPattern": "Nas {{day}} você costuma fazer {{sport}} ~{{duration}}",
+      "improving": "melhorando ↑",
+      "stable": "estável"
+    },
+    "strengthBalance": {
+      "volumeSplit": "Distribuição do volume",
+      "balanced": "Equilibrado",
+      "watch": "Observar",
+      "imbalanced": "Desequilibrado",
+      "oneSided": "Unilateral",
+      "lowSignal": "Sinal fraco",
+      "noSignal": "Sem sinal",
+      "noRecentVolume": "Sem volume nas últimas 4 semanas — aparece apenas no período ampliado.",
+      "volumeAppeared": "Volume apareceu nas últimas duas semanas após um início mais calmo.",
+      "volumeUp": "A média das 2 últimas semanas está {{percent}}% acima das 2 anteriores.",
+      "volumeDown": "A média das 2 últimas semanas está {{percent}}% abaixo das 2 anteriores.",
+      "volumeSteady": "A média das 2 últimas semanas está estável em relação ao início do mês."
+    }
   },
   "licenses": {
     "footer": "Toque em qualquer selo de licenca para ver o texto completo. Toque no icone de link para visitar o repositorio do projeto.",

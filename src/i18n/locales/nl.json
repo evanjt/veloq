@@ -423,6 +423,7 @@
   },
   "insights": {
     "title": "Inzichten",
+    "strength": "Strength",
     "noInsights": "Inzichten verschijnen naarmate je traint",
     "noInsightsHint": "Voltooi meer activiteiten voor gepersonaliseerde inzichten",
     "sectionPr": "PR op {{name}}",
@@ -579,7 +580,27 @@
       "subtitle": "{{hrChange}} bpm lager over {{efforts}} pogingen",
       "body": "Over {{efforts}} pogingen op {{name}} is je hartslag bij hetzelfde tempo met {{hrChange}} bpm gedaald."
     },
-    "strength": "Strength"
+    "teaser": {
+      "workoutToday": "{{name}} vandaag",
+      "prOpportunity": "PR-kans op {{name}}",
+      "usualPattern": "Op {{day}} doe je meestal {{sport}} ~{{duration}}",
+      "improving": "verbeterend ↑",
+      "stable": "stabiel"
+    },
+    "strengthBalance": {
+      "volumeSplit": "Volumeverdeling",
+      "balanced": "Evenwichtig",
+      "watch": "In de gaten houden",
+      "imbalanced": "Onevenwichtig",
+      "oneSided": "Eenzijdig",
+      "lowSignal": "Weinig data",
+      "noSignal": "Geen data",
+      "noRecentVolume": "Geen volume in de afgelopen 4 weken — verschijnt alleen in de ruimere periode.",
+      "volumeAppeared": "Volume verschenen in de afgelopen twee weken na een rustigere start.",
+      "volumeUp": "Het 2-weken-gemiddelde ligt {{percent}}% boven de vorige 2 weken.",
+      "volumeDown": "Het 2-weken-gemiddelde ligt {{percent}}% onder de vorige 2 weken.",
+      "volumeSteady": "Het 2-weken-gemiddelde is stabiel vergeleken met het begin van de maand."
+    }
   },
   "licenses": {
     "footer": "Tik op een licentiebadge om de volledige licentietekst te bekijken. Tik op het linkpictogram om de projectrepository te bezoeken.",

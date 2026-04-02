@@ -423,6 +423,7 @@
   },
   "insights": {
     "title": "インサイト",
+    "strength": "Strength",
     "noInsights": "トレーニングに応じてインサイトが表示されます",
     "noInsightsHint": "パーソナライズされたインサイトを見るには、より多くのアクティビティを完了してください",
     "sectionPr": "{{name}}でPR",
@@ -579,7 +580,27 @@
       "subtitle": "{{efforts}}回で{{hrChange}}bpm低下",
       "body": "{{name}}での{{efforts}}回の走行で、同じペースでの心拍数が{{hrChange}}bpm低下しました。"
     },
-    "strength": "Strength"
+    "teaser": {
+      "workoutToday": "今日は{{name}}",
+      "prOpportunity": "{{name}}でPRのチャンス",
+      "usualPattern": "{{day}}は通常{{sport}}を~{{duration}}",
+      "improving": "向上中 ↑",
+      "stable": "安定"
+    },
+    "strengthBalance": {
+      "volumeSplit": "ボリューム配分",
+      "balanced": "バランス良好",
+      "watch": "要注意",
+      "imbalanced": "アンバランス",
+      "oneSided": "偏り大",
+      "lowSignal": "データ少",
+      "noSignal": "データなし",
+      "noRecentVolume": "直近4週間にボリュームなし — より広い期間でのみ表示されます。",
+      "volumeAppeared": "静かな立ち上がりの後、直近2週間でボリュームが現れました。",
+      "volumeUp": "直近2週間の平均は前の2週間より{{percent}}%上回っています。",
+      "volumeDown": "直近2週間の平均は前の2週間より{{percent}}%下回っています。",
+      "volumeSteady": "直近2週間の平均は月初と比べて安定しています。"
+    }
   },
   "licenses": {
     "footer": "ライセンスバッジをタップすると、完全なライセンステキストが表示されます。リンクアイコンをタップすると、プロジェクトリポジトリにアクセスできます。",
