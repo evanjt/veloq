@@ -1,5 +1,5 @@
 import type { Insight } from '@/types';
-import { formatDuration } from '@/lib';
+import { formatDuration, formatPaceCompact, formatSwimPace } from '@/lib';
 
 /**
  * Stale PR / Opportunity Detection
@@ -71,7 +71,7 @@ export interface StalePROpportunity {
   currentValue: number;
   previousValue: number;
   gainPercent: number;
-  /** Unit label: 'W' for power, 'min/km' for pace */
+  /** Unit label: 'W' for power, '/km' for running, '/100m' for swimming */
   unit: string;
 }
 
@@ -120,16 +120,16 @@ function getFitnessImprovement(
     const cur = paceTrend.latestPace;
     const prev = paceTrend.previousPace;
     if (cur == null || prev == null || !Number.isFinite(cur) || !Number.isFinite(prev)) return null;
-    // For pace, lower is better — improvement means current < previous
-    if (cur >= prev) return null;
-    const gainPercent = ((prev - cur) / prev) * 100;
+    // Pace trends are stored as critical speed in m/s, so higher is better.
+    if (cur <= prev) return null;
+    const gainPercent = ((cur - prev) / prev) * 100;
     if (gainPercent < MIN_FTP_GAIN_PERCENT) return null;
     return {
       metric: 'pace',
       current: cur,
       previous: prev,
       gain: Math.round(gainPercent * 10) / 10,
-      unit: isSwimming ? 'min/100m' : 'min/km',
+      unit: isSwimming ? '/100m' : '/km',
     };
   }
 
@@ -232,22 +232,30 @@ export function stalePROpportunityToInsight(
 
   const isPower = opportunity.fitnessMetric === 'power';
   const metricLabel = isPower ? 'FTP' : 'Pace';
+  const isSwimPace = opportunity.unit === '/100m';
   const currentStr = isPower
     ? `${Math.round(opportunity.currentValue)}${opportunity.unit}`
-    : formatDuration(opportunity.currentValue);
+    : isSwimPace
+      ? formatSwimPace(opportunity.currentValue)
+      : formatPaceCompact(opportunity.currentValue);
   const previousStr = isPower
     ? `${Math.round(opportunity.previousValue)}${opportunity.unit}`
-    : formatDuration(opportunity.previousValue);
+    : isSwimPace
+      ? formatSwimPace(opportunity.previousValue)
+      : formatPaceCompact(opportunity.previousValue);
+  const displayedCurrent = isPower ? currentStr : `${currentStr}${opportunity.unit}`;
+  const displayedPrevious = isPower ? previousStr : `${previousStr}${opportunity.unit}`;
+  const gainLabel = isPower ? `${metricLabel} gain` : 'Speed gain';
 
   return {
     id: `stale_pr-${opportunity.sectionId}`,
     category: 'stale_pr',
     priority: 2,
     title: t('insights.stalePr.title', { section: opportunity.sectionName }),
-    subtitle: `PR ${prTime} at ${metricLabel} ${previousStr}, now ${currentStr} (+${opportunity.gainPercent}%)`,
+    subtitle: `PR ${prTime} at ${metricLabel} ${displayedPrevious}, now ${displayedCurrent} (+${opportunity.gainPercent}%)`,
     icon: 'lightning-bolt',
     iconColor: '#FF9800',
-    body: `${opportunity.sectionName}: PR set at ${metricLabel} ${previousStr}. Current ${metricLabel}: ${currentStr}.`,
+    body: `${opportunity.sectionName}: PR set at ${metricLabel} ${displayedPrevious}. Current ${metricLabel}: ${displayedCurrent}.`,
     navigationTarget: `/section/${opportunity.sectionId}`,
     timestamp,
     isNew: true,
@@ -256,13 +264,15 @@ export function stalePROpportunityToInsight(
         {
           label: `Current ${metricLabel}`,
           value: currentStr,
+          unit: isPower ? undefined : opportunity.unit,
         },
         {
           label: `${metricLabel} at PR`,
           value: previousStr,
+          unit: isPower ? undefined : opportunity.unit,
         },
         {
-          label: `${metricLabel} gain`,
+          label: gainLabel,
           value: `+${opportunity.gainPercent}%`,
           context: 'good',
         },
@@ -271,7 +281,9 @@ export function stalePROpportunityToInsight(
           value: prTime,
         },
       ],
-      formula: `${metricLabel} gain = ${isPower ? `(${Math.round(opportunity.currentValue)} - ${Math.round(opportunity.previousValue)}) / ${Math.round(opportunity.previousValue)}` : `(${previousStr} - ${currentStr}) / ${previousStr}`} = +${opportunity.gainPercent}%`,
+      formula: isPower
+        ? `${metricLabel} gain = (${Math.round(opportunity.currentValue)} - ${Math.round(opportunity.previousValue)}) / ${Math.round(opportunity.previousValue)} = +${opportunity.gainPercent}%`
+        : `Threshold speed gain = (${opportunity.currentValue.toFixed(2)} - ${opportunity.previousValue.toFixed(2)}) / ${opportunity.previousValue.toFixed(2)} = +${opportunity.gainPercent}%`,
       algorithmDescription: t('insights.stalePr.methodology'),
     },
     methodology: {

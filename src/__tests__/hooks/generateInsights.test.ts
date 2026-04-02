@@ -329,14 +329,14 @@ describe('generateInsights', () => {
       expect(result.find((i) => i.id === 'fitness_milestone-ftp')).toBeUndefined();
     });
 
-    it('detects pace improvement (lower is better)', () => {
+    it('detects pace improvement from a higher threshold speed', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
           paceTrend: {
-            latestPace: 280,
+            latestPace: 1000 / 280,
             latestDate: BigInt(1000),
-            previousPace: 300,
+            previousPace: 1000 / 300,
             previousDate: BigInt(500),
           },
         },
@@ -344,7 +344,7 @@ describe('generateInsights', () => {
       );
       const pace = result.find((i) => i.id === 'fitness_milestone-pace');
       expect(pace).toBeDefined();
-      expect(pace!.title).toContain('delta: 20');
+      expect(pace!.title).toContain('delta: 20s/km');
     });
 
     it('does not generate pace insight when pace got worse', () => {
@@ -352,15 +352,33 @@ describe('generateInsights', () => {
         {
           ...EMPTY_INPUT,
           paceTrend: {
-            latestPace: 320,
+            latestPace: 1000 / 320,
             latestDate: BigInt(1000),
-            previousPace: 300,
+            previousPace: 1000 / 300,
             previousDate: BigInt(500),
           },
         },
         mockT
       );
       expect(result.find((i) => i.id === 'fitness_milestone-pace')).toBeUndefined();
+    });
+
+    it('detects swim pace improvement from a higher threshold speed', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          swimPaceTrend: {
+            latestPace: 1.1,
+            latestDate: BigInt(1000),
+            previousPace: 1.0,
+            previousDate: BigInt(500),
+          },
+        },
+        mockT
+      );
+      const swim = result.find((i) => i.id === 'fitness_milestone-swim-pace');
+      expect(swim).toBeDefined();
+      expect(swim!.title).toContain('delta: 9s/100m');
     });
   });
 
@@ -585,6 +603,55 @@ describe('generateInsights', () => {
     // Rest-day section trends removed — handled by sport-grouped cluster insights
 
     // Tomorrow pattern removed from card list — shown in Today banner only
+  });
+
+  describe('stale PR grouping', () => {
+    it('formats grouped stale PR subtitles with sport-appropriate units', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          ftpTrend: {
+            latestFtp: 270,
+            latestDate: BigInt(1000),
+            previousFtp: 250,
+            previousDate: BigInt(500),
+          },
+          swimPaceTrend: {
+            latestPace: 1.1,
+            latestDate: BigInt(1000),
+            previousPace: 1.0,
+            previousDate: BigInt(500),
+          },
+          recentPRs: [],
+          sectionTrends: [
+            {
+              sectionId: 'ride-1',
+              sectionName: 'North Climb',
+              trend: 0,
+              medianRecentSecs: 620,
+              bestTimeSecs: 590,
+              traversalCount: 8,
+              sportType: 'Ride',
+            },
+            {
+              sectionId: 'swim-1',
+              sectionName: 'Pool Threshold Set',
+              trend: 0,
+              medianRecentSecs: 390,
+              bestTimeSecs: 360,
+              traversalCount: 5,
+              sportType: 'Swim',
+            },
+          ],
+        },
+        mockT
+      );
+
+      const stale = result.find((insight) => insight.id === 'stale_pr-group');
+      expect(stale).toBeDefined();
+      expect(stale!.subtitle).toContain('FTP: 250W → 270W');
+      expect(stale!.subtitle).toContain('Swim threshold: 1:40/100m → 1:31/100m');
+    });
   });
 
   // ============================================================
@@ -907,7 +974,7 @@ describe('generateInsights — additional edge cases', () => {
         paceTrend: {
           latestPace: 0,
           latestDate: BigInt(1000),
-          previousPace: 300,
+          previousPace: 1000 / 300,
           previousDate: BigInt(500),
         },
       },
@@ -1049,16 +1116,16 @@ describe('generateInsights — additional edge cases', () => {
   });
 
   /**
-   * Pace got worse (higher seconds per km) should not generate milestone.
+   * Pace got worse (lower threshold speed) should not generate milestone.
    */
   it('pace regression does not produce insight', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
         paceTrend: {
-          latestPace: 350,
+          latestPace: 1000 / 350,
           latestDate: BigInt(1000),
-          previousPace: 300,
+          previousPace: 1000 / 300,
           previousDate: BigInt(500),
         },
       },

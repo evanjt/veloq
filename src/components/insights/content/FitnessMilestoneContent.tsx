@@ -25,12 +25,22 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
   const changeUnit = changePoint?.unit ?? '';
   const isPositive = changePoint?.context === 'good';
   const isPowerMilestone = currentPoint.unit === 'W';
+  const isSwimMilestone = currentPoint.unit === '/100m';
   const contextSummary = isPowerMilestone
-    ? 'A higher FTP matters most when it also shows up in repeatable efforts, not just a single detection point.'
-    : 'A faster threshold pace matters most when it carries through to repeat sections and controlled hard sessions.';
+    ? 'A higher FTP changes how power targets line up across repeatable rides and longer steady work.'
+    : isSwimMilestone
+      ? 'A faster threshold swim pace changes how steady pool efforts and repeat sets line up across recent sessions.'
+      : 'A faster running threshold pace changes how controlled hard efforts and repeatable sections line up across recent sessions.';
   const compareNext = isPowerMilestone
-    ? 'Compare this rise against recent section results and zone distribution before treating it as a settled new baseline.'
-    : 'Compare this change against recent section results and threshold sessions before treating it as a settled new baseline.';
+    ? 'Compare this rise against recent section results and zone distribution before treating it as a stable shift.'
+    : isSwimMilestone
+      ? 'Compare this change against recent pool sets and longer steady swims before treating it as a stable shift.'
+      : 'Compare this change against recent threshold sessions and repeat sections before treating it as a stable shift.';
+  const contextHeading = isPowerMilestone
+    ? 'How to read this FTP change'
+    : isSwimMilestone
+      ? 'How to read this swim change'
+      : 'How to read this running change';
 
   const lineColor = isDark ? darkColors.border : colors.border;
   const dotColor = isPositive ? '#22C55E' : '#F59E0B';
@@ -112,7 +122,7 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
 
       <View style={[styles.contextCard, isDark && styles.contextCardDark]}>
         <Text style={[styles.contextHeading, isDark && styles.contextHeadingDark]}>
-          How to read this change
+          {contextHeading}
         </Text>
         <Text style={[styles.contextBody, isDark && styles.contextBodyDark]}>{contextSummary}</Text>
         <Text style={[styles.contextMeta, isDark && styles.contextMetaDark]}>{compareNext}</Text>

@@ -3,6 +3,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
+import { getSportDisplayName } from '@/hooks/insights/sectionClusterInsights';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { navigateTo, formatDuration } from '@/lib';
 import { getActivityIcon } from '@/lib/utils/activityUtils';
@@ -12,6 +13,59 @@ import type { Insight, SupportingSection } from '@/types';
 
 interface StalePRContentProps {
   insight: Insight;
+}
+
+function getSingleSportLabel(sections: SupportingSection[]): string | null {
+  const uniqueSports = Array.from(
+    new Set(
+      sections
+        .map((section) => section.sportType)
+        .filter(
+          (sportType): sportType is string => typeof sportType === 'string' && sportType.length > 0
+        )
+    )
+  );
+
+  if (uniqueSports.length !== 1) return null;
+  return getSportDisplayName(uniqueSports[0]);
+}
+
+function getContextCopy(
+  sections: SupportingSection[],
+  dataPoints: Array<{ label: string; unit?: string }>
+): {
+  heading: string;
+  body: string;
+  meta: string;
+} {
+  const units = new Set(
+    dataPoints
+      .map((dataPoint) => dataPoint.unit)
+      .filter((unit): unit is string => typeof unit === 'string' && unit.length > 0)
+  );
+  const labels = dataPoints.map((dataPoint) => dataPoint.label.toLowerCase());
+  const sportLabel = getSingleSportLabel(sections);
+  const isGrouped = sections.length > 1;
+
+  const heading =
+    labels.some((label) => label.includes('ftp')) || units.has('W')
+      ? 'Current power vs PR period'
+      : units.has('/100m')
+        ? 'Current swim threshold vs PR period'
+        : units.has('/km') || sportLabel === 'running' || sportLabel === 'trail running'
+          ? 'Current running threshold vs PR period'
+          : 'Current fitness vs PR period';
+
+  const bodyTarget = isGrouped ? 'repeat sections' : 'this repeat section';
+  const sportPrefix = sportLabel ? `${sportLabel} ` : '';
+
+  return {
+    heading,
+    body: `This compares the current ${sportPrefix}fitness trend with the level captured around the best effort for ${bodyTarget}. It is a timing observation, not a promise that the best will fall on the next pass.`,
+    meta: isGrouped
+      ? 'Open any section below to inspect the underlying effort history.'
+      : 'Open the section below to inspect the underlying effort history.',
+  };
 }
 
 /** Map preview for the first section */
@@ -30,6 +84,7 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
   const dataPoints = insight.supportingData?.dataPoints ?? [];
   const sections = insight.supportingData?.sections ?? [];
   const topSectionId = sections[0]?.sectionId ?? null;
+  const contextCopy = getContextCopy(sections, dataPoints);
 
   const handleSectionPress = useCallback((id: string) => {
     navigateTo(`/section/${id}`);
@@ -37,10 +92,20 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
 
   return (
     <View style={styles.container}>
-      {/* Map preview of the top section */}
       {topSectionId ? <TopSectionMap sectionId={topSectionId} /> : null}
 
-      {/* FTP comparison data */}
+      <View style={[styles.contextCard, isDark && styles.contextCardDark]}>
+        <Text style={[styles.contextHeading, isDark && styles.contextHeadingDark]}>
+          {contextCopy.heading}
+        </Text>
+        <Text style={[styles.contextBody, isDark && styles.contextBodyDark]}>
+          {contextCopy.body}
+        </Text>
+        <Text style={[styles.contextMeta, isDark && styles.contextMetaDark]}>
+          {contextCopy.meta}
+        </Text>
+      </View>
+
       {dataPoints.length > 0 ? (
         <View style={[styles.dataCard, isDark && styles.dataCardDark]}>
           {dataPoints.map((dp, i) => (
@@ -60,7 +125,6 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
         </View>
       ) : null}
 
-      {/* Section list — all beatable PRs */}
       {sections.length > 0 ? (
         <View style={styles.sectionList}>
           {sections.map((s: SupportingSection) => (
@@ -108,6 +172,38 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
 const styles = StyleSheet.create({
   container: {
     gap: spacing.sm,
+  },
+  contextCard: {
+    backgroundColor: opacity.overlay.subtle,
+    borderRadius: 10,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  contextCardDark: {
+    backgroundColor: opacity.overlayDark.light,
+  },
+  contextHeading: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  contextHeadingDark: {
+    color: darkColors.textPrimary,
+  },
+  contextBody: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textPrimary,
+  },
+  contextBodyDark: {
+    color: darkColors.textPrimary,
+  },
+  contextMeta: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  contextMetaDark: {
+    color: darkColors.textSecondary,
   },
   dataCard: {
     backgroundColor: opacity.overlay.subtle,

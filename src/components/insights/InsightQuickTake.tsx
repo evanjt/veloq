@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/hooks';
+import { getSportDisplayName } from '@/hooks/insights/sectionClusterInsights';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import type { Insight } from '@/types';
 
@@ -15,7 +16,58 @@ interface QuickTakeContent {
   next: string;
 }
 
+function getSingleSportLabel(insight: Insight): string | null {
+  const uniqueSports = Array.from(
+    new Set(
+      (insight.supportingData?.sections ?? [])
+        .map((section) => section.sportType)
+        .filter(
+          (sportType): sportType is string => typeof sportType === 'string' && sportType.length > 0
+        )
+    )
+  );
+
+  if (uniqueSports.length !== 1) return null;
+  return getSportDisplayName(uniqueSports[0]);
+}
+
+function getStalePrMetricContext(insight: Insight): 'power' | 'running' | 'swimming' | 'generic' {
+  const units = new Set(
+    (insight.supportingData?.dataPoints ?? [])
+      .map((dataPoint) => dataPoint.unit)
+      .filter((unit): unit is string => typeof unit === 'string' && unit.length > 0)
+  );
+
+  const labels = (insight.supportingData?.dataPoints ?? []).map((dataPoint) =>
+    dataPoint.label.toLowerCase()
+  );
+
+  if (labels.some((label) => label.includes('ftp')) || units.has('W')) {
+    return 'power';
+  }
+  if (units.has('/100m')) {
+    return 'swimming';
+  }
+
+  const sportLabel = getSingleSportLabel(insight);
+  if (sportLabel === 'running' || sportLabel === 'trail running') {
+    return 'running';
+  }
+  if (sportLabel === 'swimming') {
+    return 'swimming';
+  }
+
+  return units.has('/km') ? 'running' : 'generic';
+}
+
 function buildQuickTake(insight: Insight): QuickTakeContent | null {
+  const currentMetricUnit = insight.supportingData?.dataPoints?.[0]?.unit;
+  const isPowerMilestone = currentMetricUnit === 'W';
+  const isSwimMilestone = currentMetricUnit === '/100m';
+  const singleSportLabel = getSingleSportLabel(insight);
+  const stalePrMetricContext = getStalePrMetricContext(insight);
+  const stalePrIsGrouped = (insight.supportingData?.sections?.length ?? 0) > 1;
+
   switch (insight.category) {
     case 'section_pr':
       return {
@@ -46,10 +98,21 @@ function buildQuickTake(insight: Insight): QuickTakeContent | null {
       };
     case 'fitness_milestone':
       return {
-        changed: 'A threshold marker nudged upward.',
-        matters:
-          'Threshold shifts change the way pacing, power, and effort appear across key sessions.',
-        next: 'Fitness keeps the source trend handy for reference.',
+        changed: isPowerMilestone
+          ? 'Your FTP estimate moved upward.'
+          : isSwimMilestone
+            ? 'Your threshold swim speed moved upward, which shows up as faster pace per 100m.'
+            : 'Your running threshold speed moved upward, which shows up as faster pace per kilometre.',
+        matters: isPowerMilestone
+          ? 'Power shifts are most useful when they also show up in repeatable climbs, intervals, and longer steady work.'
+          : isSwimMilestone
+            ? 'Swim threshold changes are most useful when they also show up in repeatable sets and longer steady work.'
+            : 'Running threshold changes are most useful when they also show up in repeatable sections and controlled hard sessions.',
+        next: isPowerMilestone
+          ? 'Fitness keeps the FTP trend and ride context close by.'
+          : isSwimMilestone
+            ? 'Fitness keeps the swim threshold trend close by for comparison.'
+            : 'Fitness keeps the running threshold trend close by for comparison.',
       };
     case 'strength_progression':
       return {
@@ -65,22 +128,44 @@ function buildQuickTake(insight: Insight): QuickTakeContent | null {
       };
     case 'stale_pr':
       return {
-        changed: 'Current fitness now outpaces when this PR was set.',
+        changed:
+          stalePrMetricContext === 'power'
+            ? stalePrIsGrouped
+              ? 'Current cycling power now sits above the level tied to several section bests.'
+              : 'Current cycling power now sits above the level tied to this section best.'
+            : stalePrMetricContext === 'swimming'
+              ? stalePrIsGrouped
+                ? 'Current swim threshold now sits above the level tied to several section bests.'
+                : 'Current swim threshold now sits above the level tied to this section best.'
+              : stalePrMetricContext === 'running'
+                ? stalePrIsGrouped
+                  ? 'Current running threshold now sits above the level tied to several section bests.'
+                  : 'Current running threshold now sits above the level tied to this section best.'
+                : stalePrIsGrouped
+                  ? 'Current fitness now sits above the level tied to several section bests.'
+                  : 'Current fitness now sits above the level tied to this section best.',
         matters:
-          'That rate change is a concrete way to see how gains translate outside aggregate metrics.',
-        next: 'Section detail lists recent traversals for a quick glance.',
+          'That timing cross-check can highlight repeat sections whose bests may no longer match the broader fitness trend.',
+        next: stalePrIsGrouped
+          ? 'The sections tab keeps the candidate sections and best times together.'
+          : 'Section detail keeps the repeat efforts and timing together.',
       };
     case 'section_cluster':
       return {
-        changed: 'Several repeat sections are moving in sync.',
-        matters: 'Clustered shifts often point to a broader pattern rather than a single outlier.',
-        next: 'The route workspace calls out the grouped sections and the efforts behind them.',
+        changed: singleSportLabel
+          ? `Several ${singleSportLabel} sections are moving in sync.`
+          : 'Several repeat sections are moving in sync.',
+        matters: singleSportLabel
+          ? `When more than one repeat ${singleSportLabel} section shifts the same way, the pattern is easier to trust than a single outlier.`
+          : 'When more than one repeat section shifts the same way, the pattern is easier to trust than a single outlier.',
+        next: 'The sections tab keeps the grouped efforts side by side.',
       };
     case 'efficiency_trend':
       return {
-        changed: 'This terrain now matches with less cardiovascular cost.',
-        matters: 'Lower HR at a familiar pace usually signals an efficiency gain over time.',
-        next: 'Section detail keeps the multiple efforts needed to confirm the trend.',
+        changed: 'Matched efforts on this section now show a lower heart-rate cost.',
+        matters:
+          'This pattern is easier to trust when it repeats across familiar efforts rather than one isolated pass.',
+        next: 'Section detail keeps the underlying efforts and heart-rate context together.',
       };
     case 'intensity_context':
       return {

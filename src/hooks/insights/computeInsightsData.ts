@@ -92,6 +92,74 @@ interface InsightsEnginePayload {
   summaryCardData: any | null;
 }
 
+const MAX_SECTION_STORY_INSIGHTS = 2;
+
+function isSectionStoryInsight(insight: Insight): boolean {
+  return (
+    insight.category === 'stale_pr' ||
+    insight.category === 'section_cluster' ||
+    insight.category === 'efficiency_trend'
+  );
+}
+
+function getInsightSectionIds(insight: Insight): string[] {
+  const sections = insight.supportingData?.sections ?? [];
+  const sectionIds = sections
+    .map((section) => section.sectionId)
+    .filter((sectionId): sectionId is string => !!sectionId);
+
+  if (sectionIds.length > 0) return sectionIds;
+
+  if (insight.navigationTarget?.startsWith('/section/')) {
+    return [insight.navigationTarget.replace('/section/', '')];
+  }
+
+  return [];
+}
+
+export function consolidateInsights(insights: Insight[]): Insight[] {
+  if (insights.length <= 1) return insights;
+
+  const sorted = [...insights].sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
+  const hasPeriodComparison = sorted.some((insight) => insight.category === 'period_comparison');
+
+  const kept: Insight[] = [];
+  const seenSectionIds = new Set<string>();
+  let keptSectionStories = 0;
+
+  for (const insight of sorted) {
+    if (insight.category === 'intensity_context' && hasPeriodComparison) {
+      continue;
+    }
+
+    if (insight.category === 'section_pr') {
+      getInsightSectionIds(insight).forEach((sectionId) => seenSectionIds.add(sectionId));
+      kept.push(insight);
+      continue;
+    }
+
+    if (isSectionStoryInsight(insight)) {
+      if (keptSectionStories >= MAX_SECTION_STORY_INSIGHTS) {
+        continue;
+      }
+
+      const sectionIds = getInsightSectionIds(insight);
+      if (sectionIds.length > 0 && sectionIds.every((sectionId) => seenSectionIds.has(sectionId))) {
+        continue;
+      }
+
+      kept.push(insight);
+      keptSectionStories += 1;
+      sectionIds.forEach((sectionId) => seenSectionIds.add(sectionId));
+      continue;
+    }
+
+    kept.push(insight);
+  }
+
+  return kept;
+}
+
 /**
  * Compute insights from engine data + wellness data.
  *
@@ -354,9 +422,7 @@ export function computeInsightsFromData(
       }
     }
 
-    return [...coreInsights, ...strengthInsights].sort(
-      (a, b) => a.priority - b.priority || b.timestamp - a.timestamp
-    );
+    return consolidateInsights([...coreInsights, ...strengthInsights]);
   } catch {
     return [];
   }

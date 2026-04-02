@@ -5,7 +5,7 @@ import type {
   InsightMethodology,
   InsightSupportingData,
 } from '@/types';
-import { formatDuration } from '@/lib';
+import { formatDuration, formatPaceCompact, formatSwimPace } from '@/lib';
 import { detectStalePROpportunities, stalePROpportunityToInsight } from './stalePrDetection';
 import { generateSectionClusterInsights } from './sectionClusterInsights';
 import { generateEfficiencyTrendInsights } from './efficiencyTrendInsights';
@@ -122,6 +122,87 @@ type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
 const MAX_PR_INSIGHTS = 3;
 const VOLUME_CHANGE_THRESHOLD = 0.1; // 10%
+
+function toSecondsPerDistanceMeters(speedMetersPerSecond: number, distanceMeters: number): number {
+  if (!Number.isFinite(speedMetersPerSecond) || speedMetersPerSecond <= 0) return 0;
+  return distanceMeters / speedMetersPerSecond;
+}
+
+function addPaceMilestoneInsight(
+  insights: Insight[],
+  pace: PaceTrend | null | undefined,
+  now: number,
+  t: TFunc,
+  options: {
+    id: string;
+    icon: string;
+    iconColor: string;
+    paceUnit: string;
+    changeUnit: string;
+    formatValue: (speedMetersPerSecond: number) => string;
+  }
+): void {
+  if (
+    !pace ||
+    typeof pace.latestPace !== 'number' ||
+    typeof pace.previousPace !== 'number' ||
+    pace.latestPace <= 0 ||
+    pace.previousPace <= 0 ||
+    pace.latestPace <= pace.previousPace
+  ) {
+    return;
+  }
+
+  const distanceMeters = options.paceUnit === '/100m' ? 100 : 1000;
+  const currentDisplaySecs = toSecondsPerDistanceMeters(pace.latestPace, distanceMeters);
+  const previousDisplaySecs = toSecondsPerDistanceMeters(pace.previousPace, distanceMeters);
+  const deltaSecs = Math.round(previousDisplaySecs - currentDisplaySecs);
+  const gainPercent = Math.round(((pace.latestPace - pace.previousPace) / pace.previousPace) * 100);
+
+  if (deltaSecs <= 0 || gainPercent <= 0) {
+    return;
+  }
+
+  insights.push(
+    makeInsight({
+      id: options.id,
+      category: 'fitness_milestone',
+      priority: 2,
+      icon: options.icon as Insight['icon'],
+      iconColor: options.iconColor,
+      title: t('insights.paceImproved', {
+        delta: `${deltaSecs}${options.changeUnit}`,
+      }),
+      navigationTarget: '/fitness',
+      timestamp: now,
+      supportingData: {
+        dataPoints: [
+          {
+            label: t('insights.data.currentPace'),
+            value: options.formatValue(pace.latestPace),
+            unit: options.paceUnit,
+            context: 'good',
+          },
+          {
+            label: t('insights.data.previousPace'),
+            value: options.formatValue(pace.previousPace),
+            unit: options.paceUnit,
+          },
+          {
+            label: t('insights.data.improvement'),
+            value: `+${gainPercent}%`,
+            context: 'good',
+          },
+        ],
+      },
+      methodology: {
+        name: 'Threshold speed trend analysis',
+        description:
+          'Compares your latest threshold-speed estimate against previous values, then formats the change as athlete-readable pace for display.',
+      },
+    })
+  );
+}
 
 // TSB zones per intervals.icu convention (informational only, no prescriptive text)
 const TSB_ZONES = {
@@ -649,56 +730,23 @@ function addFitnessMilestoneInsights(
     }
   }
 
-  // Pace improvement (lower is better — seconds per km)
-  const pace = data.paceTrend;
-  if (
-    pace &&
-    typeof pace.latestPace === 'number' &&
-    typeof pace.previousPace === 'number' &&
-    pace.latestPace > 0 &&
-    pace.previousPace > 0 &&
-    pace.latestPace < pace.previousPace
-  ) {
-    const deltaSecs = Math.round(pace.previousPace - pace.latestPace);
-    if (deltaSecs > 0) {
-      insights.push(
-        makeInsight({
-          id: 'fitness_milestone-pace',
-          category: 'fitness_milestone',
-          priority: 2,
-          icon: 'run-fast',
-          iconColor: '#66BB6A',
-          title: t('insights.paceImproved', { delta: deltaSecs }),
-          navigationTarget: '/fitness',
-          timestamp: now,
-          supportingData: {
-            dataPoints: [
-              {
-                label: t('insights.data.currentPace'),
-                value: formatDurationCompact(pace.latestPace),
-                context: 'good',
-              },
-              {
-                label: t('insights.data.previousPace'),
-                value: formatDurationCompact(pace.previousPace),
-              },
-              {
-                label: t('insights.data.improvement'),
-                value: deltaSecs,
-                unit: 's/km',
-                context: 'good',
-              },
-            ],
-          },
-          methodology: {
-            name: 'Pace trend analysis',
-            description:
-              'Compares your latest threshold pace estimation against previous values to detect improvement.',
-          },
-        })
-      );
-    }
-  }
+  addPaceMilestoneInsight(insights, data.paceTrend ?? null, now, t, {
+    id: 'fitness_milestone-pace',
+    icon: 'run-fast',
+    iconColor: '#66BB6A',
+    paceUnit: '/km',
+    changeUnit: 's/km',
+    formatValue: (speedMetersPerSecond) => formatPaceCompact(speedMetersPerSecond),
+  });
+
+  addPaceMilestoneInsight(insights, data.swimPaceTrend ?? null, now, t, {
+    id: 'fitness_milestone-swim-pace',
+    icon: 'swim',
+    iconColor: '#42A5F5',
+    paceUnit: '/100m',
+    changeUnit: 's/100m',
+    formatValue: (speedMetersPerSecond) => formatSwimPace(speedMetersPerSecond),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -744,20 +792,24 @@ function addStalePRInsights(
     insights.push(stalePROpportunityToInsight(filtered[0], t, now));
   } else {
     // Group into one card listing all beatable sections
-    const first = filtered[0];
-
-    // Build sport-aware subtitle: group improvements by metric type
     const powerOpps = filtered.filter((o) => o.fitnessMetric === 'power');
-    const paceOpps = filtered.filter((o) => o.fitnessMetric === 'pace');
+    const runPaceOpps = filtered.filter((o) => o.fitnessMetric === 'pace' && o.unit === '/km');
+    const swimPaceOpps = filtered.filter((o) => o.fitnessMetric === 'pace' && o.unit === '/100m');
     const subtitleParts: string[] = [];
     if (powerOpps.length > 0) {
       const p = powerOpps[0];
       subtitleParts.push(`FTP: ${Math.round(p.previousValue)}W → ${Math.round(p.currentValue)}W`);
     }
-    if (paceOpps.length > 0) {
-      const p = paceOpps[0];
+    if (runPaceOpps.length > 0) {
+      const p = runPaceOpps[0];
       subtitleParts.push(
-        `Pace: ${formatDuration(p.previousValue)} → ${formatDuration(p.currentValue)}`
+        `Run threshold: ${formatPaceCompact(p.previousValue)}${p.unit} → ${formatPaceCompact(p.currentValue)}${p.unit}`
+      );
+    }
+    if (swimPaceOpps.length > 0) {
+      const p = swimPaceOpps[0];
+      subtitleParts.push(
+        `Swim threshold: ${formatSwimPace(p.previousValue)}${p.unit} → ${formatSwimPace(p.currentValue)}${p.unit}`
       );
     }
 

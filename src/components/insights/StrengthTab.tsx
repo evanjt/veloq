@@ -140,6 +140,11 @@ export const StrengthTab = React.memo(function StrengthTab() {
     return Math.max(...summary.muscleVolumes.map((v) => v.weightedSets));
   }, [summary]);
 
+  const topMuscle = useMemo(() => {
+    if (!summary || summary.muscleVolumes.length === 0) return null;
+    return [...summary.muscleVolumes].sort((a, b) => b.weightedSets - a.weightedSets)[0] ?? null;
+  }, [summary]);
+
   // Find the selected muscle's data
   const selectedVolume: MuscleVolume | null = useMemo(() => {
     if (!selectedMuscle || !summary) return null;
@@ -186,6 +191,20 @@ export const StrengthTab = React.memo(function StrengthTab() {
     '6months': '6 months',
   };
   const periodLabel = periodLabels[period];
+  const heroTitle = selectedVolume
+    ? `${MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug} is in focus`
+    : topMuscle
+      ? `${MUSCLE_DISPLAY_NAMES[topMuscle.slug as MuscleSlug] ?? topMuscle.slug} stands out this period`
+      : 'Strength snapshot';
+  const heroObservation = selectedVolume
+    ? `${MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug} accounts for ${formatSetCount(
+        selectedVolume.weightedSets
+      )} weighted sets in the current ${periodLabel}.`
+    : topMuscle && featuredBalancePair
+      ? `${MUSCLE_DISPLAY_NAMES[topMuscle.slug as MuscleSlug] ?? topMuscle.slug} carries the highest tracked volume in the current ${periodLabel}. ${featuredBalancePair.label} shows the widest split among the observed pairs.`
+      : topMuscle
+        ? `${MUSCLE_DISPLAY_NAMES[topMuscle.slug as MuscleSlug] ?? topMuscle.slug} carries the highest tracked volume in the current ${periodLabel}.`
+        : `Weighted sets are distributed across the tracked muscle groups in the current ${periodLabel}.`;
 
   return (
     <ScrollView
@@ -239,36 +258,62 @@ export const StrengthTab = React.memo(function StrengthTab() {
         </View>
       ) : (
         <>
-          {/* Summary stats */}
-          <View style={[styles.statsCard, isDark && styles.statsCardDark]}>
-            <View style={styles.stat}>
-              <Text style={[styles.statValue, isDark && styles.statValueDark]}>
-                {summary.activityCount}
-              </Text>
-              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-                {summary.activityCount === 1 ? 'workout' : 'workouts'}
-              </Text>
-            </View>
-            <View style={styles.stat}>
-              <Text style={[styles.statValue, isDark && styles.statValueDark]}>
-                {summary.totalSets}
-              </Text>
-              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>sets</Text>
-            </View>
-            <View style={styles.stat}>
-              <Text style={[styles.statValue, isDark && styles.statValueDark]}>
-                {summary.muscleVolumes.length}
-              </Text>
-              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>muscle groups</Text>
-            </View>
+          <View style={[styles.heroCard, isDark && styles.heroCardDark]}>
+            <LinearGradient
+              colors={isDark ? ['#2A1A10', '#181818'] : ['#FFF5EC', '#FFFFFF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroGradient}
+            >
+              <View style={styles.heroHeader}>
+                <Text style={[styles.heroEyebrow, isDark && styles.heroEyebrowDark]}>
+                  Strength snapshot
+                </Text>
+                <Text style={[styles.heroTitle, isDark && styles.heroTitleDark]}>{heroTitle}</Text>
+                <Text style={[styles.heroBody, isDark && styles.heroBodyDark]}>
+                  {heroObservation}
+                </Text>
+              </View>
+
+              <View style={styles.heroChipRow}>
+                <View style={[styles.heroChip, isDark && styles.heroChipDark]}>
+                  <Text style={[styles.heroChipValue, isDark && styles.heroChipValueDark]}>
+                    {summary.activityCount}
+                  </Text>
+                  <Text style={[styles.heroChipLabel, isDark && styles.heroChipLabelDark]}>
+                    {summary.activityCount === 1 ? 'workout' : 'workouts'}
+                  </Text>
+                </View>
+                <View style={[styles.heroChip, isDark && styles.heroChipDark]}>
+                  <Text style={[styles.heroChipValue, isDark && styles.heroChipValueDark]}>
+                    {summary.totalSets}
+                  </Text>
+                  <Text style={[styles.heroChipLabel, isDark && styles.heroChipLabelDark]}>
+                    sets
+                  </Text>
+                </View>
+                <View style={[styles.heroChip, isDark && styles.heroChipDark]}>
+                  <Text style={[styles.heroChipValue, isDark && styles.heroChipValueDark]}>
+                    {summary.muscleVolumes.length}
+                  </Text>
+                  <Text style={[styles.heroChipLabel, isDark && styles.heroChipLabelDark]}>
+                    muscle groups
+                  </Text>
+                </View>
+              </View>
+            </LinearGradient>
           </View>
 
           {/* Body diagrams */}
           <View style={[styles.bodyCard, isDark && styles.bodyCardDark]}>
-            {/* Stable header: always shows title + a single-line subtitle */}
-            <Text style={[styles.bodyTitle, isDark && styles.bodyTitleDark]}>
-              Muscle Group Volume
-            </Text>
+            <View style={styles.bodyHeader}>
+              <Text style={[styles.bodyTitle, isDark && styles.bodyTitleDark]}>
+                Muscle Group Volume
+              </Text>
+              <Text style={[styles.bodySubtitle, isDark && styles.bodySubtitleDark]}>
+                Relative weighted sets across the selected period
+              </Text>
+            </View>
             {selectedVolume ? (
               <TouchableOpacity
                 style={styles.subtitleRow}
@@ -345,10 +390,10 @@ export const StrengthTab = React.memo(function StrengthTab() {
               <View style={styles.balanceHeader}>
                 <View>
                   <Text style={[styles.balanceTitle, isDark && styles.balanceTitleDark]}>
-                    Balance check
+                    Volume split
                   </Text>
                   <Text style={[styles.balanceSubtitle, isDark && styles.balanceSubtitleDark]}>
-                    Antagonist pairs in the current {periodLabel}
+                    Observed across tracked antagonist pairs in the current {periodLabel}
                   </Text>
                 </View>
                 {featuredBalancePair ? (
@@ -370,8 +415,8 @@ export const StrengthTab = React.memo(function StrengthTab() {
               {featuredBalancePair ? (
                 <Text style={[styles.balanceHeroText, isDark && styles.balanceHeroTextDark]}>
                   {featuredBalancePair.status === 'balanced'
-                    ? 'Tracked upper and lower-body pairs sit near parity this period.'
-                    : `${featuredBalancePair.dominantLabel ?? 'One side'} extends above ${
+                    ? 'The tracked pairs sit relatively close together in this period.'
+                    : `${featuredBalancePair.dominantLabel ?? 'One side'} carries more weighted-set volume than ${
                         featuredBalancePair.dominantSlug === featuredBalancePair.leftSlug
                           ? featuredBalancePair.rightLabel
                           : featuredBalancePair.leftLabel
@@ -759,34 +804,78 @@ const styles = StyleSheet.create({
   emptyTextDark: {
     color: darkColors.textSecondary,
   },
-  statsCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: colors.surface,
+  heroCard: {
     borderRadius: layout.borderRadius,
-    paddingVertical: spacing.md,
+    overflow: 'hidden',
     marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
   },
-  statsCardDark: {
+  heroCardDark: {
     backgroundColor: darkColors.surface,
   },
-  stat: {
-    alignItems: 'center',
+  heroGradient: {
+    padding: spacing.md,
+    gap: spacing.md,
   },
-  statValue: {
+  heroHeader: {
+    gap: 6,
+  },
+  heroEyebrow: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    color: colors.primary,
+  },
+  heroEyebrowDark: {
+    color: '#FCA67A',
+  },
+  heroTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: colors.textPrimary,
+    lineHeight: 24,
   },
-  statValueDark: {
+  heroTitleDark: {
     color: darkColors.textPrimary,
   },
-  statLabel: {
+  heroBody: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textSecondary,
+  },
+  heroBodyDark: {
+    color: darkColors.textSecondary,
+  },
+  heroChipRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  heroChip: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    alignItems: 'center',
+  },
+  heroChipDark: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  heroChipValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  heroChipValueDark: {
+    color: darkColors.textPrimary,
+  },
+  heroChipLabel: {
     fontSize: 11,
     color: colors.textSecondary,
     marginTop: 2,
   },
-  statLabelDark: {
+  heroChipLabelDark: {
     color: darkColors.textSecondary,
   },
   balanceCard: {
@@ -957,6 +1046,11 @@ const styles = StyleSheet.create({
   bodyCardDark: {
     backgroundColor: darkColors.surface,
   },
+  bodyHeader: {
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+    gap: 2,
+  },
   bodyTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -965,6 +1059,14 @@ const styles = StyleSheet.create({
   },
   bodyTitleDark: {
     color: darkColors.textPrimary,
+  },
+  bodySubtitle: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  bodySubtitleDark: {
+    color: darkColors.textSecondary,
   },
   bodyHint: {
     fontSize: 11,
