@@ -112,6 +112,11 @@ export type RoutesScreenData = FfiRoutesScreenData;
 export type GroupWithPolyline = FfiGroupWithPolyline;
 export type SectionWithPolyline = FfiSectionWithPolyline;
 export type PotentialSection = FfiPotentialSection;
+export type {
+  FfiSectionMatch as SectionMatch,
+  FfiMergeCandidate as MergeCandidate,
+  FfiNearbySectionSummary as NearbySectionSummary,
+} from './RouteEngineClient';
 // Strength training types (generated after Rust rebuild)
 export interface ExerciseSet {
   activityId: string;

@@ -36,6 +36,39 @@ import type {
   DownloadProgressResult,
 } from './generated/veloqrs';
 
+// Types for new FFI methods — will be auto-generated after Rust rebuild
+export interface FfiSectionMatch {
+  sectionId: string;
+  sectionName: string | undefined;
+  sportType: string;
+  startIndex: bigint;
+  endIndex: bigint;
+  matchQuality: number;
+  sameDirection: boolean;
+  distanceMeters: number;
+}
+
+export interface FfiMergeCandidate {
+  sectionId: string;
+  name: string | undefined;
+  sportType: string;
+  distanceMeters: number;
+  visitCount: number;
+  overlapPct: number;
+  centerDistanceMeters: number;
+}
+
+export interface FfiNearbySectionSummary {
+  id: string;
+  sectionType: string;
+  name: string | undefined;
+  sportType: string;
+  distanceMeters: number;
+  visitCount: number;
+  centerDistanceMeters: number;
+  polylineCoords: number[];
+}
+
 import * as FileSystem from 'expo-file-system/legacy';
 import {
   flatCoordsToPoints,
@@ -1280,6 +1313,81 @@ class RouteEngineClient {
         .strength()
         .getActivitiesForExercise(BigInt(startTs), BigInt(endTs), muscleSlug, exerciseCategory),
     );
+  }
+
+  // ========================================================================
+  // Section Matching, Nearby, Merge, Re-detect
+  // ========================================================================
+
+  matchActivityToSections(activityId: string): FfiSectionMatch[] {
+    if (!this.ready) return [];
+    validateId(activityId, 'activity ID');
+    return this.timed('matchActivityToSections', () =>
+      this.engine.sections().matchActivityToSections(activityId),
+    );
+  }
+
+  rematchActivityToSection(activityId: string, sectionId: string): boolean {
+    if (!this.ready) return false;
+    validateId(activityId, 'activity ID');
+    validateId(sectionId, 'section ID');
+    try {
+      const result = this.timed('rematchActivityToSection', () =>
+        this.engine.sections().rematchActivityToSection(activityId, sectionId),
+      );
+      if (result) {
+        this.notify('sections');
+      }
+      return result;
+    } catch (e) {
+      console.error('[RouteEngine] rematchActivityToSection failed:', e);
+      return false;
+    }
+  }
+
+  getNearbySections(sectionId: string, radiusMeters: number = 500): FfiNearbySectionSummary[] {
+    if (!this.ready) return [];
+    validateId(sectionId, 'section ID');
+    return this.timed('getNearbySections', () =>
+      this.engine.sections().getNearbySections(sectionId, radiusMeters),
+    );
+  }
+
+  getMergeCandidates(sectionId: string): FfiMergeCandidate[] {
+    if (!this.ready) return [];
+    validateId(sectionId, 'section ID');
+    return this.timed('getMergeCandidates', () =>
+      this.engine.sections().getMergeCandidates(sectionId),
+    );
+  }
+
+  mergeSections(primaryId: string, secondaryId: string): string | null {
+    if (!this.ready) return null;
+    validateId(primaryId, 'primary section ID');
+    validateId(secondaryId, 'secondary section ID');
+    try {
+      const result = this.timed('mergeSections', () =>
+        this.engine.sections().mergeSections(primaryId, secondaryId),
+      );
+      this.notify('sections');
+      return result;
+    } catch (e) {
+      console.error('[RouteEngine] mergeSections failed:', e);
+      return null;
+    }
+  }
+
+  forceRedetectSections(sportFilter?: string): boolean {
+    if (!this.ready) return false;
+    try {
+      const started = this.timed('forceRedetectSections', () =>
+        this.engine.detection().forceRedetect(sportFilter),
+      );
+      return started;
+    } catch (e) {
+      console.error('[RouteEngine] forceRedetectSections failed:', e);
+      return false;
+    }
   }
 
   subscribe(event: string, callback: () => void): () => void {
