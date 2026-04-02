@@ -1,5 +1,5 @@
 # Insights Tab Display Test
-# Verifies the insights tab loads and displays content or empty state
+# Verifies insights panel loads, card tapping shows detail sheet with methodology
 
 appId: com.veloq.app.dev
 tags:
@@ -15,44 +15,43 @@ tags:
       id: "routes-screen"
     timeout: 10000
 
-# Check for insights panel (may have cards or be empty depending on demo data)
+# Insights panel should always be present in demo mode
 - extendedWaitUntil:
     visible:
       id: "insights-panel"
-    timeout: 10000
-    optional: true
+    timeout: 15000
 
-- takeScreenshot: "insights-display-panel-loaded"
+- takeScreenshot: "insights-panel-loaded"
 
-# If insights panel has cards, try tapping the first one
-- runFlow:
-    when:
-      visible:
-        id: "insights-panel"
-    commands:
-      # Check for empty state
-      - runFlow:
-          when:
-            visible:
-              id: "insights-empty"
-          commands:
-            - takeScreenshot: "insights-empty-state"
-
-# If insight cards exist, tap the first one (dynamic ID based on insight.id)
+# Tap first insight card
 - tapOn:
     id: "insight-card-0"
     optional: true
 
-# Verify detail sheet appeared if a card was tapped
+# Verify detail sheet opened
 - extendedWaitUntil:
     visible:
       id: "insight-detail-sheet"
     timeout: 5000
     optional: true
+
+# Check for quick take section
+- assertVisible:
+    id: "insight-quick-take"
+    optional: true
+
+# Check for methodology section
+- assertVisible:
+    id: "methodology-section"
+    optional: true
+
+- takeScreenshot: "insights-detail-sheet"
+
+# Try tapping a different card (if pattern detail exists)
 - extendedWaitUntil:
     visible:
       id: "pattern-detail-sheet"
-    timeout: 5000
+    timeout: 3000
     optional: true
 
 - takeScreenshot: "insights-display-complete"

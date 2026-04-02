@@ -78,7 +78,10 @@ export function NotificationSection() {
         </View>
 
         {!canEnable ? (
-          <Text style={[styles.hint, isDark && styles.textMuted]}>
+          <Text
+            testID="settings-notifications-oauth-hint"
+            style={[styles.hint, isDark && styles.textMuted]}
+          >
             {t('notifications.settings.requiresOAuth')}
           </Text>
         ) : (

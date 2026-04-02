@@ -134,7 +134,7 @@ function DisplaySettingsComponent({
             {t('settings.units')}
           </Text>
         </View>
-        <View style={styles.themePickerContainer}>
+        <View testID="settings-unit-toggle" style={styles.themePickerContainer}>
           <SegmentedButtons
             value={unitPreference}
             onValueChange={onUnitChange}

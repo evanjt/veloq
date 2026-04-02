@@ -58,7 +58,7 @@ export const MethodologySection = React.memo(function MethodologySection({
   if (!hasAnyContent) return null;
 
   return (
-    <View style={styles.container}>
+    <View testID="methodology-section" style={styles.container}>
       <CollapsibleSection
         title={t('insights.howCalculated', 'How was this calculated?')}
         expanded={expanded}

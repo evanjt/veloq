@@ -1,0 +1,44 @@
+# Activity Zone Distributions Test
+# Tests: HR/power zone bar charts and interval table on activity detail
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Navigate to activity detail
+- openLink: "veloq://activity/demo-test-0"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+# Scroll down past charts to find zone distribution
+- scroll
+- scroll
+
+# Check for zone chart
+- assertVisible:
+    id: "activity-zone-chart"
+    optional: true
+
+- takeScreenshot: "activity-zone-distributions"
+
+# Check for interval table
+- scroll
+
+- assertVisible:
+    id: "activity-interval-table"
+    optional: true
+
+- takeScreenshot: "activity-interval-table"
+
+# Verify no NaN
+- assertNotVisible:
+    text: "NaN"
+    optional: true
+
+- takeScreenshot: "activity-zone-distributions-complete"

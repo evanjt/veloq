@@ -67,4 +67,23 @@ tags:
     id: "weekly-summary"
 - takeScreenshot: "home-weekly-summary-week"
 
+# Navigate back to home to check SummaryCard components
+- openLink: "veloq://home"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+# Verify form zone indicator in summary card
+- assertVisible:
+    id: "summary-card-form-zone"
+    optional: true
+
+# Verify sparkline chart in summary card
+- assertVisible:
+    id: "summary-card-sparkline"
+    optional: true
+
+- takeScreenshot: "summary-card-features"
+
 - takeScreenshot: "weekly-summary-complete"

@@ -60,6 +60,7 @@ export function SummaryCardSection() {
                 {t('settings.showSparkline')}
               </Text>
               <Switch
+                testID="settings-summary-card-sparkline-toggle"
                 value={summaryCard.showSparkline}
                 onValueChange={(value) => setSummaryCardPreferences({ showSparkline: value })}
                 color={colors.primary}

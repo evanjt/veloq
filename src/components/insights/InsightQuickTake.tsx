@@ -188,7 +188,7 @@ export const InsightQuickTake = React.memo(function InsightQuickTake({
   if (!content) return null;
 
   return (
-    <View style={[styles.card, isDark && styles.cardDark]}>
+    <View testID="insight-quick-take" style={[styles.card, isDark && styles.cardDark]}>
       <Text style={[styles.heading, isDark && styles.headingDark]}>Quick Take</Text>
 
       <View style={styles.row}>

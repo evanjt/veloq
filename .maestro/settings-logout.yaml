@@ -4,6 +4,19 @@
 appId: com.veloq.app.dev
 tags:
   - tier2
+onFlowComplete:
+  - runFlow:
+      when:
+        visible:
+          id: "login-screen"
+      commands:
+        - tapOn:
+            id: "login-demo-button"
+        - extendedWaitUntil:
+            visible:
+              id: "home-screen"
+            timeout: 15000
+            optional: true
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml

@@ -73,7 +73,7 @@ export const SectionInlinePlot = memo(
     }, [onPress, sectionId]);
 
     return (
-      <View>
+      <View testID={`section-inline-plot-${index}`}>
         <Swipeable
           ref={(ref) => {
             swipeableRefs.current.set(sectionId, ref);

@@ -453,7 +453,10 @@ export default function FitnessScreen() {
 
             {/* Activity dots chart - deferred to reduce simultaneous shader compilation */}
             {chartsReady && (
-              <View style={[styles.dotsSection, isDark && styles.dotsSectionDark]}>
+              <View
+                testID="fitness-activity-dots"
+                style={[styles.dotsSection, isDark && styles.dotsSectionDark]}
+              >
                 <ActivityDotsChart
                   data={wellness}
                   activities={activities || []}
@@ -468,7 +471,10 @@ export default function FitnessScreen() {
 
             {/* Form zone chart - deferred to reduce simultaneous shader compilation */}
             {chartsReady && (
-              <View style={[styles.formSection, isDark && styles.formSectionDark]}>
+              <View
+                testID="fitness-form-zone-chart"
+                style={[styles.formSection, isDark && styles.formSectionDark]}
+              >
                 <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
                   {t('metrics.form')}
                 </Text>
@@ -503,6 +509,7 @@ export default function FitnessScreen() {
             {(['Cycling', 'Running', 'Swimming'] as const).map((sport) => (
               <TouchableOpacity
                 key={sport}
+                testID={`fitness-sport-toggle-${sport}`}
                 style={[
                   styles.sportToggleButton,
                   isDark && styles.sportToggleButtonDark,

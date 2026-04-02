@@ -1,9 +1,9 @@
-# Recording Start/Stop Test
-# Tests: start recording, unlock screen, pause, stop, review, discard
+# Recording Lock Overlay Test
+# Tests: lock overlay display, unlock swipe, re-lock, timer visibility through overlay
 
 appId: com.veloq.app.dev
 tags:
-  - tier1
+  - tier2
 onFlowComplete:
   - openLink: "veloq://home"
   - runFlow:
@@ -15,19 +15,18 @@ onFlowComplete:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
-# Tap the record FAB on the home screen
+# Start recording
 - tapOn:
     id: "record-fab"
 
-# Dismiss any "Resume previous recording?" dialog
+# Dismiss any resume dialog
 - runFlow:
     when:
       visible: "DISCARD"
     commands:
       - tapOn: "DISCARD"
 
-# Expand Cycling category if Ride isn't directly visible (may be collapsed due to
-# a previous test selecting a different activity type, e.g. WeightTraining)
+# Expand Cycling if needed
 - runFlow:
     when:
       notVisible:
@@ -42,7 +41,6 @@ onFlowComplete:
       - tapOn:
           text: "Cycling"
 
-# Select Ride activity type
 - scrollUntilVisible:
     element:
       id: "record-type-Ride"
@@ -54,86 +52,83 @@ onFlowComplete:
 - tapOn:
     id: "record-type-Ride"
 
-# Wait for recording screen to load
+# Wait for recording screen
 - extendedWaitUntil:
     visible:
       id: "recording-timer"
     timeout: 10000
 
-- takeScreenshot: "recording-active"
+# Lock overlay should be auto-engaged
+- assertVisible:
+    id: "lock-overlay"
 
-# Unlock the lock overlay by swiping the handle right
+# Timer should be visible through the overlay
+- assertVisible:
+    id: "recording-timer"
+
+- takeScreenshot: "lock-overlay-active"
+
+# Unlock by swiping
 - swipe:
     from:
       id: "lock-overlay-unlock"
     direction: RIGHT
     duration: 800
 
-# Wait for controls to appear after unlock
+# Controls should now be visible
 - extendedWaitUntil:
     visible:
       id: "control-pause"
     timeout: 5000
 
-- takeScreenshot: "recording-unlocked"
+- takeScreenshot: "lock-overlay-unlocked"
 
-# Tap pause (recording → paused state)
+# Re-lock by tapping lock button
 - tapOn:
-    id: "control-pause"
+    id: "control-lock"
 
-# Wait for paused state (resume + stop buttons)
+# Lock overlay should reappear
 - extendedWaitUntil:
     visible:
-      id: "control-resume"
+      id: "lock-overlay"
     timeout: 5000
 
-- takeScreenshot: "recording-paused"
+- takeScreenshot: "lock-overlay-relocked"
 
-# Resume the recording
-- tapOn:
-    id: "control-resume"
+# Clean up: unlock, pause, stop, discard
+- swipe:
+    from:
+      id: "lock-overlay-unlock"
+    direction: RIGHT
+    duration: 800
 
-# Wait for recording to resume (pause button reappears)
 - extendedWaitUntil:
     visible:
       id: "control-pause"
     timeout: 5000
 
-- takeScreenshot: "recording-resumed"
-
-# Pause again before stopping
 - tapOn:
     id: "control-pause"
 
-# Wait for paused state again
 - extendedWaitUntil:
     visible:
       id: "control-resume"
     timeout: 5000
 
-# Long-press stop to end recording (paused-state stop requires hold)
 - longPressOn:
     id: "control-stop"
 
-# Wait for review screen
 - extendedWaitUntil:
     visible:
       id: "review-save-button"
     timeout: 10000
 
-- assertVisible:
-    id: "review-discard-button"
-
-- takeScreenshot: "recording-review-screen"
-
-# Long-press discard to return to home
 - longPressOn:
     id: "review-discard-button"
 
-# Verify return to home screen
 - extendedWaitUntil:
     visible:
       id: "home-screen"
     timeout: 10000
 
-- takeScreenshot: "recording-start-stop-complete"
+- takeScreenshot: "lock-overlay-complete"

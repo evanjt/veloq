@@ -232,6 +232,7 @@ export function SectionHeader({
         {!isTrimming && (
           <View style={styles.actionRow}>
             <TouchableOpacity
+              testID="section-trim-button"
               style={styles.editBoundsPill}
               onPress={onStartTrim}
               activeOpacity={0.7}

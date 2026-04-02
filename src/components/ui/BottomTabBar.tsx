@@ -135,7 +135,7 @@ function BottomTabBarComponent() {
                     color={isActive ? activeColor : inactiveColor}
                   />
                   {item.key === 'insights' && hasNewInsights && (
-                    <View style={styles.notificationDot} />
+                    <View testID="tab-insights-badge" style={styles.notificationDot} />
                   )}
                 </View>
                 <Text

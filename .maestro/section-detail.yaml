@@ -44,4 +44,16 @@ tags:
 - scroll
 - takeScreenshot: "section-detail-scroll-performances"
 
+# Check for time range selector on section performances
+- assertVisible:
+    id: "section-time-range-selector"
+    optional: true
+
+# Check for direction statistics
+- assertVisible:
+    id: "section-direction-stats"
+    optional: true
+
+- takeScreenshot: "section-detail-range-and-direction"
+
 - takeScreenshot: "section-detail-complete"

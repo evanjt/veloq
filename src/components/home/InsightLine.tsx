@@ -98,7 +98,7 @@ export const InsightLine = React.memo(function InsightLine({ insights }: Insight
   const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
 
   return (
-    <View style={styles.wrapper}>
+    <View testID="insight-line" style={styles.wrapper}>
       <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
         <Animated.View
           style={[

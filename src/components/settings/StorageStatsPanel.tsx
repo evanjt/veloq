@@ -170,7 +170,7 @@ export function StorageStatsPanel({
   return (
     <>
       {/* Cache Stats - inline */}
-      <View style={styles.statRow}>
+      <View testID="settings-storage-stats" style={styles.statRow}>
         <TouchableOpacity
           style={styles.statItem}
           onPress={() => navigateTo('/map')}

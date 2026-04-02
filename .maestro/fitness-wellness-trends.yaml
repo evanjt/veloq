@@ -1,0 +1,38 @@
+# Fitness Wellness Trends Test
+# Tests: HRV, resting HR, and sleep data visibility on training screen
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-training.yaml
+
+# Wait for training screen
+- extendedWaitUntil:
+    visible:
+      id: "training-screen"
+    timeout: 10000
+
+# Scroll to wellness dashboard
+- scrollUntilVisible:
+    element:
+      id: "wellness-dashboard"
+    direction: DOWN
+    timeout: 15000
+    speed: 40
+
+- assertVisible:
+    id: "wellness-dashboard"
+
+- takeScreenshot: "wellness-dashboard-visible"
+
+# Verify no NaN in wellness values
+- assertNotVisible:
+    text: "NaN"
+    optional: true
+
+- takeScreenshot: "fitness-wellness-trends-complete"

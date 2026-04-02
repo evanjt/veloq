@@ -271,6 +271,42 @@ tags:
 - takeScreenshot: "map-layers-toggled"
 
 # =============================================================================
+# Section/Route Popup Interaction
+# =============================================================================
+
+# With sections layer on, try to tap a section marker
+- tapOn:
+    id: "map-section-marker-0"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "section-popup"
+    timeout: 3000
+    optional: true
+
+- tapOn:
+    id: "section-popup-close"
+    optional: true
+
+# Try route marker popup
+- tapOn:
+    id: "map-route-marker-0"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "route-popup"
+    timeout: 3000
+    optional: true
+
+- tapOn:
+    id: "route-popup-close"
+    optional: true
+
+- takeScreenshot: "map-section-route-popups"
+
+# =============================================================================
 # Toggle Stress Test
 # =============================================================================
 

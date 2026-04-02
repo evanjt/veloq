@@ -33,4 +33,19 @@ tags:
 
 - takeScreenshot: "fitness-metrics-ctl-loaded"
 
+# Scroll down to form zone chart area
+- scroll
+
+# Verify form zone chart rendered
+- assertVisible:
+    id: "fitness-form-zone-chart"
+    optional: true
+
+# Verify activity dots chart rendered
+- assertVisible:
+    id: "fitness-activity-dots"
+    optional: true
+
+- takeScreenshot: "fitness-form-zone-and-dots"
+
 - takeScreenshot: "fitness-metrics-complete"

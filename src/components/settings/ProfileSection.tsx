@@ -88,7 +88,7 @@ function ProfileSectionComponent({ athlete }: ProfileSectionProps) {
   const showPermissionRow = isOAuth && hasWritePermission !== true;
 
   return (
-    <View style={[styles.section, isDark && styles.sectionDark]}>
+    <View testID="settings-profile-section" style={[styles.section, isDark && styles.sectionDark]}>
       <TouchableOpacity
         style={styles.profileRow}
         onPress={

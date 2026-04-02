@@ -3,7 +3,8 @@
 # Handles: login, system alerts, Activity Notifications, WhatsNewModal
 appId: com.veloq.app.dev
 ---
-- launchApp
+- launchApp:
+    clearState: true
 
 # Dismiss iOS "Open in Veloq?" deep link confirmation
 - runFlow:

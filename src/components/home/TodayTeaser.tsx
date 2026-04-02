@@ -78,6 +78,7 @@ export const TodayTeaser = React.memo(function TodayTeaser() {
 
   return (
     <TouchableOpacity
+      testID="today-teaser"
       style={[styles.container, isDark && styles.containerDark]}
       onPress={() => router.push('/(tabs)/routes')}
       activeOpacity={0.7}

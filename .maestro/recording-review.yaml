@@ -4,6 +4,13 @@
 appId: com.veloq.app.dev
 tags:
   - tier2
+onFlowComplete:
+  - openLink: "veloq://home"
+  - runFlow:
+      when:
+        visible: "DISCARD"
+      commands:
+        - tapOn: "DISCARD"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -72,6 +79,16 @@ tags:
     id: "review-discard-button"
 
 - takeScreenshot: "recording-review-fields"
+
+# Verify RPE rating section is visible
+- assertVisible:
+    id: "review-rpe"
+
+# Verify trim section is visible
+- assertVisible:
+    id: "review-trim"
+
+- takeScreenshot: "recording-review-rpe-and-trim"
 
 # Clear the default name and enter a custom one with special characters
 - tapOn:

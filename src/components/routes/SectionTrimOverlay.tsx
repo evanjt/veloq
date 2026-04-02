@@ -169,10 +169,11 @@ export function SectionTrimOverlay({
     : startIndex > 0 || endIndex < maxIndex;
 
   return (
-    <View style={styles.container} pointerEvents="box-none">
+    <View testID="section-trim-overlay" style={styles.container} pointerEvents="box-none">
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
         {/* Cancel button */}
         <TouchableOpacity
+          testID="section-trim-cancel"
           style={[styles.iconButton, styles.cancelButton]}
           onPress={onCancel}
           activeOpacity={0.8}
@@ -207,6 +208,7 @@ export function SectionTrimOverlay({
             <View style={styles.statusSpacer} />
             {/* Expand/collapse toggle */}
             <TouchableOpacity
+              testID="section-expand-toggle"
               onPress={onToggleExpand}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={[styles.expandToggle, isExpandMode && styles.expandToggleActive]}
@@ -313,6 +315,7 @@ export function SectionTrimOverlay({
 
         {/* Save button */}
         <TouchableOpacity
+          testID="section-trim-confirm"
           style={[
             styles.iconButton,
             isTrimmed ? styles.confirmButton : styles.confirmButtonDisabled,

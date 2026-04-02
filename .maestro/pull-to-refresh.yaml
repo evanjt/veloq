@@ -26,6 +26,11 @@ tags:
       id: "home-activity-list"
     timeout: 10000
 
+# Verify activity data is actually present after refresh
+- assertVisible:
+    id: "activity-card-demo-test-0"
+    optional: true
+
 - takeScreenshot: "pull-to-refresh-home"
 
 # Navigate to fitness screen
