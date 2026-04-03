@@ -543,6 +543,28 @@ export const SectionMapView = memo(function SectionMapView({
         />
       </ShapeSource>
 
+      {/* Start/end markers for nearby sections */}
+      {nearbyPolylines?.map((entry) => {
+        const coords = entry.polylineCoords;
+        if (!coords || coords.length < 4) return null;
+        const startCoord: [number, number] = [coords[1], coords[0]]; // [lng, lat]
+        const endCoord: [number, number] = [coords[coords.length - 1], coords[coords.length - 2]];
+        return (
+          <React.Fragment key={`nearby-markers-${entry.id}`}>
+            <MarkerView coordinate={startCoord}>
+              <View style={styles.markerContainer}>
+                <View style={[styles.nearbyMarker, styles.nearbyStartMarker]} />
+              </View>
+            </MarkerView>
+            <MarkerView coordinate={endCoord}>
+              <View style={styles.markerContainer}>
+                <View style={[styles.nearbyMarker, styles.nearbyEndMarker]} />
+              </View>
+            </MarkerView>
+          </React.Fragment>
+        );
+      })}
+
       {/* Shadow track (full activity route) */}
       {/* CRITICAL: Always render all ShapeSources to avoid iOS crash during view reconciliation */}
       {/* Shadow track (full activity route) */}
@@ -1103,6 +1125,20 @@ const styles = StyleSheet.create({
   },
   endMarker: {
     backgroundColor: 'rgba(239,68,68,0.75)',
+  },
+  nearbyMarker: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: colors.textOnDark,
+    opacity: 0.5,
+  },
+  nearbyStartMarker: {
+    backgroundColor: 'rgba(34,197,94,0.6)',
+  },
+  nearbyEndMarker: {
+    backgroundColor: 'rgba(239,68,68,0.6)',
   },
   expandOverlay: {
     position: 'absolute',

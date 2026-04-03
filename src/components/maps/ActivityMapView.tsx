@@ -935,8 +935,8 @@ export const ActivityMapView = memo(function ActivityMapView({
                   { opacity: creationMode && sectionStartPoint ? 1 : 0 },
                 ]}
               >
-                <View style={[styles.marker, styles.sectionStartMarker]}>
-                  <MaterialCommunityIcons name="flag-outline" size={14} color={colors.textOnDark} />
+                <View style={[styles.sectionCreationMarker, styles.sectionStartMarker]}>
+                  <MaterialCommunityIcons name="flag-outline" size={16} color={colors.textOnDark} />
                 </View>
               </View>
             </MarkerView>
@@ -962,8 +962,8 @@ export const ActivityMapView = memo(function ActivityMapView({
                   { opacity: creationMode && sectionEndPoint ? 1 : 0 },
                 ]}
               >
-                <View style={[styles.marker, styles.sectionEndMarker]}>
-                  <MaterialCommunityIcons name="flag" size={14} color={colors.textOnDark} />
+                <View style={[styles.sectionCreationMarker, styles.sectionEndMarker]}>
+                  <MaterialCommunityIcons name="flag" size={16} color={colors.textOnDark} />
                 </View>
               </View>
             </MarkerView>
@@ -1366,11 +1366,20 @@ const styles = StyleSheet.create({
   endMarker: {
     backgroundColor: 'rgba(239,68,68,0.75)',
   },
+  sectionCreationMarker: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.textOnDark,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   sectionStartMarker: {
-    backgroundColor: '#00BCD4', // Cyan - distinct from activity start (green)
+    backgroundColor: 'rgba(34,197,94,0.9)',
   },
   sectionEndMarker: {
-    backgroundColor: '#9C27B0', // Purple - distinct from activity end (red)
+    backgroundColor: 'rgba(239,68,68,0.9)',
   },
   highlightMarker: {
     width: 14,
