@@ -430,24 +430,29 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   const renderScanMatch = useCallback(
     (match: FfiSectionMatch) => {
       const quality = Math.round(match.matchQuality * 100);
+      const displayName = match.sectionName || match.sectionId.slice(0, 8);
       return (
         <View
           key={match.sectionId}
           style={[styles.scanMatchRow, isDark && styles.scanMatchRowDark]}
         >
-          <View style={styles.scanMatchInfo}>
+          <TouchableOpacity
+            style={styles.scanMatchInfo}
+            onPress={() => navigateTo(`/section/${match.sectionId}`)}
+            activeOpacity={0.7}
+          >
             <Text
-              numberOfLines={1}
+              numberOfLines={2}
               style={[styles.scanMatchName, isDark && { color: darkColors.textPrimary }]}
             >
-              {match.sectionName || match.sectionId.slice(0, 8)}
+              {displayName}
             </Text>
             <Text style={[styles.scanMatchMeta, isDark && { color: darkColors.textSecondary }]}>
               {formatDistance(match.distanceMeters, isMetric)} ·{' '}
               {t('sections.matchQuality', { quality })}
               {!match.sameDirection ? ` · ${t('sections.reverse')}` : ''}
             </Text>
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.addMatchButton}
             onPress={() => handleRematch(match.sectionId)}
