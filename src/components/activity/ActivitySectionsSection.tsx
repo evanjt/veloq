@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   FlatList,
@@ -20,6 +20,7 @@ import { SectionInlinePlot, type InlineSectionData } from '@/components/activity
 import { DataRangeFooter } from '@/components/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
 import { castDirection, fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
 import type { Section, ActivityType, PerformanceDataPoint } from '@/types';
@@ -140,6 +141,10 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     [onRematch]
   );
 
+  // Retry counter: if first load returns no plot data, retry once after a short delay
+  // (Rust lazily computes lap_time/lap_pace on first query per section)
+  const [plotRetry, setPlotRetry] = useState(0);
+
   // Batch-load performance data for all sections
   const plotDataMap = useMemo((): Map<string, InlineSectionData> => {
     const map = new Map<string, InlineSectionData>();
@@ -198,7 +203,16 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       }
     }
     return map;
-  }, [unifiedSections, activityType]);
+  }, [unifiedSections, activityType, plotRetry]);
+
+  // If sections exist but no plot data loaded, retry after a short delay
+  // (performance data may be lazily computed on first FFI query)
+  useEffect(() => {
+    if (unifiedSections.length > 0 && plotDataMap.size === 0 && plotRetry === 0) {
+      const timer = setTimeout(() => setPlotRetry(1), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [unifiedSections.length, plotDataMap.size, plotRetry]);
 
   // Close any open swipeable when another opens
   const handleSwipeableOpen = useCallback((sectionId: string) => {
@@ -427,10 +441,14 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   }, [isDark, t, hasScanned, isScanning, onScan]);
 
   // Render a single scan match result row
+  // Look up proper display names for scan results (same names shown in the app)
+  const sectionDisplayNames = useMemo(() => getAllSectionDisplayNames(), [scanMatches]);
+
   const renderScanMatch = useCallback(
     (match: FfiSectionMatch) => {
       const quality = Math.round(match.matchQuality * 100);
-      const displayName = match.sectionName || match.sectionId.slice(0, 8);
+      const displayName =
+        sectionDisplayNames[match.sectionId] || match.sectionName || match.sectionId.slice(0, 8);
       return (
         <View
           key={match.sectionId}
@@ -464,7 +482,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         </View>
       );
     },
-    [isDark, isMetric, isScanning, handleRematch]
+    [isDark, isMetric, isScanning, handleRematch, sectionDisplayNames]
   );
 
   // Render footer for section list

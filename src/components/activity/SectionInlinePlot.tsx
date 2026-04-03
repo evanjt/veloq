@@ -1,5 +1,5 @@
 import React, { memo, useCallback } from 'react';
-import { View, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, StyleSheet, Pressable, Platform, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -132,7 +132,7 @@ export const SectionInlinePlot = memo(
             </View>
 
             {/* Inline scatter chart */}
-            {plotData && plotData.chartData.length >= 1 && (
+            {plotData && plotData.chartData.length >= 1 ? (
               <SectionScatterChart
                 chartData={plotData.chartData}
                 activityType={plotData.activityType}
@@ -143,7 +143,11 @@ export const SectionInlinePlot = memo(
                 reverseStats={plotData.reverseStats}
                 compact
               />
-            )}
+            ) : !plotData && visitCount > 1 ? (
+              <View style={styles.chartLoading}>
+                <ActivityIndicator size="small" color={isDark ? '#555' : '#CCC'} />
+              </View>
+            ) : null}
           </Pressable>
         </Swipeable>
       </View>
@@ -249,5 +253,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: colors.chartCyan,
+  },
+  chartLoading: {
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
