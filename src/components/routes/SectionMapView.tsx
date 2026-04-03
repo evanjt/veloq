@@ -15,6 +15,7 @@
 import React, { useMemo, useRef, useState, useCallback, useEffect, memo } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   TouchableOpacity,
   Modal,
@@ -106,7 +107,16 @@ interface SectionMapViewProps {
   /** Extension track for expanding section bounds - shown as faded line beyond the section */
   extensionTrack?: RoutePoint[] | null;
   /** Nearby section polylines to render as muted gray overlays. Each entry has flat [lat,lng,...] coords. */
-  nearbyPolylines?: Array<{ id: string; polylineCoords: number[] }>;
+  nearbyPolylines?: Array<{
+    id: string;
+    name?: string;
+    sportType: string;
+    distanceMeters: number;
+    visitCount: number;
+    polylineCoords: number[];
+  }>;
+  /** Called when a nearby section polyline is tapped */
+  onNearbyPress?: (sectionId: string) => void;
 }
 
 export const SectionMapView = memo(function SectionMapView({
@@ -122,9 +132,11 @@ export const SectionMapView = memo(function SectionMapView({
   trimRange = null,
   extensionTrack = null,
   nearbyPolylines,
+  onNearbyPress,
 }: SectionMapViewProps) {
   const { t } = useTranslation();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [selectedNearby, setSelectedNearby] = useState<string | null>(null);
   const { getStyleForActivity } = useMapPreferences();
 
   // Validate sport type from Rust engine, fallback to 'Ride' if invalid
@@ -528,14 +540,30 @@ export const SectionMapView = memo(function SectionMapView({
         }}
       />
 
-      {/* Nearby section polylines (muted gray, rendered behind everything) */}
-      <ShapeSource id="nearbySource" shape={nearbyGeoJSON}>
+      {/* Nearby section polylines (muted gray, tappable for preview) */}
+      <ShapeSource
+        id="nearbySource"
+        shape={nearbyGeoJSON}
+        onPress={(e) => {
+          const feature = e?.features?.[0];
+          const sectionId = feature?.properties?.sectionId;
+          if (sectionId) {
+            setSelectedNearby(selectedNearby === sectionId ? null : sectionId);
+          }
+        }}
+        hitbox={{ width: 20, height: 20 }}
+      >
         <LineLayer
           id="nearbyLine"
           style={{
-            lineColor: '#888888',
-            lineOpacity: 0.4,
-            lineWidth: 3,
+            lineColor: [
+              'case',
+              ['==', ['get', 'sectionId'], selectedNearby ?? ''],
+              colors.primary,
+              '#888888',
+            ],
+            lineOpacity: ['case', ['==', ['get', 'sectionId'], selectedNearby ?? ''], 0.8, 0.4],
+            lineWidth: ['case', ['==', ['get', 'sectionId'], selectedNearby ?? ''], 5, 3],
             lineCap: 'round',
             lineJoin: 'round',
             lineDasharray: [2, 2],
@@ -905,6 +933,66 @@ export const SectionMapView = memo(function SectionMapView({
               )}
             </View>
           )}
+
+          {/* Nearby section preview popup */}
+          {selectedNearby &&
+            nearbyPolylines &&
+            (() => {
+              const nearbySection = nearbyPolylines.find((n) => n.id === selectedNearby);
+              if (!nearbySection) return null;
+              return (
+                <View style={[styles.nearbyPopup, isDark && styles.nearbyPopupDark]}>
+                  <View style={styles.nearbyPopupContent}>
+                    <View style={styles.nearbyPopupInfo}>
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.nearbyPopupName,
+                          isDark && { color: darkColors.textPrimary },
+                        ]}
+                      >
+                        {nearbySection.name || nearbySection.id.slice(0, 8)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.nearbyPopupMeta,
+                          isDark && { color: darkColors.textSecondary },
+                        ]}
+                      >
+                        {Math.round(nearbySection.distanceMeters)}m ·{' '}
+                        {t('sections.visitsCount', { count: nearbySection.visitCount })}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.nearbyPopupViewBtn}
+                      onPress={() => {
+                        setSelectedNearby(null);
+                        onNearbyPress?.(nearbySection.id);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.nearbyPopupViewText}>{t('sections.viewSection')}</Text>
+                      <MaterialCommunityIcons
+                        name="chevron-right"
+                        size={16}
+                        color={colors.primary}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.nearbyPopupClose}
+                    onPress={() => setSelectedNearby(null)}
+                    hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                  >
+                    <MaterialCommunityIcons
+                      name="close"
+                      size={18}
+                      color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              );
+            })()}
         </View>
       ) : (
         // Non-interactive map - tap anywhere to fullscreen
@@ -1139,6 +1227,53 @@ const styles = StyleSheet.create({
   },
   nearbyEndMarker: {
     backgroundColor: 'rgba(239,68,68,0.6)',
+  },
+  nearbyPopup: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    left: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: spacing.sm,
+    padding: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    ...shadows.card,
+  },
+  nearbyPopupDark: {
+    backgroundColor: darkColors.surface,
+  },
+  nearbyPopupContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  nearbyPopupInfo: {
+    flex: 1,
+  },
+  nearbyPopupName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  nearbyPopupMeta: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  nearbyPopupViewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  nearbyPopupViewText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  nearbyPopupClose: {
+    padding: spacing.xs,
   },
   expandOverlay: {
     position: 'absolute',

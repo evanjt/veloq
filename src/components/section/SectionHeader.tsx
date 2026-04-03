@@ -48,7 +48,15 @@ export interface SectionHeaderProps {
   highlightedLapPoints?: RoutePoint[];
   allActivityTraces?: Record<string, RoutePoint[]>;
   isScrubbing: boolean;
-  nearbyPolylines?: Array<{ id: string; polylineCoords: number[] }>;
+  nearbyPolylines?: Array<{
+    id: string;
+    name?: string;
+    sportType: string;
+    distanceMeters: number;
+    visitCount: number;
+    polylineCoords: number[];
+  }>;
+  onNearbyPress?: (sectionId: string) => void;
   onBack: () => void;
   onStartTrim: () => void;
   onDeleteSection: () => void;
@@ -98,6 +106,7 @@ export function SectionHeader({
   allActivityTraces,
   isScrubbing,
   nearbyPolylines,
+  onNearbyPress,
   onBack,
   onStartTrim,
   onDeleteSection,
@@ -135,6 +144,7 @@ export function SectionHeader({
             trimRange={isTrimming ? { start: trimStart, end: trimEnd } : null}
             extensionTrack={isTrimming && isExpandMode ? expandContextPoints : null}
             nearbyPolylines={nearbyPolylines}
+            onNearbyPress={onNearbyPress}
           />
         ) : (
           <View style={[styles.mapPlaceholder, { height: MAP_HEIGHT }]}>

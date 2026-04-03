@@ -632,12 +632,20 @@ export default function SectionDetailScreen() {
     }
   }, [section?.id]);
 
-  // Prepare nearby polylines for map overlay
+  // Prepare nearby polylines for map overlay (includes metadata for preview popup)
   const nearbyPolylines = useMemo(() => {
     if (!nearby || nearby.length === 0) return undefined;
+    const displayNames = getAllSectionDisplayNames();
     return nearby
       .filter((n) => n.polylineCoords && n.polylineCoords.length >= 4)
-      .map((n) => ({ id: n.id, polylineCoords: n.polylineCoords }));
+      .map((n) => ({
+        id: n.id,
+        name: displayNames[n.id] || n.name,
+        sportType: n.sportType,
+        distanceMeters: n.distanceMeters,
+        visitCount: n.visitCount,
+        polylineCoords: n.polylineCoords,
+      }));
   }, [nearby]);
 
   const isRunning = effectiveSportType
@@ -768,6 +776,7 @@ export default function SectionDetailScreen() {
             allActivityTraces={allActivityTraces}
             isScrubbing={isScrubbing}
             nearbyPolylines={nearbyPolylines}
+            onNearbyPress={(sectionId) => router.push(`/section/${sectionId}`)}
             onBack={() => router.back()}
             onStartTrim={startTrim}
             onDeleteSection={handleDeleteSection}
