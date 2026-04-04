@@ -10,7 +10,7 @@ use super::PersistentRouteEngine;
 impl PersistentRouteEngine {
     /// Current schema version for app-level tracking.
     /// This is separate from rusqlite_migration and tracks the overall schema state.
-    pub(super) const SCHEMA_VERSION: i32 = 16; // v0.3.0 schema (section visibility)
+    pub(super) const SCHEMA_VERSION: i32 = 17; // v0.3.0 schema (settings consolidation)
 
     /// Get the database migrations.
     /// Each migration is applied in order, tracked in `__rusqlite_migrations` table.
@@ -76,6 +76,8 @@ impl PersistentRouteEngine {
             M::up(include_str!("../migrations/019_reset_fit_cache.sql")),
             // M20: Section visibility (disabled + superseded_by columns)
             M::up(include_str!("../migrations/020_section_visibility.sql")),
+            // M21: Key-value settings table for user preferences (backup consolidation)
+            M::up(include_str!("../migrations/021_settings_table.sql")),
         ])
     }
 

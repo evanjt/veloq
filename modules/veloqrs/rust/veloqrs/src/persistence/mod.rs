@@ -39,6 +39,7 @@ mod fitness;
 mod routes;
 mod schema;
 mod sections;
+mod settings;
 mod strength;
 mod tiles;
 
