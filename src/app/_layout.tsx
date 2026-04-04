@@ -60,6 +60,7 @@ import {
 } from '@/components/ui';
 import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
+import { migrateSettingsToSqlite } from '@/lib/backup';
 import {
   initializeNotifications,
   setupNotificationResponseHandler,
@@ -140,6 +141,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             const routeWord = i18n.t('routes.routeWord');
             const sectionWord = i18n.t('routes.sectionWord');
             engine.setNameTranslations(routeWord, sectionWord);
+            // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
+            migrateSettingsToSqlite().catch(() => {});
             // Initialize SyncDateRangeStore from engine's actual cached data
             const stats = engine.getStats();
             if (stats?.oldestDate && stats?.newestDate) {

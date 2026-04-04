@@ -901,6 +901,75 @@ class RouteEngineClient {
     }
   }
 
+  // ==========================================================================
+  // User Preferences (SQLite settings table)
+  // ==========================================================================
+
+  getSetting(key: string): string | undefined {
+    if (!this.ready) return undefined;
+    try {
+      return this.engine.settings().getSetting(key) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  setSetting(key: string, value: string): void {
+    if (!this.ready) return;
+    try {
+      this.engine.settings().setSetting(key, value);
+    } catch {
+      // Settings write failed — non-critical
+    }
+  }
+
+  getAllSettings(): Record<string, string> {
+    if (!this.ready) return {};
+    try {
+      const json = this.engine.settings().getAllSettings();
+      return JSON.parse(json) as Record<string, string>;
+    } catch {
+      return {};
+    }
+  }
+
+  setAllSettings(settings: Record<string, string>): void {
+    if (!this.ready) return;
+    try {
+      this.engine.settings().setAllSettings(JSON.stringify(settings));
+    } catch {
+      // Settings write failed — non-critical
+    }
+  }
+
+  deleteSetting(key: string): void {
+    if (!this.ready) return;
+    try {
+      this.engine.settings().deleteSetting(key);
+    } catch {
+      // Settings delete failed — non-critical
+    }
+  }
+
+  // ==========================================================================
+  // Database Backup
+  // ==========================================================================
+
+  backupDatabase(destPath: string): void {
+    if (!this.ready) throw new Error('Engine not initialized');
+    this.timed('backupDatabase', () => this.engine.backupDatabase(destPath));
+  }
+
+  getBackupMetadata(): Record<string, unknown> {
+    if (!this.ready) return {};
+    try {
+      const json = this.engine.getBackupMetadata();
+      return JSON.parse(json) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+
   computePolylineOverlap(coordsA: number[], coordsB: number[], thresholdMeters = 50): number {
     return this.timed('computePolylineOverlap', () =>
       gen().computePolylineOverlap(coordsA, coordsB, thresholdMeters),
