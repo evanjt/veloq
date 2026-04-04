@@ -1,6 +1,6 @@
 import { Appearance, useColorScheme, type ColorSchemeName } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { getSetting, setSetting } from '@/lib/backup';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 const STORAGE_KEY = 'veloq-theme-preference';
@@ -36,7 +36,7 @@ function applyThemePreference(preference: ThemePreference): void {
  */
 export async function initializeTheme(): Promise<void> {
   try {
-    const preference = normalizePreference(await AsyncStorage.getItem(STORAGE_KEY));
+    const preference = normalizePreference(await getSetting(STORAGE_KEY));
     useThemePreferenceStore.getState().setHydratedPreference(preference);
     applyThemePreference(preference);
   } catch {
@@ -53,7 +53,7 @@ export async function initializeTheme(): Promise<void> {
 export async function setThemePreference(preference: ThemePreference): Promise<void> {
   useThemePreferenceStore.getState().setPreference(preference);
   applyThemePreference(preference);
-  await AsyncStorage.setItem(STORAGE_KEY, preference);
+  await setSetting(STORAGE_KEY, preference);
 }
 
 /**
@@ -65,7 +65,7 @@ export async function getThemePreference(): Promise<ThemePreference> {
     return store.preference;
   }
   try {
-    return normalizePreference(await AsyncStorage.getItem(STORAGE_KEY));
+    return normalizePreference(await getSetting(STORAGE_KEY));
   } catch {
     return 'system';
   }

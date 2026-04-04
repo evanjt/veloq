@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting } from '@/lib/backup';
 
 const WHATS_NEW_KEY = 'veloq-whats-new-seen';
 
@@ -31,7 +31,7 @@ export const useWhatsNewStore = create<WhatsNewState>((set) => ({
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(WHATS_NEW_KEY);
+      const stored = await getSetting(WHATS_NEW_KEY);
       if (stored) {
         set({ lastSeenVersion: stored, isLoaded: true });
       } else {
@@ -43,7 +43,7 @@ export const useWhatsNewStore = create<WhatsNewState>((set) => ({
   },
 
   markSeen: async (version: string) => {
-    await AsyncStorage.setItem(WHATS_NEW_KEY, version);
+    await setSetting(WHATS_NEW_KEY, version);
     set({ lastSeenVersion: version });
   },
 

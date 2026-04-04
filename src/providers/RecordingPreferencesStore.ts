@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting } from '@/lib/backup';
 import type { ActivityType, DataFieldType } from '@/types';
 
 const STORAGE_KEY = 'veloq-recording-preferences';
@@ -39,7 +39,7 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const stored = await getSetting(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as Partial<RecordingPreferencesState>;
         set({
@@ -115,7 +115,7 @@ async function persistPreferences(state: Partial<RecordingPreferencesState>): Pr
       autoPauseThresholds: state.autoPauseThresholds,
       dataFields: state.dataFields,
     };
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    await setSetting(STORAGE_KEY, JSON.stringify(data));
   } catch {
     if (__DEV__) {
       console.warn('[RecordingPreferences] Failed to persist');

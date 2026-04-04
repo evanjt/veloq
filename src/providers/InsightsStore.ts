@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting } from '@/lib/backup';
 import type { Insight } from '@/types';
 
 const STORAGE_KEY = 'veloq-insights-fingerprint';
@@ -47,7 +47,7 @@ export const useInsightsStore = create<InsightsState>((set) => ({
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const stored = await getSetting(STORAGE_KEY);
       if (stored && typeof stored === 'string') {
         set({ lastSeenFingerprint: stored, isLoaded: true });
         return;
@@ -61,7 +61,7 @@ export const useInsightsStore = create<InsightsState>((set) => ({
   markSeen: (insights: Insight[]) => {
     const fingerprint = computeInsightFingerprint(insights);
     set({ lastSeenFingerprint: fingerprint, hasNewInsights: false, changedInsightIds: new Set() });
-    AsyncStorage.setItem(STORAGE_KEY, fingerprint).catch(() => {});
+    setSetting(STORAGE_KEY, fingerprint).catch(() => {});
   },
 
   setNewInsights: (changed: Set<string>) => {

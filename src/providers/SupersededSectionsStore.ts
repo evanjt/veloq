@@ -9,7 +9,7 @@
  */
 
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting, removeSetting } from '@/lib/backup';
 
 const SUPERSEDED_SECTIONS_KEY = 'veloq-superseded-sections';
 
@@ -61,7 +61,7 @@ export const useSupersededSections = create<SupersededSectionsState>((set, get) 
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(SUPERSEDED_SECTIONS_KEY);
+      const stored = await getSetting(SUPERSEDED_SECTIONS_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         if (typeof parsed === 'object' && parsed !== null) {
@@ -80,13 +80,13 @@ export const useSupersededSections = create<SupersededSectionsState>((set, get) 
       ...get().supersededBy,
       [customSectionId]: autoSectionIds,
     };
-    await AsyncStorage.setItem(SUPERSEDED_SECTIONS_KEY, JSON.stringify(newState));
+    await setSetting(SUPERSEDED_SECTIONS_KEY, JSON.stringify(newState));
     set({ supersededBy: newState });
   },
 
   removeSuperseded: async (customSectionId: string) => {
     const { [customSectionId]: _, ...rest } = get().supersededBy;
-    await AsyncStorage.setItem(SUPERSEDED_SECTIONS_KEY, JSON.stringify(rest));
+    await setSetting(SUPERSEDED_SECTIONS_KEY, JSON.stringify(rest));
     set({ supersededBy: rest });
   },
 
@@ -112,7 +112,7 @@ export const useSupersededSections = create<SupersededSectionsState>((set, get) 
   },
 
   clear: async () => {
-    await AsyncStorage.removeItem(SUPERSEDED_SECTIONS_KEY);
+    await removeSetting(SUPERSEDED_SECTIONS_KEY);
     set({ supersededBy: {} });
   },
 }));

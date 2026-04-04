@@ -5,7 +5,7 @@
  */
 
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting } from '@/lib/backup';
 import { debug } from '@/lib';
 
 const log = debug.create('TileCache');
@@ -28,12 +28,12 @@ export const useTileCacheStore = create<TileCacheState>((set) => ({
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const stored = await getSetting(STORAGE_KEY);
       if (stored) {
         // Migrate: clear any old proactive cache settings, keep key for backup compatibility
         const raw = JSON.parse(stored) as Record<string, unknown>;
         if (raw.cacheMode && raw.cacheMode !== 'ambient') {
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ cacheMode: 'ambient' }));
+          await setSetting(STORAGE_KEY, JSON.stringify({ cacheMode: 'ambient' }));
         }
       }
       set({ isLoaded: true });

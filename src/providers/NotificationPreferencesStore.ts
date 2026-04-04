@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting } from '@/lib/backup';
 
 const STORAGE_KEY = 'veloq-notification-preferences';
 
@@ -39,7 +39,7 @@ interface NotificationPreferencesState extends NotificationPreferences {
 }
 
 function persist(state: NotificationPreferences): void {
-  AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
+  setSetting(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
 }
 
 export const useNotificationPreferences = create<NotificationPreferencesState>((set, get) => ({
@@ -48,7 +48,7 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const stored = await getSetting(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as Partial<NotificationPreferences>;
         set({

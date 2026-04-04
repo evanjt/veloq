@@ -7,7 +7,7 @@ import React, {
   useMemo,
   ReactNode,
 } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting } from '@/lib/backup';
 import { safeJsonParseWithSchema } from '@/lib/utils/validation';
 import type { MapStyleType } from '@/components/maps/mapStyles';
 import type { ActivityType, Terrain3DMode } from '@/types';
@@ -146,7 +146,7 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
 
   // Load preferences on mount with migration support
   useEffect(() => {
-    Promise.all([AsyncStorage.getItem(STORAGE_KEY), AsyncStorage.getItem(ACTIVITY_OVERRIDES_KEY)])
+    Promise.all([getSetting(STORAGE_KEY), getSetting(ACTIVITY_OVERRIDES_KEY)])
       .then(([saved, savedOverrides]) => {
         if (saved) {
           try {
@@ -195,7 +195,7 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
 
   // Save preferences to storage
   const savePreferences = useCallback(async (newPrefs: MapPreferences) => {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newPrefs));
+    await setSetting(STORAGE_KEY, JSON.stringify(newPrefs));
   }, []);
 
   // Set default style - persist inside callback to fix React 18 batching issue
@@ -345,7 +345,7 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
   // Save activity overrides to storage
   const saveActivityOverrides = useCallback(
     async (overrides: Record<string, ActivityMapOverride>) => {
-      await AsyncStorage.setItem(ACTIVITY_OVERRIDES_KEY, JSON.stringify(overrides));
+      await setSetting(ACTIVITY_OVERRIDES_KEY, JSON.stringify(overrides));
     },
     []
   );
