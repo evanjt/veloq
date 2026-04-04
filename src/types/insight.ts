@@ -6,9 +6,6 @@ export type InsightCategory =
   | 'strength_progression'
   | 'strength_balance'
   | 'hrv_trend'
-  | 'tsb_form'
-  | 'intensity_context'
-  | 'section_cluster'
   | 'efficiency_trend';
 
 export type InsightPriority = 1 | 2 | 3 | 4 | 5;

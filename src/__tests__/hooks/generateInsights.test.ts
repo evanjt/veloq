@@ -40,31 +40,6 @@ describe('generateInsights', () => {
       expect(result).toEqual([]);
     });
 
-    it('returns TSB form position when formTsb is provided with wellness data', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: 0, formCtl: 50, formAtl: 50 },
-        mockT
-      );
-      expect(result).toHaveLength(1);
-      expect(result.find((i) => i.id === 'tsb_form-position')).toBeDefined();
-    });
-
-    it('formTsb = NaN does not generate TSB form insight', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: NaN, formCtl: 50, formAtl: 50 },
-        mockT
-      );
-      expect(result.find((i) => i.id === 'tsb_form-position')).toBeUndefined();
-    });
-
-    it('formTsb = Infinity does not generate TSB form insight', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: Infinity, formCtl: 50, formAtl: 50 },
-        mockT
-      );
-      expect(result.find((i) => i.id === 'tsb_form-position')).toBeUndefined();
-    });
-
     it('previous period with zero duration does not crash', () => {
       const result = generateInsights(
         {
@@ -124,105 +99,6 @@ describe('generateInsights', () => {
       );
       const prInsights = result.filter((i) => i.id.startsWith('section_pr-'));
       expect(prInsights).toHaveLength(0);
-    });
-  });
-
-  // ============================================================
-  // TSB FORM POSITION (Priority 2) — replaces form advice
-  // ============================================================
-
-  describe('TSB form position', () => {
-    it('generates TSB form insight when formTsb is provided', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: -5, formCtl: 50, formAtl: 55 },
-        mockT
-      );
-      const tsb = result.find((i) => i.id === 'tsb_form-position');
-      expect(tsb).toBeDefined();
-      expect(tsb!.category).toBe('tsb_form');
-      expect(tsb!.priority).toBe(2);
-      expect(tsb!.navigationTarget).toBe('/fitness');
-    });
-
-    it('does not generate when formTsb is null', () => {
-      const result = generateInsights(EMPTY_INPUT, mockT);
-      expect(result.find((i) => i.id === 'tsb_form-position')).toBeUndefined();
-    });
-
-    it('does not generate when no wellness data (ctl and atl both null)', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: 0, formCtl: null, formAtl: null },
-        mockT
-      );
-      expect(result.find((i) => i.id === 'tsb_form-position')).toBeUndefined();
-    });
-
-    it('includes CTL, ATL, TSB in supporting data', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: -5, formCtl: 50, formAtl: 55 },
-        mockT
-      );
-      const tsb = result.find((i) => i.id === 'tsb_form-position');
-      const labels = tsb!.supportingData!.dataPoints!.map((dp) => dp.label);
-      expect(labels).toContain('CTL');
-      expect(labels).toContain('ATL');
-      expect(labels).toContain('TSB');
-    });
-
-    it('includes methodology with Banister reference in APA format', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: -5, formCtl: 50, formAtl: 55 },
-        mockT
-      );
-      const tsb = result.find((i) => i.id === 'tsb_form-position');
-      expect(tsb!.methodology!.formula).toBe('TSB = CTL - ATL');
-      expect(tsb!.methodology!.description).toContain('Banister');
-    });
-
-    it('title contains no prescriptive advice', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: 20, formCtl: 50, formAtl: 30 },
-        mockT
-      );
-      const tsb = result.find((i) => i.id === 'tsb_form-position');
-      expect(tsb!.title).not.toContain('recommended');
-      expect(tsb!.title).not.toContain('consider');
-    });
-
-    // TSB zone boundaries (intervals.icu): fresh > 25, transition > 5, greyZone > -10, optimal > -30
-    it.each([
-      [30, 'fresh'],
-      [10, 'transition'],
-      [0, 'greyZone'],
-      [-5, 'greyZone'],
-      [-15, 'optimal'],
-      [-35, 'highRisk'],
-    ])('formTsb=%i maps to %s zone', (tsb, zone) => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: tsb, formCtl: 50, formAtl: 50 },
-        mockT
-      );
-      const form = result.find((i) => i.id === 'tsb_form-position');
-      expect(form).toBeDefined();
-      expect(form!.title).toContain(zone);
-    });
-
-    it('formTsb at exactly 25 maps to transition zone (boundary)', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: 25, formCtl: 50, formAtl: 50 },
-        mockT
-      );
-      const tsb = result.find((i) => i.id === 'tsb_form-position');
-      expect(tsb!.title).toContain('transition');
-    });
-
-    it('formTsb at 25.01 maps to fresh zone', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: 25.01, formCtl: 50, formAtl: 50 },
-        mockT
-      );
-      const tsb = result.find((i) => i.id === 'tsb_form-position');
-      expect(tsb!.title).toContain('fresh');
     });
   });
 
@@ -579,32 +455,6 @@ describe('generateInsights', () => {
     });
   });
 
-  // ============================================================
-  // REST DAY INSIGHTS
-  // ============================================================
-
-  describe('rest day insights', () => {
-    it('generates intensity context on rest day', () => {
-      const result = generateInsights(
-        {
-          ...EMPTY_INPUT,
-          isRestDay: true,
-          currentPeriod: { count: 4, totalDuration: 7200, totalDistance: 80000, totalTss: 200 },
-          previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 60000, totalTss: 150 },
-        },
-        mockT
-      );
-      const intensity = result.find((i) => i.id === 'rest_day-intensity-context');
-      expect(intensity).toBeDefined();
-      expect(intensity!.category).toBe('intensity_context');
-      expect(intensity!.navigationTarget).toBe('/training');
-    });
-
-    // Rest-day section trends removed — handled by sport-grouped cluster insights
-
-    // Tomorrow pattern removed from card list — shown in Today banner only
-  });
-
   describe('stale PR grouping', () => {
     it('formats grouped stale PR subtitles with sport-appropriate units', () => {
       const result = generateInsights(
@@ -686,7 +536,7 @@ describe('generateInsights', () => {
         mockT
       );
 
-      expect(result.length).toBeGreaterThanOrEqual(4);
+      expect(result.length).toBeGreaterThanOrEqual(3);
       for (let i = 1; i < result.length; i++) {
         expect(result[i].priority).toBeGreaterThanOrEqual(result[i - 1].priority);
       }
@@ -698,7 +548,6 @@ describe('generateInsights', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          isRestDay: true,
           currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 240 },
           previousPeriod: { count: 4, totalDuration: 5400, totalDistance: 70000, totalTss: 180 },
           ftpTrend: {
@@ -793,23 +642,6 @@ describe('generateInsights', () => {
   // ============================================================
 
   describe('informational framing', () => {
-    it('TSB form title does not contain prescriptive words', () => {
-      const prescriptiveWords = ['recommended', 'should', 'consider', 'rest', 'intensity'];
-      for (const tsb of [-40, -15, 0, 10, 20]) {
-        const result = generateInsights(
-          { ...EMPTY_INPUT, formTsb: tsb, formCtl: 50, formAtl: 50 },
-          mockT
-        );
-        const form = result.find((i) => i.id === 'tsb_form-position');
-        if (form) {
-          for (const word of prescriptiveWords) {
-            // Title is translation key-based, so just check the insight doesn't have prescriptive advice
-            expect(form.title).not.toContain(word);
-          }
-        }
-      }
-    });
-
     it('no insight has alternatives array (removed prescriptive zone comparisons)', () => {
       const result = generateInsights(
         {
@@ -851,18 +683,6 @@ describe('generateInsights', () => {
       const vol = result.find((i) => i.id === 'period_comparison-volume');
       expect(vol?.body).toBeDefined();
       expect(vol!.body).toContain('insights.loadBody');
-    });
-
-    it('TSB form body contains rounded values', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: -5.7, formCtl: 50.3, formAtl: 55.9 },
-        mockT
-      );
-      const tsb = result.find((i) => i.id === 'tsb_form-position');
-      expect(tsb?.body).toBeDefined();
-      expect(tsb!.body).toContain('tsb: -6');
-      expect(tsb!.body).toContain('ctl: 50');
-      expect(tsb!.body).toContain('atl: 56');
     });
   });
 });
@@ -917,12 +737,6 @@ describe('generateInsights — additional edge cases', () => {
    * The guard `if ((!ctl || ctl === 0) && (!atl || atl === 0)) return` should
    * catch this, but let's verify TSB=0 specifically.
    */
-  it('all-zero CTL/ATL/TSB does not generate TSB form insight', () => {
-    const result = generateInsights({ ...EMPTY_INPUT, formTsb: 0, formCtl: 0, formAtl: 0 }, mockT);
-    const tsb = result.find((i) => i.id === 'tsb_form-position');
-    expect(tsb).toBeUndefined();
-  });
-
   /**
    * FTP with NaN values should not produce an insight.
    */
@@ -1071,15 +885,6 @@ describe('generateInsights — additional edge cases', () => {
   });
 
   /**
-   * Rest day with isRestDay=true but no period data should not crash.
-   */
-  it('rest day with null period data does not crash', () => {
-    expect(() => generateInsights({ ...EMPTY_INPUT, isRestDay: true }, mockT)).not.toThrow();
-    const result = generateInsights({ ...EMPTY_INPUT, isRestDay: true }, mockT);
-    expect(result.find((i) => i.id === 'rest_day-intensity-context')).toBeUndefined();
-  });
-
-  /**
    * Period comparison with both periods having identical non-zero values.
    * Change should be < 10% so no insight is generated.
    */
@@ -1132,32 +937,5 @@ describe('generateInsights — additional edge cases', () => {
       mockT
     );
     expect(result.find((i) => i.id === 'fitness_milestone-pace')).toBeUndefined();
-  });
-
-  /**
-   * Extremely large TSB value (e.g., 999) should still generate an insight
-   * and map to the 'fresh' zone without crashing.
-   */
-  it('extremely large TSB value maps to fresh zone without crashing', () => {
-    const result = generateInsights(
-      { ...EMPTY_INPUT, formTsb: 999, formCtl: 50, formAtl: 50 },
-      mockT
-    );
-    const tsb = result.find((i) => i.id === 'tsb_form-position');
-    expect(tsb).toBeDefined();
-    expect(tsb!.title).toContain('fresh');
-  });
-
-  /**
-   * Extremely negative TSB value should map to highRisk zone.
-   */
-  it('extremely negative TSB maps to highRisk zone', () => {
-    const result = generateInsights(
-      { ...EMPTY_INPUT, formTsb: -100, formCtl: 50, formAtl: 150 },
-      mockT
-    );
-    const tsb = result.find((i) => i.id === 'tsb_form-position');
-    expect(tsb).toBeDefined();
-    expect(tsb!.title).toContain('highRisk');
   });
 });

@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
 import { formatDuration, formatShortDate, navigateTo } from '@/lib';
-import { colors, darkColors, spacing, opacity } from '@/theme';
+import { colors, darkColors, spacing, opacity, brand } from '@/theme';
 import type { SectionPerformanceRecord } from '@/hooks/routes/useSectionPerformances';
 
 const MAX_EFFORTS = 5;
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: '#FC4C02',
+    backgroundColor: brand.orange,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,

@@ -37,12 +37,12 @@ export function EngineInitBanner() {
   return (
     <Animated.View entering={SlideInUp.duration(250)} exiting={SlideOutUp.duration(200)}>
       <View style={styles.container} testID="engine-init-banner">
-        <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#F59E0B" />
+        <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.warning} />
         <Text style={styles.text}>{t('engine.initFailed')}</Text>
         <IconButton
           icon="refresh"
           size={16}
-          iconColor="#F59E0B"
+          iconColor={colors.warning}
           onPress={handleRetry}
           style={styles.retryButton}
           testID="engine-retry-button"
@@ -54,7 +54,7 @@ export function EngineInitBanner() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#451A03',
+    backgroundColor: colors.warningBannerBg,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   },
   text: {
     flex: 1,
-    color: '#FDE68A',
+    color: colors.warningBannerText,
     fontSize: 13,
     lineHeight: 18,
   },

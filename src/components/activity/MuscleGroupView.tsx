@@ -12,7 +12,7 @@ import { useMetricSystem } from '@/hooks';
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime, formatDuration } from '@/lib';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography, brand } from '@/theme';
 import type { ActivityDetail } from '@/types';
 import type { ExerciseSet } from 'veloqrs';
 
@@ -25,8 +25,8 @@ interface MuscleGroupViewProps {
   exerciseSets?: ExerciseSet[];
 }
 
-const PRIMARY_COLOR = '#FC4C02';
-const SECONDARY_COLOR = '#FCA67A';
+const PRIMARY_COLOR = brand.orange;
+const SECONDARY_COLOR = brand.orangeLight;
 const BODY_COLORS: readonly string[] = [SECONDARY_COLOR, PRIMARY_COLOR] as const;
 
 function formatWeight(kg: number, isMetric: boolean): string {

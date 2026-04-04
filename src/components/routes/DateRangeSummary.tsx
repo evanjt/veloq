@@ -11,6 +11,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { colors, darkColors, spacing } from '@/theme';
 
 interface DateRangeSummaryProps {
@@ -51,7 +52,11 @@ export function DateRangeSummary({
     <View style={[styles.container, isDark && styles.containerDark]}>
       {/* Sync message banner */}
       {syncMessage && (
-        <View style={[styles.syncBanner, isDark && styles.syncBannerDark]}>
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(150)}
+          style={[styles.syncBanner, isDark && styles.syncBannerDark]}
+        >
           <MaterialCommunityIcons
             name="sync"
             size={16}
@@ -59,7 +64,7 @@ export function DateRangeSummary({
             style={styles.syncIcon}
           />
           <Text style={[styles.syncText, isDark && styles.textMuted]}>{syncMessage}</Text>
-        </View>
+        </Animated.View>
       )}
 
       {/* Summary row */}

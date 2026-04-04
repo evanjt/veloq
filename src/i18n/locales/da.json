@@ -439,8 +439,6 @@
     "weeklyLoadUp": "+{{percent}}% træningsbelastning",
     "weeklyLoadDown": "{{percent}}% mindre belastning",
     "loadBody": "TSS: {{currentTss}} denne uge vs {{previousTss}} sidste uge. Varighed: {{currentDuration}} vs {{previousDuration}}.",
-    "patternMatch": "{{day}} - plejer at {{verb}} ~{{duration}}",
-    "consistencyStreak": "{{count}}-ugers streak",
     "volumeBody": "Træningstid: {{current}} denne uge vs {{previous}} sidste uge. Dette måler tid, ikke træningsbelastning (TSS).",
     "viewDetails": "Se detaljer",
     "today": "I DAG",
@@ -459,8 +457,6 @@
       "hrvTrend": "HRV (7 dage)",
       "tomorrowPattern": "I morgen er normalt {{verb}}-dag (~{{duration}})",
       "tomorrowPatternBody": "Baseret på {{count}} tidligere aktiviteter for denne ugedag.",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
       "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
@@ -508,32 +504,6 @@
       "efforts": "Bestræbelser",
       "trendSlope": "Tendenshældning"
     },
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "transition": "Transition",
-        "greyZone": "Maintenance",
-        "optimal": "Productive training",
-        "highRisk": "Deep fatigue"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "transition": "Between training and freshness",
-        "greyZone": "Moderate training load",
-        "optimal": "Where most adaptation occurs",
-        "highRisk": "Significant accumulated fatigue"
-      },
-      "titles": {
-        "fresh": "Peak form — ready to race",
-        "transition": "Fresh — good for hard training",
-        "greyZone": "Balanced — steady training",
-        "optimal": "Building fitness — fatigue accumulating",
-        "highRisk": "Heavy load — recovery important"
-      }
-    },
     "hrvTrend": {
       "trendingUp": "Recovery improving",
       "trendingDown": "Recovery dipping",
@@ -556,7 +526,7 @@
       "prFtp": "FTP at PR",
       "ftpGain": "FTP gain",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Higher FTP suggests untapped potential on power-dependent sections.",
+      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set.",
       "groupTitle": "{{count}} PRs to revisit"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
@@ -566,15 +536,6 @@
     "aboutTitle": "About Insights",
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "sectionCluster": {
-      "improvingTitle": "Hurtigere på {{count}} sektioner",
-      "improvingTitle_one": "Hurtigere på 1 sektion",
-      "decliningTitle": "Langsommere på {{count}} sektioner",
-      "decliningTitle_one": "Langsommere på 1 sektion",
-      "subtitle": "{{count}} {{sport}} sektioner",
-      "subtitle_one": "1 {{sport}} sektion",
-      "methodology": "Sammenligner mediantiden for dine seneste 3 forsøg på hver sektion med medianen af de foregående 3. Sektioner hvor den seneste median er hurtigere klassificeres som forbedrede."
-    },
     "efficiencyTrend": {
       "title": "HR faldende på {{name}}",
       "subtitle": "{{hrChange}} bpm lavere over {{efforts}} bestræbelser",
@@ -1386,17 +1347,11 @@
     "periodComparison": {
       "title": "Weekly Summary"
     },
-    "tsbForm": {
-      "title": "Form Update"
-    },
     "hrvTrend": {
       "title": "HRV Trend"
     },
     "stalePr": {
       "title": "PR Opportunity"
-    },
-    "sectionCluster": {
-      "title": "Section Trends"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"

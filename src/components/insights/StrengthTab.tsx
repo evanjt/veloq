@@ -18,7 +18,7 @@ import { useAthlete } from '@/hooks';
 import { buildStrengthBalancePairs } from '@/lib/strength/analysis';
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
-import { colors, darkColors, spacing, typography, opacity, layout } from '@/theme';
+import { colors, darkColors, spacing, typography, opacity, layout, brand } from '@/theme';
 import type {
   StrengthPeriod,
   MuscleVolume,
@@ -31,10 +31,10 @@ import type {
 // 5-step color ramp from light to saturated for continuous heat map
 const BODY_COLORS: readonly string[] = [
   '#FDDCC4', // 1 - very light
-  '#FCA67A', // 2 - light orange
+  brand.orangeLight, // 2 - light orange
   '#FB8C4E', // 3 - medium orange
   '#FC6A1A', // 4 - dark orange
-  '#FC4C02', // 5 - full primary
+  brand.orange, // 5 - full primary
 ] as const;
 const BODY_FILL_LIGHT = '#3f3f3f';
 const BODY_FILL_DARK = '#555555';
@@ -286,7 +286,10 @@ export const StrengthTab = React.memo(function StrengthTab() {
                 <View
                   style={[
                     styles.subtitleDot,
-                    { backgroundColor: selectedVolume.primarySets > 0 ? '#FC4C02' : '#FCA67A' },
+                    {
+                      backgroundColor:
+                        selectedVolume.primarySets > 0 ? brand.orange : brand.orangeLight,
+                    },
                   ]}
                 />
                 <Text
@@ -330,7 +333,14 @@ export const StrengthTab = React.memo(function StrengthTab() {
               </Text>
               <View style={styles.scaleBar}>
                 <LinearGradient
-                  colors={[BODY_FILL_LIGHT, '#FDDCC4', '#FCA67A', '#FB8C4E', '#FC6A1A', '#FC4C02']}
+                  colors={[
+                    BODY_FILL_LIGHT,
+                    '#FDDCC4',
+                    brand.orangeLight,
+                    '#FB8C4E',
+                    '#FC6A1A',
+                    brand.orange,
+                  ]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.scaleGradient}
@@ -811,7 +821,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   heroEyebrowDark: {
-    color: '#FCA67A',
+    color: brand.orangeLight,
   },
   heroTitle: {
     fontSize: 20,
@@ -990,7 +1000,7 @@ const styles = StyleSheet.create({
   },
   balanceScaleSide: {
     height: '100%',
-    backgroundColor: '#FC4C02',
+    backgroundColor: brand.orange,
   },
   balanceScaleSideSecondary: {
     height: '100%',
@@ -1211,7 +1221,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   progressBarFillCurrent: {
-    backgroundColor: '#FC4C02',
+    backgroundColor: brand.orange,
   },
   progressBarFillPast: {
     backgroundColor: '#FB8C4E',
@@ -1289,7 +1299,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#FC4C02',
+    backgroundColor: brand.orange,
   },
   exerciseCardContent: {
     flex: 1,

@@ -20,7 +20,7 @@ import {
   getActivityIcon,
   getActivityColor,
 } from '@/lib';
-import { colors, darkColors, typography, spacing, shadows } from '@/theme';
+import { colors, darkColors, typography, spacing, shadows, brand, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { useMapPreferences } from '@/providers';
 import { ActivityMapPreview } from './ActivityMapPreview';
@@ -322,14 +322,14 @@ export const ActivityCard = React.memo(
                     gender="male"
                     side="front"
                     scale={0.38}
-                    colors={['#FCA67A', '#FC4C02']}
+                    colors={[brand.orangeLight, brand.orange]}
                   />
                   <Body
                     data={strengthData.muscles}
                     gender="male"
                     side="back"
                     scale={0.38}
-                    colors={['#FCA67A', '#FC4C02']}
+                    colors={[brand.orangeLight, brand.orange]}
                   />
                 </View>
                 <View style={styles.strengthStats}>
@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   card: {
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
     backgroundColor: colors.surface,
     overflow: 'hidden',
     ...shadows.elevated,
@@ -654,10 +654,10 @@ const styles = StyleSheet.create({
   strengthPanel: {
     position: 'relative',
     height: 240,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.gray100,
   },
   strengthPanelDark: {
-    backgroundColor: '#111',
+    backgroundColor: darkColors.backgroundAlt,
   },
   strengthCenter: {
     ...StyleSheet.absoluteFillObject,
@@ -716,7 +716,7 @@ const styles = StyleSheet.create({
   },
   overlayName: {
     flex: 1,
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     letterSpacing: -0.3,
     marginLeft: spacing.sm,
@@ -800,7 +800,7 @@ const styles = StyleSheet.create({
   },
   compactName: {
     flex: 1,
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     letterSpacing: -0.3,
     marginLeft: spacing.sm,

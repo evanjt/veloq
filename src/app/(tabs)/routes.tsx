@@ -133,7 +133,7 @@ export default function RoutesScreen() {
   const { tab } = useLocalSearchParams<{ tab?: string }>();
   const { insights, markAsSeen } = useInsights();
   const hasStrength = useHasStrengthData();
-  const { location: userLocation } = useUserLocation();
+  const { location: userLocation, requestPermission } = useUserLocation();
   const routeSortTouchedRef = useRef(false);
   const sectionSortTouchedRef = useRef(false);
   const [routeSort, setRouteSort] = useState<RoutesSortOption>(
@@ -180,7 +180,7 @@ export default function RoutesScreen() {
   const dataSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isDataSyncing = useSyncDateRange((s) => s.isGpsSyncing);
 
-  const { progress: syncProgress, sync: triggerSync } = useActivityBoundsCache();
+  const { sync: triggerSync } = useActivityBoundsCache();
 
   const tabs = useMemo<SwipeableTab[]>(() => {
     const result: SwipeableTab[] = [
@@ -260,15 +260,29 @@ export default function RoutesScreen() {
     }
   }, [userLocation]);
 
-  const handleRouteSortChange = useCallback((next: RoutesSortOption) => {
-    routeSortTouchedRef.current = true;
-    setRouteSort(next);
-  }, []);
+  const handleRouteSortChange = useCallback(
+    async (next: RoutesSortOption) => {
+      routeSortTouchedRef.current = true;
+      if (next === 'nearby' && !userLocation) {
+        const loc = await requestPermission();
+        if (!loc) return;
+      }
+      setRouteSort(next);
+    },
+    [requestPermission, userLocation]
+  );
 
-  const handleSectionSortChange = useCallback((next: SectionsSortOption) => {
-    sectionSortTouchedRef.current = true;
-    setSectionSort(next);
-  }, []);
+  const handleSectionSortChange = useCallback(
+    async (next: SectionsSortOption) => {
+      sectionSortTouchedRef.current = true;
+      if (next === 'nearby' && !userLocation) {
+        const loc = await requestPermission();
+        if (!loc) return;
+      }
+      setSectionSort(next);
+    },
+    [requestPermission, userLocation]
+  );
 
   const handleRefresh = useCallback(async () => {
     await triggerSync();
@@ -287,38 +301,29 @@ export default function RoutesScreen() {
   }, [routesData?.activityCount, syncOldest, syncNewest]);
 
   const timelineSyncProgress = useMemo(() => {
-    if (isFetchingExtended && !routesData?.activityCount) {
+    // Phase 1: Fetching activity list from API (before GPS sync starts)
+    if (isFetchingExtended && !isDataSyncing) {
       return { message: t('mapScreen.loadingActivities') as string, phase: 1 };
     }
-    if (syncProgress.status === 'syncing') {
+    // Phase 2: Downloading GPS data
+    if (dataSyncProgress.status === 'fetching') {
       const countText =
-        syncProgress.total > 0 ? ` (${syncProgress.completed}/${syncProgress.total})` : '';
+        dataSyncProgress.total > 0
+          ? ` (${dataSyncProgress.completed}/${dataSyncProgress.total})`
+          : '';
       return {
         message: `${t('routesScreen.downloadingGps')}${countText}` as string,
         phase: 2,
       };
     }
+    // Phase 3: Analysing routes (section detection)
     if (dataSyncProgress.status === 'computing') {
       const pct = dataSyncProgress.percent;
       const text = t('cache.analyzingRoutes') as string;
       return { message: pct > 0 ? `${text}... ${pct}%` : `${text}...`, phase: 3 };
     }
-    if (isDataSyncing && dataSyncProgress.status === 'fetching' && dataSyncProgress.total > 0) {
-      return {
-        message:
-          `${t('routesScreen.downloadingGps')} (${dataSyncProgress.completed}/${dataSyncProgress.total})` as string,
-        phase: 2,
-      };
-    }
     return null;
-  }, [
-    dataSyncProgress,
-    isDataSyncing,
-    isFetchingExtended,
-    routesData?.activityCount,
-    syncProgress,
-    t,
-  ]);
+  }, [dataSyncProgress, isDataSyncing, isFetchingExtended, t]);
 
   const renderSharedRouteState = useCallback(
     () => (
@@ -352,19 +357,20 @@ export default function RoutesScreen() {
     ]
   );
 
-  const tabPages = useMemo(() => {
-    const pages: React.ReactNode[] = [<InsightsPanel key="insights" insights={insights} />];
+  // Per-tab memos isolate re-render blast radius: changing insights
+  // doesn't recreate routes/sections JSX and vice versa.
+  const insightsPage = useMemo(
+    () => <InsightsPanel key="insights" insights={insights} />,
+    [insights]
+  );
 
-    if (hasStrength) {
-      pages.push(<StrengthTab key="strength" />);
-    }
-
-    pages.push(
+  const routesPage = useMemo(
+    () => (
       <View key="routes" style={styles.routeTabPage}>
         {isRouteMatchingEnabled ? (
           <RoutesList
             onRefresh={handleRefresh}
-            isRefreshing={syncProgress.status === 'syncing'}
+            isRefreshing={isDataSyncing}
             batchGroups={routesData?.groups ?? []}
             onLoadMore={loadMoreGroups}
             hasMore={hasMoreGroups}
@@ -377,9 +383,24 @@ export default function RoutesScreen() {
           <RouteTabDisabledState isDark={isDark} />
         )}
       </View>
-    );
+    ),
+    [
+      handleRefresh,
+      isDataSyncing,
+      routesData?.groups,
+      loadMoreGroups,
+      hasMoreGroups,
+      userLocation,
+      routeGroupCount,
+      routeSort,
+      handleRouteSortChange,
+      isRouteMatchingEnabled,
+      isDark,
+    ]
+  );
 
-    pages.push(
+  const sectionsPage = useMemo(
+    () => (
       <View key="sections" style={styles.routeTabPage}>
         {isRouteMatchingEnabled ? (
           <SectionsList
@@ -395,8 +416,25 @@ export default function RoutesScreen() {
           <RouteTabDisabledState isDark={isDark} />
         )}
       </View>
-    );
+    ),
+    [
+      routesData?.sections,
+      loadMoreSections,
+      hasMoreSections,
+      totalSections,
+      userLocation,
+      sectionSort,
+      handleSectionSortChange,
+      isRouteMatchingEnabled,
+      isDark,
+    ]
+  );
 
+  const tabPages = useMemo(() => {
+    const pages: React.ReactNode[] = [insightsPage];
+    if (hasStrength) pages.push(<StrengthTab key="strength" />);
+    pages.push(routesPage);
+    pages.push(sectionsPage);
     if (debugEnabled) {
       pages.push(
         <View key="debug" style={styles.routeTabPage}>
@@ -404,30 +442,8 @@ export default function RoutesScreen() {
         </View>
       );
     }
-
     return pages;
-  }, [
-    debugEnabled,
-    handleRefresh,
-    handleRouteSortChange,
-    handleSectionSortChange,
-    hasMoreGroups,
-    hasMoreSections,
-    hasStrength,
-    insights,
-    isDark,
-    isRouteMatchingEnabled,
-    loadMoreGroups,
-    loadMoreSections,
-    routeGroupCount,
-    routeSort,
-    routesData?.groups,
-    routesData?.sections,
-    sectionSort,
-    syncProgress.status,
-    totalSections,
-    userLocation,
-  ]);
+  }, [insightsPage, routesPage, sectionsPage, hasStrength, debugEnabled]);
 
   return (
     <ScreenErrorBoundary screenName="Insights">

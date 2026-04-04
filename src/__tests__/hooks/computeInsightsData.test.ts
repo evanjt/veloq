@@ -33,25 +33,6 @@ function createInsight(
 }
 
 describe('consolidateInsights', () => {
-  it('suppresses intensity context when period comparison already exists', () => {
-    const result = consolidateInsights([
-      createInsight('period', 'period_comparison', 2),
-      createInsight('intensity', 'intensity_context', 3),
-      createInsight('hrv', 'hrv_trend', 2),
-    ]);
-
-    expect(result.map((insight) => insight.id)).toEqual(['period', 'hrv']);
-  });
-
-  it('keeps intensity context when no period comparison exists', () => {
-    const result = consolidateInsights([
-      createInsight('intensity', 'intensity_context', 3),
-      createInsight('hrv', 'hrv_trend', 2),
-    ]);
-
-    expect(result.map((insight) => insight.id)).toEqual(['hrv', 'intensity']);
-  });
-
   it('drops overlapping section stories when a recent PR already covers that section', () => {
     const result = consolidateInsights([
       createInsight('section-pr', 'section_pr', 1, {
@@ -60,28 +41,28 @@ describe('consolidateInsights', () => {
       createInsight('efficiency-s1', 'efficiency_trend', 1, {
         sectionIds: ['s1'],
       }),
-      createInsight('cluster-s1-s2', 'section_cluster', 3, {
-        sectionIds: ['s1', 's2'],
+      createInsight('stale-s2', 'stale_pr', 2, {
+        sectionIds: ['s2'],
       }),
     ]);
 
-    expect(result.map((insight) => insight.id)).toEqual(['section-pr', 'cluster-s1-s2']);
+    expect(result.map((insight) => insight.id)).toEqual(['section-pr', 'stale-s2']);
   });
 
   it('keeps only the two strongest non-PR section stories', () => {
     const result = consolidateInsights([
-      createInsight('cluster', 'section_cluster', 3, {
-        sectionIds: ['s3', 's4'],
-      }),
       createInsight('stale', 'stale_pr', 2, {
         sectionIds: ['s2'],
       }),
       createInsight('efficiency', 'efficiency_trend', 1, {
         sectionIds: ['s1'],
       }),
+      createInsight('efficiency2', 'efficiency_trend', 1, {
+        sectionIds: ['s3'],
+      }),
       createInsight('fitness', 'fitness_milestone', 2),
     ]);
 
-    expect(result.map((insight) => insight.id)).toEqual(['efficiency', 'stale', 'fitness']);
+    expect(result.map((insight) => insight.id)).toEqual(['efficiency', 'efficiency2', 'fitness']);
   });
 });

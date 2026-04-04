@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
   prDelta: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FC4C02',
+    color: brand.orange,
     fontVariant: ['tabular-nums'],
   },
   prBadge: {
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   prBadgeAccent: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FC4C02',
+    color: brand.orange,
     fontVariant: ['tabular-nums'],
   },
   trendArrow: {

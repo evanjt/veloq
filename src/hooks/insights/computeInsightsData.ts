@@ -95,11 +95,7 @@ interface InsightsEnginePayload {
 const MAX_SECTION_STORY_INSIGHTS = 2;
 
 function isSectionStoryInsight(insight: Insight): boolean {
-  return (
-    insight.category === 'stale_pr' ||
-    insight.category === 'section_cluster' ||
-    insight.category === 'efficiency_trend'
-  );
+  return insight.category === 'stale_pr' || insight.category === 'efficiency_trend';
 }
 
 function getInsightSectionIds(insight: Insight): string[] {
@@ -121,17 +117,12 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
   if (insights.length <= 1) return insights;
 
   const sorted = [...insights].sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
-  const hasPeriodComparison = sorted.some((insight) => insight.category === 'period_comparison');
 
   const kept: Insight[] = [];
   const seenSectionIds = new Set<string>();
   let keptSectionStories = 0;
 
   for (const insight of sorted) {
-    if (insight.category === 'intensity_context' && hasPeriodComparison) {
-      continue;
-    }
-
     if (insight.category === 'section_pr') {
       getInsightSectionIds(insight).forEach((sectionId) => seenSectionIds.add(sectionId));
       kept.push(insight);
@@ -205,9 +196,6 @@ export function computeInsightsFromData(
       totalTss: ffiData.chronicPeriod.totalTss / 4,
     };
 
-    // Rest day detection
-    const isRestDay = ffiData.todayPeriod.count === 0;
-
     // Compute CTL/ATL/TSB from wellness
     const sortedWellness = (wellnessData ?? []).sort((a, b) => a.id.localeCompare(b.id));
     const latestWellness =
@@ -254,6 +242,10 @@ export function computeInsightsFromData(
       }
     >();
 
+    // Cache ranked sections per sport to avoid duplicate FFI calls below
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rankedSectionsCache = new Map<string, any[]>();
+
     if (sectionsReady && engine) {
       const patternSports =
         allPatterns.length > 0 ? [...new Set(allPatterns.map((p) => p.sportType))] : [];
@@ -264,6 +256,7 @@ export function computeInsightsFromData(
 
       for (const sport of sportTypes) {
         const ranked = engine.getRankedSections(sport, 50);
+        rankedSectionsCache.set(sport, ranked);
         for (const rs of ranked) {
           if (!rs.sectionId) continue;
           if (!sectionTrendMap.has(rs.sectionId)) {
@@ -317,13 +310,6 @@ export function computeInsightsFromData(
       atl: w.atl ?? w.atlLoad ?? undefined,
     }));
 
-    // Tomorrow's pattern prediction
-    const now = new Date();
-    const tomorrowDayJs = (now.getDay() + 1) % 7;
-    const tomorrowDayMon = tomorrowDayJs === 0 ? 6 : tomorrowDayJs - 1;
-    const tomorrowPattern =
-      allPatterns.find((p) => p.primaryDay === tomorrowDayMon && p.confidence >= 0.6) ?? null;
-
     // Recent PRs (skip if sections aren't loaded)
     const recentPRs = sectionsReady
       ? (
@@ -341,21 +327,12 @@ export function computeInsightsFromData(
         }))
       : [];
 
-    // Aerobic efficiency section IDs
+    // Aerobic efficiency section IDs — reuse cached ranked sections from above
     let efficiencyTrendSectionIds: string[] = [];
-    if (sectionsReady && engine) {
-      const patternSports =
-        allPatterns.length > 0 ? [...new Set(allPatterns.map((p) => p.sportType))] : [];
-      const sportTypes =
-        patternSports.length > 0
-          ? patternSports
-          : (engine.getAvailableSportTypes?.() ?? ['Ride', 'Run']);
-      for (const sport of sportTypes) {
-        const ranked = engine.getRankedSections(sport, 5);
-        for (const rs of ranked) {
-          if (!efficiencyTrendSectionIds.includes(rs.sectionId)) {
-            efficiencyTrendSectionIds.push(rs.sectionId);
-          }
+    for (const [, cached] of rankedSectionsCache) {
+      for (const rs of cached.slice(0, 5)) {
+        if (!efficiencyTrendSectionIds.includes(rs.sectionId)) {
+          efficiencyTrendSectionIds.push(rs.sectionId);
         }
       }
     }
@@ -377,24 +354,7 @@ export function computeInsightsFromData(
         currentCtl: ctl > 0 ? ctl : null,
         wellnessWindow,
         chronicPeriod,
-        isRestDay,
         allSectionTrends: sectionTrends,
-        tomorrowPattern: tomorrowPattern
-          ? {
-              sportType: tomorrowPattern.sportType,
-              primaryDay: tomorrowPattern.primaryDay,
-              avgDurationSecs: tomorrowPattern.avgDurationSecs,
-              confidence: tomorrowPattern.confidence,
-              activityCount: tomorrowPattern.activityCount,
-            }
-          : null,
-        allPatterns: allPatterns.map((p) => ({
-          sportType: p.sportType,
-          primaryDay: p.primaryDay,
-          avgDurationSecs: p.avgDurationSecs,
-          confidence: p.confidence,
-          activityCount: p.activityCount,
-        })),
         efficiencyTrendSectionIds,
       },
       t

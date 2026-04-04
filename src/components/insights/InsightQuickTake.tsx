@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/hooks';
-import { getSportDisplayName } from '@/hooks/insights/sectionClusterInsights';
+import { getSportDisplayName } from '@/lib';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import type { Insight } from '@/types';
 
@@ -72,29 +72,20 @@ function buildQuickTake(insight: Insight): QuickTakeContent | null {
     case 'section_pr':
       return {
         changed: 'A repeatable route now carries a new best.',
-        matters:
-          'Repeatable sections can highlight durable performance shifts that stick across efforts.',
-        next: 'Route detail stores the effort list and timing for the PR.',
-      };
-    case 'tsb_form':
-      return {
-        changed: 'The gap between fatigue and fitness moved.',
-        matters: 'TSB is a loose summary of whether load is stacking or freshness is returning.',
-        next: 'Fitness charts keep TSB, CTL, and ATL in view for context.',
+        matters: 'Compares this effort against all previous times on the same section.',
+        next: 'Route detail stores the effort list and timing.',
       };
     case 'hrv_trend':
       return {
         changed: 'Short-term recovery readings nudged up or down.',
-        matters:
-          'HRV is most interpretable as a trend alongside sleep, resting HR, and recent loading.',
-        next: 'Fitness shows whether the HRV shift lines up with those other markers.',
+        matters: 'Shows the direction of your 7-day HRV rolling average.',
+        next: 'Fitness tab shows HRV alongside other wellness data.',
       };
     case 'period_comparison':
       return {
         changed: 'Weekly load landed differently than the week before.',
-        matters:
-          'Week-over-week swings often explain why training feels easier, flatter, or more fatiguing.',
-        next: 'Route workspace documents which sessions changed from one week to the next.',
+        matters: "Compares this week's load against the previous week.",
+        next: 'Routes tab lists the activities from both weeks.',
       };
     case 'fitness_milestone':
       return {
@@ -104,27 +95,23 @@ function buildQuickTake(insight: Insight): QuickTakeContent | null {
             ? 'Your threshold swim speed moved upward, which shows up as faster pace per 100m.'
             : 'Your running threshold speed moved upward, which shows up as faster pace per kilometre.',
         matters: isPowerMilestone
-          ? 'Power shifts are most useful when they also show up in repeatable climbs, intervals, and longer steady work.'
-          : isSwimMilestone
-            ? 'Swim threshold changes are most useful when they also show up in repeatable sets and longer steady work.'
-            : 'Running threshold changes are most useful when they also show up in repeatable sections and controlled hard sessions.',
+          ? 'Tracks the difference between your latest and previous FTP estimates.'
+          : 'Tracks the difference between your latest and previous threshold pace estimates.',
         next: isPowerMilestone
-          ? 'Fitness keeps the FTP trend and ride context close by.'
-          : isSwimMilestone
-            ? 'Fitness keeps the swim threshold trend close by for comparison.'
-            : 'Fitness keeps the running threshold trend close by for comparison.',
+          ? 'Fitness tab shows the FTP trend over time.'
+          : 'Fitness tab shows the pace trend over time.',
       };
     case 'strength_progression':
       return {
         changed: "A muscle group's weighted-set volume moved compared to earlier weeks.",
-        matters: 'Weighted-set trends capture how lifting focus distributes across the month.',
-        next: 'Strength retains the 4-week history for each muscle to double-check the shift.',
+        matters: 'Compares weighted-set volume in the recent 2 weeks against the earlier 2 weeks.',
+        next: 'Strength tab shows the 4-week history per muscle group.',
       };
     case 'strength_balance':
       return {
         changed: 'An antagonist pair shows one side carrying more weighted sets.',
-        matters: 'The ratio highlights where the volume split sits between the two sides.',
-        next: 'Strength lists the pair totals so you can see how far apart they are.',
+        matters: 'Shows the weighted-set ratio between antagonist muscle pairs over 4 weeks.',
+        next: 'Strength tab shows the pair totals side by side.',
       };
     case 'stale_pr':
       return {
@@ -144,35 +131,16 @@ function buildQuickTake(insight: Insight): QuickTakeContent | null {
                 : stalePrIsGrouped
                   ? 'Current fitness now sits above the level tied to several section bests.'
                   : 'Current fitness now sits above the level tied to this section best.',
-        matters:
-          'That timing cross-check can highlight repeat sections whose bests may no longer match the broader fitness trend.',
+        matters: 'Cross-references fitness trend dates against section PR dates.',
         next: stalePrIsGrouped
-          ? 'The sections tab keeps the candidate sections and best times together.'
-          : 'Section detail keeps the repeat efforts and timing together.',
-      };
-    case 'section_cluster':
-      return {
-        changed: singleSportLabel
-          ? `Several ${singleSportLabel} sections are moving in sync.`
-          : 'Several repeat sections are moving in sync.',
-        matters: singleSportLabel
-          ? `When more than one repeat ${singleSportLabel} section shifts the same way, the pattern is easier to trust than a single outlier.`
-          : 'When more than one repeat section shifts the same way, the pattern is easier to trust than a single outlier.',
-        next: 'The sections tab keeps the grouped efforts side by side.',
+          ? 'Sections tab lists the flagged sections.'
+          : 'Section detail shows the effort history.',
       };
     case 'efficiency_trend':
       return {
         changed: 'Matched efforts on this section now show a lower heart-rate cost.',
-        matters:
-          'This pattern is easier to trust when it repeats across familiar efforts rather than one isolated pass.',
-        next: 'Section detail keeps the underlying efforts and heart-rate context together.',
-      };
-    case 'intensity_context':
-      return {
-        changed: 'This week’s load shows a defined intensity shape.',
-        matters:
-          'Session count can hide whether the week felt hard due to volume, density, or repeated hard work.',
-        next: 'Health juxtaposes training pattern with wellness and recovery markers for context.',
+        matters: 'Tracks the HR/pace ratio across matched efforts on this section over time.',
+        next: 'Section detail shows the individual efforts and HR data.',
       };
     default:
       return null;

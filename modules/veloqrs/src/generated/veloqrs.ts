@@ -2781,6 +2781,87 @@ const FfiConverterTypeFfiMapSignature = (() => {
 })();
 
 /**
+ * Candidate for merging with another section.
+ */
+export type FfiMergeCandidate = {
+  sectionId: string;
+  name: string | undefined;
+  sportType: string;
+  distanceMeters: /*f64*/ number;
+  visitCount: /*u32*/ number;
+  overlapPct: /*f64*/ number;
+  centerDistanceMeters: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiMergeCandidate} record objects.
+ */
+export const FfiMergeCandidate = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMergeCandidate, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiMergeCandidate}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiMergeCandidate}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMergeCandidate>,
+  });
+})();
+
+const FfiConverterTypeFfiMergeCandidate = (() => {
+  type TypeName = FfiMergeCandidate;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionId: FfiConverterString.read(from),
+        name: FfiConverterOptionalString.read(from),
+        sportType: FfiConverterString.read(from),
+        distanceMeters: FfiConverterFloat64.read(from),
+        visitCount: FfiConverterUInt32.read(from),
+        overlapPct: FfiConverterFloat64.read(from),
+        centerDistanceMeters: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.sectionId, into);
+      FfiConverterOptionalString.write(value.name, into);
+      FfiConverterString.write(value.sportType, into);
+      FfiConverterFloat64.write(value.distanceMeters, into);
+      FfiConverterUInt32.write(value.visitCount, into);
+      FfiConverterFloat64.write(value.overlapPct, into);
+      FfiConverterFloat64.write(value.centerDistanceMeters, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterOptionalString.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterUInt32.allocationSize(value.visitCount) +
+        FfiConverterFloat64.allocationSize(value.overlapPct) +
+        FfiConverterFloat64.allocationSize(value.centerDistanceMeters)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Multi-scale section result for FFI
  */
 export type FfiMultiScaleSectionResult = {
@@ -3082,6 +3163,96 @@ const FfiConverterTypeFfiMuscleVolume = (() => {
         FfiConverterUInt32.allocationSize(value.totalReps) +
         FfiConverterFloat64.allocationSize(value.totalWeightKg) +
         FfiConverterArrayString.allocationSize(value.exerciseNames)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Nearby section summary with distance info and polyline for map rendering.
+ */
+export type FfiNearbySectionSummary = {
+  id: string;
+  sectionType: string;
+  name: string | undefined;
+  sportType: string;
+  distanceMeters: /*f64*/ number;
+  visitCount: /*u32*/ number;
+  centerDistanceMeters: /*f64*/ number;
+  /**
+   * Flat polyline coordinates [lat, lng, lat, lng, ...] for map overlay
+   */
+  polylineCoords: Array</*f64*/ number>;
+};
+
+/**
+ * Generated factory for {@link FfiNearbySectionSummary} record objects.
+ */
+export const FfiNearbySectionSummary = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiNearbySectionSummary,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiNearbySectionSummary}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiNearbySectionSummary}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiNearbySectionSummary>,
+  });
+})();
+
+const FfiConverterTypeFfiNearbySectionSummary = (() => {
+  type TypeName = FfiNearbySectionSummary;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        id: FfiConverterString.read(from),
+        sectionType: FfiConverterString.read(from),
+        name: FfiConverterOptionalString.read(from),
+        sportType: FfiConverterString.read(from),
+        distanceMeters: FfiConverterFloat64.read(from),
+        visitCount: FfiConverterUInt32.read(from),
+        centerDistanceMeters: FfiConverterFloat64.read(from),
+        polylineCoords: FfiConverterArrayFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.id, into);
+      FfiConverterString.write(value.sectionType, into);
+      FfiConverterOptionalString.write(value.name, into);
+      FfiConverterString.write(value.sportType, into);
+      FfiConverterFloat64.write(value.distanceMeters, into);
+      FfiConverterUInt32.write(value.visitCount, into);
+      FfiConverterFloat64.write(value.centerDistanceMeters, into);
+      FfiConverterArrayFloat64.write(value.polylineCoords, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.sectionType) +
+        FfiConverterOptionalString.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterUInt32.allocationSize(value.visitCount) +
+        FfiConverterFloat64.allocationSize(value.centerDistanceMeters) +
+        FfiConverterArrayFloat64.allocationSize(value.polylineCoords)
       );
     }
   }
@@ -4724,6 +4895,91 @@ const FfiConverterTypeFfiSectionLap = (() => {
         FfiConverterString.allocationSize(value.direction) +
         FfiConverterUInt32.allocationSize(value.startIndex) +
         FfiConverterUInt32.allocationSize(value.endIndex)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Result of matching an activity's GPS track against existing sections.
+ */
+export type FfiSectionMatch = {
+  sectionId: string;
+  sectionName: string | undefined;
+  sportType: string;
+  startIndex: /*u64*/ bigint;
+  endIndex: /*u64*/ bigint;
+  matchQuality: /*f64*/ number;
+  sameDirection: boolean;
+  distanceMeters: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiSectionMatch} record objects.
+ */
+export const FfiSectionMatch = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSectionMatch, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiSectionMatch}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiSectionMatch}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionMatch>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionMatch = (() => {
+  type TypeName = FfiSectionMatch;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionId: FfiConverterString.read(from),
+        sectionName: FfiConverterOptionalString.read(from),
+        sportType: FfiConverterString.read(from),
+        startIndex: FfiConverterUInt64.read(from),
+        endIndex: FfiConverterUInt64.read(from),
+        matchQuality: FfiConverterFloat64.read(from),
+        sameDirection: FfiConverterBool.read(from),
+        distanceMeters: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.sectionId, into);
+      FfiConverterOptionalString.write(value.sectionName, into);
+      FfiConverterString.write(value.sportType, into);
+      FfiConverterUInt64.write(value.startIndex, into);
+      FfiConverterUInt64.write(value.endIndex, into);
+      FfiConverterFloat64.write(value.matchQuality, into);
+      FfiConverterBool.write(value.sameDirection, into);
+      FfiConverterFloat64.write(value.distanceMeters, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterOptionalString.allocationSize(value.sectionName) +
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterUInt64.allocationSize(value.startIndex) +
+        FfiConverterUInt64.allocationSize(value.endIndex) +
+        FfiConverterFloat64.allocationSize(value.matchQuality) +
+        FfiConverterBool.allocationSize(value.sameDirection) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters)
       );
     }
   }
@@ -6657,6 +6913,12 @@ export interface DetectionManagerInterface {
   detectPotentials(
     sportFilter: string | undefined,
   ) /*throws*/ : Array<FfiPotentialSection>;
+  /**
+   * Force full re-detection by clearing processed activity IDs first.
+   * This ensures all activities are re-evaluated against sections.
+   * Returns false if detection is already running.
+   */
+  forceRedetect(sportFilter: string | undefined) /*throws*/ : boolean;
   getProgress() /*throws*/ : FfiDetectionProgress | undefined;
   poll() /*throws*/ : string;
   start(sportFilter: string | undefined) /*throws*/ : boolean;
@@ -6694,6 +6956,29 @@ export class DetectionManager
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_detect_potentials(
+            uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+            FfiConverterOptionalString.lower(sportFilter),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Force full re-detection by clearing processed activity IDs first.
+   * This ensures all activities are re-evaluated against sections.
+   * Returns false if detection is already running.
+   */
+  public forceRedetect(sportFilter: string | undefined): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
             uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
             FfiConverterOptionalString.lower(sportFilter),
             callStatus,
@@ -8163,6 +8448,19 @@ export interface SectionManagerInterface {
     minVisits: /*u32*/ number | undefined,
   ) /*throws*/ : Array<FfiFrequentSection>;
   getForActivity(activityId: string) /*throws*/ : Array<FfiSection>;
+  /**
+   * Find sections that are candidates for merging with the given section.
+   * Candidates have >30% polyline overlap or centers within 300m with similar distances.
+   */
+  getMergeCandidates(sectionId: string) /*throws*/ : Array<FfiMergeCandidate>;
+  /**
+   * Get sections near a given section within a radius.
+   * Returns summaries with polyline coordinates for map overlay rendering.
+   */
+  getNearbySections(
+    sectionId: string,
+    radiusMeters: /*f64*/ number,
+  ) /*throws*/ : Array<FfiNearbySectionSummary>;
   getPerformances(
     sectionId: string,
     sportType: string | undefined,
@@ -8185,6 +8483,26 @@ export interface SectionManagerInterface {
     entries: Array<FfiSupersededEntry>,
   ) /*throws*/ : /*u32*/ number;
   includeActivity(sectionId: string, activityId: string) /*throws*/ : void;
+  /**
+   * Match an activity's GPS track against all existing sections.
+   * Returns all matches found (may be empty if activity doesn't traverse any section).
+   */
+  matchActivityToSections(
+    activityId: string,
+  ) /*throws*/ : Array<FfiSectionMatch>;
+  /**
+   * Merge two sections. Moves all traversal history from secondary into primary.
+   * Recomputes consensus polyline. Deletes secondary. Returns the primary section ID.
+   */
+  mergeSections(primaryId: string, secondaryId: string) /*throws*/ : string;
+  /**
+   * Force-match a single activity to a specific section with relaxed thresholds.
+   * Returns true if a match was found and the section_activities row was inserted.
+   */
+  rematchActivityToSection(
+    activityId: string,
+    sectionId: string,
+  ) /*throws*/ : boolean;
   resetBounds(sectionId: string) /*throws*/ : void;
   resetReference(sectionId: string) /*throws*/ : void;
   setName(sectionId: string, name: string) /*throws*/ : void;
@@ -8635,6 +8953,56 @@ export class SectionManager
     );
   }
 
+  /**
+   * Find sections that are candidates for merging with the given section.
+   * Candidates have >30% polyline overlap or centers within 300m with similar distances.
+   */
+  public getMergeCandidates(
+    sectionId: string,
+  ): Array<FfiMergeCandidate> /*throws*/ {
+    return FfiConverterArrayTypeFfiMergeCandidate.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_merge_candidates(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sectionId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get sections near a given section within a radius.
+   * Returns summaries with polyline coordinates for map overlay rendering.
+   */
+  public getNearbySections(
+    sectionId: string,
+    radiusMeters: /*f64*/ number,
+  ): Array<FfiNearbySectionSummary> /*throws*/ {
+    return FfiConverterArrayTypeFfiNearbySectionSummary.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_nearby_sections(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sectionId),
+            FfiConverterFloat64.lower(radiusMeters),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   public getPerformances(
     sectionId: string,
     sportType: string | undefined,
@@ -8830,6 +9198,82 @@ export class SectionManager
         );
       },
       /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Match an activity's GPS track against all existing sections.
+   * Returns all matches found (may be empty if activity doesn't traverse any section).
+   */
+  public matchActivityToSections(
+    activityId: string,
+  ): Array<FfiSectionMatch> /*throws*/ {
+    return FfiConverterArrayTypeFfiSectionMatch.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_match_activity_to_sections(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Merge two sections. Moves all traversal history from secondary into primary.
+   * Recomputes consensus polyline. Deletes secondary. Returns the primary section ID.
+   */
+  public mergeSections(
+    primaryId: string,
+    secondaryId: string,
+  ): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_merge_sections(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(primaryId),
+            FfiConverterString.lower(secondaryId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Force-match a single activity to a specific section with relaxed thresholds.
+   * Returns true if a match was found and the section_activities row was inserted.
+   */
+  public rematchActivityToSection(
+    activityId: string,
+    sectionId: string,
+  ): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_rematch_activity_to_section(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            FfiConverterString.lower(sectionId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
     );
   }
 
@@ -10187,6 +10631,11 @@ const FfiConverterArrayTypeFfiMapSignature = new FfiConverterArray(
   FfiConverterTypeFfiMapSignature,
 );
 
+// FfiConverter for Array<FfiMergeCandidate>
+const FfiConverterArrayTypeFfiMergeCandidate = new FfiConverterArray(
+  FfiConverterTypeFfiMergeCandidate,
+);
+
 // FfiConverter for Array<FfiMuscleGroup>
 const FfiConverterArrayTypeFfiMuscleGroup = new FfiConverterArray(
   FfiConverterTypeFfiMuscleGroup,
@@ -10195,6 +10644,11 @@ const FfiConverterArrayTypeFfiMuscleGroup = new FfiConverterArray(
 // FfiConverter for Array<FfiMuscleVolume>
 const FfiConverterArrayTypeFfiMuscleVolume = new FfiConverterArray(
   FfiConverterTypeFfiMuscleVolume,
+);
+
+// FfiConverter for Array<FfiNearbySectionSummary>
+const FfiConverterArrayTypeFfiNearbySectionSummary = new FfiConverterArray(
+  FfiConverterTypeFfiNearbySectionSummary,
 );
 
 // FfiConverter for Array<FfiPatternSection>
@@ -10245,6 +10699,11 @@ const FfiConverterArrayTypeFfiSection = new FfiConverterArray(
 // FfiConverter for Array<FfiSectionLap>
 const FfiConverterArrayTypeFfiSectionLap = new FfiConverterArray(
   FfiConverterTypeFfiSectionLap,
+);
+
+// FfiConverter for Array<FfiSectionMatch>
+const FfiConverterArrayTypeFfiSectionMatch = new FfiConverterArray(
+  FfiConverterTypeFfiSectionMatch,
 );
 
 // FfiConverter for Array<FfiSectionPerformanceRecord>
@@ -10438,6 +10897,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_detectionmanager_detect_potentials",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_force_redetect() !==
+    53262
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_force_redetect",
     );
   }
   if (
@@ -10897,6 +11364,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_merge_candidates() !==
+    53279
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_merge_candidates",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_sections() !==
+    65077
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_sections",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances() !==
     53747
   ) {
@@ -10974,6 +11457,30 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_include_activity",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections() !==
+    4405
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_merge_sections() !==
+    29677
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_merge_sections",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section() !==
+    28433
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section",
     );
   }
   if (
@@ -11388,10 +11895,12 @@ export default Object.freeze({
     FfiConverterTypeFfiHeatmapDay,
     FfiConverterTypeFfiInsightsData,
     FfiConverterTypeFfiMapSignature,
+    FfiConverterTypeFfiMergeCandidate,
     FfiConverterTypeFfiMultiScaleSectionResult,
     FfiConverterTypeFfiMuscleExerciseSummary,
     FfiConverterTypeFfiMuscleGroup,
     FfiConverterTypeFfiMuscleVolume,
+    FfiConverterTypeFfiNearbySectionSummary,
     FfiConverterTypeFfiPaceTrend,
     FfiConverterTypeFfiPatternSection,
     FfiConverterTypeFfiPeriodStats,
@@ -11409,6 +11918,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionConfig,
     FfiConverterTypeFfiSectionExtensionTrack,
     FfiConverterTypeFfiSectionLap,
+    FfiConverterTypeFfiSectionMatch,
     FfiConverterTypeFfiSectionPerformanceRecord,
     FfiConverterTypeFfiSectionPerformanceResult,
     FfiConverterTypeFfiSectionPortion,

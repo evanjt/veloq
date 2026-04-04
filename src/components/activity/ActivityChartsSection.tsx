@@ -20,7 +20,7 @@ import { useFFITimer } from '@/hooks/debug/useFFITimer';
 import { formatDurationHuman, isCyclingActivity, getAvailableCharts, CHART_CONFIGS } from '@/lib';
 import type { ChartTypeId } from '@/lib';
 import type { ActivityDetail, ActivityStreams, ActivityInterval, WellnessData } from '@/types';
-import { colors, darkColors, spacing, typography, layout, opacity } from '@/theme';
+import { colors, darkColors, spacing, typography, layout, opacity, shadows } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 
 interface LatLng {
@@ -560,11 +560,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
     marginBottom: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: spacing.sm,
-    elevation: 2,
+    ...shadows.card,
     minHeight: 180,
     overflow: 'hidden',
   },
@@ -673,11 +669,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.md,
     gap: spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    ...shadows.elevated,
   },
   exportGpxButtonDark: {
     backgroundColor: colors.primary,

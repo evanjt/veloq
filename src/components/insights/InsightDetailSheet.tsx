@@ -27,17 +27,15 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 
   const handleNavigate = useCallback(() => {
     if (insight?.navigationTarget) {
+      onClose();
       navigateTo(insight.navigationTarget);
     }
-  }, [insight?.navigationTarget]);
+  }, [insight?.navigationTarget, onClose]);
 
   if (!insight) return null;
 
   // Content components for these categories already have embedded navigation
-  const contentHandlesNav =
-    insight.category === 'section_pr' ||
-    insight.category === 'tsb_form' ||
-    insight.category === 'stale_pr';
+  const contentHandlesNav = insight.category === 'section_pr' || insight.category === 'stale_pr';
   const hasNavTarget = !!insight.navigationTarget && !contentHandlesNav;
 
   return (

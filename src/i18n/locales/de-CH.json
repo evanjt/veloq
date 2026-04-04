@@ -439,8 +439,6 @@
     "weeklyLoadUp": "+{{percent}}% Trainingsbelastig",
     "weeklyLoadDown": "{{percent}}% weniger Belastig",
     "loadBody": "TSS: {{currentTss}} die Wuche vs {{previousTss}} letschti Wuche. Ziit: {{currentDuration}} vs {{previousDuration}}.",
-    "patternMatch": "{{day}} - meischtens {{verb}} ~{{duration}}",
-    "consistencyStreak": "{{count}}-Wuche-Serie, cheibe guet!",
     "volumeBody": "Trainingsziit: {{current}} die Wuche vs {{previous}} letscht Wuche. Das misst d Ziit, nöd d Trainingsbelastig (TSS).",
     "viewDetails": "Details luege",
     "today": "HÜTT",
@@ -460,8 +458,6 @@
       "hrvTrend": "HRV {{direction}} {{percent}}% die Wuche",
       "tomorrowPattern": "Morn isch normaaler {{verb}}-Tag",
       "tomorrowPatternBody": "Basierend uf {{count}} früheri {{day}}-Aktivitäte, machsch normalerwiis {{verb}} für ~{{duration}}.",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
       "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
@@ -509,32 +505,6 @@
       "efforts": "Versüech",
       "trendSlope": "Trendsteiging"
     },
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "transition": "Transition",
-        "greyZone": "Maintenance",
-        "optimal": "Productive training",
-        "highRisk": "Deep fatigue"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "transition": "Between training and freshness",
-        "greyZone": "Moderate training load",
-        "optimal": "Where most adaptation occurs",
-        "highRisk": "Significant accumulated fatigue"
-      },
-      "titles": {
-        "fresh": "Peak form — ready to race",
-        "transition": "Fresh — good for hard training",
-        "greyZone": "Balanced — steady training",
-        "optimal": "Building fitness — fatigue accumulating",
-        "highRisk": "Heavy load — recovery important"
-      }
-    },
     "hrvTrend": {
       "trendingUp": "Recovery improving",
       "trendingDown": "Recovery dipping",
@@ -557,7 +527,7 @@
       "prFtp": "FTP at PR",
       "ftpGain": "FTP gain",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Higher FTP suggests untapped potential on power-dependent sections.",
+      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set.",
       "groupTitle": "{{count}} PRs to revisit"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
@@ -566,15 +536,6 @@
     "showMore": "Show {{count}} more",
     "aboutTitle": "About Insights",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "sectionCluster": {
-      "improvingTitle": "Schneller auf {{count}} Abschnitten",
-      "improvingTitle_one": "Schneller auf 1 Abschnitt",
-      "decliningTitle": "Langsamer auf {{count}} Abschnitten",
-      "decliningTitle_one": "Langsamer auf 1 Abschnitt",
-      "subtitle": "{{count}} {{sport}}-Abschnitte",
-      "subtitle_one": "1 {{sport}}-Abschnitt",
-      "methodology": "Vergleicht die Medianzeit deiner letzten 3 Versuche auf jedem Abschnitt mit dem Median der vorherigen 3. Abschnitte mit einem schnelleren aktuellen Median werden als sich verbessernd eingestuft."
-    },
     "efficiencyTrend": {
       "title": "HF sinkt uf {{name}}",
       "subtitle": "{{hrChange}} bpm tüüfer über {{efforts}} Versüech",
@@ -1386,17 +1347,11 @@
     "periodComparison": {
       "title": "Weekly Summary"
     },
-    "tsbForm": {
-      "title": "Form Update"
-    },
     "hrvTrend": {
       "title": "HRV Trend"
     },
     "stalePr": {
       "title": "PR Opportunity"
-    },
-    "sectionCluster": {
-      "title": "Section Trends"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"

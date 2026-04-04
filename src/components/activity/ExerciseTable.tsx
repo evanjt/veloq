@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useExerciseSets } from '@/hooks/activities';
 import { useMetricSystem } from '@/hooks/ui/useMetricSystem';
 import { formatDuration } from '@/lib';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, shadows, brand } from '@/theme';
 import type { ExerciseSet } from 'veloqrs';
 
 interface ExerciseTableProps {
@@ -179,7 +179,7 @@ export function ExerciseTable({
           </Text>
         </View>
         <View style={styles.infoRow}>
-          <View style={[styles.infoDot, { backgroundColor: '#FCA67A' }]} />
+          <View style={[styles.infoDot, { backgroundColor: brand.orangeLight }]} />
           <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
             {hasGender ? (
               <>
@@ -212,11 +212,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     marginBottom: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: spacing.sm,
-    elevation: 2,
+    ...shadows.card,
   },
   cardDark: {
     backgroundColor: darkColors.surface,

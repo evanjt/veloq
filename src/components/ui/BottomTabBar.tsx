@@ -11,7 +11,7 @@ import { usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
-import { brand } from '@/theme';
+import { brand, colorWithOpacity, spacing } from '@/theme';
 import { useInsightsStore } from '@/providers/InsightsStore';
 import { PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { navigateTab } from '@/lib';
@@ -32,10 +32,9 @@ export const TAB_BAR_SAFE_PADDING = TAB_BAR_HEIGHT + GRADIENT_HEIGHT; // Total p
 const ICON_SIZE = 26;
 
 // Colors - WCAG AA requires 3:1 for icons, 4.5:1 for text
-const INACTIVE_COLOR_DARK = 'rgba(255, 255, 255, 0.55)'; // Muted but visible
-const INACTIVE_COLOR_LIGHT = 'rgba(0, 0, 0, 0.45)'; // Muted but visible
+const INACTIVE_COLOR_DARK = colorWithOpacity('#FFFFFF', 0.55); // Muted but visible
+const INACTIVE_COLOR_LIGHT = colorWithOpacity('#000000', 0.45); // Muted but visible
 const ACTIVE_COLOR_DARK = '#FFFFFF'; // Bright white - pops
-const ACTIVE_COLOR_LIGHT = '#000000'; // Solid black - pops
 
 function BottomTabBarComponent() {
   // Performance: Track render count
@@ -59,19 +58,19 @@ function BottomTabBarComponent() {
   const gradientColors = isDark
     ? ([
         'transparent',
-        'rgba(0, 0, 0, 0.35)',
-        'rgba(0, 0, 0, 0.6)',
-        'rgba(0, 0, 0, 0.8)',
-        'rgba(0, 0, 0, 0.9)',
-        'rgba(0, 0, 0, 0.92)',
+        colorWithOpacity('#000000', 0.35),
+        colorWithOpacity('#000000', 0.6),
+        colorWithOpacity('#000000', 0.8),
+        colorWithOpacity('#000000', 0.9),
+        colorWithOpacity('#000000', 0.92),
       ] as const)
     : ([
         'transparent',
-        'rgba(255, 255, 255, 0.35)',
-        'rgba(255, 255, 255, 0.6)',
-        'rgba(255, 255, 255, 0.8)',
-        'rgba(255, 255, 255, 0.9)',
-        'rgba(255, 255, 255, 0.92)',
+        colorWithOpacity('#FFFFFF', 0.35),
+        colorWithOpacity('#FFFFFF', 0.6),
+        colorWithOpacity('#FFFFFF', 0.8),
+        colorWithOpacity('#FFFFFF', 0.9),
+        colorWithOpacity('#FFFFFF', 0.92),
       ] as const);
 
   const handlePress = useCallback(
@@ -189,7 +188,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 11,
     fontWeight: '500',
-    marginTop: 3,
+    marginTop: spacing.xs,
   },
   labelActive: {
     fontWeight: '700',
@@ -201,6 +200,6 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#FC4C02',
+    backgroundColor: brand.orange,
   },
 });

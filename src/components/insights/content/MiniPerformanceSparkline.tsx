@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import { Canvas, Path, Circle, LinearGradient, vec } from '@shopify/react-native-skia';
 import { useTheme } from '@/hooks';
+import { brand } from '@/theme';
 
 interface DataPoint {
   date: Date;
@@ -19,7 +20,7 @@ export const MiniPerformanceSparkline = React.memo(function MiniPerformanceSpark
   data,
   bestIndex,
   height = 100,
-  color = '#FC4C02',
+  color = brand.orange,
 }: MiniPerformanceSparklineProps) {
   const { isDark } = useTheme();
 

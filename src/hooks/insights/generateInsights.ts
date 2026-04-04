@@ -6,8 +6,8 @@ import type {
   InsightSupportingData,
 } from '@/types';
 import { formatDuration, formatPaceCompact, formatSwimPace } from '@/lib';
+import { brand } from '@/theme/colors';
 import { detectStalePROpportunities, stalePROpportunityToInsight } from './stalePrDetection';
-import { generateSectionClusterInsights } from './sectionClusterInsights';
 import { generateEfficiencyTrendInsights } from './efficiencyTrendInsights';
 
 /**
@@ -101,14 +101,8 @@ export interface InsightInputData {
   chronicPeriod?: PeriodStats | null;
   // Ramp rate from wellness (unused — removed ramp rate insight)
   rampRate?: number | null;
-  // Whether today is a rest day (no activity today)
-  isRestDay?: boolean;
-  // All section trends (for rest day deep dive)
+  // All section trends (for cluster/trend insights)
   allSectionTrends?: SectionTrendData[];
-  // Tomorrow's pattern prediction
-  tomorrowPattern?: ActivityPattern | null;
-  // All detected activity patterns (for weekly heatmap in pattern detail)
-  allPatterns?: ActivityPattern[];
   // Section IDs to check for aerobic efficiency trends (from getRankedSections)
   efficiencyTrendSectionIds?: string[];
 }
@@ -204,15 +198,6 @@ function addPaceMilestoneInsight(
   );
 }
 
-// TSB zones per intervals.icu convention (informational only, no prescriptive text)
-const TSB_ZONES = {
-  fresh: { min: 25, color: '#81C784', key: 'fresh' },
-  transition: { min: 5, color: '#64B5F6', key: 'transition' },
-  greyZone: { min: -10, color: '#9E9E9E', key: 'greyZone' },
-  optimal: { min: -30, color: '#66BB6A', key: 'optimal' },
-  highRisk: { min: -Infinity, color: '#EF5350', key: 'highRisk' },
-} as const;
-
 // ---------------------------------------------------------------------------
 // Main function
 // ---------------------------------------------------------------------------
@@ -221,16 +206,8 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   const insights: Insight[] = [];
   const now = Date.now();
 
-  // Rest day content — positive framing, never punitive
-  if (data.isRestDay) {
-    addRestDayInsights(insights, data, now, t);
-  }
-
   // Priority 1: Section PRs
   addSectionPRInsights(insights, data.recentPRs, now, t);
-
-  // Priority 2: TSB Form Position (replaces form advice + form trajectory)
-  addTsbFormPositionInsight(insights, data, now, t);
 
   // Priority 2: HRV Trend (replaces recovery readiness)
   addHrvTrendInsight(insights, data, now, t);
@@ -245,75 +222,12 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   // Cross-references fitness trends against section PRs to find beatable records
   addStalePRInsights(insights, data, now, t);
 
-  // Priority 3: Section Cluster Insights (replaces addSectionTrendInsights)
-  // Groups sections by trend direction for aggregate view — one insight per cluster
-  addSectionClusterInsights(insights, data, now, t);
-
   // Priority 1: Aerobic Efficiency Trends
   addEfficiencyTrendInsights(insights, data, now, t);
 
   insights.sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
 
   return insights;
-}
-
-// ---------------------------------------------------------------------------
-// Rest Day Content — always positive, never punitive
-// ---------------------------------------------------------------------------
-
-function addRestDayInsights(
-  insights: Insight[],
-  data: InsightInputData,
-  now: number,
-  t: TFunc
-): void {
-  // 1. Recent Intensity Context — count high-intensity sessions in trailing 7 days
-  const cur = data.currentPeriod;
-  const prev = data.previousPeriod;
-  if (cur && prev && (cur.totalTss > 0 || prev.totalTss > 0)) {
-    // Approximate high-intensity count: sessions with above-average TSS per session
-    const totalSessions = cur.count + (prev?.count ?? 0);
-    const totalTss = cur.totalTss + (prev?.totalTss ?? 0);
-    if (totalSessions > 0 && totalTss > 0) {
-      const avgTssPerSession = totalTss / totalSessions;
-      // Count sessions in current week with above-average intensity
-      // Since we don't have per-session data, estimate from current week's average
-      const curAvgTss = cur.count > 0 ? cur.totalTss / cur.count : 0;
-      const highIntensityEst =
-        curAvgTss > avgTssPerSession * 1.2 ? cur.count : Math.floor(cur.count * 0.4);
-
-      if (cur.count > 0) {
-        insights.push(
-          makeInsight({
-            id: 'rest_day-intensity-context',
-            category: 'intensity_context',
-            priority: 3,
-            icon: 'lightning-bolt',
-            iconColor: '#FFA726',
-            title: t('insights.restDay.intensityContext', {
-              count: cur.count,
-              highCount: highIntensityEst,
-            }),
-            body: t('insights.restDay.intensityContextBody', {
-              count: cur.count,
-              duration: formatDurationCompact(cur.totalDuration),
-            }),
-            navigationTarget: '/training',
-            timestamp: now,
-            methodology: {
-              name: 'Intensity distribution',
-              description:
-                'Counts training sessions this week. Athletes naturally distribute about 80% easy and 20% hard sessions.',
-            },
-          })
-        );
-      }
-    }
-  }
-
-  // 3. Pattern prediction for tomorrow — REMOVED from card list.
-  // Pattern predictions are shown in the Today banner only.
-  // Pattern predictions removed from card list — shown in Today banner only.
 }
 
 // ---------------------------------------------------------------------------
@@ -337,7 +251,7 @@ function addSectionPRInsights(
         category: 'section_pr',
         priority: 1,
         icon: 'trophy-outline',
-        iconColor: '#FC4C02',
+        iconColor: brand.orange,
         title: t('insights.sectionPr', { name: pr.sectionName }),
         subtitle: t('insights.sectionPrSubtitle', {
           time: formatDuration(pr.bestTime),
@@ -373,82 +287,6 @@ function addSectionPRInsights(
       })
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Priority 2: TSB Form Position (informational — no prescriptive advice)
-// Banister EW et al., 1975; Thomas L et al., 2005
-// ---------------------------------------------------------------------------
-
-function addTsbFormPositionInsight(
-  insights: Insight[],
-  data: InsightInputData,
-  now: number,
-  t: TFunc
-): void {
-  const tsb = data.formTsb;
-  const ctl = data.formCtl;
-  const atl = data.formAtl;
-
-  if (typeof tsb !== 'number' || !Number.isFinite(tsb)) return;
-  if ((!ctl || ctl === 0) && (!atl || atl === 0)) return;
-
-  const zone = resolveTsbZone(tsb);
-
-  insights.push(
-    makeInsight({
-      id: 'tsb_form-position',
-      category: 'tsb_form',
-      priority: 2,
-      icon: 'heart-pulse',
-      iconColor: zone.color,
-      title: t(`insights.tsbForm.titles.${zone.key}`, {
-        tsb: Math.round(tsb),
-      }),
-      body: t('insights.tsbForm.body', {
-        tsb: Math.round(tsb),
-        ctl: Math.round(ctl ?? 0),
-        atl: Math.round(atl ?? 0),
-        zone: t(`insights.tsbForm.zones.${zone.key}`),
-        zoneDescription: t(`insights.tsbForm.zoneDescriptions.${zone.key}`),
-      }),
-      navigationTarget: '/fitness',
-      timestamp: now,
-      supportingData: {
-        dataPoints: [
-          {
-            label: 'CTL',
-            value: Math.round(ctl ?? 0),
-            context: 'neutral',
-          },
-          {
-            label: 'ATL',
-            value: Math.round(atl ?? 0),
-            context: 'neutral',
-          },
-          {
-            label: 'TSB',
-            value: Math.round(tsb),
-            context: 'neutral',
-          },
-        ],
-      },
-      methodology: {
-        name: 'Banister Impulse-Response Model',
-        description:
-          'Training Stress Balance = CTL - ATL. Based on the Banister impulse-response model with standard 42-day/7-day time constants. These are population defaults — individual time constants vary between athletes.',
-        formula: 'TSB = CTL - ATL',
-      },
-    })
-  );
-}
-
-function resolveTsbZone(tsb: number): { color: string; key: string } {
-  if (tsb > TSB_ZONES.fresh.min) return TSB_ZONES.fresh;
-  if (tsb > TSB_ZONES.transition.min) return TSB_ZONES.transition;
-  if (tsb > TSB_ZONES.greyZone.min) return TSB_ZONES.greyZone;
-  if (tsb > TSB_ZONES.optimal.min) return TSB_ZONES.optimal;
-  return TSB_ZONES.highRisk;
 }
 
 // ---------------------------------------------------------------------------
@@ -723,7 +561,7 @@ function addFitnessMilestoneInsights(
           methodology: {
             name: 'Functional Threshold Power estimation',
             description:
-              "Tracks changes in your estimated FTP over time based on power data from your activities. FTP detection uses intervals.icu's algorithms, which may include auto-detection from activity data. Confirm with a structured test before adjusting training zones.",
+              "Tracks changes in your estimated FTP over time based on power data from your activities. FTP detection uses intervals.icu's algorithms, which may include auto-detection from activity data.",
           },
         })
       );
@@ -841,27 +679,6 @@ function addStalePRInsights(
         },
       })
     );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Priority 3: Section Cluster Insights
-// Groups sections by trend similarity for aggregate observations
-// ---------------------------------------------------------------------------
-
-function addSectionClusterInsights(
-  insights: Insight[],
-  data: InsightInputData,
-  now: number,
-  t: TFunc
-): void {
-  const trends = data.allSectionTrends ?? data.sectionTrends;
-  if (!trends || trends.length === 0) return;
-
-  const clusterInsights = generateSectionClusterInsights(trends, now, t);
-  // Show at most 1 cluster insight (the most relevant — improving takes priority)
-  if (clusterInsights.length > 0) {
-    insights.push(clusterInsights[0]);
   }
 }
 

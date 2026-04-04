@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
-import { colors, darkColors, spacing, typography, opacity, shadows } from '@/theme';
+import { colors, darkColors, spacing, typography, opacity, shadows, brand } from '@/theme';
 import { navigateTo } from '@/lib';
 import type { Insight } from '@/types';
 
@@ -550,6 +550,6 @@ const styles = StyleSheet.create({
   viewDetailsText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FC4C02',
+    color: brand.orange,
   },
 });

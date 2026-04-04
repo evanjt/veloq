@@ -439,8 +439,6 @@
     "weeklyLoadUp": "+{{percent}}% トレーニング負荷",
     "weeklyLoadDown": "{{percent}}% 負荷減少",
     "loadBody": "TSS: 今週 {{currentTss}} vs 先週 {{previousTss}}。時間: {{currentDuration}} vs {{previousDuration}}。",
-    "patternMatch": "{{day}} - 通常 {{verb}} ~{{duration}}",
-    "consistencyStreak": "{{count}}週連続",
     "volumeBody": "トレーニング時間: 今週 {{current}} vs 先週 {{previous}}。これは時間であり、トレーニング負荷 (TSS) ではありません。",
     "viewDetails": "詳細を見る",
     "today": "今日",
@@ -459,8 +457,6 @@
       "hrvTrend": "HRV（7日間）",
       "tomorrowPattern": "明日は通常 {{verb}} の日（~{{duration}}）",
       "tomorrowPatternBody": "この曜日の過去{{count}}件のアクティビティに基づいています。",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
       "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
@@ -508,32 +504,6 @@
       "efforts": "回数",
       "trendSlope": "トレンド傾き"
     },
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "transition": "Transition",
-        "greyZone": "Maintenance",
-        "optimal": "Productive training",
-        "highRisk": "Deep fatigue"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "transition": "Between training and freshness",
-        "greyZone": "Moderate training load",
-        "optimal": "Where most adaptation occurs",
-        "highRisk": "Significant accumulated fatigue"
-      },
-      "titles": {
-        "fresh": "Peak form — ready to race",
-        "transition": "Fresh — good for hard training",
-        "greyZone": "Balanced — steady training",
-        "optimal": "Building fitness — fatigue accumulating",
-        "highRisk": "Heavy load — recovery important"
-      }
-    },
     "hrvTrend": {
       "trendingUp": "Recovery improving",
       "trendingDown": "Recovery dipping",
@@ -556,7 +526,7 @@
       "prFtp": "FTP at PR",
       "ftpGain": "FTP gain",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Higher FTP suggests untapped potential on power-dependent sections.",
+      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set.",
       "groupTitle": "{{count}} PRs to revisit"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
@@ -566,15 +536,6 @@
     "aboutTitle": "About Insights",
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "sectionCluster": {
-      "improvingTitle": "{{count}}セクションで速くなっています",
-      "improvingTitle_one": "1セクションで速くなっています",
-      "decliningTitle": "{{count}}セクションで遅くなっています",
-      "decliningTitle_one": "1セクションで遅くなっています",
-      "subtitle": "{{count}}の{{sport}}セクション",
-      "subtitle_one": "1つの{{sport}}セクション",
-      "methodology": "各セクションの直近3回の中央値を、その前の3回の中央値と比較します。最近の中央値が速いセクションは改善中と分類されます。"
-    },
     "efficiencyTrend": {
       "title": "{{name}}で心拍数が低下傾向",
       "subtitle": "{{efforts}}回で{{hrChange}}bpm低下",
@@ -1386,17 +1347,11 @@
     "periodComparison": {
       "title": "Weekly Summary"
     },
-    "tsbForm": {
-      "title": "Form Update"
-    },
     "hrvTrend": {
       "title": "HRV Trend"
     },
     "stalePr": {
       "title": "PR Opportunity"
-    },
-    "sectionCluster": {
-      "title": "Section Trends"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"

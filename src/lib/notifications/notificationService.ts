@@ -1,23 +1,39 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
+import { brand } from '@/theme';
 
 const CHANNEL_ID = 'veloq-insights';
+const SYNC_CHANNEL_ID = 'veloq-sync';
+const SYNC_NOTIFICATION_ID = 'sync-progress';
 
 /** Set up notification handlers and channels. Call once at app startup. */
 export function initializeNotifications(): void {
   // Configure how notifications appear when app is in foreground
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: false,
-      shouldSetBadge: false,
-    }),
+    handleNotification: async (notification) => {
+      // Sync progress notifications: suppress in-app alert, only show in shade
+      if (notification.request.identifier === SYNC_NOTIFICATION_ID) {
+        return {
+          shouldShowAlert: false,
+          shouldShowBanner: false,
+          shouldShowList: false,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+        };
+      }
+      // Insight notifications: show as in-app alert
+      return {
+        shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      };
+    },
   });
 
-  // Create Android notification channel
+  // Create Android notification channels
   if (Platform.OS === 'android') {
     Notifications.setNotificationChannelAsync(CHANNEL_ID, {
       name: 'Activity Insights',
@@ -25,7 +41,13 @@ export function initializeNotifications(): void {
         'Notifications about personal records, fitness milestones, and training insights',
       importance: Notifications.AndroidImportance.DEFAULT,
       vibrationPattern: [0, 250],
-      lightColor: '#FC4C02',
+      lightColor: brand.orange,
+    });
+    Notifications.setNotificationChannelAsync(SYNC_CHANNEL_ID, {
+      name: 'Sync Progress',
+      description: 'Background data sync progress',
+      importance: Notifications.AndroidImportance.LOW,
+      vibrationPattern: [],
     });
   }
 }
@@ -72,6 +94,25 @@ export async function presentInsightNotification(
     },
     trigger: null, // immediate
   });
+}
+
+/** Post or update the sync progress notification. Reuses the same identifier for silent in-place updates. */
+export async function updateSyncNotification(body: string): Promise<void> {
+  await Notifications.scheduleNotificationAsync({
+    identifier: SYNC_NOTIFICATION_ID,
+    content: {
+      title: 'Veloq',
+      body,
+      sticky: true, // Android: can't swipe away during sync
+      ...(Platform.OS === 'android' ? { channelId: SYNC_CHANNEL_ID } : {}),
+    },
+    trigger: null,
+  });
+}
+
+/** Dismiss the sync progress notification silently. */
+export async function dismissSyncNotification(): Promise<void> {
+  await Notifications.dismissNotificationAsync(SYNC_NOTIFICATION_ID);
 }
 
 /** Set up the notification response handler for deep linking. Call once at app startup. */

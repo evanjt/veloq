@@ -20,7 +20,10 @@ export const layout = {
   screenPadding: spacing.md, // 16 - Aligns to 8px grid
   cardPadding: spacing.md, // 16 - Aligns to 8px grid
   cardMargin: spacing.sm, // 8 - Aligns to 8px grid (was 12)
-  borderRadius: spacing.md, // 16 - Aligns to 8px grid (was 12)
+  borderRadiusXs: spacing.xs, // 4 - Tiny elements (dots, progress bars)
   borderRadiusSm: spacing.sm, // 8 - Aligns to 8px grid
+  borderRadius: spacing.md, // 16 - Aligns to 8px grid (was 12)
+  borderRadiusLg: spacing.lg, // 24 - Large pills, rounded containers
+  borderRadiusFull: 9999, // Circles
   minTapTarget: 44, // Accessibility requirement (not on grid)
 } as const;

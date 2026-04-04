@@ -3,7 +3,7 @@ import { View, StyleSheet, LayoutAnimation, Platform, UIManager, Pressable } fro
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
-import { getSportDisplayName } from '@/hooks/insights/sectionClusterInsights';
+import { getSportDisplayName } from '@/lib';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionPerformances } from '@/hooks/routes/useSectionPerformances';
 import { navigateTo } from '@/lib';

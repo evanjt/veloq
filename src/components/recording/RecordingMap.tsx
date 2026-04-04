@@ -10,9 +10,9 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { useMapPreferences } from '@/providers';
 import { getMapStyle } from '@/components/maps/mapStyles';
-import { darkColors } from '@/theme';
+import { darkColors, brand } from '@/theme';
 
-const BRAND_COLOR = '#FC4C02';
+const BRAND_COLOR = brand.orange;
 const EXCLUDED_COLOR = 'rgba(150, 150, 150, 0.5)';
 const POSITION_DOT_COLOR = '#2563EB';
 const POSITION_DOT_HALO = '#FFFFFF';

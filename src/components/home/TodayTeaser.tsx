@@ -7,9 +7,14 @@ import { useTheme } from '@/hooks';
 import { useTodayWorkout } from '@/hooks/home/useTodayWorkout';
 import { useActivityPatterns } from '@/hooks/home/useActivityPatterns';
 import { useWellness } from '@/hooks/fitness';
-import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, formatDurationHuman } from '@/lib';
-import { getSportDisplayName } from '@/hooks/insights/sectionClusterInsights';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import {
+  getFormZone,
+  FORM_ZONE_COLORS,
+  FORM_ZONE_LABELS,
+  formatDurationHuman,
+  getSportDisplayName,
+} from '@/lib';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
 /** Get locale-aware plural day name (e.g. "Mondays") using Intl API */
 function getPluralDayName(dayIndex: number, locale: string): string {
@@ -52,13 +57,19 @@ export const TodayTeaser = React.memo(function TodayTeaser() {
     headline = t('insights.teaser.workoutToday', { name: todayWorkout.name });
     const topSection = todayPattern?.commonSections?.[0];
     if (topSection && topSection.trend === 1) {
-      subtitle = t('insights.teaser.prOpportunity', { name: topSection.sectionName });
+      subtitle = t('insights.teaser.prOpportunity', {
+        name: topSection.sectionName,
+      });
     }
   } else if (todayPattern) {
     const sportLabel = getSportDisplayName(todayPattern.sportType);
     const dayName = getPluralDayName(todayPattern.primaryDay, i18n.language);
     const duration = formatDurationHuman(todayPattern.avgDurationSecs);
-    headline = t('insights.teaser.usualPattern', { day: dayName, sport: sportLabel, duration });
+    headline = t('insights.teaser.usualPattern', {
+      day: dayName,
+      sport: sportLabel,
+      duration,
+    });
     const topSection = todayPattern.commonSections?.[0];
     if (topSection) {
       const trendLabel =
@@ -109,7 +120,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     borderRadius: layout.borderRadiusSm,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: colors.gray50,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
@@ -128,11 +139,11 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
   },
   formLabel: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
   },
   headline: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textPrimary,
     flex: 1,
   },

@@ -5,7 +5,15 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { navigateTo } from '@/lib';
 import { useTheme } from '@/hooks';
-import { colors, darkColors, spacing, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  typography,
+  colorWithOpacity,
+  insightCategoryColors,
+} from '@/theme';
 import type { Insight, InsightCategory } from '@/types';
 
 const ROTATION_INTERVAL = 8000;
@@ -16,23 +24,9 @@ const MAX_DISPLAY = 5;
 const HOME_CATEGORIES: Set<InsightCategory> = new Set([
   'section_pr',
   'fitness_milestone',
-  'section_cluster',
   'strength_progression',
   'strength_balance',
 ]);
-
-const CATEGORY_COLORS: Record<string, string> = {
-  section_pr: '#FFD700',
-  fitness_milestone: '#4CAF50',
-  period_comparison: '#2196F3',
-  strength_progression: '#F97316',
-  strength_balance: '#EF4444',
-  hrv_trend: '#66BB6A',
-  tsb_form: '#42A5F5',
-  intensity_context: '#FFA726',
-  stale_pr: '#FF9800',
-  section_cluster: '#66BB6A',
-};
 
 interface InsightLineProps {
   insights: Insight[];
@@ -44,14 +38,9 @@ export const InsightLine = React.memo(function InsightLine({ insights }: Insight
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [currentIndex, setCurrentIndex] = React.useState(0);
 
-  // Only show PRs, patterns, milestones, and improving clusters; filter consecutive identical titles
+  // Only show PRs, milestones, and strength insights; filter consecutive identical titles
   const displayInsights = useMemo(() => {
-    const relevant = insights.filter((i) => {
-      if (!HOME_CATEGORIES.has(i.category)) return false;
-      // Only show improving clusters on home (declining feels negative)
-      if (i.category === 'section_cluster' && !i.id.includes('improving')) return false;
-      return true;
-    });
+    const relevant = insights.filter((i) => HOME_CATEGORIES.has(i.category));
     const sliced = relevant.slice(0, MAX_DISPLAY);
     return sliced.filter((insight, i) => i === 0 || insight.title !== sliced[i - 1].title);
   }, [insights]);
@@ -94,7 +83,7 @@ export const InsightLine = React.memo(function InsightLine({ insights }: Insight
   const insight = displayInsights[currentIndex];
   if (!insight) return null;
 
-  const categoryColor = CATEGORY_COLORS[insight.category] ?? colors.primary;
+  const categoryColor = insightCategoryColors[insight.category] ?? colors.primary;
   const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
 
   return (
@@ -115,7 +104,9 @@ export const InsightLine = React.memo(function InsightLine({ insights }: Insight
           <Text
             style={[
               styles.title,
-              { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+              {
+                color: isDark ? darkColors.textSecondary : colors.textSecondary,
+              },
             ]}
             numberOfLines={1}
           >
@@ -135,7 +126,7 @@ export const InsightLine = React.memo(function InsightLine({ insights }: Insight
                 {
                   backgroundColor:
                     i === currentIndex
-                      ? (CATEGORY_COLORS[displayInsights[i].category] ?? colors.primary)
+                      ? (insightCategoryColors[displayInsights[i].category] ?? colors.primary)
                       : isDark
                         ? darkColors.textMuted
                         : colors.textDisabled,
@@ -158,14 +149,14 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusSm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     gap: spacing.xs,
     maxWidth: '100%',
   },
   title: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     flexShrink: 1,
   },

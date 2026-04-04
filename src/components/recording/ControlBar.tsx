@@ -6,10 +6,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/hooks';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, brand } from '@/theme';
 import type { RecordingStatus, RecordingMode } from '@/types';
 
-const BRAND_COLOR = '#FC4C02';
+const BRAND_COLOR = brand.orange;
 const RESUME_COLOR = '#22C55E';
 const STOP_COLOR = '#EF4444';
 const LONG_PRESS_MS = 1000;

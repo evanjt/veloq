@@ -25,7 +25,7 @@ import { castDirection, fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
 import type { Section, ActivityType, PerformanceDataPoint } from '@/types';
 import { getSectionStyle, navigateTo, formatDistance } from '@/lib';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, shadows } from '@/theme';
 
 type UnifiedSectionItem =
   | { type: 'engine'; match: SectionMatch; index: number }
@@ -641,11 +641,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.md,
     gap: spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    ...shadows.elevated,
   },
   createSectionButtonDark: {
     backgroundColor: colors.primary,

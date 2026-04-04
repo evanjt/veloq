@@ -6,7 +6,7 @@ tags:
   - tier1
 ---
 - launchApp:
-    clearState: true
+    clearState: false
 
 - runFlow:
     when:

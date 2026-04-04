@@ -89,6 +89,11 @@ const LICENSE_DATA: LicenseSection[] = [
     titleKey: 'licenses.sectionStateManagement',
     entries: [
       { name: 'TanStack Query', license: 'MIT', repository: 'https://github.com/TanStack/query' },
+      {
+        name: 'AsyncStorage',
+        license: 'MIT',
+        repository: 'https://github.com/react-native-async-storage/async-storage',
+      },
       { name: 'Zustand', license: 'MIT', repository: 'https://github.com/pmndrs/zustand' },
       { name: 'Zod', license: 'MIT', repository: 'https://github.com/colinhacks/zod' },
     ],
@@ -117,6 +122,26 @@ const LICENSE_DATA: LicenseSection[] = [
         license: 'MIT',
         repository: 'https://github.com/software-mansion/react-native-screens',
       },
+      {
+        name: 'React Native WebView',
+        license: 'MIT',
+        repository: 'https://github.com/react-native-webview/react-native-webview',
+      },
+      {
+        name: 'React Native Safe Area Context',
+        license: 'MIT',
+        repository: 'https://github.com/th3rdwave/react-native-safe-area-context',
+      },
+      {
+        name: 'React Native Body Highlighter',
+        license: 'MIT',
+        repository: 'https://github.com/nicoss54/react-native-body-highlighter',
+      },
+      {
+        name: 'React Native Worklets',
+        license: 'MIT',
+        repository: 'https://github.com/margelo/react-native-worklets-core',
+      },
     ],
   },
   {
@@ -125,6 +150,7 @@ const LICENSE_DATA: LicenseSection[] = [
     entries: [
       { name: 'Axios', license: 'MIT', repository: 'https://github.com/axios/axios' },
       { name: 'i18next', license: 'MIT', repository: 'https://github.com/i18next/i18next' },
+      { name: 'JSZip', license: 'MIT', repository: 'https://github.com/Stuk/jszip' },
     ],
   },
   {
@@ -175,6 +201,28 @@ const LICENSE_DATA: LicenseSection[] = [
         repository: 'https://github.com/seanmonstar/reqwest',
       },
       { name: 'rusqlite', license: 'MIT', repository: 'https://github.com/rusqlite/rusqlite' },
+      {
+        name: 'rusqlite_migration',
+        license: 'MIT',
+        repository: 'https://github.com/cljoly/rusqlite_migration',
+      },
+      {
+        name: 'fitparser',
+        license: 'MIT',
+        repository: 'https://github.com/stadelmanma/fitparse-rs',
+        description: 'Garmin FIT file parsing.',
+      },
+      {
+        name: 'chrono',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/chronotope/chrono',
+      },
+      { name: 'image', license: 'MIT', repository: 'https://github.com/image-rs/image' },
+      {
+        name: 'polyline',
+        license: 'MIT',
+        repository: 'https://github.com/georust/polyline',
+      },
     ],
   },
   {

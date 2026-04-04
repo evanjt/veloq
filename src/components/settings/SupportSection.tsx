@@ -9,7 +9,7 @@ import Constants from 'expo-constants';
 import { navigateTo } from '@/lib';
 import { useDebugStore, useWhatsNewStore } from '@/providers';
 import { getAllSlides } from '@/components/ui/whatsNew/slides';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, shadows } from '@/theme';
 
 export function SupportSection() {
   const { isDark } = useTheme();
@@ -169,15 +169,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: spacing.md,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    ...shadows.card,
   },
   supportCardDark: {
     backgroundColor: darkColors.surfaceCard,
-    shadowOpacity: 0,
+    ...shadows.none,
   },
   supportIconBg: {
     width: 48,

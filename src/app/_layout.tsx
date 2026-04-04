@@ -74,12 +74,27 @@ import { registerBackgroundNotificationTask } from '@/lib/notifications/backgrou
 // These occur because Victory uses shared values during render (known library behavior)
 configureReanimatedLogger({ level: ReanimatedLogLevel.error, strict: false });
 
-// Configure MapLibre to only log errors (suppress info/warning spam)
+// Configure MapLibre to only log errors, with HTTP 404s downgraded to warnings
+// (prevents red screen in dev mode from transient tile/font 404s)
 let mapLibreLoggerConfigured = false;
 function configureMapLibreLogger() {
   if (mapLibreLoggerConfigured) return;
   try {
     MapLibreLogger.setLogLevel('error');
+    MapLibreLogger.setLogCallback((log: { message: string; level: string; tag?: string }) => {
+      if (
+        log.level === 'error' &&
+        (log.tag === 'Mbgl-HttpRequest' ||
+          log.message.includes('404') ||
+          log.message.includes('not found'))
+      ) {
+        if (__DEV__) {
+          console.warn('MapLibre HTTP warning:', log.message);
+        }
+        return true;
+      }
+      return false;
+    });
     mapLibreLoggerConfigured = true;
   } catch (error) {
     if (__DEV__) {

@@ -71,13 +71,6 @@ export function formatInsightNotification(insight: Insight, t: TFunc): Notificat
         data: { route: '/routes?tab=routes', insightId: insight.id },
       };
 
-    case 'tsb_form':
-      return {
-        title: t('notifications.tsbForm.title'),
-        body: insight.title,
-        data: { route: '/fitness', insightId: insight.id },
-      };
-
     case 'hrv_trend':
       return {
         title: t('notifications.hrvTrend.title'),
@@ -88,13 +81,6 @@ export function formatInsightNotification(insight: Insight, t: TFunc): Notificat
     case 'stale_pr':
       return {
         title: t('notifications.stalePr.title'),
-        body: insight.title,
-        data: { route: '/routes?tab=sections', insightId: insight.id },
-      };
-
-    case 'section_cluster':
-      return {
-        title: t('notifications.sectionCluster.title'),
         body: insight.title,
         data: { route: '/routes?tab=sections', insightId: insight.id },
       };

@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 import { findMuscleAtPoint } from '@/lib/strength/musclePolygons';
+import { brand } from '@/theme';
 
 const LOUPE_SIZE = 90;
 const LOUPE_OFFSET_Y = -100;
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
     borderRadius: LOUPE_SIZE / 2,
     overflow: 'hidden',
     borderWidth: 3,
-    borderColor: '#FC4C02',
+    borderColor: brand.orange,
     backgroundColor: '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',

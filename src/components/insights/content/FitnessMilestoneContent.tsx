@@ -27,20 +27,20 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
   const isPowerMilestone = currentPoint.unit === 'W';
   const isSwimMilestone = currentPoint.unit === '/100m';
   const contextSummary = isPowerMilestone
-    ? 'A higher FTP changes how power targets line up across repeatable rides and longer steady work.'
+    ? `FTP shifted from ${String(previousPoint.value)}W to ${String(currentPoint.value)}W. This estimate is derived from recent power data.`
     : isSwimMilestone
-      ? 'A faster threshold swim pace changes how steady pool efforts and repeat sets line up across recent sessions.'
-      : 'A faster running threshold pace changes how controlled hard efforts and repeatable sections line up across recent sessions.';
+      ? `Threshold swim pace shifted from ${String(previousPoint.value)} to ${String(currentPoint.value)} per 100m. This estimate is derived from recent swim data.`
+      : `Running threshold pace shifted from ${String(previousPoint.value)} to ${String(currentPoint.value)} per km. This estimate is derived from recent run data.`;
   const compareNext = isPowerMilestone
-    ? 'Compare this rise against recent section results and zone distribution before treating it as a stable shift.'
+    ? 'Section-level timing and zone distribution may reflect this change over the coming weeks.'
     : isSwimMilestone
-      ? 'Compare this change against recent pool sets and longer steady swims before treating it as a stable shift.'
-      : 'Compare this change against recent threshold sessions and repeat sections before treating it as a stable shift.';
+      ? 'Section-level timing and swim pace distribution may reflect this change over the coming weeks.'
+      : 'Section-level timing and pace distribution may reflect this change over the coming weeks.';
   const contextHeading = isPowerMilestone
-    ? 'How to read this FTP change'
+    ? 'FTP change context'
     : isSwimMilestone
-      ? 'How to read this swim change'
-      : 'How to read this running change';
+      ? 'Swim pace change context'
+      : 'Running pace change context';
 
   const lineColor = isDark ? darkColors.border : colors.border;
   const dotColor = isPositive ? '#22C55E' : '#F59E0B';

@@ -4,22 +4,8 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
 import { navigateTo } from '@/lib';
-import { colors, darkColors, spacing, shadows } from '@/theme';
+import { colors, darkColors, spacing, shadows, insightCategoryColors } from '@/theme';
 import type { Insight } from '@/types';
-
-const CATEGORY_COLORS: Record<string, string> = {
-  section_pr: '#FFD700',
-  fitness_milestone: '#4CAF50',
-  period_comparison: '#2196F3',
-  strength_progression: '#F97316',
-  strength_balance: '#EF4444',
-  hrv_trend: '#66BB6A',
-  tsb_form: '#42A5F5',
-  intensity_context: '#FFA726',
-  stale_pr: '#FF9800',
-  section_cluster: '#66BB6A',
-  efficiency_trend: '#66BB6A',
-};
 
 interface InsightCardProps {
   insight: Insight;
@@ -28,7 +14,7 @@ interface InsightCardProps {
 
 export const InsightCard = React.memo(function InsightCard({ insight, onPress }: InsightCardProps) {
   const { isDark } = useTheme();
-  const categoryColor = CATEGORY_COLORS[insight.category] ?? colors.primary;
+  const categoryColor = insightCategoryColors[insight.category] ?? colors.primary;
 
   const handlePress = () => {
     if (onPress) {

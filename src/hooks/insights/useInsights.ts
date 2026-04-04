@@ -98,27 +98,34 @@ export function useInsights(
     return insights;
   }, [insights]);
 
+  // Compute fingerprint + diff once, reuse in both memo and effect
+  const lastComputedRef = useRef<{ fingerprint: string; changed: Set<string> }>({
+    fingerprint: '',
+    changed: new Set(),
+  });
+
   // Annotate isNew based on fingerprint diffing
   const annotatedInsights = useMemo(() => {
-    if (stableInsights.length === 0) return stableInsights;
+    if (stableInsights.length === 0) {
+      lastComputedRef.current = { fingerprint: '', changed: new Set() };
+      return stableInsights;
+    }
     const currentFingerprint = computeInsightFingerprint(stableInsights);
-    if (currentFingerprint === lastSeenFingerprint) return stableInsights;
-    const changed = diffInsights(stableInsights, lastSeenFingerprint);
+    const changed =
+      currentFingerprint === lastSeenFingerprint
+        ? new Set<string>()
+        : diffInsights(stableInsights, lastSeenFingerprint);
+    lastComputedRef.current = { fingerprint: currentFingerprint, changed };
     if (changed.size === 0) return stableInsights;
     return stableInsights.map((i) => (changed.has(i.id) ? { ...i, isNew: true } : i));
   }, [stableInsights, lastSeenFingerprint]);
 
-  // Update hasNewInsights flag based on fingerprint diff
+  // Update hasNewInsights flag — reuse fingerprint/diff from above
   useEffect(() => {
-    if (annotatedInsights.length === 0) {
-      setNewInsights(new Set());
-      return;
-    }
-    const currentFingerprint = computeInsightFingerprint(annotatedInsights);
-    if (currentFingerprint === lastSeenFingerprint) {
+    const { fingerprint, changed } = lastComputedRef.current;
+    if (annotatedInsights.length === 0 || fingerprint === lastSeenFingerprint) {
       setNewInsights(new Set());
     } else {
-      const changed = diffInsights(annotatedInsights, lastSeenFingerprint);
       setNewInsights(changed);
     }
   }, [annotatedInsights, lastSeenFingerprint, setNewInsights]);

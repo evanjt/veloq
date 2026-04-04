@@ -13,7 +13,7 @@ import { navigateTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/hooks';
 import { getActivityColor } from '@/lib';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, shadows } from '@/theme';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionScatterChart } from '@/components/section/SectionScatterChart';
 import type { DirectionBestRecord, DirectionSummaryStats } from './UnifiedPerformanceChart';
@@ -178,11 +178,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 12,
     paddingBottom: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    ...shadows.card,
   },
   containerDark: {
     backgroundColor: darkColors.surfaceCard,

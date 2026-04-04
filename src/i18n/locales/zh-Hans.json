@@ -439,8 +439,6 @@
     "weeklyLoadUp": "+{{percent}}% 训练负荷",
     "weeklyLoadDown": "{{percent}}% 负荷减少",
     "loadBody": "TSS: 本周 {{currentTss}} vs 上周 {{previousTss}}。时长: {{currentDuration}} vs {{previousDuration}}。",
-    "patternMatch": "{{day}} - 通常 {{verb}} ~{{duration}}",
-    "consistencyStreak": "{{count}}周连续",
     "volumeBody": "训练时长: 本周 {{current}} vs 上周 {{previous}}。这衡量的是时间，不是训练负荷 (TSS)。",
     "viewDetails": "查看详情",
     "today": "今天",
@@ -459,8 +457,6 @@
       "hrvTrend": "HRV 本周{{direction}} {{percent}}%",
       "tomorrowPattern": "明天通常是 {{verb}} 日",
       "tomorrowPatternBody": "根据 {{count}} 次之前{{day}}的活动，你通常 {{verb}} 约 ~{{duration}}。",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
       "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
@@ -508,32 +504,6 @@
       "efforts": "次数",
       "trendSlope": "趋势斜率"
     },
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "transition": "Transition",
-        "greyZone": "Maintenance",
-        "optimal": "Productive training",
-        "highRisk": "Deep fatigue"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "transition": "Between training and freshness",
-        "greyZone": "Moderate training load",
-        "optimal": "Where most adaptation occurs",
-        "highRisk": "Significant accumulated fatigue"
-      },
-      "titles": {
-        "fresh": "Peak form — ready to race",
-        "transition": "Fresh — good for hard training",
-        "greyZone": "Balanced — steady training",
-        "optimal": "Building fitness — fatigue accumulating",
-        "highRisk": "Heavy load — recovery important"
-      }
-    },
     "hrvTrend": {
       "trendingUp": "Recovery improving",
       "trendingDown": "Recovery dipping",
@@ -556,7 +526,7 @@
       "prFtp": "FTP at PR",
       "ftpGain": "FTP gain",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Higher FTP suggests untapped potential on power-dependent sections.",
+      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set.",
       "groupTitle": "{{count}} PRs to revisit"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
@@ -566,15 +536,6 @@
     "aboutTitle": "About Insights",
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "sectionCluster": {
-      "improvingTitle": "在{{count}}个路段上更快了",
-      "improvingTitle_one": "在1个路段上更快了",
-      "decliningTitle": "在{{count}}个路段上变慢了",
-      "decliningTitle_one": "在1个路段上变慢了",
-      "subtitle": "{{count}}个{{sport}}路段",
-      "subtitle_one": "1个{{sport}}路段",
-      "methodology": "将每个路段最近3次尝试的中位时间与之前3次的中位时间进行比较。最近中位时间更快的路段被归类为正在改善。"
-    },
     "efficiencyTrend": {
       "title": "{{name}}上心率呈下降趋势",
       "subtitle": "{{efforts}}次中降低{{hrChange}}bpm",
@@ -1386,17 +1347,11 @@
     "periodComparison": {
       "title": "Weekly Summary"
     },
-    "tsbForm": {
-      "title": "Form Update"
-    },
     "hrvTrend": {
       "title": "HRV Trend"
     },
     "stalePr": {
       "title": "PR Opportunity"
-    },
-    "sectionCluster": {
-      "title": "Section Trends"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"

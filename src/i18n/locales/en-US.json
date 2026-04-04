@@ -704,35 +704,7 @@
     "weeklyLoadUp": "+{{percent}}% training load",
     "weeklyLoadDown": "{{percent}}% less training load",
     "loadBody": "TSS: {{currentTss}} this week vs {{previousTss}} last week. Duration: {{currentDuration}} vs {{previousDuration}}.",
-    "patternMatch": "{{day}} - usually {{verb}} ~{{duration}}",
-    "consistencyStreak": "{{count}}-week streak",
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
     "volumeBody": "Training duration: {{current}} this week vs {{previous}} last week. This measures time, not training load (TSS).",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "titles": {
-        "fresh": "Peak form — ready to race",
-        "transition": "Fresh — good for hard training",
-        "greyZone": "Balanced — steady training",
-        "optimal": "Building fitness — fatigue accumulating",
-        "highRisk": "Heavy load — recovery important"
-      },
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "transition": "Transition",
-        "greyZone": "Grey Zone",
-        "optimal": "Optimal training",
-        "highRisk": "High risk"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "transition": "TSB between 5 and 25, fitness fading as fatigue drops",
-        "greyZone": "Moderate training load",
-        "optimal": "Where most adaptation occurs",
-        "highRisk": "Significant accumulated fatigue"
-      }
-    },
     "hrvTrend": {
       "trendingUp": "Recovery improving",
       "trendingDown": "Recovery dipping",
@@ -756,7 +728,7 @@
       "prFtp": "FTP at PR",
       "ftpGain": "FTP gain",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Higher FTP suggests untapped potential on power-dependent sections."
+      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set."
     },
     "viewDetails": "View details",
     "today": "TODAY",
@@ -775,8 +747,6 @@
       "hrvTrend": "HRV (7 days)",
       "tomorrowPattern": "Tomorrow is usually {{verb}} day (~{{duration}})",
       "tomorrowPatternBody": "Based on {{count}} previous activities for this day of the week.",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
       "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
@@ -831,15 +801,6 @@
     "aboutTitle": "About Insights",
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "sectionCluster": {
-      "improvingTitle": "Getting faster on {{count}} sections",
-      "improvingTitle_one": "Getting faster on 1 section",
-      "decliningTitle": "Slowing down on {{count}} sections",
-      "decliningTitle_one": "Slowing down on 1 section",
-      "subtitle": "{{count}} {{sport}} sections",
-      "subtitle_one": "1 {{sport}} section",
-      "methodology": "Compares the median time of your last 3 efforts on each section to the median of the previous 3. Sections where the recent median is faster are classified as improving."
-    },
     "efficiencyTrend": {
       "title": "HR trending down on {{name}}",
       "subtitle": "{{hrChange}} bpm lower over {{efforts}} efforts",
@@ -849,7 +810,7 @@
       "workoutToday": "{{name}} today",
       "prOpportunity": "PR opportunity on {{name}}",
       "usualPattern": "{{day}} you usually {{sport}} ~{{duration}}",
-      "improving": "improving \u2191",
+      "improving": "improving ↑",
       "stable": "stable"
     },
     "strengthBalance": {
@@ -860,7 +821,7 @@
       "oneSided": "One-sided",
       "lowSignal": "Low signal",
       "noSignal": "No signal",
-      "noRecentVolume": "No volume in the last 4 weeks \u2014 only appearing in the wider selected period.",
+      "noRecentVolume": "No volume in the last 4 weeks — only appearing in the wider selected period.",
       "volumeAppeared": "Volume appeared in the last two weeks after a quieter start.",
       "volumeUp": "Recent 2-week average is {{percent}}% above the prior 2 weeks.",
       "volumeDown": "Recent 2-week average is {{percent}}% below the prior 2 weeks.",
@@ -1385,17 +1346,11 @@
     "periodComparison": {
       "title": "Weekly Summary"
     },
-    "tsbForm": {
-      "title": "Form Update"
-    },
     "hrvTrend": {
       "title": "HRV Trend"
     },
     "stalePr": {
       "title": "PR Opportunity"
-    },
-    "sectionCluster": {
-      "title": "Section Trends"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"

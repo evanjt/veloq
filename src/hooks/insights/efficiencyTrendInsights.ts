@@ -100,7 +100,7 @@ export function generateEfficiencyTrendInsights(
       methodology: {
         name: 'Aerobic efficiency regression',
         description:
-          'Tracks the HR/pace ratio across matched section efforts over time. A declining ratio (lower HR at the same pace) indicates improving aerobic efficiency. Uses ordinary least squares linear regression on the hr_pace_ratio time series.',
+          'Tracks the HR/pace ratio across matched section efforts over time. Uses ordinary least squares linear regression on the hr_pace_ratio time series.',
         formula: 'efficiency = avg_hr / pace_secs_per_km',
       },
     });
