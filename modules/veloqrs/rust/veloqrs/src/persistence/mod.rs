@@ -35,6 +35,7 @@ use rstar::{AABB, RTree, RTreeObject};
 use rusqlite::{Connection, Result as SqlResult};
 
 mod activities;
+pub(crate) mod export;
 mod fitness;
 mod routes;
 mod schema;

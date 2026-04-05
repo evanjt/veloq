@@ -201,11 +201,9 @@ export function BackupSection() {
           <View style={{ flex: 1 }}>
             <Text style={[styles.actionText, isDark && styles.textLight]}>
               {bulkExporting
-                ? bulkPhase === 'compressing'
-                  ? t('export.bulkCompressing')
-                  : bulkPhase === 'sharing'
-                    ? t('export.bulkSharing')
-                    : t('export.bulkExporting', { current: bulkCurrent, total: bulkTotal })
+                ? bulkPhase === 'sharing'
+                  ? t('export.bulkSharing')
+                  : t('export.bulkExporting', { current: bulkCurrent, total: bulkTotal })
                 : t('export.bulkExport', { count: totalActivities })}
             </Text>
             {bulkExporting && (

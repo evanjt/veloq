@@ -176,4 +176,12 @@ impl VeloqEngine {
             Ok(metadata.to_string())
         })?
     }
+
+    /// Bulk export all activities with GPS data as a ZIP of GPX files.
+    /// Streams one track at a time — constant memory regardless of activity count.
+    fn bulk_export_gpx(&self, dest_path: String) -> Result<crate::persistence::export::BulkExportResult, VeloqError> {
+        with_engine(|e| {
+            e.bulk_export_gpx(&dest_path).map_err(|msg| VeloqError::Database { msg })
+        })?
+    }
 }

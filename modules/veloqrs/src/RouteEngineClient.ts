@@ -983,6 +983,17 @@ class RouteEngineClient {
     }
   }
 
+  /** Bulk export all GPS activities as a ZIP of GPX files. Streams in Rust — constant memory. */
+  bulkExportGpx(destPath: string): { exported: number; skipped: number; totalBytes: number } {
+    if (!this.ready) throw new Error('Engine not initialized');
+    const result = this.timed('bulkExportGpx', () => this.engine.bulkExportGpx(destPath));
+    return {
+      exported: result.exported,
+      skipped: result.skipped,
+      totalBytes: Number(result.totalBytes),
+    };
+  }
+
   computePolylineOverlap(coordsA: number[], coordsB: number[], thresholdMeters = 50): number {
     return this.timed('computePolylineOverlap', () =>
       gen().computePolylineOverlap(coordsA, coordsB, thresholdMeters),
