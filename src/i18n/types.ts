@@ -424,6 +424,15 @@ export interface TranslationResource {
     lastBackupNever: string;
     backupNow: string;
     backingUp: string;
+    selectBackend: string;
+    backendLocal: string;
+    backendWebdav: string;
+    serverUrl: string;
+    username: string;
+    password: string;
+    testConnection: string;
+    connectionSuccess: string;
+    connectionFailed: string;
   };
 
   about: {

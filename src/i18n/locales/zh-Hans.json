@@ -204,7 +204,16 @@
     "lastBackup": "Last backup: {{date}}",
     "lastBackupNever": "Never backed up",
     "backupNow": "Back Up Now",
-    "backingUp": "Backing up..."
+    "backingUp": "Backing up...",
+    "selectBackend": "Backup to",
+    "backendLocal": "Local Storage",
+    "backendWebdav": "WebDAV / Nextcloud",
+    "serverUrl": "Server URL",
+    "username": "Username",
+    "password": "Password",
+    "testConnection": "Test Connection",
+    "connectionSuccess": "Connection successful",
+    "connectionFailed": "Connection failed"
   },
   "cache": {
     "addingActivities": "正在添加活动...",
