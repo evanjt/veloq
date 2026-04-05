@@ -11,9 +11,6 @@ import {
   useOldestActivityDate,
   useTheme,
   useSectionSummaries,
-  useExportBackup,
-  useImportBackup,
-  useBulkExport,
 } from '@/hooks';
 import { formatLocalDate, formatFullDate } from '@/lib';
 import { estimateRoutesDatabaseSize } from '@/lib';
@@ -69,18 +66,6 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   });
   const { totalCount: totalSections } = useSectionSummaries();
   const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } = useRouteSettings();
-
-  // Backup & Export
-  const { exportBackup, exporting: backupExporting } = useExportBackup();
-  const { importBackup, importing: backupImporting } = useImportBackup();
-  const {
-    exportAll,
-    isExporting: bulkExporting,
-    phase: bulkPhase,
-    current: bulkCurrent,
-    total: bulkTotal,
-    sizeBytes: bulkSizeBytes,
-  } = useBulkExport();
 
   // Map tile cache stats
   const { nativeSizeEstimate } = useTileCacheStore();
@@ -307,17 +292,6 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
           isRouteProcessing={isRouteProcessing}
           onCancelRouteProcessing={cancelRouteProcessing}
           onClearCache={handleClearCache}
-          onExportBackup={exportBackup}
-          backupExporting={backupExporting}
-          onImportBackup={importBackup}
-          backupImporting={backupImporting}
-          onBulkExport={exportAll}
-          bulkExporting={bulkExporting}
-          bulkPhase={bulkPhase}
-          bulkCurrent={bulkCurrent}
-          bulkTotal={bulkTotal}
-          bulkSizeBytes={bulkSizeBytes}
-          totalActivities={cacheStats.totalActivities}
         />
 
         <StorageStatsPanel

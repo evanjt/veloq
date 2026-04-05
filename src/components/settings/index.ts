@@ -1,4 +1,5 @@
 export { AccountSection } from './AccountSection';
+export { BackupSection } from './BackupSection';
 export { CacheManagementPanel } from './CacheManagementPanel';
 export { DataCacheSection } from './DataCacheSection';
 export { DataSourcesSection } from './DataSourcesSection';
