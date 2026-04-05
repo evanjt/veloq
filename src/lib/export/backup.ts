@@ -111,6 +111,10 @@ export interface DatabaseRestoreResult {
   success: boolean;
   activityCount: number;
   error?: string;
+  /** Warning if the backup's athlete ID doesn't match the currently logged-in user. */
+  athleteIdMismatch?: boolean;
+  /** The athlete ID from the backup (if available). */
+  backupAthleteId?: string | null;
 }
 
 /**
@@ -155,11 +159,28 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     // Clear TanStack Query cache (stale data from old database)
     await AsyncStorage.removeItem('veloq-query-cache');
 
-    // Get activity count from the restored database
+    // Get activity count and metadata from the restored database
     const restoredEngine = getRouteEngine();
     const activityCount = restoredEngine?.getActivityCount() ?? 0;
+    const metadata = restoredEngine?.getBackupMetadata() as
+      | DatabaseBackupMetadata
+      | undefined;
 
-    return { success: true, activityCount };
+    // Check athlete ID mismatch
+    const { useAuthStore } = await import('@/providers');
+    const currentAthleteId = useAuthStore.getState().athleteId;
+    const backupAthleteId = metadata?.athlete_id ?? null;
+    const athleteIdMismatch =
+      currentAthleteId != null &&
+      backupAthleteId != null &&
+      currentAthleteId !== backupAthleteId;
+
+    return {
+      success: true,
+      activityCount,
+      athleteIdMismatch,
+      backupAthleteId,
+    };
   } catch (error) {
     // Try to re-initialize with existing (possibly corrupt) database
     try {

@@ -129,10 +129,13 @@ export function useImportDatabaseBackup() {
       const restoreResult = await restoreDatabaseBackup(fileUri);
 
       if (restoreResult.success) {
-        Alert.alert(
-          t('backup.restoreComplete'),
-          t('backup.databaseRestored', { count: restoreResult.activityCount })
-        );
+        const messages = [t('backup.databaseRestored', { count: restoreResult.activityCount })];
+        if (restoreResult.athleteIdMismatch) {
+          messages.push(
+            `\n${t('backup.differentAccount', { defaultValue: 'Warning: This backup belongs to a different account ({{id}}).' }).replace('{{id}}', restoreResult.backupAthleteId ?? '?')}`
+          );
+        }
+        Alert.alert(t('backup.restoreComplete'), messages.join(''));
       } else {
         Alert.alert(t('common.error'), restoreResult.error ?? t('backup.importError'));
       }
