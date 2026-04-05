@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import { Platform } from 'react-native';
 import {
   View,
   Text,
@@ -255,6 +256,9 @@ export function BackupSection() {
               {[
                 { id: 'local', name: t('backup.backendLocal'), icon: 'cellphone' as const },
                 { id: 'webdav', name: t('backup.backendWebdav'), icon: 'server-network' as const },
+                ...(Platform.OS === 'ios'
+                  ? [{ id: 'icloud', name: t('backup.backendIcloud'), icon: 'apple-icloud' as const }]
+                  : []),
               ].map((option) => (
                 <TouchableOpacity
                   key={option.id}

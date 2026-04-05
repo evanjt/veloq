@@ -17,8 +17,10 @@ import Constants from 'expo-constants';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { debug } from '@/lib/utils/debug';
 import type { BackupBackend, BackupEntry } from './backends/types';
+import { Platform } from 'react-native';
 import { localBackend } from './backends/localBackend';
 import { webdavBackend } from './backends/webdavBackend';
+import { icloudBackend } from './backends/icloudBackend';
 
 const log = debug.create('AutoBackup');
 const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
@@ -35,6 +37,7 @@ const MAX_BACKUPS = 3;
 const backends: Record<string, BackupBackend> = {
   local: localBackend,
   webdav: webdavBackend,
+  ...(Platform.OS === 'ios' ? { icloud: icloudBackend } : {}),
 };
 
 /** Register a new backend (called at module load for platform-specific backends). */

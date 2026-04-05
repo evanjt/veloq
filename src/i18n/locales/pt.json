@@ -208,6 +208,7 @@
     "selectBackend": "Backup to",
     "backendLocal": "Local Storage",
     "backendWebdav": "WebDAV / Nextcloud",
+    "backendIcloud": "iCloud",
     "serverUrl": "Server URL",
     "username": "Username",
     "password": "Password",

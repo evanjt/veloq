@@ -427,6 +427,7 @@ export interface TranslationResource {
     selectBackend: string;
     backendLocal: string;
     backendWebdav: string;
+    backendIcloud: string;
     serverUrl: string;
     username: string;
     password: string;
