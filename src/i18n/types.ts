@@ -435,6 +435,8 @@ export interface TranslationResource {
     connectionSuccess: string;
     connectionFailed: string;
     restoreFromBackup: string;
+    backupFound: string;
+    differentAccount: string;
   };
 
   about: {

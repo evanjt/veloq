@@ -215,7 +215,9 @@
     "testConnection": "Test Connection",
     "connectionSuccess": "Connection successful",
     "connectionFailed": "Connection failed",
-    "restoreFromBackup": "バックアップから復元"
+    "restoreFromBackup": "バックアップから復元",
+    "backupFound": "Backup Found",
+    "differentAccount": "Warning: This backup belongs to a different account."
   },
   "cache": {
     "addingActivities": "アクティビティを追加中...",

@@ -215,7 +215,9 @@
     "testConnection": "Test Connection",
     "connectionSuccess": "Connection successful",
     "connectionFailed": "Connection failed",
-    "restoreFromBackup": "Herstellen van back-up"
+    "restoreFromBackup": "Herstellen van back-up",
+    "backupFound": "Backup Found",
+    "differentAccount": "Warning: This backup belongs to a different account."
   },
   "cache": {
     "addingActivities": "Activiteiten toevoegen...",

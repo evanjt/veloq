@@ -215,7 +215,9 @@
     "testConnection": "Test Connection",
     "connectionSuccess": "Connection successful",
     "connectionFailed": "Connection failed",
-    "restoreFromBackup": "从备份恢复"
+    "restoreFromBackup": "从备份恢复",
+    "backupFound": "Backup Found",
+    "differentAccount": "Warning: This backup belongs to a different account."
   },
   "cache": {
     "addingActivities": "正在添加活动...",

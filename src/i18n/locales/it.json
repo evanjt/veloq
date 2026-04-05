@@ -215,7 +215,9 @@
     "testConnection": "Test Connection",
     "connectionSuccess": "Connection successful",
     "connectionFailed": "Connection failed",
-    "restoreFromBackup": "Ripristina dal backup"
+    "restoreFromBackup": "Ripristina dal backup",
+    "backupFound": "Backup Found",
+    "differentAccount": "Warning: This backup belongs to a different account."
   },
   "cache": {
     "addingActivities": "Aggiunta attività...",
