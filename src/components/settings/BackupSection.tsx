@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
@@ -12,11 +12,40 @@ import {
 import { formatFileSize } from '@/lib';
 import { useTheme } from '@/hooks';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import {
+  isAutoBackupEnabled,
+  setAutoBackupEnabled,
+  getLastBackupTimestamp,
+  performBackup,
+} from '@/lib/backup';
 import { colors, darkColors, spacing, layout } from '@/theme';
 
 export function BackupSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
+
+  // Auto-backup state
+  const [autoEnabled, setAutoEnabled] = useState(() => isAutoBackupEnabled());
+  const [backingUp, setBackingUp] = useState(false);
+  const lastBackupTs = useMemo(() => getLastBackupTimestamp(), [backingUp]);
+
+  const handleToggleAutoBackup = useCallback(
+    (value: boolean) => {
+      setAutoBackupEnabled(value);
+      setAutoEnabled(value);
+    },
+    []
+  );
+
+  const handleBackupNow = useCallback(async () => {
+    if (backingUp) return;
+    setBackingUp(true);
+    try {
+      await performBackup(true);
+    } finally {
+      setBackingUp(false);
+    }
+  }, [backingUp]);
 
   // Database backup (primary)
   const { exportDatabaseBackup, exporting: dbExporting } = useExportDatabaseBackup();
@@ -38,13 +67,54 @@ export function BackupSection() {
 
   const totalActivities = useMemo(() => getRouteEngine()?.getActivityCount() ?? 0, []);
 
+  const lastBackupText = lastBackupTs
+    ? t('backup.lastBackup', { date: new Date(lastBackupTs).toLocaleDateString() })
+    : t('backup.lastBackupNever');
+
   return (
     <>
       <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-        {t('backup.exportBackup').split(' ')[0].toUpperCase()}
+        {t('backup.autoBackup').toUpperCase()}
       </Text>
       <View style={[styles.section, isDark && styles.sectionDark]}>
-        {/* Database export (primary) */}
+        {/* Auto-backup toggle */}
+        <View style={styles.actionRow}>
+          <MaterialCommunityIcons
+            name="cloud-sync-outline"
+            size={22}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.actionText, isDark && styles.textLight]}>
+              {t('backup.autoBackup')}
+            </Text>
+            <Text style={[styles.subtitleText, isDark && styles.textMuted]}>
+              {t('backup.autoBackupDescription')}
+            </Text>
+          </View>
+          <Switch
+            value={autoEnabled}
+            onValueChange={handleToggleAutoBackup}
+            trackColor={{ false: colors.border, true: colors.primary }}
+          />
+        </View>
+
+        {/* Last backup status */}
+        <View style={[styles.statusRow, isDark && styles.statusRowDark]}>
+          <Text style={[styles.statusText, isDark && styles.textMuted]}>{lastBackupText}</Text>
+          <TouchableOpacity
+            onPress={handleBackupNow}
+            disabled={backingUp}
+            activeOpacity={0.2}
+          >
+            <Text style={[styles.linkText, backingUp && styles.linkTextDisabled]}>
+              {backingUp ? t('backup.backingUp') : t('backup.backupNow')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.divider, isDark && styles.dividerDark]} />
+
+        {/* Database export */}
         <TouchableOpacity
           style={styles.actionRow}
           onPress={dbExporting ? undefined : exportDatabaseBackup}
@@ -203,6 +273,34 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: colors.textPrimary,
+  },
+  subtitleText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.background,
+  },
+  statusRowDark: {
+    backgroundColor: darkColors.background,
+  },
+  statusText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  linkText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  linkTextDisabled: {
+    opacity: 0.5,
   },
   divider: {
     height: 1,

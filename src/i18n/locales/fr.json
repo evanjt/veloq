@@ -198,7 +198,13 @@
     "importDatabase": "Import Database",
     "databaseRestored": "Database restored with {{count}} activities",
     "exportingDatabase": "Exporting database...",
-    "importingDatabase": "Importing database..."
+    "importingDatabase": "Importing database...",
+    "autoBackup": "Auto-Backup",
+    "autoBackupDescription": "Automatically back up after sync",
+    "lastBackup": "Last backup: {{date}}",
+    "lastBackupNever": "Never backed up",
+    "backupNow": "Back Up Now",
+    "backingUp": "Backing up..."
   },
   "cache": {
     "addingActivities": "Ajout des activités...",

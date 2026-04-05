@@ -418,6 +418,12 @@ export interface TranslationResource {
     databaseRestored: string;
     exportingDatabase: string;
     importingDatabase: string;
+    autoBackup: string;
+    autoBackupDescription: string;
+    lastBackup: string;
+    lastBackupNever: string;
+    backupNow: string;
+    backingUp: string;
   };
 
   about: {
