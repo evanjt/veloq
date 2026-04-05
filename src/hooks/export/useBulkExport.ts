@@ -29,8 +29,7 @@ export function useBulkExport() {
       setError(null);
 
       try {
-        const exportFn =
-          format === 'geojson' ? bulkExportActivitiesGeoJson : bulkExportActivities;
+        const exportFn = format === 'geojson' ? bulkExportActivitiesGeoJson : bulkExportActivities;
         const result = await exportFn((progress) => {
           setPhase(progress.phase);
           setCurrent(progress.current);

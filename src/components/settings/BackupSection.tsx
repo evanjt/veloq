@@ -29,13 +29,10 @@ export function BackupSection() {
   const [backingUp, setBackingUp] = useState(false);
   const lastBackupTs = useMemo(() => getLastBackupTimestamp(), [backingUp]);
 
-  const handleToggleAutoBackup = useCallback(
-    (value: boolean) => {
-      setAutoBackupEnabled(value);
-      setAutoEnabled(value);
-    },
-    []
-  );
+  const handleToggleAutoBackup = useCallback((value: boolean) => {
+    setAutoBackupEnabled(value);
+    setAutoEnabled(value);
+  }, []);
 
   const handleBackupNow = useCallback(async () => {
     if (backingUp) return;
@@ -103,11 +100,7 @@ export function BackupSection() {
         {/* Last backup status */}
         <View style={[styles.statusRow, isDark && styles.statusRowDark]}>
           <Text style={[styles.statusText, isDark && styles.textMuted]}>{lastBackupText}</Text>
-          <TouchableOpacity
-            onPress={handleBackupNow}
-            disabled={backingUp}
-            activeOpacity={0.2}
-          >
+          <TouchableOpacity onPress={handleBackupNow} disabled={backingUp} activeOpacity={0.2}>
             <Text style={[styles.linkText, backingUp && styles.linkTextDisabled]}>
               {backingUp ? t('backup.backingUp') : t('backup.backupNow')}
             </Text>

@@ -12,12 +12,16 @@ export function initializeNotifications(): void {
   // Configure how notifications appear when app is in foreground
   Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
-      // Sync progress notifications: suppress in-app alert, only show in shade
+      // Sync progress notifications: show in shade/notification center, no popup banner.
+      // Android: shouldShowAlert must be true to post to NotificationManager at all;
+      //          the LOW-importance channel prevents heads-up display.
+      // iOS 14+: shouldShowBanner=false suppresses the drop-down banner,
+      //          shouldShowList=true keeps it in notification center.
       if (notification.request.identifier === SYNC_NOTIFICATION_ID) {
         return {
-          shouldShowAlert: false,
+          shouldShowAlert: true,
           shouldShowBanner: false,
-          shouldShowList: false,
+          shouldShowList: true,
           shouldPlaySound: false,
           shouldSetBadge: false,
         };
@@ -98,21 +102,29 @@ export async function presentInsightNotification(
 
 /** Post or update the sync progress notification. Reuses the same identifier for silent in-place updates. */
 export async function updateSyncNotification(body: string): Promise<void> {
-  await Notifications.scheduleNotificationAsync({
-    identifier: SYNC_NOTIFICATION_ID,
-    content: {
-      title: 'Veloq',
-      body,
-      sticky: true, // Android: can't swipe away during sync
-      ...(Platform.OS === 'android' ? { channelId: SYNC_CHANNEL_ID } : {}),
-    },
-    trigger: null,
-  });
+  try {
+    await Notifications.scheduleNotificationAsync({
+      identifier: SYNC_NOTIFICATION_ID,
+      content: {
+        title: 'Veloq',
+        body,
+        sticky: true, // Android: can't swipe away during sync
+        ...(Platform.OS === 'android' ? { channelId: SYNC_CHANNEL_ID } : {}),
+      },
+      trigger: null,
+    });
+  } catch (e) {
+    if (__DEV__) console.warn('[SyncNotification] Failed to update:', e);
+  }
 }
 
 /** Dismiss the sync progress notification silently. */
 export async function dismissSyncNotification(): Promise<void> {
-  await Notifications.dismissNotificationAsync(SYNC_NOTIFICATION_ID);
+  try {
+    await Notifications.dismissNotificationAsync(SYNC_NOTIFICATION_ID);
+  } catch (e) {
+    if (__DEV__) console.warn('[SyncNotification] Failed to dismiss:', e);
+  }
 }
 
 /** Set up the notification response handler for deep linking. Call once at app startup. */
