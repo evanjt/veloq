@@ -193,7 +193,12 @@
     "preferencesRestored": "{{count}} Einstellungen wiederhergestellt",
     "restoreComplete": "Wiederherstellung abgeschlossen",
     "sectionsRestored": "{{count}} benutzerdefinierte Abschnitte wiederhergestellt",
-    "sectionsSkipped": "{{count}} Abschnitte übersprungen (zuerst Aktivitäten synchronisieren)"
+    "sectionsSkipped": "{{count}} Abschnitte übersprungen (zuerst Aktivitäten synchronisieren)",
+    "exportDatabase": "Export Database",
+    "importDatabase": "Import Database",
+    "databaseRestored": "Database restored with {{count}} activities",
+    "exportingDatabase": "Exporting database...",
+    "importingDatabase": "Importing database..."
   },
   "cache": {
     "addingActivities": "Aktivitäten hinzufügen...",

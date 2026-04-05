@@ -193,7 +193,12 @@
     "preferencesRestored": "{{count}} voorkeuren hersteld",
     "restoreComplete": "Herstel voltooid",
     "sectionsRestored": "{{count}} aangepaste secties hersteld",
-    "sectionsSkipped": "{{count}} secties overgeslagen (synchroniseer eerst activiteiten)"
+    "sectionsSkipped": "{{count}} secties overgeslagen (synchroniseer eerst activiteiten)",
+    "exportDatabase": "Export Database",
+    "importDatabase": "Import Database",
+    "databaseRestored": "Database restored with {{count}} activities",
+    "exportingDatabase": "Exporting database...",
+    "importingDatabase": "Importing database..."
   },
   "cache": {
     "addingActivities": "Activiteiten toevoegen...",

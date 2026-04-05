@@ -193,7 +193,12 @@
     "preferencesRestored": "{{count}} præferencer gendannet",
     "restoreComplete": "Gendannelse fuldført",
     "sectionsRestored": "{{count}} brugerdefinerede sektioner gendannet",
-    "sectionsSkipped": "{{count}} sektioner sprunget over (synkronisér aktiviteter først)"
+    "sectionsSkipped": "{{count}} sektioner sprunget over (synkronisér aktiviteter først)",
+    "exportDatabase": "Export Database",
+    "importDatabase": "Import Database",
+    "databaseRestored": "Database restored with {{count}} activities",
+    "exportingDatabase": "Exporting database...",
+    "importingDatabase": "Importing database..."
   },
   "cache": {
     "addingActivities": "Tilføjer aktiviteter...",

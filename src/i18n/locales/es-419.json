@@ -193,7 +193,12 @@
     "preferencesRestored": "{{count}} preferencias restauradas",
     "restoreComplete": "Restauración completada",
     "sectionsRestored": "{{count}} secciones personalizadas restauradas",
-    "sectionsSkipped": "{{count}} secciones omitidas (sincroniza las actividades primero)"
+    "sectionsSkipped": "{{count}} secciones omitidas (sincroniza las actividades primero)",
+    "exportDatabase": "Export Database",
+    "importDatabase": "Import Database",
+    "databaseRestored": "Database restored with {{count}} activities",
+    "exportingDatabase": "Exporting database...",
+    "importingDatabase": "Importing database..."
   },
   "cache": {
     "addingActivities": "Agregando actividades...",

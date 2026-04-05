@@ -225,6 +225,19 @@ class RouteEngineClient {
     return this.dbPath !== null;
   }
 
+  /** Drop the Rust engine singleton without clearing data. Used before database restore. */
+  destroyEngine(): void {
+    try {
+      this.engine?.destroy();
+    } catch {
+      // Best-effort destroy
+    }
+    this.initialized = false;
+    this.dbPath = null;
+    this.engine = null;
+    this.pendingMetrics = null;
+  }
+
   clear(): void {
     try {
       this.timed('clear', () => this.engine?.clear());

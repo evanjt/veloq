@@ -193,7 +193,12 @@
     "preferencesRestored": "已恢复 {{count}} 个偏好设置",
     "restoreComplete": "恢复完成",
     "sectionsRestored": "已恢复 {{count}} 个自定义路段",
-    "sectionsSkipped": "已跳过 {{count}} 个路段（请先同步活动）"
+    "sectionsSkipped": "已跳过 {{count}} 个路段（请先同步活动）",
+    "exportDatabase": "Export Database",
+    "importDatabase": "Import Database",
+    "databaseRestored": "Database restored with {{count}} activities",
+    "exportingDatabase": "Exporting database...",
+    "importingDatabase": "Importing database..."
   },
   "cache": {
     "addingActivities": "正在添加活动...",

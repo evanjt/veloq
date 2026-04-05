@@ -193,7 +193,12 @@
     "preferencesRestored": "{{count}}件の設定を復元しました",
     "restoreComplete": "復元完了",
     "sectionsRestored": "{{count}}件のカスタムセクションを復元しました",
-    "sectionsSkipped": "{{count}}件のセクションをスキップしました（先にアクティビティを同期してください）"
+    "sectionsSkipped": "{{count}}件のセクションをスキップしました（先にアクティビティを同期してください）",
+    "exportDatabase": "Export Database",
+    "importDatabase": "Import Database",
+    "databaseRestored": "Database restored with {{count}} activities",
+    "exportingDatabase": "Exporting database...",
+    "importingDatabase": "Importing database..."
   },
   "cache": {
     "addingActivities": "アクティビティを追加中...",

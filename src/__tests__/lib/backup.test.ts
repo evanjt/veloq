@@ -48,6 +48,18 @@ jest.mock('@/providers', () => ({
   initializeNotificationPreferences: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@/lib/backup', () => ({
+  getSetting: jest.fn().mockImplementation((key: string) => {
+    const AsyncStorage = require('@react-native-async-storage/async-storage');
+    return AsyncStorage.getItem(key);
+  }),
+  setSetting: jest.fn().mockImplementation(async (key: string, value: string) => {
+    const AsyncStorage = require('@react-native-async-storage/async-storage');
+    await AsyncStorage.setItem(key, value);
+  }),
+  removeSetting: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('@/lib/storage/terrainCameraOverrides', () => ({
   reloadCameraOverrides: jest.fn().mockResolvedValue(undefined),
 }));

@@ -413,6 +413,11 @@ export interface TranslationResource {
     namesRestored: string;
     preferencesRestored: string;
     sectionsSkipped: string;
+    exportDatabase: string;
+    importDatabase: string;
+    databaseRestored: string;
+    exportingDatabase: string;
+    importingDatabase: string;
   };
 
   about: {
