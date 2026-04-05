@@ -1,6 +1,6 @@
 /**
- * Tests for GPS storage utilities.
- * Mocks expo-file-system for deterministic file operations.
+ * Tests for storage utilities (bounds cache, route names, checkpoint).
+ * GPS track storage functions were removed — GPS data is now in Rust SQLite.
  */
 
 // In-memory file system for testing — prefixed with "mock" for jest.mock scope rules
@@ -49,55 +49,22 @@ jest.mock('@/lib/native/routeEngine', () => ({
 }));
 
 import {
-  storeGpsTrack,
-  storeGpsTracks,
-  getGpsTrack,
-  hasGpsTrack,
   clearAllGpsTracks,
-  deleteGpsTrack,
   deleteGpsTracks,
   storeOldestDate,
   loadOldestDate,
   storeCheckpoint,
   loadCheckpoint,
-  clearCheckpoint,
   storeBoundsCache,
   loadBoundsCache,
-  clearBoundsCache,
   getRouteDisplayName,
   saveCustomRouteName,
   loadCustomRouteNames,
-  getCachedActivityIds,
 } from '@/lib/storage/gpsStorage';
 
 beforeEach(() => {
   mockFileStore.clear();
   mockDirStore.clear();
-});
-
-describe('GPS track storage', () => {
-  const sampleTrack: [number, number][] = [
-    [48.856, 2.352],
-    [48.857, 2.353],
-    [48.858, 2.354],
-  ];
-
-  it('stores and retrieves a GPS track', async () => {
-    await storeGpsTrack('act1', sampleTrack);
-    const result = await getGpsTrack('act1');
-    expect(result).toEqual(sampleTrack);
-  });
-
-  it('returns null for non-existent track', async () => {
-    const result = await getGpsTrack('nonexistent');
-    expect(result).toBeNull();
-  });
-
-  it('checks track existence', async () => {
-    expect(await hasGpsTrack('act1')).toBe(false);
-    await storeGpsTrack('act1', sampleTrack);
-    expect(await hasGpsTrack('act1')).toBe(true);
-  });
 });
 
 describe('oldest date storage', () => {
@@ -161,66 +128,26 @@ describe('getRouteDisplayName', () => {
   });
 });
 
-describe('deleteGpsTrack', () => {
-  const sampleTrack: [number, number][] = [
-    [48.856, 2.352],
-    [48.857, 2.353],
-  ];
-
-  it('deletes a stored GPS track', async () => {
-    await storeGpsTrack('act1', sampleTrack);
-    expect(await hasGpsTrack('act1')).toBe(true);
-    await deleteGpsTrack('act1');
-    expect(await hasGpsTrack('act1')).toBe(false);
+describe('clearAllGpsTracks', () => {
+  it('clears legacy GPS directory', async () => {
+    mockDirStore.add('/mock/docs/gps_tracks/');
+    mockFileStore.set('/mock/docs/gps_tracks/act1.json', '[]');
+    await clearAllGpsTracks();
+    expect(mockFileStore.has('/mock/docs/gps_tracks/act1.json')).toBe(false);
   });
 
-  it('removes activity from GPS index', async () => {
-    const tracks = new Map<string, [number, number][]>();
-    tracks.set('act1', sampleTrack);
-    tracks.set('act2', sampleTrack);
-    await storeGpsTracks(tracks);
-    const idsBefore = await getCachedActivityIds();
-    expect(idsBefore).toContain('act1');
-    expect(idsBefore).toContain('act2');
-
-    await deleteGpsTrack('act1');
-    const idsAfter = await getCachedActivityIds();
-    expect(idsAfter).not.toContain('act1');
-    expect(idsAfter).toContain('act2');
-  });
-
-  it('does not throw for non-existent track', async () => {
-    await expect(deleteGpsTrack('nonexistent')).resolves.not.toThrow();
+  it('does not throw when directory does not exist', async () => {
+    await expect(clearAllGpsTracks()).resolves.not.toThrow();
   });
 });
 
 describe('deleteGpsTracks', () => {
-  const sampleTrack: [number, number][] = [
-    [48.856, 2.352],
-    [48.857, 2.353],
-  ];
-
-  it('deletes multiple GPS tracks', async () => {
-    await storeGpsTrack('act1', sampleTrack);
-    await storeGpsTrack('act2', sampleTrack);
-    await storeGpsTrack('act3', sampleTrack);
-    await deleteGpsTracks(['act1', 'act3']);
-    expect(await hasGpsTrack('act1')).toBe(false);
-    expect(await hasGpsTrack('act2')).toBe(true);
-    expect(await hasGpsTrack('act3')).toBe(false);
-  });
-
-  it('removes all deleted IDs from GPS index', async () => {
-    const tracks = new Map<string, [number, number][]>();
-    tracks.set('act1', sampleTrack);
-    tracks.set('act2', sampleTrack);
-    tracks.set('act3', sampleTrack);
-    await storeGpsTracks(tracks);
-    await deleteGpsTracks(['act1', 'act2']);
-    const ids = await getCachedActivityIds();
-    expect(ids).not.toContain('act1');
-    expect(ids).not.toContain('act2');
-    expect(ids).toContain('act3');
+  it('deletes specified track files', async () => {
+    mockFileStore.set('/mock/docs/gps_tracks/act1.json', '[]');
+    mockFileStore.set('/mock/docs/gps_tracks/act2.json', '[]');
+    await deleteGpsTracks(['act1']);
+    expect(mockFileStore.has('/mock/docs/gps_tracks/act1.json')).toBe(false);
+    expect(mockFileStore.has('/mock/docs/gps_tracks/act2.json')).toBe(true);
   });
 
   it('handles empty array', async () => {
