@@ -496,6 +496,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             // Re-add heatmap raster overlay (setStyle clears all sources/layers)
             window.map.once('style.load', function() {
               if (!window.map.getSource('heatmap-tiles')) {
+                var isLight = '${mapStyle}' === 'light';
                 window.map.addSource('heatmap-tiles', {
                   type: 'raster',
                   tiles: ['heatmap-file://{z}/{x}/{y}.png'],
@@ -508,7 +509,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
                   type: 'raster',
                   source: 'heatmap-tiles',
                   paint: {
-                    'raster-opacity': ${showHeatmap} ? 0.72 : 0,
+                    'raster-opacity': ${showHeatmap} ? (isLight ? 0.82 : 0.72) : 0,
+                    'raster-contrast': isLight ? 0.2 : 0,
                     'raster-fade-duration': 0,
                     'raster-resampling': 'linear'
                   }
@@ -590,9 +592,11 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     // Toggle heatmap visibility dynamically (without regenerating HTML)
     useEffect(() => {
       if (!webViewRef.current || !mapReadyRef.current) return;
+      const isLight = mapStyleRef.current === 'light';
+      const opacity = showHeatmap ? (isLight ? 0.82 : 0.72) : 0;
       webViewRef.current.injectJavaScript(`
         if (window.map && window.map.getLayer('heatmap-layer')) {
-          window.map.setPaintProperty('heatmap-layer', 'raster-opacity', ${showHeatmap} ? 0.72 : 0);
+          window.map.setPaintProperty('heatmap-layer', 'raster-opacity', ${opacity});
         }
         true;
       `);
@@ -1083,6 +1087,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 
       // Heatmap raster overlay (reads tiles from device filesystem via heatmap-file:// protocol)
       var showHeatmap = ${showHeatmap};
+      var isLightMap = '${mapStyle}' === 'light';
       map.addSource('heatmap-tiles', {
         type: 'raster',
         tiles: ['heatmap-file://{z}/{x}/{y}.png'],
@@ -1095,7 +1100,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         type: 'raster',
         source: 'heatmap-tiles',
         paint: {
-          'raster-opacity': showHeatmap ? 0.72 : 0,
+          'raster-opacity': showHeatmap ? (isLightMap ? 0.82 : 0.72) : 0,
+          'raster-contrast': isLightMap ? 0.2 : 0,
           'raster-fade-duration': 0,
           'raster-resampling': 'linear'
         }

@@ -475,6 +475,7 @@
     "instructions": "1. Open Intervals.icu Settings\n2. Scroll down to \"Developer Settings\"\n3. Copy your API Key",
     "invalidApiKey": "That API key's no good, mate. Double-check it and try again.",
     "localModeNote": "Local mode: All your data stays on your device",
+    "apiKeyNoNotifications": "Push notifications are not available with API key login.",
     "loginWithIntervals": "Sign in with intervals.icu",
     "noAccount": "New to intervals.icu?",
     "oauthFailed": "Sign in didn't work. Have another crack.",
@@ -1084,6 +1085,7 @@
     "appearance": "Look & Feel",
     "availableMetrics": "Available Metrics",
     "bounds": "Bounds",
+    "cache": "Cache",
     "cacheHint": "Stashes your activity locations and tracks for the World Map and route matching. Use the timeline to grab more.",
     "cached": "Cached",
     "cachedQueries": "Cached Queries",
@@ -1156,6 +1158,7 @@
     "noData": "Nothin' here",
     "notCached": "Not stashed",
     "pauseRouteProcessing": "Pause route crunching",
+    "permissions": "Permissions",
     "primarySport": "Main sport",
     "primarySportHint": "Changes what shows up on your home screen and stats page.",
     "primarySportHintCycling": "FTP shows up top. Performance page has your Power Curve, power zones, eFTP trend, and decoupling.",
@@ -1388,8 +1391,8 @@
     },
     "privacy": {
       "title": "Privacy Notice",
-      "brief": "Your athlete ID and a push token will be stored on our server (90-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
-      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 90-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
+      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
+      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 30-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
       "accept": "I understand"
     },
     "settings": {
@@ -1401,7 +1404,7 @@
       "periodComparison": "Weekly comparisons",
       "activityPattern": "Activity patterns",
       "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
-      "privacyHint": "Stores a push token and athlete ID on our server (90-day expiry). See veloq.fit/privacy",
+      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
       "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
     }
   },

@@ -8,7 +8,7 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import type { BackupBackend, BackupEntry } from './types';
-import { getWebdavConfig } from '../autoBackup';
+import { getWebdavConfig } from '../webdavConfig';
 
 const REMOTE_DIR = 'Veloq';
 

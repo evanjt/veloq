@@ -36,21 +36,21 @@ impl Default for HeatmapConfig {
 // ============================================================================
 
 /// Pre-computed 256-entry color lookup table mapping intensity to RGBA.
-/// Gradient: transparent → warm amber → orange → pale highlight.
-/// Tuned to keep the basemap visible while letting overlap brighten naturally.
+/// Gradient: transparent → deep teal → brand teal → pale teal highlight.
+/// Uses the Veloq brand teal palette for good contrast on both light and dark maps.
 fn build_color_lut() -> [[u8; 4]; 256] {
     let mut lut = [[0u8; 4]; 256];
 
     // Gradient stops: (intensity, r, g, b, a)
     let stops: &[(f32, f32, f32, f32, f32)] = &[
-        (0.0, 0.0, 0.0, 0.0, 0.0),          // transparent
-        (0.04, 250.0, 128.0, 36.0, 24.0),   // subtle amber
-        (0.14, 252.0, 110.0, 24.0, 76.0),   // visible single-trace orange
-        (0.32, 252.0, 92.0, 16.0, 124.0),   // brand-adjacent orange
-        (0.58, 252.0, 76.0, 2.0, 172.0),    // Strava-like hot orange
-        (0.80, 255.0, 164.0, 72.0, 212.0),  // warm overlap highlight
-        (0.94, 255.0, 221.0, 156.0, 236.0), // pale gold
-        (1.0, 255.0, 247.0, 220.0, 246.0),  // soft highlight, not full white
+        (0.0,   0.0,   0.0,   0.0,   0.0),         // transparent
+        (0.04,  13.0,  148.0, 136.0, 28.0),         // subtle teal (#0D9488)
+        (0.14,  16.0,  163.0, 150.0, 80.0),         // visible teal
+        (0.32,  20.0,  184.0, 166.0, 128.0),        // brand teal (#14B8A6)
+        (0.58,  45.0,  212.0, 191.0, 176.0),        // bright teal (#2DD4BF)
+        (0.80,  94.0,  234.0, 212.0, 216.0),        // light teal (#5EEAD4)
+        (0.94,  153.0, 246.0, 228.0, 236.0),        // pale teal
+        (1.0,   204.0, 251.0, 241.0, 246.0),        // very pale teal highlight
     ];
 
     for i in 1..256 {

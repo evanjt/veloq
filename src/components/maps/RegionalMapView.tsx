@@ -674,7 +674,8 @@ export function RegionalMapView({
             <RasterLayer
               id="heatmap-layer"
               style={{
-                rasterOpacity: showActivities ? 0.72 : 0,
+                rasterOpacity: showActivities ? (mapStyle === 'light' ? 0.82 : 0.72) : 0,
+                rasterContrast: mapStyle === 'light' ? 0.2 : 0,
                 rasterResampling: 'linear',
                 rasterFadeDuration: 0,
               }}

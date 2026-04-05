@@ -119,7 +119,8 @@ export function useMapGeoJSON({
 
         return {
           type: 'Feature' as const,
-          id: activity.id,
+          // No top-level `id` — string IDs break MapLibre Supercluster clustering.
+          // Use properties.id for tap handlers and selection expressions.
           properties: {
             id: activity.id,
             type: activity.type,
@@ -290,7 +291,6 @@ export function useMapGeoJSON({
         // GeoJSON LineString requires minimum 2 coordinates
         // Stride-sample to halve coordinate payload (same as tracesGeoJSON).
         const coordinates = signature.points
-          .filter((_, i) => i % 2 === 0 || i === signature.points.length - 1)
           .filter((pt) => Number.isFinite(pt.lng) && Number.isFinite(pt.lat))
           .map((pt) => [pt.lng, pt.lat]);
 
