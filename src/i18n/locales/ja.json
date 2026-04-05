@@ -214,7 +214,8 @@
     "password": "Password",
     "testConnection": "Test Connection",
     "connectionSuccess": "Connection successful",
-    "connectionFailed": "Connection failed"
+    "connectionFailed": "Connection failed",
+    "restoreFromBackup": "バックアップから復元"
   },
   "cache": {
     "addingActivities": "アクティビティを追加中...",

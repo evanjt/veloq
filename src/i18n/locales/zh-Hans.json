@@ -214,7 +214,8 @@
     "password": "Password",
     "testConnection": "Test Connection",
     "connectionSuccess": "Connection successful",
-    "connectionFailed": "Connection failed"
+    "connectionFailed": "Connection failed",
+    "restoreFromBackup": "从备份恢复"
   },
   "cache": {
     "addingActivities": "正在添加活动...",

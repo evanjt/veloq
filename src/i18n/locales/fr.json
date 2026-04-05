@@ -214,7 +214,8 @@
     "password": "Password",
     "testConnection": "Test Connection",
     "connectionSuccess": "Connection successful",
-    "connectionFailed": "Connection failed"
+    "connectionFailed": "Connection failed",
+    "restoreFromBackup": "Restaurer depuis la sauvegarde"
   },
   "cache": {
     "addingActivities": "Ajout des activités...",

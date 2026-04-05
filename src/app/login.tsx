@@ -33,6 +33,7 @@ const VELOQ_URLS = {
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection';
 import { clearAllAppCaches } from '@/lib/storage';
 import { useSyncDateRange, useUploadPermissionStore } from '@/providers';
+import { useImportDatabaseBackup } from '@/hooks';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -46,6 +47,7 @@ export default function LoginScreen() {
   const clearSessionExpired = useAuthStore((state) => state.clearSessionExpired);
   const queryClient = useQueryClient();
   const resetSyncDateRange = useSyncDateRange((state) => state.reset);
+  const { importDatabaseBackup, importing: isRestoring } = useImportDatabaseBackup();
 
   // Language selection
   const { language, setLanguage } = useLanguageStore();
@@ -431,6 +433,21 @@ export default function LoginScreen() {
             {t('login.tryDemo', { defaultValue: 'Try Demo' })}
           </Button>
 
+          {/* Restore from Backup */}
+          <Button
+            testID="login-restore-button"
+            mode="text"
+            onPress={importDatabaseBackup}
+            disabled={isLoading || isApiKeyLoading || isRestoring}
+            style={styles.restoreButton}
+            icon="database-import-outline"
+            compact
+          >
+            {isRestoring
+              ? t('backup.importingDatabase')
+              : t('backup.restoreFromBackup', { defaultValue: 'Restore from Backup' })}
+          </Button>
+
           {/* API Key Collapsible Section */}
           <CollapsibleSection
             testID="login-apikey-section"
@@ -749,6 +766,9 @@ const styles = StyleSheet.create({
   },
   demoButton: {
     borderColor: colors.primary,
+  },
+  restoreButton: {
+    marginTop: spacing.sm,
   },
   apiKeySection: {
     marginTop: spacing.lg,
