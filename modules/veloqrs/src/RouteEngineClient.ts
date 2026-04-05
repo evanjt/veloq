@@ -994,6 +994,17 @@ class RouteEngineClient {
     };
   }
 
+  /** Bulk export all GPS activities as a single GeoJSON FeatureCollection. */
+  bulkExportGeoJson(destPath: string): { exported: number; skipped: number; totalBytes: number } {
+    if (!this.ready) throw new Error('Engine not initialized');
+    const result = this.timed('bulkExportGeoJson', () => this.engine.bulkExportGeojson(destPath));
+    return {
+      exported: result.exported,
+      skipped: result.skipped,
+      totalBytes: Number(result.totalBytes),
+    };
+  }
+
   computePolylineOverlap(coordsA: number[], coordsB: number[], thresholdMeters = 50): number {
     return this.timed('computePolylineOverlap', () =>
       gen().computePolylineOverlap(coordsA, coordsB, thresholdMeters),

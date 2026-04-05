@@ -184,4 +184,11 @@ impl VeloqEngine {
             e.bulk_export_gpx(&dest_path).map_err(|msg| VeloqError::Database { msg })
         })?
     }
+
+    /// Bulk export all activities with GPS data as a single GeoJSON FeatureCollection.
+    fn bulk_export_geojson(&self, dest_path: String) -> Result<crate::persistence::export::BulkExportResult, VeloqError> {
+        with_engine(|e| {
+            e.bulk_export_geojson(&dest_path).map_err(|msg| VeloqError::Database { msg })
+        })?
+    }
 }

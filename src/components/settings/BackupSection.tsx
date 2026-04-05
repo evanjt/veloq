@@ -55,9 +55,10 @@ export function BackupSection() {
   const { exportBackup: legacyExport, exporting: legacyExporting } = useExportBackup();
   const { importBackup: legacyImport, importing: legacyImporting } = useImportBackup();
 
-  // Bulk GPX export
+  // Bulk export
   const {
     exportAll,
+    exportAllGeoJson,
     isExporting: bulkExporting,
     phase: bulkPhase,
     current: bulkCurrent,
@@ -190,52 +191,58 @@ export function BackupSection() {
         </TouchableOpacity>
         <View style={[styles.divider, isDark && styles.dividerDark]} />
 
-        {/* Bulk GPX export */}
-        <TouchableOpacity
-          style={styles.actionRow}
-          onPress={bulkExporting ? undefined : exportAll}
-          disabled={bulkExporting}
-          activeOpacity={0.2}
-        >
-          <MaterialCommunityIcons name="zip-box-outline" size={22} color={colors.primary} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.actionText, isDark && styles.textLight]}>
-              {bulkExporting
-                ? bulkPhase === 'sharing'
+        {/* Bulk activity export */}
+        <View style={styles.actionRow}>
+          <MaterialCommunityIcons name="map-marker-path" size={22} color={colors.primary} />
+          {bulkExporting ? (
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.actionText, isDark && styles.textLight]}>
+                {bulkPhase === 'sharing'
                   ? t('export.bulkSharing')
-                  : t('export.bulkExporting', { current: bulkCurrent, total: bulkTotal })
-                : t('export.bulkExport', { count: totalActivities })}
-            </Text>
-            {bulkExporting && (
-              <>
+                  : t('export.bulkExporting', { current: bulkCurrent, total: bulkTotal })}
+              </Text>
+              <View
+                style={[styles.progressBarContainer, isDark && styles.progressBarContainerDark]}
+              >
                 <View
-                  style={[styles.progressBarContainer, isDark && styles.progressBarContainerDark]}
+                  style={[
+                    styles.progressBar,
+                    {
+                      width:
+                        bulkTotal > 0 ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%` : '0%',
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={[styles.progressDetail, isDark && styles.textMuted]}>
+                {bulkTotal > 0 ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%` : '0%'}
+                {bulkSizeBytes > 0 && ` · ${formatFileSize(bulkSizeBytes)}`}
+              </Text>
+            </View>
+          ) : (
+            <>
+              <Text style={[styles.actionText, isDark && styles.textLight]}>
+                {t('export.bulkExport', { count: totalActivities })}
+              </Text>
+              <View style={styles.pillRow}>
+                <TouchableOpacity
+                  style={[styles.pill, isDark && styles.pillDark]}
+                  onPress={exportAll}
+                  activeOpacity={0.6}
                 >
-                  <View
-                    style={[
-                      styles.progressBar,
-                      {
-                        width:
-                          bulkTotal > 0 ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%` : '0%',
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={[styles.progressDetail, isDark && styles.textMuted]}>
-                  {bulkTotal > 0 ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%` : '0%'}
-                  {bulkSizeBytes > 0 && ` · ${formatFileSize(bulkSizeBytes)}`}
-                </Text>
-              </>
-            )}
-          </View>
-          {!bulkExporting && (
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={20}
-              color={isDark ? darkColors.textMuted : colors.textSecondary}
-            />
+                  <Text style={styles.pillText}>GPX</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.pill, isDark && styles.pillDark]}
+                  onPress={exportAllGeoJson}
+                  activeOpacity={0.6}
+                >
+                  <Text style={styles.pillText}>GeoJSON</Text>
+                </TouchableOpacity>
+              </View>
+            </>
           )}
-        </TouchableOpacity>
+        </View>
       </View>
     </>
   );
@@ -327,6 +334,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  pill: {
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+  },
+  pillDark: {
+    backgroundColor: colors.primary,
+  },
+  pillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
   },
   textLight: {
     color: colors.textOnDark,

@@ -182,6 +182,125 @@ impl PersistentRouteEngine {
 
         Ok(BulkExportResult { exported, skipped, total_bytes })
     }
+
+    /// Export all activities with GPS data as a single GeoJSON FeatureCollection.
+    ///
+    /// Each activity becomes a Feature with a LineString geometry and properties
+    /// (id, name, sport, date, distance, movingTime). Streams one track at a time.
+    pub fn bulk_export_geojson(&self, dest_path: &str) -> Result<BulkExportResult, String> {
+        use std::io::BufWriter;
+
+        let file = std::fs::File::create(dest_path)
+            .map_err(|e| format!("Failed to create GeoJSON file: {}", e))?;
+        let mut writer = BufWriter::new(file);
+
+        let mut exported: u32 = 0;
+        let mut skipped: u32 = 0;
+        let mut total_bytes: u64 = 0;
+
+        // Write FeatureCollection header
+        writer.write_all(b"{\"type\":\"FeatureCollection\",\"features\":[\n")
+            .map_err(|e| format!("Write failed: {}", e))?;
+
+        let mut stmt = self.db.prepare(
+            "SELECT g.activity_id, g.track_data, m.name, m.sport_type, m.date, m.distance, m.moving_time
+             FROM gps_tracks g
+             LEFT JOIN activity_metrics m ON g.activity_id = m.activity_id
+             ORDER BY m.date DESC"
+        ).map_err(|e| format!("Query failed: {}", e))?;
+
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Vec<u8>>(1)?,
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, Option<String>>(3)?,
+                row.get::<_, Option<i64>>(4)?,
+                row.get::<_, Option<f64>>(5)?,
+                row.get::<_, Option<i64>>(6)?,
+            ))
+        }).map_err(|e| format!("Query failed: {}", e))?;
+
+        let mut first = true;
+        for row_result in rows {
+            let (activity_id, track_blob, name, sport_type, date, distance, moving_time) =
+                match row_result {
+                    Ok(r) => r,
+                    Err(_) => { skipped += 1; continue; }
+                };
+
+            let points: Vec<GpsPoint> = match rmp_serde::from_slice(&track_blob) {
+                Ok(p) => p,
+                Err(_) => { skipped += 1; continue; }
+            };
+
+            if points.is_empty() {
+                skipped += 1;
+                continue;
+            }
+
+            let display_name = name.as_deref().unwrap_or(&activity_id);
+            let sport = sport_type.as_deref().unwrap_or("Unknown");
+            let date_str = date.and_then(|ts| {
+                chrono::DateTime::from_timestamp(ts, 0)
+                    .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+            });
+
+            // Build coordinates array: [[lng, lat], ...]
+            let coords: Vec<[f64; 2]> = points.iter()
+                .filter(|p| p.latitude.is_finite() && p.longitude.is_finite())
+                .map(|p| [p.longitude, p.latitude])
+                .collect();
+
+            if coords.is_empty() {
+                skipped += 1;
+                continue;
+            }
+
+            let feature = serde_json::json!({
+                "type": "Feature",
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": coords,
+                },
+                "properties": {
+                    "id": activity_id,
+                    "name": display_name,
+                    "sport": sport,
+                    "date": date_str.as_deref().unwrap_or(""),
+                    "distance": distance.unwrap_or(0.0),
+                    "movingTime": moving_time.unwrap_or(0),
+                }
+            });
+
+            let feature_json = serde_json::to_string(&feature)
+                .map_err(|e| format!("JSON serialization failed: {}", e))?;
+
+            if !first {
+                writer.write_all(b",\n")
+                    .map_err(|e| format!("Write failed: {}", e))?;
+            }
+            writer.write_all(feature_json.as_bytes())
+                .map_err(|e| format!("Write failed: {}", e))?;
+
+            total_bytes += feature_json.len() as u64;
+            exported += 1;
+            first = false;
+        }
+
+        // Close FeatureCollection
+        writer.write_all(b"\n]}")
+            .map_err(|e| format!("Write failed: {}", e))?;
+        writer.flush()
+            .map_err(|e| format!("Flush failed: {}", e))?;
+
+        log::info!(
+            "[BulkExport] GeoJSON exported {} activities ({} skipped), {} bytes",
+            exported, skipped, total_bytes
+        );
+
+        Ok(BulkExportResult { exported, skipped, total_bytes })
+    }
 }
 
 /// Generate GPX 1.1 XML for a single activity.

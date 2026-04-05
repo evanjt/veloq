@@ -65,3 +65,35 @@ export async function bulkExportActivities(
 
   return { exported: result.exported, skipped: result.skipped };
 }
+
+export async function bulkExportActivitiesGeoJson(
+  onProgress?: (progress: BulkExportProgress) => void
+): Promise<BulkExportResult> {
+  const engine = getRouteEngine();
+  if (!engine) throw new Error('Route engine not available');
+
+  const dateStr = new Date().toISOString().split('T')[0];
+  const filename = `veloq-activities-${dateStr}.geojson`;
+  const destUri = `${FileSystem.cacheDirectory}${filename}`;
+  const plainPath = destUri.startsWith('file://') ? destUri.slice(7) : destUri;
+
+  onProgress?.({ phase: 'generating', current: 0, total: 0, sizeBytes: 0 });
+
+  const result = engine.bulkExportGeoJson(plainPath);
+
+  onProgress?.({
+    phase: 'sharing',
+    current: result.exported,
+    total: result.exported,
+    sizeBytes: result.totalBytes,
+  });
+  const Sharing = await import('expo-sharing');
+  await Sharing.shareAsync(destUri, {
+    mimeType: 'application/geo+json',
+    UTI: 'public.json',
+  });
+
+  await FileSystem.deleteAsync(destUri, { idempotent: true });
+
+  return { exported: result.exported, skipped: result.skipped };
+}

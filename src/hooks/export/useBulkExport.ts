@@ -1,7 +1,11 @@
 import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { bulkExportActivities, type BulkExportPhase } from '@/lib/export/bulkExport';
+import {
+  bulkExportActivities,
+  bulkExportActivitiesGeoJson,
+  type BulkExportPhase,
+} from '@/lib/export/bulkExport';
 
 type ExportState = 'idle' | 'exporting' | 'done' | 'error';
 
@@ -14,45 +18,53 @@ export function useBulkExport() {
   const [error, setError] = useState<string | null>(null);
   const { t } = useTranslation();
 
-  const exportAll = useCallback(async () => {
-    if (state === 'exporting') return;
-    setState('exporting');
-    setPhase('generating');
-    setCurrent(0);
-    setTotal(0);
-    setSizeBytes(0);
-    setError(null);
+  const doExport = useCallback(
+    async (format: 'gpx' | 'geojson') => {
+      if (state === 'exporting') return;
+      setState('exporting');
+      setPhase('generating');
+      setCurrent(0);
+      setTotal(0);
+      setSizeBytes(0);
+      setError(null);
 
-    try {
-      const result = await bulkExportActivities((progress) => {
-        setPhase(progress.phase);
-        setCurrent(progress.current);
-        setTotal(progress.total);
-        setSizeBytes(progress.sizeBytes);
-      });
-      setState('done');
-      if (result.skipped > 0) {
-        Alert.alert(
-          t('export.bulkComplete'),
-          t('export.bulkResult', {
-            exported: result.exported,
-            skipped: result.skipped,
-          })
-        );
+      try {
+        const exportFn =
+          format === 'geojson' ? bulkExportActivitiesGeoJson : bulkExportActivities;
+        const result = await exportFn((progress) => {
+          setPhase(progress.phase);
+          setCurrent(progress.current);
+          setTotal(progress.total);
+          setSizeBytes(progress.sizeBytes);
+        });
+        setState('done');
+        if (result.skipped > 0) {
+          Alert.alert(
+            t('export.bulkComplete'),
+            t('export.bulkResult', {
+              exported: result.exported,
+              skipped: result.skipped,
+            })
+          );
+        }
+      } catch (err) {
+        setState('error');
+        const message = err instanceof Error ? err.message : t('export.error');
+        setError(message);
+        Alert.alert(t('common.error'), message);
+      } finally {
+        setTimeout(() => setState('idle'), 1000);
       }
-    } catch (err) {
-      setState('error');
-      const message = err instanceof Error ? err.message : t('export.error');
-      setError(message);
-      Alert.alert(t('common.error'), message);
-    } finally {
-      // Reset to idle after a short delay so UI can show completion
-      setTimeout(() => setState('idle'), 1000);
-    }
-  }, [state, t]);
+    },
+    [state, t]
+  );
+
+  const exportAll = useCallback(() => doExport('gpx'), [doExport]);
+  const exportAllGeoJson = useCallback(() => doExport('geojson'), [doExport]);
 
   return {
     exportAll,
+    exportAllGeoJson,
     isExporting: state === 'exporting',
     phase,
     current,
