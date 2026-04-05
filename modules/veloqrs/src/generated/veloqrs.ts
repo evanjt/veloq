@@ -294,6 +294,71 @@ const FfiConverterTypeActivitySportType = (() => {
 })();
 
 /**
+ * Result of a bulk GPX export.
+ */
+export type BulkExportResult = {
+  exported: /*u32*/ number;
+  skipped: /*u32*/ number;
+  totalBytes: /*u64*/ bigint;
+};
+
+/**
+ * Generated factory for {@link BulkExportResult} record objects.
+ */
+export const BulkExportResult = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<BulkExportResult, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link BulkExportResult}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link BulkExportResult}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<BulkExportResult>,
+  });
+})();
+
+const FfiConverterTypeBulkExportResult = (() => {
+  type TypeName = BulkExportResult;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        exported: FfiConverterUInt32.read(from),
+        skipped: FfiConverterUInt32.read(from),
+        totalBytes: FfiConverterUInt64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.exported, into);
+      FfiConverterUInt32.write(value.skipped, into);
+      FfiConverterUInt64.write(value.totalBytes, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.exported) +
+        FfiConverterUInt32.allocationSize(value.skipped) +
+        FfiConverterUInt64.allocationSize(value.totalBytes)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Result of polling download progress.
  * Used by TypeScript to show real-time progress without cross-thread callbacks.
  */
@@ -9473,9 +9538,29 @@ const FfiConverterTypeSectionManager = new FfiConverterObject(
 );
 
 export interface SettingsManagerInterface {
+  /**
+   * Delete a single user preference.
+   */
+  deleteSetting(key: string) /*throws*/ : void;
+  /**
+   * Get all user preferences as a JSON string: {"key": "value", ...}.
+   */
+  getAllSettings() /*throws*/ : string;
   getAthleteProfile() /*throws*/ : string | undefined;
+  /**
+   * Get a single user preference by key.
+   */
+  getSetting(key: string) /*throws*/ : string | undefined;
   getSportSettings() /*throws*/ : string | undefined;
+  /**
+   * Bulk upsert user preferences from a JSON string: {"key": "value", ...}.
+   */
+  setAllSettings(json: string) /*throws*/ : void;
   setAthleteProfile(json: string) /*throws*/ : void;
+  /**
+   * Set a single user preference (upsert).
+   */
+  setSetting(key: string, value: string) /*throws*/ : void;
   setSportSettings(json: string) /*throws*/ : void;
 }
 
@@ -9501,6 +9586,45 @@ export class SettingsManager
       uniffiTypeSettingsManagerObjectFactory.bless(pointer);
   }
 
+  /**
+   * Delete a single user preference.
+   */
+  public deleteSetting(key: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_delete_setting(
+          uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(key),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Get all user preferences as a JSON string: {"key": "value", ...}.
+   */
+  public getAllSettings(): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_all_settings(
+            uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   public getAthleteProfile(): string | undefined /*throws*/ {
     return FfiConverterOptionalString.lift(
       uniffiCaller.rustCallWithError(
@@ -9510,6 +9634,27 @@ export class SettingsManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_athlete_profile(
             uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get a single user preference by key.
+   */
+  public getSetting(key: string): string | undefined /*throws*/ {
+    return FfiConverterOptionalString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_setting(
+            uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(key),
             callStatus,
           );
         },
@@ -9535,6 +9680,25 @@ export class SettingsManager
     );
   }
 
+  /**
+   * Bulk upsert user preferences from a JSON string: {"key": "value", ...}.
+   */
+  public setAllSettings(json: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_all_settings(
+          uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(json),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
   public setAthleteProfile(json: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -9544,6 +9708,26 @@ export class SettingsManager
         nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
           uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(json),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Set a single user preference (upsert).
+   */
+  public setSetting(key: string, value: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_setting(
+          uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(key),
+          FfiConverterString.lower(value),
           callStatus,
         );
       },
@@ -10081,6 +10265,20 @@ const FfiConverterTypeStrengthManager = new FfiConverterObject(
 
 export interface VeloqEngineInterface {
   activities(): ActivityManagerInterface;
+  /**
+   * Create an atomic SQLite backup at the given path.
+   * Uses sqlite3_backup API — safe to call while the database is in use.
+   */
+  backupDatabase(destPath: string) /*throws*/ : void;
+  /**
+   * Bulk export all activities with GPS data as a single GeoJSON FeatureCollection.
+   */
+  bulkExportGeojson(destPath: string) /*throws*/ : BulkExportResult;
+  /**
+   * Bulk export all activities with GPS data as a ZIP of GPX files.
+   * Streams one track at a time — constant memory regardless of activity count.
+   */
+  bulkExportGpx(destPath: string) /*throws*/ : BulkExportResult;
   cleanupOldActivities(
     retentionDays: /*u32*/ number,
   ) /*throws*/ : /*u32*/ number;
@@ -10093,6 +10291,11 @@ export interface VeloqEngineInterface {
   detection(): DetectionManagerInterface;
   fitness(): FitnessManagerInterface;
   getActivityCount() /*throws*/ : /*u32*/ number;
+  /**
+   * Get backup metadata as JSON for validation before restore.
+   * Returns: {"schema_version", "activity_count", "section_count", "athlete_id"}.
+   */
+  getBackupMetadata() /*throws*/ : string;
   getStats() /*throws*/ : PersistentEngineStats;
   heatmap(): HeatmapManagerInterface;
   isInitialized(): boolean;
@@ -10140,6 +10343,69 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_activities(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Create an atomic SQLite backup at the given path.
+   * Uses sqlite3_backup API — safe to call while the database is in use.
+   */
+  public backupDatabase(destPath: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_backup_database(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+          FfiConverterString.lower(destPath),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Bulk export all activities with GPS data as a single GeoJSON FeatureCollection.
+   */
+  public bulkExportGeojson(destPath: string): BulkExportResult /*throws*/ {
+    return FfiConverterTypeBulkExportResult.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            FfiConverterString.lower(destPath),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Bulk export all activities with GPS data as a ZIP of GPX files.
+   * Streams one track at a time — constant memory regardless of activity count.
+   */
+  public bulkExportGpx(destPath: string): BulkExportResult /*throws*/ {
+    return FfiConverterTypeBulkExportResult.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            FfiConverterString.lower(destPath),
             callStatus,
           );
         },
@@ -10235,6 +10501,27 @@ export class VeloqEngine
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get backup metadata as JSON for validation before restore.
+   * Returns: {"schema_version", "activity_count", "section_count", "athlete_id"}.
+   */
+  public getBackupMetadata(): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
             callStatus,
           );
@@ -11532,11 +11819,35 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_delete_setting() !==
+    3957
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_delete_setting",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_all_settings() !==
+    58439
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_get_all_settings",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile() !==
     28379
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_setting() !==
+    14964
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_get_setting",
     );
   }
   if (
@@ -11548,11 +11859,27 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_all_settings() !==
+    48291
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_set_all_settings",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile() !==
     54334
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_setting() !==
+    31153
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_set_setting",
     );
   }
   if (
@@ -11652,6 +11979,30 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_backup_database() !==
+    6437
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_backup_database",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson() !==
+    65477
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx() !==
+    13470
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_activities() !==
     56798
   ) {
@@ -11697,6 +12048,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_get_activity_count",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata() !==
+    10688
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata",
     );
   }
   if (
@@ -11867,6 +12226,7 @@ export default Object.freeze({
     FfiConverterTypeActivityManager,
     FfiConverterTypeActivitySportMapping,
     FfiConverterTypeActivitySportType,
+    FfiConverterTypeBulkExportResult,
     FfiConverterTypeDetectionManager,
     FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeFetchAndStoreResult,
