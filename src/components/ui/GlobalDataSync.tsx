@@ -13,6 +13,7 @@ import {
   useActivityBoundsCache,
   isInfiniteActivitiesStale,
 } from '@/hooks';
+import { onSyncComplete } from '@/lib/backup';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import {
   formatGpsSyncProgress,
@@ -79,6 +80,7 @@ export function GlobalDataSync() {
       queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
       queryClient.invalidateQueries({ queryKey: ['powerCurve'] });
       queryClient.invalidateQueries({ queryKey: ['paceCurve'] });
+      onSyncComplete();
     }
   }, [progress.status, queryClient]);
 

@@ -60,7 +60,7 @@ import {
 } from '@/components/ui';
 import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
-import { migrateSettingsToSqlite } from '@/lib/backup';
+import { migrateSettingsToSqlite, onAppBackground, onAppForeground } from '@/lib/backup';
 import {
   initializeNotifications,
   setupNotificationResponseHandler,
@@ -191,7 +191,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') {
+        onAppBackground();
+      }
       if (state === 'active') {
+        onAppForeground();
         const today = formatLocalDate(new Date());
         if (today !== lastForegroundDateRef.current) {
           lastForegroundDateRef.current = today;
