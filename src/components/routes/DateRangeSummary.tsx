@@ -44,8 +44,7 @@ export function DateRangeSummary({
   const themeColors = isDark ? darkColors : colors;
 
   const handleExpandPress = () => {
-    // Navigate to settings and scroll to data cache section
-    router.push('/settings?scrollTo=cache');
+    router.push('/cache-settings' as never);
   };
 
   return (

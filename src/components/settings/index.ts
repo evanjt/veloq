@@ -1,6 +1,7 @@
 export { BackupSection } from './BackupSection';
 export { CacheManagementPanel } from './CacheManagementPanel';
 export { DataCacheSection } from './DataCacheSection';
+export { DataSection } from './DataSection';
 export { DataSourcesSection } from './DataSourcesSection';
 export { DisplaySettings } from './DisplaySettings';
 export { MapStylePreviewPicker } from './MapStylePreviewPicker';

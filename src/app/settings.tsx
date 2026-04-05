@@ -1,15 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  LayoutChangeEvent,
-} from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAthlete, useTheme } from '@/hooks';
@@ -29,8 +22,7 @@ import {
   DisplaySettings,
   MapsSection,
   SummaryCardSection,
-  BackupSection,
-  DataCacheSection,
+  DataSection,
   DataSourcesSection,
   NotificationSection,
   SupportSection,
@@ -48,31 +40,6 @@ export default function SettingsScreen() {
   const { isDark } = useTheme();
   const themePreference = useThemePreferenceStore((s) => s.preference);
   const [showLanguages, setShowLanguages] = useState(false);
-
-  // Scroll-to-anchor support
-  const { scrollTo } = useLocalSearchParams<{ scrollTo?: string }>();
-  const scrollViewRef = useRef<ScrollView>(null);
-  const dataCacheSectionY = useRef<number>(0);
-  const hasScrolled = useRef(false);
-
-  // Track data cache section position
-  const handleDataCacheSectionLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      dataCacheSectionY.current = event.nativeEvent.layout.y;
-      // Scroll if we haven't yet and have a scroll target
-      if (scrollTo === 'cache' && !hasScrolled.current && scrollViewRef.current) {
-        hasScrolled.current = true;
-        // Small delay to ensure layout is complete
-        setTimeout(() => {
-          scrollViewRef.current?.scrollTo({
-            y: dataCacheSectionY.current - 16,
-            animated: true,
-          });
-        }, 100);
-      }
-    },
-    [scrollTo]
-  );
 
   const { data: athlete } = useAthlete();
   const primarySport = useSportPreference((s) => s.primarySport);
@@ -106,11 +73,7 @@ export default function SettingsScreen() {
         testID="settings-screen"
         style={[styles.container, isDark && styles.containerDark]}
       >
-        <ScrollView
-          testID="settings-scrollview"
-          ref={scrollViewRef}
-          contentContainerStyle={styles.content}
-        >
+        <ScrollView testID="settings-scrollview" contentContainerStyle={styles.content}>
           {/* Header with back button */}
           <View style={styles.header}>
             <TouchableOpacity
@@ -154,11 +117,9 @@ export default function SettingsScreen() {
 
           <MapsSection />
 
-          <BackupSection />
-
-          <DataCacheSection onLayout={handleDataCacheSectionLayout} />
-
           <NotificationSection />
+
+          <DataSection />
 
           <DataSourcesSection />
 
