@@ -106,6 +106,23 @@ export function SupportSection() {
         </TouchableOpacity>
       )}
 
+      <TouchableOpacity
+        style={styles.toggleRow}
+        onPress={() => navigateTo('/about')}
+        activeOpacity={0.7}
+      >
+        <View style={styles.toggleInfo}>
+          <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
+            {t('about.title')}
+          </Text>
+        </View>
+        <MaterialCommunityIcons
+          name="chevron-right"
+          size={24}
+          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+        />
+      </TouchableOpacity>
+
       <Pressable onPress={handleVersionTap}>
         <Text
           testID="settings-version-text"

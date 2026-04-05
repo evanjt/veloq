@@ -25,13 +25,12 @@ import {
 } from '@/providers';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import {
-  ProfileSection,
+  ProfileAccountSection,
   DisplaySettings,
   MapsSection,
   SummaryCardSection,
   BackupSection,
   DataCacheSection,
-  AccountSection,
   DataSourcesSection,
   NotificationSection,
   SupportSection,
@@ -133,10 +132,8 @@ export default function SettingsScreen() {
             <View style={styles.headerSpacer} />
           </View>
 
-          {/* Profile Section - tap to open intervals.icu profile */}
-          <View style={{ marginHorizontal: layout.screenPadding }}>
-            <ProfileSection athlete={athlete} />
-          </View>
+          {/* Profile & Account Section */}
+          <ProfileAccountSection athlete={athlete} />
 
           <SummaryCardSection />
 
@@ -162,8 +159,6 @@ export default function SettingsScreen() {
           <DataCacheSection onLayout={handleDataCacheSectionLayout} />
 
           <NotificationSection />
-
-          <AccountSection />
 
           <DataSourcesSection />
 
