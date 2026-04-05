@@ -27,6 +27,7 @@ describe('insight notifications', () => {
   const preferences: NotificationPreferences = {
     enabled: true,
     privacyAccepted: true,
+    pendingUnregister: false,
     categories: {
       sectionPr: false,
       fitnessMilestone: true,

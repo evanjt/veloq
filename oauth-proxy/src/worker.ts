@@ -337,8 +337,8 @@ function redirectToAppWithError(error: string): Response {
 // Push notification endpoints
 // ---------------------------------------------------------------------------
 
-/** Device token TTL: 90 days */
-const DEVICE_TOKEN_TTL_SECONDS = 90 * 24 * 60 * 60;
+/** Device token TTL: 30 days (re-registered on every app open) */
+const DEVICE_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 /** Webhook events we process (others are ignored) */
 const PROCESSED_EVENTS = new Set([

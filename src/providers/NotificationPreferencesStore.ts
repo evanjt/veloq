@@ -8,6 +8,8 @@ export interface NotificationPreferences {
   enabled: boolean;
   /** User has accepted the privacy notice (required before enabling) */
   privacyAccepted: boolean;
+  /** Unregister request failed (e.g. offline) — retry on next app open */
+  pendingUnregister: boolean;
   /** Per-category toggles */
   categories: {
     sectionPr: boolean;
@@ -19,6 +21,7 @@ export interface NotificationPreferences {
 const DEFAULT_PREFERENCES: NotificationPreferences = {
   enabled: false,
   privacyAccepted: false,
+  pendingUnregister: false,
   categories: {
     sectionPr: true,
     fitnessMilestone: true,
@@ -35,6 +38,7 @@ interface NotificationPreferencesState extends NotificationPreferences {
     category: keyof NotificationPreferences['categories'],
     enabled: boolean
   ) => void;
+  clearPendingUnregister: () => void;
   reset: () => void;
 }
 
@@ -54,6 +58,7 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
         set({
           enabled: parsed.enabled ?? false,
           privacyAccepted: parsed.privacyAccepted ?? false,
+          pendingUnregister: parsed.pendingUnregister ?? false,
           categories: { ...DEFAULT_PREFERENCES.categories, ...parsed.categories },
           isLoaded: true,
         });
@@ -70,12 +75,13 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
     const updated: NotificationPreferences = {
       enabled,
       privacyAccepted: state.privacyAccepted,
+      pendingUnregister: enabled ? false : true,
       categories: state.categories,
     };
-    set({ enabled });
+    set({ enabled, pendingUnregister: enabled ? false : true });
     persist(updated);
 
-    // Register/unregister push token with server (fire-and-forget)
+    // Register/unregister push token with server
     try {
       const { useAuthStore } = require('./AuthStore');
       const { athleteId } = useAuthStore.getState();
@@ -85,7 +91,12 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
           registerPushToken(athleteId);
         } else {
           const { unregisterPushToken } = require('@/lib/notifications/pushTokenRegistration');
-          unregisterPushToken(athleteId);
+          unregisterPushToken(athleteId).then((success: boolean) => {
+            if (success) {
+              set({ pendingUnregister: false });
+              persist({ ...get(), pendingUnregister: false });
+            }
+          });
         }
       }
     } catch {
@@ -98,6 +109,7 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
     const updated: NotificationPreferences = {
       enabled: state.enabled,
       privacyAccepted: true,
+      pendingUnregister: state.pendingUnregister,
       categories: state.categories,
     };
     set({ privacyAccepted: true });
@@ -110,10 +122,17 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
     const updated: NotificationPreferences = {
       enabled: state.enabled,
       privacyAccepted: state.privacyAccepted,
+      pendingUnregister: state.pendingUnregister,
       categories,
     };
     set({ categories });
     persist(updated);
+  },
+
+  clearPendingUnregister: () => {
+    const state = get();
+    set({ pendingUnregister: false });
+    persist({ ...state, pendingUnregister: false });
   },
 
   reset: () => {
@@ -127,8 +146,18 @@ export function getNotificationPreferences(): NotificationPreferences {
   return {
     enabled: state.enabled,
     privacyAccepted: state.privacyAccepted,
+    pendingUnregister: state.pendingUnregister,
     categories: state.categories,
   };
+}
+
+/** Retry a failed unregister request (called on app open) */
+export async function retryPendingUnregister(athleteId: string): Promise<void> {
+  const { unregisterPushToken } = require('@/lib/notifications/pushTokenRegistration');
+  const success = await unregisterPushToken(athleteId);
+  if (success) {
+    useNotificationPreferences.getState().clearPendingUnregister();
+  }
 }
 
 export async function initializeNotificationPreferences(): Promise<void> {
