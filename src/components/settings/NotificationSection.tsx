@@ -9,8 +9,8 @@ import {
   requestNotificationPermission,
   hasNotificationPermission,
 } from '@/lib/notifications/notificationService';
-import { colors, darkColors, spacing, layout } from '@/theme';
-import { SectionDivider } from './SettingsSection';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { settingsStyles } from './settingsStyles';
 
 export function NotificationSection() {
   const { isDark } = useTheme();
@@ -54,10 +54,10 @@ export function NotificationSection() {
 
   return (
     <>
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
         {t('notifications.settings.title').toUpperCase()}
       </Text>
-      <View style={[styles.section, isDark && styles.sectionDark]}>
+      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         {/* Main toggle */}
         <View style={styles.row}>
           <MaterialCommunityIcons
@@ -65,7 +65,7 @@ export function NotificationSection() {
             size={20}
             color={isDark ? darkColors.textPrimary : colors.textPrimary}
           />
-          <Text style={[styles.rowLabel, isDark && styles.textLight]} numberOfLines={1}>
+          <Text style={[styles.rowLabel, isDark && settingsStyles.textLight]} numberOfLines={1}>
             {t('notifications.settings.enable')}
           </Text>
           <Switch
@@ -80,7 +80,7 @@ export function NotificationSection() {
         {!canEnable ? (
           <Text
             testID="settings-notifications-oauth-hint"
-            style={[styles.hint, isDark && styles.textMuted]}
+            style={[settingsStyles.hintText, isDark && settingsStyles.textMuted]}
           >
             {t('notifications.settings.requiresOAuth')}
           </Text>
@@ -94,7 +94,7 @@ export function NotificationSection() {
               size={14}
               color={isDark ? darkColors.textMuted : colors.textMuted}
             />
-            <Text style={[styles.privacyText, isDark && styles.textMuted]}>
+            <Text style={[styles.privacyText, isDark && settingsStyles.textMuted]}>
               {t('notifications.settings.privacyHint')}
             </Text>
           </Pressable>
@@ -103,8 +103,8 @@ export function NotificationSection() {
         {/* Category toggles (only when enabled) */}
         {enabled ? (
           <>
-            <SectionDivider />
-            <Text style={[styles.categoryHeader, isDark && styles.textMuted]}>
+            <View style={[settingsStyles.fullDivider, isDark && settingsStyles.fullDividerDark]} />
+            <Text style={[styles.categoryHeader, isDark && settingsStyles.textMuted]}>
               {t('notifications.settings.categories')}
             </Text>
 
@@ -122,18 +122,6 @@ export function NotificationSection() {
               onToggle={(v) => setCategoryEnabled('fitnessMilestone', v)}
               isDark={isDark}
             />
-            <CategoryRow
-              label={t('notifications.settings.periodComparison')}
-              icon="chart-line"
-              value={categories.periodComparison}
-              onToggle={(v) => setCategoryEnabled('periodComparison', v)}
-              isDark={isDark}
-            />
-
-            <SectionDivider />
-            <Text style={[styles.stravaNote, isDark && styles.textMuted]}>
-              {t('notifications.settings.stravaNote')}
-            </Text>
           </>
         ) : null}
       </View>
@@ -161,7 +149,7 @@ function CategoryRow({
         size={16}
         color={isDark ? darkColors.textSecondary : colors.textSecondary}
       />
-      <Text style={[styles.categoryLabel, isDark && styles.textLight]} numberOfLines={1}>
+      <Text style={[styles.categoryLabel, isDark && settingsStyles.textLight]} numberOfLines={1}>
         {label}
       </Text>
       <Switch value={value} onValueChange={onToggle} color={colors.primary} />
@@ -170,29 +158,6 @@ function CategoryRow({
 }
 
 const styles = StyleSheet.create({
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-    marginHorizontal: spacing.md,
-  },
-  textMuted: {
-    color: darkColors.textSecondary,
-  },
-  textLight: {
-    color: darkColors.textPrimary,
-  },
-  section: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    marginBottom: spacing.md,
-    overflow: 'hidden',
-  },
-  sectionDark: {
-    backgroundColor: darkColors.surface,
-  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -201,30 +166,24 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   rowLabel: {
+    ...typography.body,
     flex: 1,
-    fontSize: 16,
     color: colors.textPrimary,
-  },
-  hint: {
-    fontSize: 12,
-    color: colors.textMuted,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
   },
   privacyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
   privacyText: {
-    fontSize: 11,
+    ...typography.label,
     color: colors.textMuted,
+    textTransform: 'none',
   },
   categoryHeader: {
-    fontSize: 12,
-    fontWeight: '600',
+    ...typography.captionBold,
     color: colors.textSecondary,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
@@ -238,15 +197,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   categoryLabel: {
+    ...typography.bodySmall,
     flex: 1,
-    fontSize: 14,
     color: colors.textPrimary,
-  },
-  stravaNote: {
-    fontSize: 12,
-    color: colors.textMuted,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontStyle: 'italic',
   },
 });

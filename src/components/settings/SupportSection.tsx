@@ -9,7 +9,8 @@ import Constants from 'expo-constants';
 import { navigateTo } from '@/lib';
 import { useDebugStore, useWhatsNewStore } from '@/providers';
 import { getAllSlides } from '@/components/ui/whatsNew/slides';
-import { colors, darkColors, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
+import { settingsStyles } from './settingsStyles';
 
 export function SupportSection() {
   const { isDark } = useTheme();
@@ -37,7 +38,7 @@ export function SupportSection() {
 
   return (
     <>
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
         {t('settings.support').toUpperCase()}
       </Text>
       <View style={styles.supportRow}>
@@ -49,8 +50,10 @@ export function SupportSection() {
           <View style={[styles.supportIconBg, { backgroundColor: 'rgba(233, 30, 99, 0.12)' }]}>
             <MaterialCommunityIcons name="heart" size={24} color={colors.chartPink} />
           </View>
-          <Text style={[styles.supportTitle, isDark && styles.textLight]}>intervals.icu</Text>
-          <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>
+          <Text style={[styles.supportTitle, isDark && settingsStyles.textLight]}>
+            intervals.icu
+          </Text>
+          <Text style={[styles.supportSubtitle, isDark && settingsStyles.textMuted]}>
             {t('settings.subscribe')}
           </Text>
         </TouchableOpacity>
@@ -74,8 +77,8 @@ export function SupportSection() {
               color={isDark ? colors.textOnDark : colors.textPrimary}
             />
           </View>
-          <Text style={[styles.supportTitle, isDark && styles.textLight]}>@evanjt</Text>
-          <Text style={[styles.supportSubtitle, isDark && styles.textMuted]}>
+          <Text style={[styles.supportTitle, isDark && settingsStyles.textLight]}>@evanjt</Text>
+          <Text style={[styles.supportSubtitle, isDark && settingsStyles.textMuted]}>
             {t('settings.sponsorDev')}
           </Text>
         </TouchableOpacity>
@@ -88,10 +91,10 @@ export function SupportSection() {
           activeOpacity={0.7}
         >
           <View style={styles.toggleInfo}>
-            <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
+            <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
               {t('settings.appTour')}
             </Text>
-            <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
+            <Text style={[styles.toggleDescription, isDark && settingsStyles.textMuted]}>
               {t('settings.appTourDescription')}
             </Text>
           </View>
@@ -106,7 +109,7 @@ export function SupportSection() {
       <Pressable onPress={handleVersionTap}>
         <Text
           testID="settings-version-text"
-          style={[styles.versionText, isDark && styles.textMuted]}
+          style={[styles.versionText, isDark && settingsStyles.textMuted]}
         >
           {t('settings.version')} {Constants.expoConfig?.version ?? '0.0.1'}
         </Text>
@@ -115,8 +118,8 @@ export function SupportSection() {
       {(debugUnlocked || debugEnabled) && (
         <View style={styles.toggleRow}>
           <View style={styles.toggleInfo}>
-            <Text style={[styles.toggleLabel, isDark && styles.textLight]}>Debug Mode</Text>
-            <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
+            <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>Debug Mode</Text>
+            <Text style={[styles.toggleDescription, isDark && settingsStyles.textMuted]}>
               Show internal diagnostics in detail pages
             </Text>
           </View>
@@ -130,10 +133,10 @@ export function SupportSection() {
           activeOpacity={0.7}
         >
           <View style={styles.toggleInfo}>
-            <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
+            <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
               Developer Dashboard
             </Text>
-            <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
+            <Text style={[styles.toggleDescription, isDark && settingsStyles.textMuted]}>
               Engine stats, FFI performance, memory
             </Text>
           </View>
@@ -149,15 +152,6 @@ export function SupportSection() {
 }
 
 const styles = StyleSheet.create({
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    marginHorizontal: layout.screenPadding,
-    letterSpacing: 0.5,
-  },
   supportRow: {
     flexDirection: 'row',
     marginHorizontal: layout.screenPadding,
@@ -166,7 +160,7 @@ const styles = StyleSheet.create({
   supportCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
     padding: spacing.md,
     alignItems: 'center',
     ...shadows.card,
@@ -178,23 +172,23 @@ const styles = StyleSheet.create({
   supportIconBg: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: layout.borderRadiusLg,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
   supportTitle: {
-    fontSize: 14,
+    ...typography.bodySmall,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: 2,
   },
   supportSubtitle: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   versionText: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: spacing.xl,
@@ -212,19 +206,13 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   toggleLabel: {
-    fontSize: 16,
+    ...typography.body,
     fontWeight: '500',
     color: colors.textPrimary,
   },
   toggleDescription: {
-    fontSize: 13,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
     marginTop: 2,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  textMuted: {
-    color: darkColors.textSecondary,
   },
 });
