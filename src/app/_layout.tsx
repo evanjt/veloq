@@ -60,7 +60,12 @@ import {
 } from '@/components/ui';
 import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
-import { migrateSettingsToSqlite, onAppBackground, onAppForeground } from '@/lib/backup';
+import {
+  migrateSettingsToSqlite,
+  onAppBackground,
+  onAppForeground,
+  initWebdavConfig,
+} from '@/lib/backup';
 import {
   initializeNotifications,
   setupNotificationResponseHandler,
@@ -143,6 +148,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             engine.setNameTranslations(routeWord, sectionWord);
             // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
             migrateSettingsToSqlite().catch(() => {});
+            // Load WebDAV credentials into memory cache
+            initWebdavConfig().catch(() => {});
             // Write athlete ID to SQLite for backup cross-athlete protection
             const athleteId = useAuthStore.getState().athleteId;
             if (athleteId) {
