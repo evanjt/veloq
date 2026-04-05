@@ -136,11 +136,13 @@ export default function ReviewScreen() {
   const discardAnim = useRef(new Animated.Value(0)).current;
 
   const [trimStart, setTrimStart] = useState(0);
-  const [trimEnd, setTrimEnd] = useState(streams.latlng.length > 0 ? streams.latlng.length - 1 : 0);
+  const [trimEnd, setTrimEnd] = useState(
+    (streams.latlng?.length ?? 0) > 0 ? streams.latlng!.length - 1 : 0
+  );
 
   const type = selectedType;
-  const canTrim = !isManual && streams.latlng.length > 2;
-  const hasGps = !isManual && streams.latlng.length >= 2;
+  const canTrim = !isManual && (streams.latlng?.length ?? 0) > 2;
+  const hasGps = !isManual && (streams.latlng?.length ?? 0) >= 2;
 
   const handleTrimChange = useCallback((startIdx: number, endIdx: number) => {
     setTrimStart(startIdx);

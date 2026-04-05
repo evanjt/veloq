@@ -556,3 +556,9 @@ export function speedToSecsPerKm(metersPerSecond: number): number {
   if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return 0;
   return 1000 / metersPerSecond;
 }
+
+/** Safe getTime() that returns 0 for invalid/missing dates. Use in sort comparators. */
+export function safeGetTime(date: Date | null | undefined): number {
+  const t = date?.getTime?.();
+  return typeof t === 'number' && Number.isFinite(t) ? t : 0;
+}

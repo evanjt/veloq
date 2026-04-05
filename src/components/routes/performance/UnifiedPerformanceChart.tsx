@@ -21,7 +21,7 @@ import {
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { navigateTo } from '@/lib';
+import { navigateTo, safeGetTime } from '@/lib';
 import { CartesianChart, Line, type PointsArray } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -263,7 +263,7 @@ export function UnifiedPerformanceChart({
   const detectedGaps = useMemo(() => {
     if (chartData.length < 2 || linearTimeAxis) return [];
 
-    const sortedDates = [...chartData].sort((a, b) => a.date.getTime() - b.date.getTime());
+    const sortedDates = [...chartData].sort((a, b) => safeGetTime(a.date) - safeGetTime(b.date));
     const GAP_THRESHOLD_MS = GAP_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
 
     const gaps: {
@@ -346,7 +346,7 @@ export function UnifiedPerformanceChart({
       };
     }
 
-    const sortedDates = [...chartData].sort((a, b) => a.date.getTime() - b.date.getTime());
+    const sortedDates = [...chartData].sort((a, b) => safeGetTime(a.date) - safeGetTime(b.date));
     const firstTime = sortedDates[0].date.getTime();
     const lastTime = sortedDates[sortedDates.length - 1].date.getTime();
     const totalRange = lastTime - firstTime || 1;

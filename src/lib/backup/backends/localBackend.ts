@@ -11,6 +11,7 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import type { BackupBackend, BackupEntry } from './types';
+import { safeGetTime } from '@/lib/utils/format';
 
 const BACKUP_DIR = `${FileSystem.documentDirectory}backups/`;
 
@@ -51,7 +52,7 @@ export const localBackend: BackupBackend = {
     }
 
     // Sort newest first
-    entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    entries.sort((a, b) => safeGetTime(new Date(b.timestamp)) - safeGetTime(new Date(a.timestamp)));
     return entries;
   },
 
@@ -66,10 +67,7 @@ export const localBackend: BackupBackend = {
 
     // Write metadata alongside
     const entry: BackupEntry = { ...metadata, id: filename };
-    await FileSystem.writeAsStringAsync(
-      `${destPath}.meta.json`,
-      JSON.stringify(entry, null, 2)
-    );
+    await FileSystem.writeAsStringAsync(`${destPath}.meta.json`, JSON.stringify(entry, null, 2));
   },
 
   async download(backupId: string, destPath: string): Promise<void> {

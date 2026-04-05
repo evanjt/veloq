@@ -24,7 +24,7 @@ import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
 import { castDirection, fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
 import type { Section, ActivityType, PerformanceDataPoint } from '@/types';
-import { getSectionStyle, navigateTo, formatDistance } from '@/lib';
+import { getSectionStyle, navigateTo, formatDistance, safeGetTime } from '@/lib';
 import { colors, darkColors, spacing, shadows } from '@/theme';
 
 type UnifiedSectionItem =
@@ -80,7 +80,7 @@ function buildChartData(
       });
     }
   }
-  points.sort((a, b) => a.date.getTime() - b.date.getTime());
+  points.sort((a, b) => safeGetTime(a.date) - safeGetTime(b.date));
   return points.map((p, i) => ({ ...p, x: i }));
 }
 

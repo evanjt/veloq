@@ -89,7 +89,7 @@ describe('dismissSyncNotification', () => {
 });
 
 describe('notification handler differentiation', () => {
-  it('suppresses alerts for sync-progress notifications', () => {
+  it('suppresses banner but allows alert for sync-progress notifications', () => {
     initializeNotifications();
 
     const handlerCall = (Notifications.setNotificationHandler as jest.Mock).mock.calls[0][0];
@@ -100,7 +100,12 @@ describe('notification handler differentiation', () => {
     return handlerCall
       .handleNotification(syncNotification)
       .then((result: Notifications.NotificationBehavior) => {
-        expect(result.shouldShowAlert).toBe(false);
+        // shouldShowAlert must be true on Android for NotificationManager to post it
+        expect(result.shouldShowAlert).toBe(true);
+        // shouldShowBanner false suppresses iOS drop-down banner
+        expect(result.shouldShowBanner).toBe(false);
+        // shouldShowList true keeps it in iOS notification center
+        expect(result.shouldShowList).toBe(true);
       });
   });
 
@@ -117,5 +122,117 @@ describe('notification handler differentiation', () => {
       .then((result: Notifications.NotificationBehavior) => {
         expect(result.shouldShowAlert).toBe(true);
       });
+  });
+});
+
+// ============================================================
+// NOTIFICATION TAP HANDLER (setupNotificationResponseHandler)
+// ============================================================
+
+describe('notification tap handler', () => {
+  let { router } = require('expo-router') as { router: { push: jest.Mock } };
+  const { setupNotificationResponseHandler } = require('@/lib/notifications/notificationService');
+  let addListenerMock: jest.Mock;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    router = require('expo-router').router;
+    addListenerMock = Notifications.addNotificationResponseReceivedListener as jest.Mock;
+  });
+
+  it('navigates to activity on tap with activityId', () => {
+    setupNotificationResponseHandler();
+
+    const callback = addListenerMock.mock.calls[0][0];
+    const response = {
+      notification: {
+        request: {
+          content: {
+            data: { activityId: 'act-123', route: '/routes' },
+          },
+        },
+      },
+    };
+
+    callback(response);
+    expect(router.push).toHaveBeenCalledWith('/activity/act-123');
+  });
+
+  it('navigates to section when sectionId provided without activityId', () => {
+    setupNotificationResponseHandler();
+
+    const callback = addListenerMock.mock.calls[0][0];
+    const response = {
+      notification: {
+        request: {
+          content: {
+            data: { sectionId: 'sec-456', route: '/routes' },
+          },
+        },
+      },
+    };
+
+    callback(response);
+    expect(router.push).toHaveBeenCalledWith('/section/sec-456');
+  });
+
+  it('falls back to route when no activityId or sectionId', () => {
+    setupNotificationResponseHandler();
+
+    const callback = addListenerMock.mock.calls[0][0];
+    const response = {
+      notification: {
+        request: {
+          content: {
+            data: { route: '/fitness' },
+          },
+        },
+      },
+    };
+
+    callback(response);
+    expect(router.push).toHaveBeenCalledWith('/fitness');
+  });
+
+  it('gracefully handles missing data in notification response', () => {
+    setupNotificationResponseHandler();
+
+    const callback = addListenerMock.mock.calls[0][0];
+    const response = {
+      notification: {
+        request: {
+          content: {
+            data: undefined,
+          },
+        },
+      },
+    };
+
+    // Should not throw and should not navigate
+    expect(() => callback(response)).not.toThrow();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it('returns shouldShowBanner true for non-sync notifications', () => {
+    initializeNotifications();
+
+    const handlerCall = (Notifications.setNotificationHandler as jest.Mock).mock.calls[0][0];
+    const insightNotification = {
+      request: { identifier: 'insight-new-pr' },
+    } as Notifications.Notification;
+
+    return handlerCall
+      .handleNotification(insightNotification)
+      .then((result: Notifications.NotificationBehavior) => {
+        expect(result.shouldShowBanner).toBe(true);
+        expect(result.shouldShowAlert).toBe(true);
+        expect(result.shouldPlaySound).toBe(false);
+      });
+  });
+
+  it('returns a subscription with remove function', () => {
+    const subscription = setupNotificationResponseHandler();
+    expect(subscription).toBeDefined();
+    expect(typeof subscription.remove).toBe('function');
   });
 });

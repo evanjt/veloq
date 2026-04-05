@@ -128,13 +128,16 @@ export function gaussianSmooth(
     return [{ x: xMin, y: meanY, std: 0 }];
   }
 
+  // Ensure at least 2 output points to avoid division by zero
+  const safeOutputCount = Math.max(2, outputCount);
+
   // Adaptive bandwidth: wider for sparse data, narrower for dense
   const h = span / Math.max(3, Math.sqrt(n));
 
   const result: SmoothedPoint[] = [];
 
-  for (let i = 0; i < outputCount; i++) {
-    const x0 = xMin + (i / (outputCount - 1)) * span;
+  for (let i = 0; i < safeOutputCount; i++) {
+    const x0 = xMin + (i / (safeOutputCount - 1)) * span;
 
     // Gaussian weights for all observations — single pass accumulates
     // both regression sums and sum-of-squared-y for variance derivation

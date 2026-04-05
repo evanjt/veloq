@@ -229,7 +229,7 @@ export default function FitnessScreen() {
     if (!decouplingStreams?.watts || !decouplingStreams?.heartrate) return null;
     const power = decouplingStreams.watts;
     const hr = decouplingStreams.heartrate;
-    if (power.length === 0 || hr.length === 0) return null;
+    if (power.length < 4 || hr.length < 4) return null;
 
     const midpoint = Math.floor(power.length / 2);
     const avgFirstPower = power.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint;
@@ -775,7 +775,9 @@ export default function FitnessScreen() {
                         },
                       ]}
                     >
-                      {decouplingValue.value.toFixed(1)}%
+                      {Number.isFinite(decouplingValue.value)
+                        ? `${decouplingValue.value.toFixed(1)}%`
+                        : '-'}
                     </Text>
                   ) : null
                 }

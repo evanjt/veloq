@@ -939,3 +939,248 @@ describe('generateInsights — additional edge cases', () => {
     expect(result.find((i) => i.id === 'fitness_milestone-pace')).toBeUndefined();
   });
 });
+
+// ============================================================
+// BOUNDARY CONDITION TESTS
+// ============================================================
+
+describe('generateInsights — boundary conditions', () => {
+  /**
+   * HRV trend with exactly 3 values (minimum for trend detection).
+   * The guard requires >= 3 HRV values. At exactly 3, the split is:
+   * firstHalf = [0..floor(3/2)) = [v0], secondHalf = [floor(3/2)..) = [v1, v2]
+   */
+  it('HRV trend with exactly 3 values generates insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        wellnessWindow: [
+          { date: '2026-02-15', hrv: 50 },
+          { date: '2026-02-16', hrv: 55 },
+          { date: '2026-02-17', hrv: 60 },
+        ],
+      },
+      mockT
+    );
+    const hrv = result.find((i) => i.id === 'hrv_trend');
+    expect(hrv).toBeDefined();
+    expect(hrv!.category).toBe('hrv_trend');
+    // Confidence should be 3/7
+    expect(hrv!.confidence).toBeCloseTo(3 / 7, 2);
+  });
+
+  it('HRV trend with exactly 3 values detects upward trend correctly', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        wellnessWindow: [
+          { date: '2026-02-15', hrv: 40 },
+          { date: '2026-02-16', hrv: 50 },
+          { date: '2026-02-17', hrv: 60 },
+        ],
+      },
+      mockT
+    );
+    const hrv = result.find((i) => i.id === 'hrv_trend');
+    expect(hrv).toBeDefined();
+    // firstHalf=[40], secondHalf=[50,60] => firstAvg=40, secondAvg=55
+    // secondAvg > firstAvg * 1.02 => upward
+    expect(hrv!.title).toContain('trendingUp');
+  });
+
+  it('HRV sparkline data with 3 values is accurate', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        wellnessWindow: [
+          { date: '2026-02-15', hrv: 48 },
+          { date: '2026-02-16', hrv: 52 },
+          { date: '2026-02-17', hrv: 49 },
+        ],
+      },
+      mockT
+    );
+    const hrv = result.find((i) => i.id === 'hrv_trend');
+    expect(hrv!.supportingData?.sparklineData).toEqual([48, 52, 49]);
+  });
+
+  /**
+   * FTP improvement by tiny delta (1W).
+   * Math.round(latestFtp - previousFtp) = 1 > 0, so it should still generate.
+   */
+  it('FTP improvement by exactly 1W still generates insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        ftpTrend: {
+          latestFtp: 251,
+          latestDate: BigInt(1000),
+          previousFtp: 250,
+          previousDate: BigInt(500),
+        },
+      },
+      mockT
+    );
+    const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
+    expect(ftp).toBeDefined();
+    expect(ftp!.title).toContain('change: 1');
+  });
+
+  it('FTP improvement by sub-watt delta (0.4W) does not generate insight', () => {
+    // Math.round(250.4 - 250) = 0 => delta is 0, should not pass delta > 0 guard
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        ftpTrend: {
+          latestFtp: 250.4,
+          latestDate: BigInt(1000),
+          previousFtp: 250,
+          previousDate: BigInt(500),
+        },
+      },
+      mockT
+    );
+    const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
+    expect(ftp).toBeUndefined();
+  });
+
+  /**
+   * Empty sectionTrends array for stale PR detection.
+   * The early return in addStalePRInsights checks
+   * `!data.sectionTrends || data.sectionTrends.length === 0`
+   * so no stale PR insight should be generated.
+   */
+  it('empty sectionTrends produces no stale PR insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        ftpTrend: {
+          latestFtp: 280,
+          latestDate: BigInt(1000),
+          previousFtp: 250,
+          previousDate: BigInt(500),
+        },
+        sectionTrends: [],
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'stale_pr-group')).toBeUndefined();
+    expect(result.find((i) => i.id.startsWith('stale_pr-'))).toBeUndefined();
+  });
+
+  it('sectionTrends present but no fitness trend produces no stale PR insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        ftpTrend: null,
+        paceTrend: null,
+        sectionTrends: [
+          {
+            sectionId: 's1',
+            sectionName: 'Hill',
+            trend: 0,
+            medianRecentSecs: 300,
+            bestTimeSecs: 280,
+            traversalCount: 5,
+          },
+        ],
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id.startsWith('stale_pr-'))).toBeUndefined();
+  });
+
+  /**
+   * All-zero wellness window — verify no division by zero.
+   * The HRV filter `w.hrv > 0` removes all entries, leaving fewer than 3,
+   * so no HRV insight is generated. Additionally the avg check `avg <= 0`
+   * is a second guard.
+   */
+  it('all-zero wellness window does not crash or generate HRV insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        wellnessWindow: [
+          { date: '2026-02-15', hrv: 0, ctl: 0, atl: 0 },
+          { date: '2026-02-16', hrv: 0, ctl: 0, atl: 0 },
+          { date: '2026-02-17', hrv: 0, ctl: 0, atl: 0 },
+          { date: '2026-02-18', hrv: 0, ctl: 0, atl: 0 },
+          { date: '2026-02-19', hrv: 0, ctl: 0, atl: 0 },
+        ],
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
+  });
+
+  it('wellness window with mix of zero and undefined HRV does not crash', () => {
+    expect(() =>
+      generateInsights(
+        {
+          ...EMPTY_INPUT,
+          wellnessWindow: [
+            { date: '2026-02-15', hrv: 0 },
+            { date: '2026-02-16' },
+            { date: '2026-02-17', hrv: undefined },
+            { date: '2026-02-18', hrv: 0 },
+            { date: '2026-02-19', hrv: 0 },
+          ],
+        },
+        mockT
+      )
+    ).not.toThrow();
+  });
+
+  it('wellness window with exactly one non-zero HRV does not generate trend', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        wellnessWindow: [
+          { date: '2026-02-15', hrv: 0 },
+          { date: '2026-02-16', hrv: 55 },
+          { date: '2026-02-17', hrv: 0 },
+          { date: '2026-02-18', hrv: 0 },
+        ],
+      },
+      mockT
+    );
+    // Only 1 valid HRV value, need >= 3
+    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
+  });
+
+  /**
+   * Period comparison at exactly the threshold boundary (10%).
+   * ratio = 110/100 - 1 = 0.10000000000000009 (floating point).
+   * The guard is `ratio > 0.1`, and due to IEEE 754 this evaluates to true.
+   * This documents the floating-point boundary behavior.
+   */
+  it('period comparison at exact 10% boundary triggers due to floating point', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        currentPeriod: { count: 3, totalDuration: 5500, totalDistance: 50000, totalTss: 110 },
+        previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 100 },
+      },
+      mockT
+    );
+    // 110/100 - 1 = 0.10000000000000009 > 0.1 due to IEEE 754
+    const vol = result.find((i) => i.id === 'period_comparison-volume');
+    expect(vol).toBeDefined();
+    expect(vol!.icon).toBe('trending-up');
+  });
+
+  /**
+   * Period comparison just below threshold — 9% change should not trigger.
+   */
+  it('period comparison at 9% change does not trigger', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        currentPeriod: { count: 3, totalDuration: 5450, totalDistance: 50000, totalTss: 109 },
+        previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 100 },
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+  });
+});

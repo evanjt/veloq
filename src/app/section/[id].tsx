@@ -1000,7 +1000,9 @@ export default function SectionDetailScreen() {
                         { label: 'Type', value: section.sectionType },
                         {
                           label: 'Stability',
-                          value: section.stability != null ? section.stability.toFixed(3) : '-',
+                          value: Number.isFinite(section.stability)
+                            ? section.stability!.toFixed(3)
+                            : '-',
                         },
                         {
                           label: 'Version',
@@ -1016,7 +1018,9 @@ export default function SectionDetailScreen() {
                         },
                         {
                           label: 'Confidence',
-                          value: section.confidence != null ? section.confidence.toFixed(2) : '-',
+                          value: Number.isFinite(section.confidence)
+                            ? section.confidence!.toFixed(2)
+                            : '-',
                         },
                         {
                           label: 'Observations',
@@ -1027,10 +1031,9 @@ export default function SectionDetailScreen() {
                         },
                         {
                           label: 'Avg Spread',
-                          value:
-                            section.averageSpread != null
-                              ? section.averageSpread.toFixed(1) + 'm'
-                              : '-',
+                          value: Number.isFinite(section.averageSpread)
+                            ? section.averageSpread!.toFixed(1) + 'm'
+                            : '-',
                         },
                         {
                           label: 'Reference',

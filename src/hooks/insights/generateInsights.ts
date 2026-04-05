@@ -313,8 +313,10 @@ function addHrvTrendInsight(
   // Compute 7-day rolling average direction
   const firstHalf = hrvNums.slice(0, Math.floor(hrvNums.length / 2));
   const secondHalf = hrvNums.slice(Math.floor(hrvNums.length / 2));
-  const firstAvg = firstHalf.reduce((s, v) => s + v, 0) / firstHalf.length;
-  const secondAvg = secondHalf.reduce((s, v) => s + v, 0) / secondHalf.length;
+  const firstAvg =
+    firstHalf.length > 0 ? firstHalf.reduce((s, v) => s + v, 0) / firstHalf.length : 0;
+  const secondAvg =
+    secondHalf.length > 0 ? secondHalf.reduce((s, v) => s + v, 0) / secondHalf.length : 0;
 
   // Check for 2 consecutive days of decline (Kiviniemi protocol threshold)
   const lastTwo = hrvNums.slice(-2);

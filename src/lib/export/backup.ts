@@ -332,7 +332,7 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
   const engine = getRouteEngine();
 
   // Restore custom sections
-  if (engine && backup.customSections?.length) {
+  if (engine && Array.isArray(backup.customSections) && backup.customSections.length > 0) {
     for (const cs of backup.customSections) {
       try {
         if (!cs.sourceActivityId) {

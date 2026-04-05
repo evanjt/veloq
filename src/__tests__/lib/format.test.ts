@@ -12,6 +12,7 @@ import {
   formatDuration,
   formatDurationHuman,
   formatPace,
+  formatPaceCompact,
   formatSpeed,
   formatPower,
   formatHeartRate,
@@ -488,5 +489,138 @@ describe('formatTimeDelta edge cases', () => {
 
   it('Infinity returns null', () => {
     expect(formatTimeDelta(Infinity)).toBeNull();
+  });
+});
+
+// ============================================================
+// NaN/Infinity WALL — systematic invalid input coverage
+// Every numeric format function must never leak banned strings
+// ============================================================
+
+describe('NaN/Infinity wall', () => {
+  const INVALID_INPUTS = [NaN, Infinity, -Infinity];
+  const BANNED_STRINGS = ['NaN', 'Infinity', '-Infinity', 'undefined', 'null'];
+
+  // Functions that accept a single number and return a string
+  const stringFormatters: [string, (v: number) => string][] = [
+    ['formatDistance', (v) => formatDistance(v)],
+    ['formatDistance (imperial)', (v) => formatDistance(v, false)],
+    ['formatDuration', (v) => formatDuration(v)],
+    ['formatDurationHuman', (v) => formatDurationHuman(v)],
+    ['formatPace', (v) => formatPace(v)],
+    ['formatPace (imperial)', (v) => formatPace(v, false)],
+    ['formatPaceCompact', (v) => formatPaceCompact(v)],
+    ['formatPaceCompact (imperial)', (v) => formatPaceCompact(v, false)],
+    ['formatSwimPace', (v) => formatSwimPace(v)],
+    ['formatSwimPace (imperial)', (v) => formatSwimPace(v, false)],
+    ['formatSpeed', (v) => formatSpeed(v)],
+    ['formatSpeed (imperial)', (v) => formatSpeed(v, false)],
+    ['formatElevation', (v) => formatElevation(v)],
+    ['formatElevation (imperial)', (v) => formatElevation(v, false)],
+    ['formatTemperature', (v) => formatTemperature(v)],
+    ['formatTemperature (imperial)', (v) => formatTemperature(v, false)],
+    ['formatHeartRate', (v) => formatHeartRate(v)],
+    ['formatPower', (v) => formatPower(v)],
+    ['formatTSS', (v) => formatTSS(v)],
+    ['formatCalories', (v) => formatCalories(v)],
+    ['formatFileSize', (v) => formatFileSize(v)],
+  ];
+
+  // speedToSecsPerKm returns a number — coerce to string for banned-string check
+  const numericFormatters: [string, (v: number) => number][] = [
+    ['speedToSecsPerKm', (v) => speedToSecsPerKm(v)],
+  ];
+
+  // formatTimeDelta returns string | null — null is a valid "nothing to display"
+  // sentinel, not a leaked value. Check non-null results only.
+  const nullableFormatters: [string, (v: number) => string | null][] = [
+    ['formatTimeDelta', (v) => formatTimeDelta(v)],
+  ];
+
+  stringFormatters.forEach(([name, fn]) => {
+    describe(name, () => {
+      INVALID_INPUTS.forEach((input) => {
+        it(`does not produce banned string for ${input}`, () => {
+          const result = fn(input);
+          BANNED_STRINGS.forEach((banned) => {
+            expect(result).not.toContain(banned);
+          });
+        });
+      });
+
+      it('does not produce banned string for undefined', () => {
+        const result = fn(undefined as unknown as number);
+        BANNED_STRINGS.forEach((banned) => {
+          expect(result).not.toContain(banned);
+        });
+      });
+
+      it('does not produce banned string for null', () => {
+        const result = fn(null as unknown as number);
+        BANNED_STRINGS.forEach((banned) => {
+          expect(result).not.toContain(banned);
+        });
+      });
+    });
+  });
+
+  numericFormatters.forEach(([name, fn]) => {
+    describe(name, () => {
+      INVALID_INPUTS.forEach((input) => {
+        it(`does not produce banned string for ${input}`, () => {
+          const result = String(fn(input));
+          BANNED_STRINGS.forEach((banned) => {
+            expect(result).not.toContain(banned);
+          });
+        });
+      });
+
+      it('does not produce banned string for undefined', () => {
+        const result = String(fn(undefined as unknown as number));
+        BANNED_STRINGS.forEach((banned) => {
+          expect(result).not.toContain(banned);
+        });
+      });
+
+      it('does not produce banned string for null', () => {
+        const result = String(fn(null as unknown as number));
+        BANNED_STRINGS.forEach((banned) => {
+          expect(result).not.toContain(banned);
+        });
+      });
+    });
+  });
+
+  nullableFormatters.forEach(([name, fn]) => {
+    describe(name, () => {
+      INVALID_INPUTS.forEach((input) => {
+        it(`returns null or clean string for ${input}`, () => {
+          const result = fn(input);
+          if (result !== null) {
+            BANNED_STRINGS.forEach((banned) => {
+              expect(result).not.toContain(banned);
+            });
+          }
+        });
+      });
+
+      it('returns null or clean string for undefined', () => {
+        const result = fn(undefined as unknown as number);
+        if (result !== null) {
+          BANNED_STRINGS.forEach((banned) => {
+            expect(result).not.toContain(banned);
+          });
+        }
+      });
+
+      it('returns null or clean string for null', () => {
+        const result = fn(null as unknown as number);
+        if (result !== null) {
+          BANNED_STRINGS.forEach((banned) => {
+            expect(result).not.toContain(banned);
+          });
+        }
+      });
+    });
   });
 });

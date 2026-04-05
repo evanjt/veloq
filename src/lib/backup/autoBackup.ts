@@ -79,7 +79,7 @@ export async function getAvailableBackends(): Promise<BackupBackend[]> {
 export function getLastBackupTimestamp(): number | null {
   const engine = getRouteEngine();
   const value = engine?.getSetting(SETTING_LAST_BACKUP);
-  return value ? Number(value) : null;
+  return value != null ? Number(value) : null;
 }
 
 /**

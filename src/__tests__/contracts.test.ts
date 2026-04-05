@@ -337,3 +337,103 @@ describe('Resilience', () => {
     expect(metrics.hrZoneTimes).toBeUndefined();
   });
 });
+
+// ============================================================================
+// GROUP 3: EDGE CASES (added tests)
+// ============================================================================
+
+describe('Zero-distance activity contract', () => {
+  it('format functions produce sensible output for zero-distance', () => {
+    // All formatters should return a valid string, not NaN or crash
+    expect(formatDistance(0)).toBeTruthy();
+    expect(formatDuration(0)).toBeTruthy();
+    expect(formatPace(0)).toBeTruthy(); // 0 m/s pace
+    expect(formatSpeed(0)).toBeTruthy();
+  });
+
+  it('format functions on zero-distance produce no NaN or Infinity', () => {
+    const results = [
+      formatDistance(0),
+      formatDuration(0),
+      formatPace(0),
+      formatPaceCompact(0),
+      formatSwimPace(0),
+      formatSpeed(0),
+      formatElevation(0),
+      formatHeartRate(0),
+      formatPower(0),
+      formatCalories(0),
+      formatTSS(0),
+    ];
+    for (const r of results) {
+      expect(r).not.toContain('NaN');
+      expect(r).not.toContain('Infinity');
+    }
+  });
+
+  it('toActivityMetrics handles ZERO_DIST fixture without error', () => {
+    const metrics = toActivityMetrics(ZERO_DIST);
+    expect(metrics.activityId).toBe('contract-zero');
+    expect(metrics.distance).toBe(0);
+    expect(metrics.movingTime).toBe(3600);
+    expect(typeof metrics.date).toBe('bigint');
+  });
+});
+
+describe('All-null activity fields', () => {
+  it('toActivityMetrics handles NULL_ACTIVITY without crashing', () => {
+    const metrics = toActivityMetrics(NULL_ACTIVITY);
+    expect(metrics.activityId).toBe('contract-null');
+    expect(metrics.avgHr).toBeNull();
+    expect(metrics.avgPower).toBeNull();
+    expect(metrics.trainingLoad).toBeNull();
+    expect(metrics.ftp).toBeNull();
+    expect(metrics.powerZoneTimes).toBeUndefined();
+    expect(metrics.hrZoneTimes).toBeUndefined();
+  });
+
+  it('format functions handle null/undefined without NaN', () => {
+    // These accept null/undefined
+    expect(formatElevation(null)).not.toContain('NaN');
+    expect(formatElevation(undefined)).not.toContain('NaN');
+    expect(formatTemperature(null)).not.toContain('NaN');
+    expect(formatTemperature(undefined)).not.toContain('NaN');
+  });
+});
+
+describe('Swim pace edge cases', () => {
+  it('handles zero speed', () => {
+    expect(formatSwimPace(0)).toBeTruthy();
+    expect(formatSwimPace(0)).not.toContain('NaN');
+    expect(formatSwimPace(0)).not.toContain('Infinity');
+  });
+
+  it('returns --:-- for zero and negative speed', () => {
+    // formatSwimPace guards with: metersPerSecond <= 0 → '--:--'
+    expect(formatSwimPace(0)).toBe('--:--');
+    expect(formatSwimPace(-1)).toBe('--:--');
+  });
+
+  it('handles very high speed without crash', () => {
+    // 100 m/s is absurdly fast but should not crash or produce NaN
+    const fast = formatSwimPace(100);
+    expect(fast).not.toContain('NaN');
+    expect(fast).not.toContain('Infinity');
+    // 100 / 100 m/s = 1 second → 0:01
+    expect(fast).toBe('0:01');
+  });
+
+  it('handles very slow speed without overflow', () => {
+    // 0.01 m/s → 100/0.01 = 10000s = 166:40
+    const slow = formatSwimPace(0.01);
+    expect(slow).not.toContain('NaN');
+    expect(slow).not.toContain('Infinity');
+    expect(slow).toMatch(/\d+:\d{2}/);
+  });
+
+  it('imperial and metric give different results for same speed', () => {
+    const metric = formatSwimPace(1.0, true); // 100/1 = 100s → 1:40
+    const imperial = formatSwimPace(1.0, false); // 91.44/1 = 91s → 1:31
+    expect(metric).not.toBe(imperial);
+  });
+});

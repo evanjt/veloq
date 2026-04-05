@@ -176,3 +176,60 @@ describe('intervalsApi.getOldestActivityDate', () => {
     expect(result).toBeNull();
   });
 });
+
+// ============================================================
+// ERROR HANDLING EDGE CASES
+// ============================================================
+
+describe('error handling', () => {
+  beforeEach(() => mockGet.mockReset());
+
+  it('propagates network errors from getActivities', async () => {
+    mockGet.mockRejectedValueOnce(new Error('401 Unauthorized'));
+    await expect(
+      intervalsApi.getActivities({ oldest: '2024-01-01', newest: '2024-06-01' })
+    ).rejects.toThrow('401 Unauthorized');
+  });
+
+  it('propagates errors from getAthlete', async () => {
+    mockGet.mockRejectedValueOnce(new Error('Network Error'));
+    await expect(intervalsApi.getAthlete()).rejects.toThrow('Network Error');
+  });
+
+  it('handles empty array response from getActivities without crash', async () => {
+    mockGet.mockResolvedValueOnce({ data: [] });
+    const result = await intervalsApi.getActivities({
+      oldest: '2024-01-01',
+      newest: '2024-06-01',
+    });
+    expect(result).toEqual([]);
+  });
+
+  it('handles malformed API response from getActivity', async () => {
+    // Response with missing expected fields should still resolve (no client-side validation)
+    mockGet.mockResolvedValueOnce({ data: { id: 'act1' } });
+    const result = await intervalsApi.getActivity('act1');
+    expect(result.id).toBe('act1');
+    expect(result.name).toBeUndefined();
+  });
+
+  it('handles null data from getWellness', async () => {
+    mockGet.mockResolvedValueOnce({ data: null });
+    const result = await intervalsApi.getWellness({
+      oldest: '2024-01-01',
+      newest: '2024-03-01',
+    });
+    expect(result).toBeNull();
+  });
+
+  it('handles getActivityStreams rejection', async () => {
+    mockGet.mockRejectedValueOnce(new Error('404 Not Found'));
+    await expect(intervalsApi.getActivityStreams('nonexistent')).rejects.toThrow('404 Not Found');
+  });
+
+  it('handles getSportSettings empty array', async () => {
+    mockGet.mockResolvedValueOnce({ data: [] });
+    const result = await intervalsApi.getSportSettings();
+    expect(result).toEqual([]);
+  });
+});
