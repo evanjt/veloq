@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
 import { PaperProvider, Text } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
-import { AppState, View, ActivityIndicator, Platform } from 'react-native';
+import { Alert, AppState, View, ActivityIndicator, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
@@ -237,6 +237,50 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       // Not authenticated and not on login screen - redirect to login
       router.replace('/login' as Href);
     } else if (isAuthenticated && inLoginScreen) {
+      // Check for athlete ID mismatch (restored backup from different account)
+      const engine = getRouteEngine();
+      const backupAthleteId = engine?.getSetting('__athlete_id');
+      const currentAthleteId = useAuthStore.getState().athleteId;
+      if (
+        backupAthleteId &&
+        currentAthleteId &&
+        backupAthleteId !== currentAthleteId &&
+        engine?.getActivityCount()
+      ) {
+        Alert.alert(
+          i18n.t('backup.differentAccount', {
+            defaultValue: 'Different Account',
+          }),
+          i18n.t('backup.differentAccountMessage', {
+            defaultValue:
+              'The restored data belongs to a different account. Clear data and sync fresh for this account?',
+          }),
+          [
+            {
+              text: i18n.t('common.cancel'),
+              style: 'cancel',
+              onPress: () => {
+                // Sign out — return to login
+                useAuthStore.getState().clearCredentials();
+              },
+            },
+            {
+              text: i18n.t('backup.clearAndSync', { defaultValue: 'Clear & Sync' }),
+              style: 'destructive',
+              onPress: async () => {
+                engine?.clear();
+                engine?.setSetting('__athlete_id', currentAthleteId);
+                router.replace('/' as Href);
+              },
+            },
+          ]
+        );
+        return;
+      }
+      // Update athlete ID for this account
+      if (currentAthleteId && engine) {
+        engine.setSetting('__athlete_id', currentAthleteId);
+      }
       // Authenticated but on login screen - redirect to main app
       router.replace('/' as Href);
     }
@@ -339,15 +383,19 @@ export default function RootLayout() {
   }, []);
 
   // Re-register push token on app open (refreshes TTL on server)
+  // Also retry any failed unregister from a previous session
   useEffect(() => {
     if (!appReady) return;
-    const { getNotificationPreferences } = require('@/providers/NotificationPreferencesStore');
+    const { getNotificationPreferences, retryPendingUnregister } =
+      require('@/providers/NotificationPreferencesStore');
     const { useAuthStore: authStore } = require('@/providers/AuthStore');
     const prefs = getNotificationPreferences();
     const { athleteId, isDemoMode: demo } = authStore.getState();
     if (prefs.enabled && athleteId && !demo) {
       const { registerPushToken } = require('@/lib/notifications/pushTokenRegistration');
       registerPushToken(athleteId);
+    } else if (!prefs.enabled && prefs.pendingUnregister && athleteId) {
+      retryPendingUnregister(athleteId);
     }
   }, [appReady]);
 

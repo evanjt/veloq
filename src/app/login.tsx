@@ -636,6 +636,16 @@ export default function LoginScreen() {
                   {t('login.localModeNote')}
                 </Text>
               </View>
+              <View style={styles.localModeNote}>
+                <MaterialCommunityIcons
+                  name="bell-off-outline"
+                  size={14}
+                  color={themeColors.textSecondary}
+                />
+                <Text style={[styles.localModeText, isDark && styles.textMuted]}>
+                  {t('login.apiKeyNoNotifications')}
+                </Text>
+              </View>
             </View>
           </CollapsibleSection>
         </View>
