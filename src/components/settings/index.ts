@@ -8,7 +8,6 @@ export { MapStylePreviewPicker } from './MapStylePreviewPicker';
 export { MapsSection } from './MapsSection';
 export { NotificationSection } from './NotificationSection';
 export { ProfileAccountSection } from './ProfileAccountSection';
-export { SettingsSection, SectionDivider } from './SettingsSection';
 export { StorageStatsPanel } from './StorageStatsPanel';
 export { SummaryCardSection } from './SummaryCardSection';
 export { SupportSection } from './SupportSection';
