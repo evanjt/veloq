@@ -143,6 +143,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             engine.setNameTranslations(routeWord, sectionWord);
             // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
             migrateSettingsToSqlite().catch(() => {});
+            // Write athlete ID to SQLite for backup cross-athlete protection
+            const athleteId = useAuthStore.getState().athleteId;
+            if (athleteId) {
+              engine.setSetting('__athlete_id', athleteId);
+            }
             // Initialize SyncDateRangeStore from engine's actual cached data
             const stats = engine.getStats();
             if (stats?.oldestDate && stats?.newestDate) {

@@ -212,6 +212,7 @@ const LEGACY_PREFERENCE_KEYS = [
   'veloq-geocoded-route-ids',
   'veloq-geocoded-section-ids',
   'veloq-notification-preferences',
+  'veloq-upload-permission',
 ] as const;
 
 interface BackupCustomSection {

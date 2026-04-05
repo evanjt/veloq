@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import {
 } from '@/hooks';
 import { formatFileSize } from '@/lib';
 import { useTheme } from '@/hooks';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import { colors, darkColors, spacing, layout } from '@/theme';
 
 export function BackupSection() {
@@ -34,6 +35,8 @@ export function BackupSection() {
     total: bulkTotal,
     sizeBytes: bulkSizeBytes,
   } = useBulkExport();
+
+  const totalActivities = useMemo(() => getRouteEngine()?.getActivityCount() ?? 0, []);
 
   return (
     <>
@@ -133,7 +136,7 @@ export function BackupSection() {
                   : bulkPhase === 'sharing'
                     ? t('export.bulkSharing')
                     : t('export.bulkExporting', { current: bulkCurrent, total: bulkTotal })
-                : t('export.bulkExport', { count: 0 })}
+                : t('export.bulkExport', { count: totalActivities })}
             </Text>
             {bulkExporting && (
               <>
