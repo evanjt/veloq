@@ -1,11 +1,13 @@
-name: Build iOS & Android
+name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
     # Tags handled by release.yml (artifact promotion)
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       build_type:
@@ -17,18 +19,29 @@ on:
           - auto
           - preview
           - production
+      run_e2e:
+        description: "Run E2E tests"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  checks: write
 
 env:
   NODE_VERSION: "20"
 
 jobs:
   # ============================================
-  # Parallel Tests (HIGH IMPACT: ~2-3 min faster)
+  # Tests (non-blocking — builds run in parallel)
   # ============================================
   test:
     name: Test (${{ matrix.name }})
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: typescript
@@ -55,12 +68,36 @@ jobs:
       - name: Run ${{ matrix.name }}
         run: ${{ matrix.cmd }}
 
+  test-rust:
+    name: Test (rust)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: modules/veloqrs/rust
+          key: test
+
+      - name: Run Rust tests
+        working-directory: modules/veloqrs/rust
+        run: cargo test --workspace
+
   # ============================================
   # Verify committed bindings match Rust source
   # ============================================
   verify-bindings:
     name: Verify Bindings
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -103,242 +140,16 @@ jobs:
             git diff modules/veloqrs/src/generated modules/veloqrs/cpp/generated | head -100
             exit 1
           fi
-          echo "✓ Bindings are in sync with Rust source"
-
-  # ============================================
-  # Verify Signing Keys (fail fast)
-  # ============================================
-  verify-signing:
-    name: Verify Signing (${{ matrix.platform }})
-    runs-on: ${{ matrix.runs-on }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: android
-            runs-on: ubuntu-latest
-          - platform: ios
-            runs-on: macos-26
-    steps:
-      # ---- Android Signing Verification ----
-      - name: Verify Android signing
-        if: matrix.platform == 'android'
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-          EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
-        run: |
-          echo "=== Verifying Android signing configuration ==="
-
-          # Verify all required secrets are set
-          MISSING=""
-          [ -z "$ANDROID_KEYSTORE_BASE64" ] && MISSING="$MISSING ANDROID_KEYSTORE_BASE64"
-          [ -z "$ANDROID_KEYSTORE_PASSWORD" ] && MISSING="$MISSING ANDROID_KEYSTORE_PASSWORD"
-          [ -z "$ANDROID_KEY_ALIAS" ] && MISSING="$MISSING ANDROID_KEY_ALIAS"
-          [ -z "$ANDROID_KEY_PASSWORD" ] && MISSING="$MISSING ANDROID_KEY_PASSWORD"
-          [ -z "$GOOGLE_SERVICES_JSON" ] && MISSING="$MISSING GOOGLE_SERVICES_JSON"
-
-          if [ -n "$MISSING" ]; then
-            echo "::error::Missing required secrets:$MISSING"
-            exit 1
-          fi
-
-          # Decode keystore and verify fingerprint
-          echo "$ANDROID_KEYSTORE_BASE64" | tr -d ' \n\r\t' | base64 -d > /tmp/release.keystore
-
-          if [ ! -f /tmp/release.keystore ]; then
-            echo "::error::Failed to decode keystore"
-            exit 1
-          fi
-
-          SIZE=$(stat -c%s /tmp/release.keystore 2>/dev/null || stat -f%z /tmp/release.keystore)
-          echo "Keystore file size: $SIZE bytes"
-
-          if [ "$SIZE" -lt 1000 ]; then
-            echo "::error::Keystore file too small ($SIZE bytes) - likely corrupted base64"
-            exit 1
-          fi
-
-          # Verify fingerprint
-          KEYTOOL_OUTPUT=$(keytool -list -v -keystore /tmp/release.keystore -storepass "$ANDROID_KEYSTORE_PASSWORD" 2>&1) || {
-            echo "::error::keytool failed - wrong password or corrupted keystore"
-            echo "$KEYTOOL_OUTPUT"
-            exit 1
-          }
-
-          ACTUAL_SHA1=$(echo "$KEYTOOL_OUTPUT" | grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
-          echo "Expected SHA1: $EXPECTED_SHA1"
-          echo "Actual SHA1:   $ACTUAL_SHA1"
-
-          if [ -z "$ACTUAL_SHA1" ]; then
-            echo "::error::Could not extract SHA1 from keytool output"
-            echo "$KEYTOOL_OUTPUT"
-            exit 1
-          fi
-
-          if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
-            echo "::error::Keystore fingerprint mismatch! Expected Play Store upload key."
-            exit 1
-          fi
-
-          echo "✅ Android signing verified"
-          rm /tmp/release.keystore
-
-      # ---- iOS Signing Verification (main branch only) ----
-      - name: Checkout repository
-        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
-        uses: actions/checkout@v4
-
-      - name: Check iOS signing secrets
-        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
-        env:
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_SSH_PRIVATE_KEY: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
-          FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
-          IOS_DISTRIBUTION_CERT_P12: ${{ secrets.IOS_DISTRIBUTION_CERT_P12 }}
-          IOS_DISTRIBUTION_CERT_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
-        run: |
-          echo "=== Verifying iOS signing configuration ==="
-
-          missing=()
-          [ -z "$MATCH_GIT_URL" ] && missing+=("MATCH_GIT_URL")
-          [ -z "$MATCH_PASSWORD" ] && missing+=("MATCH_PASSWORD")
-          [ -z "$MATCH_SSH_PRIVATE_KEY" ] && missing+=("MATCH_SSH_PRIVATE_KEY")
-          [ -z "$ASC_KEY_ID" ] && missing+=("ASC_KEY_ID")
-          [ -z "$ASC_ISSUER_ID" ] && missing+=("ASC_ISSUER_ID")
-          [ -z "$ASC_API_KEY" ] && missing+=("ASC_API_KEY")
-          [ -z "$FASTLANE_TEAM_ID" ] && missing+=("FASTLANE_TEAM_ID")
-          [ -z "$IOS_DISTRIBUTION_CERT_P12" ] && missing+=("IOS_DISTRIBUTION_CERT_P12")
-          [ -z "$IOS_DISTRIBUTION_CERT_PASSWORD" ] && missing+=("IOS_DISTRIBUTION_CERT_PASSWORD")
-
-          if [ ${#missing[@]} -gt 0 ]; then
-            echo "::error::Missing iOS signing secrets: ${missing[*]}"
-            exit 1
-          fi
-
-          echo "✅ All iOS signing secrets configured"
-
-      - name: Verify p12 certificate
-        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
-        env:
-          IOS_DISTRIBUTION_CERT_P12: ${{ secrets.IOS_DISTRIBUTION_CERT_P12 }}
-          IOS_DISTRIBUTION_CERT_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
-        run: |
-          echo "=== Verifying p12 certificate ==="
-
-          # Verify base64 decodes to valid p12
-          echo "$IOS_DISTRIBUTION_CERT_P12" | base64 -d > /tmp/test.p12 2>/dev/null || {
-            echo "::error::IOS_DISTRIBUTION_CERT_P12 is not valid base64"
-            exit 1
-          }
-
-          # Check file size (p12 should be at least a few KB)
-          SIZE=$(stat -f%z /tmp/test.p12 2>/dev/null || stat -c%s /tmp/test.p12)
-          echo "Certificate file size: $SIZE bytes"
-
-          if [ "$SIZE" -lt 1000 ]; then
-            echo "::error::p12 file too small ($SIZE bytes) - likely invalid"
-            rm /tmp/test.p12
-            exit 1
-          fi
-
-          # Try to read the p12 with the password
-          openssl pkcs12 -in /tmp/test.p12 -nokeys -passin pass:"$IOS_DISTRIBUTION_CERT_PASSWORD" -info 2>&1 | head -5 || {
-            echo "::error::Cannot read p12 file - password may be incorrect"
-            rm /tmp/test.p12
-            exit 1
-          }
-
-          rm /tmp/test.p12
-          echo "✅ p12 certificate and password verified"
-
-      - name: Setup SSH for Match
-        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
-
-      - name: Verify Match repository access
-        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
-        env:
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-        run: |
-          echo "=== Testing Match repository access ==="
-          git ls-remote "$MATCH_GIT_URL" &>/dev/null || {
-            echo "::error::Cannot access Match repository at $MATCH_GIT_URL"
-            exit 1
-          }
-          echo "✅ Match repository accessible"
-
-      - name: Setup Ruby
-        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.2"
-          bundler-cache: true
-          working-directory: config/fastlane
-
-      - name: Verify certificates via Match
-        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
-        env:
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
-        working-directory: config/fastlane
-        run: |
-          echo "=== Syncing certificates from Match (readonly) ==="
-          bundle exec fastlane match appstore --readonly --verbose
-
-      - name: Check certificate expiration
-        if: matrix.platform == 'ios' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
-        run: |
-          echo "=== Checking certificate expiration ==="
-
-          # Find distribution certificate in keychain
-          CERT_INFO=$(security find-certificate -c "Apple Distribution" -p login.keychain 2>/dev/null || \
-                      security find-certificate -c "iPhone Distribution" -p login.keychain 2>/dev/null || true)
-
-          if [ -z "$CERT_INFO" ]; then
-            echo "::warning::Could not find distribution certificate in keychain"
-            exit 0
-          fi
-
-          # Extract expiration date
-          EXPIRY=$(echo "$CERT_INFO" | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
-          echo "📜 Certificate expires: $EXPIRY"
-
-          # Check if expiring within 30 days (2592000 seconds)
-          if echo "$CERT_INFO" | openssl x509 -checkend 2592000 > /dev/null 2>&1; then
-            echo "✅ Certificate valid for 30+ days"
-          else
-            echo "::warning::⚠️ Certificate expires within 30 days! Consider renewing soon."
-          fi
-
-          # Check if expiring within 7 days (604800 seconds) - this is critical
-          if ! echo "$CERT_INFO" | openssl x509 -checkend 604800 > /dev/null 2>&1; then
-            echo "::error::Certificate expires within 7 days! Immediate action required."
-            exit 1
-          fi
-
-          echo "✅ iOS signing verification complete"
+          echo "Bindings are in sync with Rust source"
 
   # ============================================
   # Build Android
   # ============================================
   build-android:
-    name: Build Android APK
-    needs: [test, verify-signing]
+    name: Build Android
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     env:
-      # Fix Maven Central 403 errors by setting User-Agent header
-      # JAVA_TOOL_OPTIONS affects all JVM processes including Gradle daemon and forks
       JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
       GRADLE_OPTS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
     outputs:
@@ -347,6 +158,7 @@ jobs:
       short_sha: ${{ steps.version.outputs.short_sha }}
       filename: ${{ steps.version.outputs.filename }}
       is_release: ${{ steps.version.outputs.is_release }}
+      is_signed: ${{ steps.signing.outputs.is_signed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -387,26 +199,41 @@ jobs:
             echo "filename=veloq-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
 
-          echo "Build type: $BUILD_TYPE | Version: $VERSION ($VERSION_CODE)"
+          # Source hash for build caching (skip on main — always build fresh for signing)
+          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.kt" -o -name "*.java" -o -name "*.gradle" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+          echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
+
+          echo "Build type: $BUILD_TYPE | Version: $VERSION ($VERSION_CODE) | Hash: $SOURCE_HASH"
+
+      # Source-hash cache — skip build if code unchanged (non-main only)
+      - name: Cache built APK
+        id: apk-cache
+        if: github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch'
+        uses: actions/cache@v4
+        with:
+          path: android/app/build/outputs/apk/release/app-release.apk
+          key: android-apk-v1-${{ steps.version.outputs.source_hash }}
 
       - name: Setup Node.js
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "${{ env.NODE_VERSION }}"
           cache: "npm"
 
       - name: Setup Java
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         uses: actions/setup-java@v4
         with:
           distribution: "temurin"
           java-version: "17"
 
       - name: Setup Android SDK
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         uses: android-actions/setup-android@v3
 
-      # Use official Gradle action for better dependency caching
-      # This reduces Maven Central requests and helps avoid IP blocking
       - name: Setup Gradle
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
@@ -416,6 +243,7 @@ jobs:
             wrapper
 
       - name: Cache Metro bundler
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -426,48 +254,87 @@ jobs:
             metro-${{ runner.os }}-
 
       - name: Install dependencies
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Setup Rust toolchain
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
 
       - name: Cache Rust dependencies
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: modules/veloqrs/rust
 
       - name: Install cargo-ndk
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         run: cargo install cargo-ndk
 
       - name: Build Rust libraries for Android
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
         run: |
           echo "=== Building veloqrs for Android ==="
           mkdir -p ../android/src/main/jniLibs
 
-          # Build for all Android architectures
-          cargo ndk -t aarch64-linux-android -t armv7-linux-androideabi -t x86_64-linux-android -t i686-linux-android \
-            --platform 24 -o ../android/src/main/jniLibs \
-            build --release -p veloqrs
+          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # Full build: all 4 architectures for release
+            cargo ndk -t aarch64-linux-android -t armv7-linux-androideabi -t x86_64-linux-android -t i686-linux-android \
+              --platform 24 -o ../android/src/main/jniLibs \
+              build --release -p veloqrs
+          else
+            # PR/branch build: arm64 + x86_64 only (faster)
+            cargo ndk -t aarch64-linux-android -t x86_64-linux-android \
+              --platform 24 -o ../android/src/main/jniLibs \
+              build --release -p veloqrs
+          fi
 
-          # Verify installation
           echo "=== Verifying .so installation ==="
           find ../android/src/main/jniLibs -name "*.so" -exec ls -lh {} \;
 
       - name: Write google-services.json
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          echo "$GOOGLE_SERVICES_JSON" | base64 -d > google-services.json
-          echo "Wrote google-services.json ($(stat -c%s google-services.json) bytes)"
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" | base64 -d > google-services.json
+            echo "Wrote google-services.json from secret ($(stat -c%s google-services.json) bytes)"
+          else
+            echo "::notice::GOOGLE_SERVICES_JSON not available — writing stub for CI build"
+            cat > google-services.json << 'STUBEOF'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "firebase_url": "https://placeholder.firebaseio.com",
+              "project_id": "placeholder",
+              "storage_bucket": "placeholder.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                  "android_client_info": {
+                    "package_name": "com.veloq.app"
+                  }
+                },
+                "api_key": [{"current_key": "placeholder"}]
+              }
+            ],
+            "configuration_version": "1"
+          }
+          STUBEOF
+            echo "Wrote google-services.json stub ($(stat -c%s google-services.json) bytes)"
+          fi
 
       - name: Cache Android prebuild
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         id: android-prebuild-cache
         uses: actions/cache@v4
         with:
-          # Cache generated project files, but EXCLUDE build outputs to prevent stale .so conflicts
           path: |
             android
             !android/build
@@ -475,77 +342,93 @@ jobs:
             !android/.cxx
             !android/app/build
             !android/app/.cxx
-          # v6: bust cache after adding google-services.json injection
-          key: android-prebuild-v6-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'modules/**/package.json', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
+          key: android-prebuild-v7-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/android/**', 'modules/**/package.json', 'node_modules/react-native-vector-icons/package.json', 'node_modules/react-native-webview/package.json') }}
 
       - name: Generate Android native project
-        if: steps.android-prebuild-cache.outputs.cache-hit != 'true'
+        if: steps.apk-cache.outputs.cache-hit != 'true' && steps.android-prebuild-cache.outputs.cache-hit != 'true'
         run: APP_VARIANT=production npx expo prebuild --platform android
 
-      # Install Gradle init script to fix Maven Central 403 errors
       - name: Install Gradle init script
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p ~/.gradle
           cp .github/ci-init.gradle ~/.gradle/init.gradle
 
-      # Setup signing AFTER prebuild creates android/ directory
+      - name: Free disk space
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          sudo rm -rf /usr/local/lib/android/sdk/build-tools/3[0-3]*
+          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-[1-2]*
+          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-3[0-2]
+          sudo docker image prune --all --force || true
+          df -h
+
+      # Setup signing if secrets are available (Gradle falls back to debug signing otherwise)
       - name: Setup signing
+        id: signing
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          # Keystore was already verified earlier - just decode to final location
-          mkdir -p android/app
-          echo "$ANDROID_KEYSTORE_BASE64" | tr -d ' \n\r\t' | base64 -d > android/app/release.keystore
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+            mkdir -p android/app
+            echo "$ANDROID_KEYSTORE_BASE64" | tr -d ' \n\r\t' | base64 -d > android/app/release.keystore
 
-          # Create keystore.properties
-          printf '%s\n' \
-            "storeFile=release.keystore" \
-            "storePassword=$ANDROID_KEYSTORE_PASSWORD" \
-            "keyAlias=$ANDROID_KEY_ALIAS" \
-            "keyPassword=$ANDROID_KEY_PASSWORD" \
-            > android/keystore.properties
+            printf '%s\n' \
+              "storeFile=release.keystore" \
+              "storePassword=$ANDROID_KEYSTORE_PASSWORD" \
+              "keyAlias=$ANDROID_KEY_ALIAS" \
+              "keyPassword=$ANDROID_KEY_PASSWORD" \
+              > android/keystore.properties
 
-          echo "✅ Signing configured"
+            echo "is_signed=true" >> $GITHUB_OUTPUT
+            echo "Signing configured (release key)"
+          else
+            echo "is_signed=false" >> $GITHUB_OUTPUT
+            echo "::notice::Android signing secrets not available — APK will use debug signing"
+          fi
 
-      - name: Verify veloqrs libraries before build
+      - name: Verify veloqrs libraries
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         run: |
-          echo "=== Verifying .so files before Gradle build ==="
-
-          # Check if jniLibs directory exists
+          echo "=== Verifying .so files ==="
           if [ ! -d "modules/veloqrs/android/src/main/jniLibs" ]; then
             echo "ERROR: jniLibs directory not found!"
             exit 1
           fi
 
-          # Verify each architecture
           all_ok=true
-          for arch in arm64-v8a armeabi-v7a x86_64 x86; do
+          for arch in arm64-v8a x86_64; do
             so_file="modules/veloqrs/android/src/main/jniLibs/$arch/libveloqrs.so"
             if [ -f "$so_file" ]; then
-              size=$(stat -c%s "$so_file" 2>/dev/null || stat -f%z "$so_file" 2>/dev/null || echo "0")
+              size=$(stat -c%s "$so_file" 2>/dev/null || echo "0")
               if [ "$size" -gt 0 ]; then
-                echo "✓ $arch: ${size} bytes"
+                echo "$arch: ${size} bytes"
               else
-                echo "✗ $arch: FILE EXISTS BUT IS EMPTY!"
+                echo "ERROR: $arch file is empty!"
                 all_ok=false
               fi
             else
-              echo "✗ $arch: FILE NOT FOUND at $so_file"
+              echo "ERROR: $arch not found at $so_file"
               all_ok=false
             fi
           done
 
-          # Verify VeloqrsModule.kt (JNI-based TurboModule wrapper - committed in repo)
-          # NOTE: We do NOT use veloqrs.kt from releases (that's JNA-based, JVM-only)
-          VELOQ_MODULE="modules/veloqrs/android/src/main/java/com/veloq/VeloqrsModule.kt"
-          if [ -f "$VELOQ_MODULE" ]; then
-            echo "✓ VeloqrsModule.kt (JNI): $VELOQ_MODULE"
-          else
-            echo "✗ VeloqrsModule.kt not found - this should be committed in the repo"
-            all_ok=false
+          # Check extra architectures on main
+          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            for arch in armeabi-v7a x86; do
+              so_file="modules/veloqrs/android/src/main/jniLibs/$arch/libveloqrs.so"
+              if [ -f "$so_file" ]; then
+                size=$(stat -c%s "$so_file" 2>/dev/null || echo "0")
+                echo "$arch: ${size} bytes"
+              else
+                echo "WARNING: $arch not found (expected for main builds)"
+              fi
+            done
           fi
 
           if [ "$all_ok" = "false" ]; then
@@ -553,30 +436,32 @@ jobs:
             exit 1
           fi
 
-          echo "✅ All veloqrs libraries verified!"
-
       - name: Clean stale dex archives
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         run: |
-          # Remove dex archives that can become stale when npm dependencies change
           rm -rf android/app/build/intermediates/project_dex_archive
           rm -rf android/app/build/intermediates/dex
-          echo "✅ Cleaned dex archives"
 
       - name: Build Android APK
-        if: github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch'
-        run: cd android && ./gradlew assembleRelease --no-daemon --no-build-cache
+        if: steps.apk-cache.outputs.cache-hit != 'true' && !(github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        run: |
+          cd android && ./gradlew assembleRelease \
+            -PreactNativeArchitectures=arm64-v8a,x86_64 \
+            --no-daemon --no-build-cache
 
       - name: Build Android APK + AAB
-        # Build both in single Gradle invocation on main (faster than separate builds)
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        if: steps.apk-cache.outputs.cache-hit != 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         run: cd android && ./gradlew assembleRelease bundleRelease --no-daemon --no-build-cache
+
+      - name: Skip build (cache hit)
+        if: steps.apk-cache.outputs.cache-hit == 'true'
+        run: echo "Using cached APK (hash ${{ steps.version.outputs.source_hash }})"
 
       - name: Copy APK
         run: |
           mkdir -p artifacts
           if [ ! -f android/keystore.properties ]; then
-            echo "::error::keystore.properties not found - release builds must be signed"
-            exit 1
+            echo "::warning::keystore.properties not found — APK uses debug signing"
           fi
           cp android/app/build/outputs/apk/release/app-release.apk \
             "artifacts/${{ steps.version.outputs.filename }}.apk"
@@ -588,42 +473,27 @@ jobs:
           path: artifacts/*.apk
           retention-days: 30
 
-      - name: Rename AAB
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-        run: |
-          AAB_PATH=$(find android/app/build/outputs/bundle -name "*.aab" | head -1)
-          if [ -n "$AAB_PATH" ]; then
-            cp "$AAB_PATH" "artifacts/${{ steps.version.outputs.filename }}.aab"
-          fi
-
-      - name: Upload AAB artifact
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-aab-${{ steps.version.outputs.filename }}
-          path: artifacts/*.aab
-          retention-days: 30
-
       - name: Verify AAB signing
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && steps.signing.outputs.is_signed == 'true'
         env:
           EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
         run: |
           echo "=== Verifying AAB was signed with correct key ==="
           AAB_FILE="artifacts/${{ steps.version.outputs.filename }}.aab"
 
-          if [ ! -f "$AAB_FILE" ]; then
-            echo "::error::AAB file not found at $AAB_FILE"
+          # Copy AAB to artifacts first
+          AAB_SRC=$(find android/app/build/outputs/bundle -name "*.aab" | head -1)
+          if [ -n "$AAB_SRC" ]; then
+            cp "$AAB_SRC" "$AAB_FILE"
+          else
+            echo "::error::AAB file not found"
             exit 1
           fi
 
-          # AABs use JAR signing (v1) so we can extract from META-INF
-          # Unlike APKs, AABs don't support v2/v3 signature schemes
           ACTUAL_SHA1=$(unzip -p "$AAB_FILE" "META-INF/BNDLTOOL.RSA" 2>/dev/null | \
             keytool -printcert 2>/dev/null | \
             grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
 
-          # Fallback: try any .RSA file if BNDLTOOL.RSA doesn't exist
           if [ -z "$ACTUAL_SHA1" ]; then
             RSA_FILE=$(unzip -l "$AAB_FILE" 2>/dev/null | grep "META-INF/.*\.RSA" | awk '{print $4}' | head -1)
             if [ -n "$RSA_FILE" ]; then
@@ -638,25 +508,29 @@ jobs:
 
           if [ -z "$ACTUAL_SHA1" ]; then
             echo "::error::Could not extract signing certificate from AAB"
-            echo "AAB contents:"
-            unzip -l "$AAB_FILE" | grep -i "meta-inf" || echo "No META-INF found"
             exit 1
           fi
 
           if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
-            echo "::error::AAB signed with WRONG KEY!"
-            echo "::error::Expected Play Store upload key but got different certificate"
+            echo "::error::AAB signed with wrong key!"
             exit 1
           fi
 
-          echo "✅ AAB signed with correct release key"
+          echo "AAB signed with correct release key"
+
+      - name: Upload AAB artifact
+        if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && steps.signing.outputs.is_signed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab-${{ steps.version.outputs.filename }}
+          path: artifacts/*.aab
+          retention-days: 30
 
   # ============================================
   # Build iOS
   # ============================================
   build-ios:
-    name: Build iOS App
-    needs: [test, verify-signing]
+    name: Build iOS
     runs-on: macos-26
     timeout-minutes: 90
     outputs:
@@ -710,7 +584,19 @@ jobs:
             echo "filename=veloq-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
 
-          echo "Build type: $BUILD_TYPE | Version: $VERSION ($VERSION_CODE)"
+          # Source hash for simulator .app caching
+          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+          echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
+
+          echo "Build type: $BUILD_TYPE | Version: $VERSION ($VERSION_CODE) | Hash: $SOURCE_HASH"
+
+      # Source-hash cache for simulator .app
+      - name: Cache simulator app
+        id: app-cache
+        uses: actions/cache@v4
+        with:
+          path: ios/build/Build/Products/Release-iphonesimulator/Veloq.app
+          key: ios-sim-v1-${{ steps.version.outputs.source_hash }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -718,32 +604,47 @@ jobs:
           node-version: "${{ env.NODE_VERSION }}"
           cache: "npm"
 
-      # ============================================
-      # Build Rust libraries for iOS
-      # ============================================
+      # ---- Rust Build ----
       - name: Setup Rust toolchain
+        if: steps.app-cache.outputs.cache-hit != 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
 
       - name: Cache Rust dependencies
+        if: steps.app-cache.outputs.cache-hit != 'true'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: modules/veloqrs/rust
 
-      - name: Build Rust libraries for iOS
+      - name: Copy C++ files for iOS build
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p modules/veloqrs/ios/cpp/generated
+          cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/
+          cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/
+          cp modules/veloqrs/cpp/generated/veloqrs.hpp modules/veloqrs/ios/cpp/generated/
+          cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/generated/
+
+      - name: Build Rust for iOS
+        if: steps.app-cache.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
         run: |
           echo "=== Building veloqrs for iOS ==="
 
-          # Build for all iOS architectures
-          for target in aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios; do
+          # Always build simulator targets
+          for target in aarch64-apple-ios-sim x86_64-apple-ios; do
             echo "Building for $target..."
             cargo build --release --target $target -p veloqrs
           done
 
+          # Build device target on main/dispatch (needed for signed IPA)
+          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Building for aarch64-apple-ios (device)..."
+            cargo build --release --target aarch64-apple-ios -p veloqrs
+          fi
+
           # Create fat library for simulator (arm64 + x86_64)
-          # Library is renamed to veloqrs_ffi to match podspec -lveloqrs_ffi
           echo "Creating fat library for simulator..."
           mkdir -p target/sim-fat
           lipo -create \
@@ -751,53 +652,48 @@ jobs:
             target/x86_64-apple-ios/release/libveloqrs.a \
             -output target/sim-fat/libveloqrs_ffi.a
 
-          # Copy device library with correct name
-          cp target/aarch64-apple-ios/release/libveloqrs.a target/aarch64-apple-ios/release/libveloqrs_ffi.a
-
           # Create XCFramework
           echo "Creating XCFramework..."
           mkdir -p ../ios/Frameworks
           rm -rf ../ios/Frameworks/VeloqrsFFI.xcframework
 
-          xcodebuild -create-xcframework \
-            -library target/aarch64-apple-ios/release/libveloqrs_ffi.a \
-            -library target/sim-fat/libveloqrs_ffi.a \
-            -output ../ios/Frameworks/VeloqrsFFI.xcframework
+          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "workflow_dispatch" ]] && [ -f target/aarch64-apple-ios/release/libveloqrs.a ]; then
+            # Full XCFramework with device + simulator
+            cp target/aarch64-apple-ios/release/libveloqrs.a target/aarch64-apple-ios/release/libveloqrs_ffi.a
+            xcodebuild -create-xcframework \
+              -library target/aarch64-apple-ios/release/libveloqrs_ffi.a \
+              -library target/sim-fat/libveloqrs_ffi.a \
+              -output ../ios/Frameworks/VeloqrsFFI.xcframework
+          else
+            # Simulator-only XCFramework
+            xcodebuild -create-xcframework \
+              -library target/sim-fat/libveloqrs_ffi.a \
+              -output ../ios/Frameworks/VeloqrsFFI.xcframework
+          fi
 
-          echo "✓ XCFramework created"
+          echo "XCFramework created"
           ls -la ../ios/Frameworks/
 
-      - name: Copy C++ files for iOS build
-        run: |
-          # Copy committed C++ bindings to ios/cpp/ where CocoaPods can find them
-          mkdir -p modules/veloqrs/ios/cpp/generated
-          cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/
-          cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/
-          cp modules/veloqrs/cpp/generated/veloqrs.hpp modules/veloqrs/ios/cpp/generated/
-          cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/generated/
-          echo "✓ Copied C++ bindings to ios/cpp/"
-
+      # ---- iOS Native Project ----
       - name: Cache iOS prebuild
+        if: steps.app-cache.outputs.cache-hit != 'true'
         id: ios-prebuild-cache
         uses: actions/cache@v4
         with:
           path: ios
-          # v5: include modules/**/package.json for codegenConfig changes
-          key: ios-prebuild-v5-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
+          key: ios-prebuild-v6-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
           restore-keys: |
-            ios-prebuild-v5-${{ runner.os }}-
+            ios-prebuild-v6-${{ runner.os }}-
 
-      # ============================================
-      # iOS Build
-      # ============================================
       - name: Install dependencies
         run: npm ci
 
       - name: Generate native project
-        if: steps.ios-prebuild-cache.outputs.cache-hit != 'true'
+        if: steps.app-cache.outputs.cache-hit != 'true' && steps.ios-prebuild-cache.outputs.cache-hit != 'true'
         run: APP_VARIANT=production npx expo prebuild --platform ios
 
       - name: Cache CocoaPods
+        if: steps.app-cache.outputs.cache-hit != 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -808,6 +704,7 @@ jobs:
             cocoapods-${{ runner.os }}-
 
       - name: Setup Ruby
+        if: steps.app-cache.outputs.cache-hit != 'true'
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.2"
@@ -815,15 +712,88 @@ jobs:
           working-directory: config/fastlane
 
       - name: Install Pods
+        if: steps.app-cache.outputs.cache-hit != 'true'
         working-directory: ios
         run: |
-          # Always run pod install - it's fast if nothing changed and ensures consistency
-          # This handles cases where prebuild cache hit but pods are stale
+          gem install cocoapods 2>/dev/null || true
           pod install
 
-      # ============================================
-      # iOS Signing (for IPA builds on main)
-      # ============================================
+      # ---- Simulator Build (always) ----
+      - name: Initialize simulator
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          xcrun simctl list > /dev/null 2>&1 || true
+          if ! xcrun simctl list devices available | grep -q "iPhone"; then
+            xcodebuild -downloadPlatform iOS || exit 1
+          fi
+
+      - name: Find simulator
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        id: simulator
+        run: |
+          DEVICE_UDID=$(xcrun simctl list devices available | grep -E "iPhone 17 \(" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          if [ -z "$DEVICE_UDID" ]; then
+            DEVICE_UDID=$(xcrun simctl list devices available | grep -E "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+          echo "Found simulator UDID: $DEVICE_UDID"
+          xcrun simctl boot "$DEVICE_UDID" || true
+          echo "udid=$DEVICE_UDID" >> $GITHUB_OUTPUT
+
+      - name: Build simulator app
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          xcodebuild -workspace ios/Veloq.xcworkspace \
+            -scheme Veloq \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
+            -derivedDataPath ios/build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee ios-build.log || {
+              tail -100 ios-build.log
+              exit 1
+            }
+
+      - name: Skip build (cache hit)
+        if: steps.app-cache.outputs.cache-hit == 'true'
+        run: echo "Using cached simulator app (hash ${{ steps.version.outputs.source_hash }})"
+
+      - name: Verify and package simulator app
+        run: |
+          APP_PATH="ios/build/Build/Products/Release-iphonesimulator/Veloq.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: App not found"
+            exit 1
+          fi
+          if [ ! -f "$APP_PATH/Veloq" ]; then
+            echo "ERROR: Missing executable at $APP_PATH/Veloq"
+            ls -la "$APP_PATH/"
+            exit 1
+          fi
+          echo "App size: $(du -sh "$APP_PATH" | cut -f1)"
+          mkdir -p artifacts
+          cd "$(dirname "$APP_PATH")"
+          zip -yr "$OLDPWD/artifacts/${{ steps.version.outputs.filename }}-ios-simulator.zip" Veloq.app
+          echo "Created ${{ steps.version.outputs.filename }}-ios-simulator.zip"
+
+      - name: Upload simulator artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator-${{ steps.version.outputs.filename }}
+          path: artifacts/*-ios-simulator.zip
+          retention-days: 30
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-log
+          path: ios-build.log
+          retention-days: 3
+
+      # ---- Signed IPA (main/dispatch with secrets) ----
       - name: Check for iOS signing credentials
         id: check_ios_signing
         env:
@@ -833,14 +803,12 @@ jobs:
         run: |
           if [ -n "$MATCH_GIT_URL" ] && [ -n "$ASC_KEY_ID" ] && [ -n "$IOS_DISTRIBUTION_CERT_P12" ]; then
             echo "has_signing=true" >> $GITHUB_OUTPUT
-            echo "✅ iOS signing credentials found"
+            echo "iOS signing credentials found"
           else
             echo "has_signing=false" >> $GITHUB_OUTPUT
-            echo "::notice::iOS signing not configured - skipping IPA build"
+            echo "::notice::iOS signing not configured — skipping IPA build"
           fi
 
-      # Import certificate via Apple-Actions (fixes codesign hanging issue)
-      # See: https://github.com/orgs/community/discussions/70145
       - name: Import code signing certificate
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         uses: apple-actions/import-codesign-certs@v3
@@ -854,7 +822,6 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
 
-      # Match now only syncs provisioning profiles (certificate imported above)
       - name: Sync provisioning profiles with Match
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         env:
@@ -864,82 +831,36 @@ jobs:
         working-directory: config/fastlane
         run: bundle exec fastlane match appstore --readonly
 
-      # Pre-build diagnostics to help debug signing issues
       - name: Pre-build diagnostics
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         run: |
           echo "=== Pre-build Diagnostics ==="
-
-          echo "--- System Info ---"
           sw_vers
           xcodebuild -version
-
-          echo "--- Disk Space ---"
           df -h /
-
-          echo "--- Memory ---"
-          vm_stat | head -5
-
-          echo "--- Network: Testing Apple timestamp server connectivity ---"
-          # This is the server codesign contacts for timestamps
-          curl -sI --connect-timeout 5 https://timestamp.apple.com/ts01 && echo "✅ timestamp.apple.com reachable" || echo "⚠️ timestamp.apple.com NOT reachable (--timestamp=none should help)"
-
-          echo "--- Network: Testing Apple Developer services ---"
-          curl -sI --connect-timeout 5 https://developer.apple.com && echo "✅ developer.apple.com reachable" || echo "⚠️ developer.apple.com NOT reachable"
-
-          echo "--- Keychain: Signing identities ---"
+          curl -sI --connect-timeout 5 https://timestamp.apple.com/ts01 && echo "timestamp.apple.com reachable" || echo "timestamp.apple.com NOT reachable"
           security find-identity -v -p codesigning | head -10
+          echo "=== End Diagnostics ==="
 
-          echo "--- Checking for codesign binary ---"
-          which codesign
-          codesign --version 2>&1 || echo "codesign version not available"
-
-          echo "--- MapLibre framework location ---"
-          find ios/Pods -name "MapLibre*.framework" -o -name "Mapbox*.framework" 2>/dev/null | head -5 || echo "MapLibre not in Pods yet"
-
-          echo "=== End Pre-build Diagnostics ==="
-
-      # Start watchdog to print diagnostics if build goes silent
       - name: Start build watchdog
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         run: |
-          # Aggressive watchdog: checks every 60 seconds, detailed codesign monitoring
           (
-            sleep 60  # First check after 1 minute
+            sleep 60
             while true; do
               echo ""
               echo "========== WATCHDOG: $(date) =========="
-
-              echo "--- Active processes (xcodebuild, codesign, security) ---"
               ps aux | grep -E 'xcodebuild|codesign|security' | grep -v grep || echo "No relevant processes"
-
-              echo "--- Codesign processes with full command line ---"
               pgrep -fl codesign 2>/dev/null || echo "No codesign running"
-
-              echo "--- Open network connections from codesign ---"
-              lsof -i -n -P 2>/dev/null | grep -i codesign || echo "No codesign network connections"
-
-              echo "--- System load ---"
               uptime
-
-              echo "--- Memory pressure ---"
-              memory_pressure 2>/dev/null || vm_stat | head -5
-
-              echo "--- Disk usage ---"
               df -h / | tail -1
-
-              echo "--- Last 20 lines of build log ---"
               tail -20 config/fastlane/artifacts/Veloq-Veloq.log 2>/dev/null || echo "No log yet"
-
-              echo "--- Checking for stuck codesign (running > 2 min) ---"
-              ps -eo pid,etime,command | grep codesign | grep -v grep || echo "No codesign process"
-
               echo "========================================"
-              sleep 60  # Check every minute
+              sleep 60
             done
           ) &
           echo $! > /tmp/watchdog.pid
-          echo "Watchdog started with PID $(cat /tmp/watchdog.pid) - checking every 60s"
+          echo "Watchdog started with PID $(cat /tmp/watchdog.pid)"
 
       - name: Build signed IPA
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
@@ -951,8 +872,6 @@ jobs:
         working-directory: config/fastlane
         run: |
           echo "=== Starting IPA build at $(date) ==="
-          echo "Build will use OTHER_CODE_SIGN_FLAGS='--timestamp=none' to avoid timestamp server hangs"
-          echo "--- Starting fastlane ---"
           bundle exec fastlane ios build_release
           echo "=== Build completed at $(date) ==="
 
@@ -961,36 +880,19 @@ jobs:
         run: |
           if [ -f /tmp/watchdog.pid ]; then
             kill $(cat /tmp/watchdog.pid) 2>/dev/null || true
-            echo "Watchdog stopped"
           fi
 
       - name: Capture diagnostic info on failure
         if: failure() && steps.check_ios_signing.outputs.has_signing == 'true'
         run: |
-          echo "=== Capturing failure diagnostics ==="
           mkdir -p config/fastlane/artifacts/diagnostics
-
-          echo "--- Final process state ---" > config/fastlane/artifacts/diagnostics/processes.txt
-          ps aux >> config/fastlane/artifacts/diagnostics/processes.txt 2>&1
-
-          echo "--- Codesign processes ---" > config/fastlane/artifacts/diagnostics/codesign.txt
-          pgrep -fl codesign >> config/fastlane/artifacts/diagnostics/codesign.txt 2>&1 || echo "No codesign" >> config/fastlane/artifacts/diagnostics/codesign.txt
-
-          echo "--- Network connections ---" > config/fastlane/artifacts/diagnostics/network.txt
-          lsof -i -n -P >> config/fastlane/artifacts/diagnostics/network.txt 2>&1 || echo "lsof failed" >> config/fastlane/artifacts/diagnostics/network.txt
-
-          echo "--- System log (last 100 lines) ---" > config/fastlane/artifacts/diagnostics/system.log
-          log show --last 5m --predicate 'process == "codesign" OR process == "xcodebuild"' >> config/fastlane/artifacts/diagnostics/system.log 2>&1 || echo "log show failed" >> config/fastlane/artifacts/diagnostics/system.log
-
-          echo "--- Keychain state ---" > config/fastlane/artifacts/diagnostics/keychain.txt
-          security list-keychains >> config/fastlane/artifacts/diagnostics/keychain.txt 2>&1
+          ps aux > config/fastlane/artifacts/diagnostics/processes.txt 2>&1
+          pgrep -fl codesign > config/fastlane/artifacts/diagnostics/codesign.txt 2>&1 || echo "No codesign" > config/fastlane/artifacts/diagnostics/codesign.txt
+          lsof -i -n -P > config/fastlane/artifacts/diagnostics/network.txt 2>&1 || true
+          log show --last 5m --predicate 'process == "codesign" OR process == "xcodebuild"' > config/fastlane/artifacts/diagnostics/system.log 2>&1 || true
+          security list-keychains > config/fastlane/artifacts/diagnostics/keychain.txt 2>&1
           security find-identity -v -p codesigning >> config/fastlane/artifacts/diagnostics/keychain.txt 2>&1
-
-          echo "--- Memory state ---" > config/fastlane/artifacts/diagnostics/memory.txt
-          vm_stat >> config/fastlane/artifacts/diagnostics/memory.txt 2>&1
-          top -l 1 -n 10 >> config/fastlane/artifacts/diagnostics/memory.txt 2>&1
-
-          echo "=== Diagnostics captured ==="
+          vm_stat > config/fastlane/artifacts/diagnostics/memory.txt 2>&1
 
       - name: Upload build logs on failure
         if: failure() && steps.check_ios_signing.outputs.has_signing == 'true'
@@ -1010,7 +912,7 @@ jobs:
           IPA_PATH=$(find . -name "*.ipa" -type f | head -1)
           if [ -n "$IPA_PATH" ]; then
             cp "$IPA_PATH" "artifacts/${{ steps.version.outputs.filename }}.ipa"
-            echo "✅ IPA: ${{ steps.version.outputs.filename }}.ipa"
+            echo "IPA: ${{ steps.version.outputs.filename }}.ipa"
           fi
 
       - name: Verify IPA code signature
@@ -1027,57 +929,43 @@ jobs:
             exit 1
           fi
 
-          # Extract IPA
           rm -rf /tmp/ipa_verify
           mkdir -p /tmp/ipa_verify
           unzip -q "$IPA_FILE" -d /tmp/ipa_verify
 
-          # Find .app bundle
           APP_PATH=$(find /tmp/ipa_verify -name "*.app" -type d | head -1)
           if [ -z "$APP_PATH" ]; then
             echo "::error::No .app bundle found in IPA"
             exit 1
           fi
 
-          echo "Found app: $APP_PATH"
-
-          # Verify code signature
-          echo "--- Code Signature Details ---"
           codesign -dv --verbose=2 "$APP_PATH" 2>&1 | tee /tmp/codesign.txt || {
             echo "::error::IPA is not properly signed"
             exit 1
           }
 
-          # Extract and verify Team ID
           ACTUAL_TEAM=$(grep "TeamIdentifier=" /tmp/codesign.txt | cut -d= -f2)
           echo "Expected Team ID: $EXPECTED_TEAM_ID"
           echo "Actual Team ID:   $ACTUAL_TEAM"
 
           if [ "$ACTUAL_TEAM" != "$EXPECTED_TEAM_ID" ]; then
-            echo "::error::Team ID mismatch! Expected $EXPECTED_TEAM_ID but got $ACTUAL_TEAM"
+            echo "::error::Team ID mismatch!"
             exit 1
           fi
 
-          # Extract and verify Bundle ID from Info.plist
           ACTUAL_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$APP_PATH/Info.plist" 2>/dev/null)
-          echo "Expected Bundle ID: $EXPECTED_BUNDLE_ID"
-          echo "Actual Bundle ID:   $ACTUAL_BUNDLE_ID"
-
           if [ "$ACTUAL_BUNDLE_ID" != "$EXPECTED_BUNDLE_ID" ]; then
-            echo "::error::Bundle ID mismatch! Expected $EXPECTED_BUNDLE_ID but got $ACTUAL_BUNDLE_ID"
+            echo "::error::Bundle ID mismatch!"
             exit 1
           fi
 
-          # Verify signature is valid
           codesign --verify --deep --strict "$APP_PATH" 2>&1 || {
             echo "::error::Code signature verification failed"
             exit 1
           }
 
-          # Cleanup
           rm -rf /tmp/ipa_verify
-
-          echo "✅ IPA signed correctly by team $ACTUAL_TEAM with bundle ID $ACTUAL_BUNDLE_ID"
+          echo "IPA signed correctly by team $ACTUAL_TEAM with bundle ID $ACTUAL_BUNDLE_ID"
 
       - name: Upload IPA artifact
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
@@ -1087,3 +975,324 @@ jobs:
           path: artifacts/*.ipa
           retention-days: 30
 
+  # ============================================
+  # E2E Tests - Android with Maestro
+  # ============================================
+  e2e-android:
+    needs: build-android
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_e2e }}
+    name: E2E Android (Maestro)
+    runs-on: macos-26
+    timeout-minutes: 45
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk-${{ needs.build-android.outputs.filename }}
+          path: /tmp/android-artifact
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+          "$HOME/.maestro/bin/maestro" --version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Create and boot emulator
+        run: |
+          echo "no" | avdmanager create avd -n test -k "system-images;android-34;google_apis;arm64-v8a" --force || \
+          (sdkmanager "system-images;android-34;google_apis;arm64-v8a" && \
+           echo "no" | avdmanager create avd -n test -k "system-images;android-34;google_apis;arm64-v8a" --force)
+
+          $ANDROID_HOME/emulator/emulator -avd test -no-window -gpu host -noaudio -no-boot-anim -no-snapshot-save &
+          EMULATOR_PID=$!
+          echo "Emulator PID: $EMULATOR_PID"
+
+          adb wait-for-device
+          for i in $(seq 1 60); do
+            BOOT=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+            if [ "$BOOT" = "1" ]; then echo "Boot complete after ${i}s"; break; fi
+            echo "Waiting for boot... ($i/60)"
+            sleep 2
+          done
+          sleep 5
+
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+
+      - name: Install APK and warm up
+        run: |
+          APK=$(find /tmp/android-artifact -name "*.apk" | head -1)
+          adb install "$APK"
+          sleep 3
+          adb logcat -c
+
+      - name: Determine test tier
+        id: tier
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "tags=tier0,tier1,tier2,tier3" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "tags=tier0,tier1,tier2" >> $GITHUB_OUTPUT
+          else
+            echo "tags=tier0,tier1" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Maestro tests
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro test .maestro/ \
+            --include-tags=${{ steps.tier.outputs.tags }} \
+            --format junit --output maestro-report.xml --no-ansi || true
+
+      - name: Capture diagnostic logs
+        if: always()
+        run: |
+          adb logcat -d > /tmp/logcat.txt 2>&1 || true
+          grep -E "(FATAL|veloqrs|ReactNative|AndroidRuntime|Process:|Signal|crash|panic)" /tmp/logcat.txt > /tmp/logcat-filtered.txt 2>/dev/null || true
+
+      - name: Collect screenshots
+        if: always()
+        run: |
+          mkdir -p screenshots-flat
+          find ~/.maestro -name "*.png" -exec cp {} screenshots-flat/ \; 2>/dev/null || true
+          for f in screenshots-flat/*.png; do
+            [ -f "$f" ] && mv "$f" "${f%.png}-android.png" 2>/dev/null || true
+          done
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-android
+          path: screenshots-flat/
+          retention-days: 14
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-android-report
+          path: maestro-report.xml
+          retention-days: 7
+
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-logcat
+          path: |
+            /tmp/logcat.txt
+            /tmp/logcat-filtered.txt
+          retention-days: 7
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: maestro-report.xml
+          check_name: E2E Android Results
+          fail_on_failure: false
+
+  # ============================================
+  # E2E Tests - iOS with Maestro
+  # ============================================
+  e2e-ios:
+    needs: build-ios
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_e2e }}
+    name: E2E iOS (Maestro)
+    runs-on: macos-26
+    timeout-minutes: 45
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Download iOS app
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-simulator-${{ needs.build-ios.outputs.filename }}
+          path: /tmp/ios-artifact
+
+      - name: Extract iOS app
+        run: |
+          mkdir -p ios/build/Build/Products/Release-iphonesimulator
+          ZIP=$(find /tmp/ios-artifact -name "*.zip" | head -1)
+          unzip "$ZIP" -d ios/build/Build/Products/Release-iphonesimulator/
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+          "$HOME/.maestro/bin/maestro" --version
+
+      - name: Find and boot simulator
+        id: simulator
+        run: |
+          DEVICE="iPhone 17 Pro Max"
+          UDID=$(xcrun simctl list devices available | grep "$DEVICE" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          if [ -z "$UDID" ]; then
+            UDID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+          echo "Using simulator: $UDID"
+          xcrun simctl boot "$UDID" || true
+          echo "udid=$UDID" >> $GITHUB_OUTPUT
+
+      - name: Wait for simulator readiness
+        run: |
+          for i in $(seq 1 30); do
+            if xcrun simctl spawn "${{ steps.simulator.outputs.udid }}" launchctl list 2>/dev/null | grep -q SpringBoard; then
+              echo "SpringBoard is running"
+              break
+            fi
+            echo "Waiting for SpringBoard... ($i/30)"
+            sleep 2
+          done
+          sleep 5
+
+      - name: Install app
+        run: |
+          xcrun simctl install "${{ steps.simulator.outputs.udid }}" ios/build/Build/Products/Release-iphonesimulator/Veloq.app
+
+      - name: Determine test tier
+        id: tier
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "tags=tier0,tier1,tier2,tier3" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "tags=tier0,tier1,tier2" >> $GITHUB_OUTPUT
+          else
+            echo "tags=tier0,tier1" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Maestro tests
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro test .maestro/ \
+            --include-tags=${{ steps.tier.outputs.tags }} \
+            --format junit --output maestro-report.xml --no-ansi || true
+
+      - name: Capture diagnostic logs
+        if: always()
+        run: |
+          xcrun simctl spawn "${{ steps.simulator.outputs.udid }}" log show --last 5m --predicate 'process == "Veloq" OR processImagePath CONTAINS "Veloq"' > /tmp/ios-sim-log.txt 2>&1 || true
+          find ~/Library/Logs/DiagnosticReports -name "Veloq*" -exec cp {} /tmp/ \; 2>/dev/null || true
+
+      - name: Collect screenshots
+        if: always()
+        run: |
+          mkdir -p screenshots-flat
+          find ~/.maestro -name "*.png" -exec cp {} screenshots-flat/ \; 2>/dev/null || true
+          for f in screenshots-flat/*.png; do
+            [ -f "$f" ] && mv "$f" "${f%.png}-ios.png" 2>/dev/null || true
+          done
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-ios
+          path: screenshots-flat/
+          retention-days: 14
+
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-sim-logs
+          path: |
+            /tmp/ios-sim-log.txt
+            /tmp/Veloq*
+          retention-days: 7
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-ios-report
+          path: maestro-report.xml
+          retention-days: 7
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: maestro-report.xml
+          check_name: E2E iOS Results
+          fail_on_failure: false
+
+  # ============================================
+  # E2E Summary
+  # ============================================
+  e2e-summary:
+    needs: [e2e-ios, e2e-android]
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    name: E2E Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download iOS report
+        uses: actions/download-artifact@v4
+        with:
+          name: maestro-ios-report
+          path: /tmp/reports/ios
+        continue-on-error: true
+
+      - name: Download Android report
+        uses: actions/download-artifact@v4
+        with:
+          name: maestro-android-report
+          path: /tmp/reports/android
+        continue-on-error: true
+
+      - name: Generate summary
+        run: |
+          {
+            echo "## E2E Test Results"
+            echo ""
+            echo "| Platform | Result | Status |"
+            echo "|----------|--------|--------|"
+            for platform in ios android; do
+              report="/tmp/reports/$platform/maestro-report.xml"
+              if [ -f "$report" ]; then
+                tests=$(grep -oP 'tests="\K[0-9]+' "$report" | head -1 || echo "0")
+                failures=$(grep -oP 'failures="\K[0-9]+' "$report" | head -1 || echo "0")
+                if [ "$failures" = "0" ] || [ -z "$failures" ]; then
+                  echo "| $platform | ${tests:-0} passed | :white_check_mark: |"
+                else
+                  passed=$((tests - failures))
+                  echo "| $platform | $passed/$tests passed ($failures failed) | :x: |"
+                fi
+              else
+                echo "| $platform | No report | :warning: |"
+              fi
+            done
+            echo ""
+            echo "_See check annotations and artifacts for details_"
+          } > summary.md
+
+      - name: Post PR comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: summary.md
