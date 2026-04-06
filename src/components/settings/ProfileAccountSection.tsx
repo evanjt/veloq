@@ -92,9 +92,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
    * Input:  "ACTIVITY:WRITE,WELLNESS:READ,CALENDAR:READ,SETTINGS:READ"
    * Output: [{ label: "Activities", level: "Write" }, { label: "Wellness", level: "Read" }, ...]
    */
-  const parseScopes = (
-    scopes: string
-  ): { label: string; level: string }[] => {
+  const parseScopes = (scopes: string): { label: string; level: string }[] => {
     const categoryNames: Record<string, string> = {
       ACTIVITY: t('settings.activities', 'Activities'),
       WELLNESS: t('navigation.wellness', 'Wellness'),
@@ -180,7 +178,9 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
                     key={s.label}
                     style={[settingsStyles.scopeBadge, isDark && settingsStyles.scopeBadgeDark]}
                   >
-                    <Text style={[settingsStyles.scopeBadgeText, isDark && settingsStyles.textMuted]}>
+                    <Text
+                      style={[settingsStyles.scopeBadgeText, isDark && settingsStyles.textMuted]}
+                    >
                       {s.label}: {s.level}
                     </Text>
                   </View>
@@ -204,7 +204,10 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
           <View style={[settingsStyles.fullDivider, isDark && settingsStyles.fullDividerDark]} />
           <View style={styles.permissionRow}>
             <MaterialCommunityIcons name="shield-alert-outline" size={20} color={colors.warning} />
-            <Text style={[styles.permissionText, isDark && settingsStyles.textMuted]} numberOfLines={2}>
+            <Text
+              style={[styles.permissionText, isDark && settingsStyles.textMuted]}
+              numberOfLines={2}
+            >
               {t('recording.writePermissionNotGranted', 'Write permission not granted')}
             </Text>
             <TouchableOpacity

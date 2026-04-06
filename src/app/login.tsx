@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Linking, Pressable, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Linking,
+  Pressable,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
 import { Text, Button, TextInput } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenSafeAreaView } from '@/components/ui';
@@ -34,10 +42,7 @@ import { CollapsibleSection } from '@/components/ui/CollapsibleSection';
 import { clearAllAppCaches } from '@/lib/storage';
 import { useSyncDateRange, useUploadPermissionStore } from '@/providers';
 import { useImportDatabaseBackup } from '@/hooks';
-import {
-  getAvailableBackends,
-  type BackupEntry,
-} from '@/lib/backup';
+import { getAvailableBackends, type BackupEntry } from '@/lib/backup';
 import { restoreDatabaseBackup } from '@/lib/export/backup';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getRouteEngine } from '@/lib/native/routeEngine';
@@ -112,9 +117,7 @@ export default function LoginScreen() {
       await FileSystem.deleteAsync(tempPath, { idempotent: true });
 
       if (result.success) {
-        const messages = [
-          t('backup.databaseRestored', { count: result.activityCount }),
-        ];
+        const messages = [t('backup.databaseRestored', { count: result.activityCount })];
         if (result.athleteIdMismatch) {
           messages.push(
             `\n${t('backup.differentAccount', { defaultValue: 'Warning: This backup belongs to a different account.' })}`
@@ -486,11 +489,7 @@ export default function LoginScreen() {
           {detectedBackup && !dismissedRestore && (
             <View style={[styles.restoreBanner, isDark && styles.restoreBannerDark]}>
               <View style={styles.restoreBannerHeader}>
-                <MaterialCommunityIcons
-                  name="backup-restore"
-                  size={20}
-                  color={colors.primary}
-                />
+                <MaterialCommunityIcons name="backup-restore" size={20} color={colors.primary} />
                 <Text style={[styles.restoreBannerTitle, isDark && styles.textLight]}>
                   {t('backup.backupFound', { defaultValue: 'Backup Found' })}
                 </Text>
@@ -522,9 +521,7 @@ export default function LoginScreen() {
                 icon="database-import-outline"
                 compact
               >
-                {restoringDetected
-                  ? t('backup.importingDatabase')
-                  : t('backup.restoreFromBackup')}
+                {restoringDetected ? t('backup.importingDatabase') : t('backup.restoreFromBackup')}
               </Button>
             </View>
           )}

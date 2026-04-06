@@ -1403,11 +1403,16 @@
       "categories": "Notification categories",
       "sectionPr": "Section personal records",
       "fitnessMilestone": "Fitness milestones",
-      "periodComparison": "Weekly comparisons",
-      "activityPattern": "Activity patterns",
       "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
       "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
       "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
+    },
+    "prompt": {
+      "title": "Activity Notifications",
+      "description": "Receive notifications on new activities and achievements",
+      "enable": "Enable",
+      "dismiss": "No thanks",
+      "settingsHint": "You can enable notifications anytime in Settings"
     }
   },
   "whatsNew": {
@@ -1419,17 +1424,6 @@
     "justWhatsNew": "Just what's new",
     "backToTour": "Back to Tour",
     "closeTour": "Close",
-    "v030": {
-      "notificationsTitle": "Activity Notifications",
-      "notificationsBody": "Get notified when you set a personal record or hit a fitness milestone. All insights are generated entirely on your device.",
-      "enableNotifications": "Enable notifications",
-      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key. Your app works fully without them.",
-      "notificationExample": {
-        "trophy": "Col du Marchairuz — 2:45 faster",
-        "lightning-bolt": "FTP increased to 285W (+12W)",
-        "chart-line": "42% more distance than last week"
-      }
-    },
     "v022": {
       "mapStylesTitle": "3D Maps & Styles",
       "mapStylesBody": "Choose light, dark, or satellite map styles with smart 3D terrain for hilly activities.",

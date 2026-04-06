@@ -29,6 +29,7 @@ import {
   initializeInsightsStore,
   initializeRecordingPreferences,
   initializeNotificationPreferences,
+  initializeNotificationPrompt,
 } from '@/providers';
 import { reloadCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { reloadMapCameraState } from '@/lib/storage/mapCameraState';
@@ -60,6 +61,7 @@ export async function reinitializeAllStores(): Promise<void> {
     initializeInsightsStore(),
     initializeRecordingPreferences(),
     initializeNotificationPreferences(),
+    initializeNotificationPrompt(),
     reloadCameraOverrides(),
     reloadMapCameraState(),
   ]);
@@ -162,18 +164,14 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     // Get activity count and metadata from the restored database
     const restoredEngine = getRouteEngine();
     const activityCount = restoredEngine?.getActivityCount() ?? 0;
-    const metadata = restoredEngine?.getBackupMetadata() as
-      | DatabaseBackupMetadata
-      | undefined;
+    const metadata = restoredEngine?.getBackupMetadata() as DatabaseBackupMetadata | undefined;
 
     // Check athlete ID mismatch
     const { useAuthStore } = await import('@/providers');
     const currentAthleteId = useAuthStore.getState().athleteId;
     const backupAthleteId = metadata?.athlete_id ?? null;
     const athleteIdMismatch =
-      currentAthleteId != null &&
-      backupAthleteId != null &&
-      currentAthleteId !== backupAthleteId;
+      currentAthleteId != null && backupAthleteId != null && currentAthleteId !== backupAthleteId;
 
     return {
       success: true,
@@ -229,6 +227,7 @@ const LEGACY_PREFERENCE_KEYS = [
   'veloq-tile-cache',
   'veloq-whats-new-seen',
   'veloq-insights-fingerprint',
+  'veloq-notification-prompt-dismissed',
   'veloq-recording-preferences',
   'veloq-geocoded-route-ids',
   'veloq-geocoded-section-ids',

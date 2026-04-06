@@ -1404,11 +1404,16 @@
       "categories": "Notification categories",
       "sectionPr": "Section personal records",
       "fitnessMilestone": "Fitness milestones",
-      "periodComparison": "Weekly comparisons",
-      "activityPattern": "Activity patterns",
       "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
       "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
       "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
+    },
+    "prompt": {
+      "title": "アクティビティ通知",
+      "description": "新しいアクティビティや達成についての通知を受け取る",
+      "enable": "有効にする",
+      "dismiss": "結構です",
+      "settingsHint": "通知はいつでも設定から有効にできます"
     }
   },
   "whatsNew": {
@@ -1420,17 +1425,6 @@
     "justWhatsNew": "新機能のみ",
     "backToTour": "ツアーに戻る",
     "closeTour": "閉じる",
-    "v030": {
-      "notificationsTitle": "Activity Notifications",
-      "notificationsBody": "Get notified when you set a personal record or hit a fitness milestone. All insights are generated entirely on your device.",
-      "enableNotifications": "Enable notifications",
-      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key. Your app works fully without them.",
-      "notificationExample": {
-        "trophy": "Col du Marchairuz — 2:45 faster",
-        "lightning-bolt": "FTP increased to 285W (+12W)",
-        "chart-line": "42% more distance than last week"
-      }
-    },
     "v022": {
       "mapStylesTitle": "3Dマップとスタイル",
       "mapStylesBody": "ライト、ダーク、衛星の地図スタイルを選択。スマート3Dが起伏のあるアクティビティに自動適用されます。",

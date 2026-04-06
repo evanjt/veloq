@@ -35,7 +35,7 @@ import {
   ScreenErrorBoundary,
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
-import { SummaryCard, InsightLine } from '@/components/home';
+import { SummaryCard, InsightLine, NotificationOptInCard } from '@/components/home';
 import { useStartupData } from '@/hooks/home/useStartupData';
 import {
   TerrainSnapshotWebView,
@@ -487,6 +487,9 @@ export default function FeedScreen() {
   return (
     <ScreenErrorBoundary screenName="Feed">
       <ScreenSafeAreaView style={shared.container} testID="home-screen">
+        {/* Notification opt-in card (OAuth users who haven't enabled yet) */}
+        <NotificationOptInCard />
+
         {/* Summary card with hero metric and supporting stats */}
         <SummaryCard
           profileUrl={profileUrl}

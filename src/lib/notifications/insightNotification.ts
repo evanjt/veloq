@@ -15,7 +15,6 @@ const CATEGORY_PREFS: Partial<
 > = {
   section_pr: 'sectionPr',
   fitness_milestone: 'fitnessMilestone',
-  period_comparison: 'periodComparison',
 };
 
 const SUPPRESSED_NOTIFICATION_CATEGORIES = new Set<Insight['category']>([

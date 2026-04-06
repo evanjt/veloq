@@ -82,14 +82,11 @@ export function BackupSection() {
     }
   }, []);
 
-  const handleSelectBackend = useCallback(
-    (backend: BackupBackend) => {
-      setBackendPreference(backend.id);
-      setCurrentBackend(backend);
-      setShowBackendPicker(false);
-    },
-    []
-  );
+  const handleSelectBackend = useCallback((backend: BackupBackend) => {
+    setBackendPreference(backend.id);
+    setCurrentBackend(backend);
+    setShowBackendPicker(false);
+  }, []);
 
   const handleSaveWebdav = useCallback(async () => {
     if (!webdavUrl || !webdavUser || !webdavPass) return;
@@ -257,7 +254,13 @@ export function BackupSection() {
                 { id: 'local', name: t('backup.backendLocal'), icon: 'cellphone' as const },
                 { id: 'webdav', name: t('backup.backendWebdav'), icon: 'server-network' as const },
                 ...(Platform.OS === 'ios'
-                  ? [{ id: 'icloud', name: t('backup.backendIcloud'), icon: 'apple-icloud' as const }]
+                  ? [
+                      {
+                        id: 'icloud',
+                        name: t('backup.backendIcloud'),
+                        icon: 'apple-icloud' as const,
+                      },
+                    ]
                   : []),
               ].map((option) => (
                 <TouchableOpacity

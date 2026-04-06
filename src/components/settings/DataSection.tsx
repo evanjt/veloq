@@ -39,7 +39,8 @@ export function DataSection() {
     return unsub;
   }, []);
 
-  const totalCacheSize = nativeSizeEstimate + terrainCacheSize + (tileCacheStats?.totalBytes ?? 0) + routesSize;
+  const totalCacheSize =
+    nativeSizeEstimate + terrainCacheSize + (tileCacheStats?.totalBytes ?? 0) + routesSize;
 
   // Backup summary
   const lastBackupText = useMemo(() => {

@@ -47,17 +47,16 @@ export function WhatsNewModal() {
   const allSlides = useMemo(() => getAllSlides(), []);
   const isAutoTriggered = lastSeenVersion !== currentVersion;
 
-  // Auto-trigger tour when new version slides are available (only after login)
+  // Auto-trigger tour after login:
+  // - First-time user (lastSeenVersion is null): full tutorial with all slides
+  // - Upgrading user (lastSeenVersion differs): what's new for current version only
   const hasAutoTriggered = useRef(false);
   useEffect(() => {
-    if (
-      isLoaded &&
-      isAuthenticated &&
-      !hasAutoTriggered.current &&
-      lastSeenVersion !== currentVersion &&
-      versionSlides.length > 0 &&
-      !tourState
-    ) {
+    if (!isLoaded || !isAuthenticated || hasAutoTriggered.current || tourState) return;
+    if (lastSeenVersion === null && allSlides.length > 0) {
+      hasAutoTriggered.current = true;
+      startTour('tutorial');
+    } else if (lastSeenVersion !== currentVersion && versionSlides.length > 0) {
       hasAutoTriggered.current = true;
       startTour('whatsNew');
     }
@@ -67,6 +66,7 @@ export function WhatsNewModal() {
     lastSeenVersion,
     currentVersion,
     versionSlides.length,
+    allSlides.length,
     tourState,
     startTour,
   ]);

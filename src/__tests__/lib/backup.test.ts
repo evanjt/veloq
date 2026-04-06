@@ -46,6 +46,7 @@ jest.mock('@/providers', () => ({
   initializeInsightsStore: jest.fn().mockResolvedValue(undefined),
   initializeRecordingPreferences: jest.fn().mockResolvedValue(undefined),
   initializeNotificationPreferences: jest.fn().mockResolvedValue(undefined),
+  initializeNotificationPrompt: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/lib/backup', () => ({

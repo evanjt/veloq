@@ -1404,11 +1404,16 @@
       "categories": "Notification categories",
       "sectionPr": "Section personal records",
       "fitnessMilestone": "Fitness milestones",
-      "periodComparison": "Weekly comparisons",
-      "activityPattern": "Activity patterns",
       "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
       "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
       "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
+    },
+    "prompt": {
+      "title": "Aktivitätsbenachrichtigungen",
+      "description": "Erhalte Benachrichtigungen über neue Aktivitäten und Erfolge",
+      "enable": "Aktivieren",
+      "dismiss": "Nein danke",
+      "settingsHint": "Du kannst Benachrichtigungen jederzeit in den Einstellungen aktivieren"
     }
   },
   "whatsNew": {
@@ -1420,17 +1425,6 @@
     "justWhatsNew": "Nur Neuheiten",
     "backToTour": "Zurück zur Tour",
     "closeTour": "Schließen",
-    "v030": {
-      "notificationsTitle": "Activity Notifications",
-      "notificationsBody": "Get notified when you set a personal record or hit a fitness milestone. All insights are generated entirely on your device.",
-      "enableNotifications": "Enable notifications",
-      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key. Your app works fully without them.",
-      "notificationExample": {
-        "trophy": "Col du Marchairuz — 2:45 faster",
-        "lightning-bolt": "FTP increased to 285W (+12W)",
-        "chart-line": "42% more distance than last week"
-      }
-    },
     "v022": {
       "mapStylesTitle": "3D-Karten & Stile",
       "mapStylesBody": "Wähle helle, dunkle oder Satelliten-Kartenstile mit intelligentem 3D-Gelände für hügelige Aktivitäten.",

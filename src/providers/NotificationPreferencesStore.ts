@@ -14,7 +14,6 @@ export interface NotificationPreferences {
   categories: {
     sectionPr: boolean;
     fitnessMilestone: boolean;
-    periodComparison: boolean;
   };
 }
 
@@ -25,7 +24,6 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   categories: {
     sectionPr: true,
     fitnessMilestone: true,
-    periodComparison: true,
   },
 };
 

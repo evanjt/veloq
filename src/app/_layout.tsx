@@ -42,6 +42,7 @@ import {
   initializeRecordingPreferences,
   initializeUploadPermission,
   initializeNotificationPreferences,
+  initializeNotificationPrompt,
   useSyncDateRange,
   useEngineStatus,
 } from '@/providers';
@@ -345,6 +346,7 @@ export default function RootLayout() {
           initializeRecordingPreferences(),
           initializeUploadPermission(),
           initializeNotificationPreferences(),
+          initializeNotificationPrompt(),
         ]);
 
         const failed = results.filter((result) => result.status === 'rejected');
@@ -386,8 +388,10 @@ export default function RootLayout() {
   // Also retry any failed unregister from a previous session
   useEffect(() => {
     if (!appReady) return;
-    const { getNotificationPreferences, retryPendingUnregister } =
-      require('@/providers/NotificationPreferencesStore');
+    const {
+      getNotificationPreferences,
+      retryPendingUnregister,
+    } = require('@/providers/NotificationPreferencesStore');
     const { useAuthStore: authStore } = require('@/providers/AuthStore');
     const prefs = getNotificationPreferences();
     const { athleteId, isDemoMode: demo } = authStore.getState();

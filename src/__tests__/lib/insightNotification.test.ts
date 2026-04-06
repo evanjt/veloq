@@ -31,7 +31,6 @@ describe('insight notifications', () => {
     categories: {
       sectionPr: false,
       fitnessMilestone: true,
-      periodComparison: false,
     },
   };
 
@@ -45,7 +44,7 @@ describe('insight notifications', () => {
 
     expect(
       filterInsightsForNotificationPreferences(insights, preferences).map((i) => i.id)
-    ).toEqual(['milestone', 'stale']);
+    ).toEqual(['milestone', 'period', 'stale']);
   });
 
   it('picks the best remaining allowed insight', () => {

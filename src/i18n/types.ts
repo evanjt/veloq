@@ -695,17 +695,6 @@ export interface TranslationResource {
     justWhatsNew: string;
     backToTour: string;
     closeTour: string;
-    v030: {
-      notificationsTitle: string;
-      notificationsBody: string;
-      enableNotifications: string;
-      requiresOAuth: string;
-      notificationExample: {
-        trophy: string;
-        'lightning-bolt': string;
-        'chart-line': string;
-      };
-    };
     v022: {
       mapStylesTitle: string;
       mapStylesBody: string;
@@ -741,11 +730,16 @@ export interface TranslationResource {
       categories: string;
       sectionPr: string;
       fitnessMilestone: string;
-      periodComparison: string;
-      activityPattern: string;
       requiresOAuth: string;
       privacyHint: string;
       stravaNote: string;
+    };
+    prompt: {
+      title: string;
+      description: string;
+      enable: string;
+      dismiss: string;
+      settingsHint: string;
     };
   };
 

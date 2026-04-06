@@ -1404,11 +1404,16 @@
       "categories": "Notification categories",
       "sectionPr": "Section personal records",
       "fitnessMilestone": "Fitness milestones",
-      "periodComparison": "Weekly comparisons",
-      "activityPattern": "Activity patterns",
       "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
       "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
       "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
+    },
+    "prompt": {
+      "title": "活动通知",
+      "description": "接收有关新活动和成就的通知",
+      "enable": "启用",
+      "dismiss": "不用了",
+      "settingsHint": "您可以随时在设置中启用通知"
     }
   },
   "whatsNew": {
@@ -1420,17 +1425,6 @@
     "justWhatsNew": "仅新功能",
     "backToTour": "返回导览",
     "closeTour": "关闭",
-    "v030": {
-      "notificationsTitle": "Activity Notifications",
-      "notificationsBody": "Get notified when you set a personal record or hit a fitness milestone. All insights are generated entirely on your device.",
-      "enableNotifications": "Enable notifications",
-      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key. Your app works fully without them.",
-      "notificationExample": {
-        "trophy": "Col du Marchairuz — 2:45 faster",
-        "lightning-bolt": "FTP increased to 285W (+12W)",
-        "chart-line": "42% more distance than last week"
-      }
-    },
     "v022": {
       "mapStylesTitle": "3D 地图与样式",
       "mapStylesBody": "选择浅色、深色或卫星地图样式，智能3D地形自动适用于起伏活动。",
