@@ -1,0 +1,75 @@
+# Insights Detail Content Test
+# Tests: insight detail sheet content, methodology section, quick take
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Navigate to insights tab
+- openLink: "veloq://routes"
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+
+# Wait for insights panel
+- extendedWaitUntil:
+    visible:
+      id: "insights-panel"
+    timeout: 15000
+
+# Tap first insight card
+- tapOn:
+    id: "insight-card-0"
+    optional: true
+
+# Wait for detail sheet to open
+- extendedWaitUntil:
+    visible:
+      id: "insight-detail-sheet"
+    timeout: 5000
+    optional: true
+
+- takeScreenshot: "insight-detail-opened"
+
+# Check quick take section
+- assertVisible:
+    id: "insight-quick-take"
+    optional: true
+
+# Check methodology section
+- assertVisible:
+    id: "methodology-section"
+    optional: true
+
+- takeScreenshot: "insight-detail-content"
+
+# Scroll within the sheet to see more content
+- scroll
+
+- takeScreenshot: "insight-detail-scrolled"
+
+# Close the sheet by tapping outside or back
+- pressKey: back
+
+# Try second insight card if available
+- tapOn:
+    id: "insight-card-1"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "insight-detail-sheet"
+    timeout: 5000
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "pattern-detail-sheet"
+    timeout: 3000
+    optional: true
+
+- takeScreenshot: "insights-detail-content-complete"

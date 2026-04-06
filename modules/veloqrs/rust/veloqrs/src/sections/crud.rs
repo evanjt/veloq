@@ -8,6 +8,8 @@ use crate::persistence::PersistentRouteEngine;
 use rusqlite::params;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tracematch::matching::calculate_route_distance;
+use tracematch::sections::{build_rtree, find_all_track_portions};
 use tracematch::{GpsPoint, SectionPortion};
 
 impl PersistentRouteEngine {
@@ -77,23 +79,31 @@ impl PersistentRouteEngine {
             .map_err(|e| format!("Failed to create sections schema: {}", e))
     }
 
-    /// Get sections with optional type filter.
+    /// Column list for full section queries.
+    const SECTION_COLUMNS: &'static str =
+        "id, section_type, name, sport_type, polyline_json, distance_meters,
+         representative_activity_id, confidence, observation_count, average_spread,
+         point_density_json, scale, version, is_user_defined, stability,
+         source_activity_id, start_index, end_index, created_at, updated_at,
+         disabled, superseded_by";
+
+    /// Visibility filter: exclude disabled and superseded sections.
+    const VISIBLE_FILTER: &'static str = "disabled = 0 AND superseded_by IS NULL";
+
+    /// Get sections with optional type filter (excludes disabled/superseded).
     pub fn get_sections_by_type(&self, section_type: Option<SectionType>) -> Vec<Section> {
         let query = match section_type {
             Some(st) => format!(
-                "SELECT id, section_type, name, sport_type, polyline_json, distance_meters,
-                        representative_activity_id, confidence, observation_count, average_spread,
-                        point_density_json, scale, version, is_user_defined, stability,
-                        source_activity_id, start_index, end_index, created_at, updated_at
-                 FROM sections WHERE section_type = '{}'",
-                st.as_str()
+                "SELECT {} FROM sections WHERE section_type = '{}' AND {}",
+                Self::SECTION_COLUMNS,
+                st.as_str(),
+                Self::VISIBLE_FILTER
             ),
-            None => "SELECT id, section_type, name, sport_type, polyline_json, distance_meters,
-                            representative_activity_id, confidence, observation_count, average_spread,
-                            point_density_json, scale, version, is_user_defined, stability,
-                            source_activity_id, start_index, end_index, created_at, updated_at
-                     FROM sections"
-                .to_string(),
+            None => format!(
+                "SELECT {} FROM sections WHERE {}",
+                Self::SECTION_COLUMNS,
+                Self::VISIBLE_FILTER
+            ),
         };
 
         let mut stmt = match self.db.prepare(&query) {
@@ -123,8 +133,7 @@ impl PersistentRouteEngine {
                 confidence: row.get(7)?,
                 observation_count: row.get(8)?,
                 average_spread: row.get(9)?,
-                point_density: point_density_json
-                    .and_then(|j| serde_json::from_str(&j).ok()),
+                point_density: point_density_json.and_then(|j| serde_json::from_str(&j).ok()),
                 scale: row.get(11)?,
                 is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                 stability: row.get(14)?,
@@ -135,6 +144,8 @@ impl PersistentRouteEngine {
                 end_index: row.get(17)?,
                 created_at: row.get::<_, Option<String>>(18)?.unwrap_or_default(),
                 route_ids: None,
+                disabled: row.get::<_, Option<i32>>(20)?.unwrap_or(0) != 0,
+                superseded_by: row.get(21)?,
             })
         });
 
@@ -151,14 +162,19 @@ impl PersistentRouteEngine {
         }
     }
 
-    /// Get all sections that contain a specific activity.
+    /// Get all visible sections that contain a specific activity.
     /// Uses section_activities junction table for O(1) lookup (was O(N) with full table scan).
     /// 25-50x speedup: 250-570ms → 10-20ms
+    /// Excludes disabled and superseded sections.
     pub fn get_sections_for_activity(&self, activity_id: &str) -> Vec<Section> {
-        // Query junction table for section IDs (indexed by activity_id)
-        let section_ids: Vec<String> = match self.db.prepare(
-            "SELECT DISTINCT section_id FROM section_activities WHERE activity_id = ?"
-        ) {
+        // Query junction table for section IDs (indexed by activity_id), filtered by visibility
+        let query = format!(
+            "SELECT DISTINCT sa.section_id FROM section_activities sa
+             JOIN sections s ON s.id = sa.section_id
+             WHERE sa.activity_id = ? AND sa.excluded = 0 AND s.{}",
+            Self::VISIBLE_FILTER
+        );
+        let section_ids: Vec<String> = match self.db.prepare(&query) {
             Ok(mut stmt) => stmt
                 .query_map([activity_id], |row| row.get(0))
                 .ok()
@@ -181,10 +197,9 @@ impl PersistentRouteEngine {
 
     /// Get activity IDs for a section from the junction table (deduplicated).
     fn get_section_activity_ids(&self, section_id: &str) -> Vec<String> {
-        let mut stmt = match self
-            .db
-            .prepare("SELECT DISTINCT activity_id FROM section_activities WHERE section_id = ?")
-        {
+        let mut stmt = match self.db.prepare(
+            "SELECT DISTINCT activity_id FROM section_activities WHERE section_id = ?1 AND excluded = 0",
+        ) {
             Ok(s) => s,
             Err(_) => return Vec::new(),
         };
@@ -198,46 +213,76 @@ impl PersistentRouteEngine {
     fn get_section_visit_count(&self, section_id: &str) -> u32 {
         self.db
             .query_row(
-                "SELECT COUNT(*) FROM section_activities WHERE section_id = ?",
+                "SELECT COUNT(*) FROM section_activities sa
+                 WHERE sa.section_id = ? AND sa.excluded = 0",
                 params![section_id],
                 |row| row.get(0),
             )
             .unwrap_or(0)
     }
 
-    /// Get section count by type.
+    /// Get visible section count by type (excludes disabled/superseded).
     pub fn get_section_count_by_type(&self, section_type: Option<SectionType>) -> u32 {
         let query = match section_type {
             Some(st) => format!(
-                "SELECT COUNT(*) FROM sections WHERE section_type = '{}'",
-                st.as_str()
+                "SELECT COUNT(*) FROM sections WHERE section_type = '{}' AND {}",
+                st.as_str(),
+                Self::VISIBLE_FILTER
             ),
-            None => "SELECT COUNT(*) FROM sections".to_string(),
+            None => format!(
+                "SELECT COUNT(*) FROM sections WHERE {}",
+                Self::VISIBLE_FILTER
+            ),
         };
 
-        self.db
-            .query_row(&query, [], |row| row.get(0))
-            .unwrap_or(0)
+        self.db.query_row(&query, [], |row| row.get(0)).unwrap_or(0)
     }
 
-    /// Get section summaries by type (lightweight, no polylines).
+    /// Get visible section summaries by type (lightweight, no polylines).
+    /// Excludes disabled and superseded sections.
     pub fn get_section_summaries_by_type(
         &self,
         section_type: Option<SectionType>,
     ) -> Vec<SectionSummary> {
-        let query = match section_type {
-            Some(st) => format!(
-                "SELECT id, section_type, name, sport_type, distance_meters,
-                        representative_activity_id, created_at, confidence, scale,
-                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
-                 FROM sections WHERE section_type = '{}'",
+        self.get_section_summaries_filtered(section_type, true)
+    }
+
+    /// Get ALL section summaries including disabled/superseded (for restore UI).
+    pub fn get_all_section_summaries(
+        &self,
+        section_type: Option<SectionType>,
+    ) -> Vec<SectionSummary> {
+        self.get_section_summaries_filtered(section_type, false)
+    }
+
+    /// Internal: get section summaries with optional visibility filter.
+    fn get_section_summaries_filtered(
+        &self,
+        section_type: Option<SectionType>,
+        visible_only: bool,
+    ) -> Vec<SectionSummary> {
+        let base_cols = "id, section_type, name, sport_type, distance_meters,
+                         representative_activity_id, created_at, confidence, scale,
+                         bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                         disabled, superseded_by";
+        let query = match (section_type, visible_only) {
+            (Some(st), true) => format!(
+                "SELECT {} FROM sections WHERE section_type = '{}' AND {}",
+                base_cols,
+                st.as_str(),
+                Self::VISIBLE_FILTER
+            ),
+            (Some(st), false) => format!(
+                "SELECT {} FROM sections WHERE section_type = '{}'",
+                base_cols,
                 st.as_str()
             ),
-            None => "SELECT id, section_type, name, sport_type, distance_meters,
-                            representative_activity_id, created_at, confidence, scale,
-                            bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
-                     FROM sections"
-                .to_string(),
+            (None, true) => format!(
+                "SELECT {} FROM sections WHERE {}",
+                base_cols,
+                Self::VISIBLE_FILTER
+            ),
+            (None, false) => format!("SELECT {} FROM sections", base_cols),
         };
 
         let mut stmt = match self.db.prepare(&query) {
@@ -258,16 +303,24 @@ impl PersistentRouteEngine {
                 row.get::<_, Option<f64>>(12)?,
             ) {
                 (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) => {
-                    Some(crate::FfiBounds { min_lat, max_lat, min_lng, max_lng })
+                    Some(crate::FfiBounds {
+                        min_lat,
+                        max_lat,
+                        min_lng,
+                        max_lng,
+                    })
                 }
                 _ => None,
             };
 
+            let sport_type: String = row.get(3)?;
             Ok(SectionSummary {
                 id,
-                section_type: row.get::<_, Option<String>>(1)?.unwrap_or_else(|| "auto".to_string()),
+                section_type: row
+                    .get::<_, Option<String>>(1)?
+                    .unwrap_or_else(|| "auto".to_string()),
                 name: row.get(2)?,
-                sport_type: row.get(3)?,
+                sport_type: sport_type.clone(),
                 distance_meters: row.get(4)?,
                 visit_count,
                 activity_count: visit_count,
@@ -276,6 +329,9 @@ impl PersistentRouteEngine {
                 scale: row.get(8)?,
                 bounds,
                 created_at: row.get::<_, Option<String>>(6)?.unwrap_or_default(),
+                sport_types: vec![sport_type],
+                disabled: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
+                superseded_by: row.get(14)?,
             })
         });
 
@@ -285,15 +341,65 @@ impl PersistentRouteEngine {
         }
     }
 
-    /// Get activity count for a section.
+    /// Get distinct activity count for a section.
     fn get_section_activity_count(&self, section_id: &str) -> u32 {
         self.db
             .query_row(
-                "SELECT COUNT(*) FROM section_activities WHERE section_id = ?",
+                "SELECT COUNT(DISTINCT activity_id) FROM section_activities
+                 WHERE section_id = ? AND excluded = 0",
                 params![section_id],
                 |row| row.get(0),
             )
             .unwrap_or(0)
+    }
+
+    /// Exclude an activity from a section's analysis.
+    /// Sets the `excluded` flag to 1 on the junction table row(s).
+    pub fn exclude_activity_from_section(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+    ) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE section_activities SET excluded = 1 WHERE section_id = ? AND activity_id = ?",
+                params![section_id, activity_id],
+            )
+            .map_err(|e| format!("Failed to exclude activity: {}", e))?;
+        self.refresh_section_in_memory(section_id);
+        self.invalidate_section_cache(section_id);
+        Ok(())
+    }
+
+    /// Re-include a previously excluded activity in a section's analysis.
+    /// Sets the `excluded` flag back to 0 on the junction table row(s).
+    pub fn include_activity_in_section(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+    ) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE section_activities SET excluded = 0 WHERE section_id = ? AND activity_id = ?",
+                params![section_id, activity_id],
+            )
+            .map_err(|e| format!("Failed to include activity: {}", e))?;
+        self.refresh_section_in_memory(section_id);
+        self.invalidate_section_cache(section_id);
+        Ok(())
+    }
+
+    /// Get activity IDs that are excluded from a section.
+    pub fn get_excluded_activity_ids(&self, section_id: &str) -> Vec<String> {
+        let mut stmt = match self.db.prepare(
+            "SELECT DISTINCT activity_id FROM section_activities WHERE section_id = ? AND excluded = 1"
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+        stmt.query_map(params![section_id], |row| row.get(0))
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
     }
 
     /// Create a new section.
@@ -320,7 +426,12 @@ impl PersistentRouteEngine {
         let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
             if params.polyline.len() >= 2 {
                 let bounds = tracematch::geo_utils::compute_bounds(&params.polyline);
-                (Some(bounds.min_lat), Some(bounds.max_lat), Some(bounds.min_lng), Some(bounds.max_lng))
+                (
+                    Some(bounds.min_lat),
+                    Some(bounds.max_lat),
+                    Some(bounds.min_lng),
+                    Some(bounds.max_lng),
+                )
             } else {
                 (None, None, None, None)
             };
@@ -364,7 +475,11 @@ impl PersistentRouteEngine {
 
     /// Add an activity to a section's activity list with default portion values.
     /// For full portion details, use add_section_activity_with_portion().
-    pub fn add_section_activity(&mut self, section_id: &str, activity_id: &str) -> Result<(), String> {
+    pub fn add_section_activity(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+    ) -> Result<(), String> {
         self.db
             .execute(
                 "INSERT OR IGNORE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters) VALUES (?, ?, 'same', 0, 0, 0)",
@@ -474,8 +589,9 @@ impl PersistentRouteEngine {
                 .unwrap_or(&[])
                 .to_vec();
 
-            let polyline_json = serde_json::to_string(&polyline).unwrap_or_else(|_| "[]".to_string());
-            let distance = calculate_polyline_distance(&polyline);
+            let polyline_json =
+                serde_json::to_string(&polyline).unwrap_or_else(|_| "[]".to_string());
+            let distance = calculate_route_distance(&polyline);
             let bounds = tracematch::geo_utils::compute_bounds(&polyline);
 
             self.db
@@ -492,8 +608,18 @@ impl PersistentRouteEngine {
                         bounds_min_lng = ?,
                         bounds_max_lng = ?
                      WHERE id = ?",
-                    params![activity_id, activity_id, polyline_json, distance, updated_at,
-                            bounds.min_lat, bounds.max_lat, bounds.min_lng, bounds.max_lng, section_id],
+                    params![
+                        activity_id,
+                        activity_id,
+                        polyline_json,
+                        distance,
+                        updated_at,
+                        bounds.min_lat,
+                        bounds.max_lat,
+                        bounds.min_lng,
+                        bounds.max_lng,
+                        section_id
+                    ],
                 )
                 .map_err(|e| format!("Failed to update section: {}", e))?;
         } else {
@@ -505,21 +631,24 @@ impl PersistentRouteEngine {
                 return Err("Section has no polyline to match against".to_string());
             }
 
-            // Compute portion details for the new reference activity
-            let portion = compute_section_portion(activity_id, &track, &current_polyline)
-                .ok_or_else(|| format!(
+            // Compute all traversals (laps) for the new reference activity
+            let portions = compute_section_portions(activity_id, &track, &current_polyline);
+            if portions.is_empty() {
+                return Err(format!(
                     "Activity {} does not overlap sufficiently with section {}",
                     activity_id, section_id
-                ))?;
+                ));
+            }
 
-            // Use the portion's indices to extract the new polyline
-            let start = portion.start_index as usize;
-            let end = (portion.end_index as usize + 1).min(track.len());
+            // Use the first portion's indices to extract the new polyline
+            let first = &portions[0];
+            let start = first.start_index as usize;
+            let end = (first.end_index as usize + 1).min(track.len());
             let new_polyline: Vec<GpsPoint> = track[start..end].to_vec();
 
             let polyline_json =
                 serde_json::to_string(&new_polyline).unwrap_or_else(|_| "[]".to_string());
-            let distance = calculate_polyline_distance(&new_polyline);
+            let distance = calculate_route_distance(&new_polyline);
             let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
 
             self.db
@@ -535,23 +664,35 @@ impl PersistentRouteEngine {
                         bounds_min_lng = ?,
                         bounds_max_lng = ?
                      WHERE id = ?",
-                    params![activity_id, polyline_json, distance, updated_at,
-                            bounds.min_lat, bounds.max_lat, bounds.min_lng, bounds.max_lng, section_id],
+                    params![
+                        activity_id,
+                        polyline_json,
+                        distance,
+                        updated_at,
+                        bounds.min_lat,
+                        bounds.max_lat,
+                        bounds.min_lng,
+                        bounds.max_lng,
+                        section_id
+                    ],
                 )
                 .map_err(|e| format!("Failed to update section reference: {}", e))?;
 
             // Re-match all activities against the new polyline
             self.rematch_section_activities(section_id, &new_polyline)?;
 
-            // Add the new reference activity with proper portion details
+            // Add the new reference activity with proper portion details (all laps)
             // (rematch only includes previously-associated activities)
-            self.add_section_activity_with_portion(section_id, &portion)?;
+            for portion in &portions {
+                self.add_section_activity_with_portion(section_id, portion)?;
+            }
         }
 
         // For custom sections, add the reference activity with portion details
         if section_type == "custom" {
             // Get the updated polyline for custom section
-            let polyline_json: String = self.db
+            let polyline_json: String = self
+                .db
                 .query_row(
                     "SELECT polyline_json FROM sections WHERE id = ?",
                     params![section_id],
@@ -560,11 +701,14 @@ impl PersistentRouteEngine {
                 .map_err(|e| format!("Failed to get section polyline: {}", e))?;
             let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json).unwrap_or_default();
 
-            if let Some(portion) = compute_section_portion(activity_id, &track, &polyline) {
-                self.add_section_activity_with_portion(section_id, &portion)?;
-            } else {
+            let portions = compute_section_portions(activity_id, &track, &polyline);
+            if portions.is_empty() {
                 // Fallback for custom sections - the source activity should always match
                 self.add_section_activity(section_id, activity_id)?;
+            } else {
+                for portion in &portions {
+                    self.add_section_activity_with_portion(section_id, portion)?;
+                }
             }
         }
 
@@ -599,10 +743,10 @@ impl PersistentRouteEngine {
             )
             .map_err(|e| format!("Failed to clear section activities: {}", e))?;
 
-        // Re-add only activities that still match, with full portion details
+        // Re-add only activities that still match, with full portion details (all laps)
         for aid in &activity_ids {
             if let Some(track) = self.get_gps_track(aid) {
-                if let Some(portion) = compute_section_portion(aid, &track, new_polyline) {
+                for portion in compute_section_portions(aid, &track, new_polyline) {
                     self.add_section_activity_with_portion(section_id, &portion)?;
                 }
             }
@@ -647,11 +791,14 @@ impl PersistentRouteEngine {
 
         let mut match_count: u32 = 0;
 
-        // Compute full portion details for each matching activity
+        // Compute full portion details for each matching activity (all laps)
         for aid in &activity_ids {
             if let Some(track) = track_map.get(aid) {
-                if let Some(portion) = compute_section_portion(aid, track, polyline) {
-                    self.add_section_activity_with_portion(section_id, &portion)?;
+                let portions = compute_section_portions(aid, track, polyline);
+                if !portions.is_empty() {
+                    for portion in &portions {
+                        self.add_section_activity_with_portion(section_id, portion)?;
+                    }
                     match_count += 1;
                 }
             }
@@ -685,6 +832,410 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Trim a section's bounds by slicing its polyline to the given index range.
+    /// Backs up the original polyline on first trim (preserves true original across multiple trims).
+    /// Re-matches all activities against the new trimmed polyline.
+    pub fn trim_section(
+        &mut self,
+        section_id: &str,
+        start_index: u32,
+        end_index: u32,
+    ) -> Result<(), String> {
+        // Load current polyline
+        let polyline_json: String = self
+            .db
+            .query_row(
+                "SELECT polyline_json FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .map_err(|_| format!("Section not found: {}", section_id))?;
+
+        let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
+            .map_err(|e| format!("Failed to parse polyline: {}", e))?;
+
+        // Validate indices
+        let start = start_index as usize;
+        let end = end_index as usize;
+        if start >= end {
+            return Err("Start index must be less than end index".to_string());
+        }
+        if end >= polyline.len() {
+            return Err(format!(
+                "End index {} out of bounds (polyline has {} points)",
+                end,
+                polyline.len()
+            ));
+        }
+        if end - start + 1 < 5 {
+            return Err("Trimmed section must have at least 5 points".to_string());
+        }
+
+        // Slice the polyline
+        let trimmed: Vec<GpsPoint> = polyline[start..=end].to_vec();
+
+        // Check minimum distance (50m)
+        let distance = calculate_route_distance(&trimmed);
+        if distance < 50.0 {
+            return Err("Trimmed section must be at least 50 meters".to_string());
+        }
+
+        // Back up original polyline if not already backed up
+        let has_original: bool = self
+            .db
+            .query_row(
+                "SELECT original_polyline_json IS NOT NULL FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+
+        if !has_original {
+            self.db
+                .execute(
+                    "UPDATE sections SET original_polyline_json = polyline_json WHERE id = ?",
+                    params![section_id],
+                )
+                .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
+        }
+
+        // Compute new bounds and distance
+        let bounds = tracematch::geo_utils::compute_bounds(&trimmed);
+        let trimmed_json = serde_json::to_string(&trimmed).unwrap_or_else(|_| "[]".to_string());
+        let updated_at = chrono::Utc::now().to_rfc3339();
+
+        // Update section
+        self.db
+            .execute(
+                "UPDATE sections SET
+                    polyline_json = ?,
+                    distance_meters = ?,
+                    is_user_defined = 1,
+                    updated_at = ?,
+                    bounds_min_lat = ?,
+                    bounds_max_lat = ?,
+                    bounds_min_lng = ?,
+                    bounds_max_lng = ?
+                 WHERE id = ?",
+                params![
+                    trimmed_json,
+                    distance,
+                    updated_at,
+                    bounds.min_lat,
+                    bounds.max_lat,
+                    bounds.min_lng,
+                    bounds.max_lng,
+                    section_id
+                ],
+            )
+            .map_err(|e| format!("Failed to update section: {}", e))?;
+
+        // Re-match activities against new polyline
+        // For custom sections, scan ALL activities by sport (not just previously matched)
+        let section_type: String = self
+            .db
+            .query_row(
+                "SELECT section_type FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or_else(|_| "auto".to_string());
+
+        if section_type == "custom" {
+            let sport_type: String = self
+                .db
+                .query_row(
+                    "SELECT sport_type FROM sections WHERE id = ?",
+                    params![section_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or_else(|_| "Ride".to_string());
+
+            // Clear existing matches first, then scan all activities
+            self.db
+                .execute(
+                    "DELETE FROM section_activities WHERE section_id = ?",
+                    params![section_id],
+                )
+                .map_err(|e| format!("Failed to clear section activities: {}", e))?;
+            self.match_activities_to_section(section_id, &trimmed, &sport_type)?;
+        } else {
+            self.rematch_section_activities(section_id, &trimmed)?;
+        }
+
+        // Invalidate caches
+        self.invalidate_section_cache(section_id);
+        self.refresh_section_in_memory(section_id);
+
+        Ok(())
+    }
+
+    /// Reset a section's bounds to the original (pre-trim) polyline.
+    /// Restores the backed-up original_polyline_json and re-matches activities.
+    /// For auto sections, clears is_user_defined. For custom sections, preserves it.
+    pub fn reset_section_bounds(&mut self, section_id: &str) -> Result<(), String> {
+        // Load original polyline and section type
+        let (original_json, section_type, sport_type): (Option<String>, String, String) = self
+            .db
+            .query_row(
+                "SELECT original_polyline_json, section_type, sport_type FROM sections WHERE id = ?",
+                params![section_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .map_err(|_| format!("Section not found: {}", section_id))?;
+
+        let original_json =
+            original_json.ok_or_else(|| "Section has no original bounds to restore".to_string())?;
+
+        let original: Vec<GpsPoint> = serde_json::from_str(&original_json)
+            .map_err(|e| format!("Failed to parse original polyline: {}", e))?;
+
+        // Recompute distance and bounds
+        let distance = calculate_route_distance(&original);
+        let bounds = tracematch::geo_utils::compute_bounds(&original);
+        let updated_at = chrono::Utc::now().to_rfc3339();
+
+        // Custom sections are always user-defined; auto sections revert to algorithm-defined
+        let is_user_defined = if section_type == "custom" { 1 } else { 0 };
+
+        // Restore polyline and clear original backup
+        self.db
+            .execute(
+                "UPDATE sections SET
+                    polyline_json = ?,
+                    original_polyline_json = NULL,
+                    distance_meters = ?,
+                    is_user_defined = ?,
+                    updated_at = ?,
+                    bounds_min_lat = ?,
+                    bounds_max_lat = ?,
+                    bounds_min_lng = ?,
+                    bounds_max_lng = ?
+                 WHERE id = ?",
+                params![
+                    original_json,
+                    distance,
+                    is_user_defined,
+                    updated_at,
+                    bounds.min_lat,
+                    bounds.max_lat,
+                    bounds.min_lng,
+                    bounds.max_lng,
+                    section_id
+                ],
+            )
+            .map_err(|e| format!("Failed to restore section bounds: {}", e))?;
+
+        // Re-match activities against restored polyline
+        // For custom sections, scan ALL activities by sport (not just previously matched)
+        if section_type == "custom" {
+            self.db
+                .execute(
+                    "DELETE FROM section_activities WHERE section_id = ?",
+                    params![section_id],
+                )
+                .map_err(|e| format!("Failed to clear section activities: {}", e))?;
+            self.match_activities_to_section(section_id, &original, &sport_type)?;
+        } else {
+            self.rematch_section_activities(section_id, &original)?;
+        }
+
+        // Invalidate caches
+        self.invalidate_section_cache(section_id);
+        self.refresh_section_in_memory(section_id);
+
+        Ok(())
+    }
+
+    /// Check if a section has original (pre-trim) bounds that can be restored.
+    pub fn has_original_bounds(&self, section_id: &str) -> bool {
+        self.db
+            .query_row(
+                "SELECT original_polyline_json IS NOT NULL FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false)
+    }
+
+    /// Get the representative activity's full GPS track for section expansion.
+    /// Returns the track + the indices where the current section starts/ends within it.
+    /// Used by the UI to let users extend section bounds beyond the current polyline.
+    pub fn get_section_extension_track(
+        &self,
+        section_id: &str,
+    ) -> Result<(Vec<GpsPoint>, u32, u32), String> {
+        // Load section data: representative activity ID + current polyline
+        let (rep_id, polyline_json): (Option<String>, String) = self
+            .db
+            .query_row(
+                "SELECT representative_activity_id, polyline_json FROM sections WHERE id = ?",
+                params![section_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|_| format!("Section not found: {}", section_id))?;
+
+        let rep_id = rep_id.ok_or_else(|| "Section has no representative activity".to_string())?;
+
+        // Load the representative activity's full GPS track
+        let track = self
+            .get_gps_track(&rep_id)
+            .ok_or_else(|| format!("GPS track not found for activity: {}", rep_id))?;
+
+        if track.len() < 3 {
+            return Err("Representative activity track too short".to_string());
+        }
+
+        let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
+            .map_err(|e| format!("Failed to parse polyline: {}", e))?;
+
+        if polyline.len() < 2 {
+            return Err("Section polyline too short".to_string());
+        }
+
+        // Find where the section starts/ends in the representative activity's track
+        // Use find_all_track_portions with a generous threshold to locate the section
+        let portions = find_all_track_portions(&track, &polyline, 100.0);
+
+        if portions.is_empty() {
+            // Fallback: use nearest-point matching for start and end
+            let ref_tree = build_rtree(&track);
+            let start_query = [polyline[0].latitude, polyline[0].longitude];
+            let end_query = [
+                polyline[polyline.len() - 1].latitude,
+                polyline[polyline.len() - 1].longitude,
+            ];
+
+            let start_idx = ref_tree
+                .nearest_neighbor(&start_query)
+                .map(|p| p.idx as u32)
+                .unwrap_or(0);
+            let end_idx = ref_tree
+                .nearest_neighbor(&end_query)
+                .map(|p| p.idx as u32)
+                .unwrap_or(track.len() as u32 - 1);
+
+            let (s, e) = if start_idx <= end_idx {
+                (start_idx, end_idx)
+            } else {
+                (end_idx, start_idx)
+            };
+            return Ok((track, s, e));
+        }
+
+        // Use the first (longest) matching portion
+        let best = portions.iter().max_by_key(|(s, e, _)| e - s).unwrap();
+        Ok((track, best.0 as u32, best.1 as u32))
+    }
+
+    /// Expand section bounds by replacing the polyline with a new one (can be larger than original).
+    /// Backs up the original polyline on first edit (preserves true original across multiple edits).
+    /// Re-matches all activities against the new polyline.
+    pub fn expand_section_bounds(
+        &mut self,
+        section_id: &str,
+        new_polyline_json: &str,
+    ) -> Result<(), String> {
+        let new_polyline: Vec<GpsPoint> = serde_json::from_str(new_polyline_json)
+            .map_err(|e| format!("Failed to parse new polyline: {}", e))?;
+
+        if new_polyline.len() < 5 {
+            return Err("Expanded section must have at least 5 points".to_string());
+        }
+
+        // Check minimum distance (50m)
+        let distance = calculate_route_distance(&new_polyline);
+        if distance < 50.0 {
+            return Err("Expanded section must be at least 50 meters".to_string());
+        }
+
+        // Back up original polyline if not already backed up
+        let has_original: bool = self
+            .db
+            .query_row(
+                "SELECT original_polyline_json IS NOT NULL FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+
+        if !has_original {
+            self.db
+                .execute(
+                    "UPDATE sections SET original_polyline_json = polyline_json WHERE id = ?",
+                    params![section_id],
+                )
+                .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
+        }
+
+        // Compute new bounds and distance
+        let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
+        let updated_at = chrono::Utc::now().to_rfc3339();
+
+        // Update section
+        self.db
+            .execute(
+                "UPDATE sections SET
+                    polyline_json = ?,
+                    distance_meters = ?,
+                    is_user_defined = 1,
+                    updated_at = ?,
+                    bounds_min_lat = ?,
+                    bounds_max_lat = ?,
+                    bounds_min_lng = ?,
+                    bounds_max_lng = ?
+                 WHERE id = ?",
+                params![
+                    new_polyline_json,
+                    distance,
+                    updated_at,
+                    bounds.min_lat,
+                    bounds.max_lat,
+                    bounds.min_lng,
+                    bounds.max_lng,
+                    section_id
+                ],
+            )
+            .map_err(|e| format!("Failed to update section: {}", e))?;
+
+        // Re-match activities against new polyline
+        let section_type: String = self
+            .db
+            .query_row(
+                "SELECT section_type FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or_else(|_| "auto".to_string());
+
+        if section_type == "custom" {
+            let sport_type: String = self
+                .db
+                .query_row(
+                    "SELECT sport_type FROM sections WHERE id = ?",
+                    params![section_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or_else(|_| "Ride".to_string());
+
+            self.db
+                .execute(
+                    "DELETE FROM section_activities WHERE section_id = ?",
+                    params![section_id],
+                )
+                .map_err(|e| format!("Failed to clear section activities: {}", e))?;
+            self.match_activities_to_section(section_id, &new_polyline, &sport_type)?;
+        } else {
+            self.rematch_section_activities(section_id, &new_polyline)?;
+        }
+
+        // Invalidate caches
+        self.invalidate_section_cache(section_id);
+        self.refresh_section_in_memory(section_id);
+
+        Ok(())
+    }
+
     /// Delete a section.
     pub fn delete_section(&mut self, section_id: &str) -> Result<(), String> {
         // Junction table entries are deleted via CASCADE
@@ -706,18 +1257,13 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Get a single section by ID.
+    /// Get a single section by ID (includes disabled/superseded — needed for detail/restore).
     pub fn get_section(&self, section_id: &str) -> Option<Section> {
-        let mut stmt = self
-            .db
-            .prepare(
-                "SELECT id, section_type, name, sport_type, polyline_json, distance_meters,
-                        representative_activity_id, confidence, observation_count, average_spread,
-                        point_density_json, scale, version, is_user_defined, stability,
-                        source_activity_id, start_index, end_index, created_at, updated_at
-                 FROM sections WHERE id = ?",
-            )
-            .ok()?;
+        let query = format!(
+            "SELECT {} FROM sections WHERE id = ?",
+            Self::SECTION_COLUMNS
+        );
+        let mut stmt = self.db.prepare(&query).ok()?;
 
         stmt.query_row(params![section_id], |row| {
             let id: String = row.get(0)?;
@@ -752,6 +1298,8 @@ impl PersistentRouteEngine {
                 end_index: row.get(17)?,
                 created_at: row.get::<_, Option<String>>(18)?.unwrap_or_default(),
                 route_ids: None,
+                disabled: row.get::<_, Option<i32>>(20)?.unwrap_or(0) != 0,
+                superseded_by: row.get(21)?,
             })
         })
         .ok()
@@ -771,7 +1319,12 @@ impl PersistentRouteEngine {
         let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
             if section.polyline.len() >= 2 {
                 let bounds = tracematch::geo_utils::compute_bounds(&section.polyline);
-                (Some(bounds.min_lat), Some(bounds.max_lat), Some(bounds.min_lng), Some(bounds.max_lng))
+                (
+                    Some(bounds.min_lat),
+                    Some(bounds.max_lat),
+                    Some(bounds.min_lng),
+                    Some(bounds.max_lng),
+                )
             } else {
                 (None, None, None, None)
             };
@@ -824,139 +1377,128 @@ impl PersistentRouteEngine {
 
         Ok(())
     }
+
+    // -----------------------------------------------------------------------
+    // Section visibility operations
+    // -----------------------------------------------------------------------
+
+    /// Disable a section (hide from all queries except restore UI).
+    pub fn disable_section(&mut self, section_id: &str) -> Result<(), String> {
+        let rows = self
+            .db
+            .execute(
+                "UPDATE sections SET disabled = 1 WHERE id = ?",
+                params![section_id],
+            )
+            .map_err(|e| format!("Failed to disable section: {}", e))?;
+        if rows == 0 {
+            return Err(format!("Section not found: {}", section_id));
+        }
+        self.invalidate_section_cache(section_id);
+        self.refresh_section_in_memory(section_id);
+        Ok(())
+    }
+
+    /// Re-enable a previously disabled section.
+    pub fn enable_section(&mut self, section_id: &str) -> Result<(), String> {
+        let rows = self
+            .db
+            .execute(
+                "UPDATE sections SET disabled = 0 WHERE id = ?",
+                params![section_id],
+            )
+            .map_err(|e| format!("Failed to enable section: {}", e))?;
+        if rows == 0 {
+            return Err(format!("Section not found: {}", section_id));
+        }
+        self.invalidate_section_cache(section_id);
+        self.refresh_section_in_memory(section_id);
+        Ok(())
+    }
+
+    /// Mark an auto section as superseded by a custom section.
+    pub fn set_superseded(
+        &mut self,
+        auto_section_id: &str,
+        custom_section_id: &str,
+    ) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE sections SET superseded_by = ? WHERE id = ?",
+                params![custom_section_id, auto_section_id],
+            )
+            .map_err(|e| format!("Failed to set superseded: {}", e))?;
+        self.invalidate_section_cache(auto_section_id);
+        Ok(())
+    }
+
+    /// Clear superseded state for all auto sections superseded by a given custom section.
+    /// Called when a custom section is deleted.
+    pub fn clear_superseded(&mut self, custom_section_id: &str) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE sections SET superseded_by = NULL WHERE superseded_by = ?",
+                params![custom_section_id],
+            )
+            .map_err(|e| format!("Failed to clear superseded: {}", e))?;
+        Ok(())
+    }
+
+    /// Import disabled section IDs from AsyncStorage migration.
+    pub fn import_disabled_ids(&mut self, ids: &[String]) -> Result<u32, String> {
+        if ids.is_empty() {
+            return Ok(0);
+        }
+        let mut count = 0u32;
+        for id in ids {
+            let rows = self
+                .db
+                .execute("UPDATE sections SET disabled = 1 WHERE id = ?", params![id])
+                .map_err(|e| format!("Failed to import disabled: {}", e))?;
+            count += rows as u32;
+        }
+        Ok(count)
+    }
+
+    /// Import superseded mappings from AsyncStorage migration.
+    pub fn import_superseded_map(&mut self, map: &[(String, Vec<String>)]) -> Result<u32, String> {
+        let mut count = 0u32;
+        for (custom_id, auto_ids) in map {
+            for auto_id in auto_ids {
+                let rows = self
+                    .db
+                    .execute(
+                        "UPDATE sections SET superseded_by = ? WHERE id = ?",
+                        params![custom_id, auto_id],
+                    )
+                    .map_err(|e| format!("Failed to import superseded: {}", e))?;
+                count += rows as u32;
+            }
+        }
+        Ok(count)
+    }
 }
 
-/// Distance threshold for considering a point "on" the section (meters)
-const TRACE_PROXIMITY_THRESHOLD: f64 = 50.0;
-
-/// Minimum points to consider a valid overlap trace
-const MIN_TRACE_POINTS: usize = 3;
-
-/// Compute a SectionPortion for an activity's overlap with a section polyline.
-/// Returns None if the activity doesn't sufficiently overlap.
-fn compute_section_portion(
+/// Compute all traversals (laps) of an activity over a section polyline.
+/// Uses the tracematch lap-splitting algorithm.
+fn compute_section_portions(
     activity_id: &str,
     track: &[GpsPoint],
     section_polyline: &[GpsPoint],
-) -> Option<SectionPortion> {
-    if track.len() < MIN_TRACE_POINTS || section_polyline.len() < 2 {
-        return None;
-    }
+) -> Vec<SectionPortion> {
+    let traversals = find_all_track_portions(track, section_polyline, 50.0);
 
-    // Convert threshold from meters to approximate degrees
-    let threshold_deg = (TRACE_PROXIMITY_THRESHOLD * 1.2) / 111_000.0;
-
-    // Find the start and end indices of the overlapping portion
-    let mut start_index: Option<usize> = None;
-    let mut end_index: Option<usize> = None;
-    let mut overlap_points: Vec<GpsPoint> = Vec::new();
-    let mut gap_count = 0;
-    const MAX_GAP: usize = 3;
-
-    for (i, point) in track.iter().enumerate() {
-        // Check if point is near any point on the section polyline
-        let is_near = section_polyline.iter().any(|sp| {
-            let dlat = point.latitude - sp.latitude;
-            let dlon = point.longitude - sp.longitude;
-            (dlat * dlat + dlon * dlon).sqrt() <= threshold_deg
-        });
-
-        if is_near {
-            gap_count = 0;
-            if start_index.is_none() {
-                start_index = Some(i);
+    traversals
+        .into_iter()
+        .map(|(start_idx, end_idx, direction)| {
+            let distance = calculate_route_distance(&track[start_idx..end_idx]);
+            SectionPortion {
+                activity_id: activity_id.to_string(),
+                start_index: start_idx as u32,
+                end_index: end_idx as u32,
+                distance_meters: distance,
+                direction,
             }
-            end_index = Some(i);
-            overlap_points.push(*point);
-        } else {
-            gap_count += 1;
-            if gap_count <= MAX_GAP && start_index.is_some() {
-                overlap_points.push(*point);
-                end_index = Some(i);
-            } else if gap_count > MAX_GAP && overlap_points.len() >= MIN_TRACE_POINTS {
-                // Found a valid sequence, stop here
-                break;
-            } else if gap_count > MAX_GAP {
-                // Reset if we haven't found enough points yet
-                start_index = None;
-                end_index = None;
-                overlap_points.clear();
-            }
-        }
-    }
-
-    // Check if we found a valid overlap
-    let start_idx = start_index?;
-    let end_idx = end_index?;
-    if overlap_points.len() < MIN_TRACE_POINTS {
-        return None;
-    }
-
-    // Compute direction by comparing trace direction with section direction
-    let direction = compute_direction(&overlap_points, section_polyline);
-
-    // Compute distance
-    let distance_meters = calculate_polyline_distance(&overlap_points);
-
-    Some(SectionPortion {
-        activity_id: activity_id.to_string(),
-        start_index: start_idx as u32,
-        end_index: end_idx as u32,
-        distance_meters,
-        direction,
-    })
-}
-
-/// Determine if the trace travels in the same or reverse direction as the section.
-fn compute_direction(trace: &[GpsPoint], section_polyline: &[GpsPoint]) -> tracematch::Direction {
-    if trace.len() < 2 || section_polyline.len() < 2 {
-        return tracematch::Direction::Same;
-    }
-
-    // Compare the direction vectors of trace and section
-    let trace_start = &trace[0];
-    let trace_end = &trace[trace.len() - 1];
-    let section_start = &section_polyline[0];
-    let section_end = &section_polyline[section_polyline.len() - 1];
-
-    // Compute dot product of direction vectors to determine if same or opposite direction
-    let trace_dx = trace_end.longitude - trace_start.longitude;
-    let trace_dy = trace_end.latitude - trace_start.latitude;
-    let section_dx = section_end.longitude - section_start.longitude;
-    let section_dy = section_end.latitude - section_start.latitude;
-
-    let dot_product = trace_dx * section_dx + trace_dy * section_dy;
-
-    if dot_product >= 0.0 {
-        tracematch::Direction::Same
-    } else {
-        tracematch::Direction::Reverse
-    }
-}
-
-/// Calculate total distance of a polyline in meters.
-fn calculate_polyline_distance(points: &[GpsPoint]) -> f64 {
-    if points.len() < 2 {
-        return 0.0;
-    }
-
-    points
-        .windows(2)
-        .map(|w| haversine_distance(w[0].latitude, w[0].longitude, w[1].latitude, w[1].longitude))
-        .sum()
-}
-
-/// Haversine distance between two points in meters.
-fn haversine_distance(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
-    const R: f64 = 6_371_000.0; // Earth's radius in meters
-
-    let d_lat = (lat2 - lat1).to_radians();
-    let d_lon = (lon2 - lon1).to_radians();
-
-    let a = (d_lat / 2.0).sin().powi(2)
-        + lat1.to_radians().cos() * lat2.to_radians().cos() * (d_lon / 2.0).sin().powi(2);
-
-    let c = 2.0 * a.sqrt().asin();
-
-    R * c
+        })
+        .collect()
 }

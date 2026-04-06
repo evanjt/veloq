@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
+import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -27,13 +28,15 @@ export function OfflineBanner() {
     Platform.OS === 'android' ? Math.max(insets.top, 24) : Math.max(insets.top, 20);
 
   return (
-    <View style={[styles.container, { paddingTop: topPadding }]}>
-      <View style={styles.content}>
-        <MaterialCommunityIcons name="cloud-off-outline" size={16} color={colors.textOnDark} />
-        <Text style={styles.text}>{t('emptyState.offline.title')}</Text>
-        <Text style={styles.subtitleText}>{t('emptyState.offline.description')}</Text>
+    <Animated.View entering={SlideInUp.duration(250)} exiting={SlideOutUp.duration(200)}>
+      <View style={[styles.container, { paddingTop: topPadding }]} testID="offline-banner">
+        <View style={styles.content}>
+          <MaterialCommunityIcons name="cloud-off-outline" size={16} color={colors.textOnDark} />
+          <Text style={styles.text}>{t('emptyState.offline.title')}</Text>
+          <Text style={styles.subtitleText}>{t('emptyState.offline.description')}</Text>
+        </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

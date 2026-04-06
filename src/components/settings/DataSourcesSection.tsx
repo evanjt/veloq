@@ -5,7 +5,8 @@ import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthStore } from '@/providers';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { settingsStyles, DIVIDER_INSET } from './settingsStyles';
 
 export function DataSourcesSection() {
   const { isDark } = useTheme();
@@ -16,12 +17,12 @@ export function DataSourcesSection() {
 
   return (
     <>
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
         {t('settings.dataSources').toUpperCase()}
       </Text>
-      <View style={[styles.section, isDark && styles.sectionDark]}>
+      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         <View style={styles.dataSourcesContent}>
-          <Text style={[styles.dataSourcesText, isDark && styles.textMuted]}>
+          <Text style={[styles.dataSourcesText, isDark && settingsStyles.textMuted]}>
             {t('settings.dataSourcesDescription')}
           </Text>
           <View style={styles.dataSourcesLogos}>
@@ -32,11 +33,13 @@ export function DataSourcesSection() {
                   size={20}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
-                <Text style={[styles.dataSourceName, isDark && styles.textLight]}>{name}</Text>
+                <Text style={[styles.dataSourceName, isDark && settingsStyles.textLight]}>
+                  {name}
+                </Text>
               </View>
             ))}
           </View>
-          <Text style={[styles.trademarkText, isDark && styles.textMuted]}>
+          <Text style={[styles.trademarkText, isDark && settingsStyles.textMuted]}>
             {t('attribution.garminTrademark')}
           </Text>
         </View>
@@ -44,16 +47,16 @@ export function DataSourcesSection() {
 
       {isDemoMode && (
         <>
-          <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+          <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
             {t('settings.demoDataSources').toUpperCase()}
           </Text>
-          <View style={[styles.section, isDark && styles.sectionDark]}>
+          <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
             <View style={styles.toggleRow}>
               <View style={styles.toggleInfo}>
-                <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
+                <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
                   {t('settings.hideDemoBanner')}
                 </Text>
-                <Text style={[styles.toggleDescription, isDark && styles.textMuted]}>
+                <Text style={[styles.toggleDescription, isDark && settingsStyles.textMuted]}>
                   {t('settings.hideDemoBannerHint')}
                 </Text>
               </View>
@@ -64,9 +67,9 @@ export function DataSourcesSection() {
                 color={colors.primary}
               />
             </View>
-            <View style={[styles.divider, isDark && styles.dividerDark]} />
+            <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
             <View style={styles.dataSourcesContent}>
-              <Text style={[styles.dataSourcesText, isDark && styles.textMuted]}>
+              <Text style={[styles.dataSourcesText, isDark && settingsStyles.textMuted]}>
                 {t('attribution.demoData')}
               </Text>
             </View>
@@ -78,31 +81,12 @@ export function DataSourcesSection() {
 }
 
 const styles = StyleSheet.create({
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    marginHorizontal: layout.screenPadding,
-    letterSpacing: 0.5,
-  },
-  section: {
-    backgroundColor: colors.surface,
-    marginHorizontal: layout.screenPadding,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  sectionDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
   dataSourcesContent: {
     padding: spacing.md,
   },
   dataSourcesText: {
-    fontSize: 13,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
-    lineHeight: 18,
     marginBottom: spacing.md,
   },
   dataSourcesLogos: {
@@ -117,15 +101,14 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   dataSourceName: {
-    fontSize: 13,
+    ...typography.bodyCompact,
     fontWeight: '500',
     color: colors.textPrimary,
   },
   trademarkText: {
-    fontSize: 10,
+    ...typography.micro,
     color: colors.textSecondary,
     opacity: 0.7,
-    lineHeight: 14,
   },
   toggleRow: {
     flexDirection: 'row',
@@ -139,27 +122,13 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   toggleLabel: {
-    fontSize: 16,
+    ...typography.body,
     fontWeight: '500',
     color: colors.textPrimary,
   },
   toggleDescription: {
-    fontSize: 13,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
     marginTop: 2,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginLeft: spacing.md + 22 + spacing.sm,
-  },
-  dividerDark: {
-    backgroundColor: darkColors.border,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  textMuted: {
-    color: darkColors.textSecondary,
   },
 });

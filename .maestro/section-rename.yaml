@@ -1,7 +1,7 @@
 # Section Rename Test
 # Tests renaming a section via the edit button
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -40,6 +40,8 @@ tags:
     timeout: 5000
     optional: true
 
+- takeScreenshot: "section-rename-input-visible"
+
 # Type new name
 - runFlow:
     when:
@@ -52,5 +54,7 @@ tags:
 - tapOn:
     id: "section-rename-save"
     optional: true
+
+- takeScreenshot: "section-rename-saved"
 
 - takeScreenshot: "section-rename-complete"

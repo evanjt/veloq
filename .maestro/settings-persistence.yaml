@@ -1,0 +1,46 @@
+# Settings Persistence Test
+# Verifies theme setting persists across navigation
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+# Switch to dark theme
+- tapOn:
+    id: "theme-button-dark"
+
+- takeScreenshot: "settings-persistence-dark-set"
+
+# Navigate away to fitness
+- openLink: "veloq://fitness"
+- extendedWaitUntil:
+    visible:
+      id: "fitness-screen"
+    timeout: 10000
+
+- takeScreenshot: "settings-persistence-navigated-away"
+
+# Navigate back to settings
+- openLink: "veloq://settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+
+# Verify dark theme button is still visible (settings still accessible)
+- assertVisible:
+    id: "theme-button-dark"
+
+- takeScreenshot: "settings-persistence-returned"
+
+# Reset to system theme
+- tapOn:
+    id: "theme-button-system"
+
+- takeScreenshot: "settings-persistence-complete"

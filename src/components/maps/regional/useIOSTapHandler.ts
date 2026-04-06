@@ -8,7 +8,7 @@
 
 import { useCallback, useRef } from 'react';
 import { Platform, type GestureResponderEvent } from 'react-native';
-import type { MapViewRef } from '@maplibre/maplibre-react-native';
+import type { Camera, MapViewRef, ShapeSource } from '@maplibre/maplibre-react-native';
 import type { ActivityBoundsItem, FrequentSection, ActivityType } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
 import type { SelectedRoute } from './types';
@@ -36,6 +36,8 @@ interface UseIOSTapHandlerOptions {
   showRoutes: boolean;
   show3D: boolean;
   handleMarkerTap: (activity: ActivityBoundsItem) => void;
+  clusterSourceRef: React.RefObject<React.ElementRef<typeof ShapeSource> | null>;
+  cameraRef: React.RefObject<React.ElementRef<typeof Camera> | null>;
   currentZoomLevel: React.MutableRefObject<number>;
   insetTop: number;
 }
@@ -64,6 +66,8 @@ export function useIOSTapHandler({
   showRoutes,
   show3D,
   handleMarkerTap,
+  clusterSourceRef,
+  cameraRef,
   currentZoomLevel,
   insetTop,
 }: UseIOSTapHandlerOptions): UseIOSTapHandlerResult {
@@ -98,7 +102,9 @@ export function useIOSTapHandler({
 
         // Build list of layers to query based on visibility
         const layersToQuery: string[] = [];
-        if (showActivities) layersToQuery.push('marker-hitarea');
+        if (showActivities) {
+          layersToQuery.push('cluster-circles', 'unclustered-point');
+        }
         if (showSections) layersToQuery.push('sectionsLine');
         if (showRoutes) layersToQuery.push('routesLine');
 
@@ -143,7 +149,30 @@ export function useIOSTapHandler({
 
           // Determine feature type by checking geometry and properties
           if (feature.geometry?.type === 'Point' && showActivities) {
-            // Activity marker hit
+            // Cluster tap — always zoom in to expand
+            if (feature.properties?.cluster === true) {
+              try {
+                if (clusterSourceRef.current) {
+                  const expansionZoom =
+                    await clusterSourceRef.current.getClusterExpansionZoom(feature);
+                  const coords = (feature.geometry as GeoJSON.Point).coordinates as [
+                    number,
+                    number,
+                  ];
+                  cameraRef.current?.setCamera({
+                    centerCoordinate: coords,
+                    zoomLevel: expansionZoom,
+                    animationDuration: 400,
+                    animationMode: 'flyTo',
+                  });
+                }
+              } catch (e) {
+                if (__DEV__) console.warn('[iOS tap] cluster error:', e);
+              }
+              return;
+            }
+
+            // Individual activity marker hit
             const activity = activities.find((a) => a.id === featureId);
             if (activity) {
               console.log('[iOS tap] HIT activity:', featureId);
@@ -210,6 +239,8 @@ export function useIOSTapHandler({
       showRoutes,
       currentZoomLevel,
       mapRef,
+      clusterSourceRef,
+      cameraRef,
     ]
   );
 

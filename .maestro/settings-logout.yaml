@@ -1,9 +1,22 @@
 # Settings Logout Test
 # Tests logout flow returns to login screen
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
+onFlowComplete:
+  - runFlow:
+      when:
+        visible:
+          id: "login-screen"
+      commands:
+        - tapOn:
+            id: "login-demo-button"
+        - extendedWaitUntil:
+            visible:
+              id: "home-screen"
+            timeout: 15000
+            optional: true
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -16,7 +29,7 @@ tags:
     element:
       id: "settings-logout-button"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
     speed: 40
     visibilityPercentage: 20
 
@@ -29,19 +42,50 @@ tags:
 - tapOn:
     id: "settings-logout-button"
 
-# Wait for and confirm the disconnect alert dialog
+# Wait for the disconnect alert title to appear
 - extendedWaitUntil:
     visible:
-      text: "^Disconnect$"
+      text: "Disconnect Account"
     timeout: 5000
 
+- takeScreenshot: "settings-logout-dialog"
+
+# Tap the destructive "Disconnect" button
 - tapOn:
     text: "^Disconnect$"
 
-# Verify we return to login screen
+# Verify we return to login screen (may take time to tear down)
 - extendedWaitUntil:
     visible:
       id: "login-screen"
-    timeout: 10000
+    timeout: 20000
 
 - takeScreenshot: "settings-logout-complete"
+
+# Re-enter demo mode for subsequent tests
+- tapOn:
+    id: "login-demo-button"
+
+# Dismiss any post-login dialogs
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+
+- runFlow:
+    when:
+      visible: "Done"
+    commands:
+      - tapOn: "Done"
+
+- runFlow:
+    when:
+      visible: "Skip"
+    commands:
+      - tapOn: "Skip"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 30000

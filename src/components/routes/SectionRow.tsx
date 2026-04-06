@@ -14,8 +14,8 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { formatDistance, getBoundsFromPoints, getActivityColor } from '@/lib';
+import { colors, darkColors, spacing, layout, typography, shadows } from '@/theme';
+import { formatDistance, getBoundsFromPoints, getActivityColor, getActivityIcon } from '@/lib';
 import type { ActivityType, FrequentSection, RoutePoint } from '@/types';
 import type { SectionSummary } from 'veloqrs';
 
@@ -42,6 +42,8 @@ interface SectionRowData {
   polyline?: RoutePoint[];
   /** Section type (auto, custom, potential) */
   sectionType?: string;
+  /** All sport types present in this section's activities */
+  sportTypes?: string[];
 }
 
 interface SectionRowProps {
@@ -51,6 +53,8 @@ interface SectionRowProps {
   activityTraces?: ActivityTrace[];
   /** Whether this section is disabled/hidden */
   isDisabled?: boolean;
+  /** Distance from user's current location in meters */
+  distanceFromUser?: number;
   onPress?: (id: string) => void;
 }
 
@@ -79,6 +83,7 @@ function normalizeSectionData(
       polyline: section.polyline,
       sectionType:
         'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
+      sportTypes: 'sportTypes' in section ? (section as any).sportTypes : undefined,
     };
   }
   // Check if it's a SectionSummary (has activityCount number)
@@ -93,22 +98,12 @@ function normalizeSectionData(
       polyline: undefined, // Will be lazy-loaded
       sectionType:
         'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
+      sportTypes: 'sportTypes' in section ? (section as any).sportTypes : undefined,
     };
   }
   // Already normalized
   return section as SectionRowData;
 }
-
-// Sport type to icon mapping
-const sportIcons: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
-  Run: 'run',
-  Ride: 'bike',
-  Swim: 'swim',
-  Walk: 'walk',
-  Hike: 'hiking',
-  VirtualRide: 'bike',
-  VirtualRun: 'run',
-};
 
 // Activity trace colors - muted versions of the primary color
 const TRACE_COLORS = [
@@ -118,14 +113,15 @@ const TRACE_COLORS = [
   'rgba(252, 76, 2, 0.30)',
 ];
 
-const PREVIEW_WIDTH = 56;
-const PREVIEW_HEIGHT = 40;
+const PREVIEW_WIDTH = 48;
+const PREVIEW_HEIGHT = 36;
 const PREVIEW_PADDING = 4;
 
 export const SectionRow = memo(function SectionRow({
   section: rawSection,
   activityTraces,
   isDisabled,
+  distanceFromUser,
   onPress,
 }: SectionRowProps) {
   const { t } = useTranslation();
@@ -214,10 +210,10 @@ export const SectionRow = memo(function SectionRow({
 
   const hasTraces = normalizedTraces.length > 0;
   const hasSectionPolyline = sectionPolylineString.length > 0;
-  const icon = sportIcons[section.sportType] || 'map-marker-path';
+  const icon = getActivityIcon(section.sportType);
 
   // Get activity color for the sport type
-  const activityColor = getActivityColor(section.sportType as ActivityType);
+  const activityColor = colors.primary;
 
   // Background colors for map-like appearance
   const bgColor = isDark ? '#1a2a1a' : '#e8f4e8';
@@ -360,13 +356,40 @@ export const SectionRow = memo(function SectionRow({
 
       {/* Section info */}
       <View style={styles.infoContainer}>
-        <Text style={[styles.sectionName, isDark && styles.textLight]} numberOfLines={1}>
-          {section.name || `${section.sportType} Section`}
-        </Text>
+        <View style={styles.nameRow}>
+          <Text style={[styles.sectionName, isDark && styles.textLight]} numberOfLines={1}>
+            {section.name || t('sections.defaultName')}
+          </Text>
+          {section.sportTypes && section.sportTypes.length > 0 && (
+            <View style={styles.sportIconsRow}>
+              {section.sportTypes.map((st) => (
+                <MaterialCommunityIcons
+                  key={st}
+                  name={getActivityIcon(st)}
+                  size={12}
+                  color={getActivityColor(st as ActivityType)}
+                  style={{ marginLeft: 2 }}
+                />
+              ))}
+            </View>
+          )}
+        </View>
         <View style={styles.metaRow}>
           <Text style={[styles.metaText, isDark && styles.textMuted]}>
             {formatDistance(section.distanceMeters, isMetric)}
           </Text>
+          {distanceFromUser != null && Number.isFinite(distanceFromUser) && (
+            <View style={styles.proximityTag}>
+              <MaterialCommunityIcons
+                name="map-marker-distance"
+                size={10}
+                color={isDark ? darkColors.textDisabled : colors.textDisabled}
+              />
+              <Text style={[styles.proximityText, isDark && styles.proximityTextDark]}>
+                {formatDistance(distanceFromUser, isMetric)}
+              </Text>
+            </View>
+          )}
           {section.sectionType === 'custom' && (
             <View style={[styles.customTag, isDark && styles.customTagDark]}>
               <Text style={[styles.customTagText, isDark && styles.customTagTextDark]}>
@@ -404,14 +427,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     marginHorizontal: spacing.md,
-    marginBottom: spacing.xs,
+    marginBottom: 2,
     borderRadius: 10,
-    padding: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    padding: 6,
+    ...shadows.pill,
   },
   containerDark: {
     backgroundColor: darkColors.surface,
@@ -419,13 +438,13 @@ const styles = StyleSheet.create({
   previewBox: {
     width: PREVIEW_WIDTH,
     height: PREVIEW_HEIGHT,
-    borderRadius: 6,
+    borderRadius: 5,
     overflow: 'hidden',
   },
   previewPlaceholder: {
     width: PREVIEW_WIDTH,
     height: PREVIEW_HEIGHT,
-    borderRadius: 6,
+    borderRadius: 5,
     backgroundColor: 'rgba(0,0,0,0.05)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -438,7 +457,17 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
     marginRight: spacing.xs,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sportIconsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
   sectionName: {
+    flexShrink: 1,
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
@@ -472,6 +501,18 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: darkColors.textSecondary,
+  },
+  proximityTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  proximityText: {
+    fontSize: 10,
+    color: colors.textDisabled,
+  },
+  proximityTextDark: {
+    color: darkColors.textDisabled,
   },
   customTag: {
     backgroundColor: 'rgba(168, 85, 247, 0.12)',

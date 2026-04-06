@@ -1,6 +1,6 @@
 /**
  * Mini Form chart with colored zones for the Summary Card.
- * Shows 7-day form trend with zone backgrounds (Fresh, Grey, Optimal, etc.)
+ * Shows 7-day form trend with zone backgrounds (Fresh, Grey Zone, Optimal, etc.)
  */
 import React, { memo, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
@@ -12,7 +12,7 @@ import { useTheme } from '@/hooks';
 const FORM_ZONES = {
   highRisk: { min: -Infinity, max: -30, color: 'rgba(239, 83, 80, 0.3)' },
   optimal: { min: -30, max: -10, color: 'rgba(76, 175, 80, 0.3)' },
-  grey: { min: -10, max: 5, color: 'rgba(158, 158, 158, 0.2)' },
+  greyZone: { min: -10, max: 5, color: 'rgba(158, 158, 158, 0.2)' },
   fresh: { min: 5, max: 25, color: 'rgba(129, 199, 132, 0.3)' },
   transition: { min: 25, max: Infinity, color: 'rgba(100, 181, 246, 0.25)' },
 };
@@ -23,7 +23,7 @@ function getFormLineColor(form: number): string {
   if (form < -10) return '#66BB6A'; // Optimal - Green
   if (form < 5) return '#9E9E9E'; // Grey Zone - Grey
   if (form < 25) return '#81C784'; // Fresh - Light Green
-  return '#64B5F6'; // Transition - Blue
+  return '#64B5F6'; // Detraining - Blue
 }
 
 interface MiniFormChartProps {
@@ -122,13 +122,13 @@ export const MiniFormChart = memo(function MiniFormChart({
                 height={getY(-30) - getY(-10)}
                 color={FORM_ZONES.optimal.color}
               />
-              {/* Grey zone (-10 to 5) */}
+              {/* Grey Zone (-10 to 5) */}
               <Rect
                 x={chartBounds.left}
                 y={getY(5)}
                 width={chartBounds.right - chartBounds.left}
                 height={getY(-10) - getY(5)}
-                color={FORM_ZONES.grey.color}
+                color={FORM_ZONES.greyZone.color}
               />
               {/* Fresh zone (5 to 25) */}
               <Rect

@@ -143,3 +143,27 @@ describe('zone time arrays', () => {
     expect(metrics.hrZoneTimes).toEqual([200]);
   });
 });
+
+describe('date edge cases', () => {
+  it('does not throw on invalid date string', () => {
+    const activity = makeActivity({ start_date_local: 'not-a-date' });
+    expect(() => toActivityMetrics(activity)).not.toThrow();
+    const metrics = toActivityMetrics(activity);
+    expect(metrics.date).toBe(BigInt(0));
+  });
+
+  it('does not throw on empty string date', () => {
+    const activity = makeActivity({ start_date_local: '' });
+    expect(() => toActivityMetrics(activity)).not.toThrow();
+    // Empty string parses to epoch in some environments
+    const metrics = toActivityMetrics(activity);
+    expect(typeof metrics.date).toBe('bigint');
+  });
+
+  it('does not throw on undefined date', () => {
+    const activity = makeActivity({ start_date_local: undefined as unknown as string });
+    expect(() => toActivityMetrics(activity)).not.toThrow();
+    const metrics = toActivityMetrics(activity);
+    expect(metrics.date).toBe(BigInt(0));
+  });
+});

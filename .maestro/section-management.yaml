@@ -1,0 +1,62 @@
+# Section Management Test
+# Tests: section trim UI, expand mode toggle
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+
+# Wait for routes/sections to load
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+
+# Try to navigate to a section detail
+- tapOn:
+    id: "section-row-0"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "section-detail-screen"
+    timeout: 10000
+    optional: true
+
+- takeScreenshot: "section-management-detail"
+
+# Look for trim button
+- assertVisible:
+    id: "section-trim-button"
+    optional: true
+
+# Tap trim to enter trim mode
+- tapOn:
+    id: "section-trim-button"
+    optional: true
+
+# Verify trim overlay appeared
+- assertVisible:
+    id: "section-trim-overlay"
+    optional: true
+
+- takeScreenshot: "section-trim-active"
+
+# Try expand mode toggle
+- tapOn:
+    id: "section-expand-toggle"
+    optional: true
+
+- takeScreenshot: "section-expand-mode"
+
+# Cancel trim
+- tapOn:
+    id: "section-trim-cancel"
+    optional: true
+
+- takeScreenshot: "section-management-complete"

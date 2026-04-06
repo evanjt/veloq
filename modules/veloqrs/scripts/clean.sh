@@ -1,16 +1,22 @@
 #!/bin/bash
-# Clean all build artifacts to force a full rebuild
-# Usage: ./scripts/clean.sh
+# Clean build artifacts for rebuild
+# Usage: ./scripts/clean.sh          (preserves rust/target/ and bindings for fast incremental rebuilds)
+#        ./scripts/clean.sh --full   (removes everything including rust/target/ and generated bindings)
 #        npm run clean (from modules/veloqrs)
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MODULE_DIR="$(dirname "$SCRIPT_DIR")"
 
+FULL=false
+if [ "$1" = "--full" ]; then
+  FULL=true
+fi
+
 echo "🧹 Cleaning veloqrs build artifacts..."
 
-# Rust build cache (the actual .so files)
-if [ -d "$MODULE_DIR/rust/target" ]; then
+# Rust build cache (only with --full flag)
+if [ "$FULL" = true ] && [ -d "$MODULE_DIR/rust/target" ]; then
   echo "  Removing rust/target/"
   rm -rf "$MODULE_DIR/rust/target"
 fi
@@ -33,22 +39,22 @@ if [ -d "$MODULE_DIR/android/.cxx" ]; then
   rm -rf "$MODULE_DIR/android/.cxx"
 fi
 
-# Generated TypeScript bindings
-if [ -d "$MODULE_DIR/src/generated" ]; then
-  echo "  Removing src/generated/"
-  rm -rf "$MODULE_DIR/src/generated"
-fi
+# Generated bindings (only with --full flag — Expo plugin detects staleness automatically)
+if [ "$FULL" = true ]; then
+  if [ -d "$MODULE_DIR/src/generated" ]; then
+    echo "  Removing src/generated/"
+    rm -rf "$MODULE_DIR/src/generated"
+  fi
 
-# Generated Kotlin/Java bindings
-if [ -d "$MODULE_DIR/android/generated" ]; then
-  echo "  Removing android/generated/"
-  rm -rf "$MODULE_DIR/android/generated"
-fi
+  if [ -d "$MODULE_DIR/android/generated" ]; then
+    echo "  Removing android/generated/"
+    rm -rf "$MODULE_DIR/android/generated"
+  fi
 
-# Generated C++ bindings
-if [ -d "$MODULE_DIR/cpp/generated" ]; then
-  echo "  Removing cpp/generated/"
-  rm -rf "$MODULE_DIR/cpp/generated"
+  if [ -d "$MODULE_DIR/cpp/generated" ]; then
+    echo "  Removing cpp/generated/"
+    rm -rf "$MODULE_DIR/cpp/generated"
+  fi
 fi
 
 # iOS build artifacts
@@ -67,4 +73,8 @@ if [ -d "$MODULE_DIR/ios/build" ]; then
   rm -rf "$MODULE_DIR/ios/build"
 fi
 
-echo "✅ Clean complete. Run 'npx expo run:android' or 'npx expo run:ios' to rebuild everything (bindings + binaries)."
+if [ "$FULL" = true ]; then
+  echo "✅ Full clean complete (including Rust compilation cache). Rebuild will recompile from scratch."
+else
+  echo "✅ Clean complete (Rust compilation cache preserved). Rebuild will use incremental compilation (~30s)."
+fi

@@ -17,7 +17,10 @@ import type {
   SportSettings,
   ActivityMapData,
   RawStreamItem,
+  CalendarEvent,
   IntervalsDTO,
+  UploadResponse,
+  ManualActivityData,
 } from '@/types';
 
 // Check if we're in demo mode
@@ -355,6 +358,112 @@ export const intervalsApi = {
       start: params.start,
       end: params.end,
       weeks: response.data.length,
+    });
+    return response.data;
+  },
+
+  /**
+   * Upload a FIT/GPX/TCX file to create a new activity
+   * Uses multipart/form-data for file upload
+   */
+  async uploadActivity(
+    file: ArrayBuffer,
+    filename: string,
+    opts?: { name?: string; pairedEventId?: number }
+  ): Promise<UploadResponse> {
+    if (isDemoMode()) {
+      return {
+        id: `demo-${Date.now()}`,
+        name: opts?.name || filename,
+        type: 'Ride',
+        start_date_local: new Date().toISOString(),
+      };
+    }
+    const athleteId = getAthleteId();
+
+    // Write binary to temp file (RN Blob doesn't support ArrayBuffer)
+    const FileSystem = require('expo-file-system/legacy');
+    const tempPath = `${FileSystem.cacheDirectory}${Date.now()}_${filename}`;
+    const bytes = new Uint8Array(file);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    await FileSystem.writeAsStringAsync(tempPath, btoa(binary), {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    const formData = new FormData();
+    formData.append('file', {
+      uri: tempPath,
+      type: 'application/octet-stream',
+      name: filename,
+    } as any);
+    if (opts?.name) formData.append('name', opts.name);
+    if (opts?.pairedEventId) formData.append('paired_event_id', String(opts.pairedEventId));
+    formData.append('device_name', 'Veloq');
+
+    try {
+      const response = await apiClient.post(`/athlete/${athleteId}/activities`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000,
+      });
+      return response.data;
+    } finally {
+      FileSystem.deleteAsync(tempPath, { idempotent: true }).catch(() => {});
+    }
+  },
+
+  /**
+   * Create a manual activity (no file upload)
+   * For activities like WeightTraining, Yoga, etc.
+   */
+  async createManualActivity(data: ManualActivityData): Promise<UploadResponse> {
+    if (isDemoMode()) {
+      return {
+        id: `demo-${Date.now()}`,
+        name: data.name,
+        type: data.type,
+        start_date_local: data.start_date_local,
+      };
+    }
+    const athleteId = getAthleteId();
+    const response = await apiClient.post(`/athlete/${athleteId}/activities`, {
+      ...data,
+      trainer: data.trainer ?? false,
+      commute: data.commute ?? false,
+    });
+    return response.data;
+  },
+
+  /**
+   * Update an existing activity (name, description, etc.)
+   */
+  async updateActivity(
+    id: string,
+    updates: { name?: string; description?: string; type?: string }
+  ): Promise<Activity> {
+    if (isDemoMode()) return {} as Activity;
+    const response = await apiClient.put(`/activity/${id}`, updates);
+    return response.data;
+  },
+
+  /**
+   * Get calendar events (planned workouts, notes, targets) for a date range
+   * Uses CALENDAR:READ scope (already authorized)
+   * @param oldest - Start date (ISO format: YYYY-MM-DD)
+   * @param newest - End date (ISO format: YYYY-MM-DD)
+   * @param category - Filter by category (WORKOUT, NOTE, TARGET, SEASON, RACE)
+   */
+  async getCalendarEvents(params: {
+    oldest: string;
+    newest: string;
+    category?: string;
+  }): Promise<CalendarEvent[]> {
+    if (isDemoMode()) return mockIntervalsApi.getCalendarEvents(params);
+    const athleteId = getAthleteId();
+    const response = await apiClient.get<CalendarEvent[]>(`/athlete/${athleteId}/events`, {
+      params: { ...params, resolve: true },
     });
     return response.data;
   },

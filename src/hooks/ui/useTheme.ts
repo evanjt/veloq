@@ -1,5 +1,5 @@
-import { useColorScheme } from 'react-native';
 import { brand, colors, darkColors } from '@/theme';
+import { useResolvedColorScheme } from '@/providers';
 
 export interface ThemeColors {
   // Core brand
@@ -53,7 +53,7 @@ export interface Theme {
 }
 
 export function useTheme(): Theme {
-  const colorScheme = useColorScheme();
+  const colorScheme = useResolvedColorScheme();
   const isDark = colorScheme === 'dark';
 
   const themeColors: ThemeColors = {

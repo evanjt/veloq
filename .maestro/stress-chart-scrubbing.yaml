@@ -1,7 +1,7 @@
 # Stress Test: Chart Scrubbing
 # Rapidly toggles chart types to find render issues
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier3
 ---

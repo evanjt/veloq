@@ -576,7 +576,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       if (isWork && interval.zone != null && interval.zone >= 1) {
         const zoneArr = isCycling ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
         bandColor = zoneArr[Math.min(interval.zone - 1, zoneArr.length - 1)];
-        if (isDark && interval.zone === 7) bandColor = '#B0B0B0';
+        if (isDark && interval.zone === 7) bandColor = darkColors.zone7;
         bandOpacity = 0.35;
       } else if (isWork) {
         bandColor = colors.primary;

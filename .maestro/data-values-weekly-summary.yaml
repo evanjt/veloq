@@ -1,0 +1,41 @@
+# Weekly Summary Data Validation
+# Verifies weekly summary shows real values, not NaN/blank
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-training.yaml
+
+# Wait for weekly summary to load
+- extendedWaitUntil:
+    visible:
+      id: "weekly-summary"
+    timeout: 10000
+
+# Switch to year range where demo data is guaranteed to exist
+- tapOn:
+    id: "weekly-summary-range-year"
+
+# Verify all stat fields are visible
+- extendedWaitUntil:
+    visible:
+      id: "weekly-summary-count"
+    timeout: 5000
+- assertVisible:
+    id: "weekly-summary-duration"
+- assertVisible:
+    id: "weekly-summary-distance"
+
+# Assert no invalid values
+- assertNotVisible:
+    text: "NaN"
+- assertNotVisible:
+    text: "undefined"
+- takeScreenshot: "data-values-weekly-summary-year-loaded"
+
+- takeScreenshot: "data-values-weekly-summary-complete"

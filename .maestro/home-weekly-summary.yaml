@@ -1,7 +1,7 @@
 # Weekly Summary Component Tests
 # Tests the weekly summary stats and time range toggles on training screen
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -25,6 +25,7 @@ tags:
     visible:
       id: "weekly-summary-count"
     timeout: 5000
+- takeScreenshot: "home-weekly-summary-year"
 
 # Verify all stats are displayed
 - assertVisible:
@@ -36,25 +37,53 @@ tags:
 - assertVisible:
     id: "weekly-summary-tss"
 
+# Verify values contain actual data (not NaN/empty)
+- assertNotVisible:
+    text: "NaN"
+    optional: true
+
 # Test other time range toggles
 - tapOn:
     id: "weekly-summary-range-6m"
 - assertVisible:
     id: "weekly-summary"
+- takeScreenshot: "home-weekly-summary-6m"
 
 - tapOn:
     id: "weekly-summary-range-3m"
 - assertVisible:
     id: "weekly-summary"
+- takeScreenshot: "home-weekly-summary-3m"
 
 - tapOn:
     id: "weekly-summary-range-month"
 - assertVisible:
     id: "weekly-summary"
+- takeScreenshot: "home-weekly-summary-month"
 
 - tapOn:
     id: "weekly-summary-range-week"
 - assertVisible:
     id: "weekly-summary"
+- takeScreenshot: "home-weekly-summary-week"
+
+# Navigate back to home to check SummaryCard components
+- openLink: "veloq://home"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+# Verify form zone indicator in summary card
+- assertVisible:
+    id: "summary-card-form-zone"
+    optional: true
+
+# Verify sparkline chart in summary card
+- assertVisible:
+    id: "summary-card-sparkline"
+    optional: true
+
+- takeScreenshot: "summary-card-features"
 
 - takeScreenshot: "weekly-summary-complete"

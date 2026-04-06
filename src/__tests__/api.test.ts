@@ -70,25 +70,7 @@ describe('parseStreams', () => {
     expect(result.altitude).toEqual([100, 110, 120]);
   });
 
-  it('should parse all stream types', () => {
-    const rawStreams: RawStreamItem[] = [
-      { type: 'time', name: null, data: [0, 1, 2, 3] },
-      { type: 'heartrate', name: null, data: [120, 130, 140, 150] },
-      { type: 'watts', name: null, data: [200, 250, 300, 280] },
-      { type: 'cadence', name: null, data: [85, 90, 92, 88] },
-      { type: 'velocity_smooth', name: null, data: [8.0, 8.5, 9.0, 8.8] },
-      { type: 'distance', name: null, data: [0, 100, 200, 300] },
-    ];
-
-    const result = parseStreams(rawStreams);
-
-    expect(result.time).toEqual([0, 1, 2, 3]);
-    expect(result.heartrate).toEqual([120, 130, 140, 150]);
-    expect(result.watts).toEqual([200, 250, 300, 280]);
-    expect(result.cadence).toEqual([85, 90, 92, 88]);
-    expect(result.velocity_smooth).toEqual([8.0, 8.5, 9.0, 8.8]);
-    expect(result.distance).toEqual([0, 100, 200, 300]);
-  });
+  // 'parse all stream types' test removed — covered by contracts.test.ts test 7
 
   it('should ignore unknown stream types', () => {
     const rawStreams: RawStreamItem[] = [

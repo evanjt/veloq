@@ -5,11 +5,13 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
+import { Animated } from 'react-native';
 import { colors, darkColors, spacing, typography, opacity, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { formatDistance } from '@/lib';
 import { SectionMiniPreview } from '@/components/routes';
 import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
+import type { Section } from '@/types';
 
 interface SectionListItemProps {
   item: UnifiedSectionItem;
@@ -30,7 +32,10 @@ interface SectionListItemProps {
   onLongPress: (sectionId: string) => void;
   onPress: (sectionId: string) => void;
   onSwipeableOpen: (sectionId: string) => void;
-  renderRightActions: (progress: any, dragX: any) => React.ReactNode;
+  renderRightActions: (
+    progress: Animated.AnimatedInterpolation<number>,
+    dragX: Animated.AnimatedInterpolation<number>
+  ) => React.ReactNode;
   swipeableRefs: React.MutableRefObject<Map<string, Swipeable | null>>;
   formatSectionTime: (seconds: number) => string;
   formatSectionPace: (seconds: number, meters: number) => string;
@@ -38,7 +43,7 @@ interface SectionListItemProps {
 
 type UnifiedSectionItem =
   | { type: 'engine'; match: SectionMatch; index: number }
-  | { type: 'custom'; section: any; index: number };
+  | { type: 'custom'; section: Section; index: number };
 
 export const SectionListItem = memo(
   function SectionListItem({

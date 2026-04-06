@@ -1,7 +1,7 @@
 /**
  * Route performance section for activity detail view.
- * Shows route match info and performance chart over time.
- * Uses UnifiedPerformanceChart for consistent styling with route page.
+ * Shows route match info and performance scatter chart over time.
+ * Uses SectionScatterChart for consistent styling with section detail page.
  */
 
 import React, { useMemo, useCallback } from 'react';
@@ -9,13 +9,14 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, type Href } from 'expo-router';
+import { navigateTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/hooks';
 import { getActivityColor } from '@/lib';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, shadows } from '@/theme';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
-import { UnifiedPerformanceChart, type ChartSummaryStats } from './UnifiedPerformanceChart';
+import { SectionScatterChart } from '@/components/section/SectionScatterChart';
+import type { DirectionBestRecord, DirectionSummaryStats } from './UnifiedPerformanceChart';
 
 interface RoutePerformanceSectionProps {
   activityId: string;
@@ -45,110 +46,69 @@ export function RoutePerformanceSection({
   const currentPerformance = performances.find((p) => p.isCurrent);
   const currentMatch = currentPerformance?.matchPercentage;
 
-  // Convert performances to chart data format expected by UnifiedPerformanceChart
-  const { chartData, minSpeed, maxSpeed, bestIndex, currentIndex, hasReverseRuns } = useMemo(() => {
-    if (performances.length === 0) {
-      return {
-        chartData: [],
-        minSpeed: 0,
-        maxSpeed: 1,
-        bestIndex: 0,
-        currentIndex: -1,
-        hasReverseRuns: false,
-      };
-    }
+  // Convert performances to chart data format expected by SectionScatterChart
+  const chartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
+    if (performances.length === 0) return [];
 
     // Filter out invalid speed values and convert to chart format
     const validPerformances = performances.filter(
       (p) => p.direction !== 'partial' && Number.isFinite(p.speed) && p.speed > 0
     );
 
-    const dataPoints: (PerformanceDataPoint & { x: number })[] = validPerformances.map(
-      (perf, idx) => ({
-        x: idx,
-        id: perf.activityId,
-        activityId: perf.activityId,
-        speed: perf.speed,
-        date: perf.date,
-        activityName: perf.name,
-        direction: perf.direction as 'same' | 'reverse',
-        matchPercentage: perf.matchPercentage,
-        lapNumber: 1,
-        totalLaps: validPerformances.length,
-      })
-    );
+    return validPerformances.map((perf, idx) => ({
+      x: idx,
+      id: perf.activityId,
+      activityId: perf.activityId,
+      speed: perf.speed,
+      date: perf.date,
+      activityName: perf.name,
+      direction: perf.direction as 'same' | 'reverse',
+      matchPercentage: perf.matchPercentage,
+    }));
+  }, [performances]);
 
-    const speeds = dataPoints.map((d) => d.speed);
-    const min = speeds.length > 0 ? Math.min(...speeds) : 0;
-    const max = speeds.length > 0 ? Math.max(...speeds) : 1;
-    // Use 25% padding to ensure highlighted dots (r=10) aren't clipped at edges
-    const padding = (max - min) * 0.25 || 0.5;
-
-    // Find best (fastest) index
-    let bestIdx = 0;
-    if (best) {
-      bestIdx = dataPoints.findIndex((d) => d.activityId === best.activityId);
-      if (bestIdx === -1) bestIdx = 0;
-    } else {
-      for (let i = 1; i < dataPoints.length; i++) {
-        if (dataPoints[i].speed > dataPoints[bestIdx].speed) {
-          bestIdx = i;
-        }
-      }
-    }
-
-    // Find current activity index
-    const currIdx = dataPoints.findIndex((d) => d.activityId === activityId);
-
-    const hasAnyReverse = dataPoints.some((d) => d.direction === 'reverse');
-
-    return {
-      chartData: dataPoints,
-      minSpeed: Math.max(0, min - padding),
-      maxSpeed: max + padding,
-      bestIndex: bestIdx,
-      currentIndex: currIdx,
-      hasReverseRuns: hasAnyReverse,
+  // Compute direction stats from chart data
+  const { forwardStats, reverseStats } = useMemo((): {
+    forwardStats: DirectionSummaryStats | null;
+    reverseStats: DirectionSummaryStats | null;
+  } => {
+    const fwd = chartData.filter((d) => d.direction !== 'reverse');
+    const rev = chartData.filter((d) => d.direction === 'reverse');
+    const buildStats = (pts: typeof chartData): DirectionSummaryStats | null => {
+      if (pts.length === 0) return null;
+      const durations = performances
+        .filter(
+          (p) => pts.some((pt) => pt.activityId === p.activityId) && Number.isFinite(p.duration)
+        )
+        .map((p) => p.duration);
+      const avgTime =
+        durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : null;
+      const lastDate = new Date(Math.max(...pts.map((p) => p.date.getTime())));
+      return { avgTime, lastActivity: lastDate, count: pts.length };
     };
-  }, [performances, best, activityId]);
+    return { forwardStats: buildStats(fwd), reverseStats: buildStats(rev) };
+  }, [chartData, performances]);
 
-  // Build summary stats for the chart header
-  const summaryStats = useMemo((): ChartSummaryStats => {
-    if (performances.length === 0) {
-      return {
-        bestTime: null,
-        avgTime: null,
-        totalActivities: 0,
-        lastActivity: null,
-        currentTime: null,
-        bestDate: null,
-      };
-    }
-
-    const validDurations = performances.map((p) => p.duration).filter((d) => Number.isFinite(d));
-    const avgDuration =
-      validDurations.length > 0
-        ? validDurations.reduce((a, b) => a + b, 0) / validDurations.length
-        : null;
-    const dates = performances.map((p) => p.date.getTime());
-    const lastActivityDate = new Date(Math.max(...dates));
-    const bestTime = best?.duration;
-    const bestDate = best?.date;
-    const currentTime = currentPerformance?.duration;
-
+  // Map route best records to the format expected by SectionScatterChart
+  const scatterBestForward = useMemo((): DirectionBestRecord | null => {
+    if (!bestForwardRecord) return null;
     return {
-      bestTime: bestTime !== undefined && Number.isFinite(bestTime) ? bestTime : null,
-      avgTime: avgDuration,
-      totalActivities: performances.length,
-      lastActivity: lastActivityDate,
-      currentTime: currentTime !== undefined && Number.isFinite(currentTime) ? currentTime : null,
-      bestDate: bestDate ?? null,
+      bestTime: bestForwardRecord.bestTime,
+      activityDate: bestForwardRecord.activityDate,
     };
-  }, [performances, best, currentPerformance]);
+  }, [bestForwardRecord]);
+
+  const scatterBestReverse = useMemo((): DirectionBestRecord | null => {
+    if (!bestReverseRecord) return null;
+    return {
+      bestTime: bestReverseRecord.bestTime,
+      activityDate: bestReverseRecord.activityDate,
+    };
+  }, [bestReverseRecord]);
 
   const handleRoutePress = useCallback(() => {
     if (routeGroup) {
-      router.push(`/route/${routeGroup.id}` as Href);
+      navigateTo(`/route/${routeGroup.id}`);
     }
   }, [routeGroup]);
 
@@ -191,21 +151,14 @@ export function RoutePerformanceSection({
 
       {/* Performance Chart - only show with 2+ data points */}
       {showChart ? (
-        <UnifiedPerformanceChart
+        <SectionScatterChart
           chartData={chartData}
           activityType={activityType}
           isDark={isDark}
-          minSpeed={minSpeed}
-          maxSpeed={maxSpeed}
-          bestIndex={bestIndex}
-          hasReverseRuns={hasReverseRuns}
-          tooltipBadgeType="match"
-          summaryStats={summaryStats}
-          currentIndex={currentIndex}
-          variant="activity"
-          embedded
-          bestForwardRecord={bestForwardRecord}
-          bestReverseRecord={bestReverseRecord}
+          bestForwardRecord={scatterBestForward}
+          bestReverseRecord={scatterBestReverse}
+          forwardStats={forwardStats}
+          reverseStats={reverseStats}
         />
       ) : (
         <View style={styles.firstRunHint}>
@@ -225,11 +178,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 12,
     paddingBottom: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    ...shadows.card,
   },
   containerDark: {
     backgroundColor: darkColors.surfaceCard,

@@ -107,6 +107,25 @@ export function resetProgressTracker(): void {
 }
 
 /**
+ * Poll heatmap tile generation until complete.
+ * Tile generation runs on a Rust background thread after section detection.
+ * We poll briefly to ensure tiles are ready before the user navigates to the map.
+ */
+async function pollTileGeneration(isMountedRef: React.MutableRefObject<boolean>): Promise<void> {
+  const status = routeEngine.pollTileGeneration();
+  if (status !== 'running' || !isMountedRef.current) return;
+
+  // Poll every 200ms for up to 10s (tile generation is usually fast)
+  const maxPollTime = 10000;
+  const startTime = Date.now();
+  while (isMountedRef.current) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const s = routeEngine.pollTileGeneration();
+    if (s !== 'running' || Date.now() - startTime > maxPollTime) break;
+  }
+}
+
+/**
  * Get a user-friendly message for section detection.
  * Simplified to show just "Analyzing routes..." with percentage.
  * Uses i18n for translation support.
@@ -349,6 +368,9 @@ export function useGpsDataFetcher() {
         // Section detection complete - refresh groups and sections
         routeEngine.triggerRefresh('groups');
         routeEngine.triggerRefresh('sections');
+
+        // Poll heatmap tile generation (runs on Rust background thread)
+        await pollTileGeneration(isMountedRef);
 
         if (isMountedRef.current) {
           updateProgress({
@@ -597,7 +619,14 @@ export function useGpsDataFetcher() {
         // Now notify UI that activities have been added (metrics are already in DB)
         routeEngine.triggerRefresh('activities');
         routeEngine.triggerRefresh('groups');
+      }
 
+      // Run section detection if new activities were synced OR if the engine
+      // needs re-detection (e.g., after a migration updated the portions algorithm)
+      const needsDetection =
+        result.syncedIds.length > 0 || routeEngine.getStats()?.sectionsDirty === true;
+
+      if (needsDetection && isMountedRef.current) {
         updateProgress({
           status: 'computing',
           completed: 0,
@@ -670,6 +699,9 @@ export function useGpsDataFetcher() {
         // Section detection complete - refresh groups and sections
         routeEngine.triggerRefresh('groups');
         routeEngine.triggerRefresh('sections');
+
+        // Poll heatmap tile generation (runs on Rust background thread)
+        await pollTileGeneration(isMountedRef);
       }
 
       // Final progress update

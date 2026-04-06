@@ -9,11 +9,12 @@ import { useTheme, useMetricSystem } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
-import { router, Href } from 'expo-router';
+import { navigateTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
 import {
   getActivityColor,
+  getActivityIcon,
   formatPace,
   formatSpeed,
   formatDistance,
@@ -28,6 +29,8 @@ interface RouteRowProps {
   route: DiscoveredRouteInfo | RouteGroup;
   /** If true, tapping navigates to route detail. If false/undefined, just expands. */
   navigable?: boolean;
+  /** Distance from user's current location in meters */
+  distanceFromUser?: number;
 }
 
 /** Check if route is a RouteGroup (has signature property) */
@@ -68,8 +71,8 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
 
   if (points.length < 2) return null;
 
-  const width = 56;
-  const height = 40;
+  const width = 48;
+  const height = 36;
   const padding = 4;
 
   const scaledPoints = points.map((p) => ({
@@ -150,7 +153,7 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
   );
 });
 
-function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
+function RouteRowComponent({ route, navigable = false, distanceFromUser }: RouteRowProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
@@ -173,7 +176,7 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
 
   // Get activity color for the route type
   // RouteGroup.type is ActivityType, DiscoveredRouteInfo.type is string
-  const activityColor = getActivityColor(toActivityType(route.type));
+  const activityColor = colors.primary;
 
   // Get preview points - use lazy-loaded consensus for RouteGroup
   const previewPoints = useMemo(() => {
@@ -227,7 +230,7 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
 
   const handlePress = () => {
     if (navigable) {
-      router.push(`/route/${route.id}` as Href);
+      navigateTo(`/route/${route.id}`);
     } else {
       setExpanded(!expanded);
     }
@@ -258,14 +261,41 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
 
         {/* Route info */}
         <View style={styles.infoContainer}>
-          <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
-            {displayName}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
+              {displayName}
+            </Text>
+            {/* Show sport type icons for all activity types in this route */}
+            {isRouteGroup(route) && route.sportTypes && route.sportTypes.length > 0 && (
+              <View style={styles.sportTypeIcons}>
+                {route.sportTypes.map((st) => (
+                  <MaterialCommunityIcons
+                    key={st}
+                    name={getActivityIcon(toActivityType(st))}
+                    size={14}
+                    color={getActivityColor(toActivityType(st))}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
           <View style={styles.metaRow}>
             {distance && distance > 0 && (
               <Text style={[styles.metaText, isDark && styles.textMuted]}>
                 {formatDistance(distance, isMetric)}
               </Text>
+            )}
+            {distanceFromUser != null && Number.isFinite(distanceFromUser) && (
+              <View style={styles.proximityTag}>
+                <MaterialCommunityIcons
+                  name="map-marker-distance"
+                  size={10}
+                  color={isDark ? darkColors.textDisabled : colors.textDisabled}
+                />
+                <Text style={[styles.proximityText, isDark && styles.proximityTextDark]}>
+                  {formatDistance(distanceFromUser, isMetric)}
+                </Text>
+              </View>
             )}
             {formattedPace && (
               <Text style={[styles.paceText, { color: colors.primary }]}>{formattedPace}</Text>
@@ -317,44 +347,46 @@ function RouteRowComponent({ route, navigable = false }: RouteRowProps) {
 
 // Memoize - only re-render if route data changes
 export const RouteRow = memo(RouteRowComponent, (prevProps, nextProps) => {
+  const prevSportTypes =
+    'sportTypes' in prevProps.route ? (prevProps.route as RouteGroup).sportTypes : undefined;
+  const nextSportTypes =
+    'sportTypes' in nextProps.route ? (nextProps.route as RouteGroup).sportTypes : undefined;
   return (
     prevProps.route.id === nextProps.route.id &&
     prevProps.route.name === nextProps.route.name &&
     prevProps.route.activityCount === nextProps.route.activityCount &&
-    prevProps.navigable === nextProps.navigable
+    prevProps.navigable === nextProps.navigable &&
+    prevProps.distanceFromUser === nextProps.distanceFromUser &&
+    prevSportTypes?.length === nextSportTypes?.length
   );
 });
 
 const styles = StyleSheet.create({
   wrapper: {
     marginHorizontal: spacing.md,
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: 10,
-    padding: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    padding: 6,
+    ...shadows.pill,
   },
   containerDark: {
     backgroundColor: darkColors.surface,
   },
   previewBox: {
-    width: 56,
-    height: 40,
-    borderRadius: 6,
+    width: 48,
+    height: 36,
+    borderRadius: 5,
     overflow: 'hidden',
   },
   previewPlaceholder: {
-    width: 56,
-    height: 40,
-    borderRadius: 6,
+    width: 48,
+    height: 36,
+    borderRadius: 5,
     backgroundColor: opacity.overlay.subtle,
     justifyContent: 'center',
     alignItems: 'center',
@@ -367,10 +399,21 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
     marginRight: spacing.xs,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   routeName: {
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  sportTypeIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   metaRow: {
     flexDirection: 'row',
@@ -381,6 +424,18 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
+  },
+  proximityTag: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 2,
+  },
+  proximityText: {
+    fontSize: 10,
+    color: colors.textDisabled,
+  },
+  proximityTextDark: {
+    color: darkColors.textDisabled,
   },
   paceText: {
     fontSize: typography.label.fontSize,

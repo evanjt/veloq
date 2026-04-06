@@ -1,7 +1,7 @@
 # Stress Test: Activity Detail Section Navigation
 # Rapidly navigates in/out of sections within activity detail view
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier3
 ---

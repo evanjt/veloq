@@ -2,7 +2,14 @@ import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as FileSystem from 'expo-file-system/legacy';
-import { exportBackup, restoreBackup, type RestoreResult } from '@/lib/export/backup';
+import {
+  exportBackup,
+  restoreBackup,
+  exportDatabaseBackup,
+  restoreDatabaseBackup,
+  type RestoreResult,
+  type DatabaseRestoreResult,
+} from '@/lib/export/backup';
 
 export function useExportBackup() {
   const [exporting, setExporting] = useState(false);
@@ -77,4 +84,71 @@ export function useImportBackup() {
   }, [importing, t]);
 
   return { importBackup: doImport, importing };
+}
+
+/** Export full SQLite database snapshot via share sheet. */
+export function useExportDatabaseBackup() {
+  const [exporting, setExporting] = useState(false);
+  const { t } = useTranslation();
+
+  const doExport = useCallback(async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await exportDatabaseBackup();
+    } catch {
+      Alert.alert(t('common.error'), t('backup.exportError'));
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, t]);
+
+  return { exportDatabaseBackup: doExport, exporting };
+}
+
+/** Import a .veloqdb SQLite snapshot via document picker. */
+export function useImportDatabaseBackup() {
+  const [importing, setImporting] = useState(false);
+  const { t } = useTranslation();
+
+  const doImport = useCallback(async (): Promise<DatabaseRestoreResult | null> => {
+    if (importing) return null;
+    setImporting(true);
+    try {
+      const DocumentPicker = await import('expo-document-picker');
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/octet-stream', '*/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets?.length) {
+        return null;
+      }
+
+      const fileUri = result.assets[0].uri;
+      const restoreResult = await restoreDatabaseBackup(fileUri);
+
+      if (restoreResult.success) {
+        const messages = [t('backup.databaseRestored', { count: restoreResult.activityCount })];
+        if (restoreResult.athleteIdMismatch) {
+          messages.push(
+            `\n${t('backup.differentAccount', { defaultValue: 'Warning: This backup belongs to a different account ({{id}}).' }).replace('{{id}}', restoreResult.backupAthleteId ?? '?')}`
+          );
+        }
+        Alert.alert(t('backup.restoreComplete'), messages.join(''));
+      } else {
+        Alert.alert(t('common.error'), restoreResult.error ?? t('backup.importError'));
+      }
+
+      return restoreResult;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : t('backup.importError');
+      Alert.alert(t('common.error'), msg);
+      return null;
+    } finally {
+      setImporting(false);
+    }
+  }, [importing, t]);
+
+  return { importDatabaseBackup: doImport, importing };
 }

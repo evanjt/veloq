@@ -40,6 +40,7 @@ export {
   useActivity,
   useActivityStreams,
   useActivityIntervals,
+  isInfiniteActivitiesStale,
 } from './activities';
 export {
   useSportSettings,
@@ -110,11 +111,30 @@ export { useRouteReoptimization } from './routes/useRouteReoptimization';
 export { useRoutesScreenData } from './routes/useRoutesScreenData';
 // Section detail hook from route engine
 export { useSectionDetail } from './routes/useRouteEngine';
+// Section matching, nearby, merge, and re-scan hooks
+export { useSectionRescan } from './routes/useSectionRescan';
+export { useNearbySections } from './routes/useNearbySections';
+export { useMergeSections } from './routes/useMergeSections';
+export { useActivityRematch } from './routes/useActivityRematch';
 
 // Home hooks
 export { useSummaryCardData, type SummaryCardData } from './home';
+export { useTodayWorkout } from './home';
+export { useWorkoutSections, type WorkoutSection } from './home';
+export { useActivityPatterns } from './home';
+
+// Insights hooks
+export { useInsights } from './insights';
+
+// Location hooks
+export { useUserLocation } from './useUserLocation';
 
 // Export hooks
 export { useGpxExport } from './export';
-export { useExportBackup, useImportBackup } from './export';
+export {
+  useExportBackup,
+  useImportBackup,
+  useExportDatabaseBackup,
+  useImportDatabaseBackup,
+} from './export';
 export { useBulkExport } from './export';

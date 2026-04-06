@@ -113,9 +113,10 @@ export function formatDuration(seconds: number): string {
  */
 export function formatDurationHuman(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '0s';
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.round(seconds % 60);
+  const totalSeconds = Math.round(seconds);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
   if (mins < 60) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
   const hrs = Math.floor(mins / 60);
   const remainingMins = mins % 60;
@@ -464,9 +465,9 @@ export interface PerformanceDelta {
  */
 export function formatTimeDelta(deltaSeconds: number): string | null {
   if (!Number.isFinite(deltaSeconds) || Math.abs(deltaSeconds) < 1) return null;
-  const absDelta = Math.abs(deltaSeconds);
-  const minutes = Math.floor(absDelta / 60);
-  const seconds = Math.round(absDelta % 60);
+  const totalSeconds = Math.round(Math.abs(deltaSeconds));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
   const sign = deltaSeconds > 0 ? '+' : '-';
   return minutes > 0
     ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
@@ -542,6 +543,7 @@ export function getSunday(date: Date): Date {
  * Format byte count as human-readable file size (e.g., "1.5 MB").
  */
 export function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -551,6 +553,12 @@ export function formatFileSize(bytes: number): string {
  * Convert speed in m/s to pace in seconds per km.
  */
 export function speedToSecsPerKm(metersPerSecond: number): number {
-  if (metersPerSecond <= 0) return 0;
+  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return 0;
   return 1000 / metersPerSecond;
+}
+
+/** Safe getTime() that returns 0 for invalid/missing dates. Use in sort comparators. */
+export function safeGetTime(date: Date | null | undefined): number {
+  const t = date?.getTime?.();
+  return typeof t === 'number' && Number.isFinite(t) ? t : 0;
 }

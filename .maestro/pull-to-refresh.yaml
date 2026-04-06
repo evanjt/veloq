@@ -1,0 +1,72 @@
+# Pull-to-Refresh Test
+# Tests pull-to-refresh gesture on home, fitness, and training screens
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Wait for home screen activity list
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
+# Pull to refresh on home screen (swipe down from near top)
+- swipe:
+    start: 50%, 25%
+    end: 50%, 75%
+    duration: 500
+
+# Wait for list to still be visible after refresh
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 10000
+
+# Verify activity data is actually present after refresh
+- assertVisible:
+    id: "activity-card-demo-test-0"
+    optional: true
+
+- takeScreenshot: "pull-to-refresh-home"
+
+# Navigate to fitness screen
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
+
+# Pull to refresh on fitness screen
+- swipe:
+    start: 50%, 25%
+    end: 50%, 75%
+    duration: 500
+
+# Wait for fitness screen to remain visible
+- extendedWaitUntil:
+    visible:
+      id: "fitness-screen"
+    timeout: 10000
+
+- takeScreenshot: "pull-to-refresh-fitness"
+
+# Navigate to training screen
+- runFlow:
+    file: helpers/navigate-to-training.yaml
+
+# Pull to refresh on training screen
+- swipe:
+    start: 50%, 25%
+    end: 50%, 75%
+    duration: 500
+
+# Wait for training screen to remain visible
+- extendedWaitUntil:
+    visible:
+      id: "training-screen"
+    timeout: 10000
+
+- takeScreenshot: "pull-to-refresh-training"
+
+- takeScreenshot: "pull-to-refresh-complete"

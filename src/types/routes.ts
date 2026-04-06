@@ -148,8 +148,12 @@ export interface RouteGroup {
   lastDate?: string;
   /** Activity type (Ride, Run, etc.) */
   type: ActivityType;
+  /** All sport types present in this group's activities */
+  sportTypes?: string[];
   /** Distance in meters (from representative activity) */
   distance?: number;
+  /** Pre-computed center point for proximity sorting */
+  center?: { lat: number; lng: number };
   /** Average match quality for grouped activities (0-100) - optional for engine groups */
   averageMatchQuality?: number;
   /** Best moving time in seconds (fastest completion) */
@@ -405,6 +409,14 @@ export interface Section {
   activityPortions?: ActivitySectionRecord[];
   /** Activity traces (loaded on-demand for section detail) */
   activityTraces?: Record<string, RoutePoint[]>;
+  /** All sport types present in this section's activities */
+  sportTypes?: string[];
+  /** Pre-computed center point for proximity sorting */
+  center?: { lat: number; lng: number };
+  /** Whether the user has disabled (hidden) this section */
+  disabled?: boolean;
+  /** If superseded by a custom section, stores its ID */
+  supersededBy?: string | null;
 }
 
 /**
@@ -508,6 +520,10 @@ export interface PerformanceDataPoint {
   sectionTime?: number;
   sectionDistance?: number;
   lapCount?: number;
+  isExcluded?: boolean;
+  bestTime?: number;
+  bestSpeed?: number;
+  isBest?: boolean;
 }
 
 /**

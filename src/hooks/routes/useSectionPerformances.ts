@@ -79,9 +79,11 @@ interface UseSectionPerformancesResult {
  * Only fetches from API for activities missing from cache.
  *
  * @param section - The section to calculate performances for
+ * @param sportType - Optional sport type filter for cross-sport sections
  */
 export function useSectionPerformances(
-  section: FrequentSection | null
+  section: FrequentSection | null,
+  sportType?: string
 ): UseSectionPerformancesResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -191,7 +193,10 @@ export function useSectionPerformances(
 
       try {
         // Get typed performance result directly from Rust engine (no JSON parsing)
-        const result: SectionPerformanceResult = routeEngine.getSectionPerformances(section.id);
+        const result: SectionPerformanceResult = routeEngine.getSectionPerformances(
+          section.id,
+          sportType
+        );
 
         // Convert FFI record to SectionPerformanceRecord (Date conversion)
         const toActivityRecord = (
@@ -235,7 +240,7 @@ export function useSectionPerformances(
         // Engine may not have data yet - return empty
         return emptyResult;
       }
-    }, [section, fetchComplete]);
+    }, [section, fetchComplete, sportType]);
 
   const refetch = useCallback(() => {
     setFetchKey((k) => k + 1);

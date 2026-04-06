@@ -1,7 +1,7 @@
 # Stress Test: Timeline Scrubbing
 # Rapidly interacts with the timeline slider on map screen
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier3
 ---

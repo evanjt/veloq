@@ -8,8 +8,8 @@
  */
 
 import { useMemo } from 'react';
-import { useColorScheme } from 'react-native';
 import { brand, colors, darkColors, zoneColors } from '@/theme';
+import { useResolvedColorScheme } from '@/providers';
 
 export interface ChartColorScheme {
   // Fitness metrics
@@ -52,7 +52,7 @@ export interface ChartColorScheme {
  * Memoized to prevent unnecessary re-renders in consumers.
  */
 export function useChartColors(): ChartColorScheme {
-  const colorScheme = useColorScheme();
+  const colorScheme = useResolvedColorScheme();
   const isDark = colorScheme === 'dark';
 
   return useMemo(

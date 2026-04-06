@@ -6,7 +6,7 @@
  * Full group data is only loaded on detail page.
  */
 
-import React, { useEffect, useRef, memo, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, memo, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,6 +15,8 @@ import {
   LayoutAnimation,
   Platform,
   ActivityIndicator,
+  TouchableOpacity,
+  TextInput,
 } from 'react-native';
 import { useTheme, useRouteProcessing, useCacheDays } from '@/hooks';
 import type { GroupWithPolyline } from 'veloqrs';
@@ -23,11 +25,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { UI } from '@/lib/utils/constants';
-import { CacheScopeNotice } from './CacheScopeNotice';
+import { computeCenter, haversineDistance, type LatLng } from '@/lib/geo/distance';
 import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 import { toActivityType } from '@/types/routes';
+
+export type RoutesSortOption = 'activities' | 'distance' | 'name' | 'nearby';
 
 interface RoutesListProps {
   /** Callback when list is pulled to refresh */
@@ -44,6 +48,14 @@ interface RoutesListProps {
   onLoadMore?: () => void;
   /** Whether more groups are available to load */
   hasMore?: boolean;
+  /** User's current location for "Nearby" sort */
+  userLocation?: LatLng | null;
+  /** Total routes count for the header summary */
+  totalGroupCount?: number;
+  /** Active sort option */
+  sortOption: RoutesSortOption;
+  /** Called when sort changes */
+  onSortChange: (next: RoutesSortOption) => void;
 }
 
 // Memoized routes list - only updates when route count changes
@@ -123,6 +135,14 @@ function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteG
       lng: group.consensusPolyline[i + 1],
     });
   }
+  const center = group.bounds
+    ? computeCenter({
+        minLat: group.bounds.minLat,
+        maxLat: group.bounds.maxLat,
+        minLng: group.bounds.minLng,
+        maxLng: group.bounds.maxLng,
+      })
+    : undefined;
   return {
     id: group.groupId,
     name: group.customName || `${sportType} Route ${index + 1}`,
@@ -132,6 +152,8 @@ function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteG
     signature: null,
     consensusPoints,
     distance: group.distanceMeters > 0 ? group.distanceMeters : undefined,
+    sportTypes: (group as any).sportTypes ?? [sportType],
+    center,
   };
 }
 
@@ -143,19 +165,56 @@ export function RoutesList({
   batchGroups,
   onLoadMore,
   hasMore = false,
+  userLocation,
+  totalGroupCount,
+  sortOption,
+  onSortChange,
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Convert batch groups to RouteGroup format for RouteRow
-  const groups = useMemo(() => {
+  const allGroups = useMemo(() => {
     return batchGroups.map((g, i) => batchGroupToRouteGroup(g, i));
   }, [batchGroups]);
 
+  // Filter groups by search query, then sort
+  const groups = useMemo(() => {
+    let filtered = [...allGroups];
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((g) => g.name?.toLowerCase().includes(query));
+    }
+    // Apply sort
+    if (sortOption === 'activities') {
+      filtered.sort((a, b) => b.activityCount - a.activityCount);
+    } else if (sortOption === 'distance') {
+      filtered.sort((a, b) => (b.distance ?? 0) - (a.distance ?? 0));
+    } else if (sortOption === 'name') {
+      filtered.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+    }
+
+    // Preserve native order for nearby sorting so pagination stays correct.
+    return filtered;
+  }, [allGroups, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
+
+  // Pre-compute distance from user for each route (used for display on every row)
+  const distanceMap = useMemo(() => {
+    if (!userLocation) return null;
+    const map = new Map<string, number>();
+    for (const g of groups) {
+      if (g.center) {
+        map.set(g.id, haversineDistance(userLocation, g.center));
+      }
+    }
+    return map;
+  }, [groups, userLocation]);
+
   // Calculate processed count
   const processedCount = useMemo(
-    () => groups.reduce((sum, g) => sum + g.activityCount, 0),
-    [groups]
+    () => allGroups.reduce((sum, g) => sum + g.activityCount, 0),
+    [allGroups]
   );
 
   const isReady = true; // Summaries are always ready (query on demand)
@@ -177,12 +236,36 @@ export function RoutesList({
     return [] as DiscoveredRouteInfo[];
   }, []);
 
+  const sortChips: { key: RoutesSortOption; label: string; icon: string }[] = useMemo(
+    () => [
+      { key: 'nearby', label: t('routes.sortNearby' as never) as string, icon: 'crosshairs-gps' },
+      {
+        key: 'activities',
+        label: t('routes.sortActivities' as never) as string,
+        icon: 'sort-numeric-descending',
+      },
+      {
+        key: 'distance',
+        label: t('routes.sortDistance' as never) as string,
+        icon: 'map-marker-distance',
+      },
+      {
+        key: 'name',
+        label: t('routes.sortNameAZ' as never) as string,
+        icon: 'sort-alphabetical-ascending',
+      },
+    ],
+    [t]
+  );
+
+  const displayRouteCount = totalGroupCount ?? allGroups.length;
+  const routeInfoText = 'Routes are whole activities you repeat on similar paths.';
+
   const renderHeader = () => (
     <View>
-      {/* Discovered routes during processing - show current activity being checked */}
+      {/* Discovered routes during processing */}
       {showActivityList && (
         <View style={styles.discoveredSection}>
-          {/* Current activity - fixed height to prevent jumps */}
           <View style={[styles.currentActivity, isDark && styles.currentActivityDark]}>
             <MaterialCommunityIcons name="magnify" size={14} color={colors.primary} />
             <Text
@@ -190,41 +273,15 @@ export function RoutesList({
               numberOfLines={1}
             >
               {progress.message
-                ? (t('routes.checking' as never, {
-                    name: progress.message,
-                  }) as string)
+                ? (t('routes.checking' as never, { name: progress.message }) as string)
                 : (t('routes.waiting' as never) as string)}
             </Text>
           </View>
-
-          {/* Discovered routes list */}
           <DiscoveredRoutesList
             routes={routes}
             isDark={isDark}
             t={((key: string) => t(key as never) as string) as (key: string) => string}
           />
-        </View>
-      )}
-
-      {/* Cache scope notice - show when idle */}
-      {!showProcessing && isReady && processedCount > 0 && (
-        <CacheScopeNotice
-          processedCount={processedCount}
-          groupCount={groups.length} // Only show groups with 2+ activities (actual routes)
-        />
-      )}
-
-      {/* Timeline info notice - show when idle and no processing */}
-      {!showProcessing && isReady && (
-        <View style={[styles.infoNotice, isDark && styles.infoNoticeDark]}>
-          <MaterialCommunityIcons
-            name="timeline-clock-outline"
-            size={14}
-            color={isDark ? darkColors.textDisabled : colors.textDisabled}
-          />
-          <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-            {t('routes.expandTimeline')}
-          </Text>
         </View>
       )}
     </View>
@@ -314,40 +371,241 @@ export function RoutesList({
   };
 
   return (
-    <FlatList
-      testID="routes-list"
-      data={groups}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <RouteRow route={item as unknown as RouteGroup} navigable />}
-      ListHeaderComponent={renderHeader}
-      ListEmptyComponent={renderEmpty}
-      ListFooterComponent={renderFooter}
-      contentContainerStyle={groups.length === 0 ? styles.emptyList : styles.list}
-      showsVerticalScrollIndicator={false}
-      onEndReached={hasMore ? onLoadMore : undefined}
-      onEndReachedThreshold={0.5}
-      // Performance optimizations
-      removeClippedSubviews={Platform.OS === 'ios'}
-      maxToRenderPerBatch={10}
-      windowSize={5}
-      initialNumToRender={8}
-      refreshControl={
-        onRefresh ? (
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
+    <View style={styles.outerContainer}>
+      {/* Search and sport filters — outside FlatList to prevent keyboard dismissal */}
+      {!showProcessing && allGroups.length > 0 && (
+        <View style={styles.filterHeader}>
+          <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>
+            <MaterialCommunityIcons
+              name="magnify"
+              size={18}
+              color={isDark ? darkColors.textDisabled : colors.textDisabled}
+            />
+            <TextInput
+              style={[styles.searchInput, isDark && styles.searchInputDark]}
+              placeholder={t('routes.searchRoutes' as never) as string}
+              placeholderTextColor={isDark ? darkColors.textDisabled : colors.textDisabled}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+              autoCorrect={false}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
+                <MaterialCommunityIcons
+                  name="close-circle"
+                  size={16}
+                  color={isDark ? darkColors.textDisabled : colors.textDisabled}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+          {/* Count line */}
+          <View style={styles.countRow}>
+            <Text style={[styles.summaryText, isDark && styles.summaryTextDark]}>
+              {displayRouteCount} {t('trainingScreen.routes')}
+            </Text>
+          </View>
+          {/* Sort chips */}
+          <View style={styles.sortChipRow}>
+            {groups.length > 1 &&
+              sortChips.map((chip) => {
+                const isActive = sortOption === chip.key;
+                return (
+                  <TouchableOpacity
+                    key={chip.key}
+                    style={[
+                      styles.sortChip,
+                      isDark && styles.sortChipDark,
+                      isActive && styles.sortChipActive,
+                    ]}
+                    onPress={() => onSortChange(chip.key)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name={chip.icon as any}
+                      size={13}
+                      color={
+                        isActive
+                          ? colors.primary
+                          : isDark
+                            ? darkColors.textSecondary
+                            : colors.textSecondary
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.sortChipLabel,
+                        isDark && styles.textMuted,
+                        isActive && styles.sortChipLabelActive,
+                      ]}
+                    >
+                      {chip.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+          </View>
+        </View>
+      )}
+      <FlatList
+        testID="routes-list"
+        data={groups}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <RouteRow
+            route={item as unknown as RouteGroup}
+            navigable
+            distanceFromUser={distanceMap?.get(item.id)}
           />
-        ) : undefined
-      }
-    />
+        )}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
+        contentContainerStyle={groups.length === 0 ? styles.emptyList : styles.list}
+        showsVerticalScrollIndicator={false}
+        onEndReached={hasMore ? onLoadMore : undefined}
+        onEndReachedThreshold={0.5}
+        // Performance optimizations
+        removeClippedSubviews={Platform.OS === 'ios'}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        initialNumToRender={8}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          ) : undefined
+        }
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
+  filterHeader: {
+    marginBottom: 0,
+  },
+  infoNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginHorizontal: spacing.md,
+  },
+  infoNoticeDark: {},
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textDisabled,
+    lineHeight: 16,
+  },
+  infoTextDark: {
+    color: darkColors.textDisabled,
+  },
+  countRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    marginTop: 2,
+  },
+  summaryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  summaryTextDark: {
+    color: darkColors.textPrimary,
+  },
   list: {
     paddingTop: spacing.md,
     paddingBottom: spacing.xxl,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.gray100,
+    borderRadius: 10,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: Platform.OS === 'ios' ? 4 : 2,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  searchContainerDark: {
+    backgroundColor: darkColors.surface,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textPrimary,
+    paddingVertical: 0,
+  },
+  searchInputDark: {
+    color: darkColors.textPrimary,
+  },
+  sportFilterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    marginTop: 2,
+  },
+  sportFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sportFilterChipDark: {
+    borderColor: darkColors.border,
+  },
+  sportFilterLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  sortChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    marginTop: 2,
+  },
+  sortChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sortChipDark: {
+    borderColor: darkColors.border,
+  },
+  sortChipActive: {
+    backgroundColor: colors.primary + '15',
+    borderColor: colors.primary,
+  },
+  sortChipLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  sortChipLabelActive: {
+    color: colors.primary,
   },
   emptyList: {
     flexGrow: 1,
@@ -415,25 +673,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.sm,
-  },
-  infoNotice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  infoNoticeDark: {},
-  infoText: {
-    flex: 1,
-    fontSize: typography.caption.fontSize,
-    color: colors.textDisabled,
-    lineHeight: typography.caption.lineHeight,
-  },
-  infoTextDark: {
-    color: darkColors.textSecondary,
   },
   loadingMore: {
     paddingVertical: spacing.md,

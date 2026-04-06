@@ -4,7 +4,8 @@ import { useTheme } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SegmentedButtons } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, brand } from '@/theme';
+import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
+import { settingsStyles } from './settingsStyles';
 import {
   type ThemePreference,
   type PrimarySport,
@@ -78,10 +79,10 @@ function DisplaySettingsComponent({
   return (
     <>
       {/* Display Settings Section - Appearance, Units, Language combined */}
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
         {t('settings.display').toUpperCase()}
       </Text>
-      <View style={[styles.section, isDark && styles.sectionDark]}>
+      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         {/* Appearance */}
         <View style={styles.subsectionHeader}>
           <MaterialCommunityIcons
@@ -89,7 +90,7 @@ function DisplaySettingsComponent({
             size={18}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-          <Text style={[styles.subsectionLabel, isDark && styles.textMuted]}>
+          <Text style={[styles.subsectionLabel, isDark && settingsStyles.textMuted]}>
             {t('settings.appearance')}
           </Text>
         </View>
@@ -130,11 +131,11 @@ function DisplaySettingsComponent({
             size={18}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-          <Text style={[styles.subsectionLabel, isDark && styles.textMuted]}>
+          <Text style={[styles.subsectionLabel, isDark && settingsStyles.textMuted]}>
             {t('settings.units')}
           </Text>
         </View>
-        <View style={styles.themePickerContainer}>
+        <View testID="settings-unit-toggle" style={styles.themePickerContainer}>
           <SegmentedButtons
             value={unitPreference}
             onValueChange={onUnitChange}
@@ -158,7 +159,7 @@ function DisplaySettingsComponent({
             style={styles.themePicker}
           />
         </View>
-        <Text style={[styles.subsectionHint, isDark && styles.textMuted]}>
+        <Text style={[styles.subsectionHint, isDark && settingsStyles.textMuted]}>
           {unitPreference === 'auto'
             ? intervalsUnitPreference
               ? t('settings.unitsAutoHintWithIntervals', {
@@ -184,7 +185,7 @@ function DisplaySettingsComponent({
             // Show dialect chip only when a dialect is selected
             language === 'en-AU' || language === 'de-CH' ? (
               <View style={[styles.dialectLegendChip, isDark && styles.dialectLegendChipDark]}>
-                <Text style={[styles.dialectLegendText, isDark && styles.textMuted]}>
+                <Text style={[styles.dialectLegendText, isDark && settingsStyles.textMuted]}>
                   {t('settings.dialect')}
                 </Text>
               </View>
@@ -217,7 +218,7 @@ function DisplaySettingsComponent({
                     }}
                     style={styles.languageLabelContainer}
                   >
-                    <Text style={[styles.languageLabel, isDark && styles.textLight]}>
+                    <Text style={[styles.languageLabel, isDark && settingsStyles.textLight]}>
                       {lang.label}
                     </Text>
                   </TouchableOpacity>
@@ -262,7 +263,7 @@ function DisplaySettingsComponent({
                               style={[
                                 styles.variantChipText,
                                 isVariantSelected && styles.variantChipTextSelected,
-                                isDark && !isVariantSelected && styles.textMuted,
+                                isDark && !isVariantSelected && settingsStyles.textMuted,
                               ]}
                             >
                               {variant.label}
@@ -283,10 +284,10 @@ function DisplaySettingsComponent({
       </View>
 
       {/* Primary Sport Section */}
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
         {t('settings.primarySport').toUpperCase()}
       </Text>
-      <View style={[styles.section, isDark && styles.sectionDark]}>
+      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         <View style={styles.themePickerContainer}>
           <SegmentedButtons
             value={primarySport}
@@ -312,7 +313,7 @@ function DisplaySettingsComponent({
           />
         </View>
       </View>
-      <Text style={[styles.infoText, isDark && styles.textMuted]}>
+      <Text style={[styles.infoText, isDark && settingsStyles.textMuted]}>
         {primarySport === 'Cycling'
           ? t('settings.primarySportHintCycling')
           : primarySport === 'Running'
@@ -327,30 +328,6 @@ function DisplaySettingsComponent({
 export const DisplaySettings = memo(DisplaySettingsComponent);
 
 const styles = StyleSheet.create({
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    marginHorizontal: layout.screenPadding,
-    letterSpacing: 0.5,
-  },
-  textMuted: {
-    color: darkColors.textSecondary,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  section: {
-    backgroundColor: colors.surface,
-    marginHorizontal: layout.screenPadding,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  sectionDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
   themePickerContainer: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
@@ -367,17 +344,15 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   subsectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    ...typography.captionBold,
     color: colors.textSecondary,
-    letterSpacing: 0.3,
   },
   subsectionHint: {
-    fontSize: 11,
+    ...typography.label,
     color: colors.textSecondary,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xs,
-    lineHeight: 14,
+    textTransform: 'none',
   },
   divider: {
     height: 1,
@@ -407,18 +382,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   languageLabel: {
-    fontSize: 16,
+    ...typography.body,
     color: colors.textPrimary,
   },
   variantChips: {
     flexDirection: 'row',
-    gap: 6,
+    gap: spacing.xs + 2,
     marginLeft: 'auto',
   },
   variantChip: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: spacing.xs,
+    borderRadius: layout.borderRadiusSm + 4,
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
@@ -450,24 +425,23 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   variantChipText: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    ...typography.bodyCompact,
     fontWeight: '500',
+    color: colors.textSecondary,
   },
   variantChipTextSelected: {
     color: colors.textOnDark,
   },
   infoText: {
-    fontSize: 13,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
     marginHorizontal: layout.screenPadding,
     marginTop: spacing.md,
-    lineHeight: 18,
   },
   dialectLegendChip: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: spacing.xs,
+    borderRadius: layout.borderRadiusSm + 4,
     borderWidth: 1.5,
     borderColor: brand.gold,
     backgroundColor: colors.background,
@@ -478,8 +452,7 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surfaceElevated,
   },
   dialectLegendText: {
-    fontSize: 12,
+    ...typography.captionBold,
     color: colors.textSecondary,
-    fontWeight: '500',
   },
 });

@@ -3,7 +3,7 @@
  * Users can enable/disable metrics and reorder them.
  */
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting } from '@/lib/backup';
 
 const STORAGE_KEY = 'dashboard_preferences';
 const SUMMARY_CARD_STORAGE_KEY = 'dashboard_summary_card';
@@ -181,7 +181,7 @@ export const useDashboardPreferences = create<DashboardPreferencesState>((set, g
 // Persistence helpers
 async function persistPreferences(metrics: MetricPreference[]): Promise<void> {
   try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(metrics));
+    await setSetting(STORAGE_KEY, JSON.stringify(metrics));
   } catch (error) {
     if (__DEV__) {
       console.warn('[DashboardPreferences] Failed to persist:', error);
@@ -191,7 +191,7 @@ async function persistPreferences(metrics: MetricPreference[]): Promise<void> {
 
 async function persistSummaryCard(summaryCard: SummaryCardPreferences): Promise<void> {
   try {
-    await AsyncStorage.setItem(SUMMARY_CARD_STORAGE_KEY, JSON.stringify(summaryCard));
+    await setSetting(SUMMARY_CARD_STORAGE_KEY, JSON.stringify(summaryCard));
   } catch (error) {
     if (__DEV__) {
       console.warn('[DashboardPreferences] Failed to persist summary card:', error);
@@ -204,8 +204,8 @@ export async function initializeDashboardPreferences(
 ): Promise<void> {
   try {
     const [storedMetrics, storedSummaryCard] = await Promise.all([
-      AsyncStorage.getItem(STORAGE_KEY),
-      AsyncStorage.getItem(SUMMARY_CARD_STORAGE_KEY),
+      getSetting(STORAGE_KEY),
+      getSetting(SUMMARY_CARD_STORAGE_KEY),
     ]);
 
     let metrics: MetricPreference[];

@@ -223,6 +223,7 @@ export interface Athlete {
   id: string;
   name: string;
   email?: string;
+  sex?: string; // "M" or "F" from intervals.icu
   profile?: string; // URL to profile photo
   profile_medium?: string; // URL to medium profile photo
 }

@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, Href } from 'expo-router';
+import { navigateTo } from '@/lib';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
 import { SummaryCardSparkline, type ScrubValues } from './SummaryCardSparkline';
@@ -51,6 +51,9 @@ export interface SummaryCardProps {
 
   // Supporting metrics (max 4)
   supportingMetrics: SupportingMetric[];
+
+  // Optional insight line rendered right-aligned in top row
+  insightLine?: React.ReactNode;
 }
 
 /**
@@ -85,7 +88,16 @@ export const SummaryCard = React.memo(function SummaryCard({
   showSparkline,
   showSparklineLabels = false,
   supportingMetrics,
+  insightLine,
 }: SummaryCardProps) {
+  if (__DEV__) {
+    const start = performance.now();
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    React.useEffect(() => {
+      const dur = performance.now() - start;
+      if (dur > 20) console.log(`  📊 SummaryCard render: ${dur.toFixed(0)}ms`);
+    });
+  }
   const { isDark, colors: themeColors } = useTheme();
   const [profileImageError, setProfileImageError] = React.useState(false);
   const [scrubValues, setScrubValues] = useState<ScrubValues | null>(null);
@@ -189,23 +201,24 @@ export const SummaryCard = React.memo(function SummaryCard({
           activeOpacity={onHeroPress ? 0.7 : 1}
         >
           {fitnessSparklineVisible ? (
-            <View style={styles.heroValueRow}>
-              <Text style={[styles.heroValueFixed, { color: '#42A5F5' }]}>{currentFitness}</Text>
-              <Text style={[styles.heroLabel, { color: '#42A5F5' }]}>Fitness</Text>
-              {currentFatigue !== null && (
-                <>
-                  <Text style={[styles.secondaryValueFixed, { color: '#EC407A' }]}>
-                    {currentFatigue}
+            <View>
+              <View style={styles.heroValueRow}>
+                <Text style={[styles.heroValueFixed, { color: colors.fitnessBlue }]}>
+                  {currentFitness}
+                </Text>
+                <Text style={[styles.heroLabel, { color: colors.fitnessBlue }]}>Fitness</Text>
+              </View>
+              <View style={styles.heroSubLine}>
+                {currentFatigue !== null && (
+                  <Text style={[styles.heroSubText, { color: colors.chartPink }]}>
+                    {currentFatigue} Fatigue
                   </Text>
-                  <Text style={[styles.secondaryLabel, { color: '#EC407A' }]}>Fatigue</Text>
-                </>
-              )}
-              <Text style={[styles.secondaryValueFixed, { color: currentFormColor }]}>
-                {currentForm > 0 ? `+${currentForm}` : currentForm}
-              </Text>
-              <Text style={[styles.secondaryLabel, { color: currentFormColor }]}>
-                {FORM_ZONE_LABELS[currentFormZone]}
-              </Text>
+                )}
+                <Text style={[styles.heroSubText, { color: currentFormColor }]}>
+                  {currentForm > 0 ? `+${currentForm}` : currentForm}{' '}
+                  {FORM_ZONE_LABELS[currentFormZone]}
+                </Text>
+              </View>
             </View>
           ) : hrvSparklineVisible ? (
             <View style={styles.heroValueRow}>
@@ -213,10 +226,10 @@ export const SummaryCard = React.memo(function SummaryCard({
               <Text style={[styles.heroLabel, { color: colors.chartPink }]}>HRV</Text>
               {currentRhr !== null && (
                 <>
-                  <Text style={[styles.secondaryValueFixed, { color: '#EF5350' }]}>
+                  <Text style={[styles.secondaryValueFixed, { color: colors.formHighRisk }]}>
                     {currentRhr}
                   </Text>
-                  <Text style={[styles.secondaryLabel, { color: '#EF5350' }]}>RHR</Text>
+                  <Text style={[styles.secondaryLabel, { color: colors.formHighRisk }]}>RHR</Text>
                 </>
               )}
             </View>
@@ -228,21 +241,26 @@ export const SummaryCard = React.memo(function SummaryCard({
               </Text>
               <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{heroLabel}</Text>
               {heroZoneLabel && (
-                <>
+                <View
+                  testID="summary-card-form-zone"
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                >
                   <View style={[styles.zoneDot, { backgroundColor: heroZoneColor || heroColor }]} />
                   <Text style={[styles.zoneLabel, { color: heroZoneColor || heroColor }]}>
                     {heroZoneLabel}
                   </Text>
-                </>
+                </View>
               )}
             </View>
           )}
         </TouchableOpacity>
+
+        {insightLine && <View style={styles.insightSlot}>{insightLine}</View>}
       </View>
 
       {/* Sparkline row — fitness or HRV depending on hero metric */}
       {fitnessSparklineVisible && (
-        <View style={styles.sparklineRow}>
+        <View testID="summary-card-sparkline" style={styles.sparklineRow}>
           <SummaryCardSparkline
             fitnessData={fitnessData!}
             fatigueData={fatigueData}
@@ -277,7 +295,7 @@ export const SummaryCard = React.memo(function SummaryCard({
             {metric.navigationTarget ? (
               <TouchableOpacity
                 style={styles.supportingMetric}
-                onPress={() => router.push(metric.navigationTarget as Href)}
+                onPress={() => navigateTo(metric.navigationTarget as string)}
                 activeOpacity={0.7}
               >
                 <Text style={[styles.metricLabel, isDark && styles.textMuted]}>{metric.label}</Text>
@@ -340,7 +358,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.xs,
     right: spacing.md,
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '500',
     zIndex: 1,
   },
@@ -395,14 +413,28 @@ const styles = StyleSheet.create({
 
   // Hero section - inline horizontal
   heroSection: {
-    flex: 1,
     justifyContent: 'center',
   },
   heroValueRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    flexWrap: 'wrap',
+  },
+  heroSubLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: 0,
+  },
+  heroSubText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  // Insight slot — fills remaining space in topRow, right-aligned
+  insightSlot: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
   },
   heroValue: {
     fontSize: 24,
@@ -425,11 +457,13 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     minWidth: 30,
     textAlign: 'right' as const,
+    flexShrink: 1,
   },
   secondaryLabel: {
     fontSize: 12,
     fontWeight: '500',
     color: colors.textSecondary,
+    flexShrink: 1,
   },
   heroTrend: {
     fontSize: 18,
@@ -470,23 +504,23 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   metricLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '400',
     color: colors.textSecondary,
   },
   metricValue: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   metricTrend: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     marginLeft: 1,
   },
   metricDivider: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textMuted,
-    marginHorizontal: 3,
+    marginHorizontal: spacing.xs,
   },
   metricDividerDark: {
     color: darkColors.textMuted,

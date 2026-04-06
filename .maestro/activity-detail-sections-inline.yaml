@@ -1,0 +1,49 @@
+# Activity Detail Sections Inline Test
+# Tests: section list with inline performance plots and wellness context
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Navigate to activity detail
+- openLink: "veloq://activity/demo-test-0"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+# Scroll to sections area
+- scrollUntilVisible:
+    element:
+      id: "activity-sections-list"
+    direction: DOWN
+    timeout: 15000
+    speed: 40
+    optional: true
+
+# Verify sections list rendered
+- assertVisible:
+    id: "activity-sections-list"
+    optional: true
+
+# Check for inline performance plots
+- assertVisible:
+    id: "section-inline-plot-0"
+    optional: true
+
+- takeScreenshot: "activity-sections-inline"
+
+# Scroll further to look for wellness context
+- scroll
+
+- assertVisible:
+    id: "activity-wellness-context"
+    optional: true
+
+- takeScreenshot: "activity-wellness-context"
+
+- takeScreenshot: "activity-sections-inline-complete"

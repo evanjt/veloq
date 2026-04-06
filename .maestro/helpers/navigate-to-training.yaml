@@ -1,5 +1,5 @@
 # Navigate to training tab via deep link
-appId: com.veloq.app
+appId: com.veloq.app.dev
 ---
 - openLink: "veloq://training"
 - extendedWaitUntil:

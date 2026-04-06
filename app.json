@@ -2,7 +2,7 @@
   "expo": {
     "name": "Veloq",
     "slug": "veloq",
-    "version": "0.2.2",
+    "version": "0.3.0",
     "scheme": "veloq",
     "orientation": "default",
     "icon": "./src/assets/icon.png",
@@ -17,23 +17,36 @@
       "supportsTablet": true,
       "requireFullScreen": true,
       "bundleIdentifier": "com.veloq.app",
-      "buildNumber": "17",
+      "buildNumber": "18",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "en-AU",
-        "CFBundleLocalizations": ["en-AU", "en-US", "en-GB", "es", "fr"],
-        "NSLocationWhenInUseUsageDescription": "Veloq uses your location to display activity maps and track your routes.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Veloq uses your location to display activity maps and track your routes.",
-        "UIBackgroundModes": ["location", "fetch"],
+        "CFBundleLocalizations": [
+          "en-AU",
+          "en-US",
+          "en-GB",
+          "es",
+          "fr"
+        ],
+        "NSLocationWhenInUseUsageDescription": "Veloq uses your location to display activity maps, track routes, and record fitness activities.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Veloq uses your location in the background to continue recording fitness activities when the app is not in the foreground.",
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ],
         "ITSAppUsesNonExemptEncryption": false
       },
       "config": {
         "usesNonExemptEncryption": false
       },
-      "associatedDomains": ["applinks:intervals.icu"]
+      "associatedDomains": [
+        "applinks:intervals.icu"
+      ]
     },
     "android": {
       "package": "com.veloq.app",
-      "versionCode": 17,
+      "versionCode": 18,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/adaptive-icon.png",
         "backgroundColor": "#5B9BD5"
@@ -42,6 +55,9 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
         "ACCESS_NETWORK_STATE",
         "ACCESS_WIFI_STATE",
         "INTERNET",
@@ -59,6 +75,8 @@
       "./src/plugins/with-veloqrs",
       "./src/plugins/with-r8-config",
       "./src/plugins/with-maplibre-nil-safety",
+      "./src/plugins/with-android-backup",
+      "./src/plugins/with-icloud",
       "expo-router",
       [
         "expo-screen-orientation",
@@ -67,10 +85,24 @@
         }
       ],
       "expo-localization",
+      [
+        "expo-location",
+        {
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
       "@maplibre/maplibre-react-native",
       "expo-web-browser",
       "expo-secure-store",
       "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./src/assets/icon.png",
+          "color": "#FC4C02"
+        }
+      ],
       [
         "expo-build-properties",
         {
@@ -83,6 +115,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f8cfc9cb-dda9-4d0a-a061-e2f01fb42c2f"
+      }
     }
   }
 }

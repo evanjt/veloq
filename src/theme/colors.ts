@@ -44,6 +44,10 @@ export const brand = {
   blue: '#5B9BD5',
   blueLight: '#7DB3E3',
   blueDark: '#3A7AB8',
+
+  // Orange - intervals.icu brand color
+  orange: '#FC4C02',
+  orangeLight: '#FCA67A',
 } as const;
 
 // =============================================================================
@@ -144,7 +148,7 @@ export const colors = {
   consensusRoute: brand.gold, // Gold for main route
 
   // Form zone colors (matching intervals.icu)
-  formTransition: '#64B5F6', // Light blue - detraining risk
+  formTransition: '#64B5F6', // Light blue - transition zone
   formFresh: '#81C784', // Light green - ready for events
   formGreyZone: '#9E9E9E', // Grey - neutral zone
   formOptimal: '#66BB6A', // Green - peak training zone
@@ -160,6 +164,17 @@ export const colors = {
   workoutWork: brand.blue, // Blue for work intervals
   workoutRecovery: '#06B6D4',
   workoutCooldown: '#8B5CF6',
+
+  // Insight category colors
+  insightGold: '#FFD700',
+  insightOrange: '#F97316',
+
+  // Warning banner colors
+  warningBannerBg: '#451A03',
+  warningBannerText: '#FDE68A',
+
+  // Compass
+  compassNorth: '#E53935',
 } as const;
 
 // =============================================================================
@@ -214,6 +229,9 @@ export const darkColors = {
   success: '#4ADE80',
   warning: '#FBBF24',
   error: '#F87171',
+
+  // Zone overrides for dark mode
+  zone7: '#B0B0B0', // Zone 7 visibility override (light gray on dark bg)
 
   // Chart colors for dark mode (optimized for visibility)
   chartFitness: brand.blueLight, // Brighter blue for CTL
@@ -353,6 +371,20 @@ export const zoneColors = {
   zone6: '#6633CC', // Purple - Anaerobic (intervals.icu)
   zone7: '#1A1A1A', // Near-black - Neuromuscular (intervals.icu)
 } as const;
+
+// =============================================================================
+// INSIGHT CATEGORY COLORS
+// =============================================================================
+
+export const insightCategoryColors: Record<string, string> = {
+  section_pr: colors.insightGold,
+  fitness_milestone: colors.success,
+  period_comparison: brand.blue,
+  strength_progression: colors.insightOrange,
+  strength_balance: colors.error,
+  hrv_trend: colors.formOptimal,
+  stale_pr: colors.warning,
+};
 
 // =============================================================================
 // TYPE EXPORTS

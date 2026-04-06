@@ -20,36 +20,36 @@ export function calculateTSB(wellness: WellnessData[]): (WellnessData & { tsb: n
 }
 
 /**
- * Form zones based on TSB (Training Stress Balance):
+ * Form zones based on TSB (Training Stress Balance) — intervals.icu boundaries:
  *
- * - highRisk (TSB < -30): Overtrained, high injury/illness risk
- * - optimal (-30 to -10): Productive training, building fitness
- * - grey (-10 to 5): Maintenance zone, unclear benefit
- * - fresh (5 to 25): Recovered, good for racing/testing
- * - transition (> 25): Detraining, losing fitness
+ * - highRisk (TSB < -30): Significant accumulated fatigue
+ * - optimal (-30 to -10): Where most adaptation occurs
+ * - greyZone (-10 to 5): Moderate training load
+ * - fresh (5 to 25): Well-rested, fitness exceeds fatigue
+ * - transition (> 25): Losing fitness from insufficient stimulus
  */
-export type FormZone = 'highRisk' | 'optimal' | 'grey' | 'fresh' | 'transition';
+export type FormZone = 'highRisk' | 'optimal' | 'greyZone' | 'fresh' | 'transition';
 
 export function getFormZone(tsb: number): FormZone {
   if (tsb < -30) return 'highRisk';
   if (tsb < -10) return 'optimal';
-  if (tsb < 5) return 'grey';
+  if (tsb < 5) return 'greyZone';
   if (tsb < 25) return 'fresh';
   return 'transition';
 }
 
 export const FORM_ZONE_COLORS: Record<FormZone, string> = {
-  highRisk: '#EF5350', // Red - Overtrained (matches intervals.icu)
-  optimal: '#66BB6A', // Green - Peak training zone (matches intervals.icu)
-  grey: '#9E9E9E', // Grey - Neutral zone (matches intervals.icu)
-  fresh: '#81C784', // Light green - Ready for events (matches intervals.icu)
-  transition: '#64B5F6', // Light blue - Detraining risk (matches intervals.icu)
+  highRisk: '#EF5350', // Red (matches intervals.icu)
+  optimal: '#66BB6A', // Green (matches intervals.icu)
+  greyZone: '#9E9E9E', // Grey (matches intervals.icu)
+  fresh: '#81C784', // Light green (matches intervals.icu)
+  transition: '#64B5F6', // Light blue (matches intervals.icu)
 };
 
 export const FORM_ZONE_LABELS: Record<FormZone, string> = {
   highRisk: 'High Risk',
   optimal: 'Optimal',
-  grey: 'Grey Zone',
+  greyZone: 'Grey Zone',
   fresh: 'Fresh',
   transition: 'Transition',
 };
@@ -60,7 +60,16 @@ export const FORM_ZONE_LABELS: Record<FormZone, string> = {
 export const FORM_ZONE_BOUNDARIES: Record<FormZone, { min: number; max: number }> = {
   transition: { min: 25, max: 50 },
   fresh: { min: 5, max: 25 },
-  grey: { min: -10, max: 5 },
+  greyZone: { min: -10, max: 5 },
   optimal: { min: -30, max: -10 },
   highRisk: { min: -50, max: -30 },
+};
+
+/** i18n keys for contextual guidance per form zone */
+export const FORM_ZONE_GUIDANCE_KEYS: Record<FormZone, string> = {
+  highRisk: 'fitnessScreen.guidance.highRisk',
+  optimal: 'fitnessScreen.guidance.optimal',
+  greyZone: 'fitnessScreen.guidance.greyZone',
+  fresh: 'fitnessScreen.guidance.fresh',
+  transition: 'fitnessScreen.guidance.transition',
 };

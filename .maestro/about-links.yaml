@@ -1,0 +1,86 @@
+# About Screen Links Test
+# Tests that all links and sections on the about screen are visible
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Navigate to about screen via deep link
+- openLink: "veloq://about"
+
+- extendedWaitUntil:
+    visible:
+      id: "about-screen"
+    timeout: 10000
+
+- takeScreenshot: "about-screen-top"
+
+# Verify app info section is visible
+- assertVisible:
+    id: "about-app-info"
+
+# Scroll down to intervals.icu links
+- scroll
+
+# Verify intervals.icu link elements are visible
+- assertVisible:
+    id: "about-link-privacy"
+
+- assertVisible:
+    id: "about-link-terms"
+
+- assertVisible:
+    id: "about-link-api-terms"
+
+- takeScreenshot: "about-screen-intervals-links"
+
+# Scroll down to Veloq links
+- scroll
+
+# Verify Veloq link elements are visible
+- assertVisible:
+    id: "about-link-veloq-privacy"
+    optional: true
+
+- assertVisible:
+    id: "about-link-license"
+    optional: true
+
+- assertVisible:
+    id: "about-link-licenses"
+    optional: true
+
+- assertVisible:
+    id: "about-link-source"
+    optional: true
+
+- takeScreenshot: "about-screen-veloq-links"
+
+# Scroll to bottom for data attribution
+- scroll
+
+- takeScreenshot: "about-screen-bottom"
+
+# Tap third-party licenses to navigate
+- tapOn:
+    id: "about-link-licenses"
+
+- extendedWaitUntil:
+    visible:
+      id: "licenses-screen"
+    timeout: 10000
+
+- takeScreenshot: "licenses-screen"
+
+# Navigate back to about
+- back
+
+- extendedWaitUntil:
+    visible:
+      id: "about-screen"
+    timeout: 10000
+
+- takeScreenshot: "about-links-complete"

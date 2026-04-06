@@ -38,6 +38,8 @@ interface RouteGroupExtended {
   } | null;
   activityCount: number;
   type: ActivityType;
+  /** All sport types present in this group's activities */
+  sportTypes?: string[];
   /** Route signature with points for mini-trace preview */
   signature?: {
     points: Array<{ lat: number; lng: number }>;
@@ -106,6 +108,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
         name: g.customName ?? g.groupId,
         activityCount: g.activityCount,
         type: toActivityType(sportType),
+        sportTypes: (g as any).sportTypes ?? [sportType],
         // Signature loaded lazily via useConsensusRoute to avoid blocking render
         signature: undefined,
         // Performance stats not in summaries - use useGroupDetail for full data

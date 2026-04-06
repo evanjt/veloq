@@ -1,0 +1,47 @@
+# Settings Scroll Test
+# Scrolls through the entire settings screen with screenshots
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+# Screenshot above the fold
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+- takeScreenshot: "settings-scroll-top"
+
+# Scroll down and screenshot settings sections
+- scroll
+- takeScreenshot: "settings-scroll-mid-1"
+
+- scroll
+- takeScreenshot: "settings-scroll-mid-2"
+
+- scroll
+- takeScreenshot: "settings-scroll-mid-3"
+
+# Scroll to bottom — verify logout is reachable
+- scrollUntilVisible:
+    element:
+      id: "settings-logout-button"
+    direction: DOWN
+    timeout: 30000
+    speed: 40
+- takeScreenshot: "settings-scroll-bottom"
+
+# Verify version text is visible at bottom (may need one more scroll)
+- scrollUntilVisible:
+    element:
+      id: "settings-version-text"
+    direction: DOWN
+    timeout: 15000
+    speed: 40
+
+- takeScreenshot: "settings-scroll-complete"

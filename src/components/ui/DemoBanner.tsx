@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
+import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, Href } from 'expo-router';
+import { replaceTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
@@ -35,34 +36,41 @@ export function DemoBanner() {
     exitDemoMode();
 
     // Navigate to login - use replace to prevent going back to demo
-    router.replace('/login' as Href);
+    replaceTo('/login');
   };
 
   return (
-    <Pressable
-      testID="demo-mode-banner"
-      onPress={handlePress}
-      style={({ pressed }) => [
-        styles.container,
-        isDark && styles.containerDark,
-        pressed && styles.pressed,
-        { paddingTop: insets.top > 0 ? insets.top : 8 },
-      ]}
-    >
-      <View style={styles.content}>
-        <MaterialCommunityIcons name="information" size={18} color="#FFFFFF" style={styles.icon} />
-        <Text style={styles.text}>{t('demo.banner', { defaultValue: 'Demo Mode' })}</Text>
-        <Text style={styles.subtext}>
-          {t('demo.tapToSignIn', { defaultValue: 'Tap to sign in' })}
-        </Text>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={18}
-          color="#FFFFFF"
-          style={styles.chevron}
-        />
-      </View>
-    </Pressable>
+    <Animated.View entering={SlideInUp.duration(250)} exiting={SlideOutUp.duration(200)}>
+      <Pressable
+        testID="demo-mode-banner"
+        onPress={handlePress}
+        style={({ pressed }) => [
+          styles.container,
+          isDark && styles.containerDark,
+          pressed && styles.pressed,
+          { paddingTop: insets.top > 0 ? insets.top : 8 },
+        ]}
+      >
+        <View style={styles.content}>
+          <MaterialCommunityIcons
+            name="information"
+            size={18}
+            color="#FFFFFF"
+            style={styles.icon}
+          />
+          <Text style={styles.text}>{t('demo.banner', { defaultValue: 'Demo Mode' })}</Text>
+          <Text style={styles.subtext}>
+            {t('demo.tapToSignIn', { defaultValue: 'Tap to sign in' })}
+          </Text>
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={18}
+            color="#FFFFFF"
+            style={styles.chevron}
+          />
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 

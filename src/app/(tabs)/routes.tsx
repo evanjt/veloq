@@ -1,29 +1,127 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { View, StyleSheet, Alert } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
-import { ScreenSafeAreaView, ScreenErrorBoundary } from '@/components/ui';
 import { router, useLocalSearchParams } from 'expo-router';
-import { logScreenRender } from '@/lib/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { RoutesList, SectionsList, DateRangeSummary, SyncDebugTab } from '@/components';
-import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import {
-  useRouteProcessing,
+  ScreenErrorBoundary,
+  ScreenSafeAreaView,
+  SwipeableTabs,
+  type SwipeableTab,
+} from '@/components/ui';
+import { InsightsPanel } from '@/components/insights';
+import { StrengthTab } from '@/components/insights/StrengthTab';
+import { DateRangeSummary, RoutesList, SectionsList, SyncDebugTab } from '@/components';
+import type { RoutesSortOption } from '@/components/routes/RoutesList';
+import type { SectionsSortOption } from '@/components/routes/SectionsList';
+import {
   useActivityBoundsCache,
-  useOldestActivityDate,
+  useCustomSections,
+  useInsights,
   useTheme,
   useRoutesScreenData,
-  useCustomSections,
+  useUserLocation,
 } from '@/hooks';
-import { useRouteSettings, useSyncDateRange, useDebugStore } from '@/providers';
+import { useHasStrengthData } from '@/hooks/activities/useStrengthVolume';
+import { useRouteNameGeocoding } from '@/hooks/routes/useRouteNameGeocoding';
+import { useRouteSettings, useSyncDateRange, useDebugStore, useEngineStatus } from '@/providers';
+import { logScreenRender } from '@/lib/debug/renderTimer';
 import { colors, darkColors, spacing } from '@/theme';
-import type { ActivityType } from '@/types';
 
-type TabType = 'routes' | 'sections' | 'debug';
+type TabType = 'insights' | 'strength' | 'routes' | 'sections' | 'debug';
+
+function RouteTabDisabledState({ isDark }: { isDark: boolean }) {
+  const { t } = useTranslation();
+
+  return (
+    <View style={[styles.routeMessageCard, isDark && styles.routeMessageCardDark]}>
+      <MaterialCommunityIcons
+        name="map-marker-off"
+        size={18}
+        color={isDark ? '#FBBF24' : '#92400E'}
+      />
+      <View style={styles.routeMessageText}>
+        <Text style={[styles.routeMessageTitle, isDark && styles.routeMessageTitleDark]}>
+          {t('routesScreen.matchingDisabled')}
+        </Text>
+        <Text style={[styles.routeMessageBody, isDark && styles.routeMessageBodyDark]}>
+          {t('routesScreen.goToSettings')}
+        </Text>
+      </View>
+      <IconButton
+        icon="cog"
+        size={18}
+        iconColor={isDark ? '#FBBF24' : '#92400E'}
+        onPress={() => router.push('/settings')}
+        style={styles.routeMessageButton}
+      />
+    </View>
+  );
+}
+
+function RouteTabEngineState({
+  isDark,
+  engineInitFailed,
+  engineBannerDismissed,
+  onDismissEngineBanner,
+  showDateRangeSummary,
+  activityCount,
+  oldestSyncedDate,
+  newestSyncedDate,
+  routesDataReady,
+  syncMessage,
+}: {
+  isDark: boolean;
+  engineInitFailed: boolean;
+  engineBannerDismissed: boolean;
+  onDismissEngineBanner: () => void;
+  showDateRangeSummary: boolean;
+  activityCount: number;
+  oldestSyncedDate: string | null;
+  newestSyncedDate: string | null;
+  routesDataReady: boolean;
+  syncMessage: string | null;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <>
+      {showDateRangeSummary ? (
+        <DateRangeSummary
+          activityCount={activityCount}
+          oldestDate={oldestSyncedDate}
+          newestDate={newestSyncedDate}
+          isDark={isDark}
+          isLoading={!routesDataReady}
+          syncMessage={syncMessage}
+        />
+      ) : null}
+
+      {engineInitFailed && !engineBannerDismissed ? (
+        <View style={[styles.engineBanner, isDark && styles.engineBannerDark]}>
+          <MaterialCommunityIcons
+            name="alert-outline"
+            size={16}
+            color={isDark ? '#FBBF24' : '#92400E'}
+          />
+          <Text style={[styles.engineBannerText, isDark && styles.engineBannerTextDark]}>
+            {t('engine.initFailed')}
+          </Text>
+          <IconButton
+            icon="close"
+            size={16}
+            iconColor={isDark ? '#FBBF24' : '#92400E'}
+            onPress={onDismissEngineBanner}
+            style={styles.engineBannerClose}
+          />
+        </View>
+      ) : null}
+    </>
+  );
+}
 
 export default function RoutesScreen() {
-  // Performance timing
   const perfEndRef = useRef<(() => void) | null>(null);
   perfEndRef.current = logScreenRender('RoutesScreen');
   useEffect(() => {
@@ -33,170 +131,168 @@ export default function RoutesScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const { insights, markAsSeen } = useInsights();
+  const hasStrength = useHasStrengthData();
+  const { location: userLocation, requestPermission } = useUserLocation();
+  const routeSortTouchedRef = useRef(false);
+  const sectionSortTouchedRef = useRef(false);
+  const [routeSort, setRouteSort] = useState<RoutesSortOption>(
+    userLocation ? 'nearby' : 'activities'
+  );
+  const [sectionSort, setSectionSort] = useState<SectionsSortOption>(
+    userLocation ? 'nearby' : 'visits'
+  );
 
-  // Check if route matching is enabled
   const routeSettings = useRouteSettings((s) => s.settings);
   const isRouteMatchingEnabled = routeSettings.enabled;
+  useRouteNameGeocoding(isRouteMatchingEnabled);
 
-  // Debug mode
   const debugEnabled = useDebugStore((s) => s.enabled);
+  const engineInitFailed = useEngineStatus((s) => s.initFailed);
+  const [engineBannerDismissed, setEngineBannerDismissed] = useState(false);
 
-  const { clearCache: clearRouteCache } = useRouteProcessing();
-
-  // Single FFI call for all routes screen data (groups, sections, counts)
   const {
     data: routesData,
     loadMoreGroups,
     loadMoreSections,
     hasMoreGroups,
     hasMoreSections,
-  } = useRoutesScreenData({ groupLimit: 50, sectionLimit: 100 });
+  } = useRoutesScreenData({
+    groupLimit: 50,
+    sectionLimit: 100,
+    prioritizeNearestGroups: routeSort === 'nearby',
+    prioritizeNearestSections: sectionSort === 'nearby',
+    userLocation,
+  });
 
-  // Derive counts from batch data
   const routeGroupCount = routesData?.groupCount ?? 0;
   const groupsDirty = routesData?.groupsDirty ?? false;
 
-  // Include custom sections in total count — Rust sectionCount may not include
-  // custom sections added via backup restore if the engine data hasn't refreshed yet
   const { count: customSectionCount } = useCustomSections();
   const rustSectionCount = routesData?.sectionCount ?? 0;
   const batchCustomCount =
     routesData?.sections?.filter((s) => s.id.startsWith('custom_')).length ?? 0;
   const totalSections = rustSectionCount + Math.max(0, customSectionCount - batchCustomCount);
 
-  // Fetch the true oldest activity date from API (for timeline extent)
-  const { data: apiOldestDate } = useOldestActivityDate();
-
-  // Get sync date range from store
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
   const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
-
-  // Get sync state from engine cache
-  const {
-    isReady: boundsReady,
-    progress: syncProgress,
-    syncDateRange,
-    sync: triggerSync,
-  } = useActivityBoundsCache();
-
-  // Tab state - initialize from URL param if provided
-  const [activeTab, setActiveTab] = useState<TabType>(() =>
-    tab === 'sections' ? 'sections' : 'routes'
-  );
-
-  // Update tab when URL param changes (e.g., navigating from settings with ?tab=sections)
-  useEffect(() => {
-    if (tab === 'sections' || tab === 'routes') {
-      setActiveTab(tab);
-    }
-  }, [tab]);
-
-  // Reset to routes if debug tab is active but debug mode was turned off
-  useEffect(() => {
-    if (!debugEnabled && activeTab === 'debug') {
-      setActiveTab('routes');
-    }
-  }, [debugEnabled, activeTab]);
-
-  // Tabs configuration for SwipeableTabs
-  const tabs = useMemo<SwipeableTab[]>(() => {
-    const result: SwipeableTab[] = [
-      {
-        key: 'routes',
-        label: t('trainingScreen.routes'),
-        icon: 'map-marker-path',
-        count: routeGroupCount,
-      },
-      {
-        key: 'sections',
-        label: t('trainingScreen.sections'),
-        icon: 'road-variant',
-        count: totalSections,
-      },
-    ];
-    if (debugEnabled) {
-      result.push({ key: 'debug', label: 'Sync', icon: 'bug-outline' });
-    }
-    return result;
-  }, [t, routeGroupCount, totalSections, debugEnabled]);
-
-  // Date range state - default to full cached range (show all data)
-  const now = useMemo(() => new Date(), []);
-
-  // Track if we've initialized from cache
-  const [hasInitialized, setHasInitialized] = useState(false);
-
-  const [startDate, setStartDate] = useState<Date>(() => new Date(syncOldest));
-  const [endDate, setEndDate] = useState<Date>(() => new Date(syncNewest));
-
-  // Initialize slider to cached range once GPS-synced activities are loaded from engine
-  // NOTE: We only update the slider state here, NOT the sync range.
-  // Expansion should only happen from explicit user action (timeline drag).
-  useEffect(() => {
-    if (!hasInitialized && boundsReady) {
-      // Use sync date range from store (represents what we've synced)
-      setStartDate(new Date(syncOldest));
-      setEndDate(new Date(syncNewest));
-      setHasInitialized(true);
-    }
-  }, [hasInitialized, boundsReady, syncOldest, syncNewest]);
-
-  // Min/max dates for timeline - use API oldest date for full extent
-  const minDate = useMemo(() => {
-    return apiOldestDate ? new Date(apiOldestDate) : new Date(now.getFullYear() - 5, 0, 1);
-  }, [apiOldestDate, now]);
-
-  // Max date is always "now" (today)
-  const maxDate = now;
-
-  // Handle timeline range changes
-  const handleRangeChange = useCallback(
-    (start: Date, end: Date) => {
-      setStartDate(start);
-      setEndDate(end);
-
-      // Expand the global sync date range to trigger GPS data fetching
-      const startStr = start.toISOString().split('T')[0];
-      const endStr = end.toISOString().split('T')[0];
-      syncDateRange(startStr, endStr);
-    },
-    [syncDateRange]
-  );
-
-  // Read GPS sync progress from shared store (GlobalDataSync is the single sync coordinator)
-  // No need to call useActivities here - GlobalDataSync handles activity fetching
   const dataSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isDataSyncing = useSyncDateRange((s) => s.isGpsSyncing);
 
-  // Sync status for UI - include when fetching extended date range
-  const isSyncing = syncProgress.status === 'syncing' || isDataSyncing || isFetchingExtended;
+  const { sync: triggerSync } = useActivityBoundsCache();
 
-  // Track refetch state for pull-to-refresh
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const tabs = useMemo<SwipeableTab[]>(() => {
+    const result: SwipeableTab[] = [
+      {
+        key: 'insights',
+        label: t('insights.title', 'Insights'),
+        icon: 'lightbulb-outline',
+      },
+    ];
 
-  // Handle pull-to-refresh
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await triggerSync();
-    } finally {
-      setIsRefreshing(false);
+    if (hasStrength) {
+      result.push({
+        key: 'strength',
+        label: t('insights.strength', 'Strength'),
+        icon: 'dumbbell',
+      });
     }
+
+    result.push({
+      key: 'routes',
+      label: t('trainingScreen.routes'),
+      icon: 'map-marker-path',
+    });
+
+    result.push({
+      key: 'sections',
+      label: t('trainingScreen.sections'),
+      icon: 'road-variant',
+    });
+
+    if (debugEnabled) {
+      result.push({ key: 'debug', label: 'Sync', icon: 'bug-outline' });
+    }
+
+    return result;
+  }, [debugEnabled, hasStrength, t]);
+
+  const availableTabKeys = useMemo(() => new Set(tabs.map((entry) => entry.key)), [tabs]);
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    if (tab === 'strength' && hasStrength) return 'strength';
+    if (tab === 'routes' || tab === 'sections' || tab === 'debug' || tab === 'insights') {
+      return tab;
+    }
+    return 'insights';
+  });
+
+  useEffect(() => {
+    markAsSeen();
+  }, [markAsSeen]);
+
+  useEffect(() => {
+    if (!tab) return;
+    if (tab === 'strength' && hasStrength) {
+      setActiveTab('strength');
+      return;
+    }
+    if (availableTabKeys.has(tab)) {
+      setActiveTab(tab as TabType);
+    }
+  }, [availableTabKeys, hasStrength, tab]);
+
+  useEffect(() => {
+    if (!availableTabKeys.has(activeTab)) {
+      setActiveTab('insights');
+    }
+  }, [activeTab, availableTabKeys]);
+
+  useEffect(() => {
+    if (userLocation && !routeSortTouchedRef.current) {
+      setRouteSort('nearby');
+    }
+  }, [userLocation]);
+
+  useEffect(() => {
+    if (userLocation && !sectionSortTouchedRef.current) {
+      setSectionSort('nearby');
+    }
+  }, [userLocation]);
+
+  const handleRouteSortChange = useCallback(
+    async (next: RoutesSortOption) => {
+      routeSortTouchedRef.current = true;
+      if (next === 'nearby' && !userLocation) {
+        const loc = await requestPermission();
+        if (!loc) return;
+      }
+      setRouteSort(next);
+    },
+    [requestPermission, userLocation]
+  );
+
+  const handleSectionSortChange = useCallback(
+    async (next: SectionsSortOption) => {
+      sectionSortTouchedRef.current = true;
+      if (next === 'nearby' && !userLocation) {
+        const loc = await requestPermission();
+        if (!loc) return;
+      }
+      setSectionSort(next);
+    },
+    [requestPermission, userLocation]
+  );
+
+  const handleRefresh = useCallback(async () => {
+    await triggerSync();
   }, [triggerSync]);
 
-  // Calculate cached range from sync store and batch data activity count
   const { oldestSyncedDate, newestSyncedDate, activityCount } = useMemo(() => {
     const count = routesData?.activityCount ?? 0;
-
     if (count === 0) {
-      return {
-        oldestSyncedDate: null,
-        newestSyncedDate: null,
-        activityCount: 0,
-      };
+      return { oldestSyncedDate: null, newestSyncedDate: null, activityCount: 0 };
     }
-
     return {
       oldestSyncedDate: syncOldest,
       newestSyncedDate: syncNewest,
@@ -204,92 +300,150 @@ export default function RoutesScreen() {
     };
   }, [routesData?.activityCount, syncOldest, syncNewest]);
 
-  // Convert sync/processing progress to unified phased format
-  // Phases: 1) Loading activities, 2) Downloading GPS, 3) Analyzing routes
   const timelineSyncProgress = useMemo(() => {
-    // Phase 1: Loading activities from API / extending date range
-    // Only show when we don't have data yet (avoid showing during background refetches)
-    if (isFetchingExtended && !routesData?.activityCount) {
-      return {
-        message: t('mapScreen.loadingActivities') as string,
-        phase: 1,
-      };
+    // Phase 1: Fetching activity list from API (before GPS sync starts)
+    if (isFetchingExtended && !isDataSyncing) {
+      return { message: t('mapScreen.loadingActivities') as string, phase: 1 };
     }
-
-    // Phase 2: Downloading GPS data (from bounds sync)
-    if (syncProgress.status === 'syncing') {
+    // Phase 2: Downloading GPS data
+    if (dataSyncProgress.status === 'fetching') {
       const countText =
-        syncProgress.total > 0 ? ` (${syncProgress.completed}/${syncProgress.total})` : '';
+        dataSyncProgress.total > 0
+          ? ` (${dataSyncProgress.completed}/${dataSyncProgress.total})`
+          : '';
       return {
         message: `${t('routesScreen.downloadingGps')}${countText}` as string,
         phase: 2,
       };
     }
-
-    // Phase 3: Analyzing routes (check BEFORE downloading status)
+    // Phase 3: Analysing routes (section detection)
     if (dataSyncProgress.status === 'computing') {
       const pct = dataSyncProgress.percent;
       const text = t('cache.analyzingRoutes') as string;
-      return {
-        message: pct > 0 ? `${text}... ${pct}%` : `${text}...`,
-        phase: 3,
-      };
+      return { message: pct > 0 ? `${text}... ${pct}%` : `${text}...`, phase: 3 };
     }
-
-    // Phase 2b: Fetching GPS (from route data sync)
-    if (isDataSyncing && dataSyncProgress.status === 'fetching' && dataSyncProgress.total > 0) {
-      return {
-        message:
-          `${t('routesScreen.downloadingGps')} (${dataSyncProgress.completed}/${dataSyncProgress.total})` as string,
-        phase: 2,
-      };
-    }
-
     return null;
-  }, [
-    isFetchingExtended,
-    syncProgress,
-    isDataSyncing,
-    dataSyncProgress,
-    routesData?.activityCount,
-    t,
-  ]);
+  }, [dataSyncProgress, isDataSyncing, isFetchingExtended, t]);
 
-  // Show disabled state if route matching is not enabled
-  if (!isRouteMatchingEnabled) {
-    return (
-      <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-            {t('routesScreen.title')}
-          </Text>
-        </View>
+  const renderSharedRouteState = useCallback(
+    () => (
+      <RouteTabEngineState
+        isDark={isDark}
+        engineInitFailed={engineInitFailed}
+        engineBannerDismissed={engineBannerDismissed}
+        onDismissEngineBanner={() => setEngineBannerDismissed(true)}
+        showDateRangeSummary={isRouteMatchingEnabled}
+        activityCount={activityCount}
+        oldestSyncedDate={oldestSyncedDate}
+        newestSyncedDate={newestSyncedDate}
+        routesDataReady={!!routesData}
+        syncMessage={
+          timelineSyncProgress?.message || (groupsDirty ? t('routesScreen.computingRoutes') : null)
+        }
+      />
+    ),
+    [
+      activityCount,
+      engineBannerDismissed,
+      engineInitFailed,
+      groupsDirty,
+      isDark,
+      isRouteMatchingEnabled,
+      newestSyncedDate,
+      oldestSyncedDate,
+      routesData,
+      t,
+      timelineSyncProgress?.message,
+    ]
+  );
 
-        <View style={styles.disabledContainer}>
-          <MaterialCommunityIcons
-            name="map-marker-off"
-            size={64}
-            color={isDark ? darkColors.textMuted : colors.border}
+  // Per-tab memos isolate re-render blast radius: changing insights
+  // doesn't recreate routes/sections JSX and vice versa.
+  const insightsPage = useMemo(
+    () => <InsightsPanel key="insights" insights={insights} />,
+    [insights]
+  );
+
+  const routesPage = useMemo(
+    () => (
+      <View key="routes" style={styles.routeTabPage}>
+        {isRouteMatchingEnabled ? (
+          <RoutesList
+            onRefresh={handleRefresh}
+            isRefreshing={isDataSyncing}
+            batchGroups={routesData?.groups ?? []}
+            onLoadMore={loadMoreGroups}
+            hasMore={hasMoreGroups}
+            userLocation={userLocation}
+            totalGroupCount={routeGroupCount}
+            sortOption={routeSort}
+            onSortChange={handleRouteSortChange}
           />
-          <Text style={[styles.disabledTitle, isDark && styles.textLight]}>
-            {t('routesScreen.matchingDisabled')}
-          </Text>
-          <Text style={[styles.disabledText, isDark && styles.textMuted]}>
-            {t('routesScreen.enableInSettings')}
-          </Text>
-          <IconButton
-            icon="cog"
-            iconColor={colors.primary}
-            size={32}
-            onPress={() => router.push('/settings')}
+        ) : (
+          <RouteTabDisabledState isDark={isDark} />
+        )}
+      </View>
+    ),
+    [
+      handleRefresh,
+      isDataSyncing,
+      routesData?.groups,
+      loadMoreGroups,
+      hasMoreGroups,
+      userLocation,
+      routeGroupCount,
+      routeSort,
+      handleRouteSortChange,
+      isRouteMatchingEnabled,
+      isDark,
+    ]
+  );
+
+  const sectionsPage = useMemo(
+    () => (
+      <View key="sections" style={styles.routeTabPage}>
+        {isRouteMatchingEnabled ? (
+          <SectionsList
+            batchSections={routesData?.sections}
+            onLoadMore={loadMoreSections}
+            hasMore={hasMoreSections}
+            totalSectionCount={totalSections}
+            userLocation={userLocation}
+            sortOption={sectionSort}
+            onSortChange={handleSectionSortChange}
           />
-          <Text style={[styles.disabledHint, isDark && styles.textMuted]}>
-            {t('routesScreen.goToSettings')}
-          </Text>
+        ) : (
+          <RouteTabDisabledState isDark={isDark} />
+        )}
+      </View>
+    ),
+    [
+      routesData?.sections,
+      loadMoreSections,
+      hasMoreSections,
+      totalSections,
+      userLocation,
+      sectionSort,
+      handleSectionSortChange,
+      isRouteMatchingEnabled,
+      isDark,
+    ]
+  );
+
+  const tabPages = useMemo(() => {
+    const pages: React.ReactNode[] = [insightsPage];
+    if (hasStrength) pages.push(<StrengthTab key="strength" />);
+    pages.push(routesPage);
+    pages.push(sectionsPage);
+    if (debugEnabled) {
+      pages.push(
+        <View key="debug" style={styles.routeTabPage}>
+          <SyncDebugTab />
         </View>
-      </ScreenSafeAreaView>
-    );
-  }
+      );
+    }
+    return pages;
+  }, [insightsPage, routesPage, sectionsPage, hasStrength, debugEnabled]);
 
   return (
     <ScreenErrorBoundary screenName="Insights">
@@ -299,24 +453,27 @@ export default function RoutesScreen() {
       >
         <View style={styles.header}>
           <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-            {t('routesScreen.title')}
+            {t('insights.title', 'Insights')}
           </Text>
+          <IconButton
+            icon="information-outline"
+            size={20}
+            iconColor={isDark ? darkColors.textMuted : colors.textMuted}
+            onPress={() =>
+              Alert.alert(
+                t('insights.aboutTitle', 'About Insights'),
+                t(
+                  'insights.aboutBody',
+                  'Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only \u2014 not medical or coaching advice.'
+                )
+              )
+            }
+            style={styles.infoButton}
+          />
         </View>
 
-        {/* Date range summary - shows cached range with link to expand */}
-        <DateRangeSummary
-          activityCount={activityCount}
-          oldestDate={oldestSyncedDate}
-          newestDate={newestSyncedDate}
-          isDark={isDark}
-          isLoading={!routesData}
-          syncMessage={
-            timelineSyncProgress?.message ||
-            (groupsDirty ? t('routesScreen.computingRoutes') : null)
-          }
-        />
+        {renderSharedRouteState()}
 
-        {/* Swipeable Routes/Sections tabs */}
         <SwipeableTabs
           tabs={tabs}
           activeTab={activeTab}
@@ -324,20 +481,7 @@ export default function RoutesScreen() {
           isDark={isDark}
           lazy
         >
-          <RoutesList
-            onRefresh={handleRefresh}
-            isRefreshing={isRefreshing}
-            batchGroups={routesData?.groups ?? []}
-            onLoadMore={loadMoreGroups}
-            hasMore={hasMoreGroups}
-          />
-          <SectionsList
-            batchSections={routesData?.sections}
-            onLoadMore={loadMoreSections}
-            hasMore={hasMoreSections}
-            totalSectionCount={totalSections}
-          />
-          {debugEnabled ? <SyncDebugTab /> : null}
+          {tabPages}
         </SwipeableTabs>
       </ScreenSafeAreaView>
     </ScreenErrorBoundary>
@@ -355,8 +499,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  infoButton: {
+    margin: 0,
   },
   headerTitle: {
     fontSize: 18,
@@ -366,32 +514,73 @@ const styles = StyleSheet.create({
   textLight: {
     color: colors.textOnDark,
   },
-  textMuted: {
-    color: darkColors.textSecondary,
-  },
-  disabledContainer: {
+  routeTabPage: {
     flex: 1,
-    justifyContent: 'center',
+  },
+  routeMessageCard: {
+    margin: spacing.md,
+    borderRadius: 12,
+    padding: spacing.md,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
   },
-  disabledTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginTop: spacing.lg,
-    textAlign: 'center',
+  routeMessageCardDark: {
+    backgroundColor: '#3F2A17',
+    borderColor: '#92400E',
   },
-  disabledText: {
-    fontSize: 15,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-    lineHeight: 22,
+  routeMessageText: {
+    flex: 1,
   },
-  disabledHint: {
+  routeMessageTitle: {
     fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: -spacing.sm,
+    fontWeight: '600',
+    color: '#92400E',
+  },
+  routeMessageTitleDark: {
+    color: '#FDE68A',
+  },
+  routeMessageBody: {
+    fontSize: 12,
+    color: '#92400E',
+    marginTop: 2,
+  },
+  routeMessageBodyDark: {
+    color: '#FCD34D',
+  },
+  routeMessageButton: {
+    margin: 0,
+  },
+  engineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  engineBannerDark: {
+    backgroundColor: '#3F2A17',
+    borderColor: '#92400E',
+  },
+  engineBannerText: {
+    flex: 1,
+    marginLeft: spacing.xs,
+    color: '#92400E',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  engineBannerTextDark: {
+    color: '#FDE68A',
+  },
+  engineBannerClose: {
+    margin: -4,
   },
 });

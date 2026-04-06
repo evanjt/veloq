@@ -54,7 +54,8 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
       activeBanner = 'demo';
     }
 
-    const hasTopBanner = activeBanner !== null || syncBannerVisible;
+    // Sync banner is now an overlay — doesn't affect layout or safe area
+    const hasTopBanner = activeBanner !== null;
 
     // When a banner is showing, screens should exclude top edge
     const screenEdges: Edge[] = hasTopBanner
@@ -68,16 +69,9 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
       screenEdges,
       setSyncBannerVisible,
     };
-  }, [
-    isDemoMode,
-    hideDemoBanner,
-    isAuthenticated,
-    isOnline,
-    insets.top,
-    syncBannerVisible,
-    setSyncBannerVisible,
-  ]);
+  }, [isDemoMode, hideDemoBanner, isAuthenticated, isOnline, insets.top, setSyncBannerVisible]);
 
+  // Banner animations are handled by Reanimated SlideInUp/SlideOutUp on each banner component
   return <TopSafeAreaContext.Provider value={value}>{children}</TopSafeAreaContext.Provider>;
 }
 
