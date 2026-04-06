@@ -217,7 +217,9 @@
     "connectionFailed": "Connection failed",
     "restoreFromBackup": "Gendan fra sikkerhedskopi",
     "backupFound": "Backup Found",
-    "differentAccount": "Warning: This backup belongs to a different account."
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "The restored data belongs to a different account. Clear data and sync fresh for this account?",
+    "clearAndSync": "Clear & Sync"
   },
   "cache": {
     "addingActivities": "Tilføjer aktiviteter...",
@@ -412,8 +414,8 @@
     "fatigueDescription": "er et 7-dages eksponentielt vægtet glidende gennemsnit af din træningsbelastning.",
     "fitnessAndFatigue": "Fitness og træthed",
     "fitnessDescription": "er et 42-dages eksponentielt vægtet glidende gennemsnit af din træningsbelastning.",
-    "forRaces": "til løb. Undgå",
-    "formDescription": "er fitness minus træthed. Træn i den",
+    "forRaces": "zone afspejler lav træthed. Den",
+    "formDescription": "er kondition minus træthed. Den",
     "fresh": "frisk",
     "highRiskZone": "højrisikozone",
     "learnMore": "Lær mere",
@@ -423,14 +425,14 @@
     "loadingData": "Indlæser fitnessdata...",
     "optimalZone": "optimale zone",
     "title": "Fitness og form",
-    "toBuildFitness": "for at opbygge fitness. Vær",
-    "toPreventOvertraining": "for at forhindre overtræning.",
+    "toBuildFitness": "indikerer produktiv træningsbelastning. Den",
+    "toPreventOvertraining": "indikerer høj akkumuleret træthed.",
     "guidance": {
-      "highRisk": "Den akkumulerede træthed er meget høj. Overvej hvile eller lette pas, indtil formen stiger over -30.",
-      "optimal": "Produktiv træningszone. Din krop optager træningsbelastningen effektivt.",
-      "greyZone": "Moderat træningsbelastning. Hverken udhvilet eller meget træt — vedligeholdelsesområde.",
-      "fresh": "Godt udhvilet. Godt tidspunkt for et løb eller en intensiv test. Formen kan falde, hvis det opretholdes.",
-      "transition": "Meget udhvilet, men mister formstimulus. Overvej at genoptage struktureret træning."
+      "highRisk": "TSB under -30. Akkumuleret træthed overstiger markant de seneste konditionsgevinster.",
+      "optimal": "TSB mellem -30 og -10. Træningsbelastning producerer konditionstilpasninger.",
+      "greyZone": "TSB mellem -10 og 5. Moderat balance mellem kondition og træthed.",
+      "fresh": "TSB mellem 5 og 25. Lav træthed i forhold til kondition. Længere tid her svarer typisk til faldende kondition.",
+      "transition": "TSB over 25. Minimal nylig træningsstimulus. Kondition faldende."
     },
     "tsb": "TSB",
     "understandingMetrics": "Forstå målingerne"
@@ -543,15 +545,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}: kondition ændret siden PR",
+      "subtitle": "PR {{prTime}} ved {{metric}} {{previous}}, nu {{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}: PR sat ved {{metric}} {{previous}}. Nuværende {{metric}}: {{current}}.",
+      "currentMetric": "Nuværende {{metric}}",
+      "prMetric": "{{metric}} ved PR",
+      "metricGain": "{{metric}} gevinst",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set.",
-      "groupTitle": "{{count}} PRs to revisit"
+      "methodology": "Sammenligner konditionsmålinger ved PR-tidspunkt med nuværende værdier. Viser sektioner hvor konditionsmålinger er ændret siden PR blev sat.",
+      "groupTitle": "{{count}} PR'er med konditionsændringer"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -1343,8 +1345,8 @@
     "dayAverage": "{{count}}-dages gennemsnit",
     "dragToExplore": "Træk for at udforske",
     "hrs": "timer",
-    "insightExtraRecovery": "Overvej ekstra restitution i dag",
-    "insightGoodRecovery": "God restitution - du tilpasser dig godt",
+    "insightExtraRecovery": "HRV faldende, hvilepuls stigende",
+    "insightGoodRecovery": "HRV stigende, hvilepuls faldende",
     "insightStable": "Målinger ser stabile ud",
     "lastDays": "Sidste {{count}} dage",
     "noData": "Ingen velværedata tilgængelig",
@@ -1378,7 +1380,7 @@
       "title": "HRV Trend"
     },
     "stalePr": {
-      "title": "PR Opportunity"
+      "title": "PR-opdatering"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"

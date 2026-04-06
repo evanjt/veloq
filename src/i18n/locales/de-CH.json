@@ -217,7 +217,9 @@
     "connectionFailed": "Connection failed",
     "restoreFromBackup": "Us Backup wiederherstellä",
     "backupFound": "Backup Found",
-    "differentAccount": "Warning: This backup belongs to a different account."
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "The restored data belongs to a different account. Clear data and sync fresh for this account?",
+    "clearAndSync": "Clear & Sync"
   },
   "cache": {
     "addingActivities": "Aktivitäte werdid hinzuegfüegt...",
@@ -412,8 +414,8 @@
     "fatigueDescription": "isch en 7-Täg-Schnitt vo dim Training.",
     "fitnessAndFatigue": "Fitness & Müedigkeit",
     "fitnessDescription": "isch en 42-Täg-Schnitt vo dim Training.",
-    "forRaces": "für Wettkämpf. Vermid d",
-    "formDescription": "isch Fitness minus Müedigkeit. Trainier i de",
+    "forRaces": "Zone zeigt wenig Müedigkeit. D'",
+    "formDescription": "isch Fitness minus Müedigkeit. D'",
     "fresh": "fit",
     "highRiskZone": "Gfahrezone",
     "learnMore": "Meh erfahre",
@@ -423,14 +425,14 @@
     "loadingData": "Momäntli...",
     "optimalZone": "optimale Zone",
     "title": "Fitness & Form",
-    "toBuildFitness": "zum Fitness ufbaue. Bis",
-    "toPreventOvertraining": "zum Übertraining vermide.",
+    "toBuildFitness": "zeigt produktivi Trainingsbelastig a. D'",
+    "toPreventOvertraining": "zeigt hohi aagsammlet Müedigkeit a.",
     "guidance": {
-      "highRisk": "Di Aafüelig isch sehr hööch. Lueg dass du di schön schonsch oder liicht trainiersch, bis d Form wider über -30 isch.",
-      "optimal": "Produktivs Training. Di Körper nimmt d Belaschtig guet uuf.",
-      "greyZone": "Mittleri Belaschtig. Weder uuspangeret no müed — Erhaltigszone.",
-      "fresh": "Guet erhoolt. Ideali Zyt für s Ränne oder en Härte-Test. Wenn z lang, chunnt d Fitness abe.",
-      "transition": "Sehr erhoolt, aber d Fitness stagniert. Lueg, dass du wider mit em strukturierte Training aafahsch."
+      "highRisk": "TSB under -30. D'Müedigkeit isch massiv höcher als d'letzte Fitnessgewinne.",
+      "optimal": "TSB zwüsche -30 und -10. D'Trainingsbelastig bringt Fitnessapassige.",
+      "greyZone": "TSB zwüsche -10 und 5. Moderats Gliichgwicht zwüsche Fitness und Müedigkeit.",
+      "fresh": "TSB zwüsche 5 und 25. Wenig Müedigkeit im Verhältnis zur Fitness. Wenn'd z'lang da bliibsch, gaht d'Fitness abe.",
+      "transition": "TSB über 25. Wenig Trainingsreiz i letschter Zyt. D'Fitness gaht abe."
     },
     "tsb": "TSB",
     "understandingMetrics": "D Zahle verstaa"
@@ -544,15 +546,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}: Fitness veränderet sit PR",
+      "subtitle": "PR {{prTime}} bi {{metric}} {{previous}}, jetzt {{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}: PR gsetzt bi {{metric}} {{previous}}. Aktuell {{metric}}: {{current}}.",
+      "currentMetric": "Aktuell {{metric}}",
+      "prMetric": "{{metric}} bim PR",
+      "metricGain": "{{metric}}-Gwinn",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set.",
-      "groupTitle": "{{count}} PRs to revisit"
+      "methodology": "Verglycht Fitnesswert bim PR-Zytpunkt mit aktuelle Wert. Zeigt Sektione wo sich d'Fitnesswert sit em PR veränderet hend.",
+      "groupTitle": "{{count}} PRs mit Fitnessänderige"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -1343,8 +1345,8 @@
     "dayAverage": "{{count}}-Täg-Schnitt",
     "dragToExplore": "Zieh zum Erkunde",
     "hrs": "Std",
-    "insightExtraRecovery": "Hüt villicht es bitzeli meh usspanne",
-    "insightGoodRecovery": "Lässig! Gueti Erholig",
+    "insightExtraRecovery": "HRV am sinke, Ruehpuls am styge",
+    "insightGoodRecovery": "HRV am styge, Ruehpuls am sinke",
     "insightStable": "Wert gsehnd stabil us",
     "lastDays": "Letschti {{count}} Täg",
     "noData": "Kei Wohlsii-Date",
@@ -1378,7 +1380,7 @@
       "title": "HRV Trend"
     },
     "stalePr": {
-      "title": "PR Opportunity"
+      "title": "PR-Update"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"

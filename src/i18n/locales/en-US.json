@@ -217,7 +217,9 @@
     "connectionFailed": "Connection failed",
     "restoreFromBackup": "Restore from Backup",
     "backupFound": "Backup Found",
-    "differentAccount": "Warning: This backup belongs to a different account."
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "The restored data belongs to a different account. Clear data and sync fresh for this account?",
+    "clearAndSync": "Clear & Sync"
   },
   "cache": {
     "addingActivities": "Adding activities...",
@@ -412,8 +414,8 @@
     "fatigueDescription": "is a 7-day exponentially weighted moving average of your training load.",
     "fitnessAndFatigue": "Fitness & Fatigue",
     "fitnessDescription": "is a 42-day exponentially weighted moving average of your training load.",
-    "forRaces": "for races. Avoid the",
-    "formDescription": "is fitness minus fatigue. Train in the",
+    "forRaces": "zone reflects low fatigue. The",
+    "formDescription": "is fitness minus fatigue. The",
     "fresh": "fresh",
     "highRiskZone": "high risk zone",
     "learnMore": "Learn more",
@@ -423,16 +425,16 @@
     "loadingData": "Loading fitness data...",
     "optimalZone": "optimal zone",
     "title": "Fitness & Form",
-    "toBuildFitness": "to build fitness. Be",
-    "toPreventOvertraining": "to prevent overtraining.",
+    "toBuildFitness": "indicates productive training load. The",
+    "toPreventOvertraining": "indicates high accumulated fatigue.",
     "tsb": "TSB",
     "understandingMetrics": "Understanding the Metrics",
     "guidance": {
-      "highRisk": "Accumulated fatigue is very high. Consider rest or easy sessions until form rises above -30.",
-      "optimal": "Productive training range. Your body is absorbing training stress effectively.",
-      "greyZone": "Moderate training load. Neither rested nor heavily fatigued — maintenance territory.",
-      "fresh": "Well-rested. Good timing for a race or high-intensity test. Fitness may decline if sustained.",
-      "transition": "Very rested but losing fitness stimulus. Consider resuming structured training."
+      "highRisk": "TSB below -30. Accumulated fatigue significantly exceeds recent fitness gains.",
+      "optimal": "TSB between -30 and -10. Training load is producing fitness adaptations.",
+      "greyZone": "TSB between -10 and 5. Moderate balance between fitness and fatigue.",
+      "fresh": "TSB between 5 and 25. Low fatigue relative to fitness. Extended time here typically corresponds with declining fitness.",
+      "transition": "TSB above 25. Minimal recent training stimulus. Fitness declining."
     }
   },
   "formZones": {
@@ -745,15 +747,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "groupTitle": "{{count}} PRs to revisit",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}: fitness changed since PR",
+      "groupTitle": "{{count}} PRs with fitness changes",
+      "subtitle": "PR {{prTime}} at {{metric}} {{previous}}, now {{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}: PR set at {{metric}} {{previous}}. Current {{metric}}: {{current}}.",
+      "currentMetric": "Current {{metric}}",
+      "prMetric": "{{metric}} at PR",
+      "metricGain": "{{metric}} gain",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set."
+      "methodology": "Compares fitness metrics at PR time vs current values. Shows sections where fitness metrics have changed since the PR was set."
     },
     "viewDetails": "View details",
     "today": "TODAY",
@@ -1346,8 +1348,8 @@
     "dayAverage": "{{count}}-day average",
     "dragToExplore": "Drag to explore",
     "hrs": "hrs",
-    "insightExtraRecovery": "Consider extra recovery today",
-    "insightGoodRecovery": "Good recovery - you're adapting well",
+    "insightExtraRecovery": "HRV declining, resting HR rising",
+    "insightGoodRecovery": "HRV rising, resting HR declining",
     "insightStable": "Metrics look stable",
     "lastDays": "Last {{count}} days",
     "noData": "No wellness data available",
@@ -1377,7 +1379,7 @@
       "title": "HRV Trend"
     },
     "stalePr": {
-      "title": "PR Opportunity"
+      "title": "PR Update"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"

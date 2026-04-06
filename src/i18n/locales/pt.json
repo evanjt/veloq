@@ -217,7 +217,9 @@
     "connectionFailed": "Connection failed",
     "restoreFromBackup": "Restaurar da cópia de segurança",
     "backupFound": "Backup Found",
-    "differentAccount": "Warning: This backup belongs to a different account."
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "The restored data belongs to a different account. Clear data and sync fresh for this account?",
+    "clearAndSync": "Clear & Sync"
   },
   "cache": {
     "addingActivities": "A adicionar atividades...",
@@ -412,8 +414,8 @@
     "fatigueDescription": "e uma media movel ponderada exponencialmente de 7 dias da sua carga de treino.",
     "fitnessAndFatigue": "Condicao e fadiga",
     "fitnessDescription": "e uma media movel ponderada exponencialmente de 42 dias da sua carga de treino.",
-    "forRaces": "para corridas. Evite a",
-    "formDescription": "e condicao menos fadiga. Treine na",
+    "forRaces": "zona reflete baixa fadiga. A",
+    "formDescription": "é forma menos fadiga. A",
     "fresh": "fresco",
     "highRiskZone": "zona de alto risco",
     "learnMore": "Saber mais",
@@ -423,14 +425,14 @@
     "loadingData": "A carregar dados de forma...",
     "optimalZone": "zona otima",
     "title": "Forma e condicao",
-    "toBuildFitness": "para construir condicao. Esteja",
-    "toPreventOvertraining": "para prevenir sobretreino.",
+    "toBuildFitness": "indica carga de treino produtiva. A",
+    "toPreventOvertraining": "indica alta fadiga acumulada.",
     "guidance": {
-      "highRisk": "A fadiga acumulada está muito elevada. Considere descanso ou sessões leves até a forma subir acima de -30.",
-      "optimal": "Zona de treino produtiva. O seu corpo está a absorver o stress do treino de forma eficaz.",
-      "greyZone": "Carga de treino moderada. Nem descansado nem muito fatigado — zona de manutenção.",
-      "fresh": "Bem descansado. Bom momento para uma prova ou teste de intensidade. A forma pode diminuir se mantido.",
-      "transition": "Muito descansado mas a perder estímulo de forma. Considere retomar o treino estruturado."
+      "highRisk": "TSB abaixo de -30. A fadiga acumulada excede significativamente os ganhos de forma recentes.",
+      "optimal": "TSB entre -30 e -10. A carga de treino está a produzir adaptações de forma.",
+      "greyZone": "TSB entre -10 e 5. Equilíbrio moderado entre forma e fadiga.",
+      "fresh": "TSB entre 5 e 25. Baixa fadiga em relação à forma. Tempo prolongado aqui corresponde tipicamente a uma forma em declínio.",
+      "transition": "TSB acima de 25. Estímulo de treino recente mínimo. Forma em declínio."
     },
     "tsb": "TSB",
     "understandingMetrics": "Compreender as metricas"
@@ -543,15 +545,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}: forma alterada desde o PR",
+      "subtitle": "PR {{prTime}} a {{metric}} {{previous}}, agora {{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}: PR estabelecido a {{metric}} {{previous}}. {{metric}} atual: {{current}}.",
+      "currentMetric": "{{metric}} atual",
+      "prMetric": "{{metric}} no PR",
+      "metricGain": "Ganho de {{metric}}",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set.",
-      "groupTitle": "{{count}} PRs to revisit"
+      "methodology": "Compara métricas de forma no momento do PR com valores atuais. Mostra secções onde as métricas de forma mudaram desde que o PR foi estabelecido.",
+      "groupTitle": "{{count}} PRs com alterações de forma"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -1343,8 +1345,8 @@
     "dayAverage": "Media de {{count}} dias",
     "dragToExplore": "Arraste para explorar",
     "hrs": "horas",
-    "insightExtraRecovery": "Considere recuperacao extra hoje",
-    "insightGoodRecovery": "Boa recuperacao - esta a adaptar-se bem",
+    "insightExtraRecovery": "VFC em declínio, FC em repouso em aumento",
+    "insightGoodRecovery": "VFC em aumento, FC em repouso em declínio",
     "insightStable": "As metricas parecem estaveis",
     "lastDays": "Ultimos {{count}} dias",
     "noData": "Sem dados de bem-estar disponiveis",
@@ -1378,7 +1380,7 @@
       "title": "HRV Trend"
     },
     "stalePr": {
-      "title": "PR Opportunity"
+      "title": "Atualização de PR"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"

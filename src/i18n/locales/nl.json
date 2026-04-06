@@ -217,7 +217,9 @@
     "connectionFailed": "Connection failed",
     "restoreFromBackup": "Herstellen van back-up",
     "backupFound": "Backup Found",
-    "differentAccount": "Warning: This backup belongs to a different account."
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "The restored data belongs to a different account. Clear data and sync fresh for this account?",
+    "clearAndSync": "Clear & Sync"
   },
   "cache": {
     "addingActivities": "Activiteiten toevoegen...",
@@ -412,8 +414,8 @@
     "fatigueDescription": "is een 7-daags exponentieel gewogen voortschrijdend gemiddelde van je trainingsbelasting.",
     "fitnessAndFatigue": "Fitheid & Vermoeidheid",
     "fitnessDescription": "is een 42-daags exponentieel gewogen voortschrijdend gemiddelde van je trainingsbelasting.",
-    "forRaces": "voor wedstrijden. Vermijd de",
-    "formDescription": "is fitheid min vermoeidheid. Train in de",
+    "forRaces": "zone weerspiegelt lage vermoeidheid. De",
+    "formDescription": "is fitness minus vermoeidheid. De",
     "fresh": "fris",
     "highRiskZone": "hoog-risico zone",
     "learnMore": "Meer informatie",
@@ -423,14 +425,14 @@
     "loadingData": "Fitheidsgegevens laden...",
     "optimalZone": "optimale zone",
     "title": "Fitheid & Vorm",
-    "toBuildFitness": "om fitheid op te bouwen. Wees",
-    "toPreventOvertraining": "om overtraining te voorkomen.",
+    "toBuildFitness": "duidt op productieve trainingsbelasting. De",
+    "toPreventOvertraining": "duidt op hoge opgehoopte vermoeidheid.",
     "guidance": {
-      "highRisk": "De opgebouwde vermoeidheid is erg hoog. Overweeg rust of lichte sessies tot de vorm boven -30 stijgt.",
-      "optimal": "Productieve trainingszone. Je lichaam verwerkt de trainingsbelasting goed.",
-      "greyZone": "Gemiddelde trainingsbelasting. Niet uitgerust en niet erg vermoeid — onderhoudsgebied.",
-      "fresh": "Goed uitgerust. Ideaal moment voor een wedstrijd of intensieve test. De fitheid kan dalen als je hier te lang blijft.",
-      "transition": "Zeer uitgerust maar de fitheid stimulu vermindert. Overweeg om gestructureerd training te hervatten."
+      "highRisk": "TSB onder -30. Opgehoopte vermoeidheid overschrijdt de recente fitnesswinst aanzienlijk.",
+      "optimal": "TSB tussen -30 en -10. Trainingsbelasting produceert fitnessaanpassingen.",
+      "greyZone": "TSB tussen -10 en 5. Matige balans tussen fitness en vermoeidheid.",
+      "fresh": "TSB tussen 5 en 25. Lage vermoeidheid ten opzichte van fitness. Langere tijd hier correspondeert doorgaans met afnemende fitness.",
+      "transition": "TSB boven 25. Minimale recente trainingsprikkel. Fitness dalend."
     },
     "tsb": "TSB",
     "understandingMetrics": "De statistieken begrijpen"
@@ -543,15 +545,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}: fitness veranderd sinds PR",
+      "subtitle": "PR {{prTime}} bij {{metric}} {{previous}}, nu {{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}: PR gezet bij {{metric}} {{previous}}. Huidig {{metric}}: {{current}}.",
+      "currentMetric": "Huidig {{metric}}",
+      "prMetric": "{{metric}} bij PR",
+      "metricGain": "{{metric}}-winst",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set.",
-      "groupTitle": "{{count}} PRs to revisit"
+      "methodology": "Vergelijkt fitnessmaatstaven op het moment van het PR met huidige waarden. Toont secties waar fitnessmaatstaven zijn veranderd sinds het PR werd gezet.",
+      "groupTitle": "{{count}} PR's met fitnessveranderingen"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -1343,8 +1345,8 @@
     "dayAverage": "{{count}}-daags gemiddelde",
     "dragToExplore": "Sleep om te verkennen",
     "hrs": "uur",
-    "insightExtraRecovery": "Overweeg extra herstel vandaag",
-    "insightGoodRecovery": "Goed herstel - je past goed aan",
+    "insightExtraRecovery": "HRV dalend, rustpols stijgend",
+    "insightGoodRecovery": "HRV stijgend, rustpols dalend",
     "insightStable": "Waarden zien er stabiel uit",
     "lastDays": "Laatste {{count}} dagen",
     "noData": "Geen welzijnsgegevens beschikbaar",
@@ -1378,7 +1380,7 @@
       "title": "HRV Trend"
     },
     "stalePr": {
-      "title": "PR Opportunity"
+      "title": "PR-update"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"

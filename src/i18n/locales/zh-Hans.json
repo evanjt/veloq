@@ -217,7 +217,9 @@
     "connectionFailed": "Connection failed",
     "restoreFromBackup": "从备份恢复",
     "backupFound": "Backup Found",
-    "differentAccount": "Warning: This backup belongs to a different account."
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "The restored data belongs to a different account. Clear data and sync fresh for this account?",
+    "clearAndSync": "Clear & Sync"
   },
   "cache": {
     "addingActivities": "正在添加活动...",
@@ -412,8 +414,8 @@
     "fatigueDescription": "是您训练负荷的 7 天指数加权移动平均值。",
     "fitnessAndFatigue": "体能与疲劳",
     "fitnessDescription": "是您训练负荷的 42 天指数加权移动平均值。",
-    "forRaces": "时参加比赛。避免",
-    "formDescription": "是体能减去疲劳。在",
+    "forRaces": "区域反映低疲劳。",
+    "formDescription": "是体能减去疲劳。",
     "fresh": "恢复良好",
     "highRiskZone": "高风险区间",
     "learnMore": "了解更多",
@@ -423,14 +425,14 @@
     "loadingData": "加载体能数据...",
     "optimalZone": "最佳区间",
     "title": "体能与状态",
-    "toBuildFitness": "训练以提升体能。在",
-    "toPreventOvertraining": "以防止过度训练。",
+    "toBuildFitness": "表示有效的训练负荷。",
+    "toPreventOvertraining": "表示高累积疲劳。",
     "guidance": {
-      "highRisk": "累积疲劳非常高。考虑休息或轻松训练，直到状态回升到-30以上。",
-      "optimal": "高效训练区间。你的身体正在有效吸收训练负荷。",
-      "greyZone": "中等训练负荷。既不恢复也不严重疲劳 — 维持区间。",
-      "fresh": "充分恢复。适合比赛或高强度测试的好时机。如果持续太久体能可能下降。",
-      "transition": "非常恢复但失去体能刺激。考虑恢复有计划的训练。"
+      "highRisk": "TSB低于-30。累积疲劳显著超过近期体能增长。",
+      "optimal": "TSB在-30到-10之间。训练负荷正在产生体能适应。",
+      "greyZone": "TSB在-10到5之间。体能与疲劳之间适度平衡。",
+      "fresh": "TSB在5到25之间。相对于体能而言疲劳较低。长时间处于此状态通常对应体能下降。",
+      "transition": "TSB高于25。近期训练刺激最小。体能下降中。"
     },
     "tsb": "TSB",
     "understandingMetrics": "了解指标"
@@ -543,15 +545,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}：PR以来体能已变化",
+      "subtitle": "PR {{prTime}} {{metric}} {{previous}}时，现在{{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}：在{{metric}} {{previous}}时创下PR。当前{{metric}}：{{current}}。",
+      "currentMetric": "当前{{metric}}",
+      "prMetric": "PR时的{{metric}}",
+      "metricGain": "{{metric}}增长",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set.",
-      "groupTitle": "{{count}} PRs to revisit"
+      "methodology": "比较PR时的体能指标与当前值。显示PR设定以来体能指标发生变化的路段。",
+      "groupTitle": "{{count}}个PR有体能变化"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -1343,8 +1345,8 @@
     "dayAverage": "{{count}}天平均",
     "dragToExplore": "拖动探索",
     "hrs": "小时",
-    "insightExtraRecovery": "今天考虑额外休息",
-    "insightGoodRecovery": "恢复良好 - 您正在很好地适应",
+    "insightExtraRecovery": "HRV下降，静息心率上升",
+    "insightGoodRecovery": "HRV上升，静息心率下降",
     "insightStable": "指标看起来稳定",
     "lastDays": "最近 {{count}} 天",
     "noData": "无可用健康数据",
@@ -1378,7 +1380,7 @@
       "title": "HRV Trend"
     },
     "stalePr": {
-      "title": "PR Opportunity"
+      "title": "PR更新"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"

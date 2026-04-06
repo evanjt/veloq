@@ -217,7 +217,9 @@
     "connectionFailed": "Connection failed",
     "restoreFromBackup": "Przywróć z kopii zapasowej",
     "backupFound": "Backup Found",
-    "differentAccount": "Warning: This backup belongs to a different account."
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "The restored data belongs to a different account. Clear data and sync fresh for this account?",
+    "clearAndSync": "Clear & Sync"
   },
   "cache": {
     "addingActivities": "Dodawanie aktywności...",
@@ -412,8 +414,8 @@
     "fatigueDescription": "to 7-dniowa wykładniczo ważona średnia ruchoma obciążenia treningowego.",
     "fitnessAndFatigue": "Kondycja i zmęczenie",
     "fitnessDescription": "to 42-dniowa wykładniczo ważona średnia ruchoma obciążenia treningowego.",
-    "forRaces": "na zawody. Unikaj",
-    "formDescription": "to kondycja minus zmęczenie. Trenuj w",
+    "forRaces": "odzwierciedla niskie zmęczenie. Strefa",
+    "formDescription": "to kondycja minus zmęczenie. Strefa",
     "fresh": "wypoczęty",
     "highRiskZone": "strefy wysokiego ryzyka",
     "learnMore": "Dowiedz się więcej",
@@ -423,14 +425,14 @@
     "loadingData": "Wczytywanie danych kondycji...",
     "optimalZone": "optymalnej strefie",
     "title": "Kondycja i forma",
-    "toBuildFitness": "aby budować kondycję. Bądź",
-    "toPreventOvertraining": "aby zapobiec przetrenowaniu.",
+    "toBuildFitness": "oznacza produktywne obciążenie treningowe. Strefa",
+    "toPreventOvertraining": "oznacza wysokie skumulowane zmęczenie.",
     "guidance": {
-      "highRisk": "Zmęczenie jest bardzo wysokie. Rozważ odpoczynek lub lekkie sesje, aż forma przekroczy -30.",
-      "optimal": "Produktywna strefa treningowa. Twój organizm skutecznie przyswaja obciążenie treningowe.",
-      "greyZone": "Umiarkowane obciążenie treningowe. Ani wypoczęty, ani mocno zmęczony — strefa utrzymania.",
-      "fresh": "Dobrze wypoczęty. Dobry moment na zawody lub test intensywności. Forma może spadać, jeśli utrzymasz ten stan.",
-      "transition": "Bardzo wypoczęty, ale tracisz bodziec treningowy. Rozważ powrót do ustrukturyzowanego treningu."
+      "highRisk": "TSB poniżej -30. Skumulowane zmęczenie znacząco przekracza ostatnie zyski kondycyjne.",
+      "optimal": "TSB między -30 a -10. Obciążenie treningowe produkuje adaptacje kondycyjne.",
+      "greyZone": "TSB między -10 a 5. Umiarkowana równowaga między kondycją a zmęczeniem.",
+      "fresh": "TSB między 5 a 25. Niskie zmęczenie w stosunku do kondycji. Dłuższy czas tutaj zazwyczaj odpowiada spadkowi kondycji.",
+      "transition": "TSB powyżej 25. Minimalny ostatni bodziec treningowy. Kondycja spada."
     },
     "tsb": "TSB",
     "understandingMetrics": "Zrozumienie metryk"
@@ -543,15 +545,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}: kondycja zmieniła się od PR",
+      "subtitle": "PR {{prTime}} przy {{metric}} {{previous}}, teraz {{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}: PR ustanowiony przy {{metric}} {{previous}}. Obecny {{metric}}: {{current}}.",
+      "currentMetric": "Obecny {{metric}}",
+      "prMetric": "{{metric}} przy PR",
+      "metricGain": "Zysk {{metric}}",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set.",
-      "groupTitle": "{{count}} PRs to revisit"
+      "methodology": "Porównuje metryki kondycji w momencie PR z bieżącymi wartościami. Pokazuje sekcje, w których metryki kondycji zmieniły się od ustanowienia PR.",
+      "groupTitle": "{{count}} PR ze zmianami kondycji"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -1343,8 +1345,8 @@
     "dayAverage": "Średnia z {{count}} dni",
     "dragToExplore": "Przeciągnij, aby eksplorować",
     "hrs": "godz.",
-    "insightExtraRecovery": "Rozważ dodatkową regenerację dzisiaj",
-    "insightGoodRecovery": "Dobra regeneracja - dobrze się adaptujesz",
+    "insightExtraRecovery": "HRV spada, tętno spoczynkowe rośnie",
+    "insightGoodRecovery": "HRV rośnie, tętno spoczynkowe spada",
     "insightStable": "Metryki wyglądają stabilnie",
     "lastDays": "Ostatnie {{count}} dni",
     "noData": "Brak dostępnych danych zdrowia",
@@ -1378,7 +1380,7 @@
       "title": "HRV Trend"
     },
     "stalePr": {
-      "title": "PR Opportunity"
+      "title": "Aktualizacja PR"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"

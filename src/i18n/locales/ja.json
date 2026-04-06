@@ -217,7 +217,9 @@
     "connectionFailed": "Connection failed",
     "restoreFromBackup": "バックアップから復元",
     "backupFound": "Backup Found",
-    "differentAccount": "Warning: This backup belongs to a different account."
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "The restored data belongs to a different account. Clear data and sync fresh for this account?",
+    "clearAndSync": "Clear & Sync"
   },
   "cache": {
     "addingActivities": "アクティビティを追加中...",
@@ -412,8 +414,8 @@
     "fatigueDescription": "はトレーニング負荷の7日間指数加重移動平均です。",
     "fitnessAndFatigue": "フィットネスと疲労",
     "fitnessDescription": "はトレーニング負荷の42日間指数加重移動平均です。",
-    "forRaces": "な状態でレースに臨む。",
-    "formDescription": "はフィットネスから疲労を引いたものです。",
+    "forRaces": "ゾーンは低い疲労を反映。",
+    "formDescription": "はフィットネスから疲労を引いたもの。",
     "fresh": "フレッシュ",
     "highRiskZone": "高リスクゾーン",
     "learnMore": "詳細を見る",
@@ -423,14 +425,14 @@
     "loadingData": "フィットネスデータを読み込み中...",
     "optimalZone": "最適ゾーン",
     "title": "フィットネスとフォーム",
-    "toBuildFitness": "でトレーニングしてフィットネスを構築。",
-    "toPreventOvertraining": "を避けてオーバートレーニングを防止。",
+    "toBuildFitness": "は生産的なトレーニング負荷を示します。",
+    "toPreventOvertraining": "は高い蓄積疲労を示します。",
     "guidance": {
-      "highRisk": "蓄積された疲労が非常に高いです。フォームが-30を上回るまで、休息または軽いセッションを検討してください。",
-      "optimal": "生産的なトレーニング範囲です。体がトレーニングストレスを効果的に吸収しています。",
-      "greyZone": "中程度のトレーニング負荷。回復してもいなければ過度に疲労してもいません — 維持領域です。",
-      "fresh": "十分に回復しています。レースや高強度テストに最適なタイミングです。長く続くとフィットネスが低下する可能性があります。",
-      "transition": "非常に回復していますが、フィットネス刺激を失っています。構造的なトレーニングの再開を検討してください。"
+      "highRisk": "TSBが-30以下。蓄積された疲労が最近のフィットネス向上を大幅に上回っています。",
+      "optimal": "TSBが-30から-10の間。トレーニング負荷がフィットネス適応を生み出しています。",
+      "greyZone": "TSBが-10から5の間。フィットネスと疲労の適度なバランス。",
+      "fresh": "TSBが5から25の間。フィットネスに対して疲労が低い状態。この状態が長く続くとフィットネスが低下する傾向があります。",
+      "transition": "TSBが25以上。最近のトレーニング刺激が最小限。フィットネスが低下中。"
     },
     "tsb": "TSB",
     "understandingMetrics": "指標を理解する"
@@ -543,15 +545,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}: PRからフィットネスが変化",
+      "subtitle": "PR {{prTime}} {{metric}} {{previous}}時、現在{{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}: {{metric}} {{previous}}時にPR設定。現在の{{metric}}: {{current}}。",
+      "currentMetric": "現在の{{metric}}",
+      "prMetric": "PR時の{{metric}}",
+      "metricGain": "{{metric}}の向上",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set.",
-      "groupTitle": "{{count}} PRs to revisit"
+      "methodology": "PR時のフィットネス指標と現在の値を比較。PRが設定されてからフィットネス指標が変化したセクションを表示。",
+      "groupTitle": "{{count}}件のPRにフィットネス変化"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -1343,8 +1345,8 @@
     "dayAverage": "{{count}}日平均",
     "dragToExplore": "ドラッグして探索",
     "hrs": "時間",
-    "insightExtraRecovery": "今日は追加の回復を検討してください",
-    "insightGoodRecovery": "良好な回復 - うまく適応しています",
+    "insightExtraRecovery": "HRV低下中、安静時心拍数上昇中",
+    "insightGoodRecovery": "HRV上昇中、安静時心拍数低下中",
     "insightStable": "指標は安定しています",
     "lastDays": "過去{{count}}日",
     "noData": "ウェルネスデータがありません",
@@ -1378,7 +1380,7 @@
       "title": "HRV Trend"
     },
     "stalePr": {
-      "title": "PR Opportunity"
+      "title": "PR更新情報"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"

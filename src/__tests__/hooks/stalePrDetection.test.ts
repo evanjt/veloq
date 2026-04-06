@@ -739,8 +739,8 @@ describe('detectStalePROpportunities', () => {
         unit: '/km',
       };
       const insight = stalePROpportunityToInsight(paceOpportunity, mockT);
-      expect(insight.methodology!.name).toBe('Pace-PR cross-reference');
-      expect(insight.body).toContain('Pace');
+      expect(insight.methodology!.name).toBe('Threshold pace-PR cross-reference');
+      expect(insight.body).toContain('Threshold pace');
       expect(insight.body).not.toContain('FTP');
     });
   });

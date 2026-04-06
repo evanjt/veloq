@@ -231,8 +231,8 @@ export function stalePROpportunityToInsight(
   const prTime = formatDuration(opportunity.bestTimeSecs);
 
   const isPower = opportunity.fitnessMetric === 'power';
-  const metricLabel = isPower ? 'FTP' : 'Pace';
   const isSwimPace = opportunity.unit === '/100m';
+  const metricLabel = isPower ? 'FTP' : isSwimPace ? 'CSS' : 'Threshold pace';
   const currentStr = isPower
     ? `${Math.round(opportunity.currentValue)}${opportunity.unit}`
     : isSwimPace
@@ -245,34 +245,44 @@ export function stalePROpportunityToInsight(
       : formatPaceCompact(opportunity.previousValue);
   const displayedCurrent = isPower ? currentStr : `${currentStr}${opportunity.unit}`;
   const displayedPrevious = isPower ? previousStr : `${previousStr}${opportunity.unit}`;
-  const gainLabel = isPower ? `${metricLabel} gain` : 'Speed gain';
 
   return {
     id: `stale_pr-${opportunity.sectionId}`,
     category: 'stale_pr',
     priority: 2,
     title: t('insights.stalePr.title', { section: opportunity.sectionName }),
-    subtitle: `PR ${prTime} at ${metricLabel} ${displayedPrevious}, now ${displayedCurrent} (+${opportunity.gainPercent}%)`,
+    subtitle: t('insights.stalePr.subtitle', {
+      prTime,
+      metric: metricLabel,
+      previous: displayedPrevious,
+      current: displayedCurrent,
+      gainPercent: opportunity.gainPercent,
+    }),
     icon: 'lightning-bolt',
     iconColor: '#FF9800',
-    body: `${opportunity.sectionName}: PR set at ${metricLabel} ${displayedPrevious}. Current ${metricLabel}: ${displayedCurrent}.`,
+    body: t('insights.stalePr.body', {
+      section: opportunity.sectionName,
+      metric: metricLabel,
+      previous: displayedPrevious,
+      current: displayedCurrent,
+    }),
     navigationTarget: `/section/${opportunity.sectionId}`,
     timestamp,
     isNew: true,
     supportingData: {
       dataPoints: [
         {
-          label: `Current ${metricLabel}`,
+          label: t('insights.stalePr.currentMetric', { metric: metricLabel }),
           value: currentStr,
           unit: isPower ? undefined : opportunity.unit,
         },
         {
-          label: `${metricLabel} at PR`,
+          label: t('insights.stalePr.prMetric', { metric: metricLabel }),
           value: previousStr,
           unit: isPower ? undefined : opportunity.unit,
         },
         {
-          label: gainLabel,
+          label: t('insights.stalePr.metricGain', { metric: metricLabel }),
           value: `+${opportunity.gainPercent}%`,
           context: 'good',
         },

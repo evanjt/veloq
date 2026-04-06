@@ -217,7 +217,9 @@
     "connectionFailed": "Connection failed",
     "restoreFromBackup": "Restore from Backup",
     "backupFound": "Backup Found",
-    "differentAccount": "Warning: This backup belongs to a different account."
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "The restored data belongs to a different account. Clear data and sync fresh for this account?",
+    "clearAndSync": "Clear & Sync"
   },
   "cache": {
     "addingActivities": "Adding activities...",
@@ -412,8 +414,8 @@
     "fatigueDescription": "is a 7-day rolling average of how hard you've been going.",
     "fitnessAndFatigue": "Fitness & How Cooked",
     "fitnessDescription": "is a 42-day rolling average of how hard you've been going.",
-    "forRaces": "for races. Steer clear of the",
-    "formDescription": "is fitness minus how cooked you are. Train in the",
+    "forRaces": "zone reflects low fatigue. The",
+    "formDescription": "is fitness minus how cooked you are. The",
     "fresh": "firing",
     "highRiskZone": "danger zone",
     "learnMore": "Suss it out",
@@ -423,14 +425,14 @@
     "loadingData": "Grabbing fitness data...",
     "optimalZone": "sweet spot",
     "title": "Fitness & Form",
-    "toBuildFitness": "to get fitter. Be",
-    "toPreventOvertraining": "or you'll end up cooked.",
+    "toBuildFitness": "indicates productive training load. The",
+    "toPreventOvertraining": "indicates high accumulated fatigue.",
     "guidance": {
-      "highRisk": "Fatigue is well and truly stacked up. Chuck a rest day or easy spin in until form gets above -30.",
-      "optimal": "Smashing it — productive training zone. Your body's handling the load nicely.",
-      "greyZone": "Cruising along — not fresh, not cooked. Maintenance territory.",
-      "fresh": "Feeling fresh. Prime time for a crack at a race or a big effort. Don't stay here too long or fitness drops off.",
-      "transition": "Very rested but losing fitness stimulus. Time to get back into it."
+      "highRisk": "TSB below -30. Fatigue's well and truly stacked up past recent fitness gains.",
+      "optimal": "TSB between -30 and -10. Training load is producing fitness adaptations.",
+      "greyZone": "TSB between -10 and 5. Not fresh, not cooked — somewhere in between.",
+      "fresh": "TSB between 5 and 25. Low fatigue relative to fitness. Hang here too long and fitness starts dropping off.",
+      "transition": "TSB above 25. Not much training stimulus lately. Fitness is dropping off."
     },
     "tsb": "TSB",
     "understandingMetrics": "What's all this mean?"
@@ -745,15 +747,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "groupTitle": "{{count}} PRs to revisit",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}: fitness changed since PR",
+      "groupTitle": "{{count}} PRs with fitness changes",
+      "subtitle": "PR {{prTime}} at {{metric}} {{previous}}, now {{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}: PR set at {{metric}} {{previous}}. Current {{metric}}: {{current}}.",
+      "currentMetric": "Current {{metric}}",
+      "prMetric": "{{metric}} at PR",
+      "metricGain": "{{metric}} gain",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set."
+      "methodology": "Compares fitness metrics at PR time vs current values. Shows sections where fitness metrics have changed since the PR was set."
     },
     "viewDetails": "View details",
     "today": "TODAY",
@@ -1346,8 +1348,8 @@
     "dayAverage": "{{count}}-day average",
     "dragToExplore": "Drag to have a squiz",
     "hrs": "hrs",
-    "insightExtraRecovery": "Maybe ease up today, legend",
-    "insightGoodRecovery": "Ripper recovery - you're an absolute weapon",
+    "insightExtraRecovery": "HRV dropping, resting HR climbing",
+    "insightGoodRecovery": "HRV climbing, resting HR dropping",
     "insightStable": "All good in the hood",
     "lastDays": "Last {{count}} days",
     "noData": "No wellness data yet, mate",
@@ -1377,7 +1379,7 @@
       "title": "HRV Trend"
     },
     "stalePr": {
-      "title": "PR Opportunity"
+      "title": "PR Update"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"

@@ -217,7 +217,9 @@
     "connectionFailed": "Connection failed",
     "restoreFromBackup": "Aus Backup wiederherstellen",
     "backupFound": "Backup Found",
-    "differentAccount": "Warning: This backup belongs to a different account."
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "The restored data belongs to a different account. Clear data and sync fresh for this account?",
+    "clearAndSync": "Clear & Sync"
   },
   "cache": {
     "addingActivities": "Aktivitäten hinzufügen...",
@@ -412,8 +414,8 @@
     "fatigueDescription": "ist ein 7-Tage exponentiell gewichteter gleitender Durchschnitt deiner Trainingsbelastung.",
     "fitnessAndFatigue": "Fitness & Ermüdung",
     "fitnessDescription": "ist ein 42-Tage exponentiell gewichteter gleitender Durchschnitt deiner Trainingsbelastung.",
-    "forRaces": "für Wettkämpfe. Vermeide die",
-    "formDescription": "ist Fitness minus Ermüdung. Trainiere in der",
+    "forRaces": "Zone spiegelt geringe Ermüdung wider. Die",
+    "formDescription": "ist Fitness minus Ermüdung. Die",
     "fresh": "erholt",
     "highRiskZone": "Hochrisikozone",
     "learnMore": "Mehr erfahren",
@@ -423,14 +425,14 @@
     "loadingData": "Lade Fitnessdaten...",
     "optimalZone": "optimalen Zone",
     "title": "Fitness & Form",
-    "toBuildFitness": "um Fitness aufzubauen. Sei",
-    "toPreventOvertraining": "um Übertraining zu vermeiden.",
+    "toBuildFitness": "zeigt produktive Trainingsbelastung an. Die",
+    "toPreventOvertraining": "zeigt hohe angesammelte Ermüdung an.",
     "guidance": {
-      "highRisk": "Die angesammelte Ermüdung ist sehr hoch. Erhole dich oder trainiere leicht, bis die Form über -30 steigt.",
-      "optimal": "Produktiver Trainingsbereich. Dein Körper verarbeitet den Trainingsstress effektiv.",
-      "greyZone": "Mittlere Trainingsbelastung. Weder erholt noch stark ermüdet — Erhaltungsbereich.",
-      "fresh": "Gut erholt. Guter Zeitpunkt für ein Rennen oder einen harten Test. Bei dauerhafter Ruhe kann die Fitness sinken.",
-      "transition": "Sehr erholt, aber der Fitnessreiz fehlt. Erwäge, das strukturierte Training wieder aufzunehmen."
+      "highRisk": "TSB unter -30. Angesammelte Ermüdung übersteigt die jüngsten Fitnessgewinne deutlich.",
+      "optimal": "TSB zwischen -30 und -10. Trainingsbelastung erzeugt Fitnessanpassungen.",
+      "greyZone": "TSB zwischen -10 und 5. Moderates Gleichgewicht zwischen Fitness und Ermüdung.",
+      "fresh": "TSB zwischen 5 und 25. Geringe Ermüdung im Verhältnis zur Fitness. Längere Zeit hier entspricht typisch abnehmender Fitness.",
+      "transition": "TSB über 25. Minimaler Trainingsreiz in letzter Zeit. Fitness nimmt ab."
     },
     "tsb": "TSB",
     "understandingMetrics": "Die Metriken verstehen"
@@ -543,15 +545,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}: Fitness verändert seit PR",
+      "subtitle": "PR {{prTime}} bei {{metric}} {{previous}}, jetzt {{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}: PR gesetzt bei {{metric}} {{previous}}. Aktuell {{metric}}: {{current}}.",
+      "currentMetric": "Aktuell {{metric}}",
+      "prMetric": "{{metric}} bei PR",
+      "metricGain": "{{metric}}-Gewinn",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Shows sections where fitness metrics have changed since the PR was set.",
-      "groupTitle": "{{count}} PRs to revisit"
+      "methodology": "Vergleicht Fitnesswerte zum PR-Zeitpunkt mit aktuellen Werten. Zeigt Sektionen, bei denen sich Fitnesswerte seit dem PR verändert haben.",
+      "groupTitle": "{{count}} PRs mit Fitnessänderungen"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -1343,8 +1345,8 @@
     "dayAverage": "{{count}}-Tage-Durchschnitt",
     "dragToExplore": "Ziehen zum Erkunden",
     "hrs": "Std",
-    "insightExtraRecovery": "Erwäge heute zusätzliche Erholung",
-    "insightGoodRecovery": "Gute Erholung - du adaptierst gut",
+    "insightExtraRecovery": "HRV sinkend, Ruhepuls steigend",
+    "insightGoodRecovery": "HRV steigend, Ruhepuls sinkend",
     "insightStable": "Werte sehen stabil aus",
     "lastDays": "Letzte {{count}} Tage",
     "noData": "Keine Wohlbefindensdaten verfügbar",
@@ -1378,7 +1380,7 @@
       "title": "HRV Trend"
     },
     "stalePr": {
-      "title": "PR Opportunity"
+      "title": "PR-Update"
     },
     "efficiencyTrend": {
       "title": "Efficiency Trend"
