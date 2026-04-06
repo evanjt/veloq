@@ -403,8 +403,12 @@ function addPeriodComparisonInsights(
   const prev = data.previousPeriod;
   if (!cur || !prev) return;
 
-  // Suppress all period comparisons when current week has no activities
-  if (cur.count === 0) return;
+  // When current week has no activities (e.g., Monday morning), fall back to
+  // comparing last week against the 4-week chronic average instead of suppressing.
+  if (cur.count === 0) {
+    addLastWeekVsAverageInsight(insights, prev, data.chronicPeriod ?? null, now, t);
+    return;
+  }
 
   // Prefer TSS comparison (accounts for intensity), fall back to duration
   const useTss = prev.totalTss > 0 && cur.totalTss > 0;
@@ -502,6 +506,70 @@ function addPeriodComparisonInsights(
       })
     );
   }
+}
+
+/**
+ * Fallback: compare last week against the 4-week chronic average.
+ * Used when the current week has no activities yet (e.g., Monday morning).
+ * Reuses the existing insights.weeklyLoad.* keys (already in all locales).
+ */
+function addLastWeekVsAverageInsight(
+  insights: Insight[],
+  prev: PeriodStats,
+  chronic: PeriodStats | null,
+  now: number,
+  t: TFunc
+): void {
+  if (prev.count === 0 || !chronic) return;
+
+  const useTss = prev.totalTss > 0 && chronic.totalTss > 0;
+  const prevValue = useTss ? prev.totalTss : prev.totalDuration;
+  const avgValue = useTss ? chronic.totalTss : chronic.totalDuration;
+
+  if (avgValue <= 0 || prevValue <= 0) return;
+
+  const ratio = prevValue / avgValue - 1;
+  const percent = Math.round(Math.abs(ratio) * 100);
+  if (percent < 10) return; // Same threshold as normal comparison
+
+  const direction = ratio > 0 ? t('insights.weeklyLoad.above') : t('insights.weeklyLoad.below');
+
+  insights.push(
+    makeInsight({
+      id: 'period_comparison-volume',
+      category: 'period_comparison',
+      priority: 2,
+      icon: ratio > 0 ? 'trending-up' : 'trending-down',
+      iconColor: ratio > 0 ? '#66BB6A' : '#FFA726',
+      title: t('insights.weeklyLoad.title', { percent, direction }),
+      navigationTarget: '/routes?tab=routes',
+      timestamp: now,
+      supportingData: {
+        comparisonData: {
+          current: {
+            label: t('insights.data.lastWeek'),
+            value: useTss ? Math.round(prev.totalTss) : Math.round(prev.totalDuration / 60),
+            unit: useTss ? 'TSS' : 'min',
+          },
+          previous: {
+            label: t('insights.data.fourWeekAvgTss'),
+            value: useTss ? Math.round(chronic.totalTss) : Math.round(chronic.totalDuration / 60),
+            unit: useTss ? 'TSS' : 'min',
+          },
+          change: {
+            label: t('insights.data.change'),
+            value: `${ratio > 0 ? '+' : '-'}${percent}%`,
+            context: 'neutral',
+          },
+        },
+      },
+      methodology: {
+        name: 'Period comparison',
+        description:
+          'Compares last week against your 4-week average when the current week has no activities yet.',
+      },
+    })
+  );
 }
 
 // ---------------------------------------------------------------------------

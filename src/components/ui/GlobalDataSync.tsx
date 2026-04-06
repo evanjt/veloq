@@ -16,6 +16,7 @@ import {
 import { onSyncComplete } from '@/lib/backup';
 import { intervalsApi } from '@/api';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { toActivityMetrics } from '@/lib/utils/activityMetrics';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import {
   formatGpsSyncProgress,
@@ -62,8 +63,35 @@ export function GlobalDataSync() {
     enabled: isAuthenticated && routeSettings.enabled,
   });
 
-  // Prefetch 1 year of activities with stats for fitness tab cache warming
-  useActivities({ days: 365, includeStats: true, enabled: isAuthenticated });
+  // Prefetch 1 year of activities with stats for fitness tab cache warming.
+  // Also used to update the engine with training load and FTP data — the GPS sync
+  // fetch (above) uses includeStats: false for speed, so the engine initially has
+  // NULL training_load/ftp. This fetch fills in those fields.
+  const { data: statsActivities } = useActivities({
+    days: 365,
+    includeStats: true,
+    enabled: isAuthenticated,
+  });
+
+  // Update engine with enhanced metrics (TSS, FTP) when stats-enriched data arrives.
+  // The GPS sync stores metrics with includeStats: false (NULL training_load/ftp).
+  // This backfills the engine so period comparisons use TSS and FTP trend works.
+  const statsSeededRef = useRef(false);
+  useEffect(() => {
+    if (!statsActivities?.length || statsSeededRef.current) return;
+    const engine = getRouteEngine();
+    if (!engine) return;
+
+    const enhanced = statsActivities
+      .filter((a) => a.icu_training_load != null || a.icu_ftp != null)
+      .map(toActivityMetrics);
+
+    if (enhanced.length > 0) {
+      engine.setActivityMetrics(enhanced);
+      engine.triggerRefresh('activities');
+      statsSeededRef.current = true;
+    }
+  }, [statsActivities]);
 
   // Update fetching state in store
   useEffect(() => {
