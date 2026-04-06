@@ -14,6 +14,8 @@ import {
   isInfiniteActivitiesStale,
 } from '@/hooks';
 import { onSyncComplete } from '@/lib/backup';
+import { intervalsApi } from '@/api';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import {
   formatGpsSyncProgress,
@@ -81,6 +83,35 @@ export function GlobalDataSync() {
       queryClient.invalidateQueries({ queryKey: ['powerCurve'] });
       queryClient.invalidateQueries({ queryKey: ['paceCurve'] });
       onSyncComplete();
+
+      // Seed pace snapshots for trend tracking (fire-and-forget).
+      // pace_history is normally only populated when viewing the pace curve screen.
+      // Seeding here ensures a baseline exists after first sync so pace milestones
+      // can appear once critical speed changes.
+      (async () => {
+        try {
+          const engine = getRouteEngine();
+          if (!engine) return;
+          const sportTypes = engine.getAvailableSportTypes?.() ?? [];
+          const todayTs = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
+
+          for (const sport of ['Run', 'Swim'] as const) {
+            if (!sportTypes.includes(sport)) continue;
+            const curve = await intervalsApi.getPaceCurve({ sport, days: 42 });
+            if (curve?.criticalSpeed && curve.criticalSpeed > 0) {
+              engine.savePaceSnapshot(
+                sport,
+                curve.criticalSpeed,
+                curve.dPrime ?? undefined,
+                curve.r2 ?? undefined,
+                todayTs
+              );
+            }
+          }
+        } catch {
+          // best-effort — pace milestone will still work when user visits pace curve
+        }
+      })();
     }
   }, [progress.status, queryClient]);
 

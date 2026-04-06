@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { InteractionManager } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useFocusEffect } from '@react-navigation/native';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
 import { useWellness } from '@/hooks/fitness';
 import {
@@ -36,6 +37,29 @@ export function useInsights(
 } {
   const { t } = useTranslation();
   const trigger = useEngineSubscription(['activities', 'sections']);
+
+  // Re-query on screen focus — handles missed notifications during enableFreeze.
+  // When the Insights tab is frozen, React state updates from engine notifications
+  // are dropped. dirtyRef tracks whether the engine trigger advanced while frozen;
+  // useFocusEffect only bumps focusTrigger when there is actually new data.
+  const [focusTrigger, setFocusTrigger] = useState(0);
+  const dirtyRef = useRef(false);
+  const lastSeenTriggerRef = useRef(trigger);
+  useEffect(() => {
+    if (trigger !== lastSeenTriggerRef.current) {
+      dirtyRef.current = true;
+      lastSeenTriggerRef.current = trigger;
+    }
+  }, [trigger]);
+  useFocusEffect(
+    useCallback(() => {
+      if (dirtyRef.current) {
+        dirtyRef.current = false;
+        setFocusTrigger((ft) => ft + 1);
+      }
+    }, [])
+  );
+
   const lastSeenFingerprint = useInsightsStore((s) => s.lastSeenFingerprint);
   const setNewInsights = useInsightsStore((s) => s.setNewInsights);
   const markSeenStore = useInsightsStore((s) => s.markSeen);
@@ -86,7 +110,7 @@ export function useInsights(
 
     return () => handle.cancel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trigger, preComputedInsightsData, preComputedSummaryCardData, wellnessData, t]);
+  }, [trigger, focusTrigger, preComputedInsightsData, preComputedSummaryCardData, wellnessData, t]);
 
   // Stabilise reference -- only update when insight IDs actually change
   const prevInsightsRef = useRef<Insight[]>([]);
