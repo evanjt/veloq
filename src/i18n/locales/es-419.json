@@ -218,8 +218,8 @@
     "restoreFromBackup": "Restaurar desde copia de seguridad",
     "backupFound": "Backup Found",
     "differentAccount": "Warning: This backup belongs to a different account.",
-    "differentAccountMessage": "The restored data belongs to a different account. Clear data and sync fresh for this account?",
-    "clearAndSync": "Clear & Sync"
+    "differentAccountMessage": "Los datos restaurados pertenecen a otra cuenta. ¿Borrar datos y sincronizar de nuevo para esta cuenta?",
+    "clearAndSync": "Borrar y Sincr."
   },
   "cache": {
     "addingActivities": "Agregando actividades...",

@@ -218,8 +218,8 @@
     "restoreFromBackup": "バックアップから復元",
     "backupFound": "Backup Found",
     "differentAccount": "Warning: This backup belongs to a different account.",
-    "differentAccountMessage": "The restored data belongs to a different account. Clear data and sync fresh for this account?",
-    "clearAndSync": "Clear & Sync"
+    "differentAccountMessage": "復元されたデータは別のアカウントのものです。データを消去してこのアカウントで再同期しますか？",
+    "clearAndSync": "消去して同期"
   },
   "cache": {
     "addingActivities": "アクティビティを追加中...",

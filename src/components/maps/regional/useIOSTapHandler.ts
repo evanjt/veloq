@@ -31,7 +31,6 @@ interface UseIOSTapHandlerOptions {
   setSelected: (v: SelectedActivity | null) => void;
   setSelectedSection: (v: FrequentSection | null) => void;
   setSelectedRoute: (v: SelectedRoute | null) => void;
-  setClusterActivities: (v: ActivityBoundsItem[] | null) => void;
   showActivities: boolean;
   showSections: boolean;
   showRoutes: boolean;
@@ -62,7 +61,6 @@ export function useIOSTapHandler({
   setSelected,
   setSelectedSection,
   setSelectedRoute,
-  setClusterActivities,
   showActivities,
   showSections,
   showRoutes,
@@ -151,12 +149,10 @@ export function useIOSTapHandler({
 
           // Determine feature type by checking geometry and properties
           if (feature.geometry?.type === 'Point' && showActivities) {
-            // Check if this is a cluster
+            // Cluster tap — always zoom in to expand
             if (feature.properties?.cluster === true) {
-              const pointCount = feature.properties.point_count as number;
               try {
-                if (pointCount <= 5 && clusterSourceRef.current) {
-                  // Small cluster: zoom to expansion zoom
+                if (clusterSourceRef.current) {
                   const expansionZoom =
                     await clusterSourceRef.current.getClusterExpansionZoom(feature);
                   const coords = (feature.geometry as GeoJSON.Point).coordinates as [
@@ -169,14 +165,6 @@ export function useIOSTapHandler({
                     animationDuration: 400,
                     animationMode: 'flyTo',
                   });
-                } else if (clusterSourceRef.current) {
-                  // Large cluster: show popup with activity list
-                  const leaves = await clusterSourceRef.current.getClusterLeaves(feature, 50, 0);
-                  const leafIds = leaves.features
-                    .map((f) => f.properties?.id as string)
-                    .filter(Boolean);
-                  const clusterActs = activities.filter((a) => leafIds.includes(a.id));
-                  setClusterActivities(clusterActs);
                 }
               } catch (e) {
                 if (__DEV__) console.warn('[iOS tap] cluster error:', e);
@@ -246,7 +234,6 @@ export function useIOSTapHandler({
       setSelectedSection,
       selectedRoute,
       setSelectedRoute,
-      setClusterActivities,
       showActivities,
       showSections,
       showRoutes,

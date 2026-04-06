@@ -34,7 +34,6 @@ interface UseMapHandlersOptions {
   showRoutes: boolean;
   setShowRoutes: (value: boolean | ((prev: boolean) => boolean)) => void;
   setSelectedRoute: (value: null) => void;
-  setClusterActivities: (value: ActivityBoundsItem[] | null) => void;
   userLocation: [number, number] | null;
   setUserLocation: (value: [number, number] | null) => void;
   setLocationLoading: (value: boolean) => void;
@@ -84,7 +83,6 @@ export function useMapHandlers({
   showRoutes,
   setShowRoutes,
   setSelectedRoute,
-  setClusterActivities,
   userLocation,
   setUserLocation,
   setLocationLoading,
@@ -222,12 +220,10 @@ export function useMapHandlers({
       const feature = event.features?.[0];
       if (!feature) return;
 
-      // Cluster tap — zoom in or show popup
+      // Cluster tap — always zoom in to expand
       if (feature.properties?.cluster === true) {
-        const pointCount = feature.properties.point_count as number;
         try {
-          if (pointCount <= 5 && clusterSourceRef.current) {
-            // Small cluster: zoom to expansion zoom
+          if (clusterSourceRef.current) {
             const expansionZoom = await clusterSourceRef.current.getClusterExpansionZoom(feature);
             const coords = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
             cameraRef.current?.setCamera({
@@ -236,12 +232,6 @@ export function useMapHandlers({
               animationDuration: 400,
               animationMode: 'flyTo',
             });
-          } else if (clusterSourceRef.current) {
-            // Large cluster: show popup with activity list
-            const leaves = await clusterSourceRef.current.getClusterLeaves(feature, 50, 0);
-            const leafIds = leaves.features.map((f) => f.properties?.id as string).filter(Boolean);
-            const clusterActs = activities.filter((a) => leafIds.includes(a.id));
-            setClusterActivities(clusterActs);
           }
         } catch (e) {
           if (__DEV__) console.warn('[cluster] Error handling cluster tap:', e);
@@ -257,7 +247,7 @@ export function useMapHandlers({
         handleMarkerTap(activity);
       }
     },
-    [activities, handleMarkerTap, clusterSourceRef, cameraRef, setClusterActivities]
+    [activities, handleMarkerTap, clusterSourceRef, cameraRef]
   );
 
   // Handle map press - Android only (iOS uses onTouchEnd on container View)

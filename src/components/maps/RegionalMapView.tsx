@@ -38,7 +38,6 @@ import {
   ActivityPopup,
   SectionPopup,
   RoutePopup,
-  ClusterPopup,
   MapControlStack,
   useMapHandlers,
   useMapCamera,
@@ -100,7 +99,6 @@ export function RegionalMapView({
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
   const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<SelectedRoute | null>(null);
-  const [clusterActivities, setClusterActivities] = useState<ActivityBoundsItem[] | null>(null);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
   const clusterSourceRef = useRef<React.ElementRef<typeof ShapeSource>>(null);
 
@@ -241,6 +239,7 @@ export function RegionalMapView({
     routeGeoJSON,
     routeHasData,
   } = useMapGeoJSON({
+    allActivities: activities,
     visibleActivities,
     activityCenters,
     routeSignatures,
@@ -282,7 +281,6 @@ export function RegionalMapView({
     showRoutes,
     setShowRoutes,
     setSelectedRoute,
-    setClusterActivities,
     userLocation,
     setUserLocation,
     setLocationLoading,
@@ -418,7 +416,6 @@ export function RegionalMapView({
     setSelected,
     setSelectedSection,
     setSelectedRoute,
-    setClusterActivities,
     showActivities,
     showSections,
     showRoutes,
@@ -675,7 +672,9 @@ export function RegionalMapView({
               id="heatmap-layer"
               style={{
                 rasterOpacity: showActivities ? (mapStyle === 'light' ? 0.82 : 0.72) : 0,
-                rasterContrast: mapStyle === 'light' ? 0.2 : 0,
+                rasterContrast: mapStyle === 'light' ? 0.25 : 0,
+                rasterBrightnessMax: mapStyle === 'light' ? 0.7 : 1,
+                rasterSaturation: mapStyle === 'light' ? 0.4 : 0,
                 rasterResampling: 'linear',
                 rasterFadeDuration: 0,
               }}
@@ -899,18 +898,6 @@ export function RegionalMapView({
           onViewDetails={() => {
             setSelectedRoute(null);
             router.push(`/route/${selectedRoute.id}`);
-          }}
-        />
-      )}
-      {/* Cluster popup - shows when a cluster with many activities is tapped */}
-      {clusterActivities && clusterActivities.length > 0 && (
-        <ClusterPopup
-          activities={clusterActivities}
-          bottom={insets.bottom + 200}
-          onClose={() => setClusterActivities(null)}
-          onSelectActivity={(activity) => {
-            setClusterActivities(null);
-            handleMarkerTap(activity);
           }}
         />
       )}

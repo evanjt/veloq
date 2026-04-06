@@ -510,7 +510,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
                   source: 'heatmap-tiles',
                   paint: {
                     'raster-opacity': ${showHeatmap} ? (isLight ? 0.82 : 0.72) : 0,
-                    'raster-contrast': isLight ? 0.2 : 0,
+                    'raster-contrast': isLight ? 0.25 : 0,
+                    'raster-brightness-max': isLight ? 0.7 : 1,
+                    'raster-saturation': isLight ? 0.4 : 0,
                     'raster-fade-duration': 0,
                     'raster-resampling': 'linear'
                   }
@@ -1101,7 +1103,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         source: 'heatmap-tiles',
         paint: {
           'raster-opacity': showHeatmap ? (isLightMap ? 0.82 : 0.72) : 0,
-          'raster-contrast': isLightMap ? 0.2 : 0,
+          'raster-contrast': isLightMap ? 0.25 : 0,
+          'raster-brightness-max': isLightMap ? 0.7 : 1,
+          'raster-saturation': isLightMap ? 0.4 : 0,
           'raster-fade-duration': 0,
           'raster-resampling': 'linear'
         }
