@@ -29,11 +29,13 @@ import {
   useCacheDays,
   useGpxExport,
   useSectionChartData,
+  useNearbySections,
+  useMergeSections,
+  useSectionRescan,
 } from '@/hooks';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionTrim } from '@/hooks/routes/useSectionTrim';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
-import { useDisabledSections } from '@/providers';
 import { DataRangeFooter, DebugInfoPanel, DebugWarningBanner } from '@/components/routes';
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
@@ -43,6 +45,7 @@ import {
   SectionPerformanceSection,
   SectionStatsCards,
   SectionInfoCard,
+  MergeConfirmDialog,
 } from '@/components/section';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import {
@@ -90,6 +93,11 @@ export default function SectionDetailScreen() {
   const { getPageMetrics } = useFFITimer();
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
+  // Nearby sections and merge candidates
+  const { nearby } = useNearbySections(id);
+  const { candidates: mergeCandidates, merge: mergeSections, isMerging } = useMergeSections(id);
+  const { rescan, isScanning: isRematching } = useSectionRescan();
+
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
     RoutePoint[] | undefined
@@ -98,6 +106,8 @@ export default function SectionDetailScreen() {
   const [isScrubbing, setIsScrubbing] = useState(false);
   // Defer map loading until after first paint for faster perceived load
   const [mapReady, setMapReady] = useState(false);
+  // Merge dialog state
+  const [mergeTarget, setMergeTarget] = useState<(typeof mergeCandidates)[number] | null>(null);
 
   // Time range for chart data (passed to useSectionChartData)
   const [sectionTimeRange] = useState<SectionTimeRange>('1y');
@@ -172,9 +182,8 @@ export default function SectionDetailScreen() {
   const { removeSection, renameSection } = useCustomSections();
   const queryClient = useQueryClient();
 
-  // Disabled sections state
-  const { isDisabled, disable, enable } = useDisabledSections();
-  const isSectionDisabled = id ? isDisabled(id) : false;
+  // Disabled state from section data
+  const isSectionDisabled = !!(section?.disabled || section?.supersededBy);
 
   // Section bounds trimming
   const handleTrimRefresh = useCallback(() => {
@@ -260,7 +269,10 @@ export default function SectionDetailScreen() {
 
   // Handle deleting a custom section
   const handleDeleteSection = useCallback(() => {
-    if (!id || !isCustomId) return;
+    if (!id || !isCustomId) {
+      if (__DEV__) console.warn('[SectionDetail] Delete blocked:', { id, isCustomId });
+      return;
+    }
 
     Alert.alert(t('sections.deleteSection'), t('sections.deleteSectionConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
@@ -273,6 +285,7 @@ export default function SectionDetailScreen() {
             router.back();
           } catch (error) {
             if (__DEV__) console.error('Failed to delete section:', error);
+            Alert.alert(t('common.error'), String(error));
           }
         },
       },
@@ -371,7 +384,7 @@ export default function SectionDetailScreen() {
 
     if (isSectionDisabled) {
       // Restore
-      enable(id);
+      getRouteEngine()?.enableSection(id);
     } else {
       // Remove with confirmation, navigate back after
       Alert.alert(t('sections.removeSection'), t('sections.removeSectionConfirm'), [
@@ -380,13 +393,13 @@ export default function SectionDetailScreen() {
           text: t('common.remove'),
           style: 'destructive',
           onPress: () => {
-            disable(id);
+            getRouteEngine()?.disableSection(id);
             router.back();
           },
         },
       ]);
     }
-  }, [id, isCustomId, isSectionDisabled, enable, disable, t]);
+  }, [id, isCustomId, isSectionDisabled, t]);
 
   const handleActivitySelect = useCallback(
     (activityId: string | null, activityPoints?: RoutePoint[]) => {
@@ -399,6 +412,11 @@ export default function SectionDetailScreen() {
   const handleScrubChange = useCallback((scrubbing: boolean) => {
     setIsScrubbing(scrubbing);
   }, []);
+
+  const handleRematchActivities = useCallback(() => {
+    if (!section?.sportType) return;
+    rescan(section.sportType);
+  }, [section?.sportType, rescan]);
 
   // Load excluded activity IDs for this section
   useEffect(() => {
@@ -462,6 +480,29 @@ export default function SectionDetailScreen() {
         average_heartrate: m.avgHr ?? undefined,
       })
     );
+  }, [section?.activityIds]);
+
+  // Load simplified GPS signatures for activity trace display during chart scrubbing
+  const allActivityTraces = useMemo((): Record<string, RoutePoint[]> | undefined => {
+    if (!section?.activityIds?.length) return undefined;
+    try {
+      const engine = getRouteEngine();
+      if (!engine) return undefined;
+      const activityIdSet = new Set(section.activityIds);
+      const allSigs = engine.getAllMapSignatures();
+      const result: Record<string, RoutePoint[]> = {};
+      for (const sig of allSigs) {
+        if (!activityIdSet.has(sig.activityId) || sig.coords.length < 4) continue;
+        const points: RoutePoint[] = [];
+        for (let i = 0; i < sig.coords.length - 1; i += 2) {
+          points.push({ lat: sig.coords[i], lng: sig.coords[i + 1] });
+        }
+        result[sig.activityId] = points;
+      }
+      return Object.keys(result).length > 0 ? result : undefined;
+    } catch {
+      return undefined;
+    }
   }, [section?.activityIds]);
 
   // Compute available sport types with activity counts for cross-sport sections
@@ -591,6 +632,22 @@ export default function SectionDetailScreen() {
     }
   }, [section?.id]);
 
+  // Prepare nearby polylines for map overlay (includes metadata for preview popup)
+  const nearbyPolylines = useMemo(() => {
+    if (!nearby || nearby.length === 0) return undefined;
+    const displayNames = getAllSectionDisplayNames();
+    return nearby
+      .filter((n) => n.polylineCoords && n.polylineCoords.length >= 4)
+      .map((n) => ({
+        id: n.id,
+        name: displayNames[n.id] || n.name,
+        sportType: n.sportType,
+        distanceMeters: n.distanceMeters,
+        visitCount: n.visitCount,
+        polylineCoords: n.polylineCoords,
+      }));
+  }, [nearby]);
+
   const isRunning = effectiveSportType
     ? isRunningActivity(effectiveSportType as ActivityType)
     : section
@@ -716,8 +773,10 @@ export default function SectionDetailScreen() {
             shadowTrack={undefined}
             highlightedActivityId={highlightedActivityId}
             highlightedLapPoints={highlightedActivityPoints}
-            allActivityTraces={undefined}
+            allActivityTraces={allActivityTraces}
             isScrubbing={isScrubbing}
+            nearbyPolylines={nearbyPolylines}
+            onNearbyPress={(sectionId) => router.push(`/section/${sectionId}`)}
             onBack={() => router.back()}
             onStartTrim={startTrim}
             onDeleteSection={handleDeleteSection}
@@ -732,6 +791,8 @@ export default function SectionDetailScreen() {
             onCancelTrim={cancelTrim}
             onResetBounds={resetBounds}
             onToggleExpand={toggleExpand}
+            onRematchActivities={handleRematchActivities}
+            isRematching={isRematching}
           />
 
           {/* Sport type pills for cross-sport sections */}
@@ -792,6 +853,25 @@ export default function SectionDetailScreen() {
                 <Text style={styles.disabledBannerText}>
                   {t('sections.removed')} — {t('sections.restoreSection')}
                 </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Merge candidates banner */}
+            {mergeCandidates.length > 0 && (
+              <TouchableOpacity
+                style={[styles.mergeBanner, isDark && styles.mergeBannerDark]}
+                onPress={() => setMergeTarget(mergeCandidates[0])}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="call-merge" size={18} color={colors.info} />
+                <Text style={[styles.mergeBannerText, isDark && styles.mergeBannerTextDark]}>
+                  {t('sections.similarNearbyCount', { count: mergeCandidates.length })}
+                </Text>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={18}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                />
               </TouchableOpacity>
             )}
 
@@ -920,7 +1000,9 @@ export default function SectionDetailScreen() {
                         { label: 'Type', value: section.sectionType },
                         {
                           label: 'Stability',
-                          value: section.stability != null ? section.stability.toFixed(3) : '-',
+                          value: Number.isFinite(section.stability)
+                            ? section.stability!.toFixed(3)
+                            : '-',
                         },
                         {
                           label: 'Version',
@@ -936,7 +1018,9 @@ export default function SectionDetailScreen() {
                         },
                         {
                           label: 'Confidence',
-                          value: section.confidence != null ? section.confidence.toFixed(2) : '-',
+                          value: Number.isFinite(section.confidence)
+                            ? section.confidence!.toFixed(2)
+                            : '-',
                         },
                         {
                           label: 'Observations',
@@ -947,10 +1031,9 @@ export default function SectionDetailScreen() {
                         },
                         {
                           label: 'Avg Spread',
-                          value:
-                            section.averageSpread != null
-                              ? section.averageSpread.toFixed(1) + 'm'
-                              : '-',
+                          value: Number.isFinite(section.averageSpread)
+                            ? section.averageSpread!.toFixed(1) + 'm'
+                            : '-',
                         },
                         {
                           label: 'Reference',
@@ -979,6 +1062,34 @@ export default function SectionDetailScreen() {
           </View>
         </ScrollView>
       </View>
+      {mergeTarget && section && (
+        <MergeConfirmDialog
+          visible={!!mergeTarget}
+          primary={{
+            id: section.id,
+            name: section.name ?? section.id,
+            sportType: section.sportType,
+            visitCount: section.visitCount,
+            distanceMeters: section.distanceMeters,
+          }}
+          secondary={{
+            id: mergeTarget.sectionId,
+            name: mergeTarget.name ?? mergeTarget.sectionId,
+            sportType: mergeTarget.sportType,
+            visitCount: mergeTarget.visitCount,
+            distanceMeters: mergeTarget.distanceMeters,
+          }}
+          onConfirm={(primaryId, secondaryId) => {
+            const result = mergeSections(primaryId, secondaryId);
+            setMergeTarget(null);
+            if (result && result !== id) {
+              router.replace(`/section/${result}`);
+            }
+          }}
+          onCancel={() => setMergeTarget(null)}
+          loading={isMerging}
+        />
+      )}
     </ScreenErrorBoundary>
   );
 }
@@ -1100,6 +1211,30 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.warning,
+  },
+  mergeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.info + '10',
+    borderWidth: 1,
+    borderColor: colors.info + '25',
+    borderRadius: layout.borderRadius,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  mergeBannerDark: {
+    backgroundColor: colors.info + '15',
+    borderColor: colors.info + '30',
+  },
+  mergeBannerText: {
+    flex: 1,
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '500',
+    color: colors.info,
+  },
+  mergeBannerTextDark: {
+    color: colors.infoLight,
   },
   emptyContainer: {
     flex: 1,

@@ -443,7 +443,9 @@ export default function RecordingScreen() {
   return (
     <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top }]}>
       {/* HR Zone Colour Bar */}
-      {hrZoneColor && <View style={[styles.hrZoneBar, { backgroundColor: hrZoneColor }]} />}
+      {hrZoneColor && (
+        <View testID="hr-zone-bar" style={[styles.hrZoneBar, { backgroundColor: hrZoneColor }]} />
+      )}
 
       {/* Timer Header */}
       <View style={styles.timerHeader}>

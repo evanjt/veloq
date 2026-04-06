@@ -1,5 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Linking, Pressable, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Linking,
+  Pressable,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
 import { Text, Button, TextInput } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenSafeAreaView } from '@/components/ui';
@@ -33,6 +41,11 @@ const VELOQ_URLS = {
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection';
 import { clearAllAppCaches } from '@/lib/storage';
 import { useSyncDateRange, useUploadPermissionStore } from '@/providers';
+import { useImportDatabaseBackup } from '@/hooks';
+import { getAvailableBackends, type BackupEntry } from '@/lib/backup';
+import { restoreDatabaseBackup } from '@/lib/export/backup';
+import * as FileSystem from 'expo-file-system/legacy';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -46,6 +59,82 @@ export default function LoginScreen() {
   const clearSessionExpired = useAuthStore((state) => state.clearSessionExpired);
   const queryClient = useQueryClient();
   const resetSyncDateRange = useSyncDateRange((state) => state.reset);
+  const { importDatabaseBackup, importing: isRestoring } = useImportDatabaseBackup();
+
+  // Auto-detect available backups on fresh install
+  const [detectedBackup, setDetectedBackup] = useState<{
+    entry: BackupEntry;
+    backendId: string;
+    backendName: string;
+  } | null>(null);
+  const [restoringDetected, setRestoringDetected] = useState(false);
+  const [dismissedRestore, setDismissedRestore] = useState(false);
+
+  useEffect(() => {
+    // Only check on fresh install (no activities in engine)
+    const engine = getRouteEngine();
+    const activityCount = engine?.getActivityCount() ?? 0;
+    if (activityCount > 0) return;
+
+    (async () => {
+      try {
+        const backends = await getAvailableBackends();
+        for (const backend of backends) {
+          try {
+            const backups = await backend.listBackups();
+            if (backups.length > 0) {
+              setDetectedBackup({
+                entry: backups[0], // Most recent
+                backendId: backend.id,
+                backendName: backend.name,
+              });
+              return; // Stop at first backend with backups
+            }
+          } catch {
+            // Skip backends that fail
+          }
+        }
+      } catch {
+        // Silently fail — auto-detect is best-effort
+      }
+    })();
+  }, []);
+
+  const handleRestoreDetected = useCallback(async () => {
+    if (!detectedBackup || restoringDetected) return;
+    setRestoringDetected(true);
+    try {
+      const backends = await getAvailableBackends();
+      const backend = backends.find((b) => b.id === detectedBackup.backendId);
+      if (!backend) throw new Error('Backend not available');
+
+      // Download to temp path
+      const tempPath = `${FileSystem.cacheDirectory}restore-temp.veloqdb`;
+      await backend.download(detectedBackup.entry.id, tempPath);
+
+      // Restore
+      const result = await restoreDatabaseBackup(tempPath);
+      await FileSystem.deleteAsync(tempPath, { idempotent: true });
+
+      if (result.success) {
+        const messages = [t('backup.databaseRestored', { count: result.activityCount })];
+        if (result.athleteIdMismatch) {
+          messages.push(
+            `\n${t('backup.differentAccount', { defaultValue: 'Warning: This backup belongs to a different account.' })}`
+          );
+        }
+        Alert.alert(t('backup.restoreComplete'), messages.join(''));
+        setDetectedBackup(null);
+      } else {
+        Alert.alert(t('common.error'), result.error ?? t('backup.importError'));
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : t('backup.importError');
+      Alert.alert(t('common.error'), msg);
+    } finally {
+      setRestoringDetected(false);
+    }
+  }, [detectedBackup, restoringDetected, t]);
 
   // Language selection
   const { language, setLanguage } = useLanguageStore();
@@ -396,6 +485,47 @@ export default function LoginScreen() {
             </View>
           )}
 
+          {/* Detected backup banner (fresh install only) */}
+          {detectedBackup && !dismissedRestore && (
+            <View style={[styles.restoreBanner, isDark && styles.restoreBannerDark]}>
+              <View style={styles.restoreBannerHeader}>
+                <MaterialCommunityIcons name="backup-restore" size={20} color={colors.primary} />
+                <Text style={[styles.restoreBannerTitle, isDark && styles.textLight]}>
+                  {t('backup.backupFound', { defaultValue: 'Backup Found' })}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setDismissedRestore(true)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={18}
+                    color={isDark ? darkColors.textMuted : colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.restoreBannerDetail, isDark && styles.textDark]}>
+                {detectedBackup.entry.activityCount}{' '}
+                {t('common.activities', { defaultValue: 'activities' })}
+                {' · '}
+                {new Date(detectedBackup.entry.timestamp).toLocaleDateString()}
+                {' · '}
+                {detectedBackup.backendName}
+              </Text>
+              <Button
+                mode="contained"
+                onPress={handleRestoreDetected}
+                loading={restoringDetected}
+                disabled={restoringDetected}
+                style={styles.restoreBannerButton}
+                icon="database-import-outline"
+                compact
+              >
+                {restoringDetected ? t('backup.importingDatabase') : t('backup.restoreFromBackup')}
+              </Button>
+            </View>
+          )}
+
           {/* OAuth Login Button */}
           <Button
             testID="login-oauth-button"
@@ -429,6 +559,21 @@ export default function LoginScreen() {
             icon="play-circle-outline"
           >
             {t('login.tryDemo', { defaultValue: 'Try Demo' })}
+          </Button>
+
+          {/* Restore from Backup */}
+          <Button
+            testID="login-restore-button"
+            mode="text"
+            onPress={importDatabaseBackup}
+            disabled={isLoading || isApiKeyLoading || isRestoring}
+            style={styles.restoreButton}
+            icon="database-import-outline"
+            compact
+          >
+            {isRestoring
+              ? t('backup.importingDatabase')
+              : t('backup.restoreFromBackup', { defaultValue: 'Restore from Backup' })}
           </Button>
 
           {/* API Key Collapsible Section */}
@@ -486,6 +631,16 @@ export default function LoginScreen() {
                 />
                 <Text style={[styles.localModeText, isDark && styles.textMuted]}>
                   {t('login.localModeNote')}
+                </Text>
+              </View>
+              <View style={styles.localModeNote}>
+                <MaterialCommunityIcons
+                  name="bell-off-outline"
+                  size={14}
+                  color={themeColors.textSecondary}
+                />
+                <Text style={[styles.localModeText, isDark && styles.textMuted]}>
+                  {t('login.apiKeyNoNotifications')}
                 </Text>
               </View>
             </View>
@@ -749,6 +904,41 @@ const styles = StyleSheet.create({
   },
   demoButton: {
     borderColor: colors.primary,
+  },
+  restoreButton: {
+    marginTop: spacing.sm,
+  },
+  restoreBanner: {
+    backgroundColor: 'rgba(252, 76, 2, 0.06)',
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(252, 76, 2, 0.15)',
+  },
+  restoreBannerDark: {
+    backgroundColor: 'rgba(252, 76, 2, 0.1)',
+    borderColor: 'rgba(252, 76, 2, 0.2)',
+  },
+  restoreBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  restoreBannerTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  restoreBannerDetail: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  restoreBannerButton: {
+    alignSelf: 'flex-start',
   },
   apiKeySection: {
     marginTop: spacing.lg,

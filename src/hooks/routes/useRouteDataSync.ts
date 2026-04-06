@@ -46,7 +46,7 @@ import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { getNativeModule } from '@/lib/native/routeEngine';
 import { routeEngine } from 'veloqrs';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
-import { useSyncDateRange } from '@/providers';
+import { useSyncDateRange, getStoredCredentials } from '@/providers';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 
@@ -232,10 +232,98 @@ export function useRouteDataSync(
           }
         }
 
+        // Batch-fetch FIT files for WeightTraining activities not yet processed
+        if (!isDemoModeRef.current) {
+          const strengthIds = activitiesToSync
+            .filter((a) => a.type === 'WeightTraining')
+            .map((a) => a.id);
+
+          if (
+            strengthIds.length > 0 &&
+            typeof nativeModule.routeEngine.getUnprocessedStrengthIds === 'function'
+          ) {
+            const unprocessed = nativeModule.routeEngine.getUnprocessedStrengthIds(strengthIds);
+            if (unprocessed.length > 0) {
+              if (__DEV__) {
+                console.log(
+                  `[RouteDataSync] Fetching FIT files for ${unprocessed.length} strength activities`
+                );
+              }
+              try {
+                const creds = getStoredCredentials();
+                let authHeader: string;
+                if (creds.authMethod === 'oauth' && creds.accessToken) {
+                  authHeader = `Bearer ${creds.accessToken}`;
+                } else if (creds.apiKey) {
+                  authHeader = `Basic ${btoa(`API_KEY:${creds.apiKey}`)}`;
+                } else {
+                  authHeader = '';
+                }
+                if (authHeader) {
+                  const processed = nativeModule.routeEngine.batchFetchExerciseSets(
+                    authHeader,
+                    unprocessed
+                  );
+                  if (__DEV__) {
+                    console.log(
+                      `[RouteDataSync] FIT batch complete: ${processed.length}/${unprocessed.length}`
+                    );
+                  }
+                }
+              } catch (err) {
+                if (__DEV__) {
+                  console.error('[RouteDataSync] FIT batch fetch error:', err);
+                }
+              }
+            }
+          }
+        }
+
         if (withGps.length === 0) {
-          if (__DEV__) {
+          // Check if section detection was interrupted and needs to recover
+          const stats = routeEngine.getStats();
+          if (stats?.sectionsDirty && isMountedRef.current) {
+            if (__DEV__) {
+              console.log(
+                '[RouteDataSync] No new GPS, but sectionsDirty — triggering section detection'
+              );
+            }
+            updateProgress({
+              status: 'computing',
+              completed: 0,
+              total: 0,
+              percent: 0,
+              message: 'Analyzing routes...',
+            });
+
+            const started = nativeModule.routeEngine.startSectionDetection();
+            if (started) {
+              const pollInterval = 150;
+              const maxPollTime = 60000;
+              const startTime = Date.now();
+              while (isMountedRef.current) {
+                const detectionStatus = nativeModule.routeEngine.pollSectionDetection();
+                if (detectionStatus !== 'running' || Date.now() - startTime > maxPollTime) break;
+                await new Promise((resolve) => setTimeout(resolve, pollInterval));
+              }
+              routeEngine.triggerRefresh('groups');
+              routeEngine.triggerRefresh('sections');
+
+              // Poll heatmap tile generation (runs on Rust background thread)
+              const tileStatus = routeEngine.pollTileGeneration();
+              if (tileStatus === 'running' && isMountedRef.current) {
+                const tileStartTime = Date.now();
+                while (isMountedRef.current) {
+                  await new Promise((resolve) => setTimeout(resolve, 200));
+                  const s = routeEngine.pollTileGeneration();
+                  if (s !== 'running' || Date.now() - tileStartTime > 10000) break;
+                }
+              }
+            }
+          } else if (__DEV__) {
             console.log('[RouteDataSync] No new activities to sync');
           }
+
           // Set complete status so lastSyncTimestamp is updated
           if (isMountedRef.current) {
             updateProgress({

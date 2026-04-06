@@ -25,14 +25,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { UI } from '@/lib/utils/constants';
-import { getActivityIcon, getActivityColor } from '@/lib';
 import { computeCenter, haversineDistance, type LatLng } from '@/lib/geo/distance';
 import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 import { toActivityType } from '@/types/routes';
 
-type SortOption = 'activities' | 'name' | 'nearby';
+export type RoutesSortOption = 'activities' | 'distance' | 'name' | 'nearby';
 
 interface RoutesListProps {
   /** Callback when list is pulled to refresh */
@@ -51,6 +50,12 @@ interface RoutesListProps {
   hasMore?: boolean;
   /** User's current location for "Nearby" sort */
   userLocation?: LatLng | null;
+  /** Total routes count for the header summary */
+  totalGroupCount?: number;
+  /** Active sort option */
+  sortOption: RoutesSortOption;
+  /** Called when sort changes */
+  onSortChange: (next: RoutesSortOption) => void;
 }
 
 // Memoized routes list - only updates when route count changes
@@ -161,66 +166,38 @@ export function RoutesList({
   onLoadMore,
   hasMore = false,
   userLocation,
+  totalGroupCount,
+  sortOption,
+  onSortChange,
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const [selectedSportFilter, setSelectedSportFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortOption, setSortOption] = useState<SortOption>(userLocation ? 'nearby' : 'activities');
-  const sortInitRef = useRef(false);
-
-  // Switch to 'nearby' sort once location first becomes available
-  useEffect(() => {
-    if (userLocation && !sortInitRef.current) {
-      sortInitRef.current = true;
-      setSortOption('nearby');
-    }
-  }, [userLocation]);
 
   // Convert batch groups to RouteGroup format for RouteRow
   const allGroups = useMemo(() => {
     return batchGroups.map((g, i) => batchGroupToRouteGroup(g, i));
   }, [batchGroups]);
 
-  // Collect unique sport types across all routes
-  const availableSportTypes = useMemo(() => {
-    const types = new Set<string>();
-    for (const g of allGroups) {
-      if (g.sportTypes) {
-        for (const st of g.sportTypes) types.add(st);
-      } else if (g.type) {
-        types.add(g.type);
-      }
-    }
-    return Array.from(types).sort();
-  }, [allGroups]);
-
-  // Filter groups by sport type and search query, then sort
+  // Filter groups by search query, then sort
   const groups = useMemo(() => {
     let filtered = [...allGroups];
-    if (selectedSportFilter) {
-      filtered = filtered.filter((g) => {
-        const sports = g.sportTypes ?? [g.type];
-        return sports.includes(selectedSportFilter);
-      });
-    }
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((g) => g.name?.toLowerCase().includes(query));
     }
     // Apply sort
-    if (sortOption === 'name') {
+    if (sortOption === 'activities') {
+      filtered.sort((a, b) => b.activityCount - a.activityCount);
+    } else if (sortOption === 'distance') {
+      filtered.sort((a, b) => (b.distance ?? 0) - (a.distance ?? 0));
+    } else if (sortOption === 'name') {
       filtered.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
-    } else if (sortOption === 'nearby' && userLocation) {
-      filtered.sort((a, b) => {
-        const distA = a.center ? haversineDistance(userLocation, a.center) : Infinity;
-        const distB = b.center ? haversineDistance(userLocation, b.center) : Infinity;
-        return distA - distB;
-      });
     }
-    // 'activities' is the default order from engine (activityCount DESC)
+
+    // Preserve native order for nearby sorting so pagination stays correct.
     return filtered;
-  }, [allGroups, selectedSportFilter, searchQuery, sortOption, userLocation]);
+  }, [allGroups, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
 
   // Pre-compute distance from user for each route (used for display on every row)
   const distanceMap = useMemo(() => {
@@ -259,24 +236,30 @@ export function RoutesList({
     return [] as DiscoveredRouteInfo[];
   }, []);
 
-  const sortOptions: SortOption[] = useMemo(() => {
-    const opts: SortOption[] = ['activities', 'name'];
-    if (userLocation) opts.push('nearby');
-    return opts;
-  }, [userLocation]);
+  const sortChips: { key: RoutesSortOption; label: string; icon: string }[] = useMemo(
+    () => [
+      { key: 'nearby', label: t('routes.sortNearby' as never) as string, icon: 'crosshairs-gps' },
+      {
+        key: 'activities',
+        label: t('routes.sortActivities' as never) as string,
+        icon: 'sort-numeric-descending',
+      },
+      {
+        key: 'distance',
+        label: t('routes.sortDistance' as never) as string,
+        icon: 'map-marker-distance',
+      },
+      {
+        key: 'name',
+        label: t('routes.sortNameAZ' as never) as string,
+        icon: 'sort-alphabetical-ascending',
+      },
+    ],
+    [t]
+  );
 
-  const sortLabelKeys: Record<SortOption, string> = {
-    activities: 'routes.sortActivities',
-    name: 'routes.sortNameAZ',
-    nearby: 'routes.sortNearby',
-  };
-
-  const handleCycleSort = useCallback(() => {
-    setSortOption((current) => {
-      const idx = sortOptions.indexOf(current);
-      return sortOptions[(idx + 1) % sortOptions.length];
-    });
-  }, [sortOptions]);
+  const displayRouteCount = totalGroupCount ?? allGroups.length;
+  const routeInfoText = 'Routes are whole activities you repeat on similar paths.';
 
   const renderHeader = () => (
     <View>
@@ -417,27 +400,34 @@ export function RoutesList({
               </TouchableOpacity>
             )}
           </View>
-          {availableSportTypes.length > 1 && (
-            <View style={styles.sportFilterRow}>
-              {availableSportTypes.map((st) => {
-                const isActive = selectedSportFilter === st;
-                const sportColor = getActivityColor(st as any);
+          {/* Count line */}
+          <View style={styles.countRow}>
+            <Text style={[styles.summaryText, isDark && styles.summaryTextDark]}>
+              {displayRouteCount} {t('trainingScreen.routes')}
+            </Text>
+          </View>
+          {/* Sort chips */}
+          <View style={styles.sortChipRow}>
+            {groups.length > 1 &&
+              sortChips.map((chip) => {
+                const isActive = sortOption === chip.key;
                 return (
                   <TouchableOpacity
-                    key={st}
+                    key={chip.key}
                     style={[
-                      styles.sportFilterChip,
-                      isDark && styles.sportFilterChipDark,
-                      isActive && { backgroundColor: sportColor + '20', borderColor: sportColor },
+                      styles.sortChip,
+                      isDark && styles.sortChipDark,
+                      isActive && styles.sortChipActive,
                     ]}
-                    onPress={() => setSelectedSportFilter(isActive ? null : st)}
+                    onPress={() => onSortChange(chip.key)}
+                    activeOpacity={0.7}
                   >
                     <MaterialCommunityIcons
-                      name={getActivityIcon(st)}
-                      size={14}
+                      name={chip.icon as any}
+                      size={13}
                       color={
                         isActive
-                          ? sportColor
+                          ? colors.primary
                           : isDark
                             ? darkColors.textSecondary
                             : colors.textSecondary
@@ -445,40 +435,17 @@ export function RoutesList({
                     />
                     <Text
                       style={[
-                        styles.sportFilterLabel,
+                        styles.sortChipLabel,
                         isDark && styles.textMuted,
-                        isActive && { color: sportColor },
+                        isActive && styles.sortChipLabelActive,
                       ]}
                     >
-                      {st}
+                      {chip.label}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
-            </View>
-          )}
-          {/* Sort control */}
-          {groups.length > 1 && (
-            <TouchableOpacity
-              style={[styles.sortControl, isDark && styles.sortControlDark]}
-              onPress={handleCycleSort}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="sort"
-                size={14}
-                color={isDark ? darkColors.textSecondary : colors.textSecondary}
-              />
-              <Text style={[styles.sortText, isDark && styles.sortTextDark]}>
-                {t(sortLabelKeys[sortOption] as never)}
-              </Text>
-              <MaterialCommunityIcons
-                name="chevron-down"
-                size={14}
-                color={isDark ? darkColors.textSecondary : colors.textSecondary}
-              />
-            </TouchableOpacity>
-          )}
+          </View>
         </View>
       )}
       <FlatList
@@ -523,7 +490,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   filterHeader: {
-    marginBottom: spacing.sm,
+    marginBottom: 0,
+  },
+  infoNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginHorizontal: spacing.md,
+  },
+  infoNoticeDark: {},
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textDisabled,
+    lineHeight: 16,
+  },
+  infoTextDark: {
+    color: darkColors.textDisabled,
+  },
+  countRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    marginTop: 2,
+  },
+  summaryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  summaryTextDark: {
+    color: darkColors.textPrimary,
   },
   list: {
     paddingTop: spacing.md,
@@ -535,7 +534,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray100,
     borderRadius: 10,
     paddingHorizontal: spacing.sm,
-    paddingVertical: Platform.OS === 'ios' ? 8 : 2,
+    paddingVertical: Platform.OS === 'ios' ? 4 : 2,
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
     gap: spacing.xs,
@@ -557,14 +556,14 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
-    marginTop: spacing.sm,
+    marginTop: 2,
   },
   sportFilterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 3,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
@@ -576,22 +575,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
   },
-  sortControl: {
+  sortChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    marginTop: 2,
+  },
+  sortChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-end',
     gap: 4,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.sm,
-    marginRight: spacing.md,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  sortControlDark: {},
-  sortText: {
+  sortChipDark: {
+    borderColor: darkColors.border,
+  },
+  sortChipActive: {
+    backgroundColor: colors.primary + '15',
+    borderColor: colors.primary,
+  },
+  sortChipLabel: {
     fontSize: 12,
     color: colors.textSecondary,
   },
-  sortTextDark: {
-    color: darkColors.textSecondary,
+  sortChipLabelActive: {
+    color: colors.primary,
   },
   emptyList: {
     flexGrow: 1,

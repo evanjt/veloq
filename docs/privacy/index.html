@@ -320,7 +320,7 @@
       <div class="container">
         <h1 data-i18n="title">Privacy Policy</h1>
         <p class="last-updated" data-i18n="lastUpdated">
-          Last updated: 15 January 2026
+          Last updated: 26 March 2026
         </p>
 
         <div class="highlight-box">
@@ -388,9 +388,42 @@
         <h3 data-i18n="thirdParty.cloudflare.title">Cloudflare Workers (OAuth mode only)</h3>
         <ul>
           <li data-i18n="thirdParty.cloudflare.item1">Temporarily stores OAuth state parameters (5-minute TTL)</li>
-          <li data-i18n="thirdParty.cloudflare.item2">May store webhook event notifications (24-hour TTL)</li>
+          <li data-i18n="thirdParty.cloudflare.item2">If you opt in to push notifications: stores your athlete ID and an Expo push token (30-day TTL)</li>
           <li data-i18n="thirdParty.cloudflare.item3">Does not store access tokens or personal data</li>
         </ul>
+
+        <h3 data-i18n="thirdParty.expo.title">Expo Push Service (notifications only)</h3>
+        <ul>
+          <li data-i18n="thirdParty.expo.item1">Routes push notifications from our server to Apple (APNs) or Google (FCM) on your behalf</li>
+          <li data-i18n="thirdParty.expo.item2">Sees only the push token and a minimal payload (event type and activity ID)</li>
+          <li data-i18n="thirdParty.expo.item3">Does not see notification content — all insight text is generated on your device</li>
+        </ul>
+
+        <h2 data-i18n="pushNotifications.title">Push Notifications (Optional)</h2>
+
+        <p data-i18n="pushNotifications.intro">
+          Push notifications are strictly opt-in. They are disabled by default and only available to OAuth (connected) users. API key users are never prompted and no data is ever sent.
+        </p>
+
+        <h3 data-i18n="pushNotifications.whatStored.title">What is stored when you opt in</h3>
+        <ul>
+          <li data-i18n="pushNotifications.whatStored.item1">Your athlete ID and an Expo push token are stored on auth.veloq.fit (Cloudflare KV) with automatic 30-day expiry</li>
+          <li data-i18n="pushNotifications.whatStored.item2">This is the only data stored on our server — no activity data, GPS, fitness metrics, or personal information</li>
+          <li data-i18n="pushNotifications.whatStored.item3">Your push token is re-registered each time you open the app (refreshing the 30-day TTL)</li>
+        </ul>
+
+        <h3 data-i18n="pushNotifications.howItWorks.title">How notifications work</h3>
+        <ul>
+          <li data-i18n="pushNotifications.howItWorks.item1">When Intervals.icu detects a new activity, it sends a webhook event to auth.veloq.fit</li>
+          <li data-i18n="pushNotifications.howItWorks.item2">Our server relays a minimal push message (containing only the event type and activity ID) through the Expo Push Service</li>
+          <li data-i18n="pushNotifications.howItWorks.item3">Expo routes the message through Apple (APNs) or Google (FCM) to reach your device</li>
+          <li data-i18n="pushNotifications.howItWorks.item4">Your device generates the notification content (PR details, insights) entirely on-device — neither our server, Expo, Apple, nor Google see this content</li>
+        </ul>
+
+        <h3 data-i18n="pushNotifications.disable.title">Disabling notifications</h3>
+        <p data-i18n="pushNotifications.disable.desc">
+          You can disable notifications at any time in Settings. Disabling sends a removal request to our server. If the request fails (e.g. no internet), the app retries on next open. Logging out also removes your token. In all cases, server data expires automatically after 30 days.
+        </p>
 
         <p data-i18n="thirdParty.noTracking">
           No analytics, advertising, crash reporting, or tracking SDKs.
@@ -428,6 +461,7 @@
           <li data-i18n="rights.item1"><strong>View your data:</strong> All data is visible within the app</li>
           <li data-i18n="rights.item2"><strong>Delete your data:</strong> Uninstall the app or clear app data in device settings</li>
           <li data-i18n="rights.item3"><strong>Revoke access:</strong> Disconnect your account in app settings, or revoke the OAuth app in Intervals.icu settings</li>
+          <li data-i18n="rights.item4"><strong>Server data removal:</strong> If you uninstall the app with notifications enabled, your push token and athlete ID expire automatically after 30 days. For immediate removal, contact <a href="mailto:developer@veloq.fit">developer@veloq.fit</a></li>
         </ul>
 
         <h2 data-i18n="changes.title">Changes</h2>
@@ -479,7 +513,7 @@
           "footer.releases": "Releases",
           "footer.contact": "Contact",
           title: "Privacy Policy",
-          lastUpdated: "Last updated: 15 January 2026",
+          lastUpdated: "Last updated: 26 March 2026",
           overview:
             "Veloq operates primarily on your device. We do not collect, sell, or share your personal information. The app fetches your fitness data directly from Intervals.icu and stores it locally for offline access.",
           "authMethods.title": "Authentication Methods",
@@ -512,8 +546,25 @@
           "thirdParty.maps.desc": "Standard web requests, no personal data sent:",
           "thirdParty.cloudflare.title": "Cloudflare Workers (OAuth mode only)",
           "thirdParty.cloudflare.item1": "Temporarily stores OAuth state parameters (5-minute TTL)",
-          "thirdParty.cloudflare.item2": "May store webhook event notifications (24-hour TTL)",
+          "thirdParty.cloudflare.item2": "If you opt in to push notifications: stores your athlete ID and an Expo push token (30-day TTL)",
           "thirdParty.cloudflare.item3": "Does not store access tokens or personal data",
+          "thirdParty.expo.title": "Expo Push Service (notifications only)",
+          "thirdParty.expo.item1": "Routes push notifications from our server to Apple (APNs) or Google (FCM) on your behalf",
+          "thirdParty.expo.item2": "Sees only the push token and a minimal payload (event type and activity ID)",
+          "thirdParty.expo.item3": "Does not see notification content — all insight text is generated on your device",
+          "pushNotifications.title": "Push Notifications (Optional)",
+          "pushNotifications.intro": "Push notifications are strictly opt-in. They are disabled by default and only available to OAuth (connected) users. API key users are never prompted and no data is ever sent.",
+          "pushNotifications.whatStored.title": "What is stored when you opt in",
+          "pushNotifications.whatStored.item1": "Your athlete ID and an Expo push token are stored on auth.veloq.fit (Cloudflare KV) with automatic 30-day expiry",
+          "pushNotifications.whatStored.item2": "This is the only data stored on our server — no activity data, GPS, fitness metrics, or personal information",
+          "pushNotifications.whatStored.item3": "Your push token is re-registered each time you open the app (refreshing the 30-day TTL)",
+          "pushNotifications.howItWorks.title": "How notifications work",
+          "pushNotifications.howItWorks.item1": "When Intervals.icu detects a new activity, it sends a webhook event to auth.veloq.fit",
+          "pushNotifications.howItWorks.item2": "Our server relays a minimal push message (containing only the event type and activity ID) through the Expo Push Service",
+          "pushNotifications.howItWorks.item3": "Expo routes the message through Apple (APNs) or Google (FCM) to reach your device",
+          "pushNotifications.howItWorks.item4": "Your device generates the notification content (PR details, insights) entirely on-device — neither our server, Expo, Apple, nor Google see this content",
+          "pushNotifications.disable.title": "Disabling notifications",
+          "pushNotifications.disable.desc": "You can disable notifications at any time in Settings. Disabling sends a removal request to our server. If the request fails (e.g. no internet), the app retries on next open. Logging out also removes your token. In all cases, server data expires automatically after 30 days.",
           "thirdParty.noTracking": "No analytics, advertising, crash reporting, or tracking SDKs.",
           "dataSharing.title": "Data Sharing",
           "dataSharing.content": "None. The developer has no access to your data. All data flows directly between your device and Intervals.icu, or through standard map tile requests (no personal data).",
@@ -531,6 +582,7 @@
           "rights.item1": "<strong>View your data:</strong> All data is visible within the app",
           "rights.item2": "<strong>Delete your data:</strong> Uninstall the app or clear app data in device settings",
           "rights.item3": "<strong>Revoke access:</strong> Disconnect your account in app settings, or revoke the OAuth app in Intervals.icu settings",
+          "rights.item4": '<strong>Server data removal:</strong> If you uninstall the app with notifications enabled, your push token and athlete ID expire automatically after 30 days. For immediate removal, contact <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
           "changes.title": "Changes",
           "changes.content": 'This policy may be updated. Check the "Last updated" date above. Continued use after changes constitutes acceptance.',
           "contact.title": "Contact",
@@ -541,7 +593,7 @@
           "footer.releases": "Versiones",
           "footer.contact": "Contacto",
           title: "Política de Privacidad",
-          lastUpdated: "Última actualización: 15 de enero de 2026",
+          lastUpdated: "Última actualización: 26 de marzo de 2026",
           overview:
             "Veloq opera principalmente en tu dispositivo. No recopilamos, vendemos ni compartimos tu información personal. La aplicación obtiene tus datos de fitness directamente de Intervals.icu y los almacena localmente para acceso sin conexión.",
           "authMethods.title": "Métodos de Autenticación",
@@ -574,8 +626,25 @@
           "thirdParty.maps.desc": "Solicitudes web estándar, sin datos personales enviados:",
           "thirdParty.cloudflare.title": "Cloudflare Workers (solo modo OAuth)",
           "thirdParty.cloudflare.item1": "Almacena temporalmente parámetros de estado OAuth (TTL de 5 minutos)",
-          "thirdParty.cloudflare.item2": "Puede almacenar notificaciones de eventos webhook (TTL de 24 horas) para futuro soporte de notificaciones push",
+          "thirdParty.cloudflare.item2": "Si activas las notificaciones push: almacena tu ID de atleta y un token push de Expo (TTL de 30 días)",
           "thirdParty.cloudflare.item3": "No almacena tokens de acceso ni datos personales",
+          "thirdParty.expo.title": "Servicio Push de Expo (solo notificaciones)",
+          "thirdParty.expo.item1": "Enruta notificaciones push desde nuestro servidor a Apple (APNs) o Google (FCM) en tu nombre",
+          "thirdParty.expo.item2": "Solo ve el token push y un payload mínimo (tipo de evento e ID de actividad)",
+          "thirdParty.expo.item3": "No ve el contenido de las notificaciones — todo el texto de insights se genera en tu dispositivo",
+          "pushNotifications.title": "Notificaciones Push (Opcional)",
+          "pushNotifications.intro": "Las notificaciones push son estrictamente opcionales. Están desactivadas por defecto y solo disponibles para usuarios OAuth (conectados). Los usuarios con clave API nunca son solicitados y no se envía ningún dato.",
+          "pushNotifications.whatStored.title": "Qué se almacena cuando activas las notificaciones",
+          "pushNotifications.whatStored.item1": "Tu ID de atleta y un token push de Expo se almacenan en auth.veloq.fit (Cloudflare KV) con expiración automática de 30 días",
+          "pushNotifications.whatStored.item2": "Estos son los únicos datos almacenados en nuestro servidor — sin datos de actividad, GPS, métricas de fitness ni información personal",
+          "pushNotifications.whatStored.item3": "Tu token push se re-registra cada vez que abres la app (renovando el TTL de 30 días)",
+          "pushNotifications.howItWorks.title": "Cómo funcionan las notificaciones",
+          "pushNotifications.howItWorks.item1": "Cuando Intervals.icu detecta una nueva actividad, envía un evento webhook a auth.veloq.fit",
+          "pushNotifications.howItWorks.item2": "Nuestro servidor retransmite un mensaje push mínimo (solo tipo de evento e ID de actividad) a través del Servicio Push de Expo",
+          "pushNotifications.howItWorks.item3": "Expo enruta el mensaje a través de Apple (APNs) o Google (FCM) para llegar a tu dispositivo",
+          "pushNotifications.howItWorks.item4": "Tu dispositivo genera el contenido de la notificación (detalles de PR, insights) completamente en el dispositivo — ni nuestro servidor, Expo, Apple ni Google ven este contenido",
+          "pushNotifications.disable.title": "Desactivar notificaciones",
+          "pushNotifications.disable.desc": "Puedes desactivar las notificaciones en cualquier momento en Ajustes. Desactivar envía una solicitud de eliminación a nuestro servidor. Si la solicitud falla (p. ej. sin internet), la app reintenta al abrirla de nuevo. Cerrar sesión también elimina tu token. En todos los casos, los datos del servidor expiran automáticamente después de 30 días.",
           "thirdParty.noTracking": "Sin análisis, publicidad, informes de errores ni SDKs de seguimiento.",
           "dataSharing.title": "Compartir Datos",
           "dataSharing.content": "Ninguno. El desarrollador no tiene acceso a tus datos. Todos los datos fluyen directamente entre tu dispositivo e Intervals.icu, o a través de solicitudes estándar de mapas (sin datos personales).",
@@ -593,6 +662,7 @@
           "rights.item1": "<strong>Ver tus datos:</strong> Todos los datos son visibles dentro de la aplicación",
           "rights.item2": "<strong>Eliminar tus datos:</strong> Desinstala la aplicación o borra los datos de la app en la configuración del dispositivo",
           "rights.item3": "<strong>Revocar acceso:</strong> Desconecta tu cuenta en la configuración de la app, o revoca la app OAuth en la configuración de Intervals.icu",
+          "rights.item4": '<strong>Eliminación de datos del servidor:</strong> Si desinstalas la app con las notificaciones activadas, tu token push e ID de atleta expiran automáticamente después de 30 días. Para eliminación inmediata, contacta a <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
           "changes.title": "Cambios",
           "changes.content": 'Esta política puede actualizarse. Consulta la fecha de "Última actualización" arriba. El uso continuado después de los cambios constituye aceptación.',
           "contact.title": "Contacto",
@@ -603,7 +673,7 @@
           "footer.releases": "Versions",
           "footer.contact": "Contact",
           title: "Politique de Confidentialité",
-          lastUpdated: "Dernière mise à jour : 15 janvier 2026",
+          lastUpdated: "Dernière mise à jour : 26 mars 2026",
           overview:
             "Veloq fonctionne principalement sur votre appareil. Nous ne collectons, vendons ni partageons vos informations personnelles. L'application récupère vos données fitness directement depuis Intervals.icu et les stocke localement pour un accès hors ligne.",
           "authMethods.title": "Méthodes d'Authentification",
@@ -636,8 +706,25 @@
           "thirdParty.maps.desc": "Requêtes web standard, aucune donnée personnelle envoyée :",
           "thirdParty.cloudflare.title": "Cloudflare Workers (mode OAuth uniquement)",
           "thirdParty.cloudflare.item1": "Stocke temporairement les paramètres d'état OAuth (TTL de 5 minutes)",
-          "thirdParty.cloudflare.item2": "Peut stocker les notifications d'événements webhook (TTL de 24 heures)",
+          "thirdParty.cloudflare.item2": "Si vous activez les notifications push : stocke votre ID d'athlète et un jeton push Expo (TTL de 30 jours)",
           "thirdParty.cloudflare.item3": "Ne stocke pas les jetons d'accès ni les données personnelles",
+          "thirdParty.expo.title": "Service Push Expo (notifications uniquement)",
+          "thirdParty.expo.item1": "Achemine les notifications push de notre serveur vers Apple (APNs) ou Google (FCM) en votre nom",
+          "thirdParty.expo.item2": "Ne voit que le jeton push et un payload minimal (type d'événement et ID d'activité)",
+          "thirdParty.expo.item3": "Ne voit pas le contenu des notifications — tout le texte d'insights est généré sur votre appareil",
+          "pushNotifications.title": "Notifications Push (Optionnel)",
+          "pushNotifications.intro": "Les notifications push sont strictement optionnelles. Elles sont désactivées par défaut et uniquement disponibles pour les utilisateurs OAuth (connectés). Les utilisateurs avec clé API ne sont jamais sollicités et aucune donnée n'est envoyée.",
+          "pushNotifications.whatStored.title": "Ce qui est stocké lorsque vous activez les notifications",
+          "pushNotifications.whatStored.item1": "Votre ID d'athlète et un jeton push Expo sont stockés sur auth.veloq.fit (Cloudflare KV) avec expiration automatique de 30 jours",
+          "pushNotifications.whatStored.item2": "Ce sont les seules données stockées sur notre serveur — aucune donnée d'activité, GPS, métriques de fitness ou information personnelle",
+          "pushNotifications.whatStored.item3": "Votre jeton push est ré-enregistré chaque fois que vous ouvrez l'app (renouvellement du TTL de 30 jours)",
+          "pushNotifications.howItWorks.title": "Comment fonctionnent les notifications",
+          "pushNotifications.howItWorks.item1": "Quand Intervals.icu détecte une nouvelle activité, il envoie un événement webhook à auth.veloq.fit",
+          "pushNotifications.howItWorks.item2": "Notre serveur relaie un message push minimal (contenant uniquement le type d'événement et l'ID d'activité) via le Service Push Expo",
+          "pushNotifications.howItWorks.item3": "Expo achemine le message via Apple (APNs) ou Google (FCM) pour atteindre votre appareil",
+          "pushNotifications.howItWorks.item4": "Votre appareil génère le contenu de la notification (détails PR, insights) entièrement sur l'appareil — ni notre serveur, Expo, Apple ni Google ne voient ce contenu",
+          "pushNotifications.disable.title": "Désactiver les notifications",
+          "pushNotifications.disable.desc": "Vous pouvez désactiver les notifications à tout moment dans les Réglages. La désactivation envoie une demande de suppression à notre serveur. Si la demande échoue (par ex. pas d'internet), l'app réessaie à la prochaine ouverture. La déconnexion supprime également votre jeton. Dans tous les cas, les données du serveur expirent automatiquement après 30 jours.",
           "thirdParty.noTracking": "Pas d'analytique, publicité, rapports d'erreurs ou SDKs de suivi.",
           "dataSharing.title": "Partage de Données",
           "dataSharing.content": "Aucun. Le développeur n'a pas accès à vos données. Toutes les données transitent directement entre votre appareil et Intervals.icu, ou via des requêtes de tuiles standard (sans données personnelles).",
@@ -655,6 +742,7 @@
           "rights.item1": "<strong>Voir vos données :</strong> Toutes les données sont visibles dans l'application",
           "rights.item2": "<strong>Supprimer vos données :</strong> Désinstallez l'application ou effacez les données dans les paramètres de l'appareil",
           "rights.item3": "<strong>Révoquer l'accès :</strong> Déconnectez votre compte dans les paramètres de l'app, ou révoquez l'app OAuth dans les paramètres Intervals.icu",
+          "rights.item4": '<strong>Suppression des données serveur :</strong> Si vous désinstallez l\'app avec les notifications activées, votre jeton push et ID d\'athlète expirent automatiquement après 30 jours. Pour une suppression immédiate, contactez <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
           "changes.title": "Modifications",
           "changes.content": 'Cette politique peut être mise à jour. Vérifiez la date de "Dernière mise à jour" ci-dessus. L\'utilisation continue après les modifications constitue une acceptation.',
           "contact.title": "Contact",

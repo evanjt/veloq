@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { InteractionManager } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { useFocusEffect } from '@react-navigation/native';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
 import { useWellness } from '@/hooks/fitness';
 import {
@@ -9,7 +9,7 @@ import {
   computeInsightFingerprint,
   diffInsights,
 } from '@/providers/InsightsStore';
-import { generateInsights } from './generateInsights';
+import { computeInsightsFromData, fetchInsightsDataFromEngine } from './computeInsightsData';
 import type { Insight } from '@/types';
 
 /**
@@ -18,12 +18,17 @@ import type { Insight } from '@/types';
  * When `preComputedInsightsData` is provided (from getStartupData), skips the
  * separate getInsightsData FFI call entirely. Falls back to its own deferred
  * FFI call when no pre-computed data is available (e.g., on routes tab).
+ *
+ * Uses computeInsightsFromData() — the shared pure function that can also run
+ * in background tasks without React.
  */
 export function useInsights(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   preComputedInsightsData?: any,
   /** When true, never make own getInsightsData FFI call — wait for preComputedInsightsData */
-  skipOwnFfiCall = false
+  skipOwnFfiCall = false,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  preComputedSummaryCardData?: any
 ): {
   insights: Insight[];
   topInsight: Insight | null;
@@ -32,6 +37,29 @@ export function useInsights(
 } {
   const { t } = useTranslation();
   const trigger = useEngineSubscription(['activities', 'sections']);
+
+  // Re-query on screen focus — handles missed notifications during enableFreeze.
+  // When the Insights tab is frozen, React state updates from engine notifications
+  // are dropped. dirtyRef tracks whether the engine trigger advanced while frozen;
+  // useFocusEffect only bumps focusTrigger when there is actually new data.
+  const [focusTrigger, setFocusTrigger] = useState(0);
+  const dirtyRef = useRef(false);
+  const lastSeenTriggerRef = useRef(trigger);
+  useEffect(() => {
+    if (trigger !== lastSeenTriggerRef.current) {
+      dirtyRef.current = true;
+      lastSeenTriggerRef.current = trigger;
+    }
+  }, [trigger]);
+  useFocusEffect(
+    useCallback(() => {
+      if (dirtyRef.current) {
+        dirtyRef.current = false;
+        setFocusTrigger((ft) => ft + 1);
+      }
+    }, [])
+  );
+
   const lastSeenFingerprint = useInsightsStore((s) => s.lastSeenFingerprint);
   const setNewInsights = useInsightsStore((s) => s.setNewInsights);
   const markSeenStore = useInsightsStore((s) => s.markSeen);
@@ -39,14 +67,6 @@ export function useInsights(
 
   // Get wellness data for form/TSB (from TanStack Query, not FFI)
   const { data: wellnessData } = useWellness('1m');
-  const latestWellness = useMemo(
-    () =>
-      wellnessData ? ([...wellnessData].sort((a, b) => b.id.localeCompare(a.id))[0] ?? null) : null,
-    [wellnessData]
-  );
-  const ctl = latestWellness?.ctl ?? latestWellness?.ctlLoad ?? 0;
-  const atl = latestWellness?.atl ?? latestWellness?.atlLoad ?? 0;
-  const tsb = ctl - atl;
 
   // Deferred insights computation — starts empty, populates after interactions
   const [insights, setInsights] = useState<Insight[]>([]);
@@ -64,271 +84,33 @@ export function useInsights(
       if (!isMountedRef.current) return;
 
       // Use pre-computed data from getStartupData when available
-      const now = new Date();
       let data = preComputedInsightsData;
+      let summaryData = preComputedSummaryCardData;
       if (!data) {
-        // When skipOwnFfiCall is set, wait for pre-computed data instead of calling FFI
         if (skipOwnFfiCall) return;
-        const engine = getRouteEngine();
-        if (!engine) return;
-        const startOfWeek = new Date(now);
-        const day = startOfWeek.getDay();
-        startOfWeek.setDate(startOfWeek.getDate() - day + (day === 0 ? -6 : 1));
-        startOfWeek.setHours(0, 0, 0, 0);
-
-        const startOfLastWeek = new Date(startOfWeek);
-        startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
-
-        const fourWeeksAgo = new Date(startOfWeek);
-        fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-
-        const todayStart = new Date(now);
-        todayStart.setHours(0, 0, 0, 0);
-
-        const toTs = (d: Date) => Math.floor(d.getTime() / 1000);
-
-        data = engine.getInsightsData(
-          toTs(startOfWeek),
-          toTs(now),
-          toTs(startOfLastWeek),
-          toTs(startOfWeek),
-          toTs(fourWeeksAgo),
-          toTs(todayStart)
-        );
+        const fetched = fetchInsightsDataFromEngine();
+        data = fetched?.insightsData ?? null;
+        summaryData = fetched?.summaryCardData ?? null;
       }
 
       if (!data || !isMountedRef.current) return;
 
-      try {
-        // Convert FFI bigint fields to number for generateInsights
-        const toPeriod = (p: {
-          count: number;
-          totalDuration: bigint | number;
-          totalDistance: number;
-          totalTss: number;
-        }) => ({
-          count: p.count,
-          totalDuration: Number(p.totalDuration),
-          totalDistance: p.totalDistance,
-          totalTss: p.totalTss,
-        });
+      // Delegate to the shared pure function
+      const result = computeInsightsFromData(
+        data,
+        wellnessData ?? null,
+        t as (key: string, params?: Record<string, string | number>) => string,
+        summaryData
+      );
 
-        // Average chronic period per week (raw total / 4 weeks)
-        const chronicPeriod = {
-          count: Math.round(data.chronicPeriod.count / 4),
-          totalDuration: Number(data.chronicPeriod.totalDuration) / 4,
-          totalDistance: data.chronicPeriod.totalDistance / 4,
-          totalTss: data.chronicPeriod.totalTss / 4,
-        };
-
-        // Rest day detection
-        const isRestDay = data.todayPeriod.count === 0;
-
-        // Guard: check if section data is available in the engine.
-        // On cold start, insight generation can run before sections are loaded,
-        // producing empty section insights. Check the engine's section count and
-        // skip section-dependent inputs if sections aren't ready yet.
-        // The 'sections' event subscription will re-trigger this effect once loaded.
-        const engine = getRouteEngine();
-        const sectionCount = engine?.getStats()?.sectionCount ?? 0;
-        const sectionsReady = sectionCount > 0;
-
-        // Type the patterns array for downstream use (generated types not yet available)
-        const allPatterns = (data.allPatterns ?? []) as Array<{
-          primaryDay: number;
-          confidence: number;
-          sportType: string;
-          avgDurationSecs: number;
-          activityCount: number;
-          commonSections?: Array<{
-            sectionId: string;
-            sectionName: string;
-            trend: number | null;
-            medianRecentSecs: number;
-            bestTimeSecs: number;
-            traversalCount: number;
-          }>;
-        }>;
-
-        // Build section trends from ML-ranked sections (composite scoring:
-        // recency, improvement, anomaly, engagement) instead of visit-count
-        // ordering from pattern.commonSections.
-        // Falls back to pattern-based trends when getRankedSections returns empty.
-        const sectionTrendMap = new Map<
-          string,
-          {
-            sectionId: string;
-            sectionName: string;
-            trend: number;
-            medianRecentSecs: number;
-            bestTimeSecs: number;
-            traversalCount: number;
-            sportType?: string;
-          }
-        >();
-
-        if (sectionsReady && engine) {
-          const sportTypes =
-            allPatterns.length > 0
-              ? [...new Set(allPatterns.map((p) => p.sportType))]
-              : ['Ride', 'Run'];
-
-          for (const sport of sportTypes) {
-            const ranked = engine.getRankedSections(sport, 50);
-            for (const rs of ranked) {
-              if (!rs.sectionId) continue;
-              // ML-ranked sections are already in relevance order; keep the
-              // first occurrence (highest relevance) when a section appears
-              // across multiple sport types.
-              if (!sectionTrendMap.has(rs.sectionId)) {
-                sectionTrendMap.set(rs.sectionId, {
-                  sectionId: rs.sectionId,
-                  sectionName: rs.sectionName || 'Section',
-                  trend: rs.trend,
-                  medianRecentSecs: rs.medianRecentSecs,
-                  bestTimeSecs: rs.bestTimeSecs,
-                  traversalCount: rs.traversalCount,
-                  sportType: sport,
-                });
-              }
-            }
-          }
-        }
-
-        // Fallback: use pattern-based commonSections when ML ranking is empty
-        if (sectionTrendMap.size === 0 && sectionsReady) {
-          for (const pattern of allPatterns) {
-            if (!pattern.commonSections) continue;
-            for (const section of pattern.commonSections) {
-              if (section.trend == null || !section.sectionId) continue;
-              const existing = sectionTrendMap.get(section.sectionId);
-              if (!existing || section.traversalCount > existing.traversalCount) {
-                sectionTrendMap.set(section.sectionId, {
-                  sectionId: section.sectionId,
-                  sectionName: section.sectionName || 'Section',
-                  trend: section.trend,
-                  medianRecentSecs: section.medianRecentSecs,
-                  bestTimeSecs: section.bestTimeSecs,
-                  traversalCount: section.traversalCount,
-                  sportType: pattern.sportType,
-                });
-              }
-            }
-          }
-        }
-
-        // ML-ranked sections are already sorted by relevance; pattern-based
-        // fallback sorts by traversal count for consistency.
-        const sectionTrends = Array.from(sectionTrendMap.values());
-
-        // 7-day wellness window (from TanStack Query, not FFI)
-        const wellnessWindow = (wellnessData ?? [])
-          .sort((a, b) => a.id.localeCompare(b.id))
-          .slice(-7)
-          .map((w) => ({
-            date: w.id,
-            hrv: w.hrv ?? undefined,
-            restingHR: w.restingHR ?? undefined,
-            sleepSecs: w.sleepSecs ?? undefined,
-            ctl: w.ctl ?? w.ctlLoad ?? undefined,
-            atl: w.atl ?? w.atlLoad ?? undefined,
-          }));
-
-        // Tomorrow's pattern prediction
-        const tomorrowDayJs = (now.getDay() + 1) % 7; // 0=Sun JS convention
-        const tomorrowDayMon = tomorrowDayJs === 0 ? 6 : tomorrowDayJs - 1; // Convert to 0=Mon
-        const tomorrowPattern =
-          allPatterns.find((p) => p.primaryDay === tomorrowDayMon && p.confidence >= 0.6) ?? null;
-
-        // Recent PRs from batch result (already computed in Rust)
-        // Skip if sections aren't loaded yet — PRs depend on section data
-        const recentPRs = sectionsReady
-          ? (
-              (data.recentPrs ?? []) as Array<{
-                sectionId: string;
-                sectionName: string;
-                bestTime: number;
-                daysAgo: number;
-              }>
-            ).map((pr) => ({
-              sectionId: pr.sectionId,
-              sectionName: pr.sectionName,
-              bestTime: pr.bestTime,
-              daysAgo: pr.daysAgo,
-            }))
-          : [];
-
-        // Gather top section IDs for aerobic efficiency trend checking.
-        // Uses getRankedSections when sections are ready; empty otherwise.
-        let efficiencyTrendSectionIds: string[] = [];
-        if (sectionsReady && engine) {
-          // Try all sport types from patterns; fall back to Ride/Run
-          const sportTypes =
-            allPatterns.length > 0
-              ? [...new Set(allPatterns.map((p) => p.sportType))]
-              : ['Ride', 'Run'];
-          for (const sport of sportTypes) {
-            const ranked = engine.getRankedSections(sport, 5);
-            for (const rs of ranked) {
-              if (!efficiencyTrendSectionIds.includes(rs.sectionId)) {
-                efficiencyTrendSectionIds.push(rs.sectionId);
-              }
-            }
-          }
-        }
-
-        const result = generateInsights(
-          {
-            currentPeriod: toPeriod(data.currentWeek),
-            previousPeriod: toPeriod(data.previousWeek),
-            ftpTrend: data.ftpTrend ?? null,
-            paceTrend: data.runPaceTrend ?? null,
-            recentPRs,
-            todayPattern: data.todayPattern ?? null,
-            sectionTrends,
-            formTsb: latestWellness ? tsb : null,
-            formCtl: ctl > 0 ? ctl : null,
-            formAtl: atl > 0 ? atl : null,
-            peakCtl: null,
-            currentCtl: ctl > 0 ? ctl : null,
-            wellnessWindow,
-            chronicPeriod,
-            isRestDay,
-            allSectionTrends: sectionTrends,
-            tomorrowPattern: tomorrowPattern
-              ? {
-                  sportType: tomorrowPattern.sportType,
-                  primaryDay: tomorrowPattern.primaryDay,
-                  avgDurationSecs: tomorrowPattern.avgDurationSecs,
-                  confidence: tomorrowPattern.confidence,
-                  activityCount: tomorrowPattern.activityCount,
-                }
-              : null,
-            allPatterns: allPatterns.map((p) => ({
-              sportType: p.sportType,
-              primaryDay: p.primaryDay,
-              avgDurationSecs: p.avgDurationSecs,
-              confidence: p.confidence,
-              activityCount: p.activityCount,
-            })),
-            efficiencyTrendSectionIds,
-          },
-          t as (key: string, params?: Record<string, string | number>) => string
-        );
-
-        if (isMountedRef.current) {
-          setInsights(result);
-        }
-      } catch {
-        if (isMountedRef.current) {
-          setInsights([]);
-        }
+      if (isMountedRef.current) {
+        setInsights(result);
       }
     });
 
     return () => handle.cancel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trigger, preComputedInsightsData, wellnessData, tsb, ctl, atl, latestWellness, t]);
+  }, [trigger, focusTrigger, preComputedInsightsData, preComputedSummaryCardData, wellnessData, t]);
 
   // Stabilise reference -- only update when insight IDs actually change
   const prevInsightsRef = useRef<Insight[]>([]);
@@ -340,27 +122,34 @@ export function useInsights(
     return insights;
   }, [insights]);
 
+  // Compute fingerprint + diff once, reuse in both memo and effect
+  const lastComputedRef = useRef<{ fingerprint: string; changed: Set<string> }>({
+    fingerprint: '',
+    changed: new Set(),
+  });
+
   // Annotate isNew based on fingerprint diffing
   const annotatedInsights = useMemo(() => {
-    if (stableInsights.length === 0) return stableInsights;
+    if (stableInsights.length === 0) {
+      lastComputedRef.current = { fingerprint: '', changed: new Set() };
+      return stableInsights;
+    }
     const currentFingerprint = computeInsightFingerprint(stableInsights);
-    if (currentFingerprint === lastSeenFingerprint) return stableInsights;
-    const changed = diffInsights(stableInsights, lastSeenFingerprint);
+    const changed =
+      currentFingerprint === lastSeenFingerprint
+        ? new Set<string>()
+        : diffInsights(stableInsights, lastSeenFingerprint);
+    lastComputedRef.current = { fingerprint: currentFingerprint, changed };
     if (changed.size === 0) return stableInsights;
     return stableInsights.map((i) => (changed.has(i.id) ? { ...i, isNew: true } : i));
   }, [stableInsights, lastSeenFingerprint]);
 
-  // Update hasNewInsights flag based on fingerprint diff
+  // Update hasNewInsights flag — reuse fingerprint/diff from above
   useEffect(() => {
-    if (annotatedInsights.length === 0) {
-      setNewInsights(new Set());
-      return;
-    }
-    const currentFingerprint = computeInsightFingerprint(annotatedInsights);
-    if (currentFingerprint === lastSeenFingerprint) {
+    const { fingerprint, changed } = lastComputedRef.current;
+    if (annotatedInsights.length === 0 || fingerprint === lastSeenFingerprint) {
       setNewInsights(new Set());
     } else {
-      const changed = diffInsights(annotatedInsights, lastSeenFingerprint);
       setNewInsights(changed);
     }
   }, [annotatedInsights, lastSeenFingerprint, setNewInsights]);

@@ -4,24 +4,17 @@ import { Text } from 'react-native-paper';
 import { Canvas, Path, Circle } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
-import { colors, darkColors, spacing, shadows, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  shadows,
+  colorWithOpacity,
+  brand,
+  insightCategoryColors,
+} from '@/theme';
 import { ChartErrorBoundary } from '@/components/ui';
 import type { Insight } from '@/types';
-
-const CATEGORY_COLORS: Record<string, string> = {
-  section_pr: '#FFD700',
-  fitness_milestone: '#4CAF50',
-  period_comparison: '#2196F3',
-  activity_pattern: '#9C27B0',
-  training_consistency: '#FF9800',
-  hrv_trend: '#66BB6A',
-  tsb_form: '#42A5F5',
-  weekly_load: '#FFA726',
-  intensity_context: '#FFA726',
-  stale_pr: '#FF9800',
-  section_cluster: '#66BB6A',
-  efficiency_trend: '#66BB6A',
-};
 
 interface InsightListCardProps {
   insight: Insight;
@@ -45,13 +38,6 @@ function getInlineMetric(insight: Insight): { value: string; context?: string } 
       }
       return null;
     }
-    case 'tsb_form': {
-      if (dp && dp.length >= 1) {
-        const tsb = dp.find((d) => d.label.toLowerCase().includes('tsb'));
-        if (tsb) return { value: String(tsb.value) };
-      }
-      return null;
-    }
     case 'hrv_trend': {
       if (dp && dp.length >= 1) {
         return {
@@ -60,11 +46,27 @@ function getInlineMetric(insight: Insight): { value: string; context?: string } 
       }
       return null;
     }
-    case 'period_comparison':
-    case 'weekly_load': {
+    case 'period_comparison': {
       if (comp) {
         return {
           value: String(comp.change.value),
+        };
+      }
+      return null;
+    }
+    case 'strength_progression': {
+      if (comp) {
+        return {
+          value: String(comp.change.value),
+        };
+      }
+      return null;
+    }
+    case 'strength_balance': {
+      const ratioPoint = dp?.find((d) => d.label === 'Ratio');
+      if (ratioPoint) {
+        return {
+          value: String(ratioPoint.value),
         };
       }
       return null;
@@ -120,7 +122,7 @@ const MiniSparkline = React.memo(function MiniSparkline({
     const h = SPARK_H - py * 2;
     const points = data.map((v, i) => ({
       x: px + (i / (data.length - 1)) * w,
-      y: py + ((v - min) / range) * h,
+      y: py + h - ((v - min) / range) * h,
     }));
     let d = `M ${points[0].x} ${points[0].y}`;
     for (let i = 1; i < points.length; i++) {
@@ -140,7 +142,7 @@ const MiniSparkline = React.memo(function MiniSparkline({
     const h = SPARK_H - py * 2;
     return {
       x: px + w,
-      y: py + ((data[data.length - 1] - min) / range) * h,
+      y: py + h - ((data[data.length - 1] - min) / range) * h,
     };
   }, [data]);
 
@@ -161,11 +163,16 @@ export const InsightListCard = React.memo(function InsightListCard({
   onPress,
 }: InsightListCardProps) {
   const { isDark } = useTheme();
-  const categoryColor = CATEGORY_COLORS[insight.category] ?? colors.primary;
+  const categoryColor = insightCategoryColors[insight.category] ?? colors.primary;
   const metric = useMemo(() => getInlineMetric(insight), [insight]);
   const sparkData = useMemo(() => getSparklineData(insight), [insight]);
 
-  const contextColor = metric?.context?.startsWith('+') ? colors.success : colors.warning;
+  const contextColor =
+    metric?.context == null
+      ? colors.warning
+      : metric.context.startsWith('+')
+        ? colors.success
+        : colors.warning;
 
   const handlePress = useCallback(() => onPress(insight), [onPress, insight]);
 
@@ -174,6 +181,7 @@ export const InsightListCard = React.memo(function InsightListCard({
       style={[styles.card, isDark && styles.cardDark]}
       onPress={handlePress}
       activeOpacity={0.7}
+      testID={`insight-card-${insight.id}`}
     >
       <View style={[styles.colorBar, { backgroundColor: categoryColor }]} />
       <View style={[styles.iconCircle, { backgroundColor: colorWithOpacity(categoryColor, 0.1) }]}>
@@ -278,7 +286,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#FC4C02',
+    backgroundColor: brand.orange,
   },
   subtitle: {
     fontSize: 11,

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting, removeSetting } from '@/lib/backup';
 import { debug } from '@/lib/utils/debug';
 
 const log = debug.create('UploadPermission');
@@ -47,7 +47,7 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const stored = await getSetting(STORAGE_KEY);
       if (stored) {
         const parsed: PersistedState = JSON.parse(stored);
         if (typeof parsed.hasWritePermission === 'boolean') {
@@ -69,7 +69,7 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
     log.log(`OAuth scope check: ${hasWrite ? 'has' : 'missing'} ACTIVITY:WRITE (scope: ${scope})`);
     const { bannerDismissed } = get();
     set({ hasWritePermission: hasWrite, needsUpgrade: !hasWrite, grantedScopes: scope });
-    AsyncStorage.setItem(
+    setSetting(
       STORAGE_KEY,
       JSON.stringify({ hasWritePermission: hasWrite, bannerDismissed, grantedScopes: scope })
     ).catch(() => {});
@@ -80,24 +80,22 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
   setHasWritePermission: (v) => {
     const { bannerDismissed } = get();
     set({ hasWritePermission: v, needsUpgrade: !v });
-    AsyncStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ hasWritePermission: v, bannerDismissed })
-    ).catch(() => {});
+    setSetting(STORAGE_KEY, JSON.stringify({ hasWritePermission: v, bannerDismissed })).catch(
+      () => {}
+    );
   },
 
   dismissBanner: () => {
     const { hasWritePermission } = get();
     set({ bannerDismissed: true });
-    AsyncStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ hasWritePermission, bannerDismissed: true })
-    ).catch(() => {});
+    setSetting(STORAGE_KEY, JSON.stringify({ hasWritePermission, bannerDismissed: true })).catch(
+      () => {}
+    );
   },
 
   reset: () => {
     set({ needsUpgrade: false, hasWritePermission: null, bannerDismissed: false });
-    AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+    removeSetting(STORAGE_KEY).catch(() => {});
   },
 }));
 

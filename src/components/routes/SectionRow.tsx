@@ -14,7 +14,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, shadows } from '@/theme';
 import { formatDistance, getBoundsFromPoints, getActivityColor, getActivityIcon } from '@/lib';
 import type { ActivityType, FrequentSection, RoutePoint } from '@/types';
 import type { SectionSummary } from 'veloqrs';
@@ -113,8 +113,8 @@ const TRACE_COLORS = [
   'rgba(252, 76, 2, 0.30)',
 ];
 
-const PREVIEW_WIDTH = 56;
-const PREVIEW_HEIGHT = 40;
+const PREVIEW_WIDTH = 48;
+const PREVIEW_HEIGHT = 36;
 const PREVIEW_PADDING = 4;
 
 export const SectionRow = memo(function SectionRow({
@@ -427,14 +427,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     marginHorizontal: spacing.md,
-    marginBottom: spacing.xs,
+    marginBottom: 2,
     borderRadius: 10,
-    padding: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    padding: 6,
+    ...shadows.pill,
   },
   containerDark: {
     backgroundColor: darkColors.surface,
@@ -442,13 +438,13 @@ const styles = StyleSheet.create({
   previewBox: {
     width: PREVIEW_WIDTH,
     height: PREVIEW_HEIGHT,
-    borderRadius: 6,
+    borderRadius: 5,
     overflow: 'hidden',
   },
   previewPlaceholder: {
     width: PREVIEW_WIDTH,
     height: PREVIEW_HEIGHT,
-    borderRadius: 6,
+    borderRadius: 5,
     backgroundColor: 'rgba(0,0,0,0.05)',
     justifyContent: 'center',
     alignItems: 'center',

@@ -10,7 +10,7 @@ import {
   Line as SkiaLine,
 } from '@shopify/react-native-skia';
 import { useTheme } from '@/hooks';
-import { formatDuration, formatShortDate } from '@/lib';
+import { formatDuration, formatShortDate, safeGetTime } from '@/lib';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import { ChartErrorBoundary } from '@/components/ui';
 import type { SectionPerformanceRecord } from '@/hooks/routes/useSectionPerformances';
@@ -44,7 +44,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
 
   // Sort records chronologically
   const sorted = useMemo(
-    () => [...records].sort((a, b) => a.activityDate.getTime() - b.activityDate.getTime()),
+    () => [...records].sort((a, b) => safeGetTime(a.activityDate) - safeGetTime(b.activityDate)),
     [records]
   );
 

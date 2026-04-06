@@ -1,0 +1,77 @@
+# Section Rename Edge Cases
+# Tests section rename with very long names and special characters
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+
+# Wait for sections to load
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+
+# Tap first section row
+- tapOn:
+    id: "section-row-0"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "section-detail-screen"
+    timeout: 10000
+    optional: true
+
+# Only proceed with rename tests if section detail loaded
+- runFlow:
+    when:
+      visible:
+        id: "section-detail-screen"
+    commands:
+      # Test 1: Very long name (100+ chars)
+      - tapOn:
+          id: "section-rename-button"
+      - extendedWaitUntil:
+          visible:
+            id: "section-rename-input"
+          timeout: 5000
+      - eraseText:
+            charactersToErase: 200
+      - inputText: "A Very Long Section Name That Exceeds Normal Length Expectations And Should Be Handled Gracefully By The App"
+      - tapOn:
+          id: "section-rename-save"
+      # Verify no crash
+      - extendedWaitUntil:
+          visible:
+            id: "section-detail-screen"
+          timeout: 5000
+
+      - takeScreenshot: "input-section-rename-edge-long-name"
+
+      # Test 2: Special characters and unicode
+      - tapOn:
+          id: "section-rename-button"
+      - extendedWaitUntil:
+          visible:
+            id: "section-rename-input"
+          timeout: 5000
+      - eraseText:
+            charactersToErase: 200
+      - inputText: "Test Cote d'Azur - Section No1"
+      - tapOn:
+          id: "section-rename-save"
+      # Verify no crash
+      - extendedWaitUntil:
+          visible:
+            id: "section-detail-screen"
+          timeout: 5000
+
+      - takeScreenshot: "input-section-rename-edge-special-chars"
+
+- takeScreenshot: "input-section-rename-edge-complete"

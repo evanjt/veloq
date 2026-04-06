@@ -4,13 +4,16 @@ import { enableFreeze } from 'react-native-screens';
 enableFreeze(true);
 
 import { LogBox } from 'react-native';
-LogBox.ignoreAllLogs();
+if (!__DEV__) {
+  // Keep production logs quieter without hiding warnings while developing.
+  LogBox.ignoreLogs(['Require cycle:', 'Sending `onAnimatedValueUpdate`']);
+}
 
 import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
-import { PaperProvider } from 'react-native-paper';
+import { PaperProvider, Text } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
-import { AppState, useColorScheme, View, ActivityIndicator, Platform } from 'react-native';
+import { Alert, AppState, View, ActivityIndicator, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
@@ -22,6 +25,7 @@ import {
   NetworkProvider,
   TopSafeAreaProvider,
   initializeTheme,
+  useResolvedColorScheme,
   useAuthStore,
   initializeSportPreference,
   initializeHRZones,
@@ -37,6 +41,8 @@ import {
   initializeInsightsStore,
   initializeRecordingPreferences,
   initializeUploadPermission,
+  initializeNotificationPreferences,
+  initializeNotificationPrompt,
   useSyncDateRange,
   useEngineStatus,
 } from '@/providers';
@@ -47,25 +53,55 @@ import {
   DemoBanner,
   GlobalDataSync,
   OfflineBanner,
+  EngineInitBanner,
   BottomTabBar,
   GlobalErrorBoundary,
   WhatsNewModal,
   TourReturnPill,
 } from '@/components/ui';
-import { RecordingBanner } from '@/components/recording/RecordingBanner';
 import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
+import {
+  migrateSettingsToSqlite,
+  onAppBackground,
+  onAppForeground,
+  initWebdavConfig,
+} from '@/lib/backup';
+import {
+  initializeNotifications,
+  setupNotificationResponseHandler,
+  hasNotificationPermission,
+} from '@/lib/notifications/notificationService';
+
+// Register background insight task at module scope (required by TaskManager)
+import '@/lib/notifications/backgroundInsightTask';
+import { registerBackgroundNotificationTask } from '@/lib/notifications/backgroundInsightTask';
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
 // These occur because Victory uses shared values during render (known library behavior)
 configureReanimatedLogger({ level: ReanimatedLogLevel.error, strict: false });
 
-// Configure MapLibre to only log errors (suppress info/warning spam)
+// Configure MapLibre to only log errors, with HTTP 404s downgraded to warnings
+// (prevents red screen in dev mode from transient tile/font 404s)
 let mapLibreLoggerConfigured = false;
 function configureMapLibreLogger() {
   if (mapLibreLoggerConfigured) return;
   try {
     MapLibreLogger.setLogLevel('error');
+    MapLibreLogger.setLogCallback((log: { message: string; level: string; tag?: string }) => {
+      if (
+        log.level === 'error' &&
+        (log.tag === 'Mbgl-HttpRequest' ||
+          log.message.includes('404') ||
+          log.message.includes('not found'))
+      ) {
+        if (__DEV__) {
+          console.warn('MapLibre HTTP warning:', log.message);
+        }
+        return true;
+      }
+      return false;
+    });
     mapLibreLoggerConfigured = true;
   } catch (error) {
     if (__DEV__) {
@@ -79,7 +115,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
-  const expandRange = useSyncDateRange((s) => s.expandRange);
+  const initializeRange = useSyncDateRange((s) => s.initializeRange);
 
   // Process queued uploads on network restore / app foreground
   useUploadQueueProcessor();
@@ -111,12 +147,21 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             const routeWord = i18n.t('routes.routeWord');
             const sectionWord = i18n.t('routes.sectionWord');
             engine.setNameTranslations(routeWord, sectionWord);
+            // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
+            migrateSettingsToSqlite().catch(() => {});
+            // Load WebDAV credentials into memory cache
+            initWebdavConfig().catch(() => {});
+            // Write athlete ID to SQLite for backup cross-athlete protection
+            const athleteId = useAuthStore.getState().athleteId;
+            if (athleteId) {
+              engine.setSetting('__athlete_id', athleteId);
+            }
             // Initialize SyncDateRangeStore from engine's actual cached data
             const stats = engine.getStats();
             if (stats?.oldestDate && stats?.newestDate) {
               const oldestDateStr = formatLocalDate(new Date(Number(stats.oldestDate) * 1000));
               const newestDateStr = formatLocalDate(new Date(Number(stats.newestDate) * 1000));
-              expandRange(oldestDateStr, newestDateStr);
+              initializeRange(oldestDateStr, newestDateStr);
               if (__DEV__) {
                 console.log(
                   `[SyncDateRange] Initialized from engine: ${oldestDateStr} - ${newestDateStr}`
@@ -144,7 +189,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         tryInit(0);
       }
     }
-  }, [isAuthenticated, expandRange, setEngineInitFailed]);
+  }, [isAuthenticated, initializeRange, setEngineInitFailed]);
 
   // Reset infinite activities query when the date rolls over while backgrounded.
   // initialPageParam is computed at render time with today's date, but the feed tab
@@ -154,11 +199,30 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') {
+        onAppBackground();
+      }
       if (state === 'active') {
+        onAppForeground();
         const today = formatLocalDate(new Date());
         if (today !== lastForegroundDateRef.current) {
           lastForegroundDateRef.current = today;
           queryClient.resetQueries({ queryKey: ['activities-infinite'] });
+        }
+
+        // Sync notification state: if OS permission was revoked while backgrounded,
+        // disable notifications in the app store and unregister the push token
+        const {
+          getNotificationPreferences,
+          useNotificationPreferences,
+        } = require('@/providers/NotificationPreferencesStore');
+        const prefs = getNotificationPreferences();
+        if (prefs.enabled) {
+          hasNotificationPermission().then((granted) => {
+            if (!granted) {
+              useNotificationPreferences.getState().setEnabled(false);
+            }
+          });
         }
       }
     });
@@ -174,6 +238,50 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       // Not authenticated and not on login screen - redirect to login
       router.replace('/login' as Href);
     } else if (isAuthenticated && inLoginScreen) {
+      // Check for athlete ID mismatch (restored backup from different account)
+      const engine = getRouteEngine();
+      const backupAthleteId = engine?.getSetting('__athlete_id');
+      const currentAthleteId = useAuthStore.getState().athleteId;
+      if (
+        backupAthleteId &&
+        currentAthleteId &&
+        backupAthleteId !== currentAthleteId &&
+        engine?.getActivityCount()
+      ) {
+        Alert.alert(
+          i18n.t('backup.differentAccount', {
+            defaultValue: 'Different Account',
+          }),
+          i18n.t('backup.differentAccountMessage', {
+            defaultValue:
+              'The restored data belongs to a different account. Clear data and sync fresh for this account?',
+          }),
+          [
+            {
+              text: i18n.t('common.cancel'),
+              style: 'cancel',
+              onPress: () => {
+                // Sign out — return to login
+                useAuthStore.getState().clearCredentials();
+              },
+            },
+            {
+              text: i18n.t('backup.clearAndSync', { defaultValue: 'Clear & Sync' }),
+              style: 'destructive',
+              onPress: async () => {
+                engine?.clear();
+                engine?.setSetting('__athlete_id', currentAthleteId);
+                router.replace('/' as Href);
+              },
+            },
+          ]
+        );
+        return;
+      }
+      // Update athlete ID for this account
+      if (currentAthleteId && engine) {
+        engine.setSetting('__athlete_id', currentAthleteId);
+      }
       // Authenticated but on login screen - redirect to main app
       router.replace('/' as Href);
     }
@@ -203,42 +311,97 @@ const SCREENSHOT_MODE = __DEV__ && false;
 
 export default function RootLayout() {
   const [appReady, setAppReady] = useState(false);
-  const colorScheme = useColorScheme();
+  const [startupError, setStartupError] = useState<string | null>(null);
+  const colorScheme = useResolvedColorScheme();
   const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
   const initializeAuth = useAuthStore((state) => state.initialize);
 
   // Initialize theme, auth, sport preference, HR zones, route settings, and i18n on app start
   useEffect(() => {
     async function initialize() {
-      // Configure MapLibre logger early (safe to do now that native modules are loaded)
-      configureMapLibreLogger();
+      try {
+        // Configure MapLibre logger early (safe to do now that native modules are loaded)
+        configureMapLibreLogger();
 
-      // Initialize language first to get the saved locale
-      const savedLocale = await initializeLanguage();
-      // Then initialize i18n with the saved locale
-      await initializeI18n(savedLocale);
-      // Initialize other providers in parallel
-      // Dashboard preferences uses 'Cycling' fallback if sport preference isn't loaded yet
-      await Promise.all([
-        initializeTheme(),
-        initializeAuth(),
-        initializeSportPreference(),
-        initializeUnitPreference(),
-        initializeHRZones(),
-        initializeRouteSettings(),
-        initializeSupersededSections(),
-        initializeDisabledSections(),
-        initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
-        initializeDebugStore(),
-        initializeTileCacheStore(),
-        initializeWhatsNewStore(),
-        initializeInsightsStore(),
-        initializeRecordingPreferences(),
-        initializeUploadPermission(),
-      ]);
+        // Initialize language first to get the saved locale
+        const savedLocale = await initializeLanguage();
+        // Then initialize i18n with the saved locale
+        await initializeI18n(savedLocale);
+        // Initialize other providers in parallel
+        // Dashboard preferences uses 'Cycling' fallback if sport preference isn't loaded yet
+        const results = await Promise.allSettled([
+          initializeTheme(),
+          initializeAuth(),
+          initializeSportPreference(),
+          initializeUnitPreference(),
+          initializeHRZones(),
+          initializeRouteSettings(),
+          initializeSupersededSections(),
+          initializeDisabledSections(),
+          initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
+          initializeDebugStore(),
+          initializeTileCacheStore(),
+          initializeWhatsNewStore(),
+          initializeInsightsStore(),
+          initializeRecordingPreferences(),
+          initializeUploadPermission(),
+          initializeNotificationPreferences(),
+          initializeNotificationPrompt(),
+        ]);
+
+        const failed = results.filter((result) => result.status === 'rejected');
+        if (failed.length > 0) {
+          const firstError = failed[0] as PromiseRejectedResult;
+          const message =
+            firstError.reason instanceof Error
+              ? firstError.reason.message
+              : String(firstError.reason ?? 'Unknown startup error');
+          setStartupError(message);
+          if (__DEV__) {
+            console.warn(
+              `[AppInit] ${failed.length} initializer(s) failed. First error: ${message}`
+            );
+          }
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown startup error';
+        setStartupError(message);
+        if (__DEV__) {
+          console.error('[AppInit] Fatal initialization error:', error);
+        }
+      } finally {
+        setAppReady(true);
+      }
     }
-    initialize().finally(() => setAppReady(true));
+    initialize();
   }, [initializeAuth]);
+
+  // Set up notification handlers once on mount
+  useEffect(() => {
+    initializeNotifications();
+    registerBackgroundNotificationTask();
+    const subscription = setupNotificationResponseHandler();
+    return () => subscription.remove();
+  }, []);
+
+  // Re-register push token on app open (refreshes TTL on server)
+  // Also retry any failed unregister from a previous session
+  useEffect(() => {
+    if (!appReady) return;
+    const {
+      getNotificationPreferences,
+      retryPendingUnregister,
+    } = require('@/providers/NotificationPreferencesStore');
+    const { useAuthStore: authStore } = require('@/providers/AuthStore');
+    const prefs = getNotificationPreferences();
+    const { athleteId, isDemoMode: demo } = authStore.getState();
+    if (prefs.enabled && athleteId && !demo) {
+      const { registerPushToken } = require('@/lib/notifications/pushTokenRegistration');
+      registerPushToken(athleteId);
+    } else if (!prefs.enabled && prefs.pendingUnregister && athleteId) {
+      retryPendingUnregister(athleteId);
+    }
+  }, [appReady]);
 
   // Show minimal loading while initializing
   if (!appReady) {
@@ -272,8 +435,45 @@ export default function RootLayout() {
                     animated
                   />
                   <AuthGate>
+                    {startupError ? (
+                      <View
+                        style={{
+                          backgroundColor: colorScheme === 'dark' ? '#3F2A17' : '#FEF3C7',
+                          borderBottomWidth: 1,
+                          borderBottomColor: colorScheme === 'dark' ? '#92400E' : '#F59E0B',
+                          paddingHorizontal: 16,
+                          paddingVertical: 10,
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <ActivityIndicator size="small" color="#F59E0B" />
+                          <Text
+                            style={{
+                              flex: 1,
+                              color: colorScheme === 'dark' ? '#FDE68A' : '#92400E',
+                              fontSize: 13,
+                              lineHeight: 18,
+                            }}
+                          >
+                            Startup completed with errors. Some features may be unavailable.
+                          </Text>
+                        </View>
+                        {__DEV__ ? (
+                          <Text
+                            style={{
+                              marginTop: 4,
+                              color: colorScheme === 'dark' ? '#FCD34D' : '#B45309',
+                              fontSize: 12,
+                            }}
+                            numberOfLines={2}
+                          >
+                            {startupError}
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : null}
                     <OfflineBanner />
-                    <RecordingBanner />
+                    <EngineInitBanner />
                     <GlobalDataSync />
                     <DemoBanner />
                     <WhatsNewModal />

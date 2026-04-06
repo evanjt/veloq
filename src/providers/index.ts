@@ -3,6 +3,8 @@ export {
   initializeTheme,
   setThemePreference,
   getThemePreference,
+  useThemePreferenceStore,
+  useResolvedColorScheme,
   type ThemePreference,
 } from './ThemeProvider';
 export {
@@ -100,9 +102,16 @@ export {
   computeInsightFingerprint,
   diffInsights,
 } from './InsightsStore';
+export {
+  useNotificationPreferences,
+  getNotificationPreferences,
+  initializeNotificationPreferences,
+  type NotificationPreferences,
+} from './NotificationPreferencesStore';
 export { useRecordingStore, getRecordingStatus } from './RecordingStore';
 export {
   useRecordingPreferences,
   initializeRecordingPreferences,
 } from './RecordingPreferencesStore';
 export { useUploadPermissionStore, initializeUploadPermission } from './UploadPermissionStore';
+export { useNotificationPrompt, initializeNotificationPrompt } from './NotificationPromptStore';

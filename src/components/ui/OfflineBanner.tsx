@@ -29,7 +29,7 @@ export function OfflineBanner() {
 
   return (
     <Animated.View entering={SlideInUp.duration(250)} exiting={SlideOutUp.duration(200)}>
-      <View style={[styles.container, { paddingTop: topPadding }]}>
+      <View style={[styles.container, { paddingTop: topPadding }]} testID="offline-banner">
         <View style={styles.content}>
           <MaterialCommunityIcons name="cloud-off-outline" size={16} color={colors.textOnDark} />
           <Text style={styles.text}>{t('emptyState.offline.title')}</Text>

@@ -20,7 +20,7 @@ import { useFFITimer } from '@/hooks/debug/useFFITimer';
 import { formatDurationHuman, isCyclingActivity, getAvailableCharts, CHART_CONFIGS } from '@/lib';
 import type { ChartTypeId } from '@/lib';
 import type { ActivityDetail, ActivityStreams, ActivityInterval, WellnessData } from '@/types';
-import { colors, darkColors, spacing, typography, layout, opacity } from '@/theme';
+import { colors, darkColors, spacing, typography, layout, opacity, shadows } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 
 interface LatLng {
@@ -277,50 +277,55 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
 
                 {/* Intervals zone bar */}
                 {intervalsData?.icu_intervals && intervalsData.icu_intervals.length > 0 && (
-                  <>
-                    <TouchableOpacity
-                      style={[styles.intervalsBar, isDark && styles.intervalsBarDark]}
-                      onPress={() => setIntervalsExpanded((v) => !v)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.intervalsBarLeft}>
-                        <Text style={[styles.intervalsTitle, isDark && styles.textMuted]}>
-                          {t('activityDetail.tabs.intervals')}
-                        </Text>
-                        {intervalZoneSummary.map((z, i) => (
-                          <View
-                            key={i}
-                            style={[styles.zoneChip, { backgroundColor: z.color + '25' }]}
-                          >
-                            <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
-                            <Text style={[styles.zoneChipText, { color: z.color }]}>
-                              {z.label} x{z.count} {formatDurationHuman(z.totalTime)}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                      <MaterialCommunityIcons
-                        name={intervalsExpanded ? 'chevron-up' : 'chevron-down'}
-                        size={18}
-                        color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                    {intervalsExpanded && (
-                      <IntervalsTable
-                        intervals={intervalsData.icu_intervals}
-                        activityType={activity.type}
-                        isMetric={isMetric}
-                        isDark={isDark}
-                      />
-                    )}
-                  </>
+                  <View testID="activity-interval-table">
+                    <>
+                      <TouchableOpacity
+                        style={[styles.intervalsBar, isDark && styles.intervalsBarDark]}
+                        onPress={() => setIntervalsExpanded((v) => !v)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.intervalsBarLeft}>
+                          <Text style={[styles.intervalsTitle, isDark && styles.textMuted]}>
+                            {t('activityDetail.tabs.intervals')}
+                          </Text>
+                          {intervalZoneSummary.map((z, i) => (
+                            <View
+                              key={i}
+                              style={[styles.zoneChip, { backgroundColor: z.color + '25' }]}
+                            >
+                              <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
+                              <Text style={[styles.zoneChipText, { color: z.color }]}>
+                                {z.label} x{z.count} {formatDurationHuman(z.totalTime)}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                        <MaterialCommunityIcons
+                          name={intervalsExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={18}
+                          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                      {intervalsExpanded && (
+                        <IntervalsTable
+                          intervals={intervalsData.icu_intervals}
+                          activityType={activity.type}
+                          isMetric={isMetric}
+                          isDark={isDark}
+                        />
+                      )}
+                    </>
+                  </View>
                 )}
               </View>
             )}
 
             {/* HR Zones Chart */}
             {streams?.heartrate && streams.heartrate.length > 0 && (
-              <View style={[styles.chartCard, isDark && styles.cardDark]}>
+              <View
+                testID="activity-zone-chart"
+                style={[styles.chartCard, isDark && styles.cardDark]}
+              >
                 <ComponentErrorBoundary componentName="HR Zones Chart">
                   <HRZonesChart
                     streams={streams}
@@ -555,11 +560,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
     marginBottom: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: spacing.sm,
-    elevation: 2,
+    ...shadows.card,
     minHeight: 180,
     overflow: 'hidden',
   },
@@ -668,11 +669,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.md,
     gap: spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    ...shadows.elevated,
   },
   exportGpxButtonDark: {
     backgroundColor: colors.primary,

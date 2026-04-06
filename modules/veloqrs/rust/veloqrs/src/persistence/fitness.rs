@@ -1,13 +1,12 @@
 //! Fitness data: activity metrics, aggregate queries, performances, athlete profile.
 
-use std::collections::HashMap;
-use rusqlite::{Result as SqlResult, params};
-use chrono::{Datelike, DateTime};
 use crate::{
-    ActivityMetrics, Direction, DirectionStats,
-    RoutePerformance, RoutePerformanceResult,
+    ActivityMetrics, Direction, DirectionStats, RoutePerformance, RoutePerformanceResult,
     SectionLap, SectionPerformanceRecord, SectionPerformanceResult,
 };
+use chrono::{DateTime, Datelike};
+use rusqlite::{Result as SqlResult, params};
+use std::collections::HashMap;
 
 use super::PersistentRouteEngine;
 
@@ -61,7 +60,10 @@ impl PersistentRouteEngine {
     /// Set activity metrics with extended fields (training load, FTP, zone times).
     /// Persists all fields to the database. Extended fields are only used for SQL aggregate queries.
     /// Also maintains performance caches (zone sums, FTP history, heatmap intensity).
-    pub fn set_activity_metrics_extended(&mut self, metrics: Vec<crate::FfiActivityMetrics>) -> SqlResult<()> {
+    pub fn set_activity_metrics_extended(
+        &mut self,
+        metrics: Vec<crate::FfiActivityMetrics>,
+    ) -> SqlResult<()> {
         {
             let mut stmt = self.db.prepare(
                 "INSERT OR REPLACE INTO activity_metrics
@@ -75,18 +77,34 @@ impl PersistentRouteEngine {
 
             for m in &metrics {
                 // Use zone times directly for cache columns
-                let power_zones: Vec<f64> = m.power_zone_times
+                let power_zones: Vec<f64> = m
+                    .power_zone_times
                     .as_ref()
                     .map(|v| v.iter().map(|&s| s as f64).collect())
                     .unwrap_or_else(|| vec![0.0; 7]);
-                let hr_zones: Vec<f64> = m.hr_zone_times
+                let hr_zones: Vec<f64> = m
+                    .hr_zone_times
                     .as_ref()
                     .map(|v| v.iter().map(|&s| s as f64).collect())
                     .unwrap_or_else(|| vec![0.0; 5]);
 
                 // Serialize to JSON for SQLite TEXT column (backwards compatible)
-                let power_json = m.power_zone_times.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default());
-                let hr_json = m.hr_zone_times.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default());
+                let power_json: Option<String> = m
+                    .power_zone_times
+                    .as_ref()
+                    .map(|v| {
+                        serde_json::to_string(v)
+                            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+                    })
+                    .transpose()?;
+                let hr_json: Option<String> = m
+                    .hr_zone_times
+                    .as_ref()
+                    .map(|v| {
+                        serde_json::to_string(v)
+                            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+                    })
+                    .transpose()?;
 
                 stmt.execute(params![
                     &m.activity_id,
@@ -123,7 +141,7 @@ impl PersistentRouteEngine {
                     self.db.execute(
                         "INSERT OR REPLACE INTO ftp_history (date, ftp, activity_id, sport_type)
                          VALUES (?, ?, ?, ?)",
-                        params![m.date, ftp as i32, &m.activity_id, &m.sport_type]
+                        params![m.date, ftp as i32, &m.activity_id, &m.sport_type],
                     )?;
                 }
 
@@ -147,7 +165,7 @@ impl PersistentRouteEngine {
                          intensity = MAX(intensity, excluded.intensity),
                          max_duration = MAX(max_duration, excluded.max_duration),
                          activity_count = activity_count + 1",
-                    params![date_str, intensity, m.moving_time as i64]
+                    params![date_str, intensity, m.moving_time as i64],
                 )?;
             }
         }
@@ -224,18 +242,39 @@ impl PersistentRouteEngine {
             return Vec::new();
         };
 
-        self.db.query_row(query, params![sport_type], |row| {
+        match self.db.query_row(query, params![sport_type], |row| {
             if zone_type == "power" {
                 Ok(vec![
-                    row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?,
-                    row.get(4)?, row.get(5)?, row.get(6)?
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
                 ])
             } else {
                 Ok(vec![
-                    row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
                 ])
             }
-        }).unwrap_or_default()
+        }) {
+            Ok(result) => result,
+            Err(rusqlite::Error::QueryReturnedNoRows) => Vec::new(),
+            Err(e) => {
+                log::warn!(
+                    "[fitness] get_zone_distribution query failed for sport={}, zone={}: {}",
+                    sport_type,
+                    zone_type,
+                    e
+                );
+                Vec::new()
+            }
+        }
     }
 
     /// Get FTP trend: latest and previous FTP values with dates.
@@ -252,7 +291,7 @@ impl PersistentRouteEngine {
         let mut stmt = match self.db.prepare(
             "SELECT ftp, date FROM ftp_history
              ORDER BY date DESC
-             LIMIT 20"
+             LIMIT 20",
         ) {
             Ok(s) => s,
             Err(_) => return default,
@@ -347,9 +386,10 @@ impl PersistentRouteEngine {
 
     /// Get distinct sport types from stored activities.
     pub fn get_available_sport_types(&self) -> Vec<String> {
-        let mut stmt = match self.db.prepare(
-            "SELECT DISTINCT sport_type FROM activity_metrics ORDER BY sport_type",
-        ) {
+        let mut stmt = match self
+            .db
+            .prepare("SELECT DISTINCT sport_type FROM activity_metrics ORDER BY sport_type")
+        {
             Ok(s) => s,
             Err(_) => return Vec::new(),
         };
@@ -366,7 +406,11 @@ impl PersistentRouteEngine {
 
     /// Get pre-computed daily activity intensity from the heatmap cache.
     /// Returns days within the given date range (YYYY-MM-DD strings).
-    pub fn get_activity_heatmap(&self, start_date: &str, end_date: &str) -> Vec<crate::FfiHeatmapDay> {
+    pub fn get_activity_heatmap(
+        &self,
+        start_date: &str,
+        end_date: &str,
+    ) -> Vec<crate::FfiHeatmapDay> {
         let mut stmt = match self.db.prepare(
             "SELECT date, intensity, max_duration, activity_count
              FROM activity_heatmap
@@ -481,11 +525,17 @@ impl PersistentRouteEngine {
         let null_portions: Vec<(String, String, u32, u32, f64)> = match self.db.prepare(
             "SELECT section_id, activity_id, start_index, end_index, distance_meters
              FROM section_activities
-             WHERE lap_time IS NULL AND excluded = 0"
+             WHERE lap_time IS NULL AND excluded = 0",
         ) {
             Ok(mut stmt) => stmt
                 .query_map([], |row| {
-                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
                 })
                 .ok()
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
@@ -548,7 +598,8 @@ impl PersistentRouteEngine {
         if populated > 0 {
             log::info!(
                 "tracematch: [Backfill] Populated {}/{} NULL lap_time entries",
-                populated, null_portions.len()
+                populated,
+                null_portions.len()
             );
         }
     }
@@ -577,7 +628,11 @@ impl PersistentRouteEngine {
         };
         if self.perf_cache_section_id.as_deref() == Some(&cache_key) {
             if let Some(ref cached) = self.perf_cache_result {
-                log::info!("[PERF] get_section_performances({}) -> cached in {:?}", cache_key, start.elapsed());
+                log::info!(
+                    "[PERF] get_section_performances({}) -> cached in {:?}",
+                    cache_key,
+                    start.elapsed()
+                );
                 return cached.clone();
             }
         }
@@ -608,25 +663,31 @@ impl PersistentRouteEngine {
 
         // Load portions WITH cached performance metrics from database
         // Optional sport type filter for cross-sport merged sections
-        let (query, query_params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match sport_type_filter {
-            Some(st) => (
-                "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
+        let (query, query_params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) =
+            match sport_type_filter {
+                Some(st) => (
+                    "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
                         sa.distance_meters, sa.lap_time, sa.lap_pace
                  FROM section_activities sa
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
                  WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 0
-                 ORDER BY sa.activity_id, sa.start_index".to_string(),
-                vec![Box::new(section_id.to_string()) as Box<dyn rusqlite::types::ToSql>, Box::new(st.to_string())],
-            ),
-            None => (
-                "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
+                 ORDER BY sa.activity_id, sa.start_index"
+                        .to_string(),
+                    vec![
+                        Box::new(section_id.to_string()) as Box<dyn rusqlite::types::ToSql>,
+                        Box::new(st.to_string()),
+                    ],
+                ),
+                None => (
+                    "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
                         sa.distance_meters, sa.lap_time, sa.lap_pace
                  FROM section_activities sa
                  WHERE sa.section_id = ? AND sa.excluded = 0
-                 ORDER BY sa.activity_id, sa.start_index".to_string(),
-                vec![Box::new(section_id.to_string()) as Box<dyn rusqlite::types::ToSql>],
-            ),
-        };
+                 ORDER BY sa.activity_id, sa.start_index"
+                        .to_string(),
+                    vec![Box::new(section_id.to_string()) as Box<dyn rusqlite::types::ToSql>],
+                ),
+            };
         let mut stmt = match self.db.prepare(&query) {
             Ok(s) => s,
             Err(e) => {
@@ -652,21 +713,33 @@ impl PersistentRouteEngine {
             lap_pace: Option<f64>,
         }
 
-        let params_refs: Vec<&dyn rusqlite::types::ToSql> = query_params.iter().map(|p| p.as_ref()).collect();
-        let portions: Vec<CachedPortion> = match stmt
-            .query_map(params_refs.as_slice(), |row| {
-                Ok(CachedPortion {
-                    activity_id: row.get(0)?,
-                    direction: row.get(1)?,
-                    start_index: row.get(2)?,
-                    end_index: row.get(3)?,
-                    distance_meters: row.get(4)?,
-                    lap_time: row.get(5)?,
-                    lap_pace: row.get(6)?,
-                })
+        let params_refs: Vec<&dyn rusqlite::types::ToSql> =
+            query_params.iter().map(|p| p.as_ref()).collect();
+        let portions: Vec<CachedPortion> = match stmt.query_map(params_refs.as_slice(), |row| {
+            Ok(CachedPortion {
+                activity_id: row.get(0)?,
+                direction: row.get(1)?,
+                start_index: row.get(2)?,
+                end_index: row.get(3)?,
+                distance_meters: row.get(4)?,
+                lap_time: row.get(5)?,
+                lap_pace: row.get(6)?,
             })
-        {
-            Ok(iter) => iter.collect::<Result<Vec<_>, _>>().unwrap_or_default(),
+        }) {
+            Ok(iter) => match iter.collect::<Result<Vec<_>, _>>() {
+                Ok(v) => v,
+                Err(e) => {
+                    log::error!("[DEBUG] Failed to deserialize portion row: {}", e);
+                    return SectionPerformanceResult {
+                        records: vec![],
+                        best_record: None,
+                        best_forward_record: None,
+                        best_reverse_record: None,
+                        forward_stats: None,
+                        reverse_stats: None,
+                    };
+                }
+            },
             Err(e) => {
                 log::error!("[DEBUG] Failed to query portions: {}", e);
                 return SectionPerformanceResult {
@@ -697,7 +770,9 @@ impl PersistentRouteEngine {
         let activity_ids_needing_streams: Vec<String> = portions_by_activity
             .iter()
             .filter(|(_, portions)| {
-                portions.iter().any(|p| p.lap_time.is_none() || p.lap_pace.is_none())
+                portions
+                    .iter()
+                    .any(|p| p.lap_time.is_none() || p.lap_pace.is_none())
             })
             .map(|(id, _)| id.clone())
             .collect();
@@ -862,9 +937,8 @@ impl PersistentRouteEngine {
                 if is_rev {
                     rev_times.push(lap.time);
                     rev_last_date = Some(
-                        rev_last_date.map_or(record.activity_date, |d: i64| {
-                            d.max(record.activity_date)
-                        }),
+                        rev_last_date
+                            .map_or(record.activity_date, |d: i64| d.max(record.activity_date)),
                     );
                     if lap.time < best_rev_time {
                         best_rev_time = lap.time;
@@ -874,9 +948,8 @@ impl PersistentRouteEngine {
                 } else {
                     fwd_times.push(lap.time);
                     fwd_last_date = Some(
-                        fwd_last_date.map_or(record.activity_date, |d: i64| {
-                            d.max(record.activity_date)
-                        }),
+                        fwd_last_date
+                            .map_or(record.activity_date, |d: i64| d.max(record.activity_date)),
                     );
                     if lap.time < best_fwd_time {
                         best_fwd_time = lap.time;
@@ -939,7 +1012,12 @@ impl PersistentRouteEngine {
             reverse_stats,
         };
 
-        log::info!("[PERF] get_section_performances({}) -> {} records in {:?}", section_id, result.records.len(), start.elapsed());
+        log::info!(
+            "[PERF] get_section_performances({}) -> {} records in {:?}",
+            section_id,
+            result.records.len(),
+            start.elapsed()
+        );
 
         // Cache for reuse by buckets/calendar (includes sport type filter in key)
         self.perf_cache_section_id = Some(cache_key);
@@ -951,7 +1029,10 @@ impl PersistentRouteEngine {
     /// Get performance records for excluded activities in a section.
     /// Only uses cached lap_time/lap_pace (no time stream fallback).
     /// Returns just the records — no best/stats computation.
-    pub fn get_excluded_section_performances(&mut self, section_id: &str) -> Vec<SectionPerformanceRecord> {
+    pub fn get_excluded_section_performances(
+        &mut self,
+        section_id: &str,
+    ) -> Vec<SectionPerformanceRecord> {
         // Find section sport type
         let sport_type: String = match self.sections.iter().find(|s| s.id == section_id) {
             Some(s) => s.sport_type.clone(),
@@ -965,15 +1046,19 @@ impl PersistentRouteEngine {
             },
         };
 
-        let section_distance: f64 = self.sections.iter()
+        let section_distance: f64 = self
+            .sections
+            .iter()
             .find(|s| s.id == section_id)
             .map(|s| s.distance_meters)
             .unwrap_or_else(|| {
-                self.db.query_row(
-                    "SELECT distance_meters FROM sections WHERE id = ?",
-                    params![section_id],
-                    |row| row.get(0),
-                ).unwrap_or(0.0)
+                self.db
+                    .query_row(
+                        "SELECT distance_meters FROM sections WHERE id = ?",
+                        params![section_id],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or(0.0)
             });
 
         let mut stmt = match self.db.prepare(
@@ -982,7 +1067,7 @@ impl PersistentRouteEngine {
              FROM section_activities sa
              JOIN activity_metrics am ON sa.activity_id = am.activity_id
              WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 1
-             ORDER BY sa.activity_id, sa.start_index"
+             ORDER BY sa.activity_id, sa.start_index",
         ) {
             Ok(s) => s,
             Err(_) => return Vec::new(),
@@ -1009,7 +1094,16 @@ impl PersistentRouteEngine {
                 lap_pace: row.get(6)?,
             })
         }) {
-            Ok(iter) => iter.collect::<Result<Vec<_>, _>>().unwrap_or_default(),
+            Ok(iter) => match iter.collect::<Result<Vec<_>, _>>() {
+                Ok(v) => v,
+                Err(e) => {
+                    log::error!(
+                        "[fitness] Failed to deserialize excluded portion row: {}",
+                        e
+                    );
+                    return Vec::new();
+                }
+            },
             Err(_) => return Vec::new(),
         };
         drop(stmt);
@@ -1017,14 +1111,19 @@ impl PersistentRouteEngine {
         // Group by activity
         let mut by_activity: HashMap<String, Vec<Portion>> = HashMap::new();
         for p in portions {
-            by_activity.entry(p.activity_id.clone()).or_default().push(p);
+            by_activity
+                .entry(p.activity_id.clone())
+                .or_default()
+                .push(p);
         }
 
         // Pre-load time streams for activities with cache misses
         let activity_ids_needing_streams: Vec<String> = by_activity
             .iter()
             .filter(|(_, portions)| {
-                portions.iter().any(|p| p.lap_time.is_none() || p.lap_pace.is_none())
+                portions
+                    .iter()
+                    .any(|p| p.lap_time.is_none() || p.lap_pace.is_none())
             })
             .map(|(id, _)| id.clone())
             .collect();
@@ -1039,49 +1138,64 @@ impl PersistentRouteEngine {
             .iter()
             .filter_map(|(activity_id, portions)| {
                 let metrics = self.activity_metrics.get(activity_id)?;
-                let laps: Vec<SectionLap> = portions.iter().enumerate().filter_map(|(i, p)| {
-                    let (time, pace) = match (p.lap_time, p.lap_pace) {
-                        (Some(t), Some(p)) if t > 0.0 => (t, p),
-                        _ => {
-                            // Fall back to time-stream calculation if cache miss
-                            if let Some(times) = self.time_streams.get(activity_id) {
-                                let start_idx = p.start_index as usize;
-                                let end_idx = p.end_index as usize;
-                                if start_idx < times.len() && end_idx < times.len() {
-                                    let lap_time = (times[end_idx] as f64 - times[start_idx] as f64).abs();
-                                    if lap_time > 0.0 {
-                                        (lap_time, p.distance_meters / lap_time)
+                let laps: Vec<SectionLap> = portions
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, p)| {
+                        let (time, pace) = match (p.lap_time, p.lap_pace) {
+                            (Some(t), Some(p)) if t > 0.0 => (t, p),
+                            _ => {
+                                // Fall back to time-stream calculation if cache miss
+                                if let Some(times) = self.time_streams.get(activity_id) {
+                                    let start_idx = p.start_index as usize;
+                                    let end_idx = p.end_index as usize;
+                                    if start_idx < times.len() && end_idx < times.len() {
+                                        let lap_time =
+                                            (times[end_idx] as f64 - times[start_idx] as f64).abs();
+                                        if lap_time > 0.0 {
+                                            (lap_time, p.distance_meters / lap_time)
+                                        } else {
+                                            return None;
+                                        }
                                     } else {
                                         return None;
                                     }
                                 } else {
                                     return None;
                                 }
-                            } else {
-                                return None;
                             }
-                        }
-                    };
-                    Some(SectionLap {
-                        id: format!("{}_lap{}", activity_id, i),
-                        activity_id: activity_id.to_string(),
-                        time,
-                        pace,
-                        distance: p.distance_meters,
-                        direction: p.direction.clone(),
-                        start_index: p.start_index,
-                        end_index: p.end_index,
+                        };
+                        Some(SectionLap {
+                            id: format!("{}_lap{}", activity_id, i),
+                            activity_id: activity_id.to_string(),
+                            time,
+                            pace,
+                            distance: p.distance_meters,
+                            direction: p.direction.clone(),
+                            start_index: p.start_index,
+                            end_index: p.end_index,
+                        })
                     })
-                }).collect();
+                    .collect();
 
-                if laps.is_empty() { return None; }
+                if laps.is_empty() {
+                    return None;
+                }
 
                 let lap_count = laps.len() as u32;
-                let best_lap = laps.iter().min_by(|a, b| a.time.partial_cmp(&b.time).unwrap_or(std::cmp::Ordering::Equal));
-                let (best_time, best_pace) = best_lap.map(|l| (l.time, l.pace)).unwrap_or((0.0, 0.0));
+                let best_lap = laps.iter().min_by(|a, b| {
+                    a.time
+                        .partial_cmp(&b.time)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                let (best_time, best_pace) =
+                    best_lap.map(|l| (l.time, l.pace)).unwrap_or((0.0, 0.0));
                 let avg_time = laps.iter().map(|l| l.time).sum::<f64>() / lap_count as f64;
                 let avg_pace = laps.iter().map(|l| l.pace).sum::<f64>() / lap_count as f64;
-                let direction = laps.first().map(|l| l.direction.clone()).unwrap_or_else(|| "same".to_string());
+                let direction = laps
+                    .first()
+                    .map(|l| l.direction.clone())
+                    .unwrap_or_else(|| "same".to_string());
 
                 Some(SectionPerformanceRecord {
                     activity_id: activity_id.to_string(),
@@ -1120,7 +1234,11 @@ impl PersistentRouteEngine {
         }
 
         // Get section distance from the first record
-        let section_distance = perf_result.records.first().map(|r| r.section_distance).unwrap_or(0.0);
+        let section_distance = perf_result
+            .records
+            .first()
+            .map(|r| r.section_distance)
+            .unwrap_or(0.0);
 
         fn is_reverse_dir(dir: &str) -> bool {
             matches!(dir, "reverse" | "backward")
@@ -1227,13 +1345,16 @@ impl PersistentRouteEngine {
                 months: BTreeMap::new(),
             });
 
-            let md = year_data.months.entry(month).or_insert_with(|| MonthDirData {
-                total_count: 0,
-                fwd_count: 0,
-                fwd_best: None,
-                rev_count: 0,
-                rev_best: None,
-            });
+            let md = year_data
+                .months
+                .entry(month)
+                .or_insert_with(|| MonthDirData {
+                    total_count: 0,
+                    fwd_count: 0,
+                    fwd_best: None,
+                    rev_count: 0,
+                    rev_best: None,
+                });
 
             md.total_count += 1;
             if perf.is_reverse {
@@ -1261,25 +1382,47 @@ impl PersistentRouteEngine {
                 let months: Vec<crate::CalendarMonthSummary> = year_data
                     .months
                     .into_iter()
-                    .map(|(month, md)| {
-                        crate::CalendarMonthSummary {
-                            month,
-                            traversal_count: md.total_count,
-                            forward: md.fwd_best.map(|idx| to_dir_best(&all_perfs[idx], md.fwd_count)),
-                            reverse: md.rev_best.map(|idx| to_dir_best(&all_perfs[idx], md.rev_count)),
-                        }
+                    .map(|(month, md)| crate::CalendarMonthSummary {
+                        month,
+                        traversal_count: md.total_count,
+                        forward: md
+                            .fwd_best
+                            .map(|idx| to_dir_best(&all_perfs[idx], md.fwd_count)),
+                        reverse: md
+                            .rev_best
+                            .map(|idx| to_dir_best(&all_perfs[idx], md.rev_count)),
                     })
                     .collect();
 
-                let year_fwd_best = months.iter()
-                    .filter_map(|m| m.forward.as_ref())
-                    .min_by(|a, b| a.best_time.partial_cmp(&b.best_time).unwrap_or(std::cmp::Ordering::Equal));
-                let year_rev_best = months.iter()
-                    .filter_map(|m| m.reverse.as_ref())
-                    .min_by(|a, b| a.best_time.partial_cmp(&b.best_time).unwrap_or(std::cmp::Ordering::Equal));
+                let year_fwd_best =
+                    months
+                        .iter()
+                        .filter_map(|m| m.forward.as_ref())
+                        .min_by(|a, b| {
+                            a.best_time
+                                .partial_cmp(&b.best_time)
+                                .unwrap_or(std::cmp::Ordering::Equal)
+                        });
+                let year_rev_best =
+                    months
+                        .iter()
+                        .filter_map(|m| m.reverse.as_ref())
+                        .min_by(|a, b| {
+                            a.best_time
+                                .partial_cmp(&b.best_time)
+                                .unwrap_or(std::cmp::Ordering::Equal)
+                        });
 
-                let fwd_count: u32 = months.iter().filter_map(|m| m.forward.as_ref()).map(|f| f.count).sum();
-                let rev_count: u32 = months.iter().filter_map(|m| m.reverse.as_ref()).map(|r| r.count).sum();
+                let fwd_count: u32 = months
+                    .iter()
+                    .filter_map(|m| m.forward.as_ref())
+                    .map(|f| f.count)
+                    .sum();
+                let rev_count: u32 = months
+                    .iter()
+                    .filter_map(|m| m.reverse.as_ref())
+                    .map(|r| r.count)
+                    .sum();
                 let traversal_count = months.iter().map(|m| m.traversal_count).sum();
 
                 crate::CalendarYearSummary {
@@ -1302,14 +1445,16 @@ impl PersistentRouteEngine {
         let fwd_total: u32 = all_perfs.iter().filter(|p| !p.is_reverse).count() as u32;
         let rev_total: u32 = all_perfs.iter().filter(|p| p.is_reverse).count() as u32;
 
-        let forward_pr = all_perfs
-            .iter()
-            .filter(|p| !p.is_reverse)
-            .min_by(|a, b| a.best_time.partial_cmp(&b.best_time).unwrap_or(std::cmp::Ordering::Equal));
-        let reverse_pr = all_perfs
-            .iter()
-            .filter(|p| p.is_reverse)
-            .min_by(|a, b| a.best_time.partial_cmp(&b.best_time).unwrap_or(std::cmp::Ordering::Equal));
+        let forward_pr = all_perfs.iter().filter(|p| !p.is_reverse).min_by(|a, b| {
+            a.best_time
+                .partial_cmp(&b.best_time)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        let reverse_pr = all_perfs.iter().filter(|p| p.is_reverse).min_by(|a, b| {
+            a.best_time
+                .partial_cmp(&b.best_time)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         let result = crate::CalendarSummary {
             years,
@@ -1317,7 +1462,12 @@ impl PersistentRouteEngine {
             reverse_pr: reverse_pr.map(|p| to_dir_best(p, rev_total)),
             section_distance,
         };
-        log::info!("[PERF] get_section_calendar_summary({}) -> {} years in {:?}", section_id, result.years.len(), start.elapsed());
+        log::info!(
+            "[PERF] get_section_calendar_summary({}) -> {} years in {:?}",
+            section_id,
+            result.years.len(),
+            start.elapsed()
+        );
         Some(result)
     }
 
@@ -1659,6 +1809,14 @@ impl PersistentRouteEngine {
                    AND sa.avg_hr > 0
                  ORDER BY am.date ASC",
             )
+            .map_err(|e| {
+                log::warn!(
+                    "[fitness] get_section_efficiency_trend: prepare failed for section {}: {}",
+                    section_id,
+                    e
+                );
+                e
+            })
             .ok()?;
 
         struct EffortRow {
@@ -1677,8 +1835,18 @@ impl PersistentRouteEngine {
                     date: row.get(3)?,
                 })
             })
+            .map_err(|e| {
+                log::warn!("[fitness] get_section_efficiency_trend: query_map failed for section {}: {}", section_id, e);
+                e
+            })
             .ok()?
-            .filter_map(|r| r.ok())
+            .filter_map(|r| match r {
+                Ok(row) => Some(row),
+                Err(e) => {
+                    log::warn!("[fitness] get_section_efficiency_trend: skipping corrupt row for section {}: {}", section_id, e);
+                    None
+                }
+            })
             .collect();
 
         // Need at least 3 data points for a meaningful trend

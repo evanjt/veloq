@@ -203,12 +203,14 @@ export const SummaryCard = React.memo(function SummaryCard({
           {fitnessSparklineVisible ? (
             <View>
               <View style={styles.heroValueRow}>
-                <Text style={[styles.heroValueFixed, { color: '#42A5F5' }]}>{currentFitness}</Text>
-                <Text style={[styles.heroLabel, { color: '#42A5F5' }]}>Fitness</Text>
+                <Text style={[styles.heroValueFixed, { color: colors.fitnessBlue }]}>
+                  {currentFitness}
+                </Text>
+                <Text style={[styles.heroLabel, { color: colors.fitnessBlue }]}>Fitness</Text>
               </View>
               <View style={styles.heroSubLine}>
                 {currentFatigue !== null && (
-                  <Text style={[styles.heroSubText, { color: '#EC407A' }]}>
+                  <Text style={[styles.heroSubText, { color: colors.chartPink }]}>
                     {currentFatigue} Fatigue
                   </Text>
                 )}
@@ -224,10 +226,10 @@ export const SummaryCard = React.memo(function SummaryCard({
               <Text style={[styles.heroLabel, { color: colors.chartPink }]}>HRV</Text>
               {currentRhr !== null && (
                 <>
-                  <Text style={[styles.secondaryValueFixed, { color: '#EF5350' }]}>
+                  <Text style={[styles.secondaryValueFixed, { color: colors.formHighRisk }]}>
                     {currentRhr}
                   </Text>
-                  <Text style={[styles.secondaryLabel, { color: '#EF5350' }]}>RHR</Text>
+                  <Text style={[styles.secondaryLabel, { color: colors.formHighRisk }]}>RHR</Text>
                 </>
               )}
             </View>
@@ -239,12 +241,15 @@ export const SummaryCard = React.memo(function SummaryCard({
               </Text>
               <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{heroLabel}</Text>
               {heroZoneLabel && (
-                <>
+                <View
+                  testID="summary-card-form-zone"
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                >
                   <View style={[styles.zoneDot, { backgroundColor: heroZoneColor || heroColor }]} />
                   <Text style={[styles.zoneLabel, { color: heroZoneColor || heroColor }]}>
                     {heroZoneLabel}
                   </Text>
-                </>
+                </View>
               )}
             </View>
           )}
@@ -255,7 +260,7 @@ export const SummaryCard = React.memo(function SummaryCard({
 
       {/* Sparkline row — fitness or HRV depending on hero metric */}
       {fitnessSparklineVisible && (
-        <View style={styles.sparklineRow}>
+        <View testID="summary-card-sparkline" style={styles.sparklineRow}>
           <SummaryCardSparkline
             fitnessData={fitnessData!}
             fatigueData={fatigueData}
@@ -353,7 +358,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.xs,
     right: spacing.md,
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '500',
     zIndex: 1,
   },
@@ -499,23 +504,23 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   metricLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '400',
     color: colors.textSecondary,
   },
   metricValue: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   metricTrend: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     marginLeft: 1,
   },
   metricDivider: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textMuted,
-    marginHorizontal: 3,
+    marginHorizontal: spacing.xs,
   },
   metricDividerDark: {
     color: darkColors.textMuted,

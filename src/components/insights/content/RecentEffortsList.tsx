@@ -3,8 +3,8 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
-import { formatDuration, formatShortDate, navigateTo } from '@/lib';
-import { colors, darkColors, spacing, opacity } from '@/theme';
+import { formatDuration, formatShortDate, navigateTo, safeGetTime } from '@/lib';
+import { colors, darkColors, spacing, opacity, brand } from '@/theme';
 import type { SectionPerformanceRecord } from '@/hooks/routes/useSectionPerformances';
 
 const MAX_EFFORTS = 5;
@@ -27,7 +27,7 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
   // Sort by date descending (most recent first) and take up to MAX_EFFORTS
   const recentEfforts = useMemo(() => {
     return [...records]
-      .sort((a, b) => b.activityDate.getTime() - a.activityDate.getTime())
+      .sort((a, b) => safeGetTime(b.activityDate) - safeGetTime(a.activityDate))
       .slice(0, MAX_EFFORTS);
   }, [records]);
 
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: '#FC4C02',
+    backgroundColor: brand.orange,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,

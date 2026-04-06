@@ -146,8 +146,17 @@
       "intervals": "间歇",
       "route": "路线",
       "routes": "路线",
-      "sections": "路段"
-    }
+      "sections": "路段",
+      "exercises": "练习"
+    },
+    "primary": "主要",
+    "secondary": "次要",
+    "exercises": "练习",
+    "exercisesSummary": "{{exercises}}个练习 · {{sets}}组",
+    "muscleDataSource": "肌肉数据: free-exercise-db",
+    "bodyShapeFromProfile": "你的资料: {{gender}}",
+    "bodyShapeRandom": "随机选择身体 — intervals.icu资料中无性别",
+    "tapMuscle": "Tap for details"
   },
   "alerts": {
     "cacheCleared": "缓存已清除",
@@ -184,7 +193,33 @@
     "preferencesRestored": "已恢复 {{count}} 个偏好设置",
     "restoreComplete": "恢复完成",
     "sectionsRestored": "已恢复 {{count}} 个自定义路段",
-    "sectionsSkipped": "已跳过 {{count}} 个路段（请先同步活动）"
+    "sectionsSkipped": "已跳过 {{count}} 个路段（请先同步活动）",
+    "exportDatabase": "Export Database",
+    "importDatabase": "Import Database",
+    "databaseRestored": "Database restored with {{count}} activities",
+    "exportingDatabase": "Exporting database...",
+    "importingDatabase": "Importing database...",
+    "autoBackup": "Auto-Backup",
+    "autoBackupDescription": "Automatically back up after sync",
+    "lastBackup": "Last backup: {{date}}",
+    "lastBackupNever": "Never backed up",
+    "backupNow": "Back Up Now",
+    "backingUp": "Backing up...",
+    "selectBackend": "Backup to",
+    "backendLocal": "Local Storage",
+    "backendWebdav": "WebDAV / Nextcloud",
+    "backendIcloud": "iCloud",
+    "serverUrl": "Server URL",
+    "username": "Username",
+    "password": "Password",
+    "testConnection": "Test Connection",
+    "connectionSuccess": "Connection successful",
+    "connectionFailed": "Connection failed",
+    "restoreFromBackup": "从备份恢复",
+    "backupFound": "Backup Found",
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "恢复的数据属于另一个账户。是否清除数据并为此账户重新同步？",
+    "clearAndSync": "清除并同步"
   },
   "cache": {
     "addingActivities": "正在添加活动...",
@@ -379,8 +414,8 @@
     "fatigueDescription": "是您训练负荷的 7 天指数加权移动平均值。",
     "fitnessAndFatigue": "体能与疲劳",
     "fitnessDescription": "是您训练负荷的 42 天指数加权移动平均值。",
-    "forRaces": "时参加比赛。避免",
-    "formDescription": "是体能减去疲劳。在",
+    "forRaces": "区域反映低疲劳。",
+    "formDescription": "是体能减去疲劳。",
     "fresh": "恢复良好",
     "highRiskZone": "高风险区间",
     "learnMore": "了解更多",
@@ -390,8 +425,15 @@
     "loadingData": "加载体能数据...",
     "optimalZone": "最佳区间",
     "title": "体能与状态",
-    "toBuildFitness": "训练以提升体能。在",
-    "toPreventOvertraining": "以防止过度训练。",
+    "toBuildFitness": "表示有效的训练负荷。",
+    "toPreventOvertraining": "表示高累积疲劳。",
+    "guidance": {
+      "highRisk": "TSB低于-30。累积疲劳显著超过近期体能增长。",
+      "optimal": "TSB在-30到-10之间。训练负荷正在产生体能适应。",
+      "greyZone": "TSB在-10到5之间。体能与疲劳之间适度平衡。",
+      "fresh": "TSB在5到25之间。相对于体能而言疲劳较低。长时间处于此状态通常对应体能下降。",
+      "transition": "TSB高于25。近期训练刺激最小。体能下降中。"
+    },
     "tsb": "TSB",
     "understandingMetrics": "了解指标"
   },
@@ -407,6 +449,7 @@
   },
   "insights": {
     "title": "洞察",
+    "strength": "Strength",
     "noInsights": "训练后将显示洞察",
     "noInsightsHint": "完成更多活动以查看个性化洞察",
     "sectionPr": "{{name}}上的PR",
@@ -422,8 +465,6 @@
     "weeklyLoadUp": "+{{percent}}% 训练负荷",
     "weeklyLoadDown": "{{percent}}% 负荷减少",
     "loadBody": "TSS: 本周 {{currentTss}} vs 上周 {{previousTss}}。时长: {{currentDuration}} vs {{previousDuration}}。",
-    "patternMatch": "{{day}} - 通常 {{verb}} ~{{duration}}",
-    "consistencyStreak": "{{count}}周连续",
     "volumeBody": "训练时长: 本周 {{current}} vs 上周 {{previous}}。这衡量的是时间，不是训练负荷 (TSS)。",
     "viewDetails": "查看详情",
     "today": "今天",
@@ -442,8 +483,6 @@
       "hrvTrend": "HRV 本周{{direction}} {{percent}}%",
       "tomorrowPattern": "明天通常是 {{verb}} 日",
       "tomorrowPatternBody": "根据 {{count}} 次之前{{day}}的活动，你通常 {{verb}} 约 ~{{duration}}。",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
       "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
@@ -491,32 +530,6 @@
       "efforts": "次数",
       "trendSlope": "趋势斜率"
     },
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "transition": "Transition",
-        "greyZone": "Maintenance",
-        "optimal": "Productive training",
-        "highRisk": "Deep fatigue"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "transition": "Between training and freshness",
-        "greyZone": "Moderate training load",
-        "optimal": "Where most adaptation occurs",
-        "highRisk": "Significant accumulated fatigue"
-      },
-      "titles": {
-        "fresh": "Peak form — ready to race",
-        "transition": "Fresh — good for hard training",
-        "greyZone": "Balanced — steady training",
-        "optimal": "Building fitness — fatigue accumulating",
-        "highRisk": "Heavy load — recovery important"
-      }
-    },
     "hrvTrend": {
       "trendingUp": "Recovery improving",
       "trendingDown": "Recovery dipping",
@@ -532,15 +545,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}：PR以来体能已变化",
+      "subtitle": "PR {{prTime}} {{metric}} {{previous}}时，现在{{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}：在{{metric}} {{previous}}时创下PR。当前{{metric}}：{{current}}。",
+      "currentMetric": "当前{{metric}}",
+      "prMetric": "PR时的{{metric}}",
+      "metricGain": "{{metric}}增长",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Higher FTP suggests untapped potential on power-dependent sections.",
-      "groupTitle": "{{count}} PRs to revisit"
+      "methodology": "比较PR时的体能指标与当前值。显示PR设定以来体能指标发生变化的路段。",
+      "groupTitle": "{{count}}个PR有体能变化"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -549,18 +562,31 @@
     "aboutTitle": "About Insights",
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "sectionCluster": {
-      "improvingTitle": "{{name}} getting faster",
-      "decliningTitle": "{{name}} slowing down",
-      "improvingBody": "{{names}} trending faster across {{count}} sections.",
-      "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
-      "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced.",
-      "subtitle": "and {{count}} other {{sport}} sections"
-    },
     "efficiencyTrend": {
       "title": "{{name}}上心率呈下降趋势",
       "subtitle": "{{efforts}}次中降低{{hrChange}}bpm",
       "body": "在{{name}}的{{efforts}}次中，相同配速下心率降低了{{hrChange}}bpm。"
+    },
+    "teaser": {
+      "workoutToday": "今天{{name}}",
+      "prOpportunity": "{{name}}上的PR机会",
+      "usualPattern": "{{day}}你通常{{sport}} ~{{duration}}",
+      "improving": "提升中 ↑",
+      "stable": "稳定"
+    },
+    "strengthBalance": {
+      "volumeSplit": "训练量分布",
+      "balanced": "均衡",
+      "watch": "关注",
+      "imbalanced": "不均衡",
+      "oneSided": "偏向一侧",
+      "lowSignal": "数据不足",
+      "noSignal": "无数据",
+      "noRecentVolume": "最近4周无训练量 — 仅在更大的选定时段中显示。",
+      "volumeAppeared": "经过较平静的开始后，最近两周出现了训练量。",
+      "volumeUp": "最近2周平均值比前2周高{{percent}}%。",
+      "volumeDown": "最近2周平均值比前2周低{{percent}}%。",
+      "volumeSteady": "最近2周平均值与月初相比保持稳定。"
     }
   },
   "licenses": {
@@ -593,6 +619,7 @@
     "instructions": "1. 打开 Intervals.icu 设置\n2. 滚动到「开发者设置」\n3. 复制您的 API 密钥",
     "invalidApiKey": "无效的 API 密钥。请检查您的密钥并重试。",
     "localModeNote": "本地模式：所有数据保留在您的设备上",
+    "apiKeyNoNotifications": "Push notifications are not available with API key login.",
     "loginWithIntervals": "使用 intervals.icu 登录",
     "noAccount": "初次使用 intervals.icu？",
     "oauthFailed": "登录失败。请重试。",
@@ -1027,7 +1054,29 @@
     "visits": "访问",
     "visitsCount": "{{count}} 次访问",
     "yearPr": "年度PR",
-    "moreActions": "更多操作"
+    "moreActions": "更多操作",
+    "scanForMatches": "Scan for matches",
+    "scanForMore": "Scan for more sections",
+    "scanning": "Scanning...",
+    "noMatchesFound": "No matching sections found",
+    "noSectionsFound": "No sections found",
+    "matchQuality": "{{quality}}% match",
+    "addToSection": "Add",
+    "nearbySections": "Nearby sections",
+    "nearbySectionsCount": "{{count}} nearby",
+    "similarNearby": "Similar section nearby",
+    "similarNearbyCount": "{{count}} similar sections nearby",
+    "mergeSections": "Merge sections",
+    "mergeKeepMessage": "Choose which section to keep. All traversal history will be preserved.",
+    "mergeInto": "\"{{secondary}}\" will be merged into \"{{primary}}\"",
+    "mergeSuccess": "Sections merged",
+    "rescan": "Re-scan",
+    "rescanComplete": "Re-scan complete",
+    "forceRedetect": "Force full re-detect",
+    "rematchActivities": "Re-match activities",
+    "awayDistance": "{{distance}}m away",
+    "viewSection": "View",
+    "merge": "Merge"
   },
   "settings": {
     "account": "账户",
@@ -1143,7 +1192,9 @@
     "version": "版本",
     "viewRoutes": "查看路线",
     "mapTiles": "地图瓦片",
-    "recording": "录制"
+    "recording": "录制",
+    "cache": "缓存",
+    "permissions": "权限"
   },
   "stats": {
     "activities": "活动",
@@ -1294,8 +1345,8 @@
     "dayAverage": "{{count}}天平均",
     "dragToExplore": "拖动探索",
     "hrs": "小时",
-    "insightExtraRecovery": "今天考虑额外休息",
-    "insightGoodRecovery": "恢复良好 - 您正在很好地适应",
+    "insightExtraRecovery": "HRV下降，静息心率上升",
+    "insightGoodRecovery": "HRV上升，静息心率下降",
     "insightStable": "指标看起来稳定",
     "lastDays": "最近 {{count}} 天",
     "noData": "无可用健康数据",
@@ -1314,6 +1365,56 @@
   "wellnessScreen": {
     "title": "健康",
     "trends": "健康趋势"
+  },
+  "notifications": {
+    "sectionPr": {
+      "title": "New PR!"
+    },
+    "fitnessMilestone": {
+      "title": "Fitness Milestone"
+    },
+    "periodComparison": {
+      "title": "Weekly Summary"
+    },
+    "hrvTrend": {
+      "title": "HRV Trend"
+    },
+    "stalePr": {
+      "title": "PR更新"
+    },
+    "efficiencyTrend": {
+      "title": "Efficiency Trend"
+    },
+    "generic": {
+      "title": "New Insight"
+    },
+    "activityRecorded": {
+      "title": "Activity Recorded",
+      "body": "New activity synced. Open the app for details."
+    },
+    "privacy": {
+      "title": "Privacy Notice",
+      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
+      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 30-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
+      "accept": "I understand"
+    },
+    "settings": {
+      "title": "Notifications",
+      "enable": "Enable notifications",
+      "categories": "Notification categories",
+      "sectionPr": "Section personal records",
+      "fitnessMilestone": "Fitness milestones",
+      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
+      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
+      "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
+    },
+    "prompt": {
+      "title": "活动通知",
+      "description": "接收有关新活动和成就的通知",
+      "enable": "启用",
+      "dismiss": "不用了",
+      "settingsHint": "您可以随时在设置中启用通知"
+    }
   },
   "whatsNew": {
     "skipButton": "跳过",

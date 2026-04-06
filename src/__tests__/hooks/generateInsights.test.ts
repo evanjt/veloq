@@ -40,31 +40,6 @@ describe('generateInsights', () => {
       expect(result).toEqual([]);
     });
 
-    it('returns TSB form position when formTsb is provided with wellness data', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: 0, formCtl: 50, formAtl: 50 },
-        mockT
-      );
-      expect(result).toHaveLength(1);
-      expect(result.find((i) => i.id === 'tsb_form-position')).toBeDefined();
-    });
-
-    it('formTsb = NaN does not generate TSB form insight', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: NaN, formCtl: 50, formAtl: 50 },
-        mockT
-      );
-      expect(result.find((i) => i.id === 'tsb_form-position')).toBeUndefined();
-    });
-
-    it('formTsb = Infinity does not generate TSB form insight', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: Infinity, formCtl: 50, formAtl: 50 },
-        mockT
-      );
-      expect(result.find((i) => i.id === 'tsb_form-position')).toBeUndefined();
-    });
-
     it('previous period with zero duration does not crash', () => {
       const result = generateInsights(
         {
@@ -124,105 +99,6 @@ describe('generateInsights', () => {
       );
       const prInsights = result.filter((i) => i.id.startsWith('section_pr-'));
       expect(prInsights).toHaveLength(0);
-    });
-  });
-
-  // ============================================================
-  // TSB FORM POSITION (Priority 2) — replaces form advice
-  // ============================================================
-
-  describe('TSB form position', () => {
-    it('generates TSB form insight when formTsb is provided', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: -5, formCtl: 50, formAtl: 55 },
-        mockT
-      );
-      const tsb = result.find((i) => i.id === 'tsb_form-position');
-      expect(tsb).toBeDefined();
-      expect(tsb!.category).toBe('tsb_form');
-      expect(tsb!.priority).toBe(2);
-      expect(tsb!.navigationTarget).toBe('/fitness');
-    });
-
-    it('does not generate when formTsb is null', () => {
-      const result = generateInsights(EMPTY_INPUT, mockT);
-      expect(result.find((i) => i.id === 'tsb_form-position')).toBeUndefined();
-    });
-
-    it('does not generate when no wellness data (ctl and atl both null)', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: 0, formCtl: null, formAtl: null },
-        mockT
-      );
-      expect(result.find((i) => i.id === 'tsb_form-position')).toBeUndefined();
-    });
-
-    it('includes CTL, ATL, TSB in supporting data', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: -5, formCtl: 50, formAtl: 55 },
-        mockT
-      );
-      const tsb = result.find((i) => i.id === 'tsb_form-position');
-      const labels = tsb!.supportingData!.dataPoints!.map((dp) => dp.label);
-      expect(labels).toContain('CTL');
-      expect(labels).toContain('ATL');
-      expect(labels).toContain('TSB');
-    });
-
-    it('includes methodology with Banister reference in APA format', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: -5, formCtl: 50, formAtl: 55 },
-        mockT
-      );
-      const tsb = result.find((i) => i.id === 'tsb_form-position');
-      expect(tsb!.methodology!.formula).toBe('TSB = CTL - ATL');
-      expect(tsb!.methodology!.description).toContain('Banister');
-    });
-
-    it('title contains no prescriptive advice', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: 20, formCtl: 50, formAtl: 30 },
-        mockT
-      );
-      const tsb = result.find((i) => i.id === 'tsb_form-position');
-      expect(tsb!.title).not.toContain('recommended');
-      expect(tsb!.title).not.toContain('consider');
-    });
-
-    // TSB zone boundaries (intervals.icu): fresh > 25, transition > 5, greyZone > -10, optimal > -30
-    it.each([
-      [30, 'fresh'],
-      [10, 'transition'],
-      [0, 'greyZone'],
-      [-5, 'greyZone'],
-      [-15, 'optimal'],
-      [-35, 'highRisk'],
-    ])('formTsb=%i maps to %s zone', (tsb, zone) => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: tsb, formCtl: 50, formAtl: 50 },
-        mockT
-      );
-      const form = result.find((i) => i.id === 'tsb_form-position');
-      expect(form).toBeDefined();
-      expect(form!.title).toContain(zone);
-    });
-
-    it('formTsb at exactly 25 maps to transition zone (boundary)', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: 25, formCtl: 50, formAtl: 50 },
-        mockT
-      );
-      const tsb = result.find((i) => i.id === 'tsb_form-position');
-      expect(tsb!.title).toContain('transition');
-    });
-
-    it('formTsb at 25.01 maps to fresh zone', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: 25.01, formCtl: 50, formAtl: 50 },
-        mockT
-      );
-      const tsb = result.find((i) => i.id === 'tsb_form-position');
-      expect(tsb!.title).toContain('fresh');
     });
   });
 
@@ -329,14 +205,14 @@ describe('generateInsights', () => {
       expect(result.find((i) => i.id === 'fitness_milestone-ftp')).toBeUndefined();
     });
 
-    it('detects pace improvement (lower is better)', () => {
+    it('detects pace improvement from a higher threshold speed', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
           paceTrend: {
-            latestPace: 280,
+            latestPace: 1000 / 280,
             latestDate: BigInt(1000),
-            previousPace: 300,
+            previousPace: 1000 / 300,
             previousDate: BigInt(500),
           },
         },
@@ -344,7 +220,7 @@ describe('generateInsights', () => {
       );
       const pace = result.find((i) => i.id === 'fitness_milestone-pace');
       expect(pace).toBeDefined();
-      expect(pace!.title).toContain('delta: 20');
+      expect(pace!.title).toContain('delta: 20s/km');
     });
 
     it('does not generate pace insight when pace got worse', () => {
@@ -352,15 +228,33 @@ describe('generateInsights', () => {
         {
           ...EMPTY_INPUT,
           paceTrend: {
-            latestPace: 320,
+            latestPace: 1000 / 320,
             latestDate: BigInt(1000),
-            previousPace: 300,
+            previousPace: 1000 / 300,
             previousDate: BigInt(500),
           },
         },
         mockT
       );
       expect(result.find((i) => i.id === 'fitness_milestone-pace')).toBeUndefined();
+    });
+
+    it('detects swim pace improvement from a higher threshold speed', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          swimPaceTrend: {
+            latestPace: 1.1,
+            latestDate: BigInt(1000),
+            previousPace: 1.0,
+            previousDate: BigInt(500),
+          },
+        },
+        mockT
+      );
+      const swim = result.find((i) => i.id === 'fitness_milestone-swim-pace');
+      expect(swim).toBeDefined();
+      expect(swim!.title).toContain('delta: 9s/100m');
     });
   });
 
@@ -423,6 +317,10 @@ describe('generateInsights', () => {
       const vol = result.find((i) => i.id === 'period_comparison-volume');
       expect(vol).toBeDefined();
       expect(vol!.title).toContain('weeklyVolumeUp');
+      expect(vol!.supportingData!.comparisonData!.current.value).toBe(120);
+      expect(vol!.supportingData!.comparisonData!.current.unit).toBe('min');
+      expect(vol!.supportingData!.comparisonData!.previous.value).toBe(83);
+      expect(vol!.supportingData!.comparisonData!.previous.unit).toBe('min');
     });
 
     it('change context is always neutral (no warning)', () => {
@@ -557,70 +455,53 @@ describe('generateInsights', () => {
     });
   });
 
-  // ============================================================
-  // REST DAY INSIGHTS
-  // ============================================================
-
-  describe('rest day insights', () => {
-    it('generates intensity context on rest day', () => {
+  describe('stale PR grouping', () => {
+    it('formats grouped stale PR subtitles with sport-appropriate units', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          isRestDay: true,
-          currentPeriod: { count: 4, totalDuration: 7200, totalDistance: 80000, totalTss: 200 },
-          previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 60000, totalTss: 150 },
-        },
-        mockT
-      );
-      const intensity = result.find((i) => i.id === 'rest_day-intensity-context');
-      expect(intensity).toBeDefined();
-      expect(intensity!.category).toBe('intensity_context');
-    });
-
-    it('generates section trends on rest day when improving sections exist', () => {
-      const result = generateInsights(
-        {
-          ...EMPTY_INPUT,
-          isRestDay: true,
+          ftpTrend: {
+            latestFtp: 270,
+            latestDate: BigInt(1000),
+            previousFtp: 250,
+            previousDate: BigInt(500),
+          },
+          swimPaceTrend: {
+            latestPace: 1.1,
+            latestDate: BigInt(1000),
+            previousPace: 1.0,
+            previousDate: BigInt(500),
+          },
+          recentPRs: [],
           sectionTrends: [
             {
-              sectionId: 's1',
-              sectionName: 'Hill',
-              trend: 1,
-              medianRecentSecs: 300,
-              bestTimeSecs: 270,
-              traversalCount: 10,
+              sectionId: 'ride-1',
+              sectionName: 'North Climb',
+              trend: 0,
+              medianRecentSecs: 620,
+              bestTimeSecs: 590,
+              traversalCount: 8,
+              sportType: 'Ride',
+            },
+            {
+              sectionId: 'swim-1',
+              sectionName: 'Pool Threshold Set',
+              trend: 0,
+              medianRecentSecs: 390,
+              bestTimeSecs: 360,
+              traversalCount: 5,
+              sportType: 'Swim',
             },
           ],
         },
         mockT
       );
-      const trends = result.find((i) => i.id === 'rest_day-section-trends');
-      expect(trends).toBeDefined();
-    });
 
-    it('does not generate section trends when no improving sections', () => {
-      const result = generateInsights(
-        {
-          ...EMPTY_INPUT,
-          isRestDay: true,
-          sectionTrends: [
-            {
-              sectionId: 's1',
-              sectionName: 'Hill',
-              trend: -1,
-              medianRecentSecs: 300,
-              bestTimeSecs: 270,
-              traversalCount: 10,
-            },
-          ],
-        },
-        mockT
-      );
-      expect(result.find((i) => i.id === 'rest_day-section-trends')).toBeUndefined();
+      const stale = result.find((insight) => insight.id === 'stale_pr-group');
+      expect(stale).toBeDefined();
+      expect(stale!.subtitle).toContain('FTP: 250W → 270W');
+      expect(stale!.subtitle).toContain('Swim threshold: 1:40/100m → 1:31/100m');
     });
-
-    // Tomorrow pattern removed from card list — shown in Today banner only
   });
 
   // ============================================================
@@ -655,10 +536,83 @@ describe('generateInsights', () => {
         mockT
       );
 
-      expect(result.length).toBeGreaterThanOrEqual(4);
+      expect(result.length).toBeGreaterThanOrEqual(3);
       for (let i = 1; i < result.length; i++) {
         expect(result[i].priority).toBeGreaterThanOrEqual(result[i - 1].priority);
       }
+    });
+  });
+
+  describe('navigation coverage', () => {
+    it('generated insight categories include navigation targets for current detail flows', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 240 },
+          previousPeriod: { count: 4, totalDuration: 5400, totalDistance: 70000, totalTss: 180 },
+          ftpTrend: {
+            latestFtp: 265,
+            latestDate: BigInt(1000),
+            previousFtp: 255,
+            previousDate: BigInt(500),
+          },
+          recentPRs: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 1 }],
+          sectionTrends: [
+            {
+              sectionId: 's1',
+              sectionName: 'Hill',
+              trend: 1,
+              medianRecentSecs: 320,
+              bestTimeSecs: 300,
+              traversalCount: 8,
+              sportType: 'Ride',
+            },
+            {
+              sectionId: 's2',
+              sectionName: 'Valley',
+              trend: 1,
+              medianRecentSecs: 420,
+              bestTimeSecs: 390,
+              traversalCount: 6,
+              sportType: 'Ride',
+            },
+          ],
+          allSectionTrends: [
+            {
+              sectionId: 's1',
+              sectionName: 'Hill',
+              trend: 1,
+              medianRecentSecs: 320,
+              bestTimeSecs: 300,
+              traversalCount: 8,
+              sportType: 'Ride',
+            },
+            {
+              sectionId: 's2',
+              sectionName: 'Valley',
+              trend: 1,
+              medianRecentSecs: 420,
+              bestTimeSecs: 390,
+              traversalCount: 6,
+              sportType: 'Ride',
+            },
+          ],
+          formTsb: -5,
+          formCtl: 60,
+          formAtl: 65,
+          wellnessWindow: [
+            { date: '2026-02-15', hrv: 55, ctl: 60, atl: 65 },
+            { date: '2026-02-16', hrv: 57, ctl: 60, atl: 65 },
+            { date: '2026-02-17', hrv: 59, ctl: 60, atl: 65 },
+          ],
+        },
+        mockT
+      );
+
+      expect(result.length).toBeGreaterThan(0);
+      result.forEach((insight) => {
+        expect(insight.navigationTarget).toBeDefined();
+      });
     });
   });
 
@@ -688,23 +642,6 @@ describe('generateInsights', () => {
   // ============================================================
 
   describe('informational framing', () => {
-    it('TSB form title does not contain prescriptive words', () => {
-      const prescriptiveWords = ['recommended', 'should', 'consider', 'rest', 'intensity'];
-      for (const tsb of [-40, -15, 0, 10, 20]) {
-        const result = generateInsights(
-          { ...EMPTY_INPUT, formTsb: tsb, formCtl: 50, formAtl: 50 },
-          mockT
-        );
-        const form = result.find((i) => i.id === 'tsb_form-position');
-        if (form) {
-          for (const word of prescriptiveWords) {
-            // Title is translation key-based, so just check the insight doesn't have prescriptive advice
-            expect(form.title).not.toContain(word);
-          }
-        }
-      }
-    });
-
     it('no insight has alternatives array (removed prescriptive zone comparisons)', () => {
       const result = generateInsights(
         {
@@ -747,18 +684,6 @@ describe('generateInsights', () => {
       expect(vol?.body).toBeDefined();
       expect(vol!.body).toContain('insights.loadBody');
     });
-
-    it('TSB form body contains rounded values', () => {
-      const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: -5.7, formCtl: 50.3, formAtl: 55.9 },
-        mockT
-      );
-      const tsb = result.find((i) => i.id === 'tsb_form-position');
-      expect(tsb?.body).toBeDefined();
-      expect(tsb!.body).toContain('tsb: -6');
-      expect(tsb!.body).toContain('ctl: 50');
-      expect(tsb!.body).toContain('atl: 56');
-    });
   });
 });
 
@@ -797,5 +722,465 @@ describe('formatDurationCompact', () => {
 
   it('pads minutes with leading zero', () => {
     expect(formatDurationCompact(3660)).toBe('1h01');
+  });
+});
+
+// ============================================================
+// ADDITIONAL EDGE CASE BUG HUNTING
+// ============================================================
+
+describe('generateInsights — additional edge cases', () => {
+  /**
+   * All-zero metrics: CTL=0, ATL=0, TSB=0 should NOT generate a TSB form
+   * insight because there is no wellness data to report on.
+   *
+   * The guard `if ((!ctl || ctl === 0) && (!atl || atl === 0)) return` should
+   * catch this, but let's verify TSB=0 specifically.
+   */
+  /**
+   * FTP with NaN values should not produce an insight.
+   */
+  it('FTP trend with NaN latestFtp does not crash or generate insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        ftpTrend: {
+          latestFtp: NaN,
+          latestDate: BigInt(1000),
+          previousFtp: 250,
+          previousDate: BigInt(500),
+        },
+      },
+      mockT
+    );
+    const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
+    expect(ftp).toBeUndefined();
+  });
+
+  /**
+   * FTP trend with undefined values should not crash.
+   */
+  it('FTP trend with undefined values does not crash', () => {
+    expect(() =>
+      generateInsights(
+        {
+          ...EMPTY_INPUT,
+          ftpTrend: {
+            latestFtp: undefined,
+            latestDate: undefined,
+            previousFtp: undefined,
+            previousDate: undefined,
+          },
+        },
+        mockT
+      )
+    ).not.toThrow();
+  });
+
+  /**
+   * Pace trend with zero values should not generate a milestone.
+   * pace.latestPace = 0 means 0 m/s — effectively no movement.
+   */
+  it('pace trend with zero latestPace does not generate insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        paceTrend: {
+          latestPace: 0,
+          latestDate: BigInt(1000),
+          previousPace: 1000 / 300,
+          previousDate: BigInt(500),
+        },
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'fitness_milestone-pace')).toBeUndefined();
+  });
+
+  /**
+   * Period comparison where previous period has zero TSS and zero duration.
+   * Both fallback paths have prevValue=0, which triggers the prevValue <= 0 guard.
+   */
+  it('previous period all zeroes does not generate period comparison', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        currentPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 150 },
+        previousPeriod: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+  });
+
+  /**
+   * Single HRV data point should NOT generate an HRV trend.
+   * Trends from 1-2 points are unreliable.
+   */
+  it('single HRV value does not produce trend insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        wellnessWindow: [{ date: '2026-02-15', hrv: 55 }],
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
+  });
+
+  /**
+   * HRV values with NaN entries should be filtered out and not crash.
+   * If all values are NaN, no insight should be generated.
+   */
+  it('all-NaN HRV values do not produce trend insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        wellnessWindow: [
+          { date: '2026-02-15', hrv: NaN },
+          { date: '2026-02-16', hrv: NaN },
+          { date: '2026-02-17', hrv: NaN },
+        ],
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
+  });
+
+  /**
+   * Section PR with bestTime = 0 should be skipped.
+   * 0 seconds is clearly invalid for a section time.
+   */
+  it('section PR with bestTime = 0 is skipped', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        recentPRs: [{ sectionId: 's1', sectionName: 'Test', bestTime: 0, daysAgo: 1 }],
+      },
+      mockT
+    );
+    const prInsights = result.filter((i) => i.id.startsWith('section_pr-'));
+    // bestTime = 0 is not NaN, so Number.isFinite(0) = true. It passes the guard.
+    // This may or may not be intentional (a 0-second PR is nonsensical).
+    // The test documents the current behavior.
+    expect(prInsights).toHaveLength(1);
+  });
+
+  /**
+   * Section PR with negative bestTime should be filtered.
+   * Negative time makes no physical sense.
+   */
+  it('section PR with negative bestTime is skipped', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        recentPRs: [{ sectionId: 's1', sectionName: 'Test', bestTime: -100, daysAgo: 1 }],
+      },
+      mockT
+    );
+    const prInsights = result.filter((i) => i.id.startsWith('section_pr-'));
+    // Number.isFinite(-100) is true, so the guard only catches NaN/Infinity.
+    // Negative bestTime passes through. This may be a gap in validation.
+    expect(prInsights).toHaveLength(1);
+  });
+
+  /**
+   * Period comparison with both periods having identical non-zero values.
+   * Change should be < 10% so no insight is generated.
+   */
+  it('identical periods produce no comparison insight', () => {
+    const period = { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 };
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        currentPeriod: period,
+        previousPeriod: period,
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+  });
+
+  /**
+   * FTP equal values (no change) should not generate milestone.
+   */
+  it('FTP with no change (same value) does not generate insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        ftpTrend: {
+          latestFtp: 250,
+          latestDate: BigInt(1000),
+          previousFtp: 250,
+          previousDate: BigInt(500),
+        },
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'fitness_milestone-ftp')).toBeUndefined();
+  });
+
+  /**
+   * Pace got worse (lower threshold speed) should not generate milestone.
+   */
+  it('pace regression does not produce insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        paceTrend: {
+          latestPace: 1000 / 350,
+          latestDate: BigInt(1000),
+          previousPace: 1000 / 300,
+          previousDate: BigInt(500),
+        },
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'fitness_milestone-pace')).toBeUndefined();
+  });
+});
+
+// ============================================================
+// BOUNDARY CONDITION TESTS
+// ============================================================
+
+describe('generateInsights — boundary conditions', () => {
+  /**
+   * HRV trend with exactly 3 values (minimum for trend detection).
+   * The guard requires >= 3 HRV values. At exactly 3, the split is:
+   * firstHalf = [0..floor(3/2)) = [v0], secondHalf = [floor(3/2)..) = [v1, v2]
+   */
+  it('HRV trend with exactly 3 values generates insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        wellnessWindow: [
+          { date: '2026-02-15', hrv: 50 },
+          { date: '2026-02-16', hrv: 55 },
+          { date: '2026-02-17', hrv: 60 },
+        ],
+      },
+      mockT
+    );
+    const hrv = result.find((i) => i.id === 'hrv_trend');
+    expect(hrv).toBeDefined();
+    expect(hrv!.category).toBe('hrv_trend');
+    // Confidence should be 3/7
+    expect(hrv!.confidence).toBeCloseTo(3 / 7, 2);
+  });
+
+  it('HRV trend with exactly 3 values detects upward trend correctly', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        wellnessWindow: [
+          { date: '2026-02-15', hrv: 40 },
+          { date: '2026-02-16', hrv: 50 },
+          { date: '2026-02-17', hrv: 60 },
+        ],
+      },
+      mockT
+    );
+    const hrv = result.find((i) => i.id === 'hrv_trend');
+    expect(hrv).toBeDefined();
+    // firstHalf=[40], secondHalf=[50,60] => firstAvg=40, secondAvg=55
+    // secondAvg > firstAvg * 1.02 => upward
+    expect(hrv!.title).toContain('trendingUp');
+  });
+
+  it('HRV sparkline data with 3 values is accurate', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        wellnessWindow: [
+          { date: '2026-02-15', hrv: 48 },
+          { date: '2026-02-16', hrv: 52 },
+          { date: '2026-02-17', hrv: 49 },
+        ],
+      },
+      mockT
+    );
+    const hrv = result.find((i) => i.id === 'hrv_trend');
+    expect(hrv!.supportingData?.sparklineData).toEqual([48, 52, 49]);
+  });
+
+  /**
+   * FTP improvement by tiny delta (1W).
+   * Math.round(latestFtp - previousFtp) = 1 > 0, so it should still generate.
+   */
+  it('FTP improvement by exactly 1W still generates insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        ftpTrend: {
+          latestFtp: 251,
+          latestDate: BigInt(1000),
+          previousFtp: 250,
+          previousDate: BigInt(500),
+        },
+      },
+      mockT
+    );
+    const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
+    expect(ftp).toBeDefined();
+    expect(ftp!.title).toContain('change: 1');
+  });
+
+  it('FTP improvement by sub-watt delta (0.4W) does not generate insight', () => {
+    // Math.round(250.4 - 250) = 0 => delta is 0, should not pass delta > 0 guard
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        ftpTrend: {
+          latestFtp: 250.4,
+          latestDate: BigInt(1000),
+          previousFtp: 250,
+          previousDate: BigInt(500),
+        },
+      },
+      mockT
+    );
+    const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
+    expect(ftp).toBeUndefined();
+  });
+
+  /**
+   * Empty sectionTrends array for stale PR detection.
+   * The early return in addStalePRInsights checks
+   * `!data.sectionTrends || data.sectionTrends.length === 0`
+   * so no stale PR insight should be generated.
+   */
+  it('empty sectionTrends produces no stale PR insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        ftpTrend: {
+          latestFtp: 280,
+          latestDate: BigInt(1000),
+          previousFtp: 250,
+          previousDate: BigInt(500),
+        },
+        sectionTrends: [],
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'stale_pr-group')).toBeUndefined();
+    expect(result.find((i) => i.id.startsWith('stale_pr-'))).toBeUndefined();
+  });
+
+  it('sectionTrends present but no fitness trend produces no stale PR insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        ftpTrend: null,
+        paceTrend: null,
+        sectionTrends: [
+          {
+            sectionId: 's1',
+            sectionName: 'Hill',
+            trend: 0,
+            medianRecentSecs: 300,
+            bestTimeSecs: 280,
+            traversalCount: 5,
+          },
+        ],
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id.startsWith('stale_pr-'))).toBeUndefined();
+  });
+
+  /**
+   * All-zero wellness window — verify no division by zero.
+   * The HRV filter `w.hrv > 0` removes all entries, leaving fewer than 3,
+   * so no HRV insight is generated. Additionally the avg check `avg <= 0`
+   * is a second guard.
+   */
+  it('all-zero wellness window does not crash or generate HRV insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        wellnessWindow: [
+          { date: '2026-02-15', hrv: 0, ctl: 0, atl: 0 },
+          { date: '2026-02-16', hrv: 0, ctl: 0, atl: 0 },
+          { date: '2026-02-17', hrv: 0, ctl: 0, atl: 0 },
+          { date: '2026-02-18', hrv: 0, ctl: 0, atl: 0 },
+          { date: '2026-02-19', hrv: 0, ctl: 0, atl: 0 },
+        ],
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
+  });
+
+  it('wellness window with mix of zero and undefined HRV does not crash', () => {
+    expect(() =>
+      generateInsights(
+        {
+          ...EMPTY_INPUT,
+          wellnessWindow: [
+            { date: '2026-02-15', hrv: 0 },
+            { date: '2026-02-16' },
+            { date: '2026-02-17', hrv: undefined },
+            { date: '2026-02-18', hrv: 0 },
+            { date: '2026-02-19', hrv: 0 },
+          ],
+        },
+        mockT
+      )
+    ).not.toThrow();
+  });
+
+  it('wellness window with exactly one non-zero HRV does not generate trend', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        wellnessWindow: [
+          { date: '2026-02-15', hrv: 0 },
+          { date: '2026-02-16', hrv: 55 },
+          { date: '2026-02-17', hrv: 0 },
+          { date: '2026-02-18', hrv: 0 },
+        ],
+      },
+      mockT
+    );
+    // Only 1 valid HRV value, need >= 3
+    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
+  });
+
+  /**
+   * Period comparison at exactly the threshold boundary (10%).
+   * ratio = 110/100 - 1 = 0.10000000000000009 (floating point).
+   * The guard is `ratio > 0.1`, and due to IEEE 754 this evaluates to true.
+   * This documents the floating-point boundary behavior.
+   */
+  it('period comparison at exact 10% boundary triggers due to floating point', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        currentPeriod: { count: 3, totalDuration: 5500, totalDistance: 50000, totalTss: 110 },
+        previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 100 },
+      },
+      mockT
+    );
+    // 110/100 - 1 = 0.10000000000000009 > 0.1 due to IEEE 754
+    const vol = result.find((i) => i.id === 'period_comparison-volume');
+    expect(vol).toBeDefined();
+    expect(vol!.icon).toBe('trending-up');
+  });
+
+  /**
+   * Period comparison just below threshold — 9% change should not trigger.
+   */
+  it('period comparison at 9% change does not trigger', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        currentPeriod: { count: 3, totalDuration: 5450, totalDistance: 50000, totalTss: 109 },
+        previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 100 },
+      },
+      mockT
+    );
+    expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
   });
 });

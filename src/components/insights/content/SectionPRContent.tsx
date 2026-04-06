@@ -12,11 +12,11 @@ import { SectionInsightMap } from './SectionInsightMap';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration, formatShortDate } from '@/lib';
-import { colors, darkColors, spacing, opacity } from '@/theme';
+import { colors, darkColors, spacing, opacity, brand } from '@/theme';
 import type { Insight } from '@/types';
 import type { SectionPerformanceRecord } from '@/hooks/routes/useSectionPerformances';
 
-const ACCENT_COLOR = '#FC4C02';
+const ACCENT_COLOR = brand.orange;
 
 interface SectionPRContentProps {
   insight: Insight;

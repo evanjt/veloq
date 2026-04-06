@@ -3,7 +3,7 @@
 # Covers the core user journey in a single flow:
 # Auth > Home feed > Activity detail > Charts > Fitness > Training > Map > Routes > Settings
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier1
 ---
@@ -12,12 +12,12 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 # ── Home Feed ───────────────────────────────────────────
-- assertVisible:
-    id: "home-activity-list"
-
 - extendedWaitUntil:
-    visible: "RECENT ACTIVITIES"
+    visible:
+      id: "home-activity-list"
     timeout: 15000
+
+- takeScreenshot: "critical-home"
 
 - tapOn:
     id: "activity-card-demo-.*"
@@ -60,6 +60,8 @@ tags:
     id: "fitness-atl-value"
     optional: true
 
+- takeScreenshot: "critical-fitness"
+
 # ── Training Tab ────────────────────────────────────────
 - runFlow:
     file: helpers/navigate-to-training.yaml
@@ -67,6 +69,8 @@ tags:
 - assertVisible:
     id: "weekly-summary"
     optional: true
+
+- takeScreenshot: "critical-training"
 
 # ── Map Tab ─────────────────────────────────────────────
 - runFlow:
@@ -76,13 +80,19 @@ tags:
     id: "map-fit-all"
     optional: true
 
+- takeScreenshot: "critical-map"
+
 # ── Routes Tab ──────────────────────────────────────────
 - runFlow:
     file: helpers/navigate-to-routes.yaml
 
+- takeScreenshot: "critical-routes"
+
 # ── Settings ────────────────────────────────────────────
 - runFlow:
     file: helpers/navigate-to-settings.yaml
+
+- takeScreenshot: "critical-settings"
 
 # ── Return to Home ──────────────────────────────────────
 - openLink: "veloq://"
@@ -94,3 +104,5 @@ tags:
 
 - assertVisible:
     id: "home-activity-list"
+
+- takeScreenshot: "critical-home-return"

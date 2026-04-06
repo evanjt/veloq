@@ -4,15 +4,39 @@
  * Does not prompt for permission — degrades silently if denied.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Location from 'expo-location';
 import type { LatLng } from '@/lib/geo/distance';
 
 let cachedLocation: LatLng | null = null;
+let requestInFlight = false;
 
-export function useUserLocation(): { location: LatLng | null; isLoading: boolean } {
+async function fetchLocation(): Promise<LatLng | null> {
+  const last = await Location.getLastKnownPositionAsync();
+  if (last) {
+    return { lat: last.coords.latitude, lng: last.coords.longitude };
+  }
+  const current = await Location.getCurrentPositionAsync({
+    accuracy: Location.Accuracy.Balanced,
+  });
+  return { lat: current.coords.latitude, lng: current.coords.longitude };
+}
+
+export function useUserLocation(): {
+  location: LatLng | null;
+  isLoading: boolean;
+  requestPermission: () => Promise<LatLng | null>;
+} {
   const [location, setLocation] = useState<LatLng | null>(cachedLocation);
   const [isLoading, setIsLoading] = useState(cachedLocation === null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (cachedLocation) return;
@@ -27,22 +51,10 @@ export function useUserLocation(): { location: LatLng | null; isLoading: boolean
           return;
         }
 
-        // Try instant last-known position first
-        const last = await Location.getLastKnownPositionAsync();
-        if (last && !cancelled) {
-          cachedLocation = { lat: last.coords.latitude, lng: last.coords.longitude };
-          setLocation(cachedLocation);
-          setIsLoading(false);
-          return;
-        }
-
-        // Fall back to a fresh GPS fix
-        const current = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        if (!cancelled) {
-          cachedLocation = { lat: current.coords.latitude, lng: current.coords.longitude };
-          setLocation(cachedLocation);
+        const loc = await fetchLocation();
+        if (loc && !cancelled) {
+          cachedLocation = loc;
+          setLocation(loc);
           setIsLoading(false);
         }
       } catch {
@@ -55,5 +67,30 @@ export function useUserLocation(): { location: LatLng | null; isLoading: boolean
     };
   }, []);
 
-  return { location, isLoading };
+  const requestPermission = useCallback(async (): Promise<LatLng | null> => {
+    if (cachedLocation) return cachedLocation;
+    if (requestInFlight) return null;
+
+    requestInFlight = true;
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return null;
+
+      const loc = await fetchLocation();
+      if (loc) {
+        cachedLocation = loc;
+        if (mountedRef.current) {
+          setLocation(loc);
+          setIsLoading(false);
+        }
+      }
+      return loc;
+    } catch {
+      return null;
+    } finally {
+      requestInFlight = false;
+    }
+  }, []);
+
+  return { location, isLoading, requestPermission };
 }

@@ -20,13 +20,16 @@ import {
   getActivityIcon,
   getActivityColor,
 } from '@/lib';
-import { colors, darkColors, typography, spacing, shadows } from '@/theme';
+import { colors, darkColors, typography, spacing, shadows, brand, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { useMapPreferences } from '@/providers';
 import { ActivityMapPreview } from './ActivityMapPreview';
 import type { PreviewTrack } from '@/hooks/home/useStartupData';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
+import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
+import { getRouteEngine } from '@/lib/native/routeEngine';
+import { useExerciseSets, useMuscleGroups } from '@/hooks/activities';
 import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
 
 function formatLocation(activity: Activity): string | null {
@@ -48,6 +51,8 @@ interface ActivityCardProps {
   startupTrack?: PreviewTrack;
   /** Whether snapshot WebView workers are ready */
   snapshotReady?: boolean;
+  /** Forces re-render when theme changes (enableFreeze suppresses useColorScheme updates) */
+  colorScheme?: boolean;
 }
 
 // White text theme (used on any dark/satellite map, or dark theme + light map)
@@ -237,6 +242,144 @@ export const ActivityCard = React.memo(
       />
     );
 
+    // Strength card: auto-fetch exercise data (like map previews for GPS activities)
+    const isStrength = activity.type === 'WeightTraining';
+    const { data: exerciseSets } = useExerciseSets(activity.id, activity.type);
+    const hasExercises = (exerciseSets?.length ?? 0) > 0;
+    const { data: muscleGroups } = useMuscleGroups(activity.id, hasExercises);
+
+    const strengthData = React.useMemo(() => {
+      if (!isStrength || !exerciseSets || exerciseSets.length === 0) return null;
+      const activeSets = exerciseSets.filter((s) => s.setType === 0);
+      if (activeSets.length === 0) return null;
+      const totalWeight = activeSets.reduce(
+        (sum, s) => sum + (s.weightKg ?? 0) * (s.repetitions ?? 1),
+        0
+      );
+      const exerciseNames = new Set(activeSets.map((s) => s.displayName));
+      return {
+        muscles: (muscleGroups ?? []).map(
+          (g): ExtendedBodyPart => ({
+            slug: g.slug as ExtendedBodyPart['slug'],
+            intensity: g.intensity,
+          })
+        ),
+        exerciseCount: exerciseNames.size,
+        setCount: activeSets.length,
+        totalWeight,
+      };
+    }, [isStrength, exerciseSets, muscleGroups]);
+
+    if (isStrength && strengthData) {
+      return (
+        <View style={styles.cardWrapper}>
+          <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
+            <View style={[styles.strengthPanel, isDark && styles.strengthPanelDark]}>
+              {/* Pressable overlay */}
+              <Pressable
+                testID={`activity-card-${activity.id}`}
+                onPress={handlePress}
+                onLongPress={handleLongPress}
+                delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+                style={styles.pressableOverlay}
+                accessibilityRole="button"
+                accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDuration(activity.moving_time)}`}
+              />
+
+              {/* Top: icon + name + date */}
+              <View style={styles.topOverlay} pointerEvents="none">
+                <View style={styles.overlayHeader}>
+                  <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
+                    <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
+                  </View>
+                  <RNText
+                    style={[
+                      styles.overlayName,
+                      { color: compactTextColor, textShadowColor: 'transparent' },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {activity.name}
+                  </RNText>
+                  <RNText
+                    style={[
+                      styles.overlayDate,
+                      { color: compactMutedColor, textShadowColor: 'transparent' },
+                    ]}
+                  >
+                    {formatRelativeDate(activity.start_date_local)}
+                  </RNText>
+                </View>
+              </View>
+
+              {/* Center: body diagrams + stats */}
+              <View style={styles.strengthCenter}>
+                <View style={styles.strengthBodies}>
+                  <Body
+                    data={strengthData.muscles}
+                    gender="male"
+                    side="front"
+                    scale={0.38}
+                    colors={[brand.orangeLight, brand.orange]}
+                  />
+                  <Body
+                    data={strengthData.muscles}
+                    gender="male"
+                    side="back"
+                    scale={0.38}
+                    colors={[brand.orangeLight, brand.orange]}
+                  />
+                </View>
+                <View style={styles.strengthStats}>
+                  <View style={styles.strengthStatRow}>
+                    <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
+                      {formatDuration(activity.moving_time)}
+                    </RNText>
+                    <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
+                      Duration
+                    </RNText>
+                  </View>
+                  <View style={styles.strengthStatRow}>
+                    <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
+                      {strengthData.exerciseCount} / {strengthData.setCount}
+                    </RNText>
+                    <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
+                      {t('activityDetail.exercises')} / Sets
+                    </RNText>
+                  </View>
+                  {strengthData.totalWeight > 0 && (
+                    <View style={styles.strengthStatRow}>
+                      <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
+                        {isMetric
+                          ? `${Math.round(strengthData.totalWeight)} kg`
+                          : `${Math.round(strengthData.totalWeight * 2.20462)} lbs`}
+                      </RNText>
+                      <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
+                        Total
+                      </RNText>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Bottom: secondary stats only */}
+              <View style={styles.strengthBottom}>
+                {activity.skyline_chart_bytes ? (
+                  <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
+                ) : (
+                  <View style={[styles.dividerLine, { backgroundColor: compactDividerColor }]} />
+                )}
+                {secondaryStatsRow(compactMutedColor)}
+              </View>
+            </View>
+          </View>
+          {contextMenu}
+        </View>
+      );
+    }
+
     // Compact card for activities without GPS data
     if (!hasGpsData) {
       return (
@@ -281,26 +424,34 @@ export const ActivityCard = React.memo(
                 {/* Primary stats + location */}
                 <View style={styles.compactPrimaryRow}>
                   <View style={styles.primaryStats}>
-                    <RNText
-                      testID={`activity-card-${activity.id}-distance`}
-                      style={[styles.compactStatValue, { color: compactTextColor }]}
-                    >
-                      {formatDistance(activity.distance, isMetric)}
-                    </RNText>
-                    <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
+                    {activity.distance > 0 && (
+                      <>
+                        <RNText
+                          testID={`activity-card-${activity.id}-distance`}
+                          style={[styles.compactStatValue, { color: compactTextColor }]}
+                        >
+                          {formatDistance(activity.distance, isMetric)}
+                        </RNText>
+                        <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
+                      </>
+                    )}
                     <RNText
                       testID={`activity-card-${activity.id}-duration`}
                       style={[styles.compactStatValue, { color: compactTextColor }]}
                     >
                       {formatDuration(activity.moving_time)}
                     </RNText>
-                    <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
-                    <RNText
-                      testID={`activity-card-${activity.id}-elevation`}
-                      style={[styles.compactStatValue, { color: compactTextColor }]}
-                    >
-                      {formatElevation(activity.total_elevation_gain, isMetric)}
-                    </RNText>
+                    {activity.total_elevation_gain > 0 && (
+                      <>
+                        <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
+                        <RNText
+                          testID={`activity-card-${activity.id}-elevation`}
+                          style={[styles.compactStatValue, { color: compactTextColor }]}
+                        >
+                          {formatElevation(activity.total_elevation_gain, isMetric)}
+                        </RNText>
+                      </>
+                    )}
                   </View>
                   {location && (
                     <RNText style={[styles.compactLocation, { color: compactMutedColor }]}>
@@ -455,7 +606,9 @@ export const ActivityCard = React.memo(
       prev.activity.name === next.activity.name &&
       prev.index === next.index &&
       prev.screenFocused === next.screenFocused &&
-      prev.startupTrack === next.startupTrack;
+      prev.startupTrack === next.startupTrack &&
+      prev.colorScheme === next.colorScheme &&
+      prev.snapshotReady === next.snapshotReady;
     if (__DEV__ && !equal && (prev.index ?? 0) < 3) {
       const diffs: string[] = [];
       if (prev.activity.id !== next.activity.id) diffs.push('id');
@@ -463,6 +616,8 @@ export const ActivityCard = React.memo(
       if (prev.index !== next.index) diffs.push('index');
       if (prev.screenFocused !== next.screenFocused) diffs.push('screenFocused');
       if (prev.startupTrack !== next.startupTrack) diffs.push('startupTrack');
+      if (prev.colorScheme !== next.colorScheme) diffs.push('colorScheme');
+      if (prev.snapshotReady !== next.snapshotReady) diffs.push('snapshotReady');
       console.log(
         `    🔍 ActivityCard[${prev.index}] memo: re-render because: ${diffs.join(', ')}`
       );
@@ -481,7 +636,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   card: {
-    borderRadius: 12,
+    borderRadius: layout.borderRadius,
     backgroundColor: colors.surface,
     overflow: 'hidden',
     ...shadows.elevated,
@@ -495,6 +650,44 @@ const styles = StyleSheet.create({
   mapContainer: {
     position: 'relative',
     height: 240,
+  },
+  strengthPanel: {
+    position: 'relative',
+    height: 240,
+    backgroundColor: colors.gray100,
+  },
+  strengthPanelDark: {
+    backgroundColor: darkColors.backgroundAlt,
+  },
+  strengthCenter: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  strengthBodies: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  strengthStats: {
+    gap: 10,
+  },
+  strengthStatRow: {},
+  strengthStatValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  strengthStatLabel: {
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  strengthBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   pressableOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -523,7 +716,7 @@ const styles = StyleSheet.create({
   },
   overlayName: {
     flex: 1,
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     letterSpacing: -0.3,
     marginLeft: spacing.sm,
@@ -607,7 +800,7 @@ const styles = StyleSheet.create({
   },
   compactName: {
     flex: 1,
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     letterSpacing: -0.3,
     marginLeft: spacing.sm,

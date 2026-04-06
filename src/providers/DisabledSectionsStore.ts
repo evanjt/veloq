@@ -6,7 +6,7 @@
  */
 
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting, removeSetting } from '@/lib/backup';
 
 const DISABLED_SECTIONS_KEY = 'veloq-disabled-sections';
 
@@ -58,7 +58,7 @@ export const useDisabledSections = create<DisabledSectionsState>((set, get) => (
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(DISABLED_SECTIONS_KEY);
+      const stored = await getSetting(DISABLED_SECTIONS_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
@@ -75,14 +75,14 @@ export const useDisabledSections = create<DisabledSectionsState>((set, get) => (
   disable: async (sectionId: string) => {
     const newSet = new Set(get().disabledIds);
     newSet.add(sectionId);
-    await AsyncStorage.setItem(DISABLED_SECTIONS_KEY, JSON.stringify([...newSet]));
+    await setSetting(DISABLED_SECTIONS_KEY, JSON.stringify([...newSet]));
     set({ disabledIds: newSet });
   },
 
   enable: async (sectionId: string) => {
     const newSet = new Set(get().disabledIds);
     newSet.delete(sectionId);
-    await AsyncStorage.setItem(DISABLED_SECTIONS_KEY, JSON.stringify([...newSet]));
+    await setSetting(DISABLED_SECTIONS_KEY, JSON.stringify([...newSet]));
     set({ disabledIds: newSet });
   },
 
@@ -95,7 +95,7 @@ export const useDisabledSections = create<DisabledSectionsState>((set, get) => (
   },
 
   clear: async () => {
-    await AsyncStorage.removeItem(DISABLED_SECTIONS_KEY);
+    await removeSetting(DISABLED_SECTIONS_KEY);
     set({ disabledIds: new Set() });
   },
 }));

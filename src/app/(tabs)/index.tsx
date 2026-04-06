@@ -19,20 +19,24 @@ import { useIsFocused } from '@react-navigation/core';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { useInfiniteActivities, useTheme, useSummaryCardData, useInsights } from '@/hooks';
+import {
+  useInfiniteActivities,
+  useTheme,
+  useSummaryCardData,
+  useInsights,
+  isInfiniteActivitiesStale,
+} from '@/hooks';
 import type { Activity } from '@/types';
 import { useDashboardPreferences, useMapPreferences } from '@/providers';
 import { ActivityCard } from '@/components/activity';
-import { RecordFAB } from '@/components/recording/RecordFAB';
 import {
   NetworkErrorState,
   ErrorStatePreset,
   ScreenErrorBoundary,
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
-import { SummaryCard, InsightLine } from '@/components/home';
+import { SummaryCard, InsightLine, NotificationOptInCard } from '@/components/home';
 import { useStartupData } from '@/hooks/home/useStartupData';
-import { PermissionUpgradeBanner } from '@/components/recording/PermissionUpgradeBanner';
 import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
@@ -178,7 +182,7 @@ export default function FeedScreen() {
 
   // useInsights uses pre-computed data from startup — never makes its own FFI call on feed
   const t3 = PERF_DEBUG ? performance.now() : 0;
-  const { insights } = useInsights(startupData?.insightsData, true);
+  const { insights } = useInsights(startupData?.insightsData, true, startupData?.summaryCardData);
   if (PERF_DEBUG && performance.now() - t3 > 5)
     console.log(`  ⏱ useInsights: ${(performance.now() - t3).toFixed(1)}ms`);
 
@@ -216,10 +220,16 @@ export default function FeedScreen() {
     return filtered;
   }, [allActivities, searchQuery, selectedTypeGroup]);
 
-  // Comprehensive refresh: resets feed, triggers route engine sync, refreshes all data
+  // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
   const handleRefresh = useCallback(async () => {
+    // Reset the infinite query if page params are stale (don't cover today),
+    // otherwise invalidate for smooth stale-while-revalidate.
+    const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
+      ? queryClient.resetQueries({ queryKey: ['activities-infinite'] })
+      : queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
+
     await Promise.all([
-      queryClient.resetQueries({ queryKey: ['activities-infinite'] }),
+      infiniteRefresh,
       queryClient.invalidateQueries({ queryKey: ['activities'] }),
       queryClient.invalidateQueries({ queryKey: ['wellness'] }),
       queryClient.invalidateQueries({ queryKey: ['athlete-summary'] }),
@@ -279,9 +289,10 @@ export default function FeedScreen() {
         screenFocused={isFeedFocused}
         startupTrack={previewTracksRef.current?.get(item.id)}
         snapshotReady={snapshotWebViewReady}
+        colorScheme={isDark}
       />
     ),
-    [isFeedFocused, snapshotWebViewReady]
+    [isFeedFocused, snapshotWebViewReady, isDark]
   );
 
   const navigateToSettings = useCallback(() => {
@@ -312,9 +323,6 @@ export default function FeedScreen() {
   const renderListHeader = useCallback(
     () => (
       <>
-        {/* Permission banner inside scroll area to avoid layout shifts */}
-        <PermissionUpgradeBanner />
-
         {/* Search bar + filter chips — initially hidden by scrollToOffset */}
         <View style={styles.searchSection}>
           <View style={styles.searchContainer}>
@@ -355,6 +363,7 @@ export default function FeedScreen() {
             {Object.keys(ACTIVITY_TYPE_GROUPS).map((group) => (
               <TouchableOpacity
                 key={group}
+                testID={`home-filter-${group.toLowerCase()}`}
                 style={[
                   styles.filterChip,
                   isDark && styles.filterChipDark,
@@ -478,6 +487,9 @@ export default function FeedScreen() {
   return (
     <ScreenErrorBoundary screenName="Feed">
       <ScreenSafeAreaView style={shared.container} testID="home-screen">
+        {/* Notification opt-in card (OAuth users who haven't enabled yet) */}
+        <NotificationOptInCard />
+
         {/* Summary card with hero metric and supporting stats */}
         <SummaryCard
           profileUrl={profileUrl}
@@ -506,6 +518,7 @@ export default function FeedScreen() {
           data={filteredActivities}
           renderItem={renderActivity}
           keyExtractor={(item) => item.id}
+          extraData={isDark}
           ListHeaderComponent={renderListHeader}
           ListEmptyComponent={isError ? renderError : renderEmpty}
           ListFooterComponent={renderFooter}
@@ -525,8 +538,6 @@ export default function FeedScreen() {
 
         {/* Hidden WebView for generating 3D terrain snapshots — deferred to avoid startup cost */}
         {snapshotWebViewReady && <TerrainSnapshotWebView ref={snapshotRef} />}
-
-        <RecordFAB />
       </ScreenSafeAreaView>
     </ScreenErrorBoundary>
   );

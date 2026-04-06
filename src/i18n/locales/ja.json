@@ -146,8 +146,17 @@
       "intervals": "インターバル",
       "route": "ルート",
       "routes": "ルート",
-      "sections": "区間"
-    }
+      "sections": "区間",
+      "exercises": "エクササイズ"
+    },
+    "primary": "主動筋",
+    "secondary": "補助筋",
+    "exercises": "エクササイズ",
+    "exercisesSummary": "{{exercises}}種目 · {{sets}}セット",
+    "muscleDataSource": "筋肉データ: free-exercise-db",
+    "bodyShapeFromProfile": "あなたのプロフィール: {{gender}}",
+    "bodyShapeRandom": "体型はランダムに選択 — intervals.icuプロフィールに性別なし",
+    "tapMuscle": "Tap for details"
   },
   "alerts": {
     "cacheCleared": "キャッシュをクリアしました",
@@ -184,7 +193,33 @@
     "preferencesRestored": "{{count}}件の設定を復元しました",
     "restoreComplete": "復元完了",
     "sectionsRestored": "{{count}}件のカスタムセクションを復元しました",
-    "sectionsSkipped": "{{count}}件のセクションをスキップしました（先にアクティビティを同期してください）"
+    "sectionsSkipped": "{{count}}件のセクションをスキップしました（先にアクティビティを同期してください）",
+    "exportDatabase": "Export Database",
+    "importDatabase": "Import Database",
+    "databaseRestored": "Database restored with {{count}} activities",
+    "exportingDatabase": "Exporting database...",
+    "importingDatabase": "Importing database...",
+    "autoBackup": "Auto-Backup",
+    "autoBackupDescription": "Automatically back up after sync",
+    "lastBackup": "Last backup: {{date}}",
+    "lastBackupNever": "Never backed up",
+    "backupNow": "Back Up Now",
+    "backingUp": "Backing up...",
+    "selectBackend": "Backup to",
+    "backendLocal": "Local Storage",
+    "backendWebdav": "WebDAV / Nextcloud",
+    "backendIcloud": "iCloud",
+    "serverUrl": "Server URL",
+    "username": "Username",
+    "password": "Password",
+    "testConnection": "Test Connection",
+    "connectionSuccess": "Connection successful",
+    "connectionFailed": "Connection failed",
+    "restoreFromBackup": "バックアップから復元",
+    "backupFound": "Backup Found",
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "復元されたデータは別のアカウントのものです。データを消去してこのアカウントで再同期しますか？",
+    "clearAndSync": "消去して同期"
   },
   "cache": {
     "addingActivities": "アクティビティを追加中...",
@@ -379,8 +414,8 @@
     "fatigueDescription": "はトレーニング負荷の7日間指数加重移動平均です。",
     "fitnessAndFatigue": "フィットネスと疲労",
     "fitnessDescription": "はトレーニング負荷の42日間指数加重移動平均です。",
-    "forRaces": "な状態でレースに臨む。",
-    "formDescription": "はフィットネスから疲労を引いたものです。",
+    "forRaces": "ゾーンは低い疲労を反映。",
+    "formDescription": "はフィットネスから疲労を引いたもの。",
     "fresh": "フレッシュ",
     "highRiskZone": "高リスクゾーン",
     "learnMore": "詳細を見る",
@@ -390,8 +425,15 @@
     "loadingData": "フィットネスデータを読み込み中...",
     "optimalZone": "最適ゾーン",
     "title": "フィットネスとフォーム",
-    "toBuildFitness": "でトレーニングしてフィットネスを構築。",
-    "toPreventOvertraining": "を避けてオーバートレーニングを防止。",
+    "toBuildFitness": "は生産的なトレーニング負荷を示します。",
+    "toPreventOvertraining": "は高い蓄積疲労を示します。",
+    "guidance": {
+      "highRisk": "TSBが-30以下。蓄積された疲労が最近のフィットネス向上を大幅に上回っています。",
+      "optimal": "TSBが-30から-10の間。トレーニング負荷がフィットネス適応を生み出しています。",
+      "greyZone": "TSBが-10から5の間。フィットネスと疲労の適度なバランス。",
+      "fresh": "TSBが5から25の間。フィットネスに対して疲労が低い状態。この状態が長く続くとフィットネスが低下する傾向があります。",
+      "transition": "TSBが25以上。最近のトレーニング刺激が最小限。フィットネスが低下中。"
+    },
     "tsb": "TSB",
     "understandingMetrics": "指標を理解する"
   },
@@ -407,6 +449,7 @@
   },
   "insights": {
     "title": "インサイト",
+    "strength": "Strength",
     "noInsights": "トレーニングに応じてインサイトが表示されます",
     "noInsightsHint": "パーソナライズされたインサイトを見るには、より多くのアクティビティを完了してください",
     "sectionPr": "{{name}}でPR",
@@ -422,8 +465,6 @@
     "weeklyLoadUp": "+{{percent}}% トレーニング負荷",
     "weeklyLoadDown": "{{percent}}% 負荷減少",
     "loadBody": "TSS: 今週 {{currentTss}} vs 先週 {{previousTss}}。時間: {{currentDuration}} vs {{previousDuration}}。",
-    "patternMatch": "{{day}} - 通常 {{verb}} ~{{duration}}",
-    "consistencyStreak": "{{count}}週連続",
     "volumeBody": "トレーニング時間: 今週 {{current}} vs 先週 {{previous}}。これは時間であり、トレーニング負荷 (TSS) ではありません。",
     "viewDetails": "詳細を見る",
     "today": "今日",
@@ -442,8 +483,6 @@
       "hrvTrend": "HRV（7日間）",
       "tomorrowPattern": "明日は通常 {{verb}} の日（~{{duration}}）",
       "tomorrowPatternBody": "この曜日の過去{{count}}件のアクティビティに基づいています。",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
       "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
@@ -491,32 +530,6 @@
       "efforts": "回数",
       "trendSlope": "トレンド傾き"
     },
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "transition": "Transition",
-        "greyZone": "Maintenance",
-        "optimal": "Productive training",
-        "highRisk": "Deep fatigue"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "transition": "Between training and freshness",
-        "greyZone": "Moderate training load",
-        "optimal": "Where most adaptation occurs",
-        "highRisk": "Significant accumulated fatigue"
-      },
-      "titles": {
-        "fresh": "Peak form — ready to race",
-        "transition": "Fresh — good for hard training",
-        "greyZone": "Balanced — steady training",
-        "optimal": "Building fitness — fatigue accumulating",
-        "highRisk": "Heavy load — recovery important"
-      }
-    },
     "hrvTrend": {
       "trendingUp": "Recovery improving",
       "trendingDown": "Recovery dipping",
@@ -532,15 +545,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}: PRからフィットネスが変化",
+      "subtitle": "PR {{prTime}} {{metric}} {{previous}}時、現在{{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}: {{metric}} {{previous}}時にPR設定。現在の{{metric}}: {{current}}。",
+      "currentMetric": "現在の{{metric}}",
+      "prMetric": "PR時の{{metric}}",
+      "metricGain": "{{metric}}の向上",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Higher FTP suggests untapped potential on power-dependent sections.",
-      "groupTitle": "{{count}} PRs to revisit"
+      "methodology": "PR時のフィットネス指標と現在の値を比較。PRが設定されてからフィットネス指標が変化したセクションを表示。",
+      "groupTitle": "{{count}}件のPRにフィットネス変化"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -549,18 +562,31 @@
     "aboutTitle": "About Insights",
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "sectionCluster": {
-      "improvingTitle": "{{name}} getting faster",
-      "decliningTitle": "{{name}} slowing down",
-      "improvingBody": "{{names}} trending faster across {{count}} sections.",
-      "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
-      "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced.",
-      "subtitle": "and {{count}} other {{sport}} sections"
-    },
     "efficiencyTrend": {
       "title": "{{name}}で心拍数が低下傾向",
       "subtitle": "{{efforts}}回で{{hrChange}}bpm低下",
       "body": "{{name}}での{{efforts}}回の走行で、同じペースでの心拍数が{{hrChange}}bpm低下しました。"
+    },
+    "teaser": {
+      "workoutToday": "今日は{{name}}",
+      "prOpportunity": "{{name}}でPRのチャンス",
+      "usualPattern": "{{day}}は通常{{sport}}を~{{duration}}",
+      "improving": "向上中 ↑",
+      "stable": "安定"
+    },
+    "strengthBalance": {
+      "volumeSplit": "ボリューム配分",
+      "balanced": "バランス良好",
+      "watch": "要注意",
+      "imbalanced": "アンバランス",
+      "oneSided": "偏り大",
+      "lowSignal": "データ少",
+      "noSignal": "データなし",
+      "noRecentVolume": "直近4週間にボリュームなし — より広い期間でのみ表示されます。",
+      "volumeAppeared": "静かな立ち上がりの後、直近2週間でボリュームが現れました。",
+      "volumeUp": "直近2週間の平均は前の2週間より{{percent}}%上回っています。",
+      "volumeDown": "直近2週間の平均は前の2週間より{{percent}}%下回っています。",
+      "volumeSteady": "直近2週間の平均は月初と比べて安定しています。"
     }
   },
   "licenses": {
@@ -593,6 +619,7 @@
     "instructions": "1. Intervals.icuの設定を開く\n2. 「開発者設定」までスクロール\n3. APIキーをコピー",
     "invalidApiKey": "無効なAPIキーです。キーを確認して再試行してください。",
     "localModeNote": "ローカルモード: すべてのデータはデバイスに保存されます",
+    "apiKeyNoNotifications": "Push notifications are not available with API key login.",
     "loginWithIntervals": "intervals.icuでサインイン",
     "noAccount": "intervals.icuが初めてですか？",
     "oauthFailed": "サインインに失敗しました。もう一度お試しください。",
@@ -1027,7 +1054,29 @@
     "visits": "訪問",
     "visitsCount": "{{count}}回の訪問",
     "yearPr": "年間PR",
-    "moreActions": "その他のアクション"
+    "moreActions": "その他のアクション",
+    "scanForMatches": "Scan for matches",
+    "scanForMore": "Scan for more sections",
+    "scanning": "Scanning...",
+    "noMatchesFound": "No matching sections found",
+    "noSectionsFound": "No sections found",
+    "matchQuality": "{{quality}}% match",
+    "addToSection": "Add",
+    "nearbySections": "Nearby sections",
+    "nearbySectionsCount": "{{count}} nearby",
+    "similarNearby": "Similar section nearby",
+    "similarNearbyCount": "{{count}} similar sections nearby",
+    "mergeSections": "Merge sections",
+    "mergeKeepMessage": "Choose which section to keep. All traversal history will be preserved.",
+    "mergeInto": "\"{{secondary}}\" will be merged into \"{{primary}}\"",
+    "mergeSuccess": "Sections merged",
+    "rescan": "Re-scan",
+    "rescanComplete": "Re-scan complete",
+    "forceRedetect": "Force full re-detect",
+    "rematchActivities": "Re-match activities",
+    "awayDistance": "{{distance}}m away",
+    "viewSection": "View",
+    "merge": "Merge"
   },
   "settings": {
     "account": "アカウント",
@@ -1143,7 +1192,9 @@
     "version": "バージョン",
     "viewRoutes": "ルートを表示",
     "mapTiles": "マップタイル",
-    "recording": "記録"
+    "recording": "記録",
+    "cache": "キャッシュ",
+    "permissions": "権限"
   },
   "stats": {
     "activities": "アクティビティ",
@@ -1294,8 +1345,8 @@
     "dayAverage": "{{count}}日平均",
     "dragToExplore": "ドラッグして探索",
     "hrs": "時間",
-    "insightExtraRecovery": "今日は追加の回復を検討してください",
-    "insightGoodRecovery": "良好な回復 - うまく適応しています",
+    "insightExtraRecovery": "HRV低下中、安静時心拍数上昇中",
+    "insightGoodRecovery": "HRV上昇中、安静時心拍数低下中",
     "insightStable": "指標は安定しています",
     "lastDays": "過去{{count}}日",
     "noData": "ウェルネスデータがありません",
@@ -1314,6 +1365,56 @@
   "wellnessScreen": {
     "title": "ウェルネス",
     "trends": "ウェルネストレンド"
+  },
+  "notifications": {
+    "sectionPr": {
+      "title": "New PR!"
+    },
+    "fitnessMilestone": {
+      "title": "Fitness Milestone"
+    },
+    "periodComparison": {
+      "title": "Weekly Summary"
+    },
+    "hrvTrend": {
+      "title": "HRV Trend"
+    },
+    "stalePr": {
+      "title": "PR更新情報"
+    },
+    "efficiencyTrend": {
+      "title": "Efficiency Trend"
+    },
+    "generic": {
+      "title": "New Insight"
+    },
+    "activityRecorded": {
+      "title": "Activity Recorded",
+      "body": "New activity synced. Open the app for details."
+    },
+    "privacy": {
+      "title": "Privacy Notice",
+      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
+      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 30-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
+      "accept": "I understand"
+    },
+    "settings": {
+      "title": "Notifications",
+      "enable": "Enable notifications",
+      "categories": "Notification categories",
+      "sectionPr": "Section personal records",
+      "fitnessMilestone": "Fitness milestones",
+      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
+      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
+      "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
+    },
+    "prompt": {
+      "title": "アクティビティ通知",
+      "description": "新しいアクティビティや達成についての通知を受け取る",
+      "enable": "有効にする",
+      "dismiss": "結構です",
+      "settingsHint": "通知はいつでも設定から有効にできます"
+    }
   },
   "whatsNew": {
     "skipButton": "スキップ",

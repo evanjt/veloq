@@ -2,6 +2,7 @@
 // All sources are commercially licensed (MIT, BSD, OGD, CC BY, Public Domain)
 
 import { DARK_MATTER_STYLE } from './darkMatterStyle';
+import { LIBERTY_STYLE } from './libertyStyle';
 import {
   isPointInSwitzerland,
   isPointInFrance,
@@ -29,9 +30,9 @@ export type SatelliteSourceId =
   | 'poland'
   | 'luxembourg';
 
-// Map style URLs - no API key required
+// Map styles - liberty is embedded locally to avoid CDN serving stale font references
 export const MAP_STYLE_URLS = {
-  light: 'https://tiles.openfreemap.org/styles/liberty',
+  light: LIBERTY_STYLE,
 } as const;
 
 // Region bounding boxes for satellite imagery
@@ -543,8 +544,8 @@ const SATELLITE_STYLE_BASE: CombinedSatelliteMapStyle = getCombinedSatelliteStyl
 // Legacy export for backward compatibility
 export const SATELLITE_STYLE = SATELLITE_STYLE_BASE;
 
-// Union type for all possible map styles
-export type MapStyleValue = string | SatelliteMapStyle | typeof DARK_MATTER_STYLE;
+// Union type for all possible map styles (all inline JSON objects, no URL strings)
+export type MapStyleValue = SatelliteMapStyle | typeof DARK_MATTER_STYLE | typeof LIBERTY_STYLE;
 
 // Get the MapLibre style value for a given style type
 export function getMapStyle(

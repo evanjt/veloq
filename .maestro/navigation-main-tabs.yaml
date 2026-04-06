@@ -1,7 +1,7 @@
 # Main Tab Navigation Tests
 # Tests navigation between the main bottom tabs
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -10,12 +10,15 @@ tags:
 
 - runFlow:
     file: helpers/navigate-to-fitness.yaml
+- takeScreenshot: "navigation-main-tabs-fitness"
 
 - runFlow:
     file: helpers/navigate-to-training.yaml
+- takeScreenshot: "navigation-main-tabs-training"
 
 - runFlow:
     file: helpers/navigate-to-map.yaml
+- takeScreenshot: "navigation-main-tabs-map"
 
 # Navigate back to Home
 - openLink: "veloq://"
@@ -23,3 +26,4 @@ tags:
     visible:
       id: "home-screen"
     timeout: 10000
+- takeScreenshot: "navigation-main-tabs-home"

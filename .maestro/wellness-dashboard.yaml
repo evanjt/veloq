@@ -2,7 +2,7 @@
 # Tests the wellness metrics display (HRV, RHR, sleep, etc.)
 # Wellness content lives on the training tab
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -12,10 +12,20 @@ tags:
 - runFlow:
     file: helpers/navigate-to-training.yaml
 
-# Verify wellness dashboard container is visible
+# Verify training screen loaded (WellnessDashboard component is not rendered here;
+# wellness data is shown via WellnessTrendsChart and WeeklySummary)
 - extendedWaitUntil:
     visible:
-      id: "wellness-dashboard"
+      id: "training-screen"
     timeout: 10000
+- takeScreenshot: "wellness-dashboard-data-loaded"
+
+# Scroll down to verify weekly summary loads (deferred below fold)
+- scrollUntilVisible:
+    element:
+      id: "weekly-summary"
+    direction: DOWN
+    timeout: 15000
+    speed: 40
 
 - takeScreenshot: "wellness-dashboard-complete"

@@ -7,3 +7,4 @@ export { DataPointRow } from './DataPointRow';
 export { SupportingDataSection } from './SupportingDataSection';
 export { MethodologySection } from './MethodologySection';
 export { InsightDetailContent } from './content/InsightDetailContent';
+export { StrengthTab } from './StrengthTab';

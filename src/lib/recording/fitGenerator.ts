@@ -315,7 +315,7 @@ export async function generateFitFile(params: {
     }
 
     // Altitude: offset binary, scale 5, offset 500
-    const alt = streams.altitude[i] ?? 0;
+    const alt = streams.altitude?.[i] ?? 0;
     const fitAlt = Math.round((alt + 500) * 5);
     const clampedAlt = Math.max(0, Math.min(65535, fitAlt));
     writer.writeUint16(clampedAlt); // legacy altitude (16-bit)
@@ -330,7 +330,7 @@ export async function generateFitFile(params: {
     if (alt !== 0) prevAlt = alt;
 
     // Heart rate
-    const hr = streams.heartrate[i] ?? 0;
+    const hr = streams.heartrate?.[i] ?? 0;
     writer.writeUint8(hr > 0 ? Math.min(255, Math.round(hr)) : 0xff);
     if (hr > 0) {
       totalHr += hr;
@@ -339,7 +339,7 @@ export async function generateFitFile(params: {
     }
 
     // Cadence
-    const cad = streams.cadence[i] ?? 0;
+    const cad = streams.cadence?.[i] ?? 0;
     writer.writeUint8(cad > 0 ? Math.min(255, Math.round(cad)) : 0xff);
     if (cad > 0) {
       totalCadence += cad;
@@ -348,19 +348,19 @@ export async function generateFitFile(params: {
     }
 
     // Distance (cumulative, scale 100 = centimeters)
-    const dist = streams.distance[i] ?? 0;
+    const dist = streams.distance?.[i] ?? 0;
     writer.writeUint32(Math.round(dist * 100));
     totalDistance = dist;
 
     // Speed (scale 1000 = mm/s)
-    const spd = streams.speed[i] ?? 0;
+    const spd = streams.speed?.[i] ?? 0;
     const fitSpd = Math.min(65535, Math.round(spd * 1000));
     writer.writeUint16(fitSpd); // legacy speed (16-bit)
     writer.writeUint32(Math.round(spd * 1000)); // enhanced_speed (32-bit)
     if (spd > maxSpeed) maxSpeed = spd;
 
     // Power
-    const pwr = streams.power[i] ?? 0;
+    const pwr = streams.power?.[i] ?? 0;
     writer.writeUint16(pwr > 0 ? Math.min(65535, Math.round(pwr)) : 0xffff);
     if (pwr > 0) {
       totalPower += pwr;

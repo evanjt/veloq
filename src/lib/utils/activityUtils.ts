@@ -161,3 +161,36 @@ export function isCyclingActivity(type: ActivityType): boolean {
 export function sortByDateId<T extends { id: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => a.id.localeCompare(b.id));
 }
+
+/** Map intervals.icu sport type codes to lowercase display names */
+const SPORT_DISPLAY: Record<string, string> = {
+  Run: 'running',
+  Ride: 'cycling',
+  Swim: 'swimming',
+  VirtualRide: 'cycling',
+  VirtualRun: 'running',
+  TrailRun: 'trail running',
+  MountainBikeRide: 'mountain biking',
+  GravelRide: 'gravel riding',
+  EBikeRide: 'e-biking',
+  Hike: 'hiking',
+  Walk: 'walking',
+  AlpineSki: 'skiing',
+  BackcountrySki: 'skiing',
+  NordicSki: 'cross-country skiing',
+  Snowshoe: 'snowshoeing',
+  RollerSki: 'roller skiing',
+  Kayaking: 'kayaking',
+  Canoeing: 'canoeing',
+  StandUpPaddling: 'paddleboarding',
+  InlineSkate: 'inline skating',
+  OpenWaterSwim: 'swimming',
+  Handcycle: 'handcycling',
+  Velomobile: 'velomobile',
+};
+
+/** Get lowercase sport display name, falls back to lowercase sport type */
+export function getSportDisplayName(sportType?: string): string {
+  if (!sportType) return '';
+  return SPORT_DISPLAY[sportType] ?? sportType.toLowerCase();
+}

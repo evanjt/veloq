@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting } from '@/lib/backup';
 import type { ActivityType, DataFieldType } from '@/types';
 
 const STORAGE_KEY = 'veloq-recording-preferences';
@@ -39,14 +39,27 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const stored = await getSetting(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as Partial<RecordingPreferencesState>;
         set({
-          recentActivityTypes: parsed.recentActivityTypes ?? [],
-          autoPauseEnabled: parsed.autoPauseEnabled ?? true,
-          autoPauseThresholds: parsed.autoPauseThresholds ?? { ...DEFAULT_AUTO_PAUSE_THRESHOLDS },
-          dataFields: parsed.dataFields ?? { ...DEFAULT_DATA_FIELDS },
+          recentActivityTypes: Array.isArray(parsed.recentActivityTypes)
+            ? parsed.recentActivityTypes
+            : [],
+          autoPauseEnabled:
+            typeof parsed.autoPauseEnabled === 'boolean' ? parsed.autoPauseEnabled : true,
+          autoPauseThresholds:
+            parsed.autoPauseThresholds &&
+            typeof parsed.autoPauseThresholds === 'object' &&
+            !Array.isArray(parsed.autoPauseThresholds)
+              ? parsed.autoPauseThresholds
+              : { ...DEFAULT_AUTO_PAUSE_THRESHOLDS },
+          dataFields:
+            parsed.dataFields &&
+            typeof parsed.dataFields === 'object' &&
+            !Array.isArray(parsed.dataFields)
+              ? parsed.dataFields
+              : { ...DEFAULT_DATA_FIELDS },
           isLoaded: true,
         });
       } else {
@@ -77,6 +90,7 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
   },
 
   setAutoPauseThreshold: (sport, kmh) => {
+    if (!Number.isFinite(kmh) || kmh < 0) return;
     set((state) => {
       const updated = { ...state.autoPauseThresholds, [sport]: kmh };
       persistPreferences({ ...state, autoPauseThresholds: updated });
@@ -101,7 +115,7 @@ async function persistPreferences(state: Partial<RecordingPreferencesState>): Pr
       autoPauseThresholds: state.autoPauseThresholds,
       dataFields: state.dataFields,
     };
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    await setSetting(STORAGE_KEY, JSON.stringify(data));
   } catch {
     if (__DEV__) {
       console.warn('[RecordingPreferences] Failed to persist');

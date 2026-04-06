@@ -20,7 +20,7 @@ export function TileCachePanel({
   return (
     <>
       {/* Route Matching Toggle */}
-      <View style={styles.toggleRow}>
+      <View testID="settings-tile-cache" style={styles.toggleRow}>
         <View style={styles.toggleInfo}>
           <Text style={[styles.toggleLabel, isDark && styles.textLight]}>
             {t('settings.enableRouteMatching')}

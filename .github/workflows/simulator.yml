@@ -394,6 +394,14 @@ jobs:
           cargo ndk -t arm64-v8a -t x86_64 -o ../android/src/main/jniLibs build --release -p veloqrs
           echo "✓ Built Android .so libraries"
 
+      - name: Write google-services.json
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          echo "$GOOGLE_SERVICES_JSON" | base64 -d > google-services.json
+          echo "Wrote google-services.json ($(stat -c%s google-services.json) bytes)"
+
       - name: Cache Android prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true'
         id: android-prebuild-cache
@@ -407,8 +415,8 @@ jobs:
             !android/.cxx
             !android/app/build
             !android/app/.cxx
-          # v2: exclude build directories to prevent stale CMake outputs
-          key: android-prebuild-v2-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'modules/veloqrs/android/**', 'modules/veloqrs/package.json') }}
+          # v3: bust cache after adding google-services.json injection
+          key: android-prebuild-v3-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'modules/veloqrs/android/**', 'modules/veloqrs/package.json') }}
 
       - name: Expo Prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.android-prebuild-cache.outputs.cache-hit != 'true'

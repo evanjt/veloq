@@ -240,4 +240,77 @@ describe('createAutoPauseDetector', () => {
       expect(detector.update(1.0, 10000)).toBeNull();
     });
   });
+
+  describe('stress edge cases', () => {
+    it('rapid oscillation does not produce false pause signal', () => {
+      const detector = createAutoPauseDetector(defaultConfig);
+      let result = null;
+
+      for (let i = 0; i < 40; i++) {
+        const speed = i % 2 === 0 ? 0.5 : 1.5; // alternate below/above
+        const time = i * 100; // every 100ms
+        result = detector.update(speed, time);
+      }
+
+      // 40 * 100ms = 4000ms total, but never 5000ms consecutive below threshold
+      // because every other sample is above threshold, resetting the timer
+      expect(result).toBeNull();
+    });
+
+    it('emits only one pause signal for extended stop', () => {
+      const detector = createAutoPauseDetector(defaultConfig);
+
+      const signals: string[] = [];
+      // Simulate 1 hour at 0 speed, sampling every second
+      for (let t = 0; t <= 3600000; t += 1000) {
+        const signal = detector.update(0, t);
+        if (signal) signals.push(signal);
+      }
+
+      // Should get exactly one pause signal
+      expect(signals).toEqual(['pause']);
+    });
+
+    it('oscillation with period longer than threshold triggers pause', () => {
+      const detector = createAutoPauseDetector(defaultConfig);
+      const signals: string[] = [];
+
+      // Below threshold for 6000ms (exceeds 5000ms threshold), then above
+      for (let t = 0; t <= 6000; t += 1000) {
+        const signal = detector.update(0.5, t);
+        if (signal) signals.push(signal);
+      }
+      // Go above threshold
+      const resumeSignal = detector.update(2.0, 7000);
+      if (resumeSignal) signals.push(resumeSignal);
+
+      expect(signals).toEqual(['pause', 'resume']);
+    });
+
+    it('many pause/resume cycles maintain correct state', () => {
+      const detector = createAutoPauseDetector(defaultConfig);
+      const signals: string[] = [];
+
+      // Run 10 complete pause/resume cycles
+      for (let cycle = 0; cycle < 10; cycle++) {
+        const baseTime = cycle * 12000;
+        // Below threshold for 6s → pause
+        detector.update(0.5, baseTime);
+        const pause = detector.update(0.5, baseTime + 6000);
+        if (pause) signals.push(pause);
+        // Above threshold → resume
+        const resume = detector.update(2.0, baseTime + 7000);
+        if (resume) signals.push(resume);
+      }
+
+      // Should have exactly 10 pause and 10 resume signals alternating
+      expect(signals.length).toBe(20);
+      expect(signals.filter((s) => s === 'pause').length).toBe(10);
+      expect(signals.filter((s) => s === 'resume').length).toBe(10);
+      // Verify strict alternation
+      for (let i = 0; i < signals.length; i++) {
+        expect(signals[i]).toBe(i % 2 === 0 ? 'pause' : 'resume');
+      }
+    });
+  });
 });

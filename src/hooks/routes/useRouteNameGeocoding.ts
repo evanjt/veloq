@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateRouteName } from '@/lib/geo/geocoding';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { safeJsonParse } from '@/lib/utils/validation';
 
 const GEOCODED_IDS_KEY = 'veloq-geocoded-route-ids';
 const GEOCODED_SECTION_IDS_KEY = 'veloq-geocoded-section-ids';
@@ -28,8 +29,8 @@ export function useRouteNameGeocoding(enabled: boolean = true) {
         AsyncStorage.getItem(GEOCODED_IDS_KEY),
         AsyncStorage.getItem(GEOCODED_SECTION_IDS_KEY),
       ]);
-      const geocodedRouteIds = new Set<string>(routeIdsRaw ? JSON.parse(routeIdsRaw) : []);
-      const geocodedSectionIds = new Set<string>(sectionIdsRaw ? JSON.parse(sectionIdsRaw) : []);
+      const geocodedRouteIds = new Set<string>(safeJsonParse(routeIdsRaw, []));
+      const geocodedSectionIds = new Set<string>(safeJsonParse(sectionIdsRaw, []));
 
       // Get route groups with generic names
       const routePattern =

@@ -178,6 +178,30 @@ describe('detectStalePROpportunities', () => {
       expect(detectStalePROpportunities(input)).toEqual([]);
     });
 
+    it('does not flag unsupported section sports from cycling FTP alone', () => {
+      const input: StalePRInput = {
+        sections: [
+          {
+            sectionId: 'h1',
+            sectionName: 'Alpine Hike',
+            bestTimeSecs: 1800,
+            traversalCount: 6,
+            lastTraversalTs: NOW_TS - 60 * DAYS,
+            sportType: 'Hike',
+          },
+        ],
+        ftpTrend: {
+          latestFtp: 220,
+          latestDate: NOW_TS,
+          previousFtp: 200,
+          previousDate: NOW_TS - 90 * DAYS,
+        },
+        paceTrend: null,
+        recentPRs: [],
+      };
+      expect(detectStalePROpportunities(input)).toEqual([]);
+    });
+
     it('latestFtp is undefined', () => {
       const input: StalePRInput = {
         sections: [
@@ -504,9 +528,9 @@ describe('detectStalePROpportunities', () => {
         ],
         ftpTrend: null,
         paceTrend: {
-          latestPace: 270, // 4:30 min/km
+          latestPace: 3.3,
           latestDate: NOW_TS,
-          previousPace: 300, // 5:00 min/km
+          previousPace: 3.0,
           previousDate: NOW_TS - 90 * DAYS,
         },
         recentPRs: [],
@@ -515,10 +539,10 @@ describe('detectStalePROpportunities', () => {
       expect(result).toHaveLength(1);
       expect(result[0].sectionId).toBe('r1');
       expect(result[0].fitnessMetric).toBe('pace');
-      expect(result[0].currentValue).toBe(270);
-      expect(result[0].previousValue).toBe(300);
+      expect(result[0].currentValue).toBe(3.3);
+      expect(result[0].previousValue).toBe(3.0);
       expect(result[0].gainPercent).toBe(10);
-      expect(result[0].unit).toBe('min/km');
+      expect(result[0].unit).toBe('/km');
     });
 
     it('does not flag running section when only FTP improved (wrong sport)', () => {
@@ -573,9 +597,9 @@ describe('detectStalePROpportunities', () => {
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: {
-          latestPace: 260,
+          latestPace: 3.25,
           latestDate: NOW_TS,
-          previousPace: 290,
+          previousPace: 2.95,
           previousDate: NOW_TS - 90 * DAYS,
         },
         recentPRs: [],
@@ -592,9 +616,44 @@ describe('detectStalePROpportunities', () => {
       expect(cycling.unit).toBe('W');
 
       expect(running.fitnessMetric).toBe('pace');
-      expect(running.currentValue).toBe(260);
-      expect(running.previousValue).toBe(290);
-      expect(running.unit).toBe('min/km');
+      expect(running.currentValue).toBe(3.25);
+      expect(running.previousValue).toBe(2.95);
+      expect(running.unit).toBe('/km');
+    });
+  });
+
+  describe('swimming sections', () => {
+    it('finds opportunity when swim pace improved for a swimming section', () => {
+      const input: StalePRInput = {
+        sections: [
+          {
+            sectionId: 'sw1',
+            sectionName: 'Pool Set',
+            bestTimeSecs: 95,
+            traversalCount: 7,
+            lastTraversalTs: NOW_TS - 50 * DAYS,
+            sportType: 'Swim',
+          },
+        ],
+        ftpTrend: null,
+        runPaceTrend: null,
+        swimPaceTrend: {
+          latestPace: 1.1,
+          latestDate: NOW_TS,
+          previousPace: 1.0,
+          previousDate: NOW_TS - 90 * DAYS,
+        },
+        recentPRs: [],
+      };
+
+      const result = detectStalePROpportunities(input);
+      expect(result).toHaveLength(1);
+      expect(result[0].sectionId).toBe('sw1');
+      expect(result[0].fitnessMetric).toBe('pace');
+      expect(result[0].currentValue).toBe(1.1);
+      expect(result[0].previousValue).toBe(1.0);
+      expect(result[0].gainPercent).toBe(10);
+      expect(result[0].unit).toBe('/100m');
     });
   });
 
@@ -674,14 +733,14 @@ describe('detectStalePROpportunities', () => {
         sectionName: 'Park Loop',
         bestTimeSecs: 420,
         fitnessMetric: 'pace',
-        currentValue: 270,
-        previousValue: 300,
+        currentValue: 3.3,
+        previousValue: 3.0,
         gainPercent: 10,
-        unit: 'min/km',
+        unit: '/km',
       };
       const insight = stalePROpportunityToInsight(paceOpportunity, mockT);
-      expect(insight.methodology!.name).toBe('Pace-PR cross-reference');
-      expect(insight.body).toContain('Pace');
+      expect(insight.methodology!.name).toBe('Threshold pace-PR cross-reference');
+      expect(insight.body).toContain('Threshold pace');
       expect(insight.body).not.toContain('FTP');
     });
   });

@@ -1,4 +1,4 @@
-use super::error::{with_engine, VeloqError};
+use super::error::{VeloqError, with_engine};
 use std::sync::Arc;
 
 #[derive(uniffi::Object)]
@@ -65,7 +65,10 @@ impl ActivityManager {
         })?
     }
 
-    fn get_metrics_for_ids(&self, ids: Vec<String>) -> Result<Vec<crate::FfiActivityMetrics>, VeloqError> {
+    fn get_metrics_for_ids(
+        &self,
+        ids: Vec<String>,
+    ) -> Result<Vec<crate::FfiActivityMetrics>, VeloqError> {
         with_engine(|engine| {
             ids.iter()
                 .filter_map(|id| engine.activity_metrics.get(id).cloned())
@@ -74,13 +77,21 @@ impl ActivityManager {
         })
     }
 
-    fn set_time_streams(&self, activity_ids: Vec<String>, all_times: Vec<u32>, offsets: Vec<u32>) -> Result<(), VeloqError> {
+    fn set_time_streams(
+        &self,
+        activity_ids: Vec<String>,
+        all_times: Vec<u32>,
+        offsets: Vec<u32>,
+    ) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.set_time_streams_flat(&activity_ids, &all_times, &offsets);
         })
     }
 
-    fn get_missing_time_streams(&self, activity_ids: Vec<String>) -> Result<Vec<String>, VeloqError> {
+    fn get_missing_time_streams(
+        &self,
+        activity_ids: Vec<String>,
+    ) -> Result<Vec<String>, VeloqError> {
         with_engine(|e| e.get_activities_missing_time_streams(&activity_ids))
     }
 

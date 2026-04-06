@@ -1,11 +1,13 @@
 # Smoke Test
 # Basic sanity check that the app launches and shows either login or home screen
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier0
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
+
+- takeScreenshot: "smoke-home-loaded"
 
 - takeScreenshot: "smoke-complete"

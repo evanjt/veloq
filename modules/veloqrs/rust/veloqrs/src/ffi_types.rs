@@ -17,6 +17,13 @@ pub struct FfiBatchTrace {
     pub coords: Vec<f64>,
 }
 
+/// Entry for importing superseded section mappings from AsyncStorage migration.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSupersededEntry {
+    pub custom_section_id: String,
+    pub auto_section_ids: Vec<String>,
+}
+
 /// Extension track for expanding section bounds.
 /// Contains the representative activity's full GPS track with section start/end indices.
 #[derive(Debug, Clone, uniffi::Record)]
@@ -647,6 +654,9 @@ pub struct FfiSection {
     pub source_activity_id: Option<String>,
     pub start_index: Option<u32>,
     pub end_index: Option<u32>,
+    // Visibility state
+    pub disabled: bool,
+    pub superseded_by: Option<String>,
 }
 
 impl From<crate::sections::Section> for FfiSection {
@@ -675,6 +685,8 @@ impl From<crate::sections::Section> for FfiSection {
             source_activity_id: s.source_activity_id,
             start_index: s.start_index,
             end_index: s.end_index,
+            disabled: s.disabled,
+            superseded_by: s.superseded_by,
         }
     }
 }
@@ -1021,6 +1033,8 @@ pub struct FfiRankedSection {
     pub days_since_last: u32,
     /// -1 = declining, 0 = stable, 1 = improving
     pub trend: i32,
+    /// Whether the most recent effort is the all-time best time
+    pub latest_is_pr: bool,
 }
 
 // ============================================================================
@@ -1109,7 +1123,11 @@ impl From<crate::CalendarYearSummary> for FfiCalendarYearSummary {
             traversal_count: y.traversal_count,
             forward: y.forward.map(FfiCalendarDirectionBest::from),
             reverse: y.reverse.map(FfiCalendarDirectionBest::from),
-            months: y.months.into_iter().map(FfiCalendarMonthSummary::from).collect(),
+            months: y
+                .months
+                .into_iter()
+                .map(FfiCalendarMonthSummary::from)
+                .collect(),
         }
     }
 }
@@ -1131,7 +1149,11 @@ pub struct FfiCalendarSummary {
 impl From<crate::CalendarSummary> for FfiCalendarSummary {
     fn from(s: crate::CalendarSummary) -> Self {
         Self {
-            years: s.years.into_iter().map(FfiCalendarYearSummary::from).collect(),
+            years: s
+                .years
+                .into_iter()
+                .map(FfiCalendarYearSummary::from)
+                .collect(),
             forward_pr: s.forward_pr.map(FfiCalendarDirectionBest::from),
             reverse_pr: s.reverse_pr.map(FfiCalendarDirectionBest::from),
             section_distance: s.section_distance,
@@ -1470,6 +1492,8 @@ mod tests {
             source_activity_id: None,
             start_index: None,
             end_index: None,
+            disabled: false,
+            superseded_by: None,
         };
 
         let ffi_section = FfiSection::from(section);
@@ -1486,4 +1510,161 @@ mod tests {
         assert_eq!(ffi_section.route_ids, Some(vec!["route_1".to_string()]));
         assert!(ffi_section.source_activity_id.is_none());
     }
+}
+
+// ============================================================================
+// Strength Training Types
+// ============================================================================
+
+/// A single exercise set from a FIT file, exposed to TypeScript.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiExerciseSet {
+    pub activity_id: String,
+    pub set_order: u32,
+    pub exercise_category: u16,
+    pub exercise_name: Option<u16>,
+    /// Human-readable exercise name, pre-resolved in Rust.
+    pub display_name: String,
+    /// 0=active, 1=rest, 2=warmup, 3=cooldown
+    pub set_type: u8,
+    pub repetitions: Option<u16>,
+    pub weight_kg: Option<f64>,
+    pub duration_secs: Option<f64>,
+}
+
+/// A muscle group activation, matching react-native-body-highlighter slug format.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMuscleGroup {
+    /// Slug matching react-native-body-highlighter (e.g., "biceps", "chest")
+    pub slug: String,
+    /// 1 = secondary, 2 = primary
+    pub intensity: u8,
+}
+
+/// Aggregated muscle group volume over a time period.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMuscleVolume {
+    /// Slug matching react-native-body-highlighter
+    pub slug: String,
+    /// Number of sets where this muscle is primary target
+    pub primary_sets: u32,
+    /// Number of sets where this muscle is secondary target
+    pub secondary_sets: u32,
+    /// Weighted set count: primary=1.0, secondary=0.5
+    pub weighted_sets: f64,
+    /// Total reps across all exercises targeting this muscle (primary only)
+    pub total_reps: u32,
+    /// Total volume load in kg (weight × reps) for primary exercises
+    pub total_weight_kg: f64,
+    /// Human-readable exercise names that targeted this muscle
+    pub exercise_names: Vec<String>,
+}
+
+/// Summary of strength training volume over a time period.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiStrengthSummary {
+    /// Per-muscle-group volume data
+    pub muscle_volumes: Vec<FfiMuscleVolume>,
+    /// Number of WeightTraining activities in the period
+    pub activity_count: u32,
+    /// Total active sets across all activities
+    pub total_sets: u32,
+}
+
+// ============================================================================
+// Muscle Exercise Detail Types
+// ============================================================================
+
+/// Exercise summary for a specific muscle group within a date range.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiExerciseSummary {
+    /// Human-readable exercise name
+    pub exercise_name: String,
+    /// FIT exercise category ID (pass back for drill-down query)
+    pub exercise_category: u16,
+    /// Average days between sessions (period_days / activity_count)
+    pub frequency_days: f64,
+    /// Total active sets across all activities
+    pub total_sets: u32,
+    /// Total volume load in kg (weight × reps)
+    pub total_weight_kg: f64,
+    /// Number of distinct activities containing this exercise
+    pub activity_count: u32,
+    /// True if the muscle is a primary target for at least one occurrence
+    pub is_primary: bool,
+}
+
+/// Exercise summaries grouped by frequency for a muscle group.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMuscleExerciseSummary {
+    /// Exercises targeting the muscle, sorted by activity_count DESC
+    pub exercises: Vec<FfiExerciseSummary>,
+    /// Number of days in the selected period
+    pub period_days: u32,
+}
+
+/// An activity containing a specific exercise, with per-activity stats.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiExerciseActivity {
+    /// Activity ID for navigation
+    pub activity_id: String,
+    /// Activity display name
+    pub activity_name: String,
+    /// Activity date as Unix timestamp (seconds)
+    pub date: i64,
+    /// Number of sets of this exercise in the activity
+    pub sets: u32,
+    /// Total volume load in kg (weight × reps) for this exercise in this activity
+    pub total_weight_kg: f64,
+    /// Whether the muscle is a primary target for this exercise
+    pub is_primary: bool,
+}
+
+/// Activities for a specific exercise, sorted by date DESC.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiExerciseActivities {
+    pub activities: Vec<FfiExerciseActivity>,
+}
+
+// ============================================================================
+// Section Matching & Merge Types
+// ============================================================================
+
+/// Result of matching an activity's GPS track against existing sections.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionMatch {
+    pub section_id: String,
+    pub section_name: Option<String>,
+    pub sport_type: String,
+    pub start_index: u64,
+    pub end_index: u64,
+    pub match_quality: f64,
+    pub same_direction: bool,
+    pub distance_meters: f64,
+}
+
+/// Candidate for merging with another section.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMergeCandidate {
+    pub section_id: String,
+    pub name: Option<String>,
+    pub sport_type: String,
+    pub distance_meters: f64,
+    pub visit_count: u32,
+    pub overlap_pct: f64,
+    pub center_distance_meters: f64,
+}
+
+/// Nearby section summary with distance info and polyline for map rendering.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiNearbySectionSummary {
+    pub id: String,
+    pub section_type: String,
+    pub name: Option<String>,
+    pub sport_type: String,
+    pub distance_meters: f64,
+    pub visit_count: u32,
+    pub center_distance_meters: f64,
+    /// Flat polyline coordinates [lat, lng, lat, lng, ...] for map overlay
+    pub polyline_coords: Vec<f64>,
 }

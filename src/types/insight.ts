@@ -3,13 +3,9 @@ export type InsightCategory =
   | 'stale_pr'
   | 'fitness_milestone'
   | 'period_comparison'
-  | 'activity_pattern'
-  | 'training_consistency'
+  | 'strength_progression'
+  | 'strength_balance'
   | 'hrv_trend'
-  | 'tsb_form'
-  | 'weekly_load'
-  | 'intensity_context'
-  | 'section_cluster'
   | 'efficiency_trend';
 
 export type InsightPriority = 1 | 2 | 3 | 4 | 5;
@@ -46,6 +42,7 @@ export interface SupportingSection {
   traversalCount?: number;
   sportType?: string;
   hasRecentPR?: boolean;
+  daysSinceLast?: number;
 }
 
 export interface SupportingActivity {

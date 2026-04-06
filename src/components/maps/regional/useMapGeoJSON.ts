@@ -54,6 +54,7 @@ export function getMarkerSize(_distance: number): number {
 }
 
 interface UseMapGeoJSONOptions {
+  allActivities: ActivityBoundsItem[];
   visibleActivities: ActivityBoundsItem[];
   activityCenters: Record<string, [number, number]>;
   routeSignatures: Record<string, RouteSignature>;
@@ -79,6 +80,7 @@ interface UseMapGeoJSONResult {
 }
 
 export function useMapGeoJSON({
+  allActivities,
   visibleActivities,
   activityCenters,
   routeSignatures,
@@ -95,9 +97,11 @@ export function useMapGeoJSON({
   // NOTE: Does NOT include isSelected - use MapLibre expressions with selectedActivityId
   // iOS crash fix: Filter out activities with undefined/invalid centers to prevent
   // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
+  // CRITICAL: Use allActivities (not visibleActivities) so MapLibre Supercluster has the
+  // complete point set for correct cluster hierarchies and counts at all zoom levels.
   const markersGeoJSON = useMemo(() => {
     let skippedCount = 0;
-    const features = visibleActivities
+    const features = allActivities
       .map((activity) => {
         // Use pre-computed center (no format detection during render!)
         const center = activityCenters[activity.id];
@@ -119,7 +123,8 @@ export function useMapGeoJSON({
 
         return {
           type: 'Feature' as const,
-          id: activity.id,
+          // No top-level `id` — string IDs break MapLibre Supercluster clustering.
+          // Use properties.id for tap handlers and selection expressions.
           properties: {
             id: activity.id,
             type: activity.type,
@@ -136,7 +141,7 @@ export function useMapGeoJSON({
 
     if (__DEV__ && skippedCount > 0) {
       console.warn(
-        `[useMapGeoJSON] markersGeoJSON: skipped ${skippedCount}/${visibleActivities.length} activities with invalid centers`
+        `[useMapGeoJSON] markersGeoJSON: skipped ${skippedCount}/${allActivities.length} activities with invalid centers`
       );
     }
 
@@ -144,7 +149,7 @@ export function useMapGeoJSON({
       type: 'FeatureCollection' as const,
       features: features as GeoJSON.Feature[],
     };
-  }, [visibleActivities, activityCenters]);
+  }, [allActivities, activityCenters]);
 
   // ===========================================
   // 2. GPS TRACES - Simplified routes shown when zoomed in
@@ -290,7 +295,6 @@ export function useMapGeoJSON({
         // GeoJSON LineString requires minimum 2 coordinates
         // Stride-sample to halve coordinate payload (same as tracesGeoJSON).
         const coordinates = signature.points
-          .filter((_, i) => i % 2 === 0 || i === signature.points.length - 1)
           .filter((pt) => Number.isFinite(pt.lng) && Number.isFinite(pt.lat))
           .map((pt) => [pt.lng, pt.lat]);
 

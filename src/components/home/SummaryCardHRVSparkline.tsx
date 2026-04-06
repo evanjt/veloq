@@ -5,7 +5,7 @@ import { vec, LinearGradient } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTheme } from '@/hooks';
-import { darkColors, colors } from '@/theme';
+import { darkColors, colors, colorWithOpacity } from '@/theme';
 import type { ScrubValues } from './SummaryCardSparkline';
 
 /** Match total height of fitness sparkline (44 chart + 4 form bar) */
@@ -81,7 +81,10 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
     const daysAgo = hrv.length - 1 - index;
     const date = new Date();
     date.setDate(date.getDate() - daysAgo);
-    const dateLabel = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const dateLabel = date.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
     cb({
       fitness: 0,
       fatigue: 0,
@@ -171,8 +174,8 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   }
 
   const casingColor = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)';
-  const hrvLineColor = isDark ? '#EC4899' : 'rgba(236,72,153,0.85)';
-  const rhrLineColor = isDark ? '#EF5350' : 'rgba(239,83,80,0.65)';
+  const hrvLineColor = isDark ? colors.chartPink : colorWithOpacity(colors.chartPink, 0.85);
+  const rhrLineColor = isDark ? colors.formHighRisk : colorWithOpacity(colors.formHighRisk, 0.65);
 
   return (
     <GestureDetector gesture={composed}>
@@ -182,7 +185,9 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
             <View style={[styles.labelColumn, { width: labelWidth }]}>
               <RNText style={[styles.inlineLabel, { color: colors.chartPink }]}>HRV</RNText>
               <View style={{ flex: 1 }} />
-              {hasRhr && <RNText style={[styles.inlineLabel, { color: '#EF5350' }]}>RHR</RNText>}
+              {hasRhr && (
+                <RNText style={[styles.inlineLabel, { color: colors.formHighRisk }]}>RHR</RNText>
+              )}
             </View>
           )}
 
@@ -208,7 +213,12 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
                       <LinearGradient
                         start={vec(0, 0)}
                         end={vec(0, CHART_HEIGHT)}
-                        colors={[isDark ? '#EC489960' : '#EC489940', 'transparent']}
+                        colors={[
+                          isDark
+                            ? colorWithOpacity(colors.chartPink, 0.38)
+                            : colorWithOpacity(colors.chartPink, 0.25),
+                          'transparent',
+                        ]}
                       />
                     </Area>
 
@@ -263,7 +273,9 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
               <View
                 style={[
                   styles.crosshairLine,
-                  { backgroundColor: isDark ? darkColors.textSecondary : colors.textSecondary },
+                  {
+                    backgroundColor: isDark ? darkColors.textSecondary : colors.textSecondary,
+                  },
                 ]}
               />
             </Animated.View>

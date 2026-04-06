@@ -146,8 +146,17 @@
       "intervals": "Intervall",
       "route": "Route",
       "routes": "Route",
-      "sections": "Abschnitt"
-    }
+      "sections": "Abschnitt",
+      "exercises": "Übige"
+    },
+    "primary": "Primär",
+    "secondary": "Sekundär",
+    "exercises": "Übige",
+    "exercisesSummary": "{{exercises}} Übige · {{sets}} Sätz",
+    "muscleDataSource": "Muskeldate: free-exercise-db",
+    "bodyShapeFromProfile": "Dis Profil: {{gender}}",
+    "bodyShapeRandom": "Körper zuefällig gwählt — keis Gschlächt im intervals.icu-Profil",
+    "tapMuscle": "Tap for details"
   },
   "alerts": {
     "cacheCleared": "Cache gleert",
@@ -184,7 +193,33 @@
     "preferencesRestored": "{{count}} Iistellige wiederhergestellt",
     "restoreComplete": "Wiederherstellig fertig",
     "sectionsRestored": "{{count}} eigeni Abschnitt wiederhergestellt",
-    "sectionsSkipped": "{{count}} Abschnitt übersprunge (zersch Aktivitäte synce)"
+    "sectionsSkipped": "{{count}} Abschnitt übersprunge (zersch Aktivitäte synce)",
+    "exportDatabase": "Export Database",
+    "importDatabase": "Import Database",
+    "databaseRestored": "Database restored with {{count}} activities",
+    "exportingDatabase": "Exporting database...",
+    "importingDatabase": "Importing database...",
+    "autoBackup": "Auto-Backup",
+    "autoBackupDescription": "Automatically back up after sync",
+    "lastBackup": "Last backup: {{date}}",
+    "lastBackupNever": "Never backed up",
+    "backupNow": "Back Up Now",
+    "backingUp": "Backing up...",
+    "selectBackend": "Backup to",
+    "backendLocal": "Local Storage",
+    "backendWebdav": "WebDAV / Nextcloud",
+    "backendIcloud": "iCloud",
+    "serverUrl": "Server URL",
+    "username": "Username",
+    "password": "Password",
+    "testConnection": "Test Connection",
+    "connectionSuccess": "Connection successful",
+    "connectionFailed": "Connection failed",
+    "restoreFromBackup": "Us Backup wiederherstellä",
+    "backupFound": "Backup Found",
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "D Date ghöred zu enere andere Konto. Date lösche und für das Konto nöi synchronisiere?",
+    "clearAndSync": "Lösche & Sync"
   },
   "cache": {
     "addingActivities": "Aktivitäte werdid hinzuegfüegt...",
@@ -379,8 +414,8 @@
     "fatigueDescription": "isch en 7-Täg-Schnitt vo dim Training.",
     "fitnessAndFatigue": "Fitness & Müedigkeit",
     "fitnessDescription": "isch en 42-Täg-Schnitt vo dim Training.",
-    "forRaces": "für Wettkämpf. Vermid d",
-    "formDescription": "isch Fitness minus Müedigkeit. Trainier i de",
+    "forRaces": "Zone zeigt wenig Müedigkeit. D'",
+    "formDescription": "isch Fitness minus Müedigkeit. D'",
     "fresh": "fit",
     "highRiskZone": "Gfahrezone",
     "learnMore": "Meh erfahre",
@@ -390,8 +425,15 @@
     "loadingData": "Momäntli...",
     "optimalZone": "optimale Zone",
     "title": "Fitness & Form",
-    "toBuildFitness": "zum Fitness ufbaue. Bis",
-    "toPreventOvertraining": "zum Übertraining vermide.",
+    "toBuildFitness": "zeigt produktivi Trainingsbelastig a. D'",
+    "toPreventOvertraining": "zeigt hohi aagsammlet Müedigkeit a.",
+    "guidance": {
+      "highRisk": "TSB under -30. D'Müedigkeit isch massiv höcher als d'letzte Fitnessgewinne.",
+      "optimal": "TSB zwüsche -30 und -10. D'Trainingsbelastig bringt Fitnessapassige.",
+      "greyZone": "TSB zwüsche -10 und 5. Moderats Gliichgwicht zwüsche Fitness und Müedigkeit.",
+      "fresh": "TSB zwüsche 5 und 25. Wenig Müedigkeit im Verhältnis zur Fitness. Wenn'd z'lang da bliibsch, gaht d'Fitness abe.",
+      "transition": "TSB über 25. Wenig Trainingsreiz i letschter Zyt. D'Fitness gaht abe."
+    },
     "tsb": "TSB",
     "understandingMetrics": "D Zahle verstaa"
   },
@@ -407,6 +449,7 @@
   },
   "insights": {
     "title": "S Wichigschte",
+    "strength": "Strength",
     "noInsights": "Tipps chömed wenn du trainiersch",
     "noInsightsHint": "Mach meh Aktivitäte für persönlichi Tipps",
     "sectionPr": "PR uf {{name}}!",
@@ -422,8 +465,6 @@
     "weeklyLoadUp": "+{{percent}}% Trainingsbelastig",
     "weeklyLoadDown": "{{percent}}% weniger Belastig",
     "loadBody": "TSS: {{currentTss}} die Wuche vs {{previousTss}} letschti Wuche. Ziit: {{currentDuration}} vs {{previousDuration}}.",
-    "patternMatch": "{{day}} - meischtens {{verb}} ~{{duration}}",
-    "consistencyStreak": "{{count}}-Wuche-Serie, cheibe guet!",
     "volumeBody": "Trainingsziit: {{current}} die Wuche vs {{previous}} letscht Wuche. Das misst d Ziit, nöd d Trainingsbelastig (TSS).",
     "viewDetails": "Details luege",
     "today": "HÜTT",
@@ -443,8 +484,6 @@
       "hrvTrend": "HRV {{direction}} {{percent}}% die Wuche",
       "tomorrowPattern": "Morn isch normaaler {{verb}}-Tag",
       "tomorrowPatternBody": "Basierend uf {{count}} früheri {{day}}-Aktivitäte, machsch normalerwiis {{verb}} für ~{{duration}}.",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
       "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
@@ -492,32 +531,6 @@
       "efforts": "Versüech",
       "trendSlope": "Trendsteiging"
     },
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "transition": "Transition",
-        "greyZone": "Maintenance",
-        "optimal": "Productive training",
-        "highRisk": "Deep fatigue"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "transition": "Between training and freshness",
-        "greyZone": "Moderate training load",
-        "optimal": "Where most adaptation occurs",
-        "highRisk": "Significant accumulated fatigue"
-      },
-      "titles": {
-        "fresh": "Peak form — ready to race",
-        "transition": "Fresh — good for hard training",
-        "greyZone": "Balanced — steady training",
-        "optimal": "Building fitness — fatigue accumulating",
-        "highRisk": "Heavy load — recovery important"
-      }
-    },
     "hrvTrend": {
       "trendingUp": "Recovery improving",
       "trendingDown": "Recovery dipping",
@@ -533,15 +546,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}: Fitness veränderet sit PR",
+      "subtitle": "PR {{prTime}} bi {{metric}} {{previous}}, jetzt {{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}: PR gsetzt bi {{metric}} {{previous}}. Aktuell {{metric}}: {{current}}.",
+      "currentMetric": "Aktuell {{metric}}",
+      "prMetric": "{{metric}} bim PR",
+      "metricGain": "{{metric}}-Gwinn",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Higher FTP suggests untapped potential on power-dependent sections.",
-      "groupTitle": "{{count}} PRs to revisit"
+      "methodology": "Verglycht Fitnesswert bim PR-Zytpunkt mit aktuelle Wert. Zeigt Sektione wo sich d'Fitnesswert sit em PR veränderet hend.",
+      "groupTitle": "{{count}} PRs mit Fitnessänderige"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -549,18 +562,31 @@
     "showMore": "Show {{count}} more",
     "aboutTitle": "About Insights",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "sectionCluster": {
-      "improvingTitle": "{{name}} getting faster",
-      "decliningTitle": "{{name}} slowing down",
-      "improvingBody": "{{names}} trending faster across {{count}} sections.",
-      "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
-      "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced.",
-      "subtitle": "and {{count}} other {{sport}} sections"
-    },
     "efficiencyTrend": {
       "title": "HF sinkt uf {{name}}",
       "subtitle": "{{hrChange}} bpm tüüfer über {{efforts}} Versüech",
       "body": "Über {{efforts}} Versüech uf {{name}} isch dini Härzfrequänz bim gliiche Tempo um {{hrChange}} bpm gsunke."
+    },
+    "teaser": {
+      "workoutToday": "{{name}} hüt",
+      "prOpportunity": "PR-Chance uf {{name}}",
+      "usualPattern": "{{day}} machsch normalerwiis {{sport}} ~{{duration}}",
+      "improving": "wird besser ↑",
+      "stable": "stabil"
+    },
+    "strengthBalance": {
+      "volumeSplit": "Volume-Uffteilig",
+      "balanced": "Usgliche",
+      "watch": "Beobachte",
+      "imbalanced": "Unusgliche",
+      "oneSided": "Eiisitig",
+      "lowSignal": "Wenig Date",
+      "noSignal": "Kei Date",
+      "noRecentVolume": "Keis Volume ide letzte 4 Wuche — erschint nur im erwiiterte Ziitraum.",
+      "volumeAppeared": "Volume isch ide letzte zwei Wuche ufftaucht nach emene rüehigere Start.",
+      "volumeUp": "De 2-Wuche-Schnitt ligt {{percent}}% über de vorherige 2 Wuche.",
+      "volumeDown": "De 2-Wuche-Schnitt ligt {{percent}}% unter de vorherige 2 Wuche.",
+      "volumeSteady": "De 2-Wuche-Schnitt isch stabil im Vergliich zum Monatsaafang."
     }
   },
   "licenses": {
@@ -593,6 +619,7 @@
     "instructions": "1. Mach d Intervals.icu Istellige uf\n2. Scroll zu de Entwickleristellige\n3. Schnapp dr din API-Schlüssel",
     "invalidApiKey": "Gopferteckel, Schlüssel stimmt nöd!",
     "localModeNote": "Lokal: Alli Date blibed bi dir",
+    "apiKeyNoNotifications": "Push notifications are not available with API key login.",
     "loginWithIntervals": "Mit intervals.icu ilogge",
     "noAccount": "No keis Konto?",
     "oauthFailed": "Hät nöd klappet, probiers nomol!",
@@ -1027,7 +1054,29 @@
     "visits": "Bsüech",
     "visitsCount": "{{count}} Bsüech",
     "yearPr": "Jahres-PR",
-    "moreActions": "Meh Aktione"
+    "moreActions": "Meh Aktione",
+    "scanForMatches": "Scan for matches",
+    "scanForMore": "Scan for more sections",
+    "scanning": "Scanning...",
+    "noMatchesFound": "No matching sections found",
+    "noSectionsFound": "No sections found",
+    "matchQuality": "{{quality}}% match",
+    "addToSection": "Add",
+    "nearbySections": "Nearby sections",
+    "nearbySectionsCount": "{{count}} nearby",
+    "similarNearby": "Similar section nearby",
+    "similarNearbyCount": "{{count}} similar sections nearby",
+    "mergeSections": "Merge sections",
+    "mergeKeepMessage": "Choose which section to keep. All traversal history will be preserved.",
+    "mergeInto": "\"{{secondary}}\" will be merged into \"{{primary}}\"",
+    "mergeSuccess": "Sections merged",
+    "rescan": "Re-scan",
+    "rescanComplete": "Re-scan complete",
+    "forceRedetect": "Force full re-detect",
+    "rematchActivities": "Re-match activities",
+    "awayDistance": "{{distance}}m away",
+    "viewSection": "View",
+    "merge": "Merge"
   },
   "settings": {
     "account": "Konto",
@@ -1143,7 +1192,9 @@
     "version": "Version",
     "viewRoutes": "Route zeige",
     "mapTiles": "Chartechachle",
-    "recording": "Aufzeichnung"
+    "recording": "Aufzeichnung",
+    "cache": "Cache",
+    "permissions": "Berechtigungen"
   },
   "stats": {
     "activities": "Aktivitäte",
@@ -1294,8 +1345,8 @@
     "dayAverage": "{{count}}-Täg-Schnitt",
     "dragToExplore": "Zieh zum Erkunde",
     "hrs": "Std",
-    "insightExtraRecovery": "Hüt villicht es bitzeli meh usspanne",
-    "insightGoodRecovery": "Lässig! Gueti Erholig",
+    "insightExtraRecovery": "HRV am sinke, Ruehpuls am styge",
+    "insightGoodRecovery": "HRV am styge, Ruehpuls am sinke",
     "insightStable": "Wert gsehnd stabil us",
     "lastDays": "Letschti {{count}} Täg",
     "noData": "Kei Wohlsii-Date",
@@ -1314,6 +1365,56 @@
   "wellnessScreen": {
     "title": "Wohlsii",
     "trends": "Wohlsii-Trends"
+  },
+  "notifications": {
+    "sectionPr": {
+      "title": "New PR!"
+    },
+    "fitnessMilestone": {
+      "title": "Fitness Milestone"
+    },
+    "periodComparison": {
+      "title": "Weekly Summary"
+    },
+    "hrvTrend": {
+      "title": "HRV Trend"
+    },
+    "stalePr": {
+      "title": "PR-Update"
+    },
+    "efficiencyTrend": {
+      "title": "Efficiency Trend"
+    },
+    "generic": {
+      "title": "New Insight"
+    },
+    "activityRecorded": {
+      "title": "Activity Recorded",
+      "body": "New activity synced. Open the app for details."
+    },
+    "privacy": {
+      "title": "Privacy Notice",
+      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
+      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 30-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
+      "accept": "I understand"
+    },
+    "settings": {
+      "title": "Notifications",
+      "enable": "Enable notifications",
+      "categories": "Notification categories",
+      "sectionPr": "Section personal records",
+      "fitnessMilestone": "Fitness milestones",
+      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
+      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
+      "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
+    },
+    "prompt": {
+      "title": "Aktivitätsbenachrichtigunge",
+      "description": "Überchom Benachrichtigunge über neui Aktivitäte und Erfolg",
+      "enable": "Aktiviere",
+      "dismiss": "Nei danke",
+      "settingsHint": "Du chasch Benachrichtigunge jederzit i de Iistellige aktiviere"
+    }
   },
   "whatsNew": {
     "skipButton": "Überspringä",

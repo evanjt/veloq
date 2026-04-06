@@ -1,4 +1,4 @@
-use super::error::{with_engine, VeloqError};
+use super::error::{VeloqError, with_engine};
 use std::sync::Arc;
 
 #[derive(uniffi::Object)]
@@ -54,13 +54,11 @@ impl RouteManager {
     ) -> Result<crate::FfiRoutePerformanceResult, VeloqError> {
         with_engine(|e| {
             let _ = e.get_groups();
-            crate::FfiRoutePerformanceResult::from(
-                e.get_route_performances(
-                    &group_id,
-                    current_activity_id.as_deref(),
-                    sport_type.as_deref(),
-                ),
-            )
+            crate::FfiRoutePerformanceResult::from(e.get_route_performances(
+                &group_id,
+                current_activity_id.as_deref(),
+                sport_type.as_deref(),
+            ))
         })
     }
 
@@ -71,6 +69,10 @@ impl RouteManager {
         section_limit: u32,
         section_offset: u32,
         min_group_activity_count: u32,
+        prioritize_nearest_groups: bool,
+        prioritize_nearest_sections: bool,
+        user_lat: f64,
+        user_lng: f64,
     ) -> Result<crate::FfiRoutesScreenData, VeloqError> {
         with_engine(|e| {
             e.get_routes_screen_data(
@@ -79,12 +81,20 @@ impl RouteManager {
                 section_limit,
                 section_offset,
                 min_group_activity_count,
+                prioritize_nearest_groups,
+                prioritize_nearest_sections,
+                user_lat,
+                user_lng,
             )
         })
     }
 
     fn set_name(&self, route_id: String, name: String) -> Result<(), VeloqError> {
-        let name_opt = if name.is_empty() { None } else { Some(name.as_str()) };
+        let name_opt = if name.is_empty() {
+            None
+        } else {
+            Some(name.as_str())
+        };
         with_engine(|e| {
             e.set_route_name(&route_id, name_opt)
                 .map_err(|e| VeloqError::Database {
@@ -115,7 +125,11 @@ impl RouteManager {
         with_engine(|e| e.get_excluded_route_activity_ids(&route_id))
     }
 
-    fn get_excluded_performances(&self, route_id: String, sport_type: Option<String>) -> Result<crate::FfiRoutePerformanceResult, VeloqError> {
+    fn get_excluded_performances(
+        &self,
+        route_id: String,
+        sport_type: Option<String>,
+    ) -> Result<crate::FfiRoutePerformanceResult, VeloqError> {
         with_engine(|e| {
             crate::FfiRoutePerformanceResult::from(
                 e.get_excluded_route_performances(&route_id, sport_type.as_deref()),

@@ -170,7 +170,7 @@ export function StorageStatsPanel({
   return (
     <>
       {/* Cache Stats - inline */}
-      <View style={styles.statRow}>
+      <View testID="settings-storage-stats" style={styles.statRow}>
         <TouchableOpacity
           style={styles.statItem}
           onPress={() => navigateTo('/map')}
@@ -184,7 +184,7 @@ export function StorageStatsPanel({
         <View style={styles.statDivider} />
         <TouchableOpacity
           style={styles.statItem}
-          onPress={() => navigateTo('/routes')}
+          onPress={() => navigateTo('/routes?tab=routes')}
           disabled={!routeMatchingEnabled}
           activeOpacity={0.7}
         >

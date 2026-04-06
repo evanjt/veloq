@@ -77,10 +77,7 @@ pub fn compute_activity_patterns(
     // Group features by sport type
     let mut by_sport: HashMap<String, Vec<usize>> = HashMap::new();
     for (i, f) in features.iter().enumerate() {
-        by_sport
-            .entry(f.sport_type.clone())
-            .or_default()
-            .push(i);
+        by_sport.entry(f.sport_type.clone()).or_default().push(i);
     }
 
     let mut patterns = Vec::new();
@@ -190,10 +187,7 @@ fn extract_features(
         .values()
         .filter(|m| m.moving_time > 0 && m.distance > 0.0)
         .map(|m| {
-            let tss = training_loads
-                .get(&m.activity_id)
-                .copied()
-                .unwrap_or(0.0);
+            let tss = training_loads.get(&m.activity_id).copied().unwrap_or(0.0);
 
             ActivityFeature {
                 activity_id: m.activity_id.clone(),
@@ -218,10 +212,7 @@ fn load_training_loads(db: &Connection) -> HashMap<String, f64> {
 
     if let Ok(mut stmt) = result {
         let iter = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, f64>(1)?,
-            ))
+            Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?))
         });
 
         if let Ok(rows) = iter {
@@ -403,9 +394,8 @@ fn kmeans_plus_plus_init(data: &[[f64; 4]], k: usize) -> Vec<[f64; 4]> {
             continue;
         }
 
-        let threshold = deterministic_rand(centroids.len() as u64, n as u64) as f64
-            / n as f64
-            * total;
+        let threshold =
+            deterministic_rand(centroids.len() as u64, n as u64) as f64 / n as f64 * total;
         let mut cumulative = 0.0;
         let mut chosen = 0;
         for (i, &d) in distances.iter().enumerate() {
@@ -435,10 +425,7 @@ fn deterministic_rand(seed: u64, modulus: u64) -> u64 {
 }
 
 fn euclidean_sq(a: &[f64; 4], b: &[f64; 4]) -> f64 {
-    a.iter()
-        .zip(b.iter())
-        .map(|(x, y)| (x - y) * (x - y))
-        .sum()
+    a.iter().zip(b.iter()).map(|(x, y)| (x - y) * (x - y)).sum()
 }
 
 // ============================================================================
@@ -668,11 +655,17 @@ fn build_pattern(
     }
 
     // Compute averages
-    let avg_duration_secs =
-        member_features.iter().map(|f| f.duration_secs as u64).sum::<u64>() / count as u64;
+    let avg_duration_secs = member_features
+        .iter()
+        .map(|f| f.duration_secs as u64)
+        .sum::<u64>()
+        / count as u64;
     let avg_tss = member_features.iter().map(|f| f.tss).sum::<f64>() / count as f64;
-    let avg_distance =
-        member_features.iter().map(|f| f.distance_meters).sum::<f64>() / count as f64;
+    let avg_distance = member_features
+        .iter()
+        .map(|f| f.distance_meters)
+        .sum::<f64>()
+        / count as f64;
 
     // Primary day of week (mode)
     let primary_day = mode_day_of_week(&member_features);
@@ -685,18 +678,16 @@ fn build_pattern(
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as i64;
-    let days_since_last = ((now - max_date) / 86400).max(0) as u32;
+    let days_since_last = crate::calendar_days_between(max_date, now);
 
     // Confidence score
-    let confidence = compute_confidence(
-        cluster.silhouette,
-        count,
-        span_days,
-        frequency_per_month,
-    );
+    let confidence = compute_confidence(cluster.silhouette, count, span_days, frequency_per_month);
 
     // Section enrichment
-    let activity_ids: Vec<&str> = member_features.iter().map(|f| f.activity_id.as_str()).collect();
+    let activity_ids: Vec<&str> = member_features
+        .iter()
+        .map(|f| f.activity_id.as_str())
+        .collect();
     let common_sections = enrich_with_sections(db, &activity_ids, count);
 
     Some(crate::FfiActivityPattern {
@@ -717,12 +708,7 @@ fn build_pattern(
 }
 
 /// Compute weighted confidence score.
-fn compute_confidence(
-    silhouette: f64,
-    count: usize,
-    span_days: i64,
-    frequency: f32,
-) -> f32 {
+fn compute_confidence(silhouette: f64, count: usize, span_days: i64, frequency: f32) -> f32 {
     // Silhouette weight: 0.3 (normalized, already 0..1 range effectively)
     let sil_score = silhouette.max(0.0).min(1.0);
 
@@ -801,7 +787,9 @@ fn enrich_with_sections(
     }
 
     // Build SQL placeholders
-    let placeholders: Vec<String> = (0..activity_ids.len()).map(|i| format!("?{}", i + 1)).collect();
+    let placeholders: Vec<String> = (0..activity_ids.len())
+        .map(|i| format!("?{}", i + 1))
+        .collect();
     let placeholder_str = placeholders.join(", ");
 
     // Query section_activities joined with sections for these activity IDs
@@ -890,10 +878,7 @@ fn build_pattern_section(
             params.iter().map(|p| p.as_ref()).collect();
 
         let rows = stmt.query_map(param_refs.as_slice(), |row| {
-            Ok((
-                row.get::<_, f64>(0)?,
-                row.get::<_, i64>(1)?,
-            ))
+            Ok((row.get::<_, f64>(0)?, row.get::<_, i64>(1)?))
         });
 
         if let Ok(row_iter) = rows {
@@ -922,8 +907,7 @@ fn build_pattern_section(
         return Some(crate::FfiPatternSection {
             section_id: section_info.section_id.clone(),
             section_name: section_info.section_name.clone(),
-            appearance_rate: section_info.activity_count as f32
-                / activity_ids.len().max(1) as f32,
+            appearance_rate: section_info.activity_count as f32 / activity_ids.len().max(1) as f32,
             best_time_secs: 0.0,
             median_recent_secs: 0.0,
             trend: None,
@@ -969,8 +953,8 @@ fn compute_time_trend(times: &[(i64, f64)]) -> Option<i8> {
 
     // times are sorted newest first, so first half = recent, second half = older
     let recent_avg: f64 = times[..mid].iter().map(|(_, t)| t).sum::<f64>() / mid as f64;
-    let older_avg: f64 = times[mid..].iter().map(|(_, t)| t).sum::<f64>()
-        / (times.len() - mid) as f64;
+    let older_avg: f64 =
+        times[mid..].iter().map(|(_, t)| t).sum::<f64>() / (times.len() - mid) as f64;
 
     // Compare: if recent is faster (lower), that's improving
     let change_pct = (recent_avg - older_avg) / older_avg;
@@ -1122,7 +1106,11 @@ mod tests {
         ];
         let assignments = vec![0, 0, 1, 1];
         let sil = compute_silhouette(&data, &assignments, 2);
-        assert!(sil > 0.8, "Well-separated clusters should have high silhouette, got {}", sil);
+        assert!(
+            sil > 0.8,
+            "Well-separated clusters should have high silhouette, got {}",
+            sil
+        );
     }
 
     #[test]

@@ -66,8 +66,25 @@ See [Development](#development) below.
 ```bash
 npm install
 
-npx expo run:android    # Run on Android
-npm expo run:ios        # Run on iOS
+npx expo run:android    # Build and run on Android
+npx expo run:ios        # Build and run on iOS
+```
+
+### E2E Tests (Maestro)
+
+Install [Maestro](https://maestro.mobile.dev/getting-started/installing-maestro), then with an emulator/simulator running:
+
+```bash
+npm run maestro:smoke       # Quick launch check (tier0)
+npm run maestro:critical    # Smoke + auth + recording (tier0+tier1)
+npm run maestro:regression  # Full feature coverage (tier0+tier1+tier2)
+npm run maestro:all         # Everything including stress tests
+```
+
+Run a single flow:
+
+```bash
+maestro test .maestro/recording-start-stop.yaml
 ```
 
 **Stack:** React Native + Expo, TanStack Query, Zustand, Victory Native, MapLibre, Rust (route matching)

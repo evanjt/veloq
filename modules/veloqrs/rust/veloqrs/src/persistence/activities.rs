@@ -1,10 +1,8 @@
 //! Activity management: CRUD, GPS tracks, signatures, spatial queries, time streams.
 
-use rusqlite::{Result as SqlResult, params};
+use crate::{ActivityMatchInfo, ActivityMetrics, Bounds, GpsPoint, RouteSignature};
 use rstar::{AABB, RTree};
-use crate::{
-    ActivityMatchInfo, ActivityMetrics, Bounds, GpsPoint, RouteSignature,
-};
+use rusqlite::{Result as SqlResult, params, types::Type};
 
 use super::{ActivityBoundsEntry, ActivityMetadata, MapActivityComplete, PersistentRouteEngine};
 
@@ -46,7 +44,13 @@ impl PersistentRouteEngine {
                     bounds,
                 })
             })?
-            .filter_map(|r| r.ok())
+            .filter_map(|r| match r {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::warn!("Skipping malformed row during metadata loading: {:?}", e);
+                    None
+                }
+            })
             .collect();
 
         self.spatial_index = RTree::bulk_load(entries);
@@ -68,11 +72,32 @@ impl PersistentRouteEngine {
                     ActivityMatchInfo {
                         activity_id: row.get(1)?,
                         match_percentage: row.get(2)?,
-                        direction: { let s: String = row.get(3)?; s.parse().unwrap_or_default() },
+                        direction: {
+                            let s: String = row.get(3)?;
+                            s.parse().map_err(|_: ()| {
+                                rusqlite::Error::FromSqlConversionFailure(
+                                    3,
+                                    Type::Text,
+                                    Box::new(std::io::Error::new(
+                                        std::io::ErrorKind::InvalidData,
+                                        "invalid direction",
+                                    )),
+                                )
+                            })?
+                        },
                     },
                 ))
             })?
-            .filter_map(|r| r.ok())
+            .filter_map(|r| match r {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Skipping malformed row during activity match loading: {:?}",
+                        e
+                    );
+                    None
+                }
+            })
             .collect();
 
         // Group by route_id
@@ -169,6 +194,9 @@ impl PersistentRouteEngine {
     /// Add an activity from flat coordinate buffer.
     /// Remove an activity.
     pub fn remove_activity(&mut self, id: &str) -> SqlResult<()> {
+        // Capture bounds before removal for heatmap tile invalidation
+        let removed_bounds = self.activity_metadata.get(id).map(|m| m.bounds.clone());
+
         // Remove from database (cascade deletes signature and track)
         self.db
             .execute("DELETE FROM activities WHERE id = ?", params![id])?;
@@ -182,6 +210,32 @@ impl PersistentRouteEngine {
 
         self.groups_dirty = true;
         self.sections_dirty = true;
+
+        // Invalidate heatmap tiles covering the removed activity
+        // Add small margin (~100m) to catch edge tiles where GPS points bled into neighbors
+        if let Some(ref bounds) = removed_bounds {
+            if let Some(ref tiles_path) = self.heatmap_tiles_path {
+                let config = crate::tiles::HeatmapConfig::default();
+                let path = std::path::Path::new(tiles_path);
+                let margin = 0.001; // ~111m at equator
+                let deleted = crate::tiles::invalidate_tiles_in_bounds(
+                    path,
+                    bounds.min_lat - margin,
+                    bounds.max_lat + margin,
+                    bounds.min_lng - margin,
+                    bounds.max_lng + margin,
+                    config.min_zoom,
+                    config.max_zoom,
+                );
+                if deleted > 0 {
+                    log::info!(
+                        "[heatmap] Invalidated {} tiles for removed activity {}",
+                        deleted,
+                        id
+                    );
+                }
+            }
+        }
 
         Ok(())
     }
@@ -314,7 +368,12 @@ impl PersistentRouteEngine {
     // Database Storage
     // ========================================================================
 
-    pub(super) fn store_activity(&self, id: &str, sport_type: &str, bounds: &Bounds) -> SqlResult<()> {
+    pub(super) fn store_activity(
+        &self,
+        id: &str,
+        sport_type: &str,
+        bounds: &Bounds,
+    ) -> SqlResult<()> {
         self.db.execute(
             "INSERT OR REPLACE INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
              VALUES (?, ?, ?, ?, ?, ?)",
@@ -348,7 +407,8 @@ impl PersistentRouteEngine {
     }
 
     pub(super) fn store_gps_track(&self, id: &str, coords: &[GpsPoint]) -> SqlResult<()> {
-        let track_data = rmp_serde::to_vec(coords).unwrap_or_default();
+        let track_data = rmp_serde::to_vec(coords)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
         self.db.execute(
             "INSERT OR REPLACE INTO gps_tracks (activity_id, track_data, point_count)
              VALUES (?, ?, ?)",
@@ -358,7 +418,8 @@ impl PersistentRouteEngine {
     }
 
     pub(super) fn store_signature(&self, id: &str, sig: &RouteSignature) -> SqlResult<()> {
-        let points_blob = rmp_serde::to_vec(&sig.points).unwrap_or_default();
+        let points_blob = rmp_serde::to_vec(&sig.points)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
         self.db.execute(
             "INSERT OR REPLACE INTO signatures (activity_id, points, start_point_lat, start_point_lng, end_point_lat, end_point_lng, total_distance, point_count)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -452,7 +513,11 @@ impl PersistentRouteEngine {
         let query = if sport_types.is_empty() {
             base_query.to_string()
         } else {
-            let placeholders = sport_types.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let placeholders = sport_types
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(",");
             format!("{} AND sport_type IN ({})", base_query, placeholders)
         };
 
@@ -465,10 +530,7 @@ impl PersistentRouteEngine {
         };
 
         // Build params
-        let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![
-            Box::new(start_ts),
-            Box::new(end_ts),
-        ];
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(start_ts), Box::new(end_ts)];
         for sport in sport_types {
             params.push(Box::new(sport.clone()));
         }
@@ -494,7 +556,10 @@ impl PersistentRouteEngine {
         match results {
             Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
             Err(e) => {
-                log::error!("[PersistentEngine] Failed to query filtered activities: {}", e);
+                log::error!(
+                    "[PersistentEngine] Failed to query filtered activities: {}",
+                    e
+                );
                 Vec::new()
             }
         }
@@ -524,7 +589,9 @@ impl PersistentRouteEngine {
 
         stmt.query_row(params![id], |row| {
             let points_blob: Vec<u8> = row.get(0)?;
-            let points: Vec<GpsPoint> = rmp_serde::from_slice(&points_blob).unwrap_or_default();
+            let points: Vec<GpsPoint> = rmp_serde::from_slice(&points_blob).map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
+            })?;
             let start_point = GpsPoint::new(row.get(1)?, row.get(2)?);
             let end_point = GpsPoint::new(row.get(3)?, row.get(4)?);
             let total_distance: f64 = row.get(5)?;
@@ -555,9 +622,10 @@ impl PersistentRouteEngine {
     /// Returns lightweight flat-coord signatures for map rendering.
     /// Bypasses LRU cache since we want all rows at once.
     pub fn get_all_map_signatures(&self) -> Vec<crate::ffi_types::FfiMapSignature> {
-        let mut stmt = match self.db.prepare(
-            "SELECT activity_id, points FROM signatures",
-        ) {
+        let mut stmt = match self
+            .db
+            .prepare("SELECT activity_id, points FROM signatures")
+        {
             Ok(s) => s,
             Err(_) => return Vec::new(),
         };
@@ -620,7 +688,9 @@ impl PersistentRouteEngine {
 
         stmt.query_row(params![id], |row| {
             let track_blob: Vec<u8> = row.get(0)?;
-            Ok(rmp_serde::from_slice(&track_blob).unwrap_or_default())
+            Ok(rmp_serde::from_slice(&track_blob).map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
+            })?)
         })
         .ok()
     }
@@ -641,8 +711,14 @@ impl PersistentRouteEngine {
         let rows = stmt.query_map([], |row| {
             let track_blob: Vec<u8> = row.get(0)?;
             let blob_len = track_blob.len();
-            let track = rmp_serde::from_slice::<Vec<GpsPoint>>(&track_blob).unwrap_or_default();
-            log::debug!("[get_all_tracks] Blob {} bytes -> {} points", blob_len, track.len());
+            let track = rmp_serde::from_slice::<Vec<GpsPoint>>(&track_blob).map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
+            })?;
+            log::debug!(
+                "[get_all_tracks] Blob {} bytes -> {} points",
+                blob_len,
+                track.len()
+            );
             Ok(track)
         });
 
@@ -682,7 +758,10 @@ impl PersistentRouteEngine {
 
                 log::info!(
                     "[get_all_tracks] Results: {} tracks, {} total points, {} errors, {} empty",
-                    success_count, total_points, error_count, empty_count
+                    success_count,
+                    total_points,
+                    error_count,
+                    empty_count
                 );
 
                 if !sample_points.is_empty() {
@@ -722,7 +801,8 @@ impl PersistentRouteEngine {
 
     /// Store time stream to database.
     pub(super) fn store_time_stream(&self, activity_id: &str, times: &[u32]) -> SqlResult<()> {
-        let times_blob = rmp_serde::to_vec(times).unwrap_or_default();
+        let times_blob = rmp_serde::to_vec(times)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
         self.db.execute(
             "INSERT OR REPLACE INTO time_streams (activity_id, times, point_count)
              VALUES (?, ?, ?)",
@@ -740,7 +820,9 @@ impl PersistentRouteEngine {
 
         stmt.query_row(params![activity_id], |row| {
             let times_blob: Vec<u8> = row.get(0)?;
-            Ok(rmp_serde::from_slice(&times_blob).unwrap_or_default())
+            Ok(rmp_serde::from_slice(&times_blob).map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
+            })?)
         })
         .ok()
     }

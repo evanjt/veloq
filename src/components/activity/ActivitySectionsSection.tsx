@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   FlatList,
@@ -8,19 +8,24 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { SectionMatch as FfiSectionMatch } from 'veloqrs';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import { SectionListItem } from '@/components/activity/SectionListItem';
+import { routeEngine, type SectionPerformanceResult } from 'veloqrs';
+import { SectionInlinePlot, type InlineSectionData } from '@/components/activity/SectionInlinePlot';
 import { DataRangeFooter } from '@/components/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
+import { castDirection, fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
-import type { Section } from '@/types';
-import { formatDuration, formatPace, getSectionStyle, navigateTo } from '@/lib';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import type { Section, ActivityType, PerformanceDataPoint } from '@/types';
+import { getSectionStyle, navigateTo, formatDistance, safeGetTime } from '@/lib';
+import { colors, darkColors, spacing, shadows } from '@/theme';
 
 type UnifiedSectionItem =
   | { type: 'engine'; match: SectionMatch; index: number }
@@ -28,46 +33,186 @@ type UnifiedSectionItem =
 
 interface ActivitySectionsSectionProps {
   activityId: string;
+  activityType: ActivityType;
   unifiedSections: UnifiedSectionItem[];
   coordinates: { latitude: number; longitude: number }[];
   streams: { time?: number[] } | undefined;
   isDark: boolean;
   isMetric: boolean;
-  disabledSectionIds: Set<string>;
   sectionCreationMode: boolean;
   cacheDays: number;
   highlightedSectionId: string | null;
   onHighlightedSectionIdChange: (id: string | null) => void;
   onSectionCreationModeChange: (mode: boolean) => void;
   getSectionBestTime: (sectionId: string) => number | undefined;
-  disableSection: (sectionId: string) => Promise<void>;
-  enableSection: (sectionId: string) => Promise<void>;
   removeSection: (sectionId: string) => Promise<void>;
+  /** Scan results from useActivityRematch */
+  scanMatches: FfiSectionMatch[];
+  /** Whether a scan is in progress */
+  isScanning: boolean;
+  /** Trigger a scan for this activity */
+  onScan: () => void;
+  /** Force-match to a specific section */
+  onRematch: (sectionId: string) => boolean;
+}
+
+/** Build chart data from section performance FFI result */
+function buildChartData(
+  result: SectionPerformanceResult,
+  sportType: string
+): (PerformanceDataPoint & { x: number })[] {
+  const points: (PerformanceDataPoint & { x: number })[] = [];
+  for (const record of result.records) {
+    const date = fromUnixSeconds(record.activityDate);
+    if (!date) continue;
+    for (const lap of record.laps) {
+      if (lap.pace <= 0) continue;
+      points.push({
+        x: 0,
+        id: lap.id,
+        activityId: record.activityId,
+        speed: lap.pace,
+        date,
+        activityName: record.activityName,
+        direction: castDirection(lap.direction),
+        sectionTime: Math.round(lap.time),
+        sectionDistance: lap.distance || record.sectionDistance,
+      });
+    }
+  }
+  points.sort((a, b) => safeGetTime(a.date) - safeGetTime(b.date));
+  return points.map((p, i) => ({ ...p, x: i }));
 }
 
 export const ActivitySectionsSection = React.memo(function ActivitySectionsSection({
   activityId,
+  activityType,
   unifiedSections,
   coordinates,
-  streams,
   isDark,
   isMetric,
-  disabledSectionIds,
   sectionCreationMode,
   cacheDays,
   highlightedSectionId,
   onHighlightedSectionIdChange,
   onSectionCreationModeChange,
-  getSectionBestTime,
-  disableSection,
-  enableSection,
   removeSection,
+  scanMatches,
+  isScanning,
+  onScan,
+  onRematch,
 }: ActivitySectionsSectionProps) {
   const { t } = useTranslation();
 
   // Track open swipeable refs to close them when another opens
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
   const openSwipeableRef = useRef<string | null>(null);
+
+  // Track which scan matches have been successfully added
+  const [addedSectionIds, setAddedSectionIds] = useState(new Set<string>());
+
+  // Whether a scan has been performed
+  const hasScanned = scanMatches.length > 0 || addedSectionIds.size > 0;
+
+  // Filter scan results: exclude sections already in the matched list and already added
+  const existingSectionIds = useMemo(
+    () =>
+      new Set(
+        unifiedSections.map((s) => (s.type === 'engine' ? s.match.section.id : s.section.id))
+      ),
+    [unifiedSections]
+  );
+
+  const filteredScanMatches = useMemo(
+    () =>
+      scanMatches.filter(
+        (m) => !existingSectionIds.has(m.sectionId) && !addedSectionIds.has(m.sectionId)
+      ),
+    [scanMatches, existingSectionIds, addedSectionIds]
+  );
+
+  const handleRematch = useCallback(
+    (sectionId: string) => {
+      const success = onRematch(sectionId);
+      if (success) {
+        setAddedSectionIds((prev) => new Set(prev).add(sectionId));
+      }
+    },
+    [onRematch]
+  );
+
+  // Retry counter: if first load returns no plot data, retry once after a short delay
+  // (Rust lazily computes lap_time/lap_pace on first query per section)
+  const [plotRetry, setPlotRetry] = useState(0);
+
+  // Batch-load performance data for all sections
+  const plotDataMap = useMemo((): Map<string, InlineSectionData> => {
+    const map = new Map<string, InlineSectionData>();
+    const engine = getRouteEngine();
+    if (!engine) return map;
+
+    for (const item of unifiedSections) {
+      const section = item.type === 'engine' ? item.match.section : item.section;
+      const sectionId = section.id;
+      const sectionSportType = (section as any).sportType || activityType;
+
+      try {
+        const result: SectionPerformanceResult = routeEngine.getSectionPerformances(sectionId);
+        const chartData = buildChartData(result, sectionSportType);
+        if (chartData.length === 0) continue;
+
+        const bestFwd = result.bestForwardRecord;
+        const bestRev = result.bestReverseRecord;
+
+        map.set(sectionId, {
+          chartData,
+          bestForwardRecord: bestFwd
+            ? {
+                bestTime: bestFwd.bestTime,
+                activityDate: fromUnixSeconds(bestFwd.activityDate) ?? new Date(),
+              }
+            : null,
+          bestReverseRecord: bestRev
+            ? {
+                bestTime: bestRev.bestTime,
+                activityDate: fromUnixSeconds(bestRev.activityDate) ?? new Date(),
+              }
+            : null,
+          forwardStats: result.forwardStats
+            ? {
+                avgTime: result.forwardStats.avgTime ?? null,
+                lastActivity: result.forwardStats.lastActivity
+                  ? fromUnixSeconds(result.forwardStats.lastActivity)
+                  : null,
+                count: result.forwardStats.count,
+              }
+            : null,
+          reverseStats: result.reverseStats
+            ? {
+                avgTime: result.reverseStats.avgTime ?? null,
+                lastActivity: result.reverseStats.lastActivity
+                  ? fromUnixSeconds(result.reverseStats.lastActivity)
+                  : null,
+                count: result.reverseStats.count,
+              }
+            : null,
+          activityType: sectionSportType as ActivityType,
+        });
+      } catch {
+        // Skip sections that fail to load
+      }
+    }
+    return map;
+  }, [unifiedSections, activityType, plotRetry]);
+
+  // If sections exist but no plot data loaded, retry after a short delay
+  // (performance data may be lazily computed on first FFI query)
+  useEffect(() => {
+    if (unifiedSections.length > 0 && plotDataMap.size === 0 && plotRetry === 0) {
+      const timer = setTimeout(() => setPlotRetry(1), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [unifiedSections.length, plotDataMap.size, plotRetry]);
 
   // Close any open swipeable when another opens
   const handleSwipeableOpen = useCallback((sectionId: string) => {
@@ -85,12 +230,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       swipeable?.close();
 
       if (isCurrentlyDisabled) {
-        await enableSection(sectionId);
+        getRouteEngine()?.enableSection(sectionId);
       } else {
-        await disableSection(sectionId);
+        getRouteEngine()?.disableSection(sectionId);
       }
     },
-    [disableSection, enableSection]
+    []
   );
 
   // Handle delete action for custom sections
@@ -135,48 +280,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   const handleSectionPress = useCallback((sectionId: string) => {
     navigateTo(`/section/${sectionId}`);
   }, []);
-
-  // Helper to calculate section elapsed time from streams
-  const getSectionTime = useCallback(
-    (portion?: { startIndex?: number; endIndex?: number }): number | undefined => {
-      if (!streams?.time || portion?.startIndex == null || portion?.endIndex == null) {
-        return undefined;
-      }
-      const timeArray = streams.time;
-      const start = Math.max(0, portion.startIndex);
-      const end = Math.min(timeArray.length - 1, portion.endIndex);
-      if (end <= start) return undefined;
-      return timeArray[end] - timeArray[start];
-    },
-    [streams?.time]
-  );
-
-  const formatSectionPace = useCallback(
-    (seconds: number, meters: number): string => {
-      if (meters <= 0 || seconds <= 0) return '--';
-      return formatPace(meters / seconds, isMetric);
-    },
-    [isMetric]
-  );
-
-  // Format time delta with +/- sign
-  const formatTimeDelta = (
-    currentTime: number,
-    bestTime: number
-  ): { text: string; isAhead: boolean } => {
-    const delta = currentTime - bestTime;
-    const absDelta = Math.abs(delta);
-    const m = Math.floor(absDelta / 60);
-    const s = Math.floor(absDelta % 60);
-    const timeStr = m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${s}s`;
-    if (delta <= 0) {
-      return {
-        text: delta === 0 ? t('routes.pr') : `-${timeStr}`,
-        isAhead: true,
-      };
-    }
-    return { text: `+${timeStr}`, isAhead: false };
-  };
 
   // Render swipe actions for section cards
   const renderSectionSwipeActions = useCallback(
@@ -251,58 +354,39 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           ? item.match.section.name || t('routes.autoDetected')
           : item.section.name || t('routes.custom');
 
-      let sectionTime: number | undefined;
       let distance: number;
       let visitCount: number;
 
       if (item.type === 'engine') {
-        sectionTime = undefined;
         distance = item.match.distance;
         visitCount = item.match.section.visitCount;
       } else {
-        const portionRecord = item.section.activityPortions?.find(
-          (p: any) => p.activityId === activityId
-        );
-        const portionIndices =
-          portionRecord ??
-          (item.section.sourceActivityId === activityId ? item.section : undefined);
-        sectionTime = getSectionTime(portionIndices);
         distance = item.section.distanceMeters;
         visitCount = item.section.activityIds?.length ?? item.section.visitCount;
       }
 
-      const bestTime = getSectionBestTime(sectionId);
-      const delta =
-        sectionTime != null && bestTime != null ? formatTimeDelta(sectionTime, bestTime) : null;
-
-      const isDisabled = disabledSectionIds.has(sectionId);
+      const isDisabled = false; // Rust filters disabled sections — only visible ones reach here
 
       return (
-        <SectionListItem
-          item={item}
+        <SectionInlinePlot
           sectionId={sectionId}
-          isCustom={isCustom}
-          sectionType={sectionType}
           sectionName={sectionName}
-          sectionTime={sectionTime}
+          sectionType={sectionType}
           distance={distance}
           visitCount={visitCount}
-          bestTime={bestTime}
-          delta={delta}
-          style={style}
           index={item.index}
+          style={style}
           isHighlighted={highlightedSectionId === sectionId}
           isDark={isDark}
           isMetric={isMetric}
-          onLongPress={handleSectionLongPress}
+          plotData={plotDataMap.get(sectionId)}
           onPress={handleSectionPress}
+          onLongPress={handleSectionLongPress}
           onSwipeableOpen={handleSwipeableOpen}
           renderRightActions={(progress, dragX) =>
             renderSectionSwipeActions(sectionId, isCustom, isDisabled, progress, dragX)
           }
           swipeableRefs={swipeableRefs}
-          formatSectionTime={formatDuration}
-          formatSectionPace={formatSectionPace}
         />
       );
     },
@@ -310,18 +394,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       highlightedSectionId,
       isDark,
       isMetric,
-      disabledSectionIds,
-      activityId,
       t,
+      plotDataMap,
       handleSectionLongPress,
       handleSectionPress,
       handleSwipeableOpen,
       renderSectionSwipeActions,
-      getSectionTime,
-      getSectionBestTime,
-      formatTimeDelta,
-      formatDuration,
-      formatSectionPace,
       swipeableRefs,
     ]
   );
@@ -341,14 +419,122 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         <Text style={[styles.emptyStateDescription, isDark && styles.textMuted]}>
           {t('activityDetail.noMatchedSectionsDescription')}
         </Text>
+        {!hasScanned && (
+          <TouchableOpacity
+            style={[styles.scanButton, isDark && styles.scanButtonDark]}
+            onPress={onScan}
+            activeOpacity={0.7}
+            disabled={isScanning}
+          >
+            {isScanning ? (
+              <ActivityIndicator size={18} color={colors.primary} />
+            ) : (
+              <MaterialCommunityIcons name="magnify" size={18} color={colors.primary} />
+            )}
+            <Text style={[styles.scanButtonText, isDark && styles.scanButtonTextDark]}>
+              {t('sections.scanForMatches')}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
-  }, [isDark, t]);
+  }, [isDark, t, hasScanned, isScanning, onScan]);
+
+  // Render a single scan match result row
+  // Look up proper display names for scan results (same names shown in the app)
+  const sectionDisplayNames = useMemo(() => getAllSectionDisplayNames(), [scanMatches]);
+
+  const renderScanMatch = useCallback(
+    (match: FfiSectionMatch) => {
+      const quality = Math.round(match.matchQuality * 100);
+      const displayName =
+        sectionDisplayNames[match.sectionId] || match.sectionName || match.sectionId.slice(0, 8);
+      return (
+        <View
+          key={match.sectionId}
+          style={[styles.scanMatchRow, isDark && styles.scanMatchRowDark]}
+        >
+          <TouchableOpacity
+            style={styles.scanMatchInfo}
+            onPress={() => navigateTo(`/section/${match.sectionId}`)}
+            activeOpacity={0.7}
+          >
+            <Text
+              numberOfLines={2}
+              style={[styles.scanMatchName, isDark && { color: darkColors.textPrimary }]}
+            >
+              {displayName}
+            </Text>
+            <Text style={[styles.scanMatchMeta, isDark && { color: darkColors.textSecondary }]}>
+              {formatDistance(match.distanceMeters, isMetric)} ·{' '}
+              {t('sections.matchQuality', { quality })}
+              {!match.sameDirection ? ` · ${t('sections.reverse')}` : ''}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addMatchButton}
+            onPress={() => handleRematch(match.sectionId)}
+            activeOpacity={0.7}
+            disabled={isScanning}
+          >
+            <Text style={styles.addMatchButtonText}>{t('sections.addToSection')}</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    },
+    [isDark, isMetric, isScanning, handleRematch, sectionDisplayNames]
+  );
 
   // Render footer for section list
   const renderSectionsListFooter = useCallback(() => {
     return (
       <>
+        {/* Scan trigger: show "Scan for more sections" link when sections exist */}
+        {unifiedSections.length > 0 && !hasScanned && (
+          <TouchableOpacity
+            style={styles.scanLink}
+            onPress={onScan}
+            activeOpacity={0.7}
+            disabled={isScanning}
+          >
+            {isScanning ? (
+              <ActivityIndicator size={14} color={colors.primary} />
+            ) : (
+              <MaterialCommunityIcons name="magnify" size={14} color={colors.primary} />
+            )}
+            <Text style={styles.scanLinkText}>{t('sections.scanForMore')}</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Scanning indicator */}
+        {isScanning && hasScanned && (
+          <View style={styles.scanningContainer}>
+            <ActivityIndicator size={20} color={colors.primary} />
+            <Text style={[styles.scanningText, isDark && { color: darkColors.textSecondary }]}>
+              {t('sections.scanning')}
+            </Text>
+          </View>
+        )}
+
+        {/* Scan results */}
+        {hasScanned && !isScanning && filteredScanMatches.length > 0 && (
+          <View style={styles.scanResultsContainer}>
+            <Text style={[styles.scanResultsTitle, isDark && { color: darkColors.textPrimary }]}>
+              {t('sections.nearbySectionsCount', { count: filteredScanMatches.length })}
+            </Text>
+            {filteredScanMatches.map(renderScanMatch)}
+          </View>
+        )}
+
+        {/* Scan performed but no new results */}
+        {hasScanned && !isScanning && filteredScanMatches.length === 0 && (
+          <View style={styles.scanNoResults}>
+            <Text style={[styles.scanNoResultsText, isDark && { color: darkColors.textSecondary }]}>
+              {t('sections.noMatchesFound')}
+            </Text>
+          </View>
+        )}
+
         {coordinates.length > 0 && !sectionCreationMode && (
           <TouchableOpacity
             style={[styles.createSectionButton, isDark && styles.createSectionButtonDark]}
@@ -363,10 +549,27 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         <DataRangeFooter days={cacheDays} isDark={isDark} />
       </>
     );
-  }, [coordinates.length, sectionCreationMode, isDark, cacheDays, t, onSectionCreationModeChange]);
+  }, [
+    coordinates.length,
+    sectionCreationMode,
+    isDark,
+    cacheDays,
+    t,
+    onSectionCreationModeChange,
+    unifiedSections.length,
+    hasScanned,
+    isScanning,
+    filteredScanMatches,
+    onScan,
+    renderScanMatch,
+  ]);
 
   return (
-    <View style={styles.tabScrollView} onTouchEnd={handleSectionsTouchEnd}>
+    <View
+      style={styles.tabScrollView}
+      onTouchEnd={handleSectionsTouchEnd}
+      testID="activity-sections-list"
+    >
       <FlatList
         data={unifiedSections}
         keyExtractor={keyExtractor}
@@ -378,9 +581,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         }
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        initialNumToRender={8}
-        maxToRenderPerBatch={10}
-        windowSize={5}
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        windowSize={3}
         removeClippedSubviews={Platform.OS === 'ios'}
       />
     </View>
@@ -392,6 +595,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabScrollContent: {
+    paddingTop: spacing.md,
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   tabScrollContentEmpty: {
@@ -437,11 +641,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.md,
     gap: spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    ...shadows.elevated,
   },
   createSectionButtonDark: {
     backgroundColor: colors.primary,
@@ -476,5 +676,113 @@ const styles = StyleSheet.create({
   },
   enableSwipeAction: {
     backgroundColor: colors.success,
+  },
+  // Scan button (empty state)
+  scanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  scanButtonDark: {
+    borderColor: colors.primary,
+  },
+  scanButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  scanButtonTextDark: {
+    color: colors.primary,
+  },
+  // Scan link (footer, when sections exist)
+  scanLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    marginHorizontal: spacing.md,
+  },
+  scanLinkText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  // Scanning indicator
+  scanningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  scanningText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  // Scan results
+  scanResultsContainer: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
+  scanResultsTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.sm,
+  },
+  scanMatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  scanMatchRowDark: {
+    backgroundColor: darkColors.surface,
+  },
+  scanMatchInfo: {
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  scanMatchName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  scanMatchMeta: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  addMatchButton: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+  },
+  addMatchButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textOnPrimary,
+  },
+  // No results
+  scanNoResults: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  scanNoResultsText: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
 });

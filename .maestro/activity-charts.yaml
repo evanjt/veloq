@@ -1,7 +1,7 @@
 # Activity Charts Interaction Tests
 # Tests chart type selector on activity detail screen
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -32,16 +32,24 @@ tags:
     id: "chart-type-heartrate"
     optional: true
 
+- takeScreenshot: "activity-charts-heartrate"
+
 - tapOn:
     id: "chart-type-power"
     optional: true
+
+- takeScreenshot: "activity-charts-power"
 
 - tapOn:
     id: "chart-type-elevation"
     optional: true
 
+- takeScreenshot: "activity-charts-elevation"
+
 - tapOn:
     id: "chart-type-speed"
     optional: true
+
+- takeScreenshot: "activity-charts-speed"
 
 - takeScreenshot: "activity-charts-complete"

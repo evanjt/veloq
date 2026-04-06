@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting, removeSetting } from '@/lib/backup';
 import { safeJsonParseWithSchema } from '@/lib';
 
 const HR_ZONES_KEY = 'veloq-hr-zones';
@@ -78,7 +78,7 @@ export const useHRZones = create<HRZonesState>((set, get) => ({
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(HR_ZONES_KEY);
+      const stored = await getSetting(HR_ZONES_KEY);
       if (stored) {
         const parsed = safeJsonParseWithSchema(stored, isHRZonesSettings, DEFAULT_HR_SETTINGS);
         set({
@@ -97,7 +97,7 @@ export const useHRZones = create<HRZonesState>((set, get) => ({
   setMaxHR: async (maxHR: number) => {
     const { zones } = get();
     const settings: HRZonesSettings = { maxHR, zones };
-    await AsyncStorage.setItem(HR_ZONES_KEY, JSON.stringify(settings));
+    await setSetting(HR_ZONES_KEY, JSON.stringify(settings));
     set({ maxHR });
   },
 
@@ -105,12 +105,12 @@ export const useHRZones = create<HRZonesState>((set, get) => ({
     const { maxHR, zones } = get();
     const updatedZones = zones.map((zone) => (zone.id === zoneId ? { ...zone, min, max } : zone));
     const settings: HRZonesSettings = { maxHR, zones: updatedZones };
-    await AsyncStorage.setItem(HR_ZONES_KEY, JSON.stringify(settings));
+    await setSetting(HR_ZONES_KEY, JSON.stringify(settings));
     set({ zones: updatedZones });
   },
 
   resetToDefaults: async () => {
-    await AsyncStorage.removeItem(HR_ZONES_KEY);
+    await removeSetting(HR_ZONES_KEY);
     set({
       maxHR: 190,
       zones: DEFAULT_HR_ZONES,

@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
-import { colors, darkColors, spacing, typography, opacity, shadows } from '@/theme';
+import { colors, darkColors, spacing, typography, opacity, shadows, brand } from '@/theme';
 import { navigateTo } from '@/lib';
 import type { Insight } from '@/types';
 
@@ -188,7 +188,10 @@ export const PatternDetailSheet = React.memo(function PatternDetailSheet({
       <Pressable style={styles.backdrop} onPress={onClose}>
         <View style={styles.backdropFill} />
       </Pressable>
-      <View style={[styles.sheet, isDark && styles.sheetDark, { height: SHEET_HEIGHT }]}>
+      <View
+        style={[styles.sheet, isDark && styles.sheetDark, { height: SHEET_HEIGHT }]}
+        testID="pattern-detail-sheet"
+      >
         {/* Drag handle */}
         <View style={styles.handleContainer}>
           <View style={[styles.handle, isDark && styles.handleDark]} />
@@ -547,6 +550,6 @@ const styles = StyleSheet.create({
   viewDetailsText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FC4C02',
+    color: brand.orange,
   },
 });

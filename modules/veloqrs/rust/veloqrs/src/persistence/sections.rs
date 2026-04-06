@@ -1,16 +1,17 @@
 //! Section management: loading, queries, detection, save/apply, names.
 
-use std::collections::{HashMap, HashSet};
-use std::sync::mpsc;
-use std::sync::Arc;
-use std::thread;
-use rusqlite::{Connection, Result as SqlResult, params};
+use crate::{FrequentSection, GpsPoint, SectionPortion};
 use chrono::Utc;
-use crate::{
-    FrequentSection, GpsPoint, SectionPortion,
-};
+use rusqlite::{Connection, Result as SqlResult, params, types::Type};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use std::sync::mpsc;
+use std::thread;
 
-use super::{get_section_word, load_groups_from_db, SectionDetectionHandle, SectionDetectionProgress, SectionSummary, PersistentRouteEngine};
+use super::{
+    PersistentRouteEngine, SectionDetectionHandle, SectionDetectionProgress, SectionSummary,
+    get_section_word, load_groups_from_db,
+};
 
 /// Haversine distance between two lat/lng points in meters.
 fn haversine_distance(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
@@ -40,7 +41,10 @@ impl PersistentRouteEngine {
         // Load full activity portions from junction table (includes direction, indices, distance)
         // After cross-sport merge, sections can have activities from multiple sport types
         // Also track which portions have valid performance data for accurate visit counts
-        let (section_portions, section_valid_counts): (HashMap<String, Vec<SectionPortion>>, HashMap<String, u32>) = {
+        let (section_portions, section_valid_counts): (
+            HashMap<String, Vec<SectionPortion>>,
+            HashMap<String, u32>,
+        ) = {
             let mut stmt = self.db.prepare(
                 "SELECT sa.section_id, sa.activity_id, sa.direction, sa.start_index, sa.end_index, sa.distance_meters, sa.lap_time
                  FROM section_activities sa
@@ -51,18 +55,37 @@ impl PersistentRouteEngine {
             let mut valid_counts: HashMap<String, u32> = HashMap::new();
             let rows = stmt.query_map([], |row| {
                 Ok((
-                    row.get::<_, String>(0)?,  // section_id
+                    row.get::<_, String>(0)?, // section_id
                     SectionPortion {
                         activity_id: row.get(1)?,
-                        direction: { let s: String = row.get(2)?; s.parse().unwrap_or_default() },
+                        direction: {
+                            let s: String = row.get(2)?;
+                            s.parse().map_err(|_| {
+                                rusqlite::Error::FromSqlConversionFailure(
+                                    2,
+                                    Type::Text,
+                                    Box::new(std::fmt::Error),
+                                )
+                            })?
+                        },
                         start_index: row.get(3)?,
                         end_index: row.get(4)?,
                         distance_meters: row.get(5)?,
                     },
-                    row.get::<_, Option<f64>>(6)?,  // lap_time
+                    row.get::<_, Option<f64>>(6)?, // lap_time
                 ))
             })?;
-            for row in rows.flatten() {
+            for row in rows {
+                let row = match row {
+                    Ok(r) => r,
+                    Err(e) => {
+                        log::warn!(
+                            "tracematch: [PersistentEngine] Skipping malformed section_activities row during loading: {:?}",
+                            e
+                        );
+                        continue;
+                    }
+                };
                 let has_valid_perf = row.2.is_some();
                 map.entry(row.0.clone()).or_default().push(row.1);
                 if has_valid_perf {
@@ -79,7 +102,7 @@ impl PersistentRouteEngine {
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
                         created_at, updated_at
-                 FROM sections WHERE section_type = 'auto'"
+                 FROM sections WHERE section_type = 'auto'",
             )?;
 
             self.sections = stmt
@@ -90,7 +113,7 @@ impl PersistentRouteEngine {
                     let representative_activity_id: Option<String> = row.get(6)?;
 
                     let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
-                        .unwrap_or_default();
+                        .map_err(|e| rusqlite::Error::FromSqlConversionFailure(4, Type::Text, Box::new(e)))?;
                     let point_density: Vec<u32> = point_density_json
                         .and_then(|j| serde_json::from_str(&j).ok())
                         .unwrap_or_default();
@@ -123,7 +146,15 @@ impl PersistentRouteEngine {
                         observation_count: row.get::<_, Option<u32>>(8)?.unwrap_or(0),
                         average_spread: row.get::<_, Option<f64>>(9)?.unwrap_or(0.0),
                         point_density,
-                        scale: { let s: Option<String> = row.get(11)?; s.map(|s| s.parse().unwrap_or_default()) },
+                        scale: {
+                            let s: Option<String> = row.get(11)?;
+                            match s {
+                                None => None,
+                                Some(s) => Some(s.parse().map_err(|_| {
+                                    rusqlite::Error::FromSqlConversionFailure(11, Type::Text, Box::new(std::fmt::Error))
+                                })?),
+                            }
+                        },
                         is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                         stability: row.get::<_, Option<f64>>(14)?.unwrap_or(0.0),
                         version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
@@ -131,7 +162,13 @@ impl PersistentRouteEngine {
                         created_at: row.get(15)?,
                     })
                 })?
-                .filter_map(|r| r.ok())
+                .filter_map(|r| match r {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        log::warn!("tracematch: [PersistentEngine] Skipping malformed section row during loading: {:?}", e);
+                        None
+                    }
+                })
                 .filter(|s: &FrequentSection| !s.id.is_empty())
                 .collect();
         }
@@ -144,7 +181,12 @@ impl PersistentRouteEngine {
 
         // Log section IDs for debugging
         if !self.sections.is_empty() {
-            let section_ids: Vec<&str> = self.sections.iter().take(10).map(|s| s.id.as_str()).collect();
+            let section_ids: Vec<&str> = self
+                .sections
+                .iter()
+                .take(10)
+                .map(|s| s.id.as_str())
+                .collect();
             log::info!(
                 "tracematch: [PersistentEngine] First {} section IDs: {:?}",
                 section_ids.len(),
@@ -169,9 +211,9 @@ impl PersistentRouteEngine {
     /// Load processed activity IDs from database (for incremental section detection).
     pub(super) fn load_processed_activity_ids(&mut self) -> SqlResult<()> {
         self.processed_activity_ids.clear();
-        let mut stmt = self.db.prepare(
-            "SELECT activity_id FROM processed_activities"
-        )?;
+        let mut stmt = self
+            .db
+            .prepare("SELECT activity_id FROM processed_activities")?;
         let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         for row in rows.flatten() {
             self.processed_activity_ids.insert(row);
@@ -186,9 +228,8 @@ impl PersistentRouteEngine {
     /// Save processed activity IDs to database after section detection.
     pub(crate) fn save_processed_activity_ids(&mut self, activity_ids: &[String]) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
-        let mut stmt = tx.prepare(
-            "INSERT OR IGNORE INTO processed_activities (activity_id) VALUES (?)"
-        )?;
+        let mut stmt =
+            tx.prepare("INSERT OR IGNORE INTO processed_activities (activity_id) VALUES (?)")?;
         for id in activity_ids {
             stmt.execute(params![id])?;
         }
@@ -199,6 +240,13 @@ impl PersistentRouteEngine {
             self.processed_activity_ids.insert(id.clone());
         }
         Ok(())
+    }
+
+    /// Clear all processed activity IDs to force full re-detection.
+    pub(crate) fn clear_processed_activity_ids(&mut self) {
+        let _ = self.db.execute("DELETE FROM processed_activities", []);
+        self.processed_activity_ids.clear();
+        log::info!("tracematch: [PersistentEngine] Cleared all processed activity IDs for forced re-detection");
     }
 
     /// Migration: Generate names for sections that don't have names.
@@ -233,7 +281,15 @@ impl PersistentRouteEngine {
                     }
                 }
                 // Old pattern: "{Sport} Section N" — still recognize for numbering
-                for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
+                for sport in [
+                    "Ride",
+                    "Run",
+                    "Hike",
+                    "Walk",
+                    "Swim",
+                    "VirtualRide",
+                    "VirtualRun",
+                ] {
                     let old_prefix = format!("{} {} ", sport, section_word);
                     if name.starts_with(&old_prefix) {
                         if let Ok(num) = name[old_prefix.len()..].parse::<u32>() {
@@ -283,7 +339,15 @@ impl PersistentRouteEngine {
     /// "Walk Section 1" → "Section 1", with conflict resolution.
     fn migrate_strip_sport_prefixes(&mut self) -> SqlResult<()> {
         let section_word = get_section_word();
-        let sports = ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"];
+        let sports = [
+            "Ride",
+            "Run",
+            "Hike",
+            "Walk",
+            "Swim",
+            "VirtualRide",
+            "VirtualRun",
+        ];
 
         // Find sections with old-style "{Sport} {Word} N" names
         let mut renames: Vec<(String, String, u32)> = Vec::new(); // (section_id, new_name, number)
@@ -322,14 +386,21 @@ impl PersistentRouteEngine {
         // Resolve conflicts: if two old names map to same number, renumber the one with fewer activities
         let mut number_to_sections: HashMap<u32, Vec<(String, u32)>> = HashMap::new();
         for (id, _, num) in &renames {
-            let activity_count = self.sections.iter()
+            let activity_count = self
+                .sections
+                .iter()
                 .find(|s| &s.id == id)
                 .map(|s| s.activity_ids.len() as u32)
                 .unwrap_or(0);
-            number_to_sections.entry(*num).or_default().push((id.clone(), activity_count));
+            number_to_sections
+                .entry(*num)
+                .or_default()
+                .push((id.clone(), activity_count));
         }
 
-        let mut update_stmt = self.db.prepare("UPDATE sections SET name = ? WHERE id = ?")?;
+        let mut update_stmt = self
+            .db
+            .prepare("UPDATE sections SET name = ? WHERE id = ?")?;
         let mut next_counter = renames.iter().map(|(_, _, n)| *n).max().unwrap_or(0);
 
         for (num, mut section_ids) in number_to_sections {
@@ -390,10 +461,7 @@ impl PersistentRouteEngine {
         let min = min_visits.unwrap_or(0);
         self.sections
             .iter()
-            .filter(|s| {
-                sport_type.map_or(true, |st| s.sport_type == st)
-                    && s.visit_count >= min
-            })
+            .filter(|s| sport_type.map_or(true, |st| s.sport_type == st) && s.visit_count >= min)
             .cloned()
             .collect()
     }
@@ -413,13 +481,30 @@ impl PersistentRouteEngine {
         // Custom sections always come from DB via get_section()
 
         // First check if this is an auto section by querying the DB
-        let section_data: Option<(String, String, Option<String>, String, f64, Option<String>, Option<f64>, Option<u32>, Option<f64>, Option<String>, Option<String>, Option<u32>, Option<i32>, Option<f64>, Option<String>, Option<String>)> = {
+        let section_data: Option<(
+            String,
+            String,
+            Option<String>,
+            String,
+            f64,
+            Option<String>,
+            Option<f64>,
+            Option<u32>,
+            Option<f64>,
+            Option<String>,
+            Option<String>,
+            Option<u32>,
+            Option<i32>,
+            Option<f64>,
+            Option<String>,
+            Option<String>,
+        )> = {
             let mut stmt = match self.db.prepare(
                 "SELECT section_type, sport_type, name, polyline_json, distance_meters,
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
                         created_at, updated_at
-                 FROM sections WHERE id = ?"
+                 FROM sections WHERE id = ?",
             ) {
                 Ok(s) => s,
                 Err(_) => return,
@@ -427,32 +512,47 @@ impl PersistentRouteEngine {
 
             stmt.query_row(params![section_id], |row| {
                 Ok((
-                    row.get::<_, String>(0)?,  // section_type
-                    row.get::<_, String>(1)?,  // sport_type
+                    row.get::<_, String>(0)?,          // section_type
+                    row.get::<_, String>(1)?,          // sport_type
                     row.get::<_, Option<String>>(2)?,  // name
-                    row.get::<_, String>(3)?,  // polyline_json
-                    row.get::<_, f64>(4)?,  // distance_meters
+                    row.get::<_, String>(3)?,          // polyline_json
+                    row.get::<_, f64>(4)?,             // distance_meters
                     row.get::<_, Option<String>>(5)?,  // representative_activity_id
-                    row.get::<_, Option<f64>>(6)?,  // confidence
-                    row.get::<_, Option<u32>>(7)?,  // observation_count
-                    row.get::<_, Option<f64>>(8)?,  // average_spread
+                    row.get::<_, Option<f64>>(6)?,     // confidence
+                    row.get::<_, Option<u32>>(7)?,     // observation_count
+                    row.get::<_, Option<f64>>(8)?,     // average_spread
                     row.get::<_, Option<String>>(9)?,  // point_density_json
-                    row.get::<_, Option<String>>(10)?,  // scale
-                    row.get::<_, Option<u32>>(11)?,  // version
-                    row.get::<_, Option<i32>>(12)?,  // is_user_defined
-                    row.get::<_, Option<f64>>(13)?,  // stability
-                    row.get::<_, Option<String>>(14)?,  // created_at
-                    row.get::<_, Option<String>>(15)?,  // updated_at
+                    row.get::<_, Option<String>>(10)?, // scale
+                    row.get::<_, Option<u32>>(11)?,    // version
+                    row.get::<_, Option<i32>>(12)?,    // is_user_defined
+                    row.get::<_, Option<f64>>(13)?,    // stability
+                    row.get::<_, Option<String>>(14)?, // created_at
+                    row.get::<_, Option<String>>(15)?, // updated_at
                 ))
-            }).ok()
+            })
+            .ok()
         };
 
-        let (section_type, sport_type, name, polyline_json, distance_meters,
-             representative_activity_id, confidence, observation_count, average_spread,
-             point_density_json, scale, version, is_user_defined, stability,
-             created_at, updated_at) = match section_data {
+        let (
+            section_type,
+            sport_type,
+            name,
+            polyline_json,
+            distance_meters,
+            representative_activity_id,
+            confidence,
+            observation_count,
+            average_spread,
+            point_density_json,
+            scale,
+            version,
+            is_user_defined,
+            stability,
+            created_at,
+            updated_at,
+        ) = match section_data {
             Some(data) => data,
-            None => return,  // Section not found
+            None => return, // Section not found
         };
 
         // Only auto sections are cached in memory
@@ -464,7 +564,7 @@ impl PersistentRouteEngine {
         let activity_ids: Vec<String> = {
             let mut stmt = match self.db.prepare(
                 "SELECT DISTINCT sa.activity_id FROM section_activities sa
-                 WHERE sa.section_id = ? AND sa.excluded = 0"
+                 WHERE sa.section_id = ? AND sa.excluded = 0",
             ) {
                 Ok(s) => s,
                 Err(_) => return,
@@ -475,13 +575,24 @@ impl PersistentRouteEngine {
         };
 
         // Parse polyline and point density
-        let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json).unwrap_or_default();
+        let polyline: Vec<GpsPoint> = match serde_json::from_str(&polyline_json) {
+            Ok(p) => p,
+            Err(e) => {
+                log::error!(
+                    "tracematch: [refresh_section_in_memory] Failed to parse polyline for {}: {}",
+                    section_id,
+                    e
+                );
+                return;
+            }
+        };
         let point_density: Vec<u32> = point_density_json
             .and_then(|j| serde_json::from_str(&j).ok())
             .unwrap_or_default();
 
         // Count total traversals (laps) with valid performance data
-        let visit_count: u32 = self.db
+        let visit_count: u32 = self
+            .db
             .query_row(
                 "SELECT COUNT(*) FROM section_activities sa
                  WHERE sa.section_id = ? AND sa.excluded = 0 AND sa.lap_time IS NOT NULL",
@@ -498,16 +609,26 @@ impl PersistentRouteEngine {
             polyline,
             representative_activity_id: representative_activity_id.unwrap_or_default(),
             activity_ids,
-            activity_portions: vec![],  // Not stored in DB
-            route_ids: vec![],  // Not stored in DB
+            activity_portions: vec![], // Not stored in DB
+            route_ids: vec![],         // Not stored in DB
             visit_count,
             distance_meters,
-            activity_traces: std::collections::HashMap::new(),  // Not stored in DB
+            activity_traces: std::collections::HashMap::new(), // Not stored in DB
             confidence: confidence.unwrap_or(0.0),
             observation_count: observation_count.unwrap_or(0),
             average_spread: average_spread.unwrap_or(0.0),
             point_density,
-            scale: scale.map(|s| s.parse().unwrap_or_default()),
+            scale: scale.and_then(|s| match s.parse::<tracematch::sections::ScaleName>() {
+                Ok(v) => Some(v),
+                Err(_) => {
+                    log::warn!(
+                        "tracematch: [refresh_section_in_memory] Failed to parse scale '{}' for {}",
+                        s,
+                        section_id
+                    );
+                    None
+                }
+            }),
             is_user_defined: is_user_defined.unwrap_or(0) != 0,
             stability: stability.unwrap_or(0.0),
             version: version.unwrap_or(1),
@@ -550,7 +671,6 @@ impl PersistentRouteEngine {
             .unwrap_or(0)
     }
 
-
     /// Get lightweight section summaries without polyline data.
     /// Queries SQLite and extracts only summary fields, skipping heavy data like
     /// polylines, activityTraces, and pointDensity.
@@ -560,15 +680,17 @@ impl PersistentRouteEngine {
             let mut stmt = match self.db.prepare(
                 "SELECT sa.section_id, COUNT(*) FROM section_activities sa
                  WHERE sa.excluded = 0
-                 GROUP BY sa.section_id"
+                 GROUP BY sa.section_id",
             ) {
                 Ok(s) => s,
                 Err(_) => return Vec::new(),
             };
-            stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, u32>(1)?)))
-                .ok()
-                .map(|iter| iter.filter_map(|r| r.ok()).collect())
-                .unwrap_or_default()
+            stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, u32>(1)?))
+            })
+            .ok()
+            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
         };
 
         // Get distinct sport types per section from activities
@@ -585,19 +707,25 @@ impl PersistentRouteEngine {
             stmt.query_map([], |row| {
                 let id: String = row.get(0)?;
                 let types_csv: String = row.get::<_, Option<String>>(1)?.unwrap_or_default();
-                let types: Vec<String> = types_csv.split(',').filter(|s| !s.is_empty()).map(|s| s.to_string()).collect();
+                let types: Vec<String> = types_csv
+                    .split(',')
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string())
+                    .collect();
                 Ok((id, types))
             })
-                .ok()
-                .map(|iter| iter.filter_map(|r| r.ok()).collect())
-                .unwrap_or_default()
+            .ok()
+            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
         };
 
         let mut stmt = match self.db.prepare(
             "SELECT id, name, sport_type, distance_meters, confidence, scale,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                    section_type, representative_activity_id, created_at
-             FROM sections"
+                    section_type, representative_activity_id, created_at,
+                    disabled, superseded_by
+             FROM sections
+             WHERE disabled = 0 AND superseded_by IS NULL",
         ) {
             Ok(s) => s,
             Err(e) => {
@@ -621,7 +749,12 @@ impl PersistentRouteEngine {
                     row.get::<_, Option<f64>>(9)?,
                 ) {
                     (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) => {
-                        Some(crate::FfiBounds { min_lat, max_lat, min_lng, max_lng })
+                        Some(crate::FfiBounds {
+                            min_lat,
+                            max_lat,
+                            min_lng,
+                            max_lng,
+                        })
                     }
                     _ => None,
                 };
@@ -631,7 +764,9 @@ impl PersistentRouteEngine {
 
                 Ok(SectionSummary {
                     id,
-                    section_type: row.get::<_, Option<String>>(10)?.unwrap_or_else(|| "auto".to_string()),
+                    section_type: row
+                        .get::<_, Option<String>>(10)?
+                        .unwrap_or_else(|| "auto".to_string()),
                     name: row.get(1)?,
                     sport_type: row.get(2)?,
                     distance_meters: row.get(3)?,
@@ -643,32 +778,45 @@ impl PersistentRouteEngine {
                     bounds,
                     created_at: row.get::<_, Option<String>>(12)?.unwrap_or_default(),
                     sport_types,
+                    disabled: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
+                    superseded_by: row.get(14)?,
                 })
             })
             .ok()
-            .map(|iter| iter.filter_map(|r| {
-                r.map_err(|e| {
+            .map(|iter| {
+                iter.filter_map(|r| {
+                    r.map_err(|e| {
                     log::error!(
                         "tracematch: [PersistentEngine] get_section_summaries row parse error: {}",
                         e
                     );
                     e
                 }).ok()
-            }).collect())
+                })
+                .collect()
+            })
             .unwrap_or_default();
 
         // Log section type breakdown for debugging
-        let auto_count = results.iter().filter(|s| !s.id.starts_with("custom_")).count();
+        let auto_count = results
+            .iter()
+            .filter(|s| !s.id.starts_with("custom_"))
+            .count();
         let custom_count = results.len() - auto_count;
         log::info!(
             "tracematch: [PersistentEngine] get_section_summaries returned {} summaries ({} auto, {} custom)",
-            results.len(), auto_count, custom_count
+            results.len(),
+            auto_count,
+            custom_count
         );
         if custom_count > 0 {
             for s in results.iter().filter(|s| s.id.starts_with("custom_")) {
                 log::info!(
                     "tracematch: [PersistentEngine]   custom section: id={}, name={:?}, visits={}, distance={:.0}m",
-                    s.id, s.name, s.visit_count, s.distance_meters
+                    s.id,
+                    s.name,
+                    s.visit_count,
+                    s.distance_meters
                 );
             }
         }
@@ -692,7 +840,11 @@ impl PersistentRouteEngine {
     /// - Engagement (0.15): ln(traversal_count) / ln(max_traversal_count)
     ///
     /// Returns top `limit` sections sorted by relevance_score descending.
-    pub fn get_ranked_sections(&self, sport_type: &str, limit: u32) -> Vec<crate::FfiRankedSection> {
+    pub fn get_ranked_sections(
+        &self,
+        sport_type: &str,
+        limit: u32,
+    ) -> Vec<crate::FfiRankedSection> {
         let start = std::time::Instant::now();
 
         // Query all sections for this sport type with their traversal data
@@ -711,11 +863,15 @@ impl PersistentRouteEngine {
                  JOIN section_activities sa ON s.id = sa.section_id
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
                  WHERE s.sport_type = ? AND sa.excluded = 0 AND sa.lap_time IS NOT NULL
-                 ORDER BY s.id, am.date ASC"
+                   AND s.disabled = 0 AND s.superseded_by IS NULL
+                 ORDER BY s.id, am.date ASC",
             ) {
                 Ok(s) => s,
                 Err(e) => {
-                    log::error!("tracematch: [RankedSections] Failed to prepare query: {}", e);
+                    log::error!(
+                        "tracematch: [RankedSections] Failed to prepare query: {}",
+                        e
+                    );
                     return Vec::new();
                 }
             };
@@ -737,24 +893,29 @@ impl PersistentRouteEngine {
         };
 
         if rows.is_empty() {
-            log::info!("tracematch: [RankedSections] No traversals found for sport_type={}", sport_type);
+            log::info!(
+                "tracematch: [RankedSections] No traversals found for sport_type={}",
+                sport_type
+            );
             return Vec::new();
         }
 
         // Group traversals by section
         struct SectionData {
             name: String,
-            times: Vec<f64>,     // lap times in seconds, ordered by date ascending
-            dates: Vec<i64>,     // activity dates (unix timestamps), ascending
+            times: Vec<f64>, // lap times in seconds, ordered by date ascending
+            dates: Vec<i64>, // activity dates (unix timestamps), ascending
         }
 
         let mut sections: HashMap<String, SectionData> = HashMap::new();
         for row in &rows {
-            let entry = sections.entry(row.section_id.clone()).or_insert_with(|| SectionData {
-                name: row.section_name.clone(),
-                times: Vec::new(),
-                dates: Vec::new(),
-            });
+            let entry = sections
+                .entry(row.section_id.clone())
+                .or_insert_with(|| SectionData {
+                    name: row.section_name.clone(),
+                    times: Vec::new(),
+                    dates: Vec::new(),
+                });
             entry.times.push(row.lap_time);
             entry.dates.push(row.activity_date);
         }
@@ -762,7 +923,8 @@ impl PersistentRouteEngine {
         let now_secs = Utc::now().timestamp();
 
         // Find max traversal count for engagement normalization
-        let max_traversal_count = sections.values()
+        let max_traversal_count = sections
+            .values()
             .map(|s| s.times.len())
             .max()
             .unwrap_or(1)
@@ -773,7 +935,7 @@ impl PersistentRouteEngine {
             .map(|(section_id, data)| {
                 let traversal_count = data.times.len() as u32;
                 let last_date = *data.dates.last().unwrap_or(&now_secs);
-                let days_since_last = ((now_secs - last_date) as f64 / 86400.0).max(0.0) as u32;
+                let days_since_last = crate::calendar_days_between(last_date, now_secs);
 
                 // --- Recency score (weight 0.35) ---
                 // exp(-days / 14): half-life of ~2 weeks
@@ -815,9 +977,8 @@ impl PersistentRouteEngine {
                 // Z-score of most recent effort against all efforts
                 let anomaly_score = if data.times.len() >= 3 {
                     let mean = data.times.iter().sum::<f64>() / data.times.len() as f64;
-                    let variance = data.times.iter()
-                        .map(|t| (t - mean).powi(2))
-                        .sum::<f64>() / data.times.len() as f64;
+                    let variance = data.times.iter().map(|t| (t - mean).powi(2)).sum::<f64>()
+                        / data.times.len() as f64;
                     let std_dev = variance.sqrt();
                     if std_dev > 0.0 {
                         let latest = *data.times.last().unwrap();
@@ -879,16 +1040,40 @@ impl PersistentRouteEngine {
                     } else {
                         0.0
                     };
-                    if pct > 0.02 { 1 }       // >2% faster = improving
-                    else if pct < -0.02 { -1 } // >2% slower = declining
-                    else { 0 }                 // within 2% = stable
+                    if pct > 0.02 {
+                        1
+                    }
+                    // >2% faster = improving
+                    else if pct < -0.02 {
+                        -1
+                    }
+                    // >2% slower = declining
+                    else {
+                        0
+                    } // within 2% = stable
                 } else if data.times.len() >= 2 {
                     let first = data.times[0];
                     let last = *data.times.last().unwrap();
-                    let pct = if first > 0.0 { (first - last) / first } else { 0.0 };
-                    if pct > 0.02 { 1 } else if pct < -0.02 { -1 } else { 0 }
+                    let pct = if first > 0.0 {
+                        (first - last) / first
+                    } else {
+                        0.0
+                    };
+                    if pct > 0.02 {
+                        1
+                    } else if pct < -0.02 {
+                        -1
+                    } else {
+                        0
+                    }
                 } else {
                     0
+                };
+
+                let latest_is_pr = if let Some(&latest) = data.times.last() {
+                    best_time_secs.is_finite() && (latest - best_time_secs).abs() < 0.01
+                } else {
+                    false
                 };
 
                 crate::FfiRankedSection {
@@ -900,23 +1085,35 @@ impl PersistentRouteEngine {
                     anomaly_score,
                     engagement_score,
                     traversal_count,
-                    best_time_secs: if best_time_secs.is_finite() { best_time_secs } else { 0.0 },
+                    best_time_secs: if best_time_secs.is_finite() {
+                        best_time_secs
+                    } else {
+                        0.0
+                    },
                     median_recent_secs,
                     days_since_last,
                     trend,
+                    latest_is_pr,
                 }
             })
             .collect();
 
         // Sort by relevance_score descending
-        ranked.sort_by(|a, b| b.relevance_score.partial_cmp(&a.relevance_score).unwrap_or(std::cmp::Ordering::Equal));
+        ranked.sort_by(|a, b| {
+            b.relevance_score
+                .partial_cmp(&a.relevance_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Limit results
         ranked.truncate(limit as usize);
 
         log::info!(
             "tracematch: [RankedSections] Ranked {} sections for sport_type={} in {:?} (returning top {})",
-            sections.len(), sport_type, start.elapsed(), ranked.len()
+            sections.len(),
+            sport_type,
+            start.elapsed(),
+            ranked.len()
         );
 
         ranked
@@ -979,10 +1176,12 @@ impl PersistentRouteEngine {
         };
 
         // Cache for future access
-        self.section_cache.put(section_id.to_string(), frequent.clone());
+        self.section_cache
+            .put(section_id.to_string(), frequent.clone());
         log::info!(
             "tracematch: [PersistentEngine] get_section_by_id found and cached section {} (type={:?})",
-            section_id, frequent.is_user_defined
+            section_id,
+            frequent.is_user_defined
         );
 
         Some(frequent)
@@ -994,13 +1193,14 @@ impl PersistentRouteEngine {
             "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index, sa.distance_meters
              FROM section_activities sa
              WHERE sa.section_id = ? AND sa.excluded = 0
-             ORDER BY sa.start_index"
+             ORDER BY sa.start_index",
         ) {
             Ok(s) => s,
             Err(e) => {
                 log::error!(
                     "tracematch: [PersistentEngine] get_section_portions query failed for {}: {}",
-                    section_id, e
+                    section_id,
+                    e
                 );
                 return Vec::new();
             }
@@ -1008,7 +1208,16 @@ impl PersistentRouteEngine {
         stmt.query_map(params![section_id], |row| {
             Ok(SectionPortion {
                 activity_id: row.get(0)?,
-                direction: { let s: String = row.get(1)?; s.parse().unwrap_or_default() },
+                direction: {
+                    let s: String = row.get(1)?;
+                    s.parse().map_err(|_| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            1,
+                            Type::Text,
+                            Box::new(std::fmt::Error),
+                        )
+                    })?
+                },
                 start_index: row.get(2)?,
                 end_index: row.get(3)?,
                 distance_meters: row.get(4)?,
@@ -1024,7 +1233,6 @@ impl PersistentRouteEngine {
         self.section_cache.pop(&section_id.to_string());
     }
 
-
     /// Get section polyline only (flat coordinates for map rendering).
     /// Returns [lat1, lng1, lat2, lng2, ...] or empty vec if not found.
     pub fn get_section_polyline(&self, section_id: &str) -> Vec<f64> {
@@ -1035,7 +1243,8 @@ impl PersistentRouteEngine {
                 params![section_id],
                 |row| {
                     let polyline_json: String = row.get(0)?;
-                    let points: Vec<serde_json::Value> = match serde_json::from_str(&polyline_json) {
+                    let points: Vec<serde_json::Value> = match serde_json::from_str(&polyline_json)
+                    {
                         Ok(v) => v,
                         Err(e) => {
                             log::error!(
@@ -1067,7 +1276,10 @@ impl PersistentRouteEngine {
 
     /// Batch-load section polylines for multiple section IDs in a single query.
     /// Returns a map of section_id → flat [lat, lng, lat, lng, ...] coordinates.
-    pub(super) fn get_section_polylines_batch(&self, section_ids: &[&str]) -> HashMap<String, Vec<f64>> {
+    pub(super) fn get_section_polylines_batch(
+        &self,
+        section_ids: &[&str],
+    ) -> HashMap<String, Vec<f64>> {
         if section_ids.is_empty() {
             return HashMap::new();
         }
@@ -1098,8 +1310,10 @@ impl PersistentRouteEngine {
             .query_map(params.as_slice(), |row| {
                 let section_id: String = row.get(0)?;
                 let polyline_json: String = row.get(1)?;
-                let points: Vec<serde_json::Value> = serde_json::from_str(&polyline_json)
-                    .unwrap_or_default();
+                let points: Vec<serde_json::Value> =
+                    serde_json::from_str(&polyline_json).map_err(|e| {
+                        rusqlite::Error::FromSqlConversionFailure(1, Type::Text, Box::new(e))
+                    })?;
                 let coords: Vec<f64> = points
                     .iter()
                     .flat_map(|p| {
@@ -1267,7 +1481,16 @@ impl PersistentRouteEngine {
                     let track: Vec<GpsPoint> = stmt
                         .query_row(params![id], |row| {
                             let blob: Vec<u8> = row.get(0)?;
-                            Ok(rmp_serde::from_slice(&blob).unwrap_or_default())
+                            match rmp_serde::from_slice(&blob) {
+                                Ok(t) => Ok(t),
+                                Err(e) => {
+                                    log::warn!(
+                                        "tracematch: [SectionDetection] Skipping malformed track data for {}: {:?}",
+                                        id, e
+                                    );
+                                    Ok(Vec::new())
+                                }
+                            }
                         })
                         .ok()?;
                     if track.is_empty() {
@@ -1470,7 +1693,10 @@ impl PersistentRouteEngine {
 
                 // Merge sections that overlap geographically across different sport types
                 if let Err(e) = self.merge_cross_sport_sections() {
-                    log::warn!("tracematch: [apply_sections] Cross-sport merge failed: {}", e);
+                    log::warn!(
+                        "tracematch: [apply_sections] Cross-sport merge failed: {}",
+                        e
+                    );
                 }
 
                 Ok(())
@@ -1505,12 +1731,12 @@ impl PersistentRouteEngine {
             )?;
             stmt.query_map([], |row| {
                 Ok((
-                    row.get::<_, String>(0)?,   // id
-                    row.get::<_, String>(1)?,   // sport_type
-                    row.get::<_, f64>(2)?,      // distance_meters
-                    row.get::<_, f64>(3)?,      // center_lat
-                    row.get::<_, f64>(4)?,      // center_lng
-                    row.get::<_, u32>(5)?,      // activity_count
+                    row.get::<_, String>(0)?, // id
+                    row.get::<_, String>(1)?, // sport_type
+                    row.get::<_, f64>(2)?,    // distance_meters
+                    row.get::<_, f64>(3)?,    // center_lat
+                    row.get::<_, f64>(4)?,    // center_lng
+                    row.get::<_, u32>(5)?,    // activity_count
                 ))
             })?
             .filter_map(|r| r.ok())
@@ -1595,17 +1821,18 @@ impl PersistentRouteEngine {
             }
 
             // Primary = member with most activities
-            let primary_idx = *members.iter()
-                .max_by_key(|&&idx| sections[idx].5)
-                .unwrap();
+            let primary_idx = *members.iter().max_by_key(|&&idx| sections[idx].5).unwrap();
             let primary_id = &sections[primary_idx].0;
 
             // Check if primary has a user-set name (non-auto-generated)
-            let primary_name: Option<String> = tx.query_row(
-                "SELECT name FROM sections WHERE id = ?",
-                params![primary_id],
-                |row| row.get(0),
-            ).ok().flatten();
+            let primary_name: Option<String> = tx
+                .query_row(
+                    "SELECT name FROM sections WHERE id = ?",
+                    params![primary_id],
+                    |row| row.get(0),
+                )
+                .ok()
+                .flatten();
 
             for &idx in members {
                 if idx == primary_idx {
@@ -1622,12 +1849,21 @@ impl PersistentRouteEngine {
                     ) {
                         let section_word = get_section_word();
                         // Check if it's NOT auto-generated (doesn't match "{Sport} {Word} {N}" pattern)
-                        let is_auto = ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"]
-                            .iter()
-                            .any(|sport| {
-                                let prefix = format!("{} {} ", sport, section_word);
-                                sec_name.starts_with(&prefix) && sec_name[prefix.len()..].parse::<u32>().is_ok()
-                            });
+                        let is_auto = [
+                            "Ride",
+                            "Run",
+                            "Hike",
+                            "Walk",
+                            "Swim",
+                            "VirtualRide",
+                            "VirtualRun",
+                        ]
+                        .iter()
+                        .any(|sport| {
+                            let prefix = format!("{} {} ", sport, section_word);
+                            sec_name.starts_with(&prefix)
+                                && sec_name[prefix.len()..].parse::<u32>().is_ok()
+                        });
                         if !is_auto {
                             tx.execute(
                                 "UPDATE sections SET name = ? WHERE id = ?",
@@ -1648,14 +1884,14 @@ impl PersistentRouteEngine {
                     params![secondary_id],
                 )?;
                 // Delete secondary section
-                tx.execute(
-                    "DELETE FROM sections WHERE id = ?",
-                    params![secondary_id],
-                )?;
+                tx.execute("DELETE FROM sections WHERE id = ?", params![secondary_id])?;
 
                 log::info!(
                     "tracematch: [merge_cross_sport] Merged {} ({}) into {} ({})",
-                    secondary_id, sections[idx].1, primary_id, sections[primary_idx].1
+                    secondary_id,
+                    sections[idx].1,
+                    primary_id,
+                    sections[primary_idx].1
                 );
             }
         }
@@ -1670,19 +1906,442 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Insert a single section_activities row for a manually matched activity.
+    pub fn insert_section_activity(
+        &self,
+        section_id: &str,
+        activity_id: &str,
+        direction: &tracematch::Direction,
+        start_index: u32,
+        end_index: u32,
+        distance_meters: f64,
+    ) -> Result<(), String> {
+        let dir_str = direction.to_string();
+        self.db
+            .execute(
+                "INSERT OR IGNORE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters)
+                 VALUES (?, ?, ?, ?, ?, ?)",
+                rusqlite::params![section_id, activity_id, dir_str, start_index, end_index, distance_meters],
+            )
+            .map_err(|e| format!("Failed to insert section_activity: {}", e))?;
+        Ok(())
+    }
+
+    /// Get sections near a given section within a radius (meters).
+    /// Returns summaries with polyline data for map rendering.
+    pub fn get_nearby_sections(
+        &self,
+        section_id: &str,
+        radius_meters: f64,
+    ) -> Vec<crate::FfiNearbySectionSummary> {
+        // Get the query section's center
+        let query_center: Option<(f64, f64)> = self
+            .db
+            .query_row(
+                "SELECT (COALESCE(bounds_min_lat, 0) + COALESCE(bounds_max_lat, 0)) / 2.0,
+                        (COALESCE(bounds_min_lng, 0) + COALESCE(bounds_max_lng, 0)) / 2.0
+                 FROM sections WHERE id = ? AND bounds_min_lat IS NOT NULL",
+                rusqlite::params![section_id],
+                |row| Ok((row.get::<_, f64>(0)?, row.get::<_, f64>(1)?)),
+            )
+            .ok();
+
+        let (center_lat, center_lng) = match query_center {
+            Some(c) => c,
+            None => return vec![],
+        };
+
+        // Query all sections with bounds (excluding query section, disabled, superseded)
+        let mut stmt = match self.db.prepare(
+            "SELECT s.id, s.section_type, s.name, s.sport_type, s.distance_meters,
+                    (SELECT COUNT(*) FROM section_activities sa WHERE sa.section_id = s.id AND sa.excluded = 0) as visit_count,
+                    (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0 as center_lat,
+                    (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0 as center_lng,
+                    s.polyline_json
+             FROM sections s
+             WHERE s.id != ? AND s.disabled = 0 AND s.superseded_by IS NULL
+               AND s.bounds_min_lat IS NOT NULL",
+        ) {
+            Ok(s) => s,
+            Err(_) => return vec![],
+        };
+
+        let rows = stmt
+            .query_map(rusqlite::params![section_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,           // id
+                    row.get::<_, String>(1)?,           // section_type
+                    row.get::<_, Option<String>>(2)?,   // name
+                    row.get::<_, String>(3)?,           // sport_type
+                    row.get::<_, f64>(4)?,              // distance_meters
+                    row.get::<_, u32>(5)?,              // visit_count
+                    row.get::<_, f64>(6)?,              // center_lat
+                    row.get::<_, f64>(7)?,              // center_lng
+                    row.get::<_, Option<String>>(8)?,   // polyline_json
+                ))
+            })
+            .ok();
+
+        let mut results: Vec<crate::FfiNearbySectionSummary> = Vec::new();
+
+        if let Some(rows) = rows {
+            for row in rows.flatten() {
+                let (id, section_type, name, sport_type, distance_meters, visit_count, lat, lng, polyline_json) = row;
+                let dist = haversine_distance(center_lat, center_lng, lat, lng);
+                if dist > radius_meters {
+                    continue;
+                }
+
+                // Parse polyline to flat coords
+                let polyline_coords = polyline_json
+                    .and_then(|json| {
+                        serde_json::from_str::<Vec<serde_json::Value>>(&json).ok()
+                    })
+                    .map(|points| {
+                        points
+                            .iter()
+                            .flat_map(|p| {
+                                let lat = p["latitude"].as_f64().unwrap_or(0.0);
+                                let lng = p["longitude"].as_f64().unwrap_or(0.0);
+                                vec![lat, lng]
+                            })
+                            .collect::<Vec<f64>>()
+                    })
+                    .unwrap_or_default();
+
+                results.push(crate::FfiNearbySectionSummary {
+                    id,
+                    section_type,
+                    name,
+                    sport_type,
+                    distance_meters,
+                    visit_count,
+                    center_distance_meters: dist,
+                    polyline_coords,
+                });
+            }
+        }
+
+        results.sort_by(|a, b| {
+            a.center_distance_meters
+                .partial_cmp(&b.center_distance_meters)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        results.truncate(20);
+        results
+    }
+
+    /// Find merge candidates for a section.
+    /// Returns sections with >30% polyline overlap or close centers with similar distances.
+    pub fn get_merge_candidates(
+        &self,
+        section_id: &str,
+    ) -> Vec<crate::FfiMergeCandidate> {
+        // Get the query section's data
+        let query_data: Option<(f64, f64, f64, String)> = self
+            .db
+            .query_row(
+                "SELECT (COALESCE(bounds_min_lat, 0) + COALESCE(bounds_max_lat, 0)) / 2.0,
+                        (COALESCE(bounds_min_lng, 0) + COALESCE(bounds_max_lng, 0)) / 2.0,
+                        distance_meters, sport_type
+                 FROM sections WHERE id = ? AND bounds_min_lat IS NOT NULL",
+                rusqlite::params![section_id],
+                |row| {
+                    Ok((
+                        row.get::<_, f64>(0)?,
+                        row.get::<_, f64>(1)?,
+                        row.get::<_, f64>(2)?,
+                        row.get::<_, String>(3)?,
+                    ))
+                },
+            )
+            .ok();
+
+        let (center_lat, center_lng, query_dist, _query_sport) = match query_data {
+            Some(d) => d,
+            None => return vec![],
+        };
+
+        let query_polyline = self.get_section_polyline(section_id);
+        if query_polyline.len() < 4 {
+            return vec![];
+        }
+
+        // Find nearby sections (within 300m center distance)
+        let mut stmt = match self.db.prepare(
+            "SELECT s.id, s.name, s.sport_type, s.distance_meters,
+                    (SELECT COUNT(*) FROM section_activities sa WHERE sa.section_id = s.id AND sa.excluded = 0),
+                    (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0,
+                    (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0
+             FROM sections s
+             WHERE s.id != ? AND s.disabled = 0 AND s.superseded_by IS NULL
+               AND s.bounds_min_lat IS NOT NULL",
+        ) {
+            Ok(s) => s,
+            Err(_) => return vec![],
+        };
+
+        let rows = stmt
+            .query_map(rusqlite::params![section_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,         // id
+                    row.get::<_, Option<String>>(1)?,  // name
+                    row.get::<_, String>(2)?,         // sport_type
+                    row.get::<_, f64>(3)?,            // distance_meters
+                    row.get::<_, u32>(4)?,            // visit_count
+                    row.get::<_, f64>(5)?,            // center_lat
+                    row.get::<_, f64>(6)?,            // center_lng
+                ))
+            })
+            .ok();
+
+        let mut candidates: Vec<crate::FfiMergeCandidate> = Vec::new();
+
+        if let Some(rows) = rows {
+            for row in rows.flatten() {
+                let (id, name, sport_type, distance_meters, visit_count, lat, lng) = row;
+
+                let center_dist = haversine_distance(center_lat, center_lng, lat, lng);
+                if center_dist > 300.0 {
+                    continue;
+                }
+
+                // Check distance similarity (within 30%)
+                let max_dist = query_dist.max(distance_meters);
+                let min_dist = query_dist.min(distance_meters);
+                let dist_ratio = if max_dist > 0.0 {
+                    (max_dist - min_dist) / max_dist
+                } else {
+                    1.0
+                };
+                if dist_ratio > 0.3 {
+                    continue;
+                }
+
+                // Compute polyline overlap
+                let candidate_polyline = self.get_section_polyline(&id);
+                let overlap = if candidate_polyline.len() >= 4 {
+                    super::compute_polyline_overlap(
+                        query_polyline.clone(),
+                        candidate_polyline,
+                        50.0, // 50m threshold
+                    )
+                } else {
+                    0.0
+                };
+
+                if overlap >= 0.3 {
+                    candidates.push(crate::FfiMergeCandidate {
+                        section_id: id,
+                        name,
+                        sport_type,
+                        distance_meters,
+                        visit_count,
+                        overlap_pct: overlap,
+                        center_distance_meters: center_dist,
+                    });
+                }
+            }
+        }
+
+        candidates.sort_by(|a, b| {
+            b.overlap_pct
+                .partial_cmp(&a.overlap_pct)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        candidates.truncate(10);
+        candidates
+    }
+
+    /// Merge two sections: moves all traversals from secondary into primary,
+    /// recomputes consensus polyline, deletes secondary.
+    /// Returns the primary section ID on success.
+    pub fn merge_user_sections(
+        &mut self,
+        primary_id: &str,
+        secondary_id: &str,
+    ) -> SqlResult<String> {
+        if primary_id == secondary_id {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Cannot merge a section with itself".to_string(),
+            ));
+        }
+
+        // Validate both sections exist
+        let primary_exists: bool = self
+            .db
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM sections WHERE id = ?",
+                rusqlite::params![primary_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+        let secondary_exists: bool = self
+            .db
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM sections WHERE id = ?",
+                rusqlite::params![secondary_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+
+        if !primary_exists || !secondary_exists {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "One or both sections do not exist".to_string(),
+            ));
+        }
+
+        let tx = self.db.unchecked_transaction()?;
+
+        // Inherit name from secondary if primary has no user-set name
+        let primary_name: Option<String> = tx
+            .query_row(
+                "SELECT name FROM sections WHERE id = ?",
+                rusqlite::params![primary_id],
+                |row| row.get(0),
+            )
+            .ok();
+
+        if primary_name.is_none() {
+            if let Ok(Some(sec_name)) = tx.query_row(
+                "SELECT name FROM sections WHERE id = ?",
+                rusqlite::params![secondary_id],
+                |row| row.get::<_, Option<String>>(0),
+            ) {
+                let section_word = get_section_word();
+                // Check if it's NOT auto-generated
+                let is_auto = [
+                    "Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun",
+                ]
+                .iter()
+                .any(|sport| {
+                    let prefix = format!("{} {} ", sport, section_word);
+                    sec_name.starts_with(&prefix)
+                        && sec_name[prefix.len()..].parse::<u32>().is_ok()
+                });
+                if !is_auto {
+                    tx.execute(
+                        "UPDATE sections SET name = ? WHERE id = ?",
+                        rusqlite::params![&sec_name, primary_id],
+                    )?;
+                }
+            }
+        }
+
+        // Move secondary's activities to primary
+        tx.execute(
+            "UPDATE OR IGNORE section_activities SET section_id = ? WHERE section_id = ?",
+            rusqlite::params![primary_id, secondary_id],
+        )?;
+        // Delete remaining duplicates
+        tx.execute(
+            "DELETE FROM section_activities WHERE section_id = ?",
+            rusqlite::params![secondary_id],
+        )?;
+
+        // Clear superseded_by on any sections pointing to secondary
+        tx.execute(
+            "UPDATE sections SET superseded_by = NULL WHERE superseded_by = ?",
+            rusqlite::params![secondary_id],
+        )?;
+
+        // Recount visit_count from junction table
+        let visit_count: u32 = tx
+            .query_row(
+                "SELECT COUNT(DISTINCT activity_id) FROM section_activities WHERE section_id = ? AND excluded = 0",
+                rusqlite::params![primary_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        tx.execute(
+            "UPDATE sections SET visit_count = ? WHERE id = ?",
+            rusqlite::params![visit_count, primary_id],
+        )?;
+
+        // Delete secondary section
+        tx.execute(
+            "DELETE FROM sections WHERE id = ?",
+            rusqlite::params![secondary_id],
+        )?;
+
+        tx.commit()?;
+
+        // Recompute bounds from existing polyline
+        self.recompute_section_bounds(primary_id);
+
+        // Reload sections into memory
+        self.section_cache.clear();
+        self.invalidate_perf_cache();
+        self.load_sections()?;
+
+        log::info!(
+            "tracematch: [merge] Merged section {} into {} ({} activities)",
+            secondary_id,
+            primary_id,
+            visit_count
+        );
+
+        Ok(primary_id.to_string())
+    }
+
+    /// Recompute a section's bounds and distance from its current polyline.
+    /// Called after merge to ensure bounds reflect the primary section's polyline.
+    fn recompute_section_bounds(&self, section_id: &str) {
+        let polyline_json: Option<String> = self
+            .db
+            .query_row(
+                "SELECT polyline_json FROM sections WHERE id = ?",
+                rusqlite::params![section_id],
+                |row| row.get(0),
+            )
+            .ok();
+
+        let points: Vec<tracematch::GpsPoint> = polyline_json
+            .and_then(|json| serde_json::from_str(&json).ok())
+            .unwrap_or_default();
+
+        if points.len() < 2 {
+            return;
+        }
+
+        let distance = tracematch::matching::calculate_route_distance(&points);
+
+        let (mut min_lat, mut max_lat, mut min_lng, mut max_lng) =
+            (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
+        for p in &points {
+            min_lat = min_lat.min(p.latitude);
+            max_lat = max_lat.max(p.latitude);
+            min_lng = min_lng.min(p.longitude);
+            max_lng = max_lng.max(p.longitude);
+        }
+
+        let _ = self.db.execute(
+            "UPDATE sections SET distance_meters = ?,
+             bounds_min_lat = ?, bounds_max_lat = ?, bounds_min_lng = ?, bounds_max_lng = ?
+             WHERE id = ?",
+            rusqlite::params![distance, min_lat, max_lat, min_lng, max_lng, section_id],
+        );
+    }
+
     fn save_sections(&self) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
 
         // Clear existing auto sections (keep custom sections and trimmed auto sections)
         tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL)", [])?;
-        tx.execute("DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL", [])?;
+        tx.execute(
+            "DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL",
+            [],
+        )?;
 
         // Load existing section names to preserve user-set names (from custom sections)
         let existing_names: HashMap<String, String> = {
             let mut stmt = tx.prepare("SELECT id, name FROM sections WHERE name IS NOT NULL")?;
-            stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
-                .filter_map(|r| r.ok())
-                .collect()
+            stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .filter_map(|r| r.ok())
+            .collect()
         };
 
         let section_word = get_section_word();
@@ -1698,7 +2357,15 @@ impl PersistentRouteEngine {
                 }
             }
             // Old pattern: "{Sport} Section N" — still recognize for numbering
-            for sport in ["Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun"] {
+            for sport in [
+                "Ride",
+                "Run",
+                "Hike",
+                "Walk",
+                "Swim",
+                "VirtualRide",
+                "VirtualRun",
+            ] {
                 let old_prefix = format!("{} {} ", sport, section_word);
                 if name.starts_with(&old_prefix) {
                     if let Ok(num) = name[old_prefix.len()..].parse::<u32>() {
@@ -1723,7 +2390,8 @@ impl PersistentRouteEngine {
         // Sort sections by sport type and activity count for consistent numbering
         let mut sorted_sections: Vec<&FrequentSection> = self.sections.iter().collect();
         sorted_sections.sort_by(|a, b| {
-            a.sport_type.cmp(&b.sport_type)
+            a.sport_type
+                .cmp(&b.sport_type)
                 .then_with(|| b.activity_ids.len().cmp(&a.activity_ids.len()))
         });
 
@@ -1732,44 +2400,52 @@ impl PersistentRouteEngine {
 
         for section in sorted_sections {
             let polyline_json = serde_json::to_string(&section.polyline)
-                .unwrap_or_else(|_| "[]".to_string());
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
             let point_density_json = if section.point_density.is_empty() {
                 None
             } else {
                 serde_json::to_string(&section.point_density).ok()
             };
-            let created_at = section.created_at.clone()
+            let created_at = section
+                .created_at
+                .clone()
                 .unwrap_or_else(|| Utc::now().to_rfc3339());
 
             // Determine the name to use: preserve existing names, generate new ones
-            let name_to_save: Option<String> = if let Some(existing) = existing_names.get(&section.id) {
-                // Preserve user-set or previously generated name
-                Some(existing.clone())
-            } else if section.name.is_some() {
-                // Section already has a name (e.g., from detection)
-                section.name.clone()
-            } else {
-                // Generate unique sequential name (no sport prefix)
-                let counter = sport_counters.entry("_global".to_string()).or_insert(0);
+            let name_to_save: Option<String> =
+                if let Some(existing) = existing_names.get(&section.id) {
+                    // Preserve user-set or previously generated name
+                    Some(existing.clone())
+                } else if section.name.is_some() {
+                    // Section already has a name (e.g., from detection)
+                    section.name.clone()
+                } else {
+                    // Generate unique sequential name (no sport prefix)
+                    let counter = sport_counters.entry("_global".to_string()).or_insert(0);
 
-                // Find next available number (skip taken numbers)
-                loop {
-                    *counter += 1;
-                    if !taken_numbers.contains(counter) {
-                        break;
+                    // Find next available number (skip taken numbers)
+                    loop {
+                        *counter += 1;
+                        if !taken_numbers.contains(counter) {
+                            break;
+                        }
                     }
-                }
 
-                let new_name = format!("{} {}", section_word, counter);
-                taken_numbers.insert(*counter); // Mark this number as taken
-                Some(new_name)
-            };
+                    let new_name = format!("{} {}", section_word, counter);
+                    taken_numbers.insert(*counter); // Mark this number as taken
+                    Some(new_name)
+                };
 
             // Compute bounds from polyline
             let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
                 if section.polyline.len() >= 2 {
                     let bounds = tracematch::geo_utils::compute_bounds(&section.polyline);
-                    (Some(bounds.min_lat), Some(bounds.max_lat), Some(bounds.min_lng), Some(bounds.max_lng))
+                    (
+                        Some(bounds.min_lat),
+                        Some(bounds.max_lat),
+                        Some(bounds.min_lng),
+                        Some(bounds.max_lng),
+                    )
                 } else {
                     (None, None, None, None)
                 };
@@ -1824,7 +2500,9 @@ impl PersistentRouteEngine {
                             db_time_streams.insert(portion.activity_id.clone(), stream);
                         }
                     }
-                    db_time_streams.get(&portion.activity_id).map(|v| v.as_slice())
+                    db_time_streams
+                        .get(&portion.activity_id)
+                        .map(|v| v.as_slice())
                 };
 
                 let (lap_time, lap_pace) = if let Some(times) = times {
@@ -1865,8 +2543,6 @@ impl PersistentRouteEngine {
 
         Ok(())
     }
-
-
 
     // ========================================================================
     // Section Names
@@ -1916,5 +2592,4 @@ impl PersistentRouteEngine {
             .filter_map(|s| s.name.as_ref().map(|n| (s.id.clone(), n.clone())))
             .collect()
     }
-
 }

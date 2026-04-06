@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { Text, IconButton, ActivityIndicator, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenSafeAreaView } from '@/components/ui';
@@ -17,8 +17,8 @@ import {
   useGpxExport,
   useSectionOverlays,
   useSectionTimeStreams,
+  useActivityRematch,
 } from '@/hooks';
-import { useDisabledSections } from '@/providers';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
 import { useSectionMatches, type SectionMatch } from '@/hooks/routes/useSectionMatches';
@@ -36,6 +36,11 @@ import type {
 } from '@/components/maps/ActivityMapView';
 import type { CreationState } from '@/components/maps/SectionCreationOverlay';
 import { convertLatLngTuples, decodePolyline } from '@/lib';
+import { useExerciseSets } from '@/hooks/activities';
+import { useAthlete } from '@/hooks';
+import { ExerciseTable } from '@/components/activity/ExerciseTable';
+import { MuscleGroupView } from '@/components/activity/MuscleGroupView';
+import { ComponentErrorBoundary } from '@/components/ui';
 import { colors, darkColors, spacing } from '@/theme';
 import { ErrorStatePreset } from '@/components/ui';
 import {
@@ -76,7 +81,7 @@ export default function ActivityDetailScreen() {
   const { data: activityWellness } = useWellnessForDate(activityDate);
 
   // Tab state for swipeable tabs
-  type TabType = 'charts' | 'routes' | 'sections';
+  type TabType = 'charts' | 'exercises' | 'routes' | 'sections';
   const [activeTab, setActiveTab] = useState<TabType>('charts');
 
   // Fetch intervals data
@@ -101,8 +106,6 @@ export default function ActivityDetailScreen() {
     null
   );
   const { createSection, removeSection, sections } = useCustomSections();
-  const { disable: disableSection, enable: enableSection } = useDisabledSections();
-  const disabledSectionIds = useDisabledSections((state) => state.disabledIds);
   // Highlighted section ID for map (when user long-presses a section row)
   const [highlightedSectionId, setHighlightedSectionId] = useState<string | null>(null);
 
@@ -135,8 +138,22 @@ export default function ActivityDetailScreen() {
     return [];
   }, [streams?.latlng, activity?.polyline]);
 
+  const hasGpsData = coordinates.length > 0;
+  const isStrength = activity?.type === 'WeightTraining';
+  const { data: exerciseSets } = useExerciseSets(id || '', activity?.type ?? '');
+  const { data: athlete } = useAthlete();
+  const hasExercises = (exerciseSets?.length ?? 0) > 0;
+
   // Get auto-detected sections from engine that include this activity
   const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);
+
+  // Scan for additional section matches
+  const {
+    matches: scanMatches,
+    scan: scanForSections,
+    rematch: rematchSection,
+    isRematching,
+  } = useActivityRematch();
 
   // Filter custom sections that match this activity
   const customMatchedSections = useMemo(() => {
@@ -193,27 +210,38 @@ export default function ActivityDetailScreen() {
   );
 
   // Tabs configuration
-  const tabs = useMemo<SwipeableTab[]>(
-    () => [
+  const tabs = useMemo<SwipeableTab[]>(() => {
+    const allTabs: SwipeableTab[] = [
       {
         key: 'charts',
         label: t('activityDetail.tabs.charts'),
         icon: 'chart-line',
       },
-      {
-        key: 'routes',
-        label: t('activityDetail.tabs.route'),
-        icon: 'map-marker-path',
-      },
-      {
-        key: 'sections',
-        label: t('activityDetail.tabs.sections'),
-        icon: 'road-variant',
-        count: totalSectionCount,
-      },
-    ],
-    [t, matchedRouteCount, totalSectionCount]
-  );
+    ];
+    if (isStrength) {
+      allTabs.push({
+        key: 'exercises',
+        label: t('activityDetail.tabs.exercises'),
+        icon: 'dumbbell',
+      });
+    }
+    if (hasGpsData) {
+      allTabs.push(
+        {
+          key: 'routes',
+          label: t('activityDetail.tabs.route'),
+          icon: 'map-marker-path',
+        },
+        {
+          key: 'sections',
+          label: t('activityDetail.tabs.sections'),
+          icon: 'road-variant',
+          count: totalSectionCount,
+        }
+      );
+    }
+    return allTabs;
+  }, [t, isStrength, hasGpsData, matchedRouteCount, totalSectionCount]);
 
   // Handle chart point selection
   const handlePointSelect = useCallback((index: number | null) => {
@@ -412,33 +440,71 @@ export default function ActivityDetailScreen() {
       testID="activity-detail-screen"
       style={[styles.container, isDark && styles.containerDark]}
     >
-      {/* Hero Map Section - fixed at top */}
-      <ActivityHeader
-        activity={activity}
-        activityId={id}
-        coordinates={coordinates}
-        isMetric={isMetric}
-        isDark={isDark}
-        debugEnabled={debugEnabled}
-        insetTop={insets.top}
-        mapHeight={MAP_HEIGHT}
-        highlightIndex={highlightIndex}
-        sectionCreationMode={sectionCreationMode}
-        sectionCreationState={sectionCreationState}
-        sectionCreationError={sectionCreationError}
-        onSectionCreated={handleSectionCreated}
-        onCreationCancelled={handleSectionCreationCancelled}
-        onCreationErrorDismiss={handleSectionCreationErrorDismiss}
-        on3DModeChange={handle3DModeChange}
-        onStyleChange={handleStyleChange}
-        onCameraCapture={handleCameraCapture}
-        initial3DCamera={saved3DCamera}
-        activeTab={activeTab}
-        routeOverlayCoordinates={routeOverlayCoordinates}
-        sectionOverlays={sectionOverlays}
-        highlightedSectionId={highlightedSectionId}
-        onSectionMarkerPress={handleSectionMarkerPress}
-      />
+      {/* Simple header for non-GPS, non-strength activities */}
+      {!hasGpsData && !isStrength && (
+        <View
+          style={[styles.noMapHeader, { paddingTop: insets.top }, isDark && styles.noMapHeaderDark]}
+        >
+          <IconButton
+            icon="arrow-left"
+            iconColor={isDark ? darkColors.textPrimary : colors.textPrimary}
+            onPress={() => router.back()}
+          />
+          <View style={styles.noMapHeaderText}>
+            <Text
+              numberOfLines={1}
+              style={[styles.noMapTitle, isDark && { color: darkColors.textPrimary }]}
+            >
+              {activity.name}
+            </Text>
+          </View>
+          <View style={{ width: 48 }} />
+        </View>
+      )}
+
+      {/* Strength Training hero — body diagrams with overlay (back button, name, date, duration) */}
+      {isStrength && (
+        <ComponentErrorBoundary componentName="Muscle Groups">
+          <MuscleGroupView
+            activityId={id}
+            activity={activity}
+            hasExercises={hasExercises}
+            isDark={isDark}
+            athleteSex={athlete?.sex}
+            exerciseSets={exerciseSets}
+          />
+        </ComponentErrorBoundary>
+      )}
+
+      {/* Hero Map Section - hidden for non-GPS activities */}
+      {hasGpsData && (
+        <ActivityHeader
+          activity={activity}
+          activityId={id}
+          coordinates={coordinates}
+          isMetric={isMetric}
+          isDark={isDark}
+          debugEnabled={debugEnabled}
+          insetTop={insets.top}
+          mapHeight={MAP_HEIGHT}
+          highlightIndex={highlightIndex}
+          sectionCreationMode={sectionCreationMode}
+          sectionCreationState={sectionCreationState}
+          sectionCreationError={sectionCreationError}
+          onSectionCreated={handleSectionCreated}
+          onCreationCancelled={handleSectionCreationCancelled}
+          onCreationErrorDismiss={handleSectionCreationErrorDismiss}
+          on3DModeChange={handle3DModeChange}
+          onStyleChange={handleStyleChange}
+          onCameraCapture={handleCameraCapture}
+          initial3DCamera={saved3DCamera}
+          activeTab={activeTab}
+          routeOverlayCoordinates={routeOverlayCoordinates}
+          sectionOverlays={sectionOverlays}
+          highlightedSectionId={highlightedSectionId}
+          onSectionMarkerPress={handleSectionMarkerPress}
+        />
+      )}
 
       {/* Activity description */}
       {activity.description ? (
@@ -479,34 +545,55 @@ export default function ActivityDetailScreen() {
           onExportGpx={handleExportGpx}
         />
 
-        {/* Tab 2: Routes */}
-        <ActivityRoutesSection
-          activityId={activity.id}
-          activityType={activity.type}
-          hasMatchedRoute={!!matchedRoute}
-          cacheDays={cacheDays}
-          isDark={isDark}
-        />
+        {/* Tab 2: Exercises (only for strength activities) */}
+        {isStrength && (
+          <ScrollView
+            style={styles.exercisesTab}
+            contentContainerStyle={styles.exercisesTabContent}
+          >
+            <ExerciseTable
+              activityId={id}
+              activityType={activity.type}
+              isDark={isDark}
+              athleteSex={athlete?.sex}
+            />
+          </ScrollView>
+        )}
 
-        {/* Tab 3: Sections */}
-        <ActivitySectionsSection
-          activityId={id}
-          unifiedSections={unifiedSections}
-          coordinates={coordinates}
-          streams={streams}
-          isDark={isDark}
-          isMetric={isMetric}
-          disabledSectionIds={disabledSectionIds}
-          sectionCreationMode={sectionCreationMode}
-          cacheDays={cacheDays}
-          highlightedSectionId={highlightedSectionId}
-          onHighlightedSectionIdChange={setHighlightedSectionId}
-          onSectionCreationModeChange={setSectionCreationMode}
-          getSectionBestTime={getSectionBestTime}
-          disableSection={disableSection}
-          enableSection={enableSection}
-          removeSection={removeSection}
-        />
+        {/* Tab 3: Routes (only for GPS activities) */}
+        {hasGpsData && (
+          <ActivityRoutesSection
+            activityId={activity.id}
+            activityType={activity.type}
+            hasMatchedRoute={!!matchedRoute}
+            cacheDays={cacheDays}
+            isDark={isDark}
+          />
+        )}
+
+        {/* Tab 3: Sections (only for GPS activities) */}
+        {hasGpsData && (
+          <ActivitySectionsSection
+            activityId={id}
+            activityType={activity.type}
+            unifiedSections={unifiedSections}
+            coordinates={coordinates}
+            streams={streams}
+            isDark={isDark}
+            isMetric={isMetric}
+            sectionCreationMode={sectionCreationMode}
+            cacheDays={cacheDays}
+            highlightedSectionId={highlightedSectionId}
+            onHighlightedSectionIdChange={setHighlightedSectionId}
+            onSectionCreationModeChange={setSectionCreationMode}
+            getSectionBestTime={getSectionBestTime}
+            removeSection={removeSection}
+            scanMatches={scanMatches}
+            isScanning={isRematching}
+            onScan={() => scanForSections(id)}
+            onRematch={(sectionId) => rematchSection(id, sectionId)}
+          />
+        )}
       </SwipeableTabs>
 
       {/* Snackbar: 3D camera override saved */}
@@ -544,6 +631,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
     zIndex: 10,
+  },
+  exercisesTab: {
+    flex: 1,
+    paddingHorizontal: spacing.md,
+  },
+  exercisesTabContent: {
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl + 80,
+  },
+  noMapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xs,
+    backgroundColor: colors.background,
+  },
+  noMapHeaderDark: {
+    backgroundColor: darkColors.background,
+  },
+  noMapHeaderText: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  noMapTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   descriptionContainer: {
     paddingHorizontal: spacing.md,

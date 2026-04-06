@@ -32,6 +32,7 @@ export const ActivityRoutesSection = React.memo(function ActivityRoutesSection({
       style={styles.tabScrollView}
       contentContainerStyle={styles.tabScrollContent}
       showsVerticalScrollIndicator={false}
+      testID="activity-routes-list"
     >
       {hasMatchedRoute ? (
         <ComponentErrorBoundary componentName="Route Performance">

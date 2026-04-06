@@ -8,7 +8,8 @@ import { useMapPreferences } from '@/providers';
 import { type MapStyleType } from '@/components/maps';
 import { MapStylePreviewPicker } from './MapStylePreviewPicker';
 import { clearTerrainPreviews } from '@/lib/storage/terrainPreviewCache';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { settingsStyles } from './settingsStyles';
 import type { ActivityType, Terrain3DMode } from '@/types';
 
 type FilterLabelKey =
@@ -128,13 +129,13 @@ export function MapsSection() {
 
   return (
     <>
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
         {t('settings.maps').toUpperCase()}
       </Text>
-      <View style={[styles.section, isDark && styles.sectionDark]}>
+      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         {/* Default style + 3D terrain toggle in header row */}
         <View style={styles.styleHeaderRow}>
-          <Text style={[styles.mapStyleLabel, isDark && styles.textLight]}>
+          <Text style={[styles.mapStyleLabel, isDark && settingsStyles.textLight]}>
             {t('settings.defaultStyle')}
           </Text>
           <TouchableOpacity
@@ -173,7 +174,7 @@ export function MapsSection() {
           onPress={() => setShowActivityStyles(!showActivityStyles)}
         >
           <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
-          <Text style={[styles.actionText, isDark && styles.textLight]}>
+          <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
             {t('settings.customiseByActivity')}
           </Text>
           <MaterialCommunityIcons
@@ -193,7 +194,7 @@ export function MapsSection() {
               return (
                 <View key={key} style={styles.activityStyleRow}>
                   <View style={styles.activityStyleHeader}>
-                    <Text style={[styles.activityStyleLabel, isDark && styles.textLight]}>
+                    <Text style={[styles.activityStyleLabel, isDark && settingsStyles.textLight]}>
                       {t(labelKey)}
                     </Text>
                   </View>
@@ -210,7 +211,9 @@ export function MapsSection() {
                     style={styles.activityStylePicker}
                   />
                   <View style={styles.terrain3DGroupRow}>
-                    <Text style={[styles.terrain3DGroupLabel, isDark && styles.textMuted]}>3D</Text>
+                    <Text style={[styles.terrain3DGroupLabel, isDark && settingsStyles.textMuted]}>
+                      3D
+                    </Text>
                     <SegmentedButtons
                       value={terrain3DModeForGroup}
                       onValueChange={(value) => handleTerrain3DGroupModeChange(types, value)}
@@ -235,7 +238,7 @@ export function MapsSection() {
                 </View>
               );
             })}
-            <Text style={[styles.activityStyleHint, isDark && styles.textMuted]}>
+            <Text style={[styles.activityStyleHint, isDark && settingsStyles.textMuted]}>
               {t('settings.defaultMapHint')}
             </Text>
           </View>
@@ -246,24 +249,6 @@ export function MapsSection() {
 }
 
 const styles = StyleSheet.create({
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    marginHorizontal: layout.screenPadding,
-  },
-  section: {
-    backgroundColor: colors.surface,
-    marginHorizontal: layout.screenPadding,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  sectionDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
   styleHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -273,22 +258,21 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   mapStyleLabel: {
-    fontSize: 14,
+    ...typography.bodySmall,
     fontWeight: '500',
     color: colors.textPrimary,
   },
   terrain3DBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: layout.borderRadiusSm,
+    backgroundColor: opacity.overlay.light,
   },
   terrain3DBadgeText: {
-    fontSize: 11,
-    fontWeight: '500',
+    ...typography.badge,
     color: colors.textSecondary,
   },
   terrain3DBadgeActive: {
@@ -306,8 +290,8 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   actionText: {
+    ...typography.body,
     flex: 1,
-    fontSize: 16,
     color: colors.textPrimary,
   },
   activityStylesContainer: {
@@ -324,7 +308,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   activityStyleLabel: {
-    fontSize: 14,
+    ...typography.bodySmall,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -332,7 +316,7 @@ const styles = StyleSheet.create({
     // Handled by React Native Paper
   },
   activityStyleHint: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.md,
     fontStyle: 'italic',
@@ -344,17 +328,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   terrain3DGroupLabel: {
-    fontSize: 12,
+    ...typography.captionBold,
     color: colors.textSecondary,
-    fontWeight: '500',
   },
   terrain3DGroupPicker: {
     flex: 1,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  textMuted: {
-    color: darkColors.textSecondary,
   },
 });

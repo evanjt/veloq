@@ -48,6 +48,15 @@ export interface SectionHeaderProps {
   highlightedLapPoints?: RoutePoint[];
   allActivityTraces?: Record<string, RoutePoint[]>;
   isScrubbing: boolean;
+  nearbyPolylines?: Array<{
+    id: string;
+    name?: string;
+    sportType: string;
+    distanceMeters: number;
+    visitCount: number;
+    polylineCoords: number[];
+  }>;
+  onNearbyPress?: (sectionId: string) => void;
   onBack: () => void;
   onStartTrim: () => void;
   onDeleteSection: () => void;
@@ -62,6 +71,8 @@ export interface SectionHeaderProps {
   onCancelTrim: () => void;
   onResetBounds: () => void;
   onToggleExpand: () => void;
+  onRematchActivities?: () => void;
+  isRematching?: boolean;
 }
 
 export function SectionHeader({
@@ -94,6 +105,8 @@ export function SectionHeader({
   highlightedLapPoints,
   allActivityTraces,
   isScrubbing,
+  nearbyPolylines,
+  onNearbyPress,
   onBack,
   onStartTrim,
   onDeleteSection,
@@ -108,6 +121,8 @@ export function SectionHeader({
   onCancelTrim,
   onResetBounds,
   onToggleExpand,
+  onRematchActivities,
+  isRematching,
 }: SectionHeaderProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
@@ -128,6 +143,8 @@ export function SectionHeader({
             isScrubbing={isScrubbing}
             trimRange={isTrimming ? { start: trimStart, end: trimEnd } : null}
             extensionTrack={isTrimming && isExpandMode ? expandContextPoints : null}
+            nearbyPolylines={nearbyPolylines}
+            onNearbyPress={onNearbyPress}
           />
         ) : (
           <View style={[styles.mapPlaceholder, { height: MAP_HEIGHT }]}>
@@ -232,6 +249,7 @@ export function SectionHeader({
         {!isTrimming && (
           <View style={styles.actionRow}>
             <TouchableOpacity
+              testID="section-trim-button"
               style={styles.editBoundsPill}
               onPress={onStartTrim}
               activeOpacity={0.7}
@@ -261,6 +279,20 @@ export function SectionHeader({
                   name={isSectionDisabled ? 'undo' : 'delete-outline'}
                   size={16}
                   color={isSectionDisabled ? colors.success : 'rgba(255, 255, 255, 0.7)'}
+                />
+              </TouchableOpacity>
+            )}
+            {onRematchActivities && (
+              <TouchableOpacity
+                style={styles.secondaryPill}
+                onPress={onRematchActivities}
+                activeOpacity={0.7}
+                disabled={isRematching}
+              >
+                <MaterialCommunityIcons
+                  name={isRematching ? 'loading' : 'refresh'}
+                  size={16}
+                  color="rgba(255, 255, 255, 0.7)"
                 />
               </TouchableOpacity>
             )}

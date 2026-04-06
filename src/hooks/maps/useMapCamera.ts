@@ -194,6 +194,24 @@ export function useMapCamera({
       console.log('[ActivityMapView:Camera] Setting mapReady=false');
     }
     setMapReady(false);
+
+    // Fallback: if onDidFinishLoadingMap never fires (e.g. embedded style loads
+    // before the JS event listener is attached), force mapReady after 1s.
+    const fallbackTimer = setTimeout(() => {
+      setMapReady((current) => {
+        if (!current) {
+          if (__DEV__) {
+            console.log(
+              '[ActivityMapView:Camera] Fallback: forcing mapReady=true (onDidFinishLoadingMap not received)'
+            );
+          }
+          return true;
+        }
+        return current;
+      });
+    }, 500);
+
+    return () => clearTimeout(fallbackTimer);
   }, [mapStyle, mapKey]);
 
   // ----- apply initial bounds once -----

@@ -1,12 +1,12 @@
 # Demo Mode Authentication Tests
 # Tests the login screen and demo mode entry flow
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier1
 ---
 - launchApp:
-    clearState: true
+    clearState: false
 
 - runFlow:
     when:
@@ -24,6 +24,8 @@ tags:
     id: "login-oauth-button"
 - assertVisible:
     id: "login-demo-button"
+
+- takeScreenshot: "auth-login-screen"
 
 # Test: API key section is expandable
 - tapOn:
@@ -44,3 +46,5 @@ tags:
 
 - assertVisible:
     id: "demo-mode-banner"
+
+- takeScreenshot: "auth-demo-home"

@@ -1,0 +1,112 @@
+# Recording Manual Entry Submit Test
+# Tests: fill manual entry form and submit to review screen
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+onFlowComplete:
+  - openLink: "veloq://home"
+  - runFlow:
+      when:
+        visible: "DISCARD"
+      commands:
+        - tapOn: "DISCARD"
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Start recording
+- tapOn:
+    id: "record-fab"
+
+# Dismiss any resume dialog
+- runFlow:
+    when:
+      visible: "DISCARD"
+    commands:
+      - tapOn: "DISCARD"
+
+# Look for an indoor activity type — scroll to find WeightTraining or similar
+- scrollUntilVisible:
+    element:
+      text: "Strength Training"
+    direction: DOWN
+    timeout: 5000
+    speed: 40
+    optional: true
+
+# Select manual entry mode — the recording screen for indoor types shows manual entry form
+- tapOn:
+    text: "Strength Training"
+    optional: true
+
+# If Strength Training not found, try tapping any type that triggers manual entry
+- runFlow:
+    when:
+      notVisible:
+        id: "manual-entry-name"
+    commands:
+      - openLink: "veloq://home"
+      - extendedWaitUntil:
+          visible:
+            id: "home-screen"
+          timeout: 5000
+      - tapOn:
+          id: "record-fab"
+      - runFlow:
+          when:
+            visible: "DISCARD"
+          commands:
+            - tapOn: "DISCARD"
+      - scrollUntilVisible:
+          element:
+            id: "record-type-WeightTraining"
+          direction: DOWN
+          timeout: 5000
+          speed: 40
+          optional: true
+      - tapOn:
+          id: "record-type-WeightTraining"
+          optional: true
+
+# Wait for manual entry form
+- extendedWaitUntil:
+    visible:
+      id: "manual-entry-name"
+    timeout: 10000
+
+# Fill in the form
+- tapOn:
+    id: "manual-entry-name"
+- inputText: "Test Manual Entry"
+
+- tapOn:
+    id: "manual-entry-duration"
+- eraseText:
+    charactersToErase: 10
+- inputText: "01:00:00"
+
+- takeScreenshot: "manual-entry-filled"
+
+# Submit to review screen
+- tapOn:
+    id: "manual-entry-continue"
+
+# Verify review screen loaded
+- extendedWaitUntil:
+    visible:
+      id: "review-save-button"
+    timeout: 10000
+
+- takeScreenshot: "manual-entry-review"
+
+# Discard and return home
+- longPressOn:
+    id: "review-discard-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+- takeScreenshot: "manual-entry-complete"

@@ -24,6 +24,23 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
   const changeStr = changePoint ? String(changePoint.value) : '';
   const changeUnit = changePoint?.unit ?? '';
   const isPositive = changePoint?.context === 'good';
+  const isPowerMilestone = currentPoint.unit === 'W';
+  const isSwimMilestone = currentPoint.unit === '/100m';
+  const contextSummary = isPowerMilestone
+    ? `FTP shifted from ${String(previousPoint.value)}W to ${String(currentPoint.value)}W. This estimate is derived from recent power data.`
+    : isSwimMilestone
+      ? `Threshold swim pace shifted from ${String(previousPoint.value)} to ${String(currentPoint.value)} per 100m. This estimate is derived from recent swim data.`
+      : `Running threshold pace shifted from ${String(previousPoint.value)} to ${String(currentPoint.value)} per km. This estimate is derived from recent run data.`;
+  const compareNext = isPowerMilestone
+    ? 'Section-level timing and zone distribution may reflect this change over the coming weeks.'
+    : isSwimMilestone
+      ? 'Section-level timing and swim pace distribution may reflect this change over the coming weeks.'
+      : 'Section-level timing and pace distribution may reflect this change over the coming weeks.';
+  const contextHeading = isPowerMilestone
+    ? 'FTP change context'
+    : isSwimMilestone
+      ? 'Swim pace change context'
+      : 'Running pace change context';
 
   const lineColor = isDark ? darkColors.border : colors.border;
   const dotColor = isPositive ? '#22C55E' : '#F59E0B';
@@ -101,6 +118,14 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
             </Text>
           </View>
         </View>
+      </View>
+
+      <View style={[styles.contextCard, isDark && styles.contextCardDark]}>
+        <Text style={[styles.contextHeading, isDark && styles.contextHeadingDark]}>
+          {contextHeading}
+        </Text>
+        <Text style={[styles.contextBody, isDark && styles.contextBodyDark]}>{contextSummary}</Text>
+        <Text style={[styles.contextMeta, isDark && styles.contextMetaDark]}>{compareNext}</Text>
       </View>
     </View>
   );
@@ -204,5 +229,38 @@ const styles = StyleSheet.create({
   },
   timelineValueGood: {
     color: '#22C55E',
+  },
+  contextCard: {
+    backgroundColor: opacity.overlay.subtle,
+    borderRadius: 10,
+    padding: spacing.sm,
+    gap: 4,
+  },
+  contextCardDark: {
+    backgroundColor: opacity.overlayDark.light,
+  },
+  contextHeading: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  contextHeadingDark: {
+    color: darkColors.textPrimary,
+  },
+  contextBody: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textSecondary,
+  },
+  contextBodyDark: {
+    color: darkColors.textSecondary,
+  },
+  contextMeta: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  contextMetaDark: {
+    color: darkColors.textPrimary,
   },
 });

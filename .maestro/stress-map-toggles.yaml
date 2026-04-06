@@ -1,7 +1,7 @@
 # Stress Test: Map View Toggle Buttons
 # Rapidly toggles activity/route/section buttons and sport filters
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier3
 ---

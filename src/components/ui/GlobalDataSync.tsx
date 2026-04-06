@@ -1,42 +1,35 @@
 /**
- * Global GPS data sync component.
+ * Global GPS data sync component (headless).
  * Runs in the background to automatically sync activity GPS data to the Rust engine.
- * This ensures GPS data is downloaded regardless of which screen the user is on.
- * Shows a banner at the top of the screen when syncing is in progress.
- * Also shows bounds cache sync progress (absorbed from former CacheLoadingBanner).
+ * Posts native OS notifications for sync progress instead of rendering an in-app banner.
  */
 
-import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { View, StyleSheet, Platform, TouchableOpacity } from 'react-native';
-import { Text } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSegments, useRouter } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import Animated, {
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  useSharedValue,
-  cancelAnimation,
-  FadeIn,
-  FadeOut,
-} from 'react-native-reanimated';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useActivities, useRouteDataSync, useActivityBoundsCache } from '@/hooks';
+import { useTranslation } from 'react-i18next';
+import {
+  useActivities,
+  useRouteDataSync,
+  useActivityBoundsCache,
+  isInfiniteActivitiesStale,
+} from '@/hooks';
+import { onSyncComplete } from '@/lib/backup';
+import { intervalsApi } from '@/api';
+import { getRouteEngine } from '@/lib/native/routeEngine';
+import { toActivityMetrics } from '@/lib/utils/activityMetrics';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,
   formatTerrainSnapshotProgress,
 } from '@/lib/utils/syncProgressFormat';
-import { colors } from '@/theme';
+import {
+  updateSyncNotification,
+  dismissSyncNotification,
+} from '@/lib/notifications/notificationService';
 
 export function GlobalDataSync() {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
-  const routeParts = useSegments();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { settings: routeSettings } = useRouteSettings();
@@ -49,12 +42,14 @@ export function GlobalDataSync() {
   const delayedUnlockExpansion = useSyncDateRange((s) => s.delayedUnlockExpansion);
 
   // Startup alignment: invalidate activities on mount to force a fresh API fetch.
-  // This catches any engine-API misalignment regardless of cause (stale cache,
-  // new activities synced while app was closed, engine data loss, etc.).
-  // Cost: one lightweight API call for the activity list metadata.
   useEffect(() => {
     if (isAuthenticated && routeSettings.enabled) {
       queryClient.invalidateQueries({ queryKey: ['activities'] });
+      if (isInfiniteActivitiesStale(queryClient)) {
+        queryClient.resetQueries({ queryKey: ['activities-infinite'] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
+      }
       queryClient.invalidateQueries({ queryKey: ['wellness'] });
       queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
     }
@@ -68,8 +63,35 @@ export function GlobalDataSync() {
     enabled: isAuthenticated && routeSettings.enabled,
   });
 
-  // Prefetch 1 year of activities with stats for fitness tab cache warming
-  useActivities({ days: 365, includeStats: true, enabled: isAuthenticated });
+  // Prefetch 1 year of activities with stats for fitness tab cache warming.
+  // Also used to update the engine with training load and FTP data — the GPS sync
+  // fetch (above) uses includeStats: false for speed, so the engine initially has
+  // NULL training_load/ftp. This fetch fills in those fields.
+  const { data: statsActivities } = useActivities({
+    days: 365,
+    includeStats: true,
+    enabled: isAuthenticated,
+  });
+
+  // Update engine with enhanced metrics (TSS, FTP) when stats-enriched data arrives.
+  // The GPS sync stores metrics with includeStats: false (NULL training_load/ftp).
+  // This backfills the engine so period comparisons use TSS and FTP trend works.
+  const statsSeededRef = useRef(false);
+  useEffect(() => {
+    if (!statsActivities?.length || statsSeededRef.current) return;
+    const engine = getRouteEngine();
+    if (!engine) return;
+
+    const enhanced = statsActivities
+      .filter((a) => a.icu_training_load != null || a.icu_ftp != null)
+      .map(toActivityMetrics);
+
+    if (enhanced.length > 0) {
+      engine.setActivityMetrics(enhanced);
+      engine.triggerRefresh('activities');
+      statsSeededRef.current = true;
+    }
+  }, [statsActivities]);
 
   // Update fetching state in store
   useEffect(() => {
@@ -79,13 +101,45 @@ export function GlobalDataSync() {
   // Use the route data sync hook to automatically sync GPS data
   const { progress, isSyncing } = useRouteDataSync(activities, routeSettings.enabled);
 
-  // Invalidate fitness-related caches when sync completes so data refreshes
+  // Invalidate caches when sync completes so data refreshes
   useEffect(() => {
     if (progress.status === 'complete') {
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
+      queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['wellness'] });
       queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
       queryClient.invalidateQueries({ queryKey: ['powerCurve'] });
       queryClient.invalidateQueries({ queryKey: ['paceCurve'] });
+      onSyncComplete();
+
+      // Seed pace snapshots for trend tracking (fire-and-forget).
+      // pace_history is normally only populated when viewing the pace curve screen.
+      // Seeding here ensures a baseline exists after first sync so pace milestones
+      // can appear once critical speed changes.
+      (async () => {
+        try {
+          const engine = getRouteEngine();
+          if (!engine) return;
+          const sportTypes = engine.getAvailableSportTypes?.() ?? [];
+          const todayTs = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
+
+          for (const sport of ['Run', 'Swim'] as const) {
+            if (!sportTypes.includes(sport)) continue;
+            const curve = await intervalsApi.getPaceCurve({ sport, days: 42 });
+            if (curve?.criticalSpeed && curve.criticalSpeed > 0) {
+              engine.savePaceSnapshot(
+                sport,
+                curve.criticalSpeed,
+                curve.dPrime ?? undefined,
+                curve.r2 ?? undefined,
+                todayTs
+              );
+            }
+          }
+        } catch {
+          // best-effort — pace milestone will still work when user visits pace curve
+        }
+      })();
     }
   }, [progress.status, queryClient]);
 
@@ -96,16 +150,11 @@ export function GlobalDataSync() {
     }
   }, [progress.status, isExpansionLocked, delayedUnlockExpansion]);
 
-  // Bounds sync progress (formerly CacheLoadingBanner)
+  // Bounds sync progress
   const { progress: boundsProgress } = useActivityBoundsCache();
-  const isSyncingBounds = boundsProgress.status === 'syncing';
 
   // Terrain snapshot rendering progress
   const terrainSnapshotProgress = useSyncDateRange((s) => s.terrainSnapshotProgress);
-
-  // Don't show banner on screens that have their own sync indicator
-  const isOnMapScreen = routeParts.includes('map' as never);
-  const isOnRoutesScreen = routeParts.includes('routes' as never);
 
   // GPS sync display info
   const gpsDisplayInfo = useMemo(
@@ -128,146 +177,47 @@ export function GlobalDataSync() {
   // Pick which info to show — GPS sync > bounds sync > terrain snapshots
   const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo;
 
-  // Suppress banner for fast syncs (<1s) — avoid intrusive flash for work that completes quickly
-  const [bannerDelayPassed, setBannerDelayPassed] = useState(false);
-  const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Suppress notification for fast syncs (<1s)
+  const [delayPassed, setDelayPassed] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (displayInfo !== null && !bannerDelayPassed) {
-      // Start 1s timer — banner only shows if sync takes longer than this
-      if (!bannerTimerRef.current) {
-        bannerTimerRef.current = setTimeout(() => setBannerDelayPassed(true), 1000);
+    if (displayInfo !== null && !delayPassed) {
+      if (!timerRef.current) {
+        timerRef.current = setTimeout(() => setDelayPassed(true), 1000);
       }
     } else if (displayInfo === null) {
-      // Sync finished — clear timer and reset for next sync
-      if (bannerTimerRef.current) {
-        clearTimeout(bannerTimerRef.current);
-        bannerTimerRef.current = null;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
       }
-      setBannerDelayPassed(false);
+      setDelayPassed(false);
     }
     return () => {
-      if (bannerTimerRef.current) {
-        clearTimeout(bannerTimerRef.current);
-        bannerTimerRef.current = null;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
       }
     };
-  }, [displayInfo, bannerDelayPassed]);
+  }, [displayInfo, delayPassed]);
 
-  const shouldShowBanner =
-    displayInfo !== null && bannerDelayPassed && !isOnMapScreen && !isOnRoutesScreen;
-
-  // Shared values for Reanimated animations
-  const indeterminateOffset = useSharedValue(0);
-
-  // Indeterminate animation
-  const isIndeterminate = displayInfo?.indeterminate ?? false;
+  // Post/update/dismiss native notification based on sync state
   useEffect(() => {
-    if (shouldShowBanner && isIndeterminate) {
-      indeterminateOffset.value = 0;
-      indeterminateOffset.value = withRepeat(withTiming(1, { duration: 1500 }), -1, false);
-    } else {
-      cancelAnimation(indeterminateOffset);
-      indeterminateOffset.value = 0;
+    if (displayInfo !== null && delayPassed) {
+      const body = displayInfo.countText
+        ? `${displayInfo.text}... ${displayInfo.countText}`
+        : `${displayInfo.text}...`;
+      updateSyncNotification(body);
+    } else if (displayInfo === null) {
+      dismissSyncNotification();
     }
-  }, [shouldShowBanner, isIndeterminate, indeterminateOffset]);
+  }, [displayInfo, delayPassed]);
 
-  const indeterminateStyle = useAnimatedStyle(() => ({
-    left: `${indeterminateOffset.value * 130 - 30}%` as `${number}%`,
-  }));
+  // Dismiss notification on unmount
+  useEffect(() => {
+    return () => {
+      dismissSyncNotification();
+    };
+  }, []);
 
-  if (!shouldShowBanner || !displayInfo) {
-    return null;
-  }
-
-  // Calculate banner height for notch/Dynamic Island
-  const topPadding =
-    Platform.OS === 'android' ? Math.max(insets.top, 24) : Math.max(insets.top, 20);
-
-  const handlePress = () => {
-    router.push('/settings');
-  };
-
-  // Overlay: floats above content without shifting layout
-  return (
-    <Animated.View
-      entering={FadeIn.duration(200)}
-      exiting={FadeOut.duration(200)}
-      style={styles.overlay}
-      pointerEvents="box-none"
-    >
-      <TouchableOpacity activeOpacity={0.8} onPress={handlePress}>
-        <View style={[styles.container, { paddingTop: topPadding }]}>
-          <View style={styles.content}>
-            <MaterialCommunityIcons
-              name={displayInfo.icon as keyof typeof MaterialCommunityIcons.glyphMap}
-              size={16}
-              color={colors.textOnDark}
-            />
-            <Text style={styles.text}>
-              {displayInfo.text}
-              {displayInfo.percent > 0 ? `... ${displayInfo.percent}%` : '...'}
-            </Text>
-            {displayInfo.countText && <Text style={styles.countText}>{displayInfo.countText}</Text>}
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={16}
-              color="rgba(255, 255, 255, 0.7)"
-            />
-          </View>
-          <View style={styles.progressTrack}>
-            {displayInfo.indeterminate ? (
-              <Animated.View
-                style={[styles.progressFill, styles.indeterminateFill, indeterminateStyle]}
-              />
-            ) : (
-              <View style={[styles.progressFill, { width: `${displayInfo.percent}%` }]} />
-            )}
-          </View>
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
-  );
+  return null;
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-  },
-  container: {
-    backgroundColor: colors.primary,
-    overflow: 'hidden',
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  text: {
-    color: colors.textOnDark,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  countText: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 12,
-  },
-  progressTrack: {
-    height: 3,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.textOnDark,
-  },
-  indeterminateFill: {
-    width: '30%',
-    position: 'absolute',
-  },
-});

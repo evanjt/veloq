@@ -146,8 +146,17 @@
       "intervals": "Intervallen",
       "route": "Route",
       "routes": "Routes",
-      "sections": "Secties"
-    }
+      "sections": "Secties",
+      "exercises": "Oefeningen"
+    },
+    "primary": "Primair",
+    "secondary": "Secundair",
+    "exercises": "Oefeningen",
+    "exercisesSummary": "{{exercises}} oefeningen · {{sets}} sets",
+    "muscleDataSource": "Spiergegevens: free-exercise-db",
+    "bodyShapeFromProfile": "Jouw profiel: {{gender}}",
+    "bodyShapeRandom": "Lichaam willekeurig gekozen — geen geslacht in intervals.icu-profiel",
+    "tapMuscle": "Tap for details"
   },
   "alerts": {
     "cacheCleared": "Cache gewist",
@@ -184,7 +193,33 @@
     "preferencesRestored": "{{count}} voorkeuren hersteld",
     "restoreComplete": "Herstel voltooid",
     "sectionsRestored": "{{count}} aangepaste secties hersteld",
-    "sectionsSkipped": "{{count}} secties overgeslagen (synchroniseer eerst activiteiten)"
+    "sectionsSkipped": "{{count}} secties overgeslagen (synchroniseer eerst activiteiten)",
+    "exportDatabase": "Export Database",
+    "importDatabase": "Import Database",
+    "databaseRestored": "Database restored with {{count}} activities",
+    "exportingDatabase": "Exporting database...",
+    "importingDatabase": "Importing database...",
+    "autoBackup": "Auto-Backup",
+    "autoBackupDescription": "Automatically back up after sync",
+    "lastBackup": "Last backup: {{date}}",
+    "lastBackupNever": "Never backed up",
+    "backupNow": "Back Up Now",
+    "backingUp": "Backing up...",
+    "selectBackend": "Backup to",
+    "backendLocal": "Local Storage",
+    "backendWebdav": "WebDAV / Nextcloud",
+    "backendIcloud": "iCloud",
+    "serverUrl": "Server URL",
+    "username": "Username",
+    "password": "Password",
+    "testConnection": "Test Connection",
+    "connectionSuccess": "Connection successful",
+    "connectionFailed": "Connection failed",
+    "restoreFromBackup": "Herstellen van back-up",
+    "backupFound": "Backup Found",
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "De herstelde gegevens behoren tot een ander account. Gegevens wissen en opnieuw synchroniseren voor dit account?",
+    "clearAndSync": "Wissen & Sync"
   },
   "cache": {
     "addingActivities": "Activiteiten toevoegen...",
@@ -379,8 +414,8 @@
     "fatigueDescription": "is een 7-daags exponentieel gewogen voortschrijdend gemiddelde van je trainingsbelasting.",
     "fitnessAndFatigue": "Fitheid & Vermoeidheid",
     "fitnessDescription": "is een 42-daags exponentieel gewogen voortschrijdend gemiddelde van je trainingsbelasting.",
-    "forRaces": "voor wedstrijden. Vermijd de",
-    "formDescription": "is fitheid min vermoeidheid. Train in de",
+    "forRaces": "zone weerspiegelt lage vermoeidheid. De",
+    "formDescription": "is fitness minus vermoeidheid. De",
     "fresh": "fris",
     "highRiskZone": "hoog-risico zone",
     "learnMore": "Meer informatie",
@@ -390,8 +425,15 @@
     "loadingData": "Fitheidsgegevens laden...",
     "optimalZone": "optimale zone",
     "title": "Fitheid & Vorm",
-    "toBuildFitness": "om fitheid op te bouwen. Wees",
-    "toPreventOvertraining": "om overtraining te voorkomen.",
+    "toBuildFitness": "duidt op productieve trainingsbelasting. De",
+    "toPreventOvertraining": "duidt op hoge opgehoopte vermoeidheid.",
+    "guidance": {
+      "highRisk": "TSB onder -30. Opgehoopte vermoeidheid overschrijdt de recente fitnesswinst aanzienlijk.",
+      "optimal": "TSB tussen -30 en -10. Trainingsbelasting produceert fitnessaanpassingen.",
+      "greyZone": "TSB tussen -10 en 5. Matige balans tussen fitness en vermoeidheid.",
+      "fresh": "TSB tussen 5 en 25. Lage vermoeidheid ten opzichte van fitness. Langere tijd hier correspondeert doorgaans met afnemende fitness.",
+      "transition": "TSB boven 25. Minimale recente trainingsprikkel. Fitness dalend."
+    },
     "tsb": "TSB",
     "understandingMetrics": "De statistieken begrijpen"
   },
@@ -407,6 +449,7 @@
   },
   "insights": {
     "title": "Inzichten",
+    "strength": "Strength",
     "noInsights": "Inzichten verschijnen naarmate je traint",
     "noInsightsHint": "Voltooi meer activiteiten voor gepersonaliseerde inzichten",
     "sectionPr": "PR op {{name}}",
@@ -422,8 +465,6 @@
     "weeklyLoadUp": "+{{percent}}% trainingsbelasting",
     "weeklyLoadDown": "{{percent}}% minder belasting",
     "loadBody": "TSS: {{currentTss}} deze week vs {{previousTss}} vorige week. Duur: {{currentDuration}} vs {{previousDuration}}.",
-    "patternMatch": "{{day}} - meestal {{verb}} ~{{duration}}",
-    "consistencyStreak": "{{count}}-weken reeks",
     "volumeBody": "Trainingsduur: {{current}} deze week vs {{previous}} vorige week. Dit meet tijd, niet trainingsbelasting (TSS).",
     "viewDetails": "Details bekijken",
     "today": "VANDAAG",
@@ -442,8 +483,6 @@
       "hrvTrend": "HRV (7 dagen)",
       "tomorrowPattern": "Morgen is meestal een {{verb}} dag (~{{duration}})",
       "tomorrowPatternBody": "Gebaseerd op {{count}} eerdere activiteiten voor deze dag van de week.",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
       "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
@@ -491,32 +530,6 @@
       "efforts": "Pogingen",
       "trendSlope": "Trendhelling"
     },
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "transition": "Transition",
-        "greyZone": "Maintenance",
-        "optimal": "Productive training",
-        "highRisk": "Deep fatigue"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "transition": "Between training and freshness",
-        "greyZone": "Moderate training load",
-        "optimal": "Where most adaptation occurs",
-        "highRisk": "Significant accumulated fatigue"
-      },
-      "titles": {
-        "fresh": "Peak form — ready to race",
-        "transition": "Fresh — good for hard training",
-        "greyZone": "Balanced — steady training",
-        "optimal": "Building fitness — fatigue accumulating",
-        "highRisk": "Heavy load — recovery important"
-      }
-    },
     "hrvTrend": {
       "trendingUp": "Recovery improving",
       "trendingDown": "Recovery dipping",
@@ -532,15 +545,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}: fitness veranderd sinds PR",
+      "subtitle": "PR {{prTime}} bij {{metric}} {{previous}}, nu {{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}: PR gezet bij {{metric}} {{previous}}. Huidig {{metric}}: {{current}}.",
+      "currentMetric": "Huidig {{metric}}",
+      "prMetric": "{{metric}} bij PR",
+      "metricGain": "{{metric}}-winst",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Higher FTP suggests untapped potential on power-dependent sections.",
-      "groupTitle": "{{count}} PRs to revisit"
+      "methodology": "Vergelijkt fitnessmaatstaven op het moment van het PR met huidige waarden. Toont secties waar fitnessmaatstaven zijn veranderd sinds het PR werd gezet.",
+      "groupTitle": "{{count}} PR's met fitnessveranderingen"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -549,18 +562,31 @@
     "aboutTitle": "About Insights",
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "sectionCluster": {
-      "improvingTitle": "{{name}} getting faster",
-      "decliningTitle": "{{name}} slowing down",
-      "improvingBody": "{{names}} trending faster across {{count}} sections.",
-      "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
-      "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced.",
-      "subtitle": "and {{count}} other {{sport}} sections"
-    },
     "efficiencyTrend": {
       "title": "HF dalend op {{name}}",
       "subtitle": "{{hrChange}} bpm lager over {{efforts}} pogingen",
       "body": "Over {{efforts}} pogingen op {{name}} is je hartslag bij hetzelfde tempo met {{hrChange}} bpm gedaald."
+    },
+    "teaser": {
+      "workoutToday": "{{name}} vandaag",
+      "prOpportunity": "PR-kans op {{name}}",
+      "usualPattern": "Op {{day}} doe je meestal {{sport}} ~{{duration}}",
+      "improving": "verbeterend ↑",
+      "stable": "stabiel"
+    },
+    "strengthBalance": {
+      "volumeSplit": "Volumeverdeling",
+      "balanced": "Evenwichtig",
+      "watch": "In de gaten houden",
+      "imbalanced": "Onevenwichtig",
+      "oneSided": "Eenzijdig",
+      "lowSignal": "Weinig data",
+      "noSignal": "Geen data",
+      "noRecentVolume": "Geen volume in de afgelopen 4 weken — verschijnt alleen in de ruimere periode.",
+      "volumeAppeared": "Volume verschenen in de afgelopen twee weken na een rustigere start.",
+      "volumeUp": "Het 2-weken-gemiddelde ligt {{percent}}% boven de vorige 2 weken.",
+      "volumeDown": "Het 2-weken-gemiddelde ligt {{percent}}% onder de vorige 2 weken.",
+      "volumeSteady": "Het 2-weken-gemiddelde is stabiel vergeleken met het begin van de maand."
     }
   },
   "licenses": {
@@ -593,6 +619,7 @@
     "instructions": "1. Open Intervals.icu Instellingen\n2. Scroll naar \"Ontwikkelaarsinstellingen\"\n3. Kopieer je API-sleutel",
     "invalidApiKey": "Ongeldige API-sleutel. Controleer je sleutel en probeer opnieuw.",
     "localModeNote": "Lokale modus: Alle gegevens blijven op je apparaat",
+    "apiKeyNoNotifications": "Push notifications are not available with API key login.",
     "loginWithIntervals": "Inloggen met intervals.icu",
     "noAccount": "Nieuw bij intervals.icu?",
     "oauthFailed": "Inloggen mislukt. Probeer het opnieuw.",
@@ -1027,7 +1054,29 @@
     "visits": "bezoeken",
     "visitsCount": "{{count}} bezoeken",
     "yearPr": "Jaar-PR",
-    "moreActions": "Meer acties"
+    "moreActions": "Meer acties",
+    "scanForMatches": "Scan for matches",
+    "scanForMore": "Scan for more sections",
+    "scanning": "Scanning...",
+    "noMatchesFound": "No matching sections found",
+    "noSectionsFound": "No sections found",
+    "matchQuality": "{{quality}}% match",
+    "addToSection": "Add",
+    "nearbySections": "Nearby sections",
+    "nearbySectionsCount": "{{count}} nearby",
+    "similarNearby": "Similar section nearby",
+    "similarNearbyCount": "{{count}} similar sections nearby",
+    "mergeSections": "Merge sections",
+    "mergeKeepMessage": "Choose which section to keep. All traversal history will be preserved.",
+    "mergeInto": "\"{{secondary}}\" will be merged into \"{{primary}}\"",
+    "mergeSuccess": "Sections merged",
+    "rescan": "Re-scan",
+    "rescanComplete": "Re-scan complete",
+    "forceRedetect": "Force full re-detect",
+    "rematchActivities": "Re-match activities",
+    "awayDistance": "{{distance}}m away",
+    "viewSection": "View",
+    "merge": "Merge"
   },
   "settings": {
     "account": "Account",
@@ -1143,7 +1192,9 @@
     "version": "Versie",
     "viewRoutes": "Routes bekijken",
     "mapTiles": "Kaarttegels",
-    "recording": "Opname"
+    "recording": "Opname",
+    "cache": "Cache",
+    "permissions": "Machtigingen"
   },
   "stats": {
     "activities": "Activiteiten",
@@ -1294,8 +1345,8 @@
     "dayAverage": "{{count}}-daags gemiddelde",
     "dragToExplore": "Sleep om te verkennen",
     "hrs": "uur",
-    "insightExtraRecovery": "Overweeg extra herstel vandaag",
-    "insightGoodRecovery": "Goed herstel - je past goed aan",
+    "insightExtraRecovery": "HRV dalend, rustpols stijgend",
+    "insightGoodRecovery": "HRV stijgend, rustpols dalend",
     "insightStable": "Waarden zien er stabiel uit",
     "lastDays": "Laatste {{count}} dagen",
     "noData": "Geen welzijnsgegevens beschikbaar",
@@ -1314,6 +1365,56 @@
   "wellnessScreen": {
     "title": "Welzijn",
     "trends": "Welzijnstrends"
+  },
+  "notifications": {
+    "sectionPr": {
+      "title": "New PR!"
+    },
+    "fitnessMilestone": {
+      "title": "Fitness Milestone"
+    },
+    "periodComparison": {
+      "title": "Weekly Summary"
+    },
+    "hrvTrend": {
+      "title": "HRV Trend"
+    },
+    "stalePr": {
+      "title": "PR-update"
+    },
+    "efficiencyTrend": {
+      "title": "Efficiency Trend"
+    },
+    "generic": {
+      "title": "New Insight"
+    },
+    "activityRecorded": {
+      "title": "Activity Recorded",
+      "body": "New activity synced. Open the app for details."
+    },
+    "privacy": {
+      "title": "Privacy Notice",
+      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
+      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 30-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
+      "accept": "I understand"
+    },
+    "settings": {
+      "title": "Notifications",
+      "enable": "Enable notifications",
+      "categories": "Notification categories",
+      "sectionPr": "Section personal records",
+      "fitnessMilestone": "Fitness milestones",
+      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
+      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
+      "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
+    },
+    "prompt": {
+      "title": "Activiteitsmeldingen",
+      "description": "Ontvang meldingen over nieuwe activiteiten en prestaties",
+      "enable": "Inschakelen",
+      "dismiss": "Nee bedankt",
+      "settingsHint": "Je kunt meldingen op elk moment inschakelen via Instellingen"
+    }
   },
   "whatsNew": {
     "skipButton": "Overslaan",

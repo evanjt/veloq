@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { getSetting, setSetting } from '@/lib/backup';
 import {
   SUPPORTED_LOCALES,
   type SupportedLocale,
@@ -65,7 +65,7 @@ export const useLanguageStore = create<LanguageState>((set) => ({
 
   setLanguage: async (language) => {
     // Save preference (always an explicit locale)
-    await AsyncStorage.setItem(STORAGE_KEY, language);
+    await setSetting(STORAGE_KEY, language);
 
     // Resolve to the appropriate locale (handles English variants based on device region)
     const effectiveLocale = resolveLanguageToLocale(language);
@@ -90,7 +90,7 @@ export const useLanguageStore = create<LanguageState>((set) => ({
  */
 export async function initializeLanguage(): Promise<SupportedLocale> {
   try {
-    const saved = await AsyncStorage.getItem(STORAGE_KEY);
+    const saved = await getSetting(STORAGE_KEY);
 
     if (saved) {
       // Handle both old full locale values and new simplified values
@@ -100,7 +100,7 @@ export async function initializeLanguage(): Promise<SupportedLocale> {
 
     // No saved preference - detect device locale and save it as explicit choice
     const deviceLocale = getDeviceLocale();
-    await AsyncStorage.setItem(STORAGE_KEY, deviceLocale);
+    await setSetting(STORAGE_KEY, deviceLocale);
     useLanguageStore.setState({ language: deviceLocale, isInitialized: true });
     return deviceLocale;
   } catch {

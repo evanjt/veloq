@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { formatFileSize } from '@/lib';
 import { TimelineSlider } from '@/components/maps';
 import { colors, darkColors, spacing } from '@/theme';
 
@@ -23,18 +22,6 @@ export interface CacheManagementPanelProps {
   onCancelRouteProcessing: () => void;
   /** Clear cache */
   onClearCache: () => void;
-  /** Backup & Export */
-  onExportBackup: () => void;
-  backupExporting: boolean;
-  onImportBackup: () => void;
-  backupImporting: boolean;
-  onBulkExport: () => void;
-  bulkExporting: boolean;
-  bulkPhase: string;
-  bulkCurrent: number;
-  bulkTotal: number;
-  bulkSizeBytes: number;
-  totalActivities: number;
 }
 
 export function CacheManagementPanel({
@@ -51,17 +38,6 @@ export function CacheManagementPanel({
   isRouteProcessing,
   onCancelRouteProcessing,
   onClearCache,
-  onExportBackup,
-  backupExporting,
-  onImportBackup,
-  backupImporting,
-  onBulkExport,
-  bulkExporting,
-  bulkPhase,
-  bulkCurrent,
-  bulkTotal,
-  bulkSizeBytes,
-  totalActivities,
 }: CacheManagementPanelProps) {
   const { t } = useTranslation();
 
@@ -134,92 +110,6 @@ export function CacheManagementPanel({
           color={isDark ? darkColors.textMuted : colors.textSecondary}
         />
       </TouchableOpacity>
-
-      <View style={[styles.divider, isDark && styles.dividerDark]} />
-
-      {/* Backup & Restore */}
-      <TouchableOpacity
-        style={styles.actionRow}
-        onPress={onExportBackup}
-        disabled={backupExporting}
-        activeOpacity={0.2}
-      >
-        <MaterialCommunityIcons name="cloud-upload-outline" size={22} color={colors.primary} />
-        <Text style={[styles.actionText, isDark && styles.textLight]}>
-          {backupExporting ? t('backup.exporting') : t('backup.exportBackup')}
-        </Text>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={20}
-          color={isDark ? darkColors.textMuted : colors.textSecondary}
-        />
-      </TouchableOpacity>
-      <View style={[styles.divider, isDark && styles.dividerDark]} />
-      <TouchableOpacity
-        style={styles.actionRow}
-        onPress={onImportBackup}
-        disabled={backupImporting}
-        activeOpacity={0.2}
-      >
-        <MaterialCommunityIcons name="cloud-download-outline" size={22} color={colors.primary} />
-        <Text style={[styles.actionText, isDark && styles.textLight]}>
-          {backupImporting ? t('backup.importing') : t('backup.importBackup')}
-        </Text>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={20}
-          color={isDark ? darkColors.textMuted : colors.textSecondary}
-        />
-      </TouchableOpacity>
-      <View style={[styles.divider, isDark && styles.dividerDark]} />
-      <TouchableOpacity
-        style={styles.actionRow}
-        onPress={onBulkExport}
-        disabled={bulkExporting}
-        activeOpacity={0.2}
-      >
-        <MaterialCommunityIcons name="zip-box-outline" size={22} color={colors.primary} />
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.actionText, isDark && styles.textLight]}>
-            {bulkExporting
-              ? bulkPhase === 'compressing'
-                ? t('export.bulkCompressing')
-                : bulkPhase === 'sharing'
-                  ? t('export.bulkSharing')
-                  : t('export.bulkExporting', { current: bulkCurrent, total: bulkTotal })
-              : t('export.bulkExport', { count: totalActivities })}
-          </Text>
-          {bulkExporting && (
-            <>
-              <View
-                style={[styles.progressBarContainer, isDark && styles.progressBarContainerDark]}
-              >
-                <View
-                  style={[
-                    styles.progressBar,
-                    {
-                      width:
-                        bulkTotal > 0 ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%` : '0%',
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={[styles.progressDetail, isDark && styles.textMuted]}>
-                {bulkTotal > 0 ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%` : '0%'}
-                {bulkSizeBytes > 0 && ` · ${formatFileSize(bulkSizeBytes)}`}
-              </Text>
-            </>
-          )}
-        </View>
-        {!bulkExporting && (
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textSecondary}
-          />
-        )}
-      </TouchableOpacity>
-      <View style={[styles.divider, isDark && styles.dividerDark]} />
     </>
   );
 }
@@ -245,26 +135,6 @@ const styles = StyleSheet.create({
   },
   actionTextDanger: {
     color: colors.error,
-  },
-  progressBarContainer: {
-    height: 4,
-    backgroundColor: colors.border,
-    borderRadius: 2,
-    marginTop: 6,
-    overflow: 'hidden',
-  },
-  progressBarContainerDark: {
-    backgroundColor: darkColors.border,
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
-  progressDetail: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
   divider: {
     height: 1,

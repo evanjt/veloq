@@ -270,6 +270,7 @@ export interface TranslationResource {
     apiKeyPlaceholder: string;
     apiKeyConnect: string;
     localModeNote: string;
+    apiKeyNoNotifications: string;
     sessionExpired: string;
     sessionRevoked: string;
   };
@@ -413,6 +414,30 @@ export interface TranslationResource {
     namesRestored: string;
     preferencesRestored: string;
     sectionsSkipped: string;
+    exportDatabase: string;
+    importDatabase: string;
+    databaseRestored: string;
+    exportingDatabase: string;
+    importingDatabase: string;
+    autoBackup: string;
+    autoBackupDescription: string;
+    lastBackup: string;
+    lastBackupNever: string;
+    backupNow: string;
+    backingUp: string;
+    selectBackend: string;
+    backendLocal: string;
+    backendWebdav: string;
+    backendIcloud: string;
+    serverUrl: string;
+    username: string;
+    password: string;
+    testConnection: string;
+    connectionSuccess: string;
+    connectionFailed: string;
+    restoreFromBackup: string;
+    backupFound: string;
+    differentAccount: string;
   };
 
   about: {
@@ -613,6 +638,27 @@ export interface TranslationResource {
     viewDetails: string;
     today: string;
     tomorrow: string;
+    teaser: {
+      workoutToday: string;
+      prOpportunity: string;
+      usualPattern: string;
+      improving: string;
+      stable: string;
+    };
+    strengthBalance: {
+      volumeSplit: string;
+      balanced: string;
+      watch: string;
+      imbalanced: string;
+      oneSided: string;
+      lowSignal: string;
+      noSignal: string;
+      noRecentVolume: string;
+      volumeAppeared: string;
+      volumeUp: string;
+      volumeDown: string;
+      volumeSteady: string;
+    };
   };
 
   fitnessScreen: {
@@ -658,6 +704,42 @@ export interface TranslationResource {
       heatmapTip: string;
       fitnessTitle: string;
       fitnessBody: string;
+    };
+  };
+
+  notifications: {
+    sectionPr: { title: string };
+    fitnessMilestone: { title: string };
+    periodComparison: { title: string };
+    tsbForm: { title: string };
+    hrvTrend: { title: string };
+    stalePr: { title: string };
+    sectionCluster: { title: string };
+    efficiencyTrend: { title: string };
+    generic: { title: string };
+    activityRecorded: { title: string; body: string };
+    privacy: {
+      title: string;
+      brief: string;
+      body: string;
+      accept: string;
+    };
+    settings: {
+      title: string;
+      enable: string;
+      categories: string;
+      sectionPr: string;
+      fitnessMilestone: string;
+      requiresOAuth: string;
+      privacyHint: string;
+      stravaNote: string;
+    };
+    prompt: {
+      title: string;
+      description: string;
+      enable: string;
+      dismiss: string;
+      settingsHint: string;
     };
   };
 
@@ -902,6 +984,28 @@ export interface TranslationResource {
     groupingDescription: string;
     performanceHistory: string;
     traversalsSummary: string;
+    scanForMatches: string;
+    scanForMore: string;
+    scanning: string;
+    noMatchesFound: string;
+    noSectionsFound: string;
+    matchQuality: string;
+    addToSection: string;
+    nearbySections: string;
+    nearbySectionsCount: string;
+    similarNearby: string;
+    similarNearbyCount: string;
+    mergeSections: string;
+    mergeKeepMessage: string;
+    mergeInto: string;
+    mergeSuccess: string;
+    rescan: string;
+    rescanComplete: string;
+    forceRedetect: string;
+    rematchActivities: string;
+    awayDistance: string;
+    viewSection: string;
+    merge: string;
   };
 
   engine: {
@@ -977,6 +1081,7 @@ export interface TranslationResource {
     elapsedTime: string;
     tabs: {
       charts: string;
+      exercises: string;
       intervals: string;
       route: string;
       routes: string;
@@ -992,6 +1097,13 @@ export interface TranslationResource {
     chartDisplayOptions: string;
     fullscreenChart: string;
     feedPreviewUpdated: string;
+    primary: string;
+    secondary: string;
+    exercises: string;
+    exercisesSummary: string;
+    muscleDataSource: string;
+    bodyShapeFromProfile: string;
+    bodyShapeRandom: string;
   };
 
   routeDetail: {

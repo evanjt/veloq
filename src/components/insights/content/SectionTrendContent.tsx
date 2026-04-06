@@ -3,6 +3,7 @@ import { View, StyleSheet, LayoutAnimation, Platform, UIManager, Pressable } fro
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
+import { getSportDisplayName } from '@/lib';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionPerformances } from '@/hooks/routes/useSectionPerformances';
 import { navigateTo } from '@/lib';
@@ -35,6 +36,44 @@ function getTrendColor(trend?: number, isDark?: boolean): string {
 
 interface SectionTrendContentProps {
   insight: Insight;
+}
+
+function capitalize(value: string): string {
+  return value.length > 0 ? value[0].toUpperCase() + value.slice(1) : value;
+}
+
+function getClusterContext(
+  insight: Insight,
+  sections: SupportingSection[]
+): {
+  heading: string;
+  body: string;
+  meta: string;
+} {
+  const uniqueSports = Array.from(
+    new Set(
+      sections
+        .map((section) => section.sportType)
+        .filter(
+          (sportType): sportType is string => typeof sportType === 'string' && sportType.length > 0
+        )
+    )
+  );
+  const sportLabel = uniqueSports.length === 1 ? getSportDisplayName(uniqueSports[0]) : null;
+  const direction = insight.id.includes('declining') ? 'declining' : 'improving';
+
+  return {
+    heading: sportLabel ? `${capitalize(sportLabel)} section group` : 'Section group',
+    body:
+      direction === 'declining'
+        ? sportLabel
+          ? `These ${sportLabel} sections are grouped because their recent efforts are moving in the same direction. Seeing the pattern on multiple sections makes it easier to separate broader drift from one awkward pass.`
+          : 'These sections are grouped because their recent efforts are moving in the same direction. Seeing the pattern on multiple sections makes it easier to separate broader drift from one awkward pass.'
+        : sportLabel
+          ? `These ${sportLabel} sections are grouped because their recent efforts are moving in the same direction. Seeing the pattern on multiple sections makes it easier to trust than a one-off result.`
+          : 'These sections are grouped because their recent efforts are moving in the same direction. Seeing the pattern on multiple sections makes it easier to trust than a one-off result.',
+    meta: 'Expand a row to inspect the underlying efforts.',
+  };
 }
 
 /**
@@ -148,6 +187,7 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
 }: SectionTrendContentProps) {
   const { isDark } = useTheme();
   const sections = insight.supportingData?.sections ?? [];
+  const context = useMemo(() => getClusterContext(insight, sections), [insight, sections]);
 
   // All sections start collapsed
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -173,6 +213,14 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
 
   return (
     <View style={styles.container}>
+      <View style={[styles.contextCard, isDark && styles.contextCardDark]}>
+        <Text style={[styles.contextHeading, isDark && styles.contextHeadingDark]}>
+          {context.heading}
+        </Text>
+        <Text style={[styles.contextBody, isDark && styles.contextBodyDark]}>{context.body}</Text>
+        <Text style={[styles.contextMeta, isDark && styles.contextMetaDark]}>{context.meta}</Text>
+      </View>
+
       {sections.map((section: SupportingSection) => (
         <SectionAccordionItem
           key={section.sectionId}
@@ -197,6 +245,39 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
 const styles = StyleSheet.create({
   container: {
     gap: spacing.xs,
+  },
+  contextCard: {
+    backgroundColor: opacity.overlay.subtle,
+    borderRadius: 10,
+    padding: spacing.md,
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  contextCardDark: {
+    backgroundColor: opacity.overlayDark.light,
+  },
+  contextHeading: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  contextHeadingDark: {
+    color: darkColors.textPrimary,
+  },
+  contextBody: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textPrimary,
+  },
+  contextBodyDark: {
+    color: darkColors.textPrimary,
+  },
+  contextMeta: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  contextMetaDark: {
+    color: darkColors.textSecondary,
   },
   sectionCard: {
     backgroundColor: colors.surface,

@@ -5,9 +5,9 @@ import type {
   InsightMethodology,
   InsightSupportingData,
 } from '@/types';
-import { formatDuration } from '@/lib';
+import { formatDuration, formatPaceCompact, formatSwimPace } from '@/lib';
+import { brand } from '@/theme/colors';
 import { detectStalePROpportunities, stalePROpportunityToInsight } from './stalePrDetection';
-import { generateSectionClusterInsights } from './sectionClusterInsights';
 import { generateEfficiencyTrendInsights } from './efficiencyTrendInsights';
 
 /**
@@ -70,6 +70,8 @@ interface SectionTrendData {
   bestTimeSecs: number;
   traversalCount: number;
   sportType?: string; // 'Run', 'Ride', etc.
+  daysSinceLast?: number; // days since last traversal
+  latestIsPr?: boolean; // whether the most recent effort is the all-time best
 }
 
 export interface InsightInputData {
@@ -77,6 +79,7 @@ export interface InsightInputData {
   previousPeriod: PeriodStats | null;
   ftpTrend: FtpTrend | null;
   paceTrend: PaceTrend | null;
+  swimPaceTrend?: PaceTrend | null;
   recentPRs: SectionPR[];
   todayPattern: ActivityPattern | null;
   sectionTrends: SectionTrendData[];
@@ -98,14 +101,8 @@ export interface InsightInputData {
   chronicPeriod?: PeriodStats | null;
   // Ramp rate from wellness (unused — removed ramp rate insight)
   rampRate?: number | null;
-  // Whether today is a rest day (no activity today)
-  isRestDay?: boolean;
-  // All section trends (for rest day deep dive)
+  // All section trends (for cluster/trend insights)
   allSectionTrends?: SectionTrendData[];
-  // Tomorrow's pattern prediction
-  tomorrowPattern?: ActivityPattern | null;
-  // All detected activity patterns (for weekly heatmap in pattern detail)
-  allPatterns?: ActivityPattern[];
   // Section IDs to check for aerobic efficiency trends (from getRankedSections)
   efficiencyTrendSectionIds?: string[];
 }
@@ -120,14 +117,86 @@ type TFunc = (key: string, params?: Record<string, string | number>) => string;
 const MAX_PR_INSIGHTS = 3;
 const VOLUME_CHANGE_THRESHOLD = 0.1; // 10%
 
-// TSB zones per intervals.icu convention (informational only, no prescriptive text)
-const TSB_ZONES = {
-  fresh: { min: 25, color: '#81C784', key: 'fresh' },
-  transition: { min: 5, color: '#64B5F6', key: 'transition' },
-  greyZone: { min: -10, color: '#9E9E9E', key: 'greyZone' },
-  optimal: { min: -30, color: '#66BB6A', key: 'optimal' },
-  highRisk: { min: -Infinity, color: '#EF5350', key: 'highRisk' },
-} as const;
+function toSecondsPerDistanceMeters(speedMetersPerSecond: number, distanceMeters: number): number {
+  if (!Number.isFinite(speedMetersPerSecond) || speedMetersPerSecond <= 0) return 0;
+  return distanceMeters / speedMetersPerSecond;
+}
+
+function addPaceMilestoneInsight(
+  insights: Insight[],
+  pace: PaceTrend | null | undefined,
+  now: number,
+  t: TFunc,
+  options: {
+    id: string;
+    icon: string;
+    iconColor: string;
+    paceUnit: string;
+    changeUnit: string;
+    formatValue: (speedMetersPerSecond: number) => string;
+  }
+): void {
+  if (
+    !pace ||
+    typeof pace.latestPace !== 'number' ||
+    typeof pace.previousPace !== 'number' ||
+    pace.latestPace <= 0 ||
+    pace.previousPace <= 0 ||
+    pace.latestPace <= pace.previousPace
+  ) {
+    return;
+  }
+
+  const distanceMeters = options.paceUnit === '/100m' ? 100 : 1000;
+  const currentDisplaySecs = toSecondsPerDistanceMeters(pace.latestPace, distanceMeters);
+  const previousDisplaySecs = toSecondsPerDistanceMeters(pace.previousPace, distanceMeters);
+  const deltaSecs = Math.round(previousDisplaySecs - currentDisplaySecs);
+  const gainPercent = Math.round(((pace.latestPace - pace.previousPace) / pace.previousPace) * 100);
+
+  if (deltaSecs <= 0 || gainPercent <= 0) {
+    return;
+  }
+
+  insights.push(
+    makeInsight({
+      id: options.id,
+      category: 'fitness_milestone',
+      priority: 2,
+      icon: options.icon as Insight['icon'],
+      iconColor: options.iconColor,
+      title: t('insights.paceImproved', {
+        delta: `${deltaSecs}${options.changeUnit}`,
+      }),
+      navigationTarget: '/fitness',
+      timestamp: now,
+      supportingData: {
+        dataPoints: [
+          {
+            label: t('insights.data.currentPace'),
+            value: options.formatValue(pace.latestPace),
+            unit: options.paceUnit,
+            context: 'good',
+          },
+          {
+            label: t('insights.data.previousPace'),
+            value: options.formatValue(pace.previousPace),
+            unit: options.paceUnit,
+          },
+          {
+            label: t('insights.data.improvement'),
+            value: `+${gainPercent}%`,
+            context: 'good',
+          },
+        ],
+      },
+      methodology: {
+        name: 'Threshold speed trend analysis',
+        description:
+          'Compares your latest threshold-speed estimate against previous values, then formats the change as athlete-readable pace for display.',
+      },
+    })
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Main function
@@ -137,16 +206,8 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   const insights: Insight[] = [];
   const now = Date.now();
 
-  // Rest day content — positive framing, never punitive
-  if (data.isRestDay) {
-    addRestDayInsights(insights, data, now, t);
-  }
-
   // Priority 1: Section PRs
   addSectionPRInsights(insights, data.recentPRs, now, t);
-
-  // Priority 2: TSB Form Position (replaces form advice + form trajectory)
-  addTsbFormPositionInsight(insights, data, now, t);
 
   // Priority 2: HRV Trend (replaces recovery readiness)
   addHrvTrendInsight(insights, data, now, t);
@@ -161,109 +222,12 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   // Cross-references fitness trends against section PRs to find beatable records
   addStalePRInsights(insights, data, now, t);
 
-  // Priority 3: Section Cluster Insights (replaces addSectionTrendInsights)
-  // Groups sections by trend direction for aggregate view — one insight per cluster
-  addSectionClusterInsights(insights, data, now, t);
-
   // Priority 1: Aerobic Efficiency Trends
   addEfficiencyTrendInsights(insights, data, now, t);
 
   insights.sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
 
   return insights;
-}
-
-// ---------------------------------------------------------------------------
-// Rest Day Content — always positive, never punitive
-// ---------------------------------------------------------------------------
-
-function addRestDayInsights(
-  insights: Insight[],
-  data: InsightInputData,
-  now: number,
-  t: TFunc
-): void {
-  // 1. Recent Intensity Context — count high-intensity sessions in trailing 7 days
-  const cur = data.currentPeriod;
-  const prev = data.previousPeriod;
-  if (cur && prev && (cur.totalTss > 0 || prev.totalTss > 0)) {
-    // Approximate high-intensity count: sessions with above-average TSS per session
-    const totalSessions = cur.count + (prev?.count ?? 0);
-    const totalTss = cur.totalTss + (prev?.totalTss ?? 0);
-    if (totalSessions > 0 && totalTss > 0) {
-      const avgTssPerSession = totalTss / totalSessions;
-      // Count sessions in current week with above-average intensity
-      // Since we don't have per-session data, estimate from current week's average
-      const curAvgTss = cur.count > 0 ? cur.totalTss / cur.count : 0;
-      const highIntensityEst =
-        curAvgTss > avgTssPerSession * 1.2 ? cur.count : Math.floor(cur.count * 0.4);
-
-      if (cur.count > 0) {
-        insights.push(
-          makeInsight({
-            id: 'rest_day-intensity-context',
-            category: 'intensity_context',
-            priority: 3,
-            icon: 'lightning-bolt',
-            iconColor: '#FFA726',
-            title: t('insights.restDay.intensityContext', {
-              count: cur.count,
-              highCount: highIntensityEst,
-            }),
-            body: t('insights.restDay.intensityContextBody', {
-              count: cur.count,
-              duration: formatDurationCompact(cur.totalDuration),
-            }),
-            timestamp: now,
-            methodology: {
-              name: 'Intensity distribution',
-              description:
-                'Counts training sessions this week. Athletes naturally distribute about 80% easy and 20% hard sessions.',
-            },
-          })
-        );
-      }
-    }
-  }
-
-  // 2. Section trends on rest day (positive framing)
-  const trends = data.allSectionTrends ?? data.sectionTrends;
-  if (trends.length > 0) {
-    const improvingCount = trends.filter((s) => s.trend === 1).length;
-
-    if (improvingCount > 0) {
-      insights.push(
-        makeInsight({
-          id: 'rest_day-section-trends',
-          category: 'section_pr',
-          priority: 3,
-          icon: 'map-marker-path',
-          iconColor: '#66BB6A',
-          title: t('insights.restDay.sectionTrends', {
-            improving: improvingCount,
-            total: trends.length,
-          }),
-          navigationTarget: '/routes',
-          timestamp: now,
-          supportingData: {
-            sections: trends
-              .filter((s) => s.trend === 1)
-              .map((s) => ({
-                sectionId: s.sectionId,
-                sectionName: s.sectionName,
-                trend: s.trend,
-                traversalCount: s.traversalCount,
-                sportType: s.sportType,
-              })),
-          },
-        })
-      );
-    }
-  }
-
-  // 3. Pattern prediction for tomorrow — REMOVED from card list.
-  // Pattern predictions are shown in the Today banner only.
-  // Pattern predictions removed from card list — shown in Today banner only.
 }
 
 // ---------------------------------------------------------------------------
@@ -287,7 +251,7 @@ function addSectionPRInsights(
         category: 'section_pr',
         priority: 1,
         icon: 'trophy-outline',
-        iconColor: '#FC4C02',
+        iconColor: brand.orange,
         title: t('insights.sectionPr', { name: pr.sectionName }),
         subtitle: t('insights.sectionPrSubtitle', {
           time: formatDuration(pr.bestTime),
@@ -326,82 +290,6 @@ function addSectionPRInsights(
 }
 
 // ---------------------------------------------------------------------------
-// Priority 2: TSB Form Position (informational — no prescriptive advice)
-// Banister EW et al., 1975; Thomas L et al., 2005
-// ---------------------------------------------------------------------------
-
-function addTsbFormPositionInsight(
-  insights: Insight[],
-  data: InsightInputData,
-  now: number,
-  t: TFunc
-): void {
-  const tsb = data.formTsb;
-  const ctl = data.formCtl;
-  const atl = data.formAtl;
-
-  if (typeof tsb !== 'number' || !Number.isFinite(tsb)) return;
-  if ((!ctl || ctl === 0) && (!atl || atl === 0)) return;
-
-  const zone = resolveTsbZone(tsb);
-
-  insights.push(
-    makeInsight({
-      id: 'tsb_form-position',
-      category: 'tsb_form',
-      priority: 2,
-      icon: 'heart-pulse',
-      iconColor: zone.color,
-      title: t(`insights.tsbForm.titles.${zone.key}`, {
-        tsb: Math.round(tsb),
-      }),
-      body: t('insights.tsbForm.body', {
-        tsb: Math.round(tsb),
-        ctl: Math.round(ctl ?? 0),
-        atl: Math.round(atl ?? 0),
-        zone: t(`insights.tsbForm.zones.${zone.key}`),
-        zoneDescription: t(`insights.tsbForm.zoneDescriptions.${zone.key}`),
-      }),
-      navigationTarget: '/fitness',
-      timestamp: now,
-      supportingData: {
-        dataPoints: [
-          {
-            label: 'CTL',
-            value: Math.round(ctl ?? 0),
-            context: 'neutral',
-          },
-          {
-            label: 'ATL',
-            value: Math.round(atl ?? 0),
-            context: 'neutral',
-          },
-          {
-            label: 'TSB',
-            value: Math.round(tsb),
-            context: 'neutral',
-          },
-        ],
-      },
-      methodology: {
-        name: 'Banister Impulse-Response Model',
-        description:
-          'Training Stress Balance = CTL - ATL. Based on the Banister impulse-response model with standard 42-day/7-day time constants. These are population defaults — individual time constants vary between athletes.',
-        formula: 'TSB = CTL - ATL',
-      },
-    })
-  );
-}
-
-function resolveTsbZone(tsb: number): { color: string; key: string } {
-  if (tsb > TSB_ZONES.fresh.min) return TSB_ZONES.fresh;
-  if (tsb > TSB_ZONES.transition.min) return TSB_ZONES.transition;
-  if (tsb > TSB_ZONES.greyZone.min) return TSB_ZONES.greyZone;
-  if (tsb > TSB_ZONES.optimal.min) return TSB_ZONES.optimal;
-  return TSB_ZONES.highRisk;
-}
-
-// ---------------------------------------------------------------------------
 // Priority 2: HRV Trend (replaces Recovery Readiness)
 // Kiviniemi et al., 2007 — HRV-guided training RCT
 // ---------------------------------------------------------------------------
@@ -425,8 +313,10 @@ function addHrvTrendInsight(
   // Compute 7-day rolling average direction
   const firstHalf = hrvNums.slice(0, Math.floor(hrvNums.length / 2));
   const secondHalf = hrvNums.slice(Math.floor(hrvNums.length / 2));
-  const firstAvg = firstHalf.reduce((s, v) => s + v, 0) / firstHalf.length;
-  const secondAvg = secondHalf.reduce((s, v) => s + v, 0) / secondHalf.length;
+  const firstAvg =
+    firstHalf.length > 0 ? firstHalf.reduce((s, v) => s + v, 0) / firstHalf.length : 0;
+  const secondAvg =
+    secondHalf.length > 0 ? secondHalf.reduce((s, v) => s + v, 0) / secondHalf.length : 0;
 
   // Check for 2 consecutive days of decline (Kiviniemi protocol threshold)
   const lastTwo = hrvNums.slice(-2);
@@ -513,8 +403,12 @@ function addPeriodComparisonInsights(
   const prev = data.previousPeriod;
   if (!cur || !prev) return;
 
-  // Suppress all period comparisons when current week has no activities
-  if (cur.count === 0) return;
+  // When current week has no activities (e.g., Monday morning), fall back to
+  // comparing last week against the 4-week chronic average instead of suppressing.
+  if (cur.count === 0) {
+    addLastWeekVsAverageInsight(insights, prev, data.chronicPeriod ?? null, now, t);
+    return;
+  }
 
   // Prefer TSS comparison (accounts for intensity), fall back to duration
   const useTss = prev.totalTss > 0 && cur.totalTss > 0;
@@ -553,13 +447,13 @@ function addPeriodComparisonInsights(
     comparisonData: {
       current: {
         label: t('insights.data.thisWeek'),
-        value: useTss ? Math.round(cur.totalTss) : formatDurationCompact(cur.totalDuration),
-        unit: useTss ? 'TSS' : undefined,
+        value: useTss ? Math.round(cur.totalTss) : Math.round(cur.totalDuration / 60),
+        unit: useTss ? 'TSS' : 'min',
       },
       previous: {
         label: t('insights.data.lastWeek'),
-        value: useTss ? Math.round(prev.totalTss) : formatDurationCompact(prev.totalDuration),
-        unit: useTss ? 'TSS' : undefined,
+        value: useTss ? Math.round(prev.totalTss) : Math.round(prev.totalDuration / 60),
+        unit: useTss ? 'TSS' : 'min',
       },
       change: {
         label: t('insights.data.change'),
@@ -589,6 +483,7 @@ function addPeriodComparisonInsights(
         iconColor: '#66BB6A',
         title: t(upKey, { percent }),
         body,
+        navigationTarget: '/routes?tab=routes',
         timestamp: now,
         methodology: comparisonMethodology,
         supportingData: comparisonSupportingData,
@@ -604,12 +499,77 @@ function addPeriodComparisonInsights(
         iconColor: '#FFA726',
         title: t(downKey, { percent }),
         body,
+        navigationTarget: '/routes?tab=routes',
         timestamp: now,
         methodology: comparisonMethodology,
         supportingData: comparisonSupportingData,
       })
     );
   }
+}
+
+/**
+ * Fallback: compare last week against the 4-week chronic average.
+ * Used when the current week has no activities yet (e.g., Monday morning).
+ * Reuses the existing insights.weeklyLoad.* keys (already in all locales).
+ */
+function addLastWeekVsAverageInsight(
+  insights: Insight[],
+  prev: PeriodStats,
+  chronic: PeriodStats | null,
+  now: number,
+  t: TFunc
+): void {
+  if (prev.count === 0 || !chronic) return;
+
+  const useTss = prev.totalTss > 0 && chronic.totalTss > 0;
+  const prevValue = useTss ? prev.totalTss : prev.totalDuration;
+  const avgValue = useTss ? chronic.totalTss : chronic.totalDuration;
+
+  if (avgValue <= 0 || prevValue <= 0) return;
+
+  const ratio = prevValue / avgValue - 1;
+  const percent = Math.round(Math.abs(ratio) * 100);
+  if (percent < 10) return; // Same threshold as normal comparison
+
+  const direction = ratio > 0 ? t('insights.weeklyLoad.above') : t('insights.weeklyLoad.below');
+
+  insights.push(
+    makeInsight({
+      id: 'period_comparison-volume',
+      category: 'period_comparison',
+      priority: 2,
+      icon: ratio > 0 ? 'trending-up' : 'trending-down',
+      iconColor: ratio > 0 ? '#66BB6A' : '#FFA726',
+      title: t('insights.weeklyLoad.title', { percent, direction }),
+      navigationTarget: '/routes?tab=routes',
+      timestamp: now,
+      supportingData: {
+        comparisonData: {
+          current: {
+            label: t('insights.data.lastWeek'),
+            value: useTss ? Math.round(prev.totalTss) : Math.round(prev.totalDuration / 60),
+            unit: useTss ? 'TSS' : 'min',
+          },
+          previous: {
+            label: t('insights.data.fourWeekAvgTss'),
+            value: useTss ? Math.round(chronic.totalTss) : Math.round(chronic.totalDuration / 60),
+            unit: useTss ? 'TSS' : 'min',
+          },
+          change: {
+            label: t('insights.data.change'),
+            value: `${ratio > 0 ? '+' : '-'}${percent}%`,
+            context: 'neutral',
+          },
+        },
+      },
+      methodology: {
+        name: 'Period comparison',
+        description:
+          'Compares last week against your 4-week average when the current week has no activities yet.',
+      },
+    })
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -645,6 +605,7 @@ function addFitnessMilestoneInsights(
             current: Math.round(ftp.latestFtp),
             change: delta,
           }),
+          navigationTarget: '/fitness',
           timestamp: now,
           supportingData: {
             dataPoints: [
@@ -670,62 +631,30 @@ function addFitnessMilestoneInsights(
           methodology: {
             name: 'Functional Threshold Power estimation',
             description:
-              "Tracks changes in your estimated FTP over time based on power data from your activities. FTP detection uses intervals.icu's algorithms, which may include auto-detection from activity data. Confirm with a structured test before adjusting training zones.",
+              "Tracks changes in your estimated FTP over time based on power data from your activities. FTP detection uses intervals.icu's algorithms, which may include auto-detection from activity data.",
           },
         })
       );
     }
   }
 
-  // Pace improvement (lower is better — seconds per km)
-  const pace = data.paceTrend;
-  if (
-    pace &&
-    typeof pace.latestPace === 'number' &&
-    typeof pace.previousPace === 'number' &&
-    pace.latestPace > 0 &&
-    pace.previousPace > 0 &&
-    pace.latestPace < pace.previousPace
-  ) {
-    const deltaSecs = Math.round(pace.previousPace - pace.latestPace);
-    if (deltaSecs > 0) {
-      insights.push(
-        makeInsight({
-          id: 'fitness_milestone-pace',
-          category: 'fitness_milestone',
-          priority: 2,
-          icon: 'run-fast',
-          iconColor: '#66BB6A',
-          title: t('insights.paceImproved', { delta: deltaSecs }),
-          timestamp: now,
-          supportingData: {
-            dataPoints: [
-              {
-                label: t('insights.data.currentPace'),
-                value: formatDurationCompact(pace.latestPace),
-                context: 'good',
-              },
-              {
-                label: t('insights.data.previousPace'),
-                value: formatDurationCompact(pace.previousPace),
-              },
-              {
-                label: t('insights.data.improvement'),
-                value: deltaSecs,
-                unit: 's/km',
-                context: 'good',
-              },
-            ],
-          },
-          methodology: {
-            name: 'Pace trend analysis',
-            description:
-              'Compares your latest threshold pace estimation against previous values to detect improvement.',
-          },
-        })
-      );
-    }
-  }
+  addPaceMilestoneInsight(insights, data.paceTrend ?? null, now, t, {
+    id: 'fitness_milestone-pace',
+    icon: 'run-fast',
+    iconColor: '#66BB6A',
+    paceUnit: '/km',
+    changeUnit: 's/km',
+    formatValue: (speedMetersPerSecond) => formatPaceCompact(speedMetersPerSecond),
+  });
+
+  addPaceMilestoneInsight(insights, data.swimPaceTrend ?? null, now, t, {
+    id: 'fitness_milestone-swim-pace',
+    icon: 'swim',
+    iconColor: '#42A5F5',
+    paceUnit: '/100m',
+    changeUnit: 's/100m',
+    formatValue: (speedMetersPerSecond) => formatSwimPace(speedMetersPerSecond),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -754,7 +683,8 @@ function addStalePRInsights(
   const opportunities = detectStalePROpportunities({
     sections,
     ftpTrend: data.ftpTrend,
-    paceTrend: data.paceTrend,
+    runPaceTrend: data.paceTrend,
+    swimPaceTrend: data.swimPaceTrend ?? null,
     recentPRs: data.recentPRs,
   });
 
@@ -770,20 +700,24 @@ function addStalePRInsights(
     insights.push(stalePROpportunityToInsight(filtered[0], t, now));
   } else {
     // Group into one card listing all beatable sections
-    const first = filtered[0];
-
-    // Build sport-aware subtitle: group improvements by metric type
     const powerOpps = filtered.filter((o) => o.fitnessMetric === 'power');
-    const paceOpps = filtered.filter((o) => o.fitnessMetric === 'pace');
+    const runPaceOpps = filtered.filter((o) => o.fitnessMetric === 'pace' && o.unit === '/km');
+    const swimPaceOpps = filtered.filter((o) => o.fitnessMetric === 'pace' && o.unit === '/100m');
     const subtitleParts: string[] = [];
     if (powerOpps.length > 0) {
       const p = powerOpps[0];
       subtitleParts.push(`FTP: ${Math.round(p.previousValue)}W → ${Math.round(p.currentValue)}W`);
     }
-    if (paceOpps.length > 0) {
-      const p = paceOpps[0];
+    if (runPaceOpps.length > 0) {
+      const p = runPaceOpps[0];
       subtitleParts.push(
-        `Pace: ${formatDuration(p.previousValue)} → ${formatDuration(p.currentValue)}`
+        `Run threshold: ${formatPaceCompact(p.previousValue)}${p.unit} → ${formatPaceCompact(p.currentValue)}${p.unit}`
+      );
+    }
+    if (swimPaceOpps.length > 0) {
+      const p = swimPaceOpps[0];
+      subtitleParts.push(
+        `Swim threshold: ${formatSwimPace(p.previousValue)}${p.unit} → ${formatSwimPace(p.currentValue)}${p.unit}`
       );
     }
 
@@ -797,7 +731,7 @@ function addStalePRInsights(
         title: t('insights.stalePr.groupTitle', { count: filtered.length }),
         subtitle: subtitleParts.join(', '),
         body: filtered.map((o) => o.sectionName).join(', '),
-        navigationTarget: `/section/${first.sectionId}`,
+        navigationTarget: '/routes?tab=sections',
         timestamp: now,
         supportingData: {
           sections: filtered.map((o) => ({
@@ -815,39 +749,6 @@ function addStalePRInsights(
         },
       })
     );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Priority 3: Section Cluster Insights
-// Groups sections by trend similarity for aggregate observations
-// ---------------------------------------------------------------------------
-
-function addSectionClusterInsights(
-  insights: Insight[],
-  data: InsightInputData,
-  now: number,
-  t: TFunc
-): void {
-  const trends = data.allSectionTrends ?? data.sectionTrends;
-  if (!trends || trends.length === 0) return;
-
-  const clusterInsights = generateSectionClusterInsights(trends, now, t);
-  // Show at most 1 cluster insight (the most relevant — improving takes priority)
-  if (clusterInsights.length > 0) {
-    const insight = clusterInsights[0];
-
-    // Mark sections that have a recent PR so the UI can show a badge on collapsed rows
-    const prSectionIds = new Set((data.recentPRs ?? []).map((pr) => pr.sectionId));
-    if (prSectionIds.size > 0 && insight.supportingData?.sections) {
-      for (const section of insight.supportingData.sections) {
-        if (prSectionIds.has(section.sectionId)) {
-          section.hasRecentPR = true;
-        }
-      }
-    }
-
-    insights.push(insight);
   }
 }
 

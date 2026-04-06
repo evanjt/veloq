@@ -1,11 +1,16 @@
 /**
- * Backup & restore user customizations.
- * Exports/imports custom sections, names, and preferences as a .veloq JSON file.
+ * Backup & restore.
+ *
+ * Two formats:
+ * - .veloqdb: SQLite database snapshot (primary, complete backup)
+ * - .veloq:   Legacy JSON backup (custom sections, names, preferences only)
  */
 
+import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 import { shareFile } from './shareFile';
+import { getSetting, setSetting } from '@/lib/backup';
 import {
   initializeTheme,
   initializeLanguage,
@@ -23,16 +28,185 @@ import {
   initializeWhatsNewStore,
   initializeInsightsStore,
   initializeRecordingPreferences,
+  initializeNotificationPreferences,
+  initializeNotificationPrompt,
 } from '@/providers';
 import { reloadCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { reloadMapCameraState } from '@/lib/storage/mapCameraState';
 import Constants from 'expo-constants';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
-const BACKUP_VERSION = 2;
 
-/** AsyncStorage keys that contain user preferences */
-const PREFERENCE_KEYS = [
+// ============================================================================
+// Shared helpers
+// ============================================================================
+
+/** Reinitialize all Zustand stores from storage (SQLite + AsyncStorage). */
+export async function reinitializeAllStores(): Promise<void> {
+  await Promise.all([
+    initializeTheme(),
+    initializeLanguage(),
+    initializeSportPreference(),
+    initializeHRZones(),
+    initializeUnitPreference(),
+    initializeRouteSettings(),
+    initializeDisabledSections(),
+    initializeSectionDismissals(),
+    initializeSupersededSections(),
+    initializePotentialSections(),
+    initializeDashboardPreferences(),
+    initializeDebugStore(),
+    initializeTileCacheStore(),
+    initializeWhatsNewStore(),
+    initializeInsightsStore(),
+    initializeRecordingPreferences(),
+    initializeNotificationPreferences(),
+    initializeNotificationPrompt(),
+    reloadCameraOverrides(),
+    reloadMapCameraState(),
+  ]);
+}
+
+// ============================================================================
+// SQLite database backup (.veloqdb)
+// ============================================================================
+
+export interface DatabaseBackupMetadata {
+  schema_version: string;
+  activity_count: number;
+  section_count: number;
+  gps_track_count: number;
+  oldest_date: number | null;
+  newest_date: number | null;
+  athlete_id: string | null;
+}
+
+/** Export a full SQLite database snapshot via the OS share sheet. */
+export async function exportDatabaseBackup(): Promise<void> {
+  const engine = getRouteEngine();
+  if (!engine) throw new Error('Engine not initialized');
+
+  const date = new Date().toISOString().split('T')[0];
+  const filename = `veloq-backup-${date}.veloqdb`;
+  const destPath = `${FileSystem.cacheDirectory}${filename}`;
+
+  // Strip file:// prefix for Rust (expects plain filesystem path)
+  const plainPath = destPath.startsWith('file://') ? destPath.slice(7) : destPath;
+  engine.backupDatabase(plainPath);
+
+  // Share the file
+  const Sharing = await import('expo-sharing');
+  await Sharing.shareAsync(destPath, {
+    mimeType: 'application/octet-stream',
+    UTI: 'public.database',
+  });
+}
+
+/** Get metadata about the current database (for UI display). */
+export function getDatabaseBackupMetadata(): DatabaseBackupMetadata | null {
+  const engine = getRouteEngine();
+  if (!engine) return null;
+  return engine.getBackupMetadata() as unknown as DatabaseBackupMetadata;
+}
+
+export interface DatabaseRestoreResult {
+  success: boolean;
+  activityCount: number;
+  error?: string;
+  /** Warning if the backup's athlete ID doesn't match the currently logged-in user. */
+  athleteIdMismatch?: boolean;
+  /** The athlete ID from the backup (if available). */
+  backupAthleteId?: string | null;
+}
+
+/**
+ * Restore from a .veloqdb SQLite snapshot.
+ * This replaces the entire database — all activities, sections, settings.
+ */
+export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRestoreResult> {
+  const dbPath = getRouteDbPath();
+  if (!dbPath) {
+    return { success: false, activityCount: 0, error: 'Cannot determine database path' };
+  }
+
+  const engine = getRouteEngine();
+
+  // Validate the file is a real SQLite database with our schema
+  // We do this by checking the file exists and has reasonable size
+  const fileInfo = await FileSystem.getInfoAsync(fileUri);
+  if (!fileInfo.exists || fileInfo.size === 0) {
+    return { success: false, activityCount: 0, error: 'Backup file is empty or missing' };
+  }
+
+  // Destroy the current engine (closes SQLite connection)
+  if (engine) {
+    engine.destroyEngine();
+  }
+
+  try {
+    // Replace the database file
+    const dbUri = `file://${dbPath}`;
+    await FileSystem.copyAsync({ from: fileUri, to: dbUri });
+
+    // Re-initialize the engine (migrations run automatically on older schemas)
+    const { getNativeModule } = await import('@/lib/native/routeEngine');
+    const nativeModule = getNativeModule();
+    if (nativeModule) {
+      nativeModule.routeEngine.initWithPath(dbPath);
+    }
+
+    // Reload all stores from the new database
+    await reinitializeAllStores();
+
+    // Clear TanStack Query cache (stale data from old database)
+    await AsyncStorage.removeItem('veloq-query-cache');
+
+    // Get activity count and metadata from the restored database
+    const restoredEngine = getRouteEngine();
+    const activityCount = restoredEngine?.getActivityCount() ?? 0;
+    const metadata = restoredEngine?.getBackupMetadata() as DatabaseBackupMetadata | undefined;
+
+    // Check athlete ID mismatch
+    const { useAuthStore } = await import('@/providers');
+    const currentAthleteId = useAuthStore.getState().athleteId;
+    const backupAthleteId = metadata?.athlete_id ?? null;
+    const athleteIdMismatch =
+      currentAthleteId != null && backupAthleteId != null && currentAthleteId !== backupAthleteId;
+
+    return {
+      success: true,
+      activityCount,
+      athleteIdMismatch,
+      backupAthleteId,
+    };
+  } catch (error) {
+    // Try to re-initialize with existing (possibly corrupt) database
+    try {
+      const { getNativeModule } = await import('@/lib/native/routeEngine');
+      const nativeModule = getNativeModule();
+      if (nativeModule) {
+        nativeModule.routeEngine.initWithPath(dbPath);
+      }
+    } catch {
+      // Engine recovery failed — app may need restart
+    }
+
+    return {
+      success: false,
+      activityCount: 0,
+      error: error instanceof Error ? error.message : 'Restore failed',
+    };
+  }
+}
+
+// ============================================================================
+// Legacy JSON backup (.veloq) — kept for backward compatibility
+// ============================================================================
+
+const LEGACY_BACKUP_VERSION = 2;
+
+/** AsyncStorage keys for legacy JSON backup */
+const LEGACY_PREFERENCE_KEYS = [
   'veloq-theme-preference',
   'veloq-language-preference',
   'veloq-unit-preference',
@@ -53,9 +227,12 @@ const PREFERENCE_KEYS = [
   'veloq-tile-cache',
   'veloq-whats-new-seen',
   'veloq-insights-fingerprint',
+  'veloq-notification-prompt-dismissed',
   'veloq-recording-preferences',
   'veloq-geocoded-route-ids',
   'veloq-geocoded-section-ids',
+  'veloq-notification-preferences',
+  'veloq-upload-permission',
 ] as const;
 
 interface BackupCustomSection {
@@ -106,11 +283,11 @@ export async function createBackup(): Promise<string> {
   const sectionNames = engine?.getAllSectionNames() ?? {};
   const routeNames = engine?.getAllRouteNames() ?? {};
 
-  // Collect preferences
+  // Collect preferences from SQLite first, then AsyncStorage fallback
   const preferences: Record<string, unknown> = {};
-  for (const key of PREFERENCE_KEYS) {
+  for (const key of LEGACY_PREFERENCE_KEYS) {
     try {
-      const value = await AsyncStorage.getItem(key);
+      const value = await getSetting(key);
       if (value !== null) {
         try {
           preferences[key] = JSON.parse(value);
@@ -124,7 +301,7 @@ export async function createBackup(): Promise<string> {
   }
 
   const backup: BackupData = {
-    version: BACKUP_VERSION,
+    version: LEGACY_BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     appVersion: APP_VERSION,
     customSections,
@@ -158,9 +335,9 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
     throw new Error('Corrupt backup: missing version field');
   }
 
-  if (backup.version > BACKUP_VERSION) {
+  if (backup.version > LEGACY_BACKUP_VERSION) {
     throw new Error(
-      `Unsupported backup version: ${backup.version}. This app supports version ${BACKUP_VERSION}.`
+      `Unsupported backup version: ${backup.version}. This app supports version ${LEGACY_BACKUP_VERSION}.`
     );
   }
 
@@ -175,7 +352,7 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
   const engine = getRouteEngine();
 
   // Restore custom sections
-  if (engine && backup.customSections?.length) {
+  if (engine && Array.isArray(backup.customSections) && backup.customSections.length > 0) {
     for (const cs of backup.customSections) {
       try {
         if (!cs.sourceActivityId) {
@@ -267,34 +444,14 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
     for (const [key, value] of Object.entries(backup.preferences)) {
       try {
         const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
-        await AsyncStorage.setItem(key, stringValue);
+        await setSetting(key, stringValue);
         result.preferencesRestored++;
       } catch {
         // Skip unwritable keys
       }
     }
 
-    // Reload in-memory stores from the freshly-written AsyncStorage values
-    await Promise.all([
-      initializeTheme(),
-      initializeLanguage(),
-      initializeSportPreference(),
-      initializeHRZones(),
-      initializeUnitPreference(),
-      initializeRouteSettings(),
-      initializeDisabledSections(),
-      initializeSectionDismissals(),
-      initializeSupersededSections(),
-      initializePotentialSections(),
-      initializeDashboardPreferences(),
-      initializeDebugStore(),
-      initializeTileCacheStore(),
-      initializeWhatsNewStore(),
-      initializeInsightsStore(),
-      initializeRecordingPreferences(),
-      reloadCameraOverrides(),
-      reloadMapCameraState(),
-    ]);
+    await reinitializeAllStores();
   }
 
   return result;

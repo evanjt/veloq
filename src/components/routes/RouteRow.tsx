@@ -11,7 +11,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { navigateTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
 import {
   getActivityColor,
   getActivityIcon,
@@ -71,8 +71,8 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
 
   if (points.length < 2) return null;
 
-  const width = 56;
-  const height = 40;
+  const width = 48;
+  const height = 36;
   const padding = 4;
 
   const scaledPoints = points.map((p) => ({
@@ -364,33 +364,29 @@ export const RouteRow = memo(RouteRowComponent, (prevProps, nextProps) => {
 const styles = StyleSheet.create({
   wrapper: {
     marginHorizontal: spacing.md,
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: 10,
-    padding: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    padding: 6,
+    ...shadows.pill,
   },
   containerDark: {
     backgroundColor: darkColors.surface,
   },
   previewBox: {
-    width: 56,
-    height: 40,
-    borderRadius: 6,
+    width: 48,
+    height: 36,
+    borderRadius: 5,
     overflow: 'hidden',
   },
   previewPlaceholder: {
-    width: 56,
-    height: 40,
-    borderRadius: 6,
+    width: 48,
+    height: 36,
+    borderRadius: 5,
     backgroundColor: opacity.overlay.subtle,
     justifyContent: 'center',
     alignItems: 'center',

@@ -413,6 +413,10 @@ export interface Section {
   sportTypes?: string[];
   /** Pre-computed center point for proximity sorting */
   center?: { lat: number; lng: number };
+  /** Whether the user has disabled (hidden) this section */
+  disabled?: boolean;
+  /** If superseded by a custom section, stores its ID */
+  supersededBy?: string | null;
 }
 
 /**

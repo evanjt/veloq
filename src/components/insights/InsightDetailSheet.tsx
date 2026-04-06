@@ -7,6 +7,7 @@ import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, typography, opacity, colorWithOpacity } from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
+import { InsightQuickTake } from './InsightQuickTake';
 import type { Insight } from '@/types';
 
 const SHEET_HEIGHT = Dimensions.get('window').height * 0.85;
@@ -26,17 +27,15 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 
   const handleNavigate = useCallback(() => {
     if (insight?.navigationTarget) {
+      onClose();
       navigateTo(insight.navigationTarget);
     }
-  }, [insight?.navigationTarget]);
+  }, [insight?.navigationTarget, onClose]);
 
   if (!insight) return null;
 
   // Content components for these categories already have embedded navigation
-  const contentHandlesNav =
-    insight.category === 'section_pr' ||
-    insight.category === 'tsb_form' ||
-    insight.category === 'stale_pr';
+  const contentHandlesNav = insight.category === 'section_pr' || insight.category === 'stale_pr';
   const hasNavTarget = !!insight.navigationTarget && !contentHandlesNav;
 
   return (
@@ -44,7 +43,10 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
       <Pressable style={styles.backdrop} onPress={onClose}>
         <View style={styles.backdropFill} />
       </Pressable>
-      <View style={[styles.sheet, isDark && styles.sheetDark, { height: SHEET_HEIGHT }]}>
+      <View
+        style={[styles.sheet, isDark && styles.sheetDark, { height: SHEET_HEIGHT }]}
+        testID="insight-detail-sheet"
+      >
         {/* Drag handle */}
         <View style={styles.handleContainer}>
           <View style={[styles.handle, isDark && styles.handleDark]} />
@@ -92,6 +94,8 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
           {insight.body ? (
             <Text style={[styles.body, isDark && styles.bodyDark]}>{insight.body}</Text>
           ) : null}
+
+          <InsightQuickTake insight={insight} />
 
           {/* Category-specific content */}
           <View style={styles.contentSection}>

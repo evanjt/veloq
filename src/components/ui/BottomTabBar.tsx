@@ -1,17 +1,9 @@
 /**
  * Minimalist bottom navigation tab bar.
  * Gradient fade from content, subtle icons and labels.
- * During recording, Map tab shows pulsing red dot and navigates to recording screen.
  */
-import React, { memo, useCallback, useEffect, useRef } from 'react';
-import {
-  StyleSheet,
-  TouchableOpacity,
-  View,
-  Text,
-  Platform,
-  Animated as RNAnimated,
-} from 'react-native';
+import React, { memo, useCallback, useRef } from 'react';
+import { StyleSheet, TouchableOpacity, View, Text, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,11 +11,10 @@ import { usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
-import { brand } from '@/theme';
+import { brand, colorWithOpacity, spacing } from '@/theme';
 import { useInsightsStore } from '@/providers/InsightsStore';
 import { PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { navigateTab } from '@/lib';
-import { useRecordingStore } from '@/providers/RecordingStore';
 
 // Menu items with routes and icons (labels come from i18n)
 const MENU_ITEMS = [
@@ -39,13 +30,11 @@ export const TAB_BAR_HEIGHT = 60; // Height for icons + labels
 export const GRADIENT_HEIGHT = 20; // Small fade zone above icons
 export const TAB_BAR_SAFE_PADDING = TAB_BAR_HEIGHT + GRADIENT_HEIGHT; // Total padding for content
 const ICON_SIZE = 26;
-const RECORDING_DOT_SIZE = 8;
 
 // Colors - WCAG AA requires 3:1 for icons, 4.5:1 for text
-const INACTIVE_COLOR_DARK = 'rgba(255, 255, 255, 0.55)'; // Muted but visible
-const INACTIVE_COLOR_LIGHT = 'rgba(0, 0, 0, 0.45)'; // Muted but visible
+const INACTIVE_COLOR_DARK = colorWithOpacity('#FFFFFF', 0.55); // Muted but visible
+const INACTIVE_COLOR_LIGHT = colorWithOpacity('#000000', 0.45); // Muted but visible
 const ACTIVE_COLOR_DARK = '#FFFFFF'; // Bright white - pops
-const ACTIVE_COLOR_LIGHT = '#000000'; // Solid black - pops
 
 function BottomTabBarComponent() {
   // Performance: Track render count
@@ -61,26 +50,6 @@ function BottomTabBarComponent() {
   const { t } = useTranslation();
   const hasNewInsights = useInsightsStore((s) => s.hasNewInsights);
 
-  const recordingStatus = useRecordingStore((s) => s.status);
-  const recordingType = useRecordingStore((s) => s.activityType);
-  const isRecording = recordingStatus === 'recording' || recordingStatus === 'paused';
-
-  // Pulsing animation for recording dot
-  const pulseAnim = useRef(new RNAnimated.Value(1)).current;
-  useEffect(() => {
-    if (recordingStatus === 'recording') {
-      const pulse = RNAnimated.loop(
-        RNAnimated.sequence([
-          RNAnimated.timing(pulseAnim, { toValue: 0.3, duration: 800, useNativeDriver: true }),
-          RNAnimated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-        ])
-      );
-      pulse.start();
-      return () => pulse.stop();
-    }
-    pulseAnim.setValue(1);
-  }, [recordingStatus, pulseAnim]);
-
   // Colors with proper contrast for accessibility
   const activeColor = isDark ? ACTIVE_COLOR_DARK : brand.tealLight;
   const inactiveColor = isDark ? INACTIVE_COLOR_DARK : INACTIVE_COLOR_LIGHT;
@@ -89,29 +58,23 @@ function BottomTabBarComponent() {
   const gradientColors = isDark
     ? ([
         'transparent',
-        'rgba(0, 0, 0, 0.35)',
-        'rgba(0, 0, 0, 0.6)',
-        'rgba(0, 0, 0, 0.8)',
-        'rgba(0, 0, 0, 0.9)',
-        'rgba(0, 0, 0, 0.92)',
+        colorWithOpacity('#000000', 0.35),
+        colorWithOpacity('#000000', 0.6),
+        colorWithOpacity('#000000', 0.8),
+        colorWithOpacity('#000000', 0.9),
+        colorWithOpacity('#000000', 0.92),
       ] as const)
     : ([
         'transparent',
-        'rgba(255, 255, 255, 0.35)',
-        'rgba(255, 255, 255, 0.6)',
-        'rgba(255, 255, 255, 0.8)',
-        'rgba(255, 255, 255, 0.9)',
-        'rgba(255, 255, 255, 0.92)',
+        colorWithOpacity('#FFFFFF', 0.35),
+        colorWithOpacity('#FFFFFF', 0.6),
+        colorWithOpacity('#FFFFFF', 0.8),
+        colorWithOpacity('#FFFFFF', 0.9),
+        colorWithOpacity('#FFFFFF', 0.92),
       ] as const);
 
   const handlePress = useCallback(
-    (route: string, key: string) => {
-      // During recording, Map tab navigates to recording screen instead
-      if (key === 'map' && isRecording && recordingType) {
-        navigateTab(`/recording/${recordingType}`);
-        return;
-      }
-
+    (route: string) => {
       const isCurrentRoute =
         route === '/' ? pathname === '/' || pathname === '/index' : pathname.startsWith(route);
 
@@ -129,7 +92,7 @@ function BottomTabBarComponent() {
       }
       navigateTab(route);
     },
-    [pathname, isRecording, recordingType]
+    [pathname]
   );
 
   const totalHeight = GRADIENT_HEIGHT + TAB_BAR_HEIGHT + insets.bottom;
@@ -152,51 +115,37 @@ function BottomTabBarComponent() {
                 ? pathname === '/' || pathname === '/index'
                 : pathname.startsWith(item.route);
 
-            const isMapTab = item.key === 'map';
             const label = t(`navigation.${item.key}`);
 
             return (
               <TouchableOpacity
                 key={item.key}
                 style={styles.tabItem}
-                onPress={() => handlePress(item.route, item.key)}
+                onPress={() => handlePress(item.route)}
                 activeOpacity={0.6}
                 accessibilityLabel={label}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: isActive }}
               >
                 <View style={styles.iconContainer}>
-                  {isMapTab && isRecording ? (
-                    <RNAnimated.View style={[styles.recordingDot, { opacity: pulseAnim }]} />
-                  ) : (
-                    <>
-                      <MaterialCommunityIcons
-                        name={item.icon as never}
-                        size={isActive ? ICON_SIZE + 2 : ICON_SIZE}
-                        color={isActive ? activeColor : inactiveColor}
-                      />
-                      {item.key === 'insights' && hasNewInsights && (
-                        <View style={styles.notificationDot} />
-                      )}
-                    </>
+                  <MaterialCommunityIcons
+                    name={item.icon as never}
+                    size={isActive ? ICON_SIZE + 2 : ICON_SIZE}
+                    color={isActive ? activeColor : inactiveColor}
+                  />
+                  {item.key === 'insights' && hasNewInsights && (
+                    <View testID="tab-insights-badge" style={styles.notificationDot} />
                   )}
                 </View>
                 <Text
                   style={[
                     styles.label,
-                    {
-                      color:
-                        isMapTab && isRecording
-                          ? '#EF4444'
-                          : isActive
-                            ? activeColor
-                            : inactiveColor,
-                    },
+                    { color: isActive ? activeColor : inactiveColor },
                     isActive && styles.labelActive,
                   ]}
                   numberOfLines={1}
                 >
-                  {isMapTab && isRecording ? t('recording.recording') : label}
+                  {label}
                 </Text>
               </TouchableOpacity>
             );
@@ -236,16 +185,10 @@ const styles = StyleSheet.create({
     height: ICON_SIZE + 2,
     width: ICON_SIZE + 2,
   },
-  recordingDot: {
-    width: RECORDING_DOT_SIZE,
-    height: RECORDING_DOT_SIZE,
-    borderRadius: RECORDING_DOT_SIZE / 2,
-    backgroundColor: '#EF4444',
-  },
   label: {
     fontSize: 11,
     fontWeight: '500',
-    marginTop: 3,
+    marginTop: spacing.xs,
   },
   labelActive: {
     fontWeight: '700',
@@ -257,6 +200,6 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#FC4C02',
+    backgroundColor: brand.orange,
   },
 });

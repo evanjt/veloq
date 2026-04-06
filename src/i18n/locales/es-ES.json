@@ -146,8 +146,17 @@
       "intervals": "Intervalos",
       "route": "Ruta",
       "routes": "Rutas",
-      "sections": "Secciones"
-    }
+      "sections": "Secciones",
+      "exercises": "Ejercicios"
+    },
+    "primary": "Primario",
+    "secondary": "Secundario",
+    "exercises": "Ejercicios",
+    "exercisesSummary": "{{exercises}} ejercicios · {{sets}} series",
+    "muscleDataSource": "Datos musculares: free-exercise-db",
+    "bodyShapeFromProfile": "Tu perfil: {{gender}}",
+    "bodyShapeRandom": "Cuerpo elegido al azar — sin género en el perfil de intervals.icu",
+    "tapMuscle": "Tap for details"
   },
   "alerts": {
     "cacheCleared": "Caché vaciada",
@@ -184,7 +193,33 @@
     "preferencesRestored": "{{count}} preferencias restauradas",
     "restoreComplete": "Restauración completada",
     "sectionsRestored": "{{count}} secciones personalizadas restauradas",
-    "sectionsSkipped": "{{count}} secciones omitidas (sincroniza las actividades primero)"
+    "sectionsSkipped": "{{count}} secciones omitidas (sincroniza las actividades primero)",
+    "exportDatabase": "Export Database",
+    "importDatabase": "Import Database",
+    "databaseRestored": "Database restored with {{count}} activities",
+    "exportingDatabase": "Exporting database...",
+    "importingDatabase": "Importing database...",
+    "autoBackup": "Auto-Backup",
+    "autoBackupDescription": "Automatically back up after sync",
+    "lastBackup": "Last backup: {{date}}",
+    "lastBackupNever": "Never backed up",
+    "backupNow": "Back Up Now",
+    "backingUp": "Backing up...",
+    "selectBackend": "Backup to",
+    "backendLocal": "Local Storage",
+    "backendWebdav": "WebDAV / Nextcloud",
+    "backendIcloud": "iCloud",
+    "serverUrl": "Server URL",
+    "username": "Username",
+    "password": "Password",
+    "testConnection": "Test Connection",
+    "connectionSuccess": "Connection successful",
+    "connectionFailed": "Connection failed",
+    "restoreFromBackup": "Restaurar desde copia de seguridad",
+    "backupFound": "Backup Found",
+    "differentAccount": "Warning: This backup belongs to a different account.",
+    "differentAccountMessage": "Los datos restaurados pertenecen a otra cuenta. ¿Borrar datos y sincronizar de nuevo para esta cuenta?",
+    "clearAndSync": "Borrar y Sincr."
   },
   "cache": {
     "addingActivities": "Añadiendo actividades...",
@@ -379,8 +414,8 @@
     "fatigueDescription": "es un promedio móvil ponderado exponencialmente de 7 días de vuestra carga de entrenamiento.",
     "fitnessAndFatigue": "Forma física y fatiga",
     "fitnessDescription": "es un promedio móvil ponderado exponencialmente de 42 días de vuestra carga de entrenamiento.",
-    "forRaces": "para las carreras. Evita la",
-    "formDescription": "es la forma física menos la fatiga. Entrena en la",
+    "forRaces": "zona refleja baja fatiga. La",
+    "formDescription": "es fitness menos fatiga. La",
     "fresh": "fresco",
     "highRiskZone": "zona de alto riesgo",
     "learnMore": "Saber más",
@@ -390,8 +425,15 @@
     "loadingData": "Cargando datos de forma física...",
     "optimalZone": "zona óptima",
     "title": "Forma física",
-    "toBuildFitness": "para ganar forma. Mantente",
-    "toPreventOvertraining": "para prevenir el sobreentrenamiento.",
+    "toBuildFitness": "indica carga de entrenamiento productiva. La",
+    "toPreventOvertraining": "indica alta fatiga acumulada.",
+    "guidance": {
+      "highRisk": "TSB por debajo de -30. La fatiga acumulada supera significativamente las ganancias de fitness recientes.",
+      "optimal": "TSB entre -30 y -10. La carga de entrenamiento está produciendo adaptaciones de fitness.",
+      "greyZone": "TSB entre -10 y 5. Equilibrio moderado entre fitness y fatiga.",
+      "fresh": "TSB entre 5 y 25. Baja fatiga en relación al fitness. El tiempo prolongado aquí corresponde típicamente con un fitness en descenso.",
+      "transition": "TSB por encima de 25. Estímulo de entrenamiento reciente mínimo. Fitness en descenso."
+    },
     "tsb": "TSB",
     "understandingMetrics": "Entendiendo las métricas"
   },
@@ -407,6 +449,7 @@
   },
   "insights": {
     "title": "Perspectivas",
+    "strength": "Strength",
     "noInsights": "Las perspectivas aparecerán mientras entrenáis",
     "noInsightsHint": "Completad más actividades para ver perspectivas personalizadas",
     "sectionPr": "PR en {{name}}",
@@ -422,8 +465,6 @@
     "weeklyLoadUp": "+{{percent}}% carga de entrenamiento",
     "weeklyLoadDown": "{{percent}}% menos de carga",
     "loadBody": "TSS: {{currentTss}} esta semana vs {{previousTss}} la semana pasada. Duración: {{currentDuration}} vs {{previousDuration}}.",
-    "patternMatch": "{{day}} - generalmente {{verb}} ~{{duration}}",
-    "consistencyStreak": "Racha de {{count}} semanas",
     "volumeBody": "Duración del entrenamiento: {{current}} esta semana vs {{previous}} la semana pasada. Esto mide tiempo, no carga de entrenamiento (TSS).",
     "viewDetails": "Ver detalles",
     "today": "HOY",
@@ -442,8 +483,6 @@
       "hrvTrend": "HRV {{direction}} {{percent}}% esta semana",
       "tomorrowPattern": "Mañana suele ser día de {{verb}}",
       "tomorrowPatternBody": "Basado en {{count}} actividades previas de {{day}}, normalmente hacéis {{verb}} por ~{{duration}}.",
-      "intensityContext": "{{count}} sessions this week",
-      "intensityContextBody": "You've completed {{count}} sessions totalling {{duration}} this week.",
       "sectionTrends": "{{improving}} of {{total}} sections improving"
     },
     "methodology": {
@@ -491,32 +530,6 @@
       "efforts": "Esfuerzos",
       "trendSlope": "Pendiente de tendencia"
     },
-    "consistencyPartial": "Trained {{good}} of last {{total}} weeks",
-    "tsbForm": {
-      "title": "Form: {{tsb}} ({{zone}})",
-      "body": "TSB {{tsb}} = CTL {{ctl}} - ATL {{atl}}. Zone: {{zone}} — {{zoneDescription}}",
-      "zones": {
-        "fresh": "Fresh",
-        "transition": "Transition",
-        "greyZone": "Maintenance",
-        "optimal": "Productive training",
-        "highRisk": "Deep fatigue"
-      },
-      "zoneDescriptions": {
-        "fresh": "Well-rested, fitness exceeds fatigue",
-        "transition": "Between training and freshness",
-        "greyZone": "Moderate training load",
-        "optimal": "Where most adaptation occurs",
-        "highRisk": "Significant accumulated fatigue"
-      },
-      "titles": {
-        "fresh": "Peak form — ready to race",
-        "transition": "Fresh — good for hard training",
-        "greyZone": "Balanced — steady training",
-        "optimal": "Building fitness — fatigue accumulating",
-        "highRisk": "Heavy load — recovery important"
-      }
-    },
     "hrvTrend": {
       "trendingUp": "Recovery improving",
       "trendingDown": "Recovery dipping",
@@ -532,15 +545,15 @@
       "body": "This week: {{acute}} TSS vs 4-week average of {{chronic}} TSS ({{percent}}% difference)."
     },
     "stalePr": {
-      "title": "{{section}}: PR might be beatable",
-      "subtitle": "PR at {{prFtp}}W FTP, now {{currentFtp}}W (+{{gainPercent}}%)",
-      "body": "{{section}}: PR of {{prTime}} set at {{prFtp}}W FTP. Current FTP: {{currentFtp}}W.",
-      "currentFtp": "Current FTP",
-      "prFtp": "FTP at PR",
-      "ftpGain": "FTP gain",
+      "title": "{{section}}: fitness cambiado desde PR",
+      "subtitle": "PR {{prTime}} a {{metric}} {{previous}}, ahora {{current}} (+{{gainPercent}}%)",
+      "body": "{{section}}: PR establecido a {{metric}} {{previous}}. {{metric}} actual: {{current}}.",
+      "currentMetric": "{{metric}} actual",
+      "prMetric": "{{metric}} en PR",
+      "metricGain": "Ganancia de {{metric}}",
       "prTime": "PR time",
-      "methodology": "Compares FTP at PR time vs current FTP. Higher FTP suggests untapped potential on power-dependent sections.",
-      "groupTitle": "{{count}} PRs to revisit"
+      "methodology": "Compara métricas de fitness en el momento del PR con valores actuales. Muestra secciones donde las métricas de fitness han cambiado desde que se estableció el PR.",
+      "groupTitle": "{{count}} PRs con cambios de fitness"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -549,18 +562,31 @@
     "aboutTitle": "About Insights",
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only — not medical or coaching advice.",
-    "sectionCluster": {
-      "improvingTitle": "{{name}} getting faster",
-      "decliningTitle": "{{name}} slowing down",
-      "improvingBody": "{{names}} trending faster across {{count}} sections.",
-      "decliningBody": "{{names}} — {{count}} sections where times have slowed.",
-      "methodology": "Sections grouped by performance trend direction. Clusters of 2+ sections with the same trend are surfaced.",
-      "subtitle": "and {{count}} other {{sport}} sections"
-    },
     "efficiencyTrend": {
       "title": "FC bajando en {{name}}",
       "subtitle": "{{hrChange}} ppm menos en {{efforts}} esfuerzos",
       "body": "En {{efforts}} esfuerzos en {{name}}, tu frecuencia cardíaca al mismo ritmo ha bajado {{hrChange}} ppm."
+    },
+    "teaser": {
+      "workoutToday": "{{name}} hoy",
+      "prOpportunity": "Oportunidad de RP en {{name}}",
+      "usualPattern": "Los {{day}} sueles hacer {{sport}} ~{{duration}}",
+      "improving": "mejorando ↑",
+      "stable": "estable"
+    },
+    "strengthBalance": {
+      "volumeSplit": "Reparto de volumen",
+      "balanced": "Equilibrado",
+      "watch": "Vigilar",
+      "imbalanced": "Desequilibrado",
+      "oneSided": "Unilateral",
+      "lowSignal": "Señal débil",
+      "noSignal": "Sin señal",
+      "noRecentVolume": "Sin volumen en las últimas 4 semanas — solo aparece en el periodo ampliado.",
+      "volumeAppeared": "Apareció volumen en las dos últimas semanas tras un inicio más tranquilo.",
+      "volumeUp": "La media de las 2 últimas semanas está {{percent}}% por encima de las 2 anteriores.",
+      "volumeDown": "La media de las 2 últimas semanas está {{percent}}% por debajo de las 2 anteriores.",
+      "volumeSteady": "La media de las 2 últimas semanas se mantiene estable respecto al inicio del mes."
     }
   },
   "licenses": {
@@ -593,6 +619,7 @@
     "instructions": "1. Abrid los Ajustes de Intervals.icu\n2. Id a \"Configuración de desarrollador\"\n3. Copiad vuestra clave API",
     "invalidApiKey": "Clave API no válida. Por favor, verificad vuestra clave e intentadlo de nuevo.",
     "localModeNote": "Modo local: todos los datos permanecen en vuestro dispositivo",
+    "apiKeyNoNotifications": "Push notifications are not available with API key login.",
     "loginWithIntervals": "Iniciar sesión con intervals.icu",
     "noAccount": "¿Nuevo en intervals.icu?",
     "oauthFailed": "Error al iniciar sesión. Por favor, intentadlo de nuevo.",
@@ -1027,7 +1054,29 @@
     "visits": "visitas",
     "visitsCount": "{{count}} visitas",
     "yearPr": "RP del año",
-    "moreActions": "Más acciones"
+    "moreActions": "Más acciones",
+    "scanForMatches": "Scan for matches",
+    "scanForMore": "Scan for more sections",
+    "scanning": "Scanning...",
+    "noMatchesFound": "No matching sections found",
+    "noSectionsFound": "No sections found",
+    "matchQuality": "{{quality}}% match",
+    "addToSection": "Add",
+    "nearbySections": "Nearby sections",
+    "nearbySectionsCount": "{{count}} nearby",
+    "similarNearby": "Similar section nearby",
+    "similarNearbyCount": "{{count}} similar sections nearby",
+    "mergeSections": "Merge sections",
+    "mergeKeepMessage": "Choose which section to keep. All traversal history will be preserved.",
+    "mergeInto": "\"{{secondary}}\" will be merged into \"{{primary}}\"",
+    "mergeSuccess": "Sections merged",
+    "rescan": "Re-scan",
+    "rescanComplete": "Re-scan complete",
+    "forceRedetect": "Force full re-detect",
+    "rematchActivities": "Re-match activities",
+    "awayDistance": "{{distance}}m away",
+    "viewSection": "View",
+    "merge": "Merge"
   },
   "settings": {
     "account": "Cuenta",
@@ -1143,7 +1192,9 @@
     "version": "Versión",
     "viewRoutes": "Ver rutas",
     "mapTiles": "Mosaicos de mapa",
-    "recording": "Grabación"
+    "recording": "Grabación",
+    "cache": "Caché",
+    "permissions": "Permisos"
   },
   "stats": {
     "activities": "Actividades",
@@ -1294,8 +1345,8 @@
     "dayAverage": "Media de {{count}} días",
     "dragToExplore": "Arrastrad para explorar",
     "hrs": "hrs",
-    "insightExtraRecovery": "Considerad recuperación extra hoy",
-    "insightGoodRecovery": "Buena recuperación - os estáis adaptando bien",
+    "insightExtraRecovery": "VFC en descenso, FC en reposo en aumento",
+    "insightGoodRecovery": "VFC en aumento, FC en reposo en descenso",
     "insightStable": "Las métricas se ven estables",
     "lastDays": "Últimos {{count}} días",
     "noData": "Sin datos de bienestar",
@@ -1314,6 +1365,56 @@
   "wellnessScreen": {
     "title": "Bienestar",
     "trends": "Tendencias de bienestar"
+  },
+  "notifications": {
+    "sectionPr": {
+      "title": "New PR!"
+    },
+    "fitnessMilestone": {
+      "title": "Fitness Milestone"
+    },
+    "periodComparison": {
+      "title": "Weekly Summary"
+    },
+    "hrvTrend": {
+      "title": "HRV Trend"
+    },
+    "stalePr": {
+      "title": "Actualización de PR"
+    },
+    "efficiencyTrend": {
+      "title": "Efficiency Trend"
+    },
+    "generic": {
+      "title": "New Insight"
+    },
+    "activityRecorded": {
+      "title": "Activity Recorded",
+      "body": "New activity synced. Open the app for details."
+    },
+    "privacy": {
+      "title": "Privacy Notice",
+      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
+      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 30-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
+      "accept": "I understand"
+    },
+    "settings": {
+      "title": "Notifications",
+      "enable": "Enable notifications",
+      "categories": "Notification categories",
+      "sectionPr": "Section personal records",
+      "fitnessMilestone": "Fitness milestones",
+      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
+      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
+      "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
+    },
+    "prompt": {
+      "title": "Notificaciones de actividad",
+      "description": "Recibe notificaciones sobre nuevas actividades y logros",
+      "enable": "Activar",
+      "dismiss": "No, gracias",
+      "settingsHint": "Puedes activar las notificaciones en cualquier momento en Ajustes"
+    }
   },
   "whatsNew": {
     "skipButton": "Omitir",

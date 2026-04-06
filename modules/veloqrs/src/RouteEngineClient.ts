@@ -36,6 +36,40 @@ import type {
   DownloadProgressResult,
 } from './generated/veloqrs';
 
+// Types for new FFI methods — will be auto-generated after Rust rebuild
+export interface FfiSectionMatch {
+  sectionId: string;
+  sectionName: string | undefined;
+  sportType: string;
+  startIndex: bigint;
+  endIndex: bigint;
+  matchQuality: number;
+  sameDirection: boolean;
+  distanceMeters: number;
+}
+
+export interface FfiMergeCandidate {
+  sectionId: string;
+  name: string | undefined;
+  sportType: string;
+  distanceMeters: number;
+  visitCount: number;
+  overlapPct: number;
+  centerDistanceMeters: number;
+}
+
+export interface FfiNearbySectionSummary {
+  id: string;
+  sectionType: string;
+  name: string | undefined;
+  sportType: string;
+  distanceMeters: number;
+  visitCount: number;
+  centerDistanceMeters: number;
+  polylineCoords: number[];
+}
+
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   flatCoordsToPoints,
   validateId,
@@ -159,6 +193,19 @@ class RouteEngineClient {
     if (result) {
       this.initialized = true;
       this.dbPath = dbPath;
+      // Configure heatmap tiles path so Rust generates tiles on background threads
+      // Strip file:// prefix for plain filesystem path (Rust expects plain path, not URL)
+      const tilesPath = `${FileSystem.documentDirectory}heatmap-tiles/`;
+      const normalizedTilesPath = tilesPath.startsWith('file://')
+        ? tilesPath.slice(7)
+        : tilesPath;
+      try {
+        console.log('[RouteEngineClient] Setting heatmap tiles path to:', normalizedTilesPath);
+        this.engine.heatmap().setTilesPath(normalizedTilesPath);
+      } catch (e) {
+        // Non-critical — tiles just won't generate
+        console.warn('[RouteEngineClient] Failed to set heatmap tiles path:', e);
+      }
       if (this.pendingMetrics) {
         this.timed('setActivityMetrics', () =>
           this.engine.activities().setMetrics(this.pendingMetrics!),
@@ -176,6 +223,19 @@ class RouteEngineClient {
 
   isPersistent(): boolean {
     return this.dbPath !== null;
+  }
+
+  /** Drop the Rust engine singleton without clearing data. Used before database restore. */
+  destroyEngine(): void {
+    try {
+      this.engine?.destroy();
+    } catch {
+      // Best-effort destroy
+    }
+    this.initialized = false;
+    this.dbPath = null;
+    this.engine = null;
+    this.pendingMetrics = null;
   }
 
   clear(): void {
@@ -380,12 +440,18 @@ class RouteEngineClient {
     this.notify('groups');
   }
 
-  setSectionName(sectionId: string, name: string): void {
-    if (!this.ready) return;
+  setSectionName(sectionId: string, name: string): boolean {
+    if (!this.ready) return false;
     validateId(sectionId, 'section ID');
     validateName(name, 'section name');
-    this.timed('setSectionName', () => this.engine.sections().setName(sectionId, name));
-    this.notify('sections');
+    try {
+      this.timed('setSectionName', () => this.engine.sections().setName(sectionId, name));
+      this.notify('sections');
+      return true;
+    } catch (e) {
+      console.error('[RouteEngine] setSectionName failed:', sectionId, e);
+      return false;
+    }
   }
 
 
@@ -489,20 +555,32 @@ class RouteEngineClient {
     );
   }
 
-  excludeActivityFromSection(sectionId: string, activityId: string): void {
-    if (!this.ready) return;
-    this.timed('excludeActivityFromSection', () =>
-      this.engine.sections().excludeActivity(sectionId, activityId),
-    );
-    this.notify('sections');
+  excludeActivityFromSection(sectionId: string, activityId: string): boolean {
+    if (!this.ready) return false;
+    try {
+      this.timed('excludeActivityFromSection', () =>
+        this.engine.sections().excludeActivity(sectionId, activityId),
+      );
+      this.notify('sections');
+      return true;
+    } catch (e) {
+      console.error('[RouteEngine] excludeActivityFromSection failed:', sectionId, activityId, e);
+      return false;
+    }
   }
 
-  includeActivityInSection(sectionId: string, activityId: string): void {
-    if (!this.ready) return;
-    this.timed('includeActivityInSection', () =>
-      this.engine.sections().includeActivity(sectionId, activityId),
-    );
-    this.notify('sections');
+  includeActivityInSection(sectionId: string, activityId: string): boolean {
+    if (!this.ready) return false;
+    try {
+      this.timed('includeActivityInSection', () =>
+        this.engine.sections().includeActivity(sectionId, activityId),
+      );
+      this.notify('sections');
+      return true;
+    } catch (e) {
+      console.error('[RouteEngine] includeActivityInSection failed:', sectionId, activityId, e);
+      return false;
+    }
   }
 
   getExcludedActivityIds(sectionId: string): string[] {
@@ -586,6 +664,10 @@ class RouteEngineClient {
     sectionLimit = 20,
     sectionOffset = 0,
     minGroupActivityCount = 2,
+    prioritizeNearestGroups = false,
+    prioritizeNearestSections = false,
+    userLat = Number.NaN,
+    userLng = Number.NaN,
   ): FfiRoutesScreenData | undefined {
     if (!this.ready) return undefined;
     try {
@@ -598,6 +680,10 @@ class RouteEngineClient {
             sectionLimit,
             sectionOffset,
             minGroupActivityCount,
+            prioritizeNearestGroups,
+            prioritizeNearestSections,
+            userLat,
+            userLng,
           ),
       );
     } catch {
@@ -738,6 +824,28 @@ class RouteEngineClient {
   }
 
   // ==========================================================================
+  // Heatmap Tiles (Raster tile generation for map overlay)
+  // ==========================================================================
+  // Tile generation is handled in Rust on background threads.
+  // Only clear is exposed to JS (for settings "clear cache").
+
+  /** Clear all heatmap tiles from disk. */
+  clearHeatmapTiles(basePath: string): number {
+    if (!this.ready) return 0;
+    return this.timed('clearHeatmapTiles', () => this.engine.heatmap().clearTiles(basePath));
+  }
+
+  /** Poll tile generation status: 'idle' | 'running' | 'complete' */
+  pollTileGeneration(): string {
+    if (!this.ready) return 'idle';
+    try {
+      return this.engine.heatmap().poll();
+    } catch {
+      return 'error';
+    }
+  }
+
+  // ==========================================================================
   // Activity Pattern Detection (K-means clustering)
   // ==========================================================================
 
@@ -806,6 +914,97 @@ class RouteEngineClient {
     }
   }
 
+  // ==========================================================================
+  // User Preferences (SQLite settings table)
+  // ==========================================================================
+
+  getSetting(key: string): string | undefined {
+    if (!this.ready) return undefined;
+    try {
+      return this.engine.settings().getSetting(key) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  setSetting(key: string, value: string): void {
+    if (!this.ready) return;
+    try {
+      this.engine.settings().setSetting(key, value);
+    } catch {
+      // Settings write failed — non-critical
+    }
+  }
+
+  getAllSettings(): Record<string, string> {
+    if (!this.ready) return {};
+    try {
+      const json = this.engine.settings().getAllSettings();
+      return JSON.parse(json) as Record<string, string>;
+    } catch {
+      return {};
+    }
+  }
+
+  setAllSettings(settings: Record<string, string>): void {
+    if (!this.ready) return;
+    try {
+      this.engine.settings().setAllSettings(JSON.stringify(settings));
+    } catch {
+      // Settings write failed — non-critical
+    }
+  }
+
+  deleteSetting(key: string): void {
+    if (!this.ready) return;
+    try {
+      this.engine.settings().deleteSetting(key);
+    } catch {
+      // Settings delete failed — non-critical
+    }
+  }
+
+  // ==========================================================================
+  // Database Backup
+  // ==========================================================================
+
+  backupDatabase(destPath: string): void {
+    if (!this.ready) throw new Error('Engine not initialized');
+    this.timed('backupDatabase', () => this.engine.backupDatabase(destPath));
+  }
+
+  getBackupMetadata(): Record<string, unknown> {
+    if (!this.ready) return {};
+    try {
+      const json = this.engine.getBackupMetadata();
+      return JSON.parse(json) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+
+  /** Bulk export all GPS activities as a ZIP of GPX files. Streams in Rust — constant memory. */
+  bulkExportGpx(destPath: string): { exported: number; skipped: number; totalBytes: number } {
+    if (!this.ready) throw new Error('Engine not initialized');
+    const result = this.timed('bulkExportGpx', () => this.engine.bulkExportGpx(destPath));
+    return {
+      exported: result.exported,
+      skipped: result.skipped,
+      totalBytes: Number(result.totalBytes),
+    };
+  }
+
+  /** Bulk export all GPS activities as a single GeoJSON FeatureCollection. */
+  bulkExportGeoJson(destPath: string): { exported: number; skipped: number; totalBytes: number } {
+    if (!this.ready) throw new Error('Engine not initialized');
+    const result = this.timed('bulkExportGeoJson', () => this.engine.bulkExportGeojson(destPath));
+    return {
+      exported: result.exported,
+      skipped: result.skipped,
+      totalBytes: Number(result.totalBytes),
+    };
+  }
+
   computePolylineOverlap(coordsA: number[], coordsB: number[], thresholdMeters = 50): number {
     return this.timed('computePolylineOverlap', () =>
       gen().computePolylineOverlap(coordsA, coordsB, thresholdMeters),
@@ -862,12 +1061,92 @@ class RouteEngineClient {
     if (!this.ready) return false;
     validateId(sectionId, 'section ID');
     try {
-      this.timed('deleteSection', () => this.engine.sections().delete(sectionId));
+      this.timed('deleteSection', () => this.engine.sections().delete_(sectionId));
       this.notify('sections');
       return true;
-    } catch {
+    } catch (e) {
+      console.error('[RouteEngine] deleteSection failed:', sectionId, e);
       return false;
     }
+  }
+
+  disableSection(sectionId: string): boolean {
+    if (!this.ready) return false;
+    try {
+      this.engine.sections().disable(sectionId);
+      this.notify('sections');
+      return true;
+    } catch (e) {
+      console.error('[RouteEngine] disableSection failed:', sectionId, e);
+      return false;
+    }
+  }
+
+  enableSection(sectionId: string): boolean {
+    if (!this.ready) return false;
+    try {
+      this.engine.sections().enable(sectionId);
+      this.notify('sections');
+      return true;
+    } catch (e) {
+      console.error('[RouteEngine] enableSection failed:', sectionId, e);
+      return false;
+    }
+  }
+
+  setSuperseded(autoSectionId: string, customSectionId: string): boolean {
+    if (!this.ready) return false;
+    try {
+      this.engine.sections().setSuperseded(autoSectionId, customSectionId);
+      return true;
+    } catch (e) {
+      console.error('[RouteEngine] setSuperseded failed:', autoSectionId, e);
+      return false;
+    }
+  }
+
+  clearSuperseded(customSectionId: string): boolean {
+    if (!this.ready) return false;
+    try {
+      this.engine.sections().clearSuperseded(customSectionId);
+      this.notify('sections');
+      return true;
+    } catch (e) {
+      console.error('[RouteEngine] clearSuperseded failed:', customSectionId, e);
+      return false;
+    }
+  }
+
+  importDisabledIds(ids: string[]): number {
+    if (!this.ready || ids.length === 0) return 0;
+    try {
+      return this.engine.sections().importDisabledIds(ids);
+    } catch (e) {
+      console.error('[RouteEngine] importDisabledIds failed:', e);
+      return 0;
+    }
+  }
+
+  importSupersededMap(map: Record<string, string[]>): number {
+    if (!this.ready) return 0;
+    const entries = Object.entries(map).map(([customSectionId, autoSectionIds]) => ({
+      customSectionId,
+      autoSectionIds,
+    }));
+    if (entries.length === 0) return 0;
+    try {
+      return this.engine.sections().importSupersededMap(entries);
+    } catch (e) {
+      console.error('[RouteEngine] importSupersededMap failed:', e);
+      return 0;
+    }
+  }
+
+  getAllSectionsIncludingHidden(sportType?: string): SectionSummary[] {
+    if (!this.ready) return [];
+    return this.timed('getAllSectionsIncludingHidden', () =>
+      this.engine.sections().getAllSummariesIncludingHidden(sportType ?? null),
+    );
   }
 
   detectPotentials(sportFilter?: string): FfiPotentialSection[] {
@@ -924,7 +1203,8 @@ class RouteEngineClient {
       );
       this.notify('sections');
       return true;
-    } catch {
+    } catch (e) {
+      console.error('[RouteEngine] setSectionReference failed:', sectionId, activityId, e);
       return false;
     }
   }
@@ -938,7 +1218,8 @@ class RouteEngineClient {
       );
       this.notify('sections');
       return true;
-    } catch {
+    } catch (e) {
+      console.error('[RouteEngine] resetSectionReference failed:', sectionId, e);
       return false;
     }
   }
@@ -965,7 +1246,8 @@ class RouteEngineClient {
       );
       this.notifyAll('sections');
       return true;
-    } catch {
+    } catch (e) {
+      console.error('[RouteEngine] trimSection failed:', sectionId, { startIndex, endIndex }, e);
       return false;
     }
   }
@@ -977,7 +1259,8 @@ class RouteEngineClient {
       this.timed('resetSectionBounds', () => this.engine.sections().resetBounds(sectionId));
       this.notifyAll('sections');
       return true;
-    } catch {
+    } catch (e) {
+      console.error('[RouteEngine] resetSectionBounds failed:', sectionId, e);
       return false;
     }
   }
@@ -1008,7 +1291,8 @@ class RouteEngineClient {
           sectionEndIdx: result.sectionEndIdx,
         };
       });
-    } catch {
+    } catch (e) {
+      console.error('[RouteEngine] getSectionExtensionTrack failed:', sectionId, e);
       return null;
     }
   }
@@ -1026,7 +1310,8 @@ class RouteEngineClient {
       );
       this.notifyAll('sections');
       return true;
-    } catch {
+    } catch (e) {
+      console.error('[RouteEngine] expandSectionBounds failed:', sectionId, e);
       return false;
     }
   }
@@ -1055,6 +1340,158 @@ class RouteEngineClient {
       this.notifyAll('activities', 'groups', 'sections');
     }
     return created;
+  }
+
+  // ========================================================================
+  // Strength Training
+  // ========================================================================
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getExerciseSets(activityId: string): any[] {
+    return this.timed('getExerciseSets', () =>
+      this.engine.strength().getExerciseSets(activityId),
+    );
+  }
+
+  isFitProcessed(activityId: string): boolean {
+    return this.timed('isFitProcessed', () =>
+      this.engine.strength().isFitProcessed(activityId),
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fetchAndParseExerciseSets(authHeader: string, activityId: string): any[] {
+    return this.timed('fetchAndParseExerciseSets', () =>
+      this.engine.strength().fetchAndParseExerciseSets(authHeader, activityId),
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getMuscleGroups(activityId: string): any[] {
+    return this.timed('getMuscleGroups', () =>
+      this.engine.strength().getMuscleGroups(activityId),
+    );
+  }
+
+  getUnprocessedStrengthIds(activityIds: string[]): string[] {
+    return this.timed('getUnprocessedStrengthIds', () =>
+      this.engine.strength().getUnprocessedStrengthIds(activityIds),
+    );
+  }
+
+  batchFetchExerciseSets(authHeader: string, activityIds: string[]): string[] {
+    return this.timed('batchFetchExerciseSets', () =>
+      this.engine.strength().batchFetchExerciseSets(authHeader, activityIds),
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getStrengthSummary(startTs: number, endTs: number): any {
+    return this.timed('getStrengthSummary', () =>
+      this.engine.strength().getStrengthSummary(BigInt(startTs), BigInt(endTs)),
+    );
+  }
+
+  hasStrengthData(): boolean {
+    return this.timed('hasStrengthData', () => this.engine.strength().hasStrengthData());
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getExercisesForMuscle(startTs: number, endTs: number, muscleSlug: string): any {
+    return this.timed('getExercisesForMuscle', () =>
+      this.engine
+        .strength()
+        .getExercisesForMuscle(BigInt(startTs), BigInt(endTs), muscleSlug),
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getActivitiesForExercise(
+    startTs: number,
+    endTs: number,
+    muscleSlug: string,
+    exerciseCategory: number,
+  ): any {
+    return this.timed('getActivitiesForExercise', () =>
+      this.engine
+        .strength()
+        .getActivitiesForExercise(BigInt(startTs), BigInt(endTs), muscleSlug, exerciseCategory),
+    );
+  }
+
+  // ========================================================================
+  // Section Matching, Nearby, Merge, Re-detect
+  // ========================================================================
+
+  matchActivityToSections(activityId: string): FfiSectionMatch[] {
+    if (!this.ready) return [];
+    validateId(activityId, 'activity ID');
+    return this.timed('matchActivityToSections', () =>
+      this.engine.sections().matchActivityToSections(activityId),
+    );
+  }
+
+  rematchActivityToSection(activityId: string, sectionId: string): boolean {
+    if (!this.ready) return false;
+    validateId(activityId, 'activity ID');
+    validateId(sectionId, 'section ID');
+    try {
+      const result = this.timed('rematchActivityToSection', () =>
+        this.engine.sections().rematchActivityToSection(activityId, sectionId),
+      );
+      if (result) {
+        this.notify('sections');
+      }
+      return result;
+    } catch (e) {
+      console.error('[RouteEngine] rematchActivityToSection failed:', e);
+      return false;
+    }
+  }
+
+  getNearbySections(sectionId: string, radiusMeters: number = 500): FfiNearbySectionSummary[] {
+    if (!this.ready) return [];
+    validateId(sectionId, 'section ID');
+    return this.timed('getNearbySections', () =>
+      this.engine.sections().getNearbySections(sectionId, radiusMeters),
+    );
+  }
+
+  getMergeCandidates(sectionId: string): FfiMergeCandidate[] {
+    if (!this.ready) return [];
+    validateId(sectionId, 'section ID');
+    return this.timed('getMergeCandidates', () =>
+      this.engine.sections().getMergeCandidates(sectionId),
+    );
+  }
+
+  mergeSections(primaryId: string, secondaryId: string): string | null {
+    if (!this.ready) return null;
+    validateId(primaryId, 'primary section ID');
+    validateId(secondaryId, 'secondary section ID');
+    try {
+      const result = this.timed('mergeSections', () =>
+        this.engine.sections().mergeSections(primaryId, secondaryId),
+      );
+      this.notify('sections');
+      return result;
+    } catch (e) {
+      console.error('[RouteEngine] mergeSections failed:', e);
+      return null;
+    }
+  }
+
+  forceRedetectSections(sportFilter?: string): boolean {
+    if (!this.ready) return false;
+    try {
+      const started = this.timed('forceRedetectSections', () =>
+        this.engine.detection().forceRedetect(sportFilter),
+      );
+      return started;
+    } catch (e) {
+      console.error('[RouteEngine] forceRedetectSections failed:', e);
+      return false;
+    }
   }
 
   subscribe(event: string, callback: () => void): () => void {

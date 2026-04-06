@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { spacing } from '@/theme';
+import { spacing, brand } from '@/theme';
 import type { WorkoutStep } from '@/types';
 
 interface WorkoutStepBarProps {
@@ -77,7 +77,7 @@ function getStepColor(step: WorkoutStep): string {
     // Exact FTP isn't critical here — we just need visual differentiation
     if (target < 150) return '#BDBDBD'; // rest/recovery
     if (target < 220) return '#FFA726'; // endurance/tempo
-    return '#FC4C02'; // threshold/sweet spot/VO2
+    return brand.orange; // threshold/sweet spot/VO2
   }
 
   // Check HR targets
@@ -86,14 +86,14 @@ function getStepColor(step: WorkoutStep): string {
     if (target === 0) return '#BDBDBD';
     if (target < 140) return '#BDBDBD';
     if (target < 160) return '#FFA726';
-    return '#FC4C02';
+    return brand.orange;
   }
 
   // No target = rest interval
   if (step.text?.toLowerCase().includes('recover')) return '#BDBDBD';
   if (step.text?.toLowerCase().includes('rest')) return '#BDBDBD';
 
-  return '#FC4C02'; // default to work
+  return brand.orange; // default to work
 }
 
 const styles = StyleSheet.create({

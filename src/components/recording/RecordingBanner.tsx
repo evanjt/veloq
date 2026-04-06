@@ -93,6 +93,7 @@ function RecordingBannerInner() {
         activeOpacity={0.7}
         accessibilityLabel={t('recording.banner.returnToRecording')}
         accessibilityRole="button"
+        testID="recording-banner"
       >
         <View style={styles.topRow}>
           <Animated.View style={[styles.dot, { opacity: pulseAnim }]} />

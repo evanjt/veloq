@@ -1,14 +1,9 @@
 /**
- * Separate storage for GPS tracks using FileSystem.
+ * FileSystem-based storage for bounds cache, route names, and database size estimation.
  *
- * The main bounds cache stores metadata only (small, loads fast).
- * GPS tracks are stored as individual JSON files (can be large, loaded on demand).
- *
- * Uses Expo FileSystem instead of AsyncStorage to avoid:
- * - Android's 6MB SQLite database limit
- * - 2MB CursorWindow limit
- *
- * Storage location: documentDirectory/gps_tracks/
+ * GPS track storage functions have been removed — all GPS data is now stored
+ * exclusively in the Rust SQLite engine (routes.db gps_tracks table).
+ * The clearAllGpsTracks() function is retained for cleanup of any legacy files.
  */
 
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
@@ -17,220 +12,20 @@ import { debug } from '../utils/debug';
 import { safeJsonParseWithSchema, type SchemaValidator } from '../utils/validation';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 
-/**
- * Type guard for GPS track data - array of [lat, lng] tuples
- */
-function isGpsTrack(value: unknown): value is [number, number][] {
-  if (!Array.isArray(value)) return false;
-  // Check first few elements for performance (don't validate entire array)
-  const samplesToCheck = Math.min(value.length, 5);
-  for (let i = 0; i < samplesToCheck; i++) {
-    const coord = value[i];
-    if (!Array.isArray(coord) || coord.length !== 2) return false;
-    if (typeof coord[0] !== 'number' || typeof coord[1] !== 'number') return false;
-  }
-  return true;
-}
-
-/**
- * Type guard for GPS index structure
- */
-function isGpsIndex(value: unknown): value is GpsIndex {
-  if (typeof value !== 'object' || value === null) return false;
-  const obj = value as Record<string, unknown>;
-  if (!Array.isArray(obj.activityIds)) return false;
-  if (typeof obj.lastUpdated !== 'string') return false;
-  // Validate all elements are strings (empty array is valid and returns true)
-  if (!obj.activityIds.every((id) => typeof id === 'string')) return false;
-  return true;
-}
-
 const log = debug.create('GpsStorage');
 
 const GPS_DIR = `${FileSystem.documentDirectory}gps_tracks/`;
-const GPS_INDEX_FILE = `${GPS_DIR}index.json`;
-
-/** Get the storage path for an activity's GPS track */
-function getGpsPath(activityId: string): string {
-  // Sanitize activity ID for filename
-  const safeId = activityId.replace(/[^a-zA-Z0-9_-]/g, '_');
-  return `${GPS_DIR}${safeId}.json`;
-}
-
-/** Index of stored GPS tracks (for bulk operations) */
-interface GpsIndex {
-  activityIds: string[];
-  lastUpdated: string;
-}
-
-/** Ensure the GPS directory exists */
-async function ensureGpsDir(): Promise<void> {
-  const dirInfo = await FileSystem.getInfoAsync(GPS_DIR);
-  if (!dirInfo.exists) {
-    await FileSystem.makeDirectoryAsync(GPS_DIR, { intermediates: true });
-    log.log('Created GPS tracks directory');
-  }
-}
 
 /**
- * Store GPS track for an activity
- */
-export async function storeGpsTrack(
-  activityId: string,
-  latlngs: [number, number][]
-): Promise<void> {
-  await ensureGpsDir();
-  const path = getGpsPath(activityId);
-  await FileSystem.writeAsStringAsync(path, JSON.stringify(latlngs));
-}
-
-/**
- * Store multiple GPS tracks efficiently
- */
-export async function storeGpsTracks(tracks: Map<string, [number, number][]>): Promise<void> {
-  if (tracks.size === 0) return;
-
-  await ensureGpsDir();
-
-  let totalBytes = 0;
-  const trackEntries: { activityId: string; path: string; data: string }[] = [];
-
-  // Prepare all tracks for writing
-  for (const [activityId, latlngs] of tracks) {
-    const data = JSON.stringify(latlngs);
-    totalBytes += data.length;
-    trackEntries.push({
-      activityId,
-      path: getGpsPath(activityId),
-      data,
-    });
-  }
-
-  log.log(`Storing ${tracks.size} GPS tracks, total ${Math.round(totalBytes / 1024)}KB`);
-
-  // Write all files in parallel, using allSettled to handle individual failures
-  const results = await Promise.allSettled(
-    trackEntries.map((entry) =>
-      FileSystem.writeAsStringAsync(entry.path, entry.data).then(() => entry.activityId)
-    )
-  );
-
-  // Collect successfully written activity IDs
-  const successfulIds: string[] = [];
-  let failedCount = 0;
-  for (const result of results) {
-    if (result.status === 'fulfilled') {
-      successfulIds.push(result.value);
-    } else {
-      failedCount++;
-    }
-  }
-
-  if (failedCount > 0) {
-    log.log(`Warning: ${failedCount} GPS track writes failed`);
-  }
-
-  // Update index with only the successfully written tracks
-  if (successfulIds.length > 0) {
-    await updateGpsIndex(successfulIds);
-  }
-
-  log.log(`Successfully stored ${successfulIds.length} GPS tracks`);
-}
-
-/**
- * Get GPS track for an activity
- */
-export async function getGpsTrack(activityId: string): Promise<[number, number][] | null> {
-  const path = getGpsPath(activityId);
-  const info = await FileSystem.getInfoAsync(path);
-  if (!info.exists) return null;
-
-  try {
-    const data = await FileSystem.readAsStringAsync(path);
-    const parsed = safeJsonParseWithSchema(data, isGpsTrack, null as unknown as [number, number][]);
-    return parsed;
-  } catch {
-    log.log(`Failed to parse GPS track for ${activityId}`);
-    return null;
-  }
-}
-
-/**
- * Get multiple GPS tracks efficiently
- */
-export async function getGpsTracks(
-  activityIds: string[]
-): Promise<Map<string, [number, number][]>> {
-  if (activityIds.length === 0) return new Map();
-
-  const results = new Map<string, [number, number][]>();
-
-  // Read all files in parallel
-  const promises = activityIds.map(async (activityId) => {
-    try {
-      const track = await getGpsTrack(activityId);
-      if (track) {
-        results.set(activityId, track);
-      }
-    } catch {
-      // Skip individual failures
-    }
-  });
-
-  await Promise.all(promises);
-  return results;
-}
-
-/**
- * Check if GPS track exists for an activity
- */
-export async function hasGpsTrack(activityId: string): Promise<boolean> {
-  const path = getGpsPath(activityId);
-  const info = await FileSystem.getInfoAsync(path);
-  return info.exists;
-}
-
-/**
- * Update the GPS index with new activity IDs
- */
-async function updateGpsIndex(newActivityIds: string[]): Promise<void> {
-  try {
-    await ensureGpsDir();
-
-    const defaultIndex: GpsIndex = { activityIds: [], lastUpdated: '' };
-    let index: GpsIndex = defaultIndex;
-
-    const indexInfo = await FileSystem.getInfoAsync(GPS_INDEX_FILE);
-    if (indexInfo.exists) {
-      const indexStr = await FileSystem.readAsStringAsync(GPS_INDEX_FILE);
-      index = safeJsonParseWithSchema(indexStr, isGpsIndex, defaultIndex);
-    }
-
-    // Add new IDs (avoid duplicates)
-    const existingSet = new Set(index.activityIds);
-    for (const id of newActivityIds) {
-      existingSet.add(id);
-    }
-
-    index.activityIds = Array.from(existingSet);
-    index.lastUpdated = new Date().toISOString();
-
-    await FileSystem.writeAsStringAsync(GPS_INDEX_FILE, JSON.stringify(index));
-  } catch {
-    // Index is optional, don't fail on error
-  }
-}
-
-/**
- * Clear all GPS tracks
+ * Clear all legacy GPS track files (cleanup only).
+ * GPS data is now stored in the Rust SQLite engine.
  */
 export async function clearAllGpsTracks(): Promise<void> {
   try {
     const dirInfo = await FileSystem.getInfoAsync(GPS_DIR);
     if (dirInfo.exists) {
       await FileSystem.deleteAsync(GPS_DIR, { idempotent: true });
-      log.log('Cleared all GPS tracks');
+      log.log('Cleared legacy GPS tracks directory');
     }
   } catch {
     // Best effort cleanup
@@ -238,137 +33,21 @@ export async function clearAllGpsTracks(): Promise<void> {
 }
 
 /**
- * Delete a single GPS track file and remove it from the index.
- */
-export async function deleteGpsTrack(activityId: string): Promise<void> {
-  try {
-    const path = getGpsPath(activityId);
-    await FileSystem.deleteAsync(path, { idempotent: true });
-    await removeFromGpsIndex([activityId]);
-    log.log(`Deleted GPS track for ${activityId}`);
-  } catch {
-    // Best effort cleanup
-  }
-}
-
-/**
- * Delete multiple GPS track files and remove them from the index.
+ * Delete legacy GPS track files by activity ID (cleanup only).
  */
 export async function deleteGpsTracks(activityIds: string[]): Promise<void> {
   if (activityIds.length === 0) return;
 
   const results = await Promise.allSettled(
-    activityIds.map((id) => FileSystem.deleteAsync(getGpsPath(id), { idempotent: true }))
+    activityIds.map((id) => {
+      const safeId = id.replace(/[^a-zA-Z0-9_-]/g, '_');
+      return FileSystem.deleteAsync(`${GPS_DIR}${safeId}.json`, { idempotent: true });
+    })
   );
 
   const failedCount = results.filter((r) => r.status === 'rejected').length;
   if (failedCount > 0) {
     log.log(`Warning: ${failedCount}/${activityIds.length} GPS track deletes failed`);
-  }
-
-  await removeFromGpsIndex(activityIds);
-  log.log(`Deleted ${activityIds.length - failedCount} GPS tracks`);
-}
-
-/**
- * Remove activity IDs from the GPS index
- */
-async function removeFromGpsIndex(idsToRemove: string[]): Promise<void> {
-  try {
-    const indexInfo = await FileSystem.getInfoAsync(GPS_INDEX_FILE);
-    if (!indexInfo.exists) return;
-
-    const indexStr = await FileSystem.readAsStringAsync(GPS_INDEX_FILE);
-    const defaultIndex: GpsIndex = { activityIds: [], lastUpdated: '' };
-    const index = safeJsonParseWithSchema(indexStr, isGpsIndex, defaultIndex);
-
-    const removeSet = new Set(idsToRemove);
-    index.activityIds = index.activityIds.filter((id) => !removeSet.has(id));
-    index.lastUpdated = new Date().toISOString();
-
-    await FileSystem.writeAsStringAsync(GPS_INDEX_FILE, JSON.stringify(index));
-  } catch {
-    // Index is optional, don't fail on error
-  }
-}
-
-/**
- * Get all cached activity IDs from the GPS index
- */
-export async function getCachedActivityIds(): Promise<string[]> {
-  try {
-    const indexInfo = await FileSystem.getInfoAsync(GPS_INDEX_FILE);
-    if (indexInfo.exists) {
-      const indexStr = await FileSystem.readAsStringAsync(GPS_INDEX_FILE);
-      const defaultIndex: GpsIndex = { activityIds: [], lastUpdated: '' };
-      const index = safeJsonParseWithSchema(indexStr, isGpsIndex, defaultIndex);
-      return index.activityIds;
-    }
-  } catch {
-    // Best effort - return empty array on error
-  }
-  return [];
-}
-
-/**
- * Get count of stored GPS tracks
- */
-export async function getGpsTrackCount(): Promise<number> {
-  try {
-    const indexInfo = await FileSystem.getInfoAsync(GPS_INDEX_FILE);
-    if (indexInfo.exists) {
-      const indexStr = await FileSystem.readAsStringAsync(GPS_INDEX_FILE);
-      const defaultIndex: GpsIndex = { activityIds: [], lastUpdated: '' };
-      const index = safeJsonParseWithSchema(indexStr, isGpsIndex, defaultIndex);
-      return index.activityIds.length;
-    }
-  } catch {
-    // Fall through to directory scan
-  }
-
-  // Fallback: count files in directory
-  try {
-    const dirInfo = await FileSystem.getInfoAsync(GPS_DIR);
-    if (dirInfo.exists) {
-      const files = await FileSystem.readDirectoryAsync(GPS_DIR);
-      // Count only .json files, excluding index
-      return files.filter((f) => f.endsWith('.json') && f !== 'index.json').length;
-    }
-  } catch {
-    // Ignore
-  }
-
-  return 0;
-}
-
-/**
- * Estimate total GPS storage size in bytes
- */
-export async function estimateGpsStorageSize(): Promise<number> {
-  try {
-    const dirInfo = await FileSystem.getInfoAsync(GPS_DIR);
-    if (!dirInfo.exists) return 0;
-
-    const files = await FileSystem.readDirectoryAsync(GPS_DIR);
-    const gpsFiles = files.filter((f) => f.endsWith('.json') && f !== 'index.json');
-
-    if (gpsFiles.length === 0) return 0;
-
-    // Sample a few to estimate average size
-    const sampleSize = Math.min(5, gpsFiles.length);
-    let totalSampleSize = 0;
-
-    for (let i = 0; i < sampleSize; i++) {
-      const fileInfo = await FileSystem.getInfoAsync(`${GPS_DIR}${gpsFiles[i]}`);
-      if (fileInfo.exists && 'size' in fileInfo) {
-        totalSampleSize += fileInfo.size || 0;
-      }
-    }
-
-    const avgSize = totalSampleSize / sampleSize;
-    return Math.round(avgSize * gpsFiles.length);
-  } catch {
-    return 0;
   }
 }
 
@@ -625,7 +304,7 @@ export async function clearAllAppCaches(queryClient: { clear: () => void }): Pro
   const routeEngine = getRouteEngine();
   if (routeEngine) routeEngine.clear();
 
-  // 4. Clear FileSystem caches (GPS tracks, bounds, and route names)
+  // 4. Clear FileSystem caches (legacy GPS tracks, bounds, and route names)
   await Promise.all([
     clearAllGpsTracks(),
     clearBoundsCache(),

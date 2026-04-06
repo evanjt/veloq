@@ -507,7 +507,7 @@ export default function RouteDetailScreen() {
           {/* Hero Map Section */}
           <View style={styles.heroSection}>
             {/* Map - full bleed */}
-            <View style={styles.mapContainer}>
+            <View testID="route-detail-map" style={styles.mapContainer}>
               {hasMapData ? (
                 <RouteMapView
                   routeGroup={routeGroup}
@@ -561,6 +561,7 @@ export default function RouteDetailScreen() {
                 {isEditing ? (
                   <View style={styles.editNameContainer}>
                     <TextInput
+                      testID="route-rename-input"
                       ref={nameInputRef}
                       style={styles.editNameInput}
                       value={editName}
@@ -572,7 +573,11 @@ export default function RouteDetailScreen() {
                       autoFocus
                       selectTextOnFocus
                     />
-                    <TouchableOpacity onPress={handleSaveName} style={styles.editNameButton}>
+                    <TouchableOpacity
+                      testID="route-rename-save"
+                      onPress={handleSaveName}
+                      style={styles.editNameButton}
+                    >
                       <MaterialCommunityIcons name="check" size={20} color={colors.success} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={handleCancelEdit} style={styles.editNameButton}>
@@ -581,11 +586,12 @@ export default function RouteDetailScreen() {
                   </View>
                 ) : (
                   <TouchableOpacity
+                    testID="route-rename-button"
                     onPress={handleStartEditing}
                     style={styles.nameEditTouchable}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.heroRouteName} numberOfLines={1}>
+                    <Text testID="route-detail-name" style={styles.heroRouteName} numberOfLines={1}>
                       {customName || routeGroup.name}
                     </Text>
                     <MaterialCommunityIcons
@@ -599,7 +605,7 @@ export default function RouteDetailScreen() {
               </View>
 
               {/* Stats row */}
-              <View style={styles.heroStatsRow}>
+              <View testID="route-detail-stats" style={styles.heroStatsRow}>
                 <Text style={styles.heroStat}>{formatDistance(routeStats.distance, isMetric)}</Text>
                 <Text style={styles.heroStatDivider}>·</Text>
                 <Text style={styles.heroStat}>{routeGroup.activityCount} activities</Text>
@@ -661,7 +667,7 @@ export default function RouteDetailScreen() {
           <View style={styles.contentSection}>
             {/* Performance scatter chart with eye toggle */}
             {combinedChartData.length >= 1 && (
-              <View style={styles.chartSection}>
+              <View testID="route-detail-chart" style={styles.chartSection}>
                 <SectionScatterChart
                   chartData={combinedChartData}
                   activityType={displayType}

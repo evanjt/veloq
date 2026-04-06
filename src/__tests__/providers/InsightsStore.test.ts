@@ -50,7 +50,7 @@ describe('InsightsStore', () => {
     });
 
     it('restores fingerprint from storage', async () => {
-      const fp = 'section_pr-s1|tsb_form-position';
+      const fp = 'section_pr-s1|hrv_trend-position';
       await AsyncStorage.setItem(STORAGE_KEY, fp);
       await initializeInsightsStore();
       expect(useInsightsStore.getState().lastSeenFingerprint).toBe(fp);

@@ -11,6 +11,7 @@ import type { RouteGroup, MatchDirection, DirectionStats } from '@/types';
 import { toActivityType } from '@/types';
 import type { RoutePerformanceResult, FfiActivityMetrics } from 'veloqrs';
 import { toDirectionStats, fromUnixSeconds } from '@/lib/utils/ffiConversions';
+import { safeGetTime } from '@/lib/utils/format';
 
 /** Match info returned from the Rust engine (uses camelCase from serde) */
 interface RustMatchInfo {
@@ -236,7 +237,7 @@ export function useRoutePerformances(
     }
 
     // Sort by date (oldest first for charting)
-    points.sort((a, b) => a.date.getTime() - b.date.getTime());
+    points.sort((a, b) => safeGetTime(a.date) - safeGetTime(b.date));
 
     // Find best (fastest speed) - overall
     const bestPoint =

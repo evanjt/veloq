@@ -38,6 +38,7 @@ export function useWorkoutSections(sportType: string | undefined): {
     if (!engine) return [];
 
     // Try ML-ranked sections first (composite relevance score)
+    // Rust already filters out disabled/superseded sections
     const ranked = engine.getRankedSections(sportType, 5);
 
     if (ranked.length > 0) {
@@ -129,6 +130,7 @@ function enrichVisitCountSections(
   engine: NonNullable<ReturnType<typeof getRouteEngine>>,
   sportType: string
 ): WorkoutSection[] {
+  // Rust already filters out disabled/superseded sections
   const summaries = engine.getSectionSummaries(sportType).summaries;
   const topSections = summaries
     .filter((s) => s.visitCount >= 5)
@@ -206,6 +208,7 @@ function trendFromInt(trend: number): WorkoutSection['trend'] {
 }
 
 function median(values: number[]): number {
+  if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;

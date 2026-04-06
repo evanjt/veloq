@@ -35,11 +35,21 @@ export function lng2tile(lng: number, z: number): number {
   return Math.floor(((lng + 180) / 360) * Math.pow(2, z));
 }
 
+/** Web Mercator safe latitude range — tan/cos overflow at ±90° */
+const MAX_MERCATOR_LAT = 85.051129;
+function clampLat(lat: number): number {
+  return Math.max(-MAX_MERCATOR_LAT, Math.min(MAX_MERCATOR_LAT, lat));
+}
+
 /** Convert latitude to tile Y coordinate */
 export function lat2tile(lat: number, z: number): number {
+  const clampedLat = clampLat(lat);
   return Math.floor(
     ((1 -
-      Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) /
+      Math.log(
+        Math.tan((clampedLat * Math.PI) / 180) + 1 / Math.cos((clampedLat * Math.PI) / 180)
+      ) /
+        Math.PI) /
       2) *
       Math.pow(2, z)
   );
@@ -72,7 +82,7 @@ export function tileCountForBounds(bounds: Bounds, zoomRange: [number, number]):
  */
 export function expandBounds(bounds: Bounds, radiusKm: number): Bounds {
   const latDelta = radiusKm / 111;
-  const midLat = (bounds.minLat + bounds.maxLat) / 2;
+  const midLat = clampLat((bounds.minLat + bounds.maxLat) / 2);
   const lngDelta = radiusKm / (111 * Math.cos((midLat * Math.PI) / 180));
 
   return {
@@ -110,7 +120,7 @@ export function clusterActivityBounds(
   const latStep = gridSizeKm / 111;
   // Use median latitude for longitude step
   const allLats = activities.map((a) => (a.bounds.minLat + a.bounds.maxLat) / 2);
-  const medianLat = allLats.sort((a, b) => a - b)[Math.floor(allLats.length / 2)];
+  const medianLat = clampLat(allLats.sort((a, b) => a - b)[Math.floor(allLats.length / 2)]);
   const lngStep = gridSizeKm / (111 * Math.cos((medianLat * Math.PI) / 180));
 
   // Assign activities to grid cells

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting } from '@/lib/backup';
 
 const SPORT_PREFERENCE_KEY = 'veloq-primary-sport';
 
@@ -34,7 +34,7 @@ export const useSportPreference = create<SportPreferenceState>((set) => ({
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(SPORT_PREFERENCE_KEY);
+      const stored = await getSetting(SPORT_PREFERENCE_KEY);
       if (stored && ['Cycling', 'Running', 'Swimming'].includes(stored)) {
         set({
           primarySport: stored as PrimarySport,
@@ -49,7 +49,7 @@ export const useSportPreference = create<SportPreferenceState>((set) => ({
   },
 
   setPrimarySport: async (sport: PrimarySport) => {
-    await AsyncStorage.setItem(SPORT_PREFERENCE_KEY, sport);
+    await setSetting(SPORT_PREFERENCE_KEY, sport);
     set({ primarySport: sport });
   },
 }));

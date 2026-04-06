@@ -1,6 +1,7 @@
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 import { debug } from '@/lib';
+import { brand } from '@/theme';
 
 const log = debug.create('BackgroundLocation');
 
@@ -52,7 +53,7 @@ export async function startBackgroundLocation(options?: {
     foregroundService: {
       notificationTitle: options?.notificationTitle ?? 'Recording activity',
       notificationBody: options?.notificationBody ?? 'Veloq is tracking your location',
-      notificationColor: '#FC4C02',
+      notificationColor: brand.orange,
     },
     activityType: Location.ActivityType.Fitness,
     showsBackgroundLocationIndicator: true,

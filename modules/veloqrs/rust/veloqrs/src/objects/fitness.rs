@@ -1,4 +1,4 @@
-use super::error::{with_engine, VeloqError};
+use super::error::{VeloqError, with_engine};
 use std::sync::Arc;
 
 #[derive(uniffi::Object)]
@@ -18,11 +18,19 @@ impl FitnessManager {
         with_engine(|e| e.get_activity_metric_ids())
     }
 
-    fn get_period_stats(&self, start_ts: i64, end_ts: i64) -> Result<crate::FfiPeriodStats, VeloqError> {
+    fn get_period_stats(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+    ) -> Result<crate::FfiPeriodStats, VeloqError> {
         with_engine(|e| e.get_period_stats(start_ts, end_ts))
     }
 
-    fn get_zone_distribution(&self, sport_type: String, zone_type: String) -> Result<Vec<f64>, VeloqError> {
+    fn get_zone_distribution(
+        &self,
+        sport_type: String,
+        zone_type: String,
+    ) -> Result<Vec<f64>, VeloqError> {
         with_engine(|e| e.get_zone_distribution(&sport_type, &zone_type))
     }
 
@@ -51,7 +59,11 @@ impl FitnessManager {
         with_engine(|e| e.get_available_sport_types())
     }
 
-    fn get_activity_heatmap(&self, start_date: String, end_date: String) -> Result<Vec<crate::FfiHeatmapDay>, VeloqError> {
+    fn get_activity_heatmap(
+        &self,
+        start_date: String,
+        end_date: String,
+    ) -> Result<Vec<crate::FfiHeatmapDay>, VeloqError> {
         with_engine(|e| e.get_activity_heatmap(&start_date, &end_date))
     }
 
@@ -72,15 +84,11 @@ impl FitnessManager {
     }
 
     fn get_activity_patterns(&self) -> Result<Vec<crate::FfiActivityPattern>, VeloqError> {
-        with_engine(|e| {
-            crate::patterns::compute_activity_patterns(&e.db, &e.activity_metrics)
-        })
+        with_engine(|e| crate::patterns::compute_activity_patterns(&e.db, &e.activity_metrics))
     }
 
     fn get_pattern_for_today(&self) -> Result<Option<crate::FfiActivityPattern>, VeloqError> {
-        with_engine(|e| {
-            crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics)
-        })
+        with_engine(|e| crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics))
     }
 
     /// Batch insights data: combines period stats, trends, patterns, and recent PRs
@@ -110,25 +118,20 @@ impl FitnessManager {
             // Activity patterns
             let all_patterns =
                 crate::patterns::compute_activity_patterns(&e.db, &e.activity_metrics);
-            let today_pattern =
-                crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics);
+            let today_pattern = crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics);
 
             // Recent PRs — loop stays in Rust, never crosses FFI
             let seven_days_ago = now_ts - 7 * 86400;
             let mut recent_prs = Vec::new();
-            let ride_summaries = e.get_section_summaries_for_sport("Ride");
-            let run_summaries = e.get_section_summaries_for_sport("Run");
-            let mut all_summaries: Vec<_> = ride_summaries
-                .into_iter()
-                .chain(run_summaries)
+            let sport_types = e.get_available_sport_types();
+            let mut all_summaries: Vec<_> = sport_types
+                .iter()
+                .flat_map(|sport| e.get_section_summaries_for_sport(sport))
                 .filter(|s| s.visit_count >= 3)
                 .collect();
             all_summaries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
 
-            for s in all_summaries.iter().take(10) {
-                if recent_prs.len() >= 3 {
-                    break;
-                }
+            for s in &all_summaries {
                 let perf = e.get_section_performances_filtered(&s.id, None);
                 let best = perf
                     .best_record
@@ -136,14 +139,10 @@ impl FitnessManager {
                     .or(perf.best_forward_record.as_ref());
                 if let Some(record) = best {
                     if record.activity_date >= seven_days_ago {
-                        let days_ago =
-                            ((now_ts - record.activity_date) / 86400).max(0) as u32;
+                        let days_ago = crate::calendar_days_between(record.activity_date, now_ts);
                         recent_prs.push(crate::FfiRecentPR {
                             section_id: s.id.clone(),
-                            section_name: s
-                                .name
-                                .clone()
-                                .unwrap_or_else(|| "Section".to_string()),
+                            section_name: s.name.clone().unwrap_or_else(|| "Section".to_string()),
                             best_time: record.best_time,
                             days_ago,
                         });
@@ -190,25 +189,20 @@ impl FitnessManager {
             let run_pace_trend = e.get_pace_trend("Run");
             let all_patterns =
                 crate::patterns::compute_activity_patterns(&e.db, &e.activity_metrics);
-            let today_pattern =
-                crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics);
+            let today_pattern = crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics);
 
             // Recent PRs
             let seven_days_ago = now_ts - 7 * 86400;
             let mut recent_prs = Vec::new();
-            let ride_summaries = e.get_section_summaries_for_sport("Ride");
-            let run_summaries = e.get_section_summaries_for_sport("Run");
-            let mut all_summaries: Vec<_> = ride_summaries
-                .into_iter()
-                .chain(run_summaries)
+            let sport_types = e.get_available_sport_types();
+            let mut all_summaries: Vec<_> = sport_types
+                .iter()
+                .flat_map(|sport| e.get_section_summaries_for_sport(sport))
                 .filter(|s| s.visit_count >= 3)
                 .collect();
             all_summaries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
 
-            for s in all_summaries.iter().take(10) {
-                if recent_prs.len() >= 3 {
-                    break;
-                }
+            for s in &all_summaries {
                 let perf = e.get_section_performances_filtered(&s.id, None);
                 let best = perf
                     .best_record
@@ -216,14 +210,10 @@ impl FitnessManager {
                     .or(perf.best_forward_record.as_ref());
                 if let Some(record) = best {
                     if record.activity_date >= seven_days_ago {
-                        let days_ago =
-                            ((now_ts - record.activity_date) / 86400).max(0) as u32;
+                        let days_ago = crate::calendar_days_between(record.activity_date, now_ts);
                         recent_prs.push(crate::FfiRecentPR {
                             section_id: s.id.clone(),
-                            section_name: s
-                                .name
-                                .clone()
-                                .unwrap_or_else(|| "Section".to_string()),
+                            section_name: s.name.clone().unwrap_or_else(|| "Section".to_string()),
                             best_time: record.best_time,
                             days_ago,
                         });

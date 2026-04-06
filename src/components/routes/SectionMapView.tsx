@@ -15,6 +15,7 @@
 import React, { useMemo, useRef, useState, useCallback, useEffect, memo } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   TouchableOpacity,
   Modal,
@@ -105,6 +106,17 @@ interface SectionMapViewProps {
   trimRange?: { start: number; end: number } | null;
   /** Extension track for expanding section bounds - shown as faded line beyond the section */
   extensionTrack?: RoutePoint[] | null;
+  /** Nearby section polylines to render as muted gray overlays. Each entry has flat [lat,lng,...] coords. */
+  nearbyPolylines?: Array<{
+    id: string;
+    name?: string;
+    sportType: string;
+    distanceMeters: number;
+    visitCount: number;
+    polylineCoords: number[];
+  }>;
+  /** Called when a nearby section polyline is tapped */
+  onNearbyPress?: (sectionId: string) => void;
 }
 
 export const SectionMapView = memo(function SectionMapView({
@@ -119,9 +131,12 @@ export const SectionMapView = memo(function SectionMapView({
   isScrubbing = false,
   trimRange = null,
   extensionTrack = null,
+  nearbyPolylines,
+  onNearbyPress,
 }: SectionMapViewProps) {
   const { t } = useTranslation();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [selectedNearby, setSelectedNearby] = useState<string | null>(null);
   const { getStyleForActivity } = useMapPreferences();
 
   // Validate sport type from Rust engine, fallback to 'Ride' if invalid
@@ -146,8 +161,16 @@ export const SectionMapView = memo(function SectionMapView({
 
   const displayPoints = section.polyline || [];
 
-  // Calculate bounds from the section polyline (15% padding)
-  const bounds = useMemo(() => getBoundsFromPoints(displayPoints, 0.15), [displayPoints]);
+  // When extension track is active (expand mode), calculate bounds from the full context window
+  // so the camera shows the entire expandable area, not just the section portion
+  const boundsPoints = useMemo(() => {
+    if (extensionTrack && extensionTrack.length > 0) {
+      return extensionTrack;
+    }
+    return displayPoints;
+  }, [extensionTrack, displayPoints]);
+
+  const bounds = useMemo(() => getBoundsFromPoints(boundsPoints, 0.15), [boundsPoints]);
 
   // Section coordinates for 3D map and BaseMapView [lng, lat] format
   const sectionCoords = useMemo(() => {
@@ -164,6 +187,22 @@ export const SectionMapView = memo(function SectionMapView({
       bearingAnim.stopAnimation();
     };
   }, [map3DOpacity, bearingAnim]);
+
+  // Refit camera when extension track changes (entering/leaving expand mode)
+  useEffect(() => {
+    if (!cameraRef.current) return;
+    const newBounds =
+      extensionTrack && extensionTrack.length > 0
+        ? getBoundsFromPoints(extensionTrack, 0.15)
+        : getBoundsFromPoints(displayPoints, 0.15);
+    if (newBounds) {
+      cameraRef.current.setCamera({
+        bounds: { ne: newBounds.ne, sw: newBounds.sw },
+        padding: { paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 },
+        animationDuration: 500,
+      });
+    }
+  }, [extensionTrack, displayPoints]);
 
   // Reset 3D ready state when toggling off
   useEffect(() => {
@@ -277,9 +316,13 @@ export const SectionMapView = memo(function SectionMapView({
   }, [displayPoints]);
 
   // GeoJSON for the trimmed portion (when trim range is active)
+  // In expand mode, trim indices are relative to extensionTrack (window points), not section polyline
   const trimmedGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    if (!trimRange || displayPoints.length < 2) return emptyCollection;
-    const sliced = displayPoints.slice(trimRange.start, trimRange.end + 1);
+    if (!trimRange) return emptyCollection;
+    const sourcePoints =
+      extensionTrack && extensionTrack.length > 0 ? extensionTrack : displayPoints;
+    if (sourcePoints.length < 2) return emptyCollection;
+    const sliced = sourcePoints.slice(trimRange.start, trimRange.end + 1);
     const validPoints = sliced.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
     if (validPoints.length < 2) return emptyCollection;
     return {
@@ -290,7 +333,7 @@ export const SectionMapView = memo(function SectionMapView({
         coordinates: validPoints.map((p) => [p.lng, p.lat]),
       },
     };
-  }, [displayPoints, trimRange]);
+  }, [displayPoints, extensionTrack, trimRange]);
 
   // Create GeoJSON for the shadow track (full activity route)
   const shadowGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
@@ -326,6 +369,36 @@ export const SectionMapView = memo(function SectionMapView({
       },
     };
   }, [extensionTrack]);
+
+  // Create FeatureCollection for nearby section polylines (muted gray overlays)
+  const nearbyGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    if (!nearbyPolylines || nearbyPolylines.length === 0) return emptyCollection;
+    const features = nearbyPolylines
+      .map((entry) => {
+        const coords = entry.polylineCoords;
+        // Flat array: [lat, lng, lat, lng, ...]
+        if (!coords || coords.length < 4) return null;
+        const coordinates: [number, number][] = [];
+        for (let i = 0; i < coords.length - 1; i += 2) {
+          const lat = coords[i];
+          const lng = coords[i + 1];
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            coordinates.push([lng, lat]);
+          }
+        }
+        if (coordinates.length < 2) return null;
+        return {
+          type: 'Feature' as const,
+          properties: { sectionId: entry.id },
+          geometry: {
+            type: 'LineString' as const,
+            coordinates,
+          },
+        };
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+    return { type: 'FeatureCollection', features };
+  }, [nearbyPolylines]);
 
   // Create FeatureCollection with ALL activity traces for fast scrubbing
   const allTracesFeatureCollection = useMemo((): GeoJSON.FeatureCollection => {
@@ -467,6 +540,59 @@ export const SectionMapView = memo(function SectionMapView({
         }}
       />
 
+      {/* Nearby section polylines (muted gray, tappable for preview) */}
+      <ShapeSource
+        id="nearbySource"
+        shape={nearbyGeoJSON}
+        onPress={(e) => {
+          const feature = e?.features?.[0];
+          const sectionId = feature?.properties?.sectionId;
+          if (sectionId) {
+            setSelectedNearby(selectedNearby === sectionId ? null : sectionId);
+          }
+        }}
+        hitbox={{ width: 20, height: 20 }}
+      >
+        <LineLayer
+          id="nearbyLine"
+          style={{
+            lineColor: [
+              'case',
+              ['==', ['get', 'sectionId'], selectedNearby ?? ''],
+              colors.primary,
+              '#888888',
+            ],
+            lineOpacity: ['case', ['==', ['get', 'sectionId'], selectedNearby ?? ''], 0.8, 0.4],
+            lineWidth: ['case', ['==', ['get', 'sectionId'], selectedNearby ?? ''], 5, 3],
+            lineCap: 'round',
+            lineJoin: 'round',
+            lineDasharray: [2, 2],
+          }}
+        />
+      </ShapeSource>
+
+      {/* Start/end markers for nearby sections */}
+      {nearbyPolylines?.map((entry) => {
+        const coords = entry.polylineCoords;
+        if (!coords || coords.length < 4) return null;
+        const startCoord: [number, number] = [coords[1], coords[0]]; // [lng, lat]
+        const endCoord: [number, number] = [coords[coords.length - 1], coords[coords.length - 2]];
+        return (
+          <React.Fragment key={`nearby-markers-${entry.id}`}>
+            <MarkerView coordinate={startCoord}>
+              <View style={styles.markerContainer}>
+                <View style={[styles.nearbyMarker, styles.nearbyStartMarker]} />
+              </View>
+            </MarkerView>
+            <MarkerView coordinate={endCoord}>
+              <View style={styles.markerContainer}>
+                <View style={[styles.nearbyMarker, styles.nearbyEndMarker]} />
+              </View>
+            </MarkerView>
+          </React.Fragment>
+        );
+      })}
+
       {/* Shadow track (full activity route) */}
       {/* CRITICAL: Always render all ShapeSources to avoid iOS crash during view reconciliation */}
       {/* Shadow track (full activity route) */}
@@ -486,14 +612,23 @@ export const SectionMapView = memo(function SectionMapView({
       {/* Extension track (representative activity's full route, shown during bounds editing) */}
       <ShapeSource id="extensionSource" shape={extensionGeoJSON}>
         <LineLayer
-          id="extensionLine"
+          id="extensionLineCasing"
           style={{
-            lineColor: activityColor,
-            lineOpacity: extensionTrack ? 0.25 : 0,
-            lineWidth: 3,
+            lineColor: '#000000',
+            lineOpacity: extensionTrack ? 0.5 : 0,
+            lineWidth: 6,
             lineCap: 'round',
             lineJoin: 'round',
-            lineDasharray: [2, 3],
+          }}
+        />
+        <LineLayer
+          id="extensionLine"
+          style={{
+            lineColor: '#FF6B00',
+            lineOpacity: extensionTrack ? 1 : 0,
+            lineWidth: 4,
+            lineCap: 'round',
+            lineJoin: 'round',
           }}
         />
       </ShapeSource>
@@ -798,6 +933,66 @@ export const SectionMapView = memo(function SectionMapView({
               )}
             </View>
           )}
+
+          {/* Nearby section preview popup */}
+          {selectedNearby &&
+            nearbyPolylines &&
+            (() => {
+              const nearbySection = nearbyPolylines.find((n) => n.id === selectedNearby);
+              if (!nearbySection) return null;
+              return (
+                <View style={[styles.nearbyPopup, isDark && styles.nearbyPopupDark]}>
+                  <View style={styles.nearbyPopupContent}>
+                    <View style={styles.nearbyPopupInfo}>
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.nearbyPopupName,
+                          isDark && { color: darkColors.textPrimary },
+                        ]}
+                      >
+                        {nearbySection.name || nearbySection.id.slice(0, 8)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.nearbyPopupMeta,
+                          isDark && { color: darkColors.textSecondary },
+                        ]}
+                      >
+                        {Math.round(nearbySection.distanceMeters)}m ·{' '}
+                        {t('sections.visitsCount', { count: nearbySection.visitCount })}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.nearbyPopupViewBtn}
+                      onPress={() => {
+                        setSelectedNearby(null);
+                        onNearbyPress?.(nearbySection.id);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.nearbyPopupViewText}>{t('sections.viewSection')}</Text>
+                      <MaterialCommunityIcons
+                        name="chevron-right"
+                        size={16}
+                        color={colors.primary}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.nearbyPopupClose}
+                    onPress={() => setSelectedNearby(null)}
+                    hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                  >
+                    <MaterialCommunityIcons
+                      name="close"
+                      size={18}
+                      color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              );
+            })()}
         </View>
       ) : (
         // Non-interactive map - tap anywhere to fullscreen
@@ -1018,6 +1213,67 @@ const styles = StyleSheet.create({
   },
   endMarker: {
     backgroundColor: 'rgba(239,68,68,0.75)',
+  },
+  nearbyMarker: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: colors.textOnDark,
+    opacity: 0.5,
+  },
+  nearbyStartMarker: {
+    backgroundColor: 'rgba(34,197,94,0.6)',
+  },
+  nearbyEndMarker: {
+    backgroundColor: 'rgba(239,68,68,0.6)',
+  },
+  nearbyPopup: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    left: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: spacing.sm,
+    padding: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    ...shadows.card,
+  },
+  nearbyPopupDark: {
+    backgroundColor: darkColors.surface,
+  },
+  nearbyPopupContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  nearbyPopupInfo: {
+    flex: 1,
+  },
+  nearbyPopupName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  nearbyPopupMeta: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  nearbyPopupViewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  nearbyPopupViewText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  nearbyPopupClose: {
+    padding: spacing.xs,
   },
   expandOverlay: {
     position: 'absolute',

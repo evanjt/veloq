@@ -2,22 +2,28 @@ import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { useTodayWorkout } from '@/hooks/home/useTodayWorkout';
 import { useActivityPatterns } from '@/hooks/home/useActivityPatterns';
 import { useWellness } from '@/hooks/fitness';
-import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS, formatDurationHuman } from '@/lib';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import {
+  getFormZone,
+  FORM_ZONE_COLORS,
+  FORM_ZONE_LABELS,
+  formatDurationHuman,
+  getSportDisplayName,
+} from '@/lib';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
-const DAY_NAMES_PLURAL = [
-  'Mondays',
-  'Tuesdays',
-  'Wednesdays',
-  'Thursdays',
-  'Fridays',
-  'Saturdays',
-  'Sundays',
-];
+/** Get locale-aware plural day name (e.g. "Mondays") using Intl API */
+function getPluralDayName(dayIndex: number, locale: string): string {
+  // dayIndex: 0=Mon, 1=Tue, ..., 6=Sun (ISO week)
+  // Date(2024-01-01) is a Monday
+  const date = new Date(2024, 0, 1 + dayIndex);
+  const name = new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(date);
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
 
 /**
  * Compact insight card for the Feed tab that surfaces one headline from Route Intelligence.
@@ -27,6 +33,7 @@ const DAY_NAMES_PLURAL = [
  */
 export const TodayTeaser = React.memo(function TodayTeaser() {
   const { isDark } = useTheme();
+  const { t, i18n } = useTranslation();
   const { todayWorkout } = useTodayWorkout();
   const { todayPattern } = useActivityPatterns();
 
@@ -47,19 +54,30 @@ export const TodayTeaser = React.memo(function TodayTeaser() {
   let subtitle: string | null = null;
 
   if (todayWorkout) {
-    headline = `${todayWorkout.name} today`;
+    headline = t('insights.teaser.workoutToday', { name: todayWorkout.name });
     const topSection = todayPattern?.commonSections?.[0];
     if (topSection && topSection.trend === 1) {
-      subtitle = `PR opportunity on ${topSection.sectionName}`;
+      subtitle = t('insights.teaser.prOpportunity', {
+        name: topSection.sectionName,
+      });
     }
   } else if (todayPattern) {
-    const sportLabel = todayPattern.sportType === 'Run' ? 'run' : 'ride';
-    const dayName = DAY_NAMES_PLURAL[todayPattern.primaryDay] ?? '';
-    headline = `${dayName} you usually ${sportLabel} ~${formatDurationHuman(todayPattern.avgDurationSecs)}`;
+    const sportLabel = getSportDisplayName(todayPattern.sportType);
+    const dayName = getPluralDayName(todayPattern.primaryDay, i18n.language);
+    const duration = formatDurationHuman(todayPattern.avgDurationSecs);
+    headline = t('insights.teaser.usualPattern', {
+      day: dayName,
+      sport: sportLabel,
+      duration,
+    });
     const topSection = todayPattern.commonSections?.[0];
     if (topSection) {
       const trendLabel =
-        topSection.trend === 1 ? 'improving \u2191' : topSection.trend === 0 ? 'stable' : '';
+        topSection.trend === 1
+          ? t('insights.teaser.improving')
+          : topSection.trend === 0
+            ? t('insights.teaser.stable')
+            : '';
       if (trendLabel) {
         subtitle = `${topSection.sectionName} ${trendLabel}`;
       }
@@ -71,6 +89,7 @@ export const TodayTeaser = React.memo(function TodayTeaser() {
 
   return (
     <TouchableOpacity
+      testID="today-teaser"
       style={[styles.container, isDark && styles.containerDark]}
       onPress={() => router.push('/(tabs)/routes')}
       activeOpacity={0.7}
@@ -101,7 +120,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     borderRadius: layout.borderRadiusSm,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: colors.gray50,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
@@ -120,11 +139,11 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
   },
   formLabel: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
   },
   headline: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textPrimary,
     flex: 1,
   },

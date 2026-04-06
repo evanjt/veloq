@@ -104,6 +104,11 @@ interface NativeModuleInterface {
     sportFilter: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
+    ptr: bigint,
+    sportFilter: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_progress(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -209,6 +214,31 @@ interface NativeModuleInterface {
     date: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_clone_heatmapmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_heatmapmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_heatmapmanager_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
+    ptr: bigint,
+    basePath: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_heatmapmanager_poll(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
+    ptr: bigint,
+    path: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_clone_mapmanager(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -306,6 +336,10 @@ interface NativeModuleInterface {
     sectionLimit: number,
     sectionOffset: number,
     minGroupActivityCount: number,
+    prioritizeNearestGroups: number,
+    prioritizeNearestSections: number,
+    userLat: number,
+    userLng: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_summaries(
@@ -339,6 +373,11 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_constructor_sectionmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_clear_superseded(
+    ptr: bigint,
+    customSectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_create(
     ptr: bigint,
     sportType: Uint8Array,
@@ -351,6 +390,16 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_delete(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_disable(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_enable(
     ptr: bigint,
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
@@ -385,6 +434,11 @@ interface NativeModuleInterface {
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
     ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_summaries_including_hidden(
+    ptr: bigint,
+    sportType: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_by_id(
@@ -433,6 +487,17 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_merge_candidates(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_nearby_sections(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    radiusMeters: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_performances(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -470,12 +535,39 @@ interface NativeModuleInterface {
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_import_disabled_ids(
+    ptr: bigint,
+    ids: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_import_superseded_map(
+    ptr: bigint,
+    entries: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_include_activity(
     ptr: bigint,
     sectionId: Uint8Array,
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_match_activity_to_sections(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_merge_sections(
+    ptr: bigint,
+    primaryId: Uint8Array,
+    secondaryId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_rematch_activity_to_section(
+    ptr: bigint,
+    activityId: Uint8Array,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_reset_bounds(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -498,6 +590,12 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_superseded(
+    ptr: bigint,
+    autoSectionId: Uint8Array,
+    customSectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_trim(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -516,17 +614,42 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_constructor_settingsmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_delete_setting(
+    ptr: bigint,
+    key: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_all_settings(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_athlete_profile(
     ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_setting(
+    ptr: bigint,
+    key: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_all_settings(
+    ptr: bigint,
+    json: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
     ptr: bigint,
     json: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_setting(
+    ptr: bigint,
+    key: Uint8Array,
+    value: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_sport_settings(
@@ -534,6 +657,74 @@ interface NativeModuleInterface {
     json: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_clone_strengthmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_strengthmanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_strengthmanager_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
+    ptr: bigint,
+    authHeader: Uint8Array,
+    activityIds: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
+    ptr: bigint,
+    authHeader: Uint8Array,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_activities_for_exercise(
+    ptr: bigint,
+    startTs: bigint,
+    endTs: bigint,
+    muscleSlug: Uint8Array,
+    exerciseCategory: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercise_sets(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercises_for_muscle(
+    ptr: bigint,
+    startTs: bigint,
+    endTs: bigint,
+    muscleSlug: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_muscle_groups(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_strength_summary(
+    ptr: bigint,
+    startTs: bigint,
+    endTs: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_unprocessed_strength_ids(
+    ptr: bigint,
+    activityIds: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_has_strength_data(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_is_fit_processed(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_clone_veloqengine(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -550,6 +741,21 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_backup_database(
+    ptr: bigint,
+    destPath: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson(
+    ptr: bigint,
+    destPath: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx(
+    ptr: bigint,
+    destPath: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_cleanup_old_activities(
     ptr: bigint,
     retentionDays: number,
@@ -575,10 +781,18 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_get_stats(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_heatmap(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_is_initialized(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -606,6 +820,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_settings(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_strength(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
@@ -642,6 +860,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_metrics(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_time_streams(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_detect_potentials(): number;
+  ubrn_uniffi_veloqrs_checksum_method_detectionmanager_force_redetect(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_progress(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_poll(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_start(): number;
@@ -658,6 +877,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot(): number;
+  ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(): number;
+  ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll(): number;
+  ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_bounds_for_range(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_filtered(): number;
@@ -675,14 +897,18 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries_with_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_include_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_set_name(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_clear_superseded(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_create(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_delete(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_disable(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_enable(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_trace(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_traces_batch(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_summaries_including_hidden(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_id(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_type(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_calendar_summary(): number;
@@ -692,6 +918,8 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_extension_track(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_merge_candidates(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_polyline(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_ranked(): number;
@@ -699,24 +927,50 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries_with_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_has_original_bounds(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_import_disabled_ids(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_import_superseded_map(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_activity(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_merge_sections(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_reference(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_name(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_reference(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_superseded(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_trim(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_delete_setting(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_all_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_setting(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_all_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_setting(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_activities_for_exercise(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_sets(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercises_for_muscle(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_groups(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_strength_summary(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_unprocessed_strength_ids(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_activities(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_backup_database(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_activities(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_destroy(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_detection(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_fitness(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_stats(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_heatmap(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_maps(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation(): number;
@@ -724,13 +978,16 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_set_name_translations(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_settings(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_strength(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_activitymanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_detectionmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_fitnessmanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_heatmapmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_mapmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_routemanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_sectionmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_settingsmanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_strengthmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_veloqengine_create(): number;
   ubrn_ffi_veloqrs_uniffi_contract_version(): number;
   ubrn_uniffi_internal_fn_method_activitymanager_ffi__bless_pointer(
@@ -742,6 +999,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiRustArcPtr;
   ubrn_uniffi_internal_fn_method_fitnessmanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiRustArcPtr;
+  ubrn_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer(
     pointer: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiRustArcPtr;
@@ -758,6 +1019,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiRustArcPtr;
   ubrn_uniffi_internal_fn_method_settingsmanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiRustArcPtr;
+  ubrn_uniffi_internal_fn_method_strengthmanager_ffi__bless_pointer(
     pointer: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiRustArcPtr;

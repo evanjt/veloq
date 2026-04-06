@@ -37,7 +37,6 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
 
   return (
     <View style={styles.container}>
-      {/* HR change headline */}
       {hrChangePoint ? (
         <View style={[styles.headlineCard, isDark && styles.headlineCardDark]}>
           <MaterialCommunityIcons name="heart-pulse" size={28} color="#66BB6A" />
@@ -45,7 +44,9 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
             <Text style={[styles.hrChange, isDark && styles.hrChangeDark]}>
               {hrChangePoint.value} {hrChangePoint.unit}
             </Text>
-            <Text style={[styles.hrLabel, isDark && styles.hrLabelDark]}>at the same pace</Text>
+            <Text style={[styles.hrLabel, isDark && styles.hrLabelDark]}>
+              across matched efforts
+            </Text>
           </View>
           {effortCountPoint ? (
             <View style={styles.effortBadge}>
@@ -56,7 +57,20 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
         </View>
       ) : null}
 
-      {/* Section link */}
+      <View style={[styles.contextCard, isDark && styles.contextCardDark]}>
+        <Text style={[styles.contextHeading, isDark && styles.contextHeadingDark]}>
+          Matched-effort comparison
+        </Text>
+        <Text style={[styles.contextBody, isDark && styles.contextBodyDark]}>
+          This observation comes from repeat efforts on the same section that include both heart
+          rate and pace data. It looks for whether the cardiovascular cost has shifted across those
+          comparable passes over time.
+        </Text>
+        <Text style={[styles.contextMeta, isDark && styles.contextMetaDark]}>
+          Open the section to inspect the underlying efforts.
+        </Text>
+      </View>
+
       {sectionId && sectionName ? (
         <Pressable
           style={[styles.sectionLink, isDark && styles.sectionLinkDark]}
@@ -78,7 +92,6 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
         </Pressable>
       ) : null}
 
-      {/* Supporting data (methodology, etc.) */}
       {insight.supportingData ? <SupportingDataSection data={insight.supportingData} /> : null}
     </View>
   );
@@ -106,6 +119,43 @@ const styles = StyleSheet.create({
   },
   headlineText: {
     flex: 1,
+  },
+  contextCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.xs,
+    ...shadows.card,
+  },
+  contextCardDark: {
+    backgroundColor: darkColors.surfaceCard,
+    borderColor: darkColors.border,
+    ...shadows.none,
+  },
+  contextHeading: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  contextHeadingDark: {
+    color: darkColors.textPrimary,
+  },
+  contextBody: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textPrimary,
+  },
+  contextBodyDark: {
+    color: darkColors.textPrimary,
+  },
+  contextMeta: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  contextMetaDark: {
+    color: darkColors.textSecondary,
   },
   hrChange: {
     fontSize: 22,

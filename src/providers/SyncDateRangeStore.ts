@@ -59,6 +59,8 @@ interface SyncDateRangeState {
 
   /** Update the sync date range - expands to include requested range */
   expandRange: (oldest: string, newest: string) => void;
+  /** Restore range from engine without triggering re-computation */
+  initializeRange: (oldest: string, newest: string) => void;
   /** Reset to default 90 days and lock expansion */
   reset: () => void;
   /** Set fetching state */
@@ -152,6 +154,18 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
           `[SyncDateRange] Expanded range: ${current.oldest} - ${current.newest} -> ${newOldest} - ${newNewest}`
         );
       }
+    }
+  },
+
+  initializeRange: (oldest: string, newest: string) => {
+    const current = get();
+    if (oldest < current.oldest || newest > current.newest) {
+      if (__DEV__) {
+        console.log(
+          `[SyncDateRange] Initialized range from engine: ${oldest} - ${newest} (no recomputation)`
+        );
+      }
+      set({ oldest, newest });
     }
   },
 
