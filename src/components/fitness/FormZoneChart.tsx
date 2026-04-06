@@ -362,9 +362,9 @@ export const FormZoneChart = React.memo(function FormZoneChart({
                   />
                   <ZoneBackground
                     bounds={chartBounds}
-                    minY={getZoneY(FORM_ZONE_BOUNDARIES.grey.max)}
-                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.grey.min)}
-                    color={FORM_ZONE_COLORS.grey + '20'}
+                    minY={getZoneY(FORM_ZONE_BOUNDARIES.greyZone.max)}
+                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.greyZone.min)}
+                    color={FORM_ZONE_COLORS.greyZone + '20'}
                   />
                   <ZoneBackground
                     bounds={chartBounds}
@@ -424,7 +424,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
 
       {/* Zone legend */}
       <View style={styles.zoneLegend}>
-        {(['transition', 'fresh', 'grey', 'optimal', 'highRisk'] as FormZone[]).map((zone) => (
+        {(['transition', 'fresh', 'greyZone', 'optimal', 'highRisk'] as FormZone[]).map((zone) => (
           <View key={zone} style={styles.zoneLegendItem}>
             <View style={[styles.zoneDot, { backgroundColor: FORM_ZONE_COLORS[zone] }]} />
             <Text style={[styles.zoneLabel, isDark && chartStyles.textDark]}>

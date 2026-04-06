@@ -1,7 +1,7 @@
 # Stress Test: Map Marker Taps
 # Tests tapping on activity markers rapidly
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier3
 ---

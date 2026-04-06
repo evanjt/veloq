@@ -23,6 +23,8 @@ function calculateDecoupling(
   decoupling: number;
   isGood: boolean;
 } {
+  if (power.length < 4) return { firstHalfEf: 0, secondHalfEf: 0, decoupling: 0, isGood: true };
+
   const midpoint = Math.floor(power.length / 2);
 
   // Calculate efficiency (power/HR) for each half

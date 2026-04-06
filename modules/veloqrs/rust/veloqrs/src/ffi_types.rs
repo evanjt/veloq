@@ -17,6 +17,25 @@ pub struct FfiBatchTrace {
     pub coords: Vec<f64>,
 }
 
+/// Entry for importing superseded section mappings from AsyncStorage migration.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSupersededEntry {
+    pub custom_section_id: String,
+    pub auto_section_ids: Vec<String>,
+}
+
+/// Extension track for expanding section bounds.
+/// Contains the representative activity's full GPS track with section start/end indices.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionExtensionTrack {
+    /// Flat coordinates [lat, lng, lat, lng, ...] of the full representative activity track
+    pub track: Vec<f64>,
+    /// Index in the track where the current section starts
+    pub section_start_idx: u32,
+    /// Index in the track where the current section ends
+    pub section_end_idx: u32,
+}
+
 /// Section detection progress info.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiDetectionProgress {
@@ -635,6 +654,9 @@ pub struct FfiSection {
     pub source_activity_id: Option<String>,
     pub start_index: Option<u32>,
     pub end_index: Option<u32>,
+    // Visibility state
+    pub disabled: bool,
+    pub superseded_by: Option<String>,
 }
 
 impl From<crate::sections::Section> for FfiSection {
@@ -663,6 +685,8 @@ impl From<crate::sections::Section> for FfiSection {
             source_activity_id: s.source_activity_id,
             start_index: s.start_index,
             end_index: s.end_index,
+            disabled: s.disabled,
+            superseded_by: s.superseded_by,
         }
     }
 }
@@ -946,6 +970,8 @@ pub struct FfiGroupWithPolyline {
     pub distance_meters: f64,
     /// Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
     pub consensus_polyline: Vec<f64>,
+    /// All sport types present in this group's activities
+    pub sport_types: Vec<String>,
 }
 
 /// Section summary with embedded polyline for the Routes screen.
@@ -963,6 +989,8 @@ pub struct FfiSectionWithPolyline {
     pub bounds: Option<FfiBounds>,
     /// Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
     pub polyline: Vec<f64>,
+    /// All sport types present in this section's activities
+    pub sport_types: Vec<String>,
 }
 
 /// All data needed by the Routes screen in a single FFI call.
@@ -982,6 +1010,31 @@ pub struct FfiRoutesScreenData {
     pub has_more_sections: bool,
     /// Whether route groups need recomputation (stale after activity removal)
     pub groups_dirty: bool,
+}
+
+// ============================================================================
+// Ranked Section Types (ML-driven relevance scoring)
+// ============================================================================
+
+/// A section ranked by composite relevance score combining recency, improvement,
+/// anomaly detection, and engagement signals.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiRankedSection {
+    pub section_id: String,
+    pub section_name: String,
+    pub relevance_score: f64,
+    pub recency_score: f64,
+    pub improvement_score: f64,
+    pub anomaly_score: f64,
+    pub engagement_score: f64,
+    pub traversal_count: u32,
+    pub best_time_secs: f64,
+    pub median_recent_secs: f64,
+    pub days_since_last: u32,
+    /// -1 = declining, 0 = stable, 1 = improving
+    pub trend: i32,
+    /// Whether the most recent effort is the all-time best time
+    pub latest_is_pr: bool,
 }
 
 // ============================================================================
@@ -1070,7 +1123,11 @@ impl From<crate::CalendarYearSummary> for FfiCalendarYearSummary {
             traversal_count: y.traversal_count,
             forward: y.forward.map(FfiCalendarDirectionBest::from),
             reverse: y.reverse.map(FfiCalendarDirectionBest::from),
-            months: y.months.into_iter().map(FfiCalendarMonthSummary::from).collect(),
+            months: y
+                .months
+                .into_iter()
+                .map(FfiCalendarMonthSummary::from)
+                .collect(),
         }
     }
 }
@@ -1092,12 +1149,132 @@ pub struct FfiCalendarSummary {
 impl From<crate::CalendarSummary> for FfiCalendarSummary {
     fn from(s: crate::CalendarSummary) -> Self {
         Self {
-            years: s.years.into_iter().map(FfiCalendarYearSummary::from).collect(),
+            years: s
+                .years
+                .into_iter()
+                .map(FfiCalendarYearSummary::from)
+                .collect(),
             forward_pr: s.forward_pr.map(FfiCalendarDirectionBest::from),
             reverse_pr: s.reverse_pr.map(FfiCalendarDirectionBest::from),
             section_distance: s.section_distance,
         }
     }
+}
+
+// ============================================================================
+// Activity Pattern Types
+// ============================================================================
+
+/// A detected recurring training pattern from k-means clustering.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivityPattern {
+    /// Sport type (e.g., "Ride", "Run")
+    pub sport_type: String,
+    /// Cluster identifier within the sport group
+    pub cluster_id: u8,
+    /// Most common day of week (0=Mon..6=Sun)
+    pub primary_day: u8,
+    /// Dominant season label ("winter", "spring", "summer", "autumn", "all")
+    pub season_label: String,
+    /// Number of activities in this pattern
+    pub activity_count: u32,
+    /// Average moving time in seconds
+    pub avg_duration_secs: u32,
+    /// Average training load (TSS)
+    pub avg_tss: f32,
+    /// Average distance in meters
+    pub avg_distance_meters: f32,
+    /// How often this pattern occurs per month
+    pub frequency_per_month: f32,
+    /// Weighted confidence score (0.0-1.0)
+    pub confidence: f32,
+    /// Silhouette score for cluster quality (0.0-1.0)
+    pub silhouette_score: f32,
+    /// Days since the most recent activity in this cluster
+    pub days_since_last: u32,
+    /// Sections commonly traversed by activities in this pattern
+    pub common_sections: Vec<FfiPatternSection>,
+}
+
+/// A section commonly associated with a training pattern.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiPatternSection {
+    /// Section identifier
+    pub section_id: String,
+    /// Section display name
+    pub section_name: String,
+    /// Fraction of cluster activities that traverse this section (0.0-1.0)
+    pub appearance_rate: f32,
+    /// Best (fastest) traversal time in seconds
+    pub best_time_secs: f32,
+    /// Median of the 5 most recent traversal times in seconds
+    pub median_recent_secs: f32,
+    /// Performance trend: None=insufficient data, -1=declining, 0=stable, 1=improving
+    pub trend: Option<i8>,
+    /// Total number of traversals across cluster activities
+    pub traversal_count: u32,
+}
+
+// ============================================================================
+// Insights Batch Types
+// ============================================================================
+
+/// A recent section PR detected in the last 7 days.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiRecentPR {
+    pub section_id: String,
+    pub section_name: String,
+    pub best_time: f64,
+    pub days_ago: u32,
+}
+
+/// Batch insights data: combines period stats, trends, patterns, and recent PRs.
+/// Reduces Insights hook FFI calls from 13-16 to 1.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiInsightsData {
+    /// Current week stats
+    pub current_week: FfiPeriodStats,
+    /// Previous week stats
+    pub previous_week: FfiPeriodStats,
+    /// 4-week chronic period stats (raw total, not averaged)
+    pub chronic_period: FfiPeriodStats,
+    /// Today's stats (for rest day detection)
+    pub today_period: FfiPeriodStats,
+    /// FTP trend
+    pub ftp_trend: FfiFtpTrend,
+    /// Running pace trend
+    pub run_pace_trend: FfiPaceTrend,
+    /// All activity patterns from k-means clustering
+    pub all_patterns: Vec<FfiActivityPattern>,
+    /// Today's matching pattern (if any, confidence >= 0.6)
+    pub today_pattern: Option<FfiActivityPattern>,
+    /// Up to 3 recent section PRs (best times set in last 7 days)
+    pub recent_prs: Vec<FfiRecentPR>,
+}
+
+// ============================================================================
+// Startup Batch Types
+// ============================================================================
+
+/// GPS track for a single activity (for feed map previews).
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiPreviewTrack {
+    pub activity_id: String,
+    pub points: Vec<FfiGpsPoint>,
+}
+
+/// All data needed for the feed screen on startup in one call.
+/// Reduces 20+ FFI calls to 1.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiStartupData {
+    /// Insights data (replaces getInsightsData)
+    pub insights: FfiInsightsData,
+    /// Summary card data (replaces getSummaryCardData)
+    pub summary_card: FfiSummaryCardData,
+    /// GPS tracks for initial visible activities (replaces N × getGpsTrack)
+    pub preview_tracks: Vec<FfiPreviewTrack>,
+    /// Activity IDs with cached metrics (for sync skip check)
+    pub cached_metric_ids: Vec<String>,
 }
 
 // ============================================================================
@@ -1110,6 +1287,48 @@ pub fn default_scale_presets() -> Vec<FfiScalePreset> {
         .into_iter()
         .map(FfiScalePreset::from)
         .collect()
+}
+
+// ============================================================================
+// Aerobic Efficiency Types
+// ============================================================================
+
+/// A single data point for aerobic efficiency tracking.
+/// Represents one section traversal with pace and heart rate data.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiEfficiencyPoint {
+    /// Unix timestamp of the activity
+    pub date: i64,
+    /// Pace in seconds per km
+    pub pace_secs_per_km: f64,
+    /// Average heart rate during this traversal
+    pub avg_hr: f64,
+    /// HR/pace ratio: avg_hr / pace_secs_per_km — lower = more efficient
+    pub hr_pace_ratio: f64,
+}
+
+/// Aerobic efficiency trend for a section.
+/// Tracks how HR/pace ratio changes over time across matched section efforts.
+/// A declining ratio indicates improving aerobic efficiency
+/// (Coyle et al., J Appl Physiol, 1991; Jones & Carter, Sports Med, 2000).
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiEfficiencyTrend {
+    /// Section ID
+    pub section_id: String,
+    /// Section name
+    pub section_name: String,
+    /// Individual data points sorted by date (oldest first)
+    pub points: Vec<FfiEfficiencyPoint>,
+    /// Linear regression slope of hr_pace_ratio over time (negative = improving)
+    pub trend_slope: f64,
+    /// True if slope is significantly negative (improving aerobic efficiency)
+    pub is_improving: bool,
+    /// Estimated HR change in bpm at the same pace over the observed time range
+    pub hr_change_bpm: f64,
+    /// Number of efforts with both pace and HR data
+    pub effort_count: u32,
 }
 
 // ============================================================================
@@ -1273,6 +1492,8 @@ mod tests {
             source_activity_id: None,
             start_index: None,
             end_index: None,
+            disabled: false,
+            superseded_by: None,
         };
 
         let ffi_section = FfiSection::from(section);
@@ -1289,4 +1510,161 @@ mod tests {
         assert_eq!(ffi_section.route_ids, Some(vec!["route_1".to_string()]));
         assert!(ffi_section.source_activity_id.is_none());
     }
+}
+
+// ============================================================================
+// Strength Training Types
+// ============================================================================
+
+/// A single exercise set from a FIT file, exposed to TypeScript.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiExerciseSet {
+    pub activity_id: String,
+    pub set_order: u32,
+    pub exercise_category: u16,
+    pub exercise_name: Option<u16>,
+    /// Human-readable exercise name, pre-resolved in Rust.
+    pub display_name: String,
+    /// 0=active, 1=rest, 2=warmup, 3=cooldown
+    pub set_type: u8,
+    pub repetitions: Option<u16>,
+    pub weight_kg: Option<f64>,
+    pub duration_secs: Option<f64>,
+}
+
+/// A muscle group activation, matching react-native-body-highlighter slug format.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMuscleGroup {
+    /// Slug matching react-native-body-highlighter (e.g., "biceps", "chest")
+    pub slug: String,
+    /// 1 = secondary, 2 = primary
+    pub intensity: u8,
+}
+
+/// Aggregated muscle group volume over a time period.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMuscleVolume {
+    /// Slug matching react-native-body-highlighter
+    pub slug: String,
+    /// Number of sets where this muscle is primary target
+    pub primary_sets: u32,
+    /// Number of sets where this muscle is secondary target
+    pub secondary_sets: u32,
+    /// Weighted set count: primary=1.0, secondary=0.5
+    pub weighted_sets: f64,
+    /// Total reps across all exercises targeting this muscle (primary only)
+    pub total_reps: u32,
+    /// Total volume load in kg (weight × reps) for primary exercises
+    pub total_weight_kg: f64,
+    /// Human-readable exercise names that targeted this muscle
+    pub exercise_names: Vec<String>,
+}
+
+/// Summary of strength training volume over a time period.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiStrengthSummary {
+    /// Per-muscle-group volume data
+    pub muscle_volumes: Vec<FfiMuscleVolume>,
+    /// Number of WeightTraining activities in the period
+    pub activity_count: u32,
+    /// Total active sets across all activities
+    pub total_sets: u32,
+}
+
+// ============================================================================
+// Muscle Exercise Detail Types
+// ============================================================================
+
+/// Exercise summary for a specific muscle group within a date range.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiExerciseSummary {
+    /// Human-readable exercise name
+    pub exercise_name: String,
+    /// FIT exercise category ID (pass back for drill-down query)
+    pub exercise_category: u16,
+    /// Average days between sessions (period_days / activity_count)
+    pub frequency_days: f64,
+    /// Total active sets across all activities
+    pub total_sets: u32,
+    /// Total volume load in kg (weight × reps)
+    pub total_weight_kg: f64,
+    /// Number of distinct activities containing this exercise
+    pub activity_count: u32,
+    /// True if the muscle is a primary target for at least one occurrence
+    pub is_primary: bool,
+}
+
+/// Exercise summaries grouped by frequency for a muscle group.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMuscleExerciseSummary {
+    /// Exercises targeting the muscle, sorted by activity_count DESC
+    pub exercises: Vec<FfiExerciseSummary>,
+    /// Number of days in the selected period
+    pub period_days: u32,
+}
+
+/// An activity containing a specific exercise, with per-activity stats.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiExerciseActivity {
+    /// Activity ID for navigation
+    pub activity_id: String,
+    /// Activity display name
+    pub activity_name: String,
+    /// Activity date as Unix timestamp (seconds)
+    pub date: i64,
+    /// Number of sets of this exercise in the activity
+    pub sets: u32,
+    /// Total volume load in kg (weight × reps) for this exercise in this activity
+    pub total_weight_kg: f64,
+    /// Whether the muscle is a primary target for this exercise
+    pub is_primary: bool,
+}
+
+/// Activities for a specific exercise, sorted by date DESC.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiExerciseActivities {
+    pub activities: Vec<FfiExerciseActivity>,
+}
+
+// ============================================================================
+// Section Matching & Merge Types
+// ============================================================================
+
+/// Result of matching an activity's GPS track against existing sections.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionMatch {
+    pub section_id: String,
+    pub section_name: Option<String>,
+    pub sport_type: String,
+    pub start_index: u64,
+    pub end_index: u64,
+    pub match_quality: f64,
+    pub same_direction: bool,
+    pub distance_meters: f64,
+}
+
+/// Candidate for merging with another section.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMergeCandidate {
+    pub section_id: String,
+    pub name: Option<String>,
+    pub sport_type: String,
+    pub distance_meters: f64,
+    pub visit_count: u32,
+    pub overlap_pct: f64,
+    pub center_distance_meters: f64,
+}
+
+/// Nearby section summary with distance info and polyline for map rendering.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiNearbySectionSummary {
+    pub id: String,
+    pub section_type: String,
+    pub name: Option<String>,
+    pub sport_type: String,
+    pub distance_meters: f64,
+    pub visit_count: u32,
+    pub center_distance_meters: f64,
+    /// Flat polyline coordinates [lat, lng, lat, lng, ...] for map overlay
+    pub polyline_coords: Vec<f64>,
 }

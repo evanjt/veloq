@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { TouchableOpacity, View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, type Href } from 'expo-router';
+import { navigateTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
 import { formatDistance, getActivityColor } from '@/lib';
 import { useMetricSystem } from '@/hooks';
@@ -25,7 +25,7 @@ export function SectionMatchRow({ match, activityType, isDark, isLast }: Section
   const isReverse = direction === 'reverse';
 
   const handlePress = useCallback(() => {
-    router.push(`/section/${section.id}` as Href);
+    navigateTo(`/section/${section.id}`);
   }, [section.id]);
 
   return (

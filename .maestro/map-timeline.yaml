@@ -1,7 +1,7 @@
 # Map Timeline Slider Tests
 # Tests the timeline slider on the map screen
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -16,5 +16,7 @@ tags:
     visible:
       id: "timeline-slider"
     timeout: 10000
+
+- takeScreenshot: "map-timeline-loaded"
 
 - takeScreenshot: "map-timeline-complete"

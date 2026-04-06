@@ -5,7 +5,7 @@
  * Returning users see their last-viewed map position instead of a computed bounds view.
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting } from '@/lib/backup';
 
 const STORAGE_KEY = '@map_camera_state';
 
@@ -23,7 +23,7 @@ export function initMapCameraState(): Promise<void> {
   initPromise = (async () => {
     if (initialized) return;
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      const raw = await getSetting(STORAGE_KEY);
       if (raw) state = JSON.parse(raw);
     } catch {
       // Best effort — start without saved state
@@ -42,7 +42,7 @@ export function getMapCameraState(): MapCameraState | null {
 
 export function saveMapCameraState(center: [number, number], zoom: number): void {
   state = { center, zoom };
-  AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
+  setSetting(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
 }
 
 export async function reloadMapCameraState(): Promise<void> {

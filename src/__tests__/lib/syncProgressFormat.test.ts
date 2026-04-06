@@ -76,7 +76,7 @@ describe('formatGpsSyncProgress', () => {
     expect(result!.percent).toBe(30);
   });
 
-  it('returns null for complete status', () => {
+  it('returns null for complete status when not fetching', () => {
     const complete: GpsSyncProgress = {
       status: 'complete',
       completed: 10,
@@ -85,6 +85,21 @@ describe('formatGpsSyncProgress', () => {
       message: '',
     };
     expect(formatGpsSyncProgress(complete, false, t)).toBeNull();
+  });
+
+  it('returns loading indicator when fetching activities after previous sync completed', () => {
+    const complete: GpsSyncProgress = {
+      status: 'complete',
+      completed: 10,
+      total: 10,
+      percent: 100,
+      message: '',
+    };
+    const result = formatGpsSyncProgress(complete, true, t);
+    expect(result).not.toBeNull();
+    expect(result!.indeterminate).toBe(true);
+    expect(result!.icon).toBe('cloud-download-outline');
+    expect(result!.text).toBe('mapScreen.loadingActivities');
   });
 
   it('calls correct i18n keys', () => {

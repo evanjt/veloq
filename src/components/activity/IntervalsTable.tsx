@@ -11,7 +11,7 @@ import {
   isCyclingActivity,
 } from '@/lib';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/hooks';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, spacing } from '@/theme';
 import type { ActivityInterval, ActivityType } from '@/types';
 
 interface IntervalsTableProps {
@@ -39,7 +39,7 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
       isWork && item.zone != null && item.zone >= 1
         ? zoneColors[Math.min(item.zone - 1, zoneColors.length - 1)]
         : null;
-    if (isDark && zoneColor && item.zone === 7) zoneColor = '#B0B0B0';
+    if (isDark && zoneColor && item.zone === 7) zoneColor = darkColors.zone7;
 
     const typeLabel =
       isWork && zoneColor ? `Z${item.zone}` : isWork ? 'Work' : isRecovery ? 'Rec' : item.type;

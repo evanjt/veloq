@@ -14,30 +14,36 @@ import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/components/ui';
 import { logScreenRender, PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { isNetworkError } from '@/lib/utils/errorHandler';
-import { router, Href } from 'expo-router';
+import { navigateTo } from '@/lib';
 import { useIsFocused } from '@react-navigation/core';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { useInfiniteActivities, useTheme, useSummaryCardData } from '@/hooks';
+import {
+  useInfiniteActivities,
+  useTheme,
+  useSummaryCardData,
+  useInsights,
+  isInfiniteActivitiesStale,
+} from '@/hooks';
 import type { Activity } from '@/types';
 import { useDashboardPreferences, useMapPreferences } from '@/providers';
-import { ActivityCard, notifyMapScroll } from '@/components/activity';
+import { ActivityCard } from '@/components/activity';
 import {
-  ActivityCardSkeleton,
   NetworkErrorState,
   ErrorStatePreset,
   ScreenErrorBoundary,
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
-import { SummaryCard } from '@/components/home';
+import { SummaryCard, InsightLine, NotificationOptInCard } from '@/components/home';
+import { useStartupData } from '@/hooks/home/useStartupData';
 import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
 } from '@/components/maps/TerrainSnapshotWebView';
 import { initTerrainPreviewCache } from '@/lib/storage/terrainPreviewCache';
 import { initCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
-import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
 // Activity type categories for filtering
@@ -64,7 +70,8 @@ const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
 const SEARCH_SECTION_HEIGHT = 78;
 
 export default function FeedScreen() {
-  // Performance timing
+  // Performance timing — tracks total render time and sub-component costs
+  const renderStart = PERF_DEBUG ? performance.now() : 0;
   const perfEndRef = useRef<(() => void) | null>(null);
   perfEndRef.current = logScreenRender('FeedScreen');
   useEffect(() => {
@@ -74,14 +81,21 @@ export default function FeedScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isDark, colors: themeColors } = useTheme();
-  const shared = createSharedStyles(isDark);
+  const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
 
-  // 3D terrain snapshot WebView — only request snapshots when feed is focused
+  // 3D terrain snapshot WebView — deferred mount to avoid startup cost
   const { isAnyTerrain3DEnabled } = useMapPreferences();
   const snapshotRef = useRef<TerrainSnapshotWebViewRef | null>(null);
   const isFeedFocused = useIsFocused();
+  const [snapshotWebViewReady, setSnapshotWebViewReady] = useState(false);
+  useEffect(() => {
+    if (!isAnyTerrain3DEnabled) return;
+    // Mount workers after initial renders settle — cards check cache first anyway
+    const timeout = setTimeout(() => setSnapshotWebViewReady(true), 500);
+    return () => clearTimeout(timeout);
+  }, [isAnyTerrain3DEnabled]);
 
   // FlatList ref for scroll-to-reveal search
   const listRef = useRef<FlatList>(null);
@@ -98,6 +112,7 @@ export default function FeedScreen() {
   const { summaryCard } = useDashboardPreferences();
 
   // Summary card data (hero metric, sparkline, supporting metrics)
+  const t0 = PERF_DEBUG ? performance.now() : 0;
   const {
     profileUrl,
     heroMetric,
@@ -116,7 +131,10 @@ export default function FeedScreen() {
     supportingMetrics,
     refetch: refetchSummary,
   } = useSummaryCardData();
+  if (PERF_DEBUG && performance.now() - t0 > 5)
+    console.log(`  ⏱ useSummaryCardData: ${(performance.now() - t0).toFixed(1)}ms`);
 
+  const t1 = PERF_DEBUG ? performance.now() : 0;
   const {
     data,
     isLoading,
@@ -128,12 +146,53 @@ export default function FeedScreen() {
     isFetchingNextPage,
     refetch,
   } = useInfiniteActivities();
+  if (PERF_DEBUG && performance.now() - t1 > 5)
+    console.log(`  ⏱ useInfiniteActivities: ${(performance.now() - t1).toFixed(1)}ms`);
 
-  // Flatten all pages into a single array
-  const allActivities = useMemo(() => {
+  // Flatten all pages into a single array — stabilize reference to prevent
+  // FlatList re-renders when TanStack Query refetches with identical data
+  const allActivitiesRaw = useMemo(() => {
     if (!data?.pages) return [];
     return data.pages.flat();
   }, [data?.pages]);
+  const prevActivitiesRef = useRef(allActivitiesRaw);
+  const allActivities = useMemo(() => {
+    const prevIds = prevActivitiesRef.current.map((a) => a.id).join(',');
+    const newIds = allActivitiesRaw.map((a) => a.id).join(',');
+    if (prevIds === newIds && prevActivitiesRef.current.length > 0) {
+      return prevActivitiesRef.current;
+    }
+    prevActivitiesRef.current = allActivitiesRaw;
+    return allActivitiesRaw;
+  }, [allActivitiesRaw]);
+
+  // Single FFI call for all startup data (insights + summary card + GPS tracks)
+  const t2 = PERF_DEBUG ? performance.now() : 0;
+  const previewIds = useMemo(
+    () =>
+      allActivities
+        .filter((a) => a.stream_types?.includes('latlng'))
+        .slice(0, 5)
+        .map((a) => a.id),
+    [allActivities]
+  );
+  const { data: startupData } = useStartupData(previewIds);
+  if (PERF_DEBUG && performance.now() - t2 > 5)
+    console.log(`  ⏱ useStartupData: ${(performance.now() - t2).toFixed(1)}ms`);
+
+  // useInsights uses pre-computed data from startup — never makes its own FFI call on feed
+  const t3 = PERF_DEBUG ? performance.now() : 0;
+  const { insights } = useInsights(startupData?.insightsData, true, startupData?.summaryCardData);
+  if (PERF_DEBUG && performance.now() - t3 > 5)
+    console.log(`  ⏱ useInsights: ${(performance.now() - t3).toFixed(1)}ms`);
+
+  if (PERF_DEBUG) {
+    const hookTime = performance.now() - renderStart;
+    if (hookTime > 50) console.log(`  ⏱ Total hooks: ${hookTime.toFixed(1)}ms`);
+  }
+
+  // Memoize InsightLine to prevent SummaryCard re-renders from new JSX element references
+  const insightLine = useMemo(() => <InsightLine insights={insights} />, [insights]);
 
   // Filter activities by search query and type
   const filteredActivities = useMemo(() => {
@@ -161,10 +220,16 @@ export default function FeedScreen() {
     return filtered;
   }, [allActivities, searchQuery, selectedTypeGroup]);
 
-  // Comprehensive refresh: resets feed, triggers route engine sync, refreshes all data
-  const handleRefresh = async () => {
+  // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
+  const handleRefresh = useCallback(async () => {
+    // Reset the infinite query if page params are stale (don't cover today),
+    // otherwise invalidate for smooth stale-while-revalidate.
+    const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
+      ? queryClient.resetQueries({ queryKey: ['activities-infinite'] })
+      : queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
+
     await Promise.all([
-      queryClient.resetQueries({ queryKey: ['activities-infinite'] }),
+      infiniteRefresh,
       queryClient.invalidateQueries({ queryKey: ['activities'] }),
       queryClient.invalidateQueries({ queryKey: ['wellness'] }),
       queryClient.invalidateQueries({ queryKey: ['athlete-summary'] }),
@@ -180,7 +245,7 @@ export default function FeedScreen() {
         listRef.current?.scrollToOffset({ offset: SEARCH_SECTION_HEIGHT, animated: true });
       }, 100);
     }
-  };
+  }, [queryClient, refetchSummary, searchQuery, selectedTypeGroup]);
 
   // Load more when scrolling to the end
   const handleEndReached = useCallback(() => {
@@ -189,6 +254,32 @@ export default function FeedScreen() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  const refreshControl = useMemo(
+    () => (
+      <RefreshControl
+        refreshing={isRefetching}
+        onRefresh={handleRefresh}
+        colors={[colors.primary]}
+        tintColor={colors.primary}
+        progressBackgroundColor={isDark ? darkColors.surface : colors.surface}
+        title={Platform.OS === 'ios' ? t('common.pullToRefresh') : undefined}
+        titleColor={
+          Platform.OS === 'ios'
+            ? isDark
+              ? darkColors.textSecondary
+              : colors.textSecondary
+            : undefined
+        }
+      />
+    ),
+    [isRefetching, handleRefresh, isDark, t]
+  );
+
+  // Stabilize preview tracks reference to prevent FlatList re-renders when startupData refreshes
+  const previewTracksRef = useRef(startupData?.previewTracks);
+  if (startupData?.previewTracks) {
+    previewTracksRef.current = startupData.previewTracks;
+  }
   const renderActivity = useCallback(
     ({ item, index }: { item: Activity; index: number }) => (
       <ActivityCard
@@ -196,43 +287,28 @@ export default function FeedScreen() {
         index={index}
         snapshotRef={snapshotRef}
         screenFocused={isFeedFocused}
+        startupTrack={previewTracksRef.current?.get(item.id)}
+        snapshotReady={snapshotWebViewReady}
+        colorScheme={isDark}
       />
     ),
-    [isFeedFocused]
-  );
-
-  // Notify map previews when items become visible for lazy loading
-  const handleViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
-      const maxIndex = Math.max(...viewableItems.map((item) => item.index ?? 0));
-      if (maxIndex >= 0) {
-        notifyMapScroll(maxIndex);
-      }
-    },
-    []
-  );
-
-  const viewabilityConfig = useMemo(
-    () => ({
-      itemVisiblePercentThreshold: 20,
-    }),
-    []
+    [isFeedFocused, snapshotWebViewReady, isDark]
   );
 
   const navigateToSettings = useCallback(() => {
-    router.push('/settings' as Href);
+    navigateTo('/settings');
   }, []);
 
   const navigateToHeroMetric = useCallback(() => {
     switch (summaryCard.heroMetric) {
       case 'fitness':
-        router.push('/fitness' as Href);
+        navigateTo('/fitness');
         break;
       case 'hrv':
-        router.push('/training' as Href);
+        navigateTo('/training');
         break;
       default:
-        router.push('/fitness' as Href);
+        navigateTo('/fitness');
     }
   }, [summaryCard.heroMetric]);
 
@@ -287,6 +363,7 @@ export default function FeedScreen() {
             {Object.keys(ACTIVITY_TYPE_GROUPS).map((group) => (
               <TouchableOpacity
                 key={group}
+                testID={`home-filter-${group.toLowerCase()}`}
                 style={[
                   styles.filterChip,
                   isDark && styles.filterChipDark,
@@ -324,7 +401,8 @@ export default function FeedScreen() {
       selectedTypeGroup,
       filteredActivities.length,
       t,
-      themeColors,
+      themeColors.textSecondary,
+      themeColors.textMuted,
       selectTypeGroup,
     ]
   );
@@ -367,38 +445,51 @@ export default function FeedScreen() {
     );
   }, [isFetchingNextPage, isDark, t]);
 
-  if (isLoading && !allActivities.length) {
-    return (
-      <ScreenSafeAreaView style={shared.container}>
-        <View style={styles.skeletonContainer}>
-          {/* Summary card skeleton */}
-          <View style={[styles.summaryCardSkeleton, isDark && styles.summaryCardSkeletonDark]}>
-            <View style={styles.skeletonRow}>
-              <View style={[styles.skeletonCircle, isDark && styles.skeletonElementDark]} />
-              <View style={styles.skeletonSpacer} />
-            </View>
-            <View style={styles.skeletonHero}>
-              <View style={[styles.skeletonHeroValue, isDark && styles.skeletonElementDark]} />
-              <View style={[styles.skeletonHeroLabel, isDark && styles.skeletonElementDark]} />
-            </View>
-            <View style={styles.skeletonMetrics}>
-              <View style={[styles.skeletonMetric, isDark && styles.skeletonElementDark]} />
-              <View style={[styles.skeletonMetric, isDark && styles.skeletonElementDark]} />
-              <View style={[styles.skeletonMetric, isDark && styles.skeletonElementDark]} />
-            </View>
-          </View>
-          {/* Activity card skeletons */}
-          <ActivityCardSkeleton />
-          <ActivityCardSkeleton />
-          <ActivityCardSkeleton />
-        </View>
-      </ScreenSafeAreaView>
-    );
+  // Track what changes between renders to identify unnecessary re-renders
+  const prevRenderState = useRef({
+    isLoading: false,
+    actLen: 0,
+    insLen: 0,
+    focused: false,
+    refetching: false,
+    dataRef: null as unknown,
+    filteredRef: null as unknown,
+  });
+  if (PERF_DEBUG) {
+    const prev = prevRenderState.current;
+    const changes: string[] = [];
+    if (prev.isLoading !== isLoading) changes.push(`isLoading:${prev.isLoading}→${isLoading}`);
+    if (prev.actLen !== allActivities.length)
+      changes.push(`activities:${prev.actLen}→${allActivities.length}`);
+    if (prev.insLen !== insights.length) changes.push(`insights:${prev.insLen}→${insights.length}`);
+    if (prev.focused !== isFeedFocused) changes.push(`focused:${prev.focused}→${isFeedFocused}`);
+    if (prev.refetching !== isRefetching)
+      changes.push(`refetching:${prev.refetching}→${isRefetching}`);
+    if (prev.dataRef !== data) changes.push('data:newRef');
+    if (prev.filteredRef !== filteredActivities) changes.push('filtered:newRef');
+    prev.isLoading = isLoading;
+    prev.actLen = allActivities.length;
+    prev.insLen = insights.length;
+    prev.focused = isFeedFocused;
+    prev.refetching = isRefetching;
+    prev.dataRef = data;
+    prev.filteredRef = filteredActivities;
+
+    const jsxStart = performance.now() - renderStart;
+    if (jsxStart > 30)
+      console.log(
+        `  ⏱ Hooks→JSX: ${jsxStart.toFixed(0)}ms | activities: ${allActivities.length} | startup: ${startupData ? 'ready' : 'pending'} | insights: ${insights.length}`
+      );
+    if (changes.length > 0) console.log(`  🔄 State changes: ${changes.join(', ')}`);
   }
 
+  // Single layout path — no separate loading tree to avoid component tree swap and layout bounce
   return (
     <ScreenErrorBoundary screenName="Feed">
       <ScreenSafeAreaView style={shared.container} testID="home-screen">
+        {/* Notification opt-in card (OAuth users who haven't enabled yet) */}
+        <NotificationOptInCard />
+
         {/* Summary card with hero metric and supporting stats */}
         <SummaryCard
           profileUrl={profileUrl}
@@ -418,6 +509,7 @@ export default function FeedScreen() {
           rhrData={rhrData}
           showSparkline={showSparkline}
           supportingMetrics={supportingMetrics}
+          insightLine={insightLine}
         />
 
         <FlatList
@@ -426,6 +518,7 @@ export default function FeedScreen() {
           data={filteredActivities}
           renderItem={renderActivity}
           keyExtractor={(item) => item.id}
+          extraData={isDark}
           ListHeaderComponent={renderListHeader}
           ListEmptyComponent={isError ? renderError : renderEmpty}
           ListFooterComponent={renderFooter}
@@ -433,102 +526,24 @@ export default function FeedScreen() {
           contentOffset={initialContentOffset}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={handleRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-              progressBackgroundColor={isDark ? darkColors.surface : colors.surface}
-              title={Platform.OS === 'ios' ? t('common.pullToRefresh') : undefined}
-              titleColor={Platform.OS === 'ios' ? themeColors.textSecondary : undefined}
-            />
-          }
+          refreshControl={refreshControl}
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.5}
           showsVerticalScrollIndicator={false}
-          // iOS scroll performance optimizations
           removeClippedSubviews={Platform.OS === 'ios'}
-          maxToRenderPerBatch={Platform.OS === 'ios' ? 15 : 10}
-          windowSize={Platform.OS === 'ios' ? 21 : 11}
-          initialNumToRender={5}
-          onViewableItemsChanged={handleViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
+          maxToRenderPerBatch={Platform.OS === 'ios' ? 4 : 3}
+          windowSize={Platform.OS === 'ios' ? 7 : 5}
+          initialNumToRender={2}
         />
 
-        {/* Hidden WebView for generating 3D terrain snapshots */}
-        {isAnyTerrain3DEnabled && <TerrainSnapshotWebView ref={snapshotRef} />}
+        {/* Hidden WebView for generating 3D terrain snapshots — deferred to avoid startup cost */}
+        {snapshotWebViewReady && <TerrainSnapshotWebView ref={snapshotRef} />}
       </ScreenSafeAreaView>
     </ScreenErrorBoundary>
   );
 }
 
 const styles = StyleSheet.create({
-  // Summary card skeleton styles
-  summaryCardSkeleton: {
-    borderRadius: layout.borderRadius,
-    padding: layout.cardPadding,
-    marginHorizontal: layout.screenPadding,
-    marginBottom: spacing.md,
-    backgroundColor: colors.surface,
-    ...shadows.card,
-  },
-  summaryCardSkeletonDark: {
-    backgroundColor: darkColors.surface,
-    ...shadows.none,
-    borderWidth: 1,
-    borderColor: darkColors.border,
-  },
-  skeletonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.md,
-  },
-  skeletonCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.divider,
-  },
-  skeletonSpacer: {
-    flex: 1,
-  },
-  skeletonHero: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-  },
-  skeletonHeroValue: {
-    width: 60,
-    height: 32,
-    borderRadius: 4,
-    backgroundColor: colors.divider,
-    marginBottom: spacing.xs,
-  },
-  skeletonHeroLabel: {
-    width: 40,
-    height: 14,
-    borderRadius: 4,
-    backgroundColor: colors.divider,
-  },
-  skeletonMetrics: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-    gap: spacing.lg,
-  },
-  skeletonMetric: {
-    width: 50,
-    height: 14,
-    borderRadius: 4,
-    backgroundColor: colors.divider,
-  },
-  skeletonElementDark: {
-    backgroundColor: darkColors.border,
-  },
   textLight: {
     color: colors.textOnDark,
   },
@@ -615,19 +630,10 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   loadingText: {
     ...typography.body,
     color: colors.textSecondary,
     marginTop: spacing.md,
-  },
-  skeletonContainer: {
-    flex: 1,
-    paddingHorizontal: layout.screenPadding,
   },
   emptyContainer: {
     flex: 1,

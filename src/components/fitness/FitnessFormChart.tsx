@@ -42,7 +42,7 @@ const FORM_ZONES = {
     color: 'rgba(76, 175, 80, 0.25)',
     label: 'Optimal',
   },
-  grey: {
+  greyZone: {
     min: -10,
     max: 5,
     color: 'rgba(158, 158, 158, 0.15)',
@@ -68,7 +68,7 @@ function getFormLineColor(form: number): string {
   if (form < -10) return '#66BB6A'; // Optimal - Green
   if (form < 5) return '#9E9E9E'; // Grey Zone - Grey
   if (form < 25) return '#81C784'; // Fresh - Light Green
-  return '#64B5F6'; // Transition - Blue
+  return '#64B5F6'; // Detraining - Blue
 }
 
 interface FitnessFormChartProps {
@@ -493,13 +493,13 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                         height={getY(-10) - getY(-30) > 0 ? getY(-30) - getY(-10) : 0}
                         color={FORM_ZONES.optimal.color}
                       />
-                      {/* Grey zone (-10 to 5) */}
+                      {/* Grey Zone (-10 to 5) */}
                       <Rect
                         x={chartBounds.left}
                         y={getY(5)}
                         width={chartBounds.right - chartBounds.left}
                         height={getY(-10) - getY(5)}
-                        color={FORM_ZONES.grey.color}
+                        color={FORM_ZONES.greyZone.color}
                       />
                       {/* Fresh zone (5 to 25) */}
                       <Rect

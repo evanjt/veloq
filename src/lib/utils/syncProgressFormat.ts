@@ -24,7 +24,12 @@ export function formatGpsSyncProgress(
   t: TFunction
 ): SyncDisplayInfo | null {
   // Loading activities from API (no real progress yet)
-  if (isFetchingActivities && progress.status === 'idle') {
+  if (
+    isFetchingActivities &&
+    progress.status !== 'fetching' &&
+    progress.status !== 'processing' &&
+    progress.status !== 'computing'
+  ) {
     return {
       icon: 'cloud-download-outline',
       text: t('mapScreen.loadingActivities') as string,

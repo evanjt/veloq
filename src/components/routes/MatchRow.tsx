@@ -10,7 +10,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
 import { formatDistance } from '@/lib';
 import type { DiscoveredMatchInfo } from '@/types';
 
@@ -125,11 +125,7 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     marginHorizontal: spacing.md,
     marginBottom: spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    ...shadows.pill,
   },
   containerDark: {
     backgroundColor: darkColors.surface,

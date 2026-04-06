@@ -1,7 +1,7 @@
 # Activity Card Stats Tests
 # Tests that activity cards display and navigate to detail
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -19,6 +19,8 @@ tags:
       id: "activity-card-demo-.*"
     timeout: 10000
 
+- takeScreenshot: "activity-card-stats-list-loaded"
+
 # Tap on the first visible activity card
 - tapOn:
     id: "activity-card-demo-.*"
@@ -32,5 +34,13 @@ tags:
     visible:
       id: "activity-detail-content"
     timeout: 15000
+
+# Verify full detail loaded (chart type selector indicates charts rendered)
+- extendedWaitUntil:
+    visible:
+      id: "chart-type-selector"
+    timeout: 15000
+
+- takeScreenshot: "activity-card-stats-detail-loaded"
 
 - takeScreenshot: "activity-card-to-detail-complete"

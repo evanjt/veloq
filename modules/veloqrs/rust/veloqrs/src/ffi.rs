@@ -359,6 +359,20 @@ pub fn start_fetch_and_store(
         let storage_time = elapsed_ms(storage_start) as u32;
         let total_time = elapsed_ms(thread_start) as u32;
 
+        // Spawn background heatmap tile generation with the new GPS data
+        if success_count > 0 {
+            let handle = crate::persistence::with_persistent_engine(|engine| {
+                engine.generate_tiles_background()
+            });
+            if let Some(Some(h)) = handle {
+                if let Ok(mut guard) =
+                    crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock()
+                {
+                    *guard = Some(h);
+                }
+            }
+        }
+
         // Store result
         store_fetch_and_store_result(FetchAndStoreResult {
             synced_ids,

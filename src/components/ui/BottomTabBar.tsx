@@ -7,19 +7,21 @@ import { StyleSheet, TouchableOpacity, View, Text, Platform } from 'react-native
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, usePathname } from 'expo-router';
+import { usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
-import { brand } from '@/theme';
+import { brand, colorWithOpacity, spacing } from '@/theme';
+import { useInsightsStore } from '@/providers/InsightsStore';
 import { PERF_DEBUG } from '@/lib/debug/renderTimer';
+import { navigateTab } from '@/lib';
 
 // Menu items with routes and icons (labels come from i18n)
 const MENU_ITEMS = [
   { key: 'feed', icon: 'home-outline', route: '/' },
   { key: 'fitness', icon: 'chart-line', route: '/fitness' },
   { key: 'map', icon: 'map-outline', route: '/map' },
-  { key: 'routes', icon: 'map-marker-path', route: '/routes' },
+  { key: 'insights', icon: 'lightbulb-outline', route: '/routes' },
   { key: 'health', icon: 'heart-pulse', route: '/training' },
 ] as const;
 
@@ -30,10 +32,9 @@ export const TAB_BAR_SAFE_PADDING = TAB_BAR_HEIGHT + GRADIENT_HEIGHT; // Total p
 const ICON_SIZE = 26;
 
 // Colors - WCAG AA requires 3:1 for icons, 4.5:1 for text
-const INACTIVE_COLOR_DARK = 'rgba(255, 255, 255, 0.55)'; // Muted but visible
-const INACTIVE_COLOR_LIGHT = 'rgba(0, 0, 0, 0.45)'; // Muted but visible
+const INACTIVE_COLOR_DARK = colorWithOpacity('#FFFFFF', 0.55); // Muted but visible
+const INACTIVE_COLOR_LIGHT = colorWithOpacity('#000000', 0.45); // Muted but visible
 const ACTIVE_COLOR_DARK = '#FFFFFF'; // Bright white - pops
-const ACTIVE_COLOR_LIGHT = '#000000'; // Solid black - pops
 
 function BottomTabBarComponent() {
   // Performance: Track render count
@@ -47,6 +48,7 @@ function BottomTabBarComponent() {
   const pathname = usePathname();
   const { isDark } = useTheme();
   const { t } = useTranslation();
+  const hasNewInsights = useInsightsStore((s) => s.hasNewInsights);
 
   // Colors with proper contrast for accessibility
   const activeColor = isDark ? ACTIVE_COLOR_DARK : brand.tealLight;
@@ -56,19 +58,19 @@ function BottomTabBarComponent() {
   const gradientColors = isDark
     ? ([
         'transparent',
-        'rgba(0, 0, 0, 0.35)',
-        'rgba(0, 0, 0, 0.6)',
-        'rgba(0, 0, 0, 0.8)',
-        'rgba(0, 0, 0, 0.9)',
-        'rgba(0, 0, 0, 0.92)',
+        colorWithOpacity('#000000', 0.35),
+        colorWithOpacity('#000000', 0.6),
+        colorWithOpacity('#000000', 0.8),
+        colorWithOpacity('#000000', 0.9),
+        colorWithOpacity('#000000', 0.92),
       ] as const)
     : ([
         'transparent',
-        'rgba(255, 255, 255, 0.35)',
-        'rgba(255, 255, 255, 0.6)',
-        'rgba(255, 255, 255, 0.8)',
-        'rgba(255, 255, 255, 0.9)',
-        'rgba(255, 255, 255, 0.92)',
+        colorWithOpacity('#FFFFFF', 0.35),
+        colorWithOpacity('#FFFFFF', 0.6),
+        colorWithOpacity('#FFFFFF', 0.8),
+        colorWithOpacity('#FFFFFF', 0.9),
+        colorWithOpacity('#FFFFFF', 0.92),
       ] as const);
 
   const handlePress = useCallback(
@@ -88,7 +90,7 @@ function BottomTabBarComponent() {
       if (Platform.OS === 'ios') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
-      router.navigate(route as never);
+      navigateTab(route);
     },
     [pathname]
   );
@@ -96,53 +98,61 @@ function BottomTabBarComponent() {
   const totalHeight = GRADIENT_HEIGHT + TAB_BAR_HEIGHT + insets.bottom;
 
   return (
-    <View style={[styles.container, { height: totalHeight }]} pointerEvents="box-none">
-      {/* Smooth gradient fade */}
-      <LinearGradient
-        colors={gradientColors}
-        locations={[0, 0.1, 0.22, 0.38, 0.6, 1]}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      {/* Icons row - positioned at bottom above safe area */}
-      <View style={[styles.tabRow, { marginBottom: insets.bottom }]}>
-        {MENU_ITEMS.map((item) => {
-          const isActive =
-            item.route === '/'
-              ? pathname === '/' || pathname === '/index'
-              : pathname.startsWith(item.route);
+    <>
+      <View style={[styles.container, { height: totalHeight }]} pointerEvents="box-none">
+        {/* Smooth gradient fade */}
+        <LinearGradient
+          colors={gradientColors}
+          locations={[0, 0.1, 0.22, 0.38, 0.6, 1]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+        {/* Icons row - positioned at bottom above safe area */}
+        <View style={[styles.tabRow, { marginBottom: insets.bottom }]}>
+          {MENU_ITEMS.map((item) => {
+            const isActive =
+              item.route === '/'
+                ? pathname === '/' || pathname === '/index'
+                : pathname.startsWith(item.route);
 
-          const label = t(`navigation.${item.key}`);
-          return (
-            <TouchableOpacity
-              key={item.key}
-              style={styles.tabItem}
-              onPress={() => handlePress(item.route)}
-              activeOpacity={0.6}
-              accessibilityLabel={label}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isActive }}
-            >
-              <MaterialCommunityIcons
-                name={item.icon as never}
-                size={isActive ? ICON_SIZE + 2 : ICON_SIZE}
-                color={isActive ? activeColor : inactiveColor}
-              />
-              <Text
-                style={[
-                  styles.label,
-                  { color: isActive ? activeColor : inactiveColor },
-                  isActive && styles.labelActive,
-                ]}
-                numberOfLines={1}
+            const label = t(`navigation.${item.key}`);
+
+            return (
+              <TouchableOpacity
+                key={item.key}
+                style={styles.tabItem}
+                onPress={() => handlePress(item.route)}
+                activeOpacity={0.6}
+                accessibilityLabel={label}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isActive }}
               >
-                {label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+                <View style={styles.iconContainer}>
+                  <MaterialCommunityIcons
+                    name={item.icon as never}
+                    size={isActive ? ICON_SIZE + 2 : ICON_SIZE}
+                    color={isActive ? activeColor : inactiveColor}
+                  />
+                  {item.key === 'insights' && hasNewInsights && (
+                    <View testID="tab-insights-badge" style={styles.notificationDot} />
+                  )}
+                </View>
+                <Text
+                  style={[
+                    styles.label,
+                    { color: isActive ? activeColor : inactiveColor },
+                    isActive && styles.labelActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
-    </View>
+    </>
   );
 }
 
@@ -169,12 +179,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: TAB_BAR_HEIGHT,
   },
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: ICON_SIZE + 2,
+    width: ICON_SIZE + 2,
+  },
   label: {
     fontSize: 11,
     fontWeight: '500',
-    marginTop: 3,
+    marginTop: spacing.xs,
   },
   labelActive: {
     fontWeight: '700',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 0,
+    right: -4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: brand.orange,
   },
 });

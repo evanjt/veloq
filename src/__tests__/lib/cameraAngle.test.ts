@@ -42,6 +42,42 @@ describe('calculateTerrainCamera', () => {
       expect(result.camera.center).toEqual([0, 0]);
       expect(result.hasInterestingTerrain).toBe(false);
     });
+
+    it('handles single-point route', () => {
+      // Single coordinate triggers early return at line 62
+      const result = calculateTerrainCamera([[8.54, 47.37]]);
+      expect(result.camera.center).toEqual([8.54, 47.37]);
+      expect(result.camera.zoom).toBe(13);
+      expect(result.hasInterestingTerrain).toBe(false);
+    });
+
+    it('handles two identical coordinates (zero span)', () => {
+      // latSpan=0, lngSpan=0 hits the guard at line 98: latSpan < 0.0001 && lngSpan < 0.0001
+      // which hardcodes zoom=14 to avoid log2(180 / 0) = Infinity
+      const result = calculateTerrainCamera([
+        [8.54, 47.37],
+        [8.54, 47.37],
+      ]);
+      expect(result.camera.zoom).toBe(14);
+      expect(Number.isFinite(result.camera.bearing)).toBe(true);
+      expect(result.hasInterestingTerrain).toBe(false);
+    });
+
+    it('handles two identical coordinates with altitude', () => {
+      // Same location but different altitudes — gradient magnitude is zero
+      // because (lng - centerLng) and (lat - centerLat) are both 0
+      const result = calculateTerrainCamera(
+        [
+          [8.54, 47.37],
+          [8.54, 47.37],
+        ],
+        [100, 2000]
+      );
+      expect(result.camera.zoom).toBe(14);
+      expect(Number.isFinite(result.camera.bearing)).toBe(true);
+      // Gradient is zero so it falls back to perpendicular bearing
+      expect(result.hasInterestingTerrain).toBe(false);
+    });
   });
 
   describe('fallback (no altitude)', () => {

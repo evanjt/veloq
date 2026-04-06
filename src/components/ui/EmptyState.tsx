@@ -5,7 +5,16 @@ import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/hooks';
-import { spacing, brand, colors } from '@/theme';
+import {
+  spacing,
+  layout,
+  brand,
+  colors,
+  gradients,
+  colorWithOpacity,
+  shadows,
+  typography,
+} from '@/theme';
 
 interface EmptyStateProps {
   /** Icon name from MaterialCommunityIcons */
@@ -33,12 +42,14 @@ export function EmptyState({
   const { isDark, colors } = useTheme();
 
   return (
-    <View style={[styles.container, compact && styles.containerCompact]}>
+    <View style={[styles.container, compact && styles.containerCompact]} testID="empty-state">
       <View
         style={[
           styles.iconContainer,
           {
-            backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+            backgroundColor: isDark
+              ? colorWithOpacity('#FFFFFF', 0.1)
+              : colorWithOpacity('#000000', 0.05),
           },
           compact && styles.iconContainerCompact,
         ]}
@@ -46,7 +57,7 @@ export function EmptyState({
         <MaterialCommunityIcons
           name={icon}
           size={compact ? 32 : 48}
-          color={isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'}
+          color={isDark ? colorWithOpacity('#FFFFFF', 0.4) : colorWithOpacity('#000000', 0.3)}
         />
       </View>
 
@@ -69,7 +80,7 @@ export function EmptyState({
       {actionLabel && onAction && (
         <TouchableOpacity style={styles.actionButton} onPress={onAction} activeOpacity={0.8}>
           <LinearGradient
-            colors={['#2DD4BF', '#14B8A6']}
+            colors={[...gradients.primary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.actionGradient}
@@ -187,7 +198,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 96,
     height: 96,
-    borderRadius: 48,
+    borderRadius: 48, // half of width for circle
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.lg,
@@ -195,7 +206,7 @@ const styles = StyleSheet.create({
   iconContainerCompact: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: 32, // half of width for circle
     marginBottom: spacing.md,
   },
   title: {
@@ -219,13 +230,9 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     marginTop: spacing.lg,
-    borderRadius: 24,
+    borderRadius: layout.borderRadiusLg,
     overflow: 'hidden',
-    shadowColor: brand.teal,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    ...shadows.tealGlow,
   },
   actionGradient: {
     paddingVertical: 12,
@@ -233,7 +240,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     color: colors.textOnDark,
-    fontSize: 15,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
   },
 });

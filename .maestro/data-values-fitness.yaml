@@ -1,0 +1,69 @@
+# Fitness Data Validation
+# Verifies fitness metrics show real numbers, not NaN/blank, across time ranges
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
+
+# Verify CTL value is present
+- extendedWaitUntil:
+    visible:
+      id: "fitness-ctl-value"
+    timeout: 10000
+
+# Assert no NaN or undefined text on screen
+- assertNotVisible:
+    text: "NaN"
+- assertNotVisible:
+    text: "undefined"
+- takeScreenshot: "data-values-fitness-initial-load"
+
+# Switch to 6-month range
+- tapOn:
+    id: "fitness-range-6m"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "fitness-ctl-value"
+    timeout: 5000
+- assertNotVisible:
+    text: "NaN"
+- assertNotVisible:
+    text: "undefined"
+- takeScreenshot: "data-values-fitness-6m"
+
+# Switch to 1-year range
+- tapOn:
+    id: "fitness-range-1y"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "fitness-ctl-value"
+    timeout: 5000
+- assertNotVisible:
+    text: "NaN"
+- assertNotVisible:
+    text: "undefined"
+- takeScreenshot: "data-values-fitness-1y"
+
+# Switch to 3-month range
+- tapOn:
+    id: "fitness-range-3m"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "fitness-ctl-value"
+    timeout: 5000
+- assertNotVisible:
+    text: "NaN"
+- assertNotVisible:
+    text: "undefined"
+- takeScreenshot: "data-values-fitness-3m"
+
+- takeScreenshot: "data-values-fitness-complete"

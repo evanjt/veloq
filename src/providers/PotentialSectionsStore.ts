@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting, removeSetting } from '@/lib/backup';
 import type { PotentialSection } from '@/types';
 
 const POTENTIAL_SECTIONS_KEY = 'veloq-potential-sections';
@@ -49,7 +49,7 @@ export const usePotentialSections = create<PotentialSectionsState>((set, get) =>
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(POTENTIAL_SECTIONS_KEY);
+      const stored = await getSetting(POTENTIAL_SECTIONS_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         if (isPotentialSectionArray(parsed)) {
@@ -73,7 +73,7 @@ export const usePotentialSections = create<PotentialSectionsState>((set, get) =>
       potentials,
       lastDetection: Date.now(),
     };
-    await AsyncStorage.setItem(POTENTIAL_SECTIONS_KEY, JSON.stringify(data));
+    await setSetting(POTENTIAL_SECTIONS_KEY, JSON.stringify(data));
     set({
       potentials,
       lastDetection: Date.now(),
@@ -81,7 +81,7 @@ export const usePotentialSections = create<PotentialSectionsState>((set, get) =>
   },
 
   clear: async () => {
-    await AsyncStorage.removeItem(POTENTIAL_SECTIONS_KEY);
+    await removeSetting(POTENTIAL_SECTIONS_KEY);
     set({
       potentials: [],
       lastDetection: null,

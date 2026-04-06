@@ -1,8 +1,34 @@
-import { Appearance } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Appearance, useColorScheme, type ColorSchemeName } from 'react-native';
+import { create } from 'zustand';
+import { getSetting, setSetting } from '@/lib/backup';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 const STORAGE_KEY = 'veloq-theme-preference';
+
+interface ThemeState {
+  preference: ThemePreference;
+  hydrated: boolean;
+  setHydratedPreference: (preference: ThemePreference) => void;
+  setPreference: (preference: ThemePreference) => void;
+}
+
+function normalizePreference(value: string | null): ThemePreference {
+  if (value === 'light' || value === 'dark' || value === 'system') {
+    return value;
+  }
+  return 'system';
+}
+
+export const useThemePreferenceStore = create<ThemeState>((set) => ({
+  preference: 'system',
+  hydrated: false,
+  setHydratedPreference: (preference) => set({ preference, hydrated: true }),
+  setPreference: (preference) => set({ preference, hydrated: true }),
+}));
+
+function applyThemePreference(preference: ThemePreference): void {
+  Appearance.setColorScheme(preference === 'system' ? null : preference);
+}
 
 /**
  * Initialize theme on app start.
@@ -10,15 +36,13 @@ const STORAGE_KEY = 'veloq-theme-preference';
  */
 export async function initializeTheme(): Promise<void> {
   try {
-    const saved = await AsyncStorage.getItem(STORAGE_KEY);
-    if (saved === 'light' || saved === 'dark') {
-      Appearance.setColorScheme(saved);
-    } else {
-      Appearance.setColorScheme(null); // Follow system
-    }
-  } catch (error) {
+    const preference = normalizePreference(await getSetting(STORAGE_KEY));
+    useThemePreferenceStore.getState().setHydratedPreference(preference);
+    applyThemePreference(preference);
+  } catch {
     // Fall back to system theme if storage fails
-    Appearance.setColorScheme(null);
+    useThemePreferenceStore.getState().setHydratedPreference('system');
+    applyThemePreference('system');
   }
 }
 
@@ -27,21 +51,31 @@ export async function initializeTheme(): Promise<void> {
  * Updates immediately via Appearance.setColorScheme().
  */
 export async function setThemePreference(preference: ThemePreference): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, preference);
-  Appearance.setColorScheme(preference === 'system' ? null : preference);
+  useThemePreferenceStore.getState().setPreference(preference);
+  applyThemePreference(preference);
+  await setSetting(STORAGE_KEY, preference);
 }
 
 /**
  * Get current saved preference.
  */
 export async function getThemePreference(): Promise<ThemePreference> {
+  const store = useThemePreferenceStore.getState();
+  if (store.hydrated) {
+    return store.preference;
+  }
   try {
-    const saved = await AsyncStorage.getItem(STORAGE_KEY);
-    if (saved === 'light' || saved === 'dark' || saved === 'system') {
-      return saved;
-    }
-    return 'system';
+    return normalizePreference(await getSetting(STORAGE_KEY));
   } catch {
     return 'system';
   }
+}
+
+export function useResolvedColorScheme(): NonNullable<ColorSchemeName> {
+  const preference = useThemePreferenceStore((s) => s.preference);
+  const systemScheme = useColorScheme();
+  if (preference === 'system') {
+    return systemScheme === 'dark' ? 'dark' : 'light';
+  }
+  return preference;
 }

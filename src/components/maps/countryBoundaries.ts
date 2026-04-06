@@ -4,11 +4,29 @@
  * Data Attribution:
  * - Boundary data derived from Natural Earth (naturalearthdata.com)
  * - Natural Earth is in the public domain and free for any use
- * - Polygons simplified to ~50 points per country for performance
+ * - Polygons simplified to ~15-50 points per country for performance
  *
  * License: Public Domain (CC0)
  * Source: https://www.naturalearthdata.com/about/terms-of-use/
  */
+
+/**
+ * Point-in-polygon test using ray casting algorithm.
+ * Polygon coordinates are in [longitude, latitude] format.
+ */
+function isPointInPolygon(lng: number, lat: number, polygon: [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i][0],
+      yi = polygon[i][1];
+    const xj = polygon[j][0],
+      yj = polygon[j][1];
+    if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
 
 // Switzerland boundary (simplified from Natural Earth data)
 // Coordinates are in [longitude, latitude] format for GeoJSON
@@ -207,21 +225,7 @@ export const SWITZERLAND_SIMPLE: [number, number][] = [
  * Check if a point is inside Switzerland using ray casting algorithm
  */
 export function isPointInSwitzerland(lng: number, lat: number): boolean {
-  const polygon = SWITZERLAND_SIMPLE;
-  let inside = false;
-
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][0],
-      yi = polygon[i][1];
-    const xj = polygon[j][0],
-      yj = polygon[j][1];
-
-    if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
-      inside = !inside;
-    }
-  }
-
-  return inside;
+  return isPointInPolygon(lng, lat, SWITZERLAND_SIMPLE);
 }
 
 // France boundary - simplified outline (metropolitan France only)
@@ -308,29 +312,13 @@ export const FRANCE_SIMPLE: [number, number][] = [
 ];
 
 /**
- * Check if a point is inside France using ray casting algorithm
+ * Check if a point is inside France using ray casting algorithm.
+ * Excludes Switzerland and Luxembourg (which have their own higher-res sources).
  */
 export function isPointInFrance(lng: number, lat: number): boolean {
-  // First check if inside Switzerland (Switzerland is inside France's bounding box)
-  if (isPointInSwitzerland(lng, lat)) {
-    return false;
-  }
-
-  const polygon = FRANCE_SIMPLE;
-  let inside = false;
-
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][0],
-      yi = polygon[i][1];
-    const xj = polygon[j][0],
-      yj = polygon[j][1];
-
-    if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
-      inside = !inside;
-    }
-  }
-
-  return inside;
+  if (isPointInSwitzerland(lng, lat)) return false;
+  if (isPointInLuxembourg(lng, lat)) return false;
+  return isPointInPolygon(lng, lat, FRANCE_SIMPLE);
 }
 
 // Continental USA boundary - very simplified outline
@@ -394,21 +382,173 @@ export const USA_SIMPLE: [number, number][] = [
  * Check if a point is inside continental USA using ray casting algorithm
  */
 export function isPointInUSA(lng: number, lat: number): boolean {
-  const polygon = USA_SIMPLE;
-  let inside = false;
+  return isPointInPolygon(lng, lat, USA_SIMPLE);
+}
 
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][0],
-      yi = polygon[i][1];
-    const xj = polygon[j][0],
-      yj = polygon[j][1];
+// ---- Spain (mainland) ----
+// Simplified outline of mainland Spain (excludes Portugal)
+export const SPAIN_SIMPLE: [number, number][] = [
+  [-8.88, 43.7],
+  [-7.7, 43.79],
+  [-5.85, 43.66],
+  [-3.82, 43.52],
+  [-1.79, 43.4],
+  [0.0, 42.7],
+  [1.72, 42.5],
+  [3.17, 42.43],
+  [3.31, 42.33],
+  [2.98, 41.12],
+  [0.78, 40.1],
+  [-0.33, 39.38],
+  [-0.65, 38.2],
+  [-1.63, 37.37],
+  [-2.95, 36.74],
+  [-5.34, 36.15],
+  [-5.61, 36.0],
+  [-7.41, 37.19],
+  [-7.27, 38.77],
+  [-6.93, 39.9],
+  [-7.02, 40.56],
+  [-6.8, 41.03],
+  [-7.67, 41.87],
+  [-8.17, 41.82],
+  [-8.88, 41.91],
+  [-8.88, 43.7],
+];
 
-    if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
-      inside = !inside;
-    }
-  }
+/**
+ * Check if a point is inside Spain (mainland + Balearic Islands + Canary Islands)
+ */
+export function isPointInSpain(lng: number, lat: number): boolean {
+  if (isPointInPolygon(lng, lat, SPAIN_SIMPLE)) return true;
+  // Balearic Islands (Mallorca, Menorca, Ibiza)
+  if (lng >= 1.1 && lng <= 4.4 && lat >= 38.6 && lat <= 40.1) return true;
+  // Canary Islands
+  if (lng >= -18.2 && lng <= -13.3 && lat >= 27.6 && lat <= 29.5) return true;
+  return false;
+}
 
-  return inside;
+// ---- Austria ----
+export const AUSTRIA_SIMPLE: [number, number][] = [
+  [9.53, 47.27],
+  [9.6, 47.06],
+  [10.13, 46.85],
+  [10.45, 46.62],
+  [11.0, 46.77],
+  [11.83, 46.51],
+  [12.39, 46.77],
+  [13.72, 46.53],
+  [14.56, 46.44],
+  [16.01, 46.84],
+  [16.52, 47.0],
+  [17.07, 47.71],
+  [17.17, 48.01],
+  [16.95, 48.62],
+  [15.75, 48.85],
+  [14.69, 48.59],
+  [13.84, 48.77],
+  [13.02, 48.26],
+  [12.76, 47.64],
+  [12.2, 47.09],
+  [11.38, 47.5],
+  [10.18, 47.58],
+  [9.6, 47.58],
+  [9.53, 47.27],
+];
+
+export function isPointInAustria(lng: number, lat: number): boolean {
+  return isPointInPolygon(lng, lat, AUSTRIA_SIMPLE);
+}
+
+// ---- Netherlands ----
+export const NETHERLANDS_SIMPLE: [number, number][] = [
+  [3.37, 51.37],
+  [3.59, 51.46],
+  [4.24, 52.0],
+  [4.24, 52.36],
+  [4.55, 52.59],
+  [4.73, 52.95],
+  [5.5, 53.44],
+  [6.2, 53.41],
+  [7.09, 53.25],
+  [7.21, 52.44],
+  [7.07, 51.96],
+  [6.23, 51.86],
+  [6.07, 51.24],
+  [5.87, 51.05],
+  [5.02, 51.47],
+  [4.24, 51.35],
+  [3.37, 51.37],
+];
+
+export function isPointInNetherlands(lng: number, lat: number): boolean {
+  return isPointInPolygon(lng, lat, NETHERLANDS_SIMPLE);
+}
+
+// ---- Czech Republic ----
+export const CZECHIA_SIMPLE: [number, number][] = [
+  [12.09, 50.32],
+  [12.09, 49.47],
+  [13.84, 48.77],
+  [14.7, 48.58],
+  [15.02, 48.95],
+  [16.95, 48.72],
+  [17.81, 48.88],
+  [18.85, 49.52],
+  [18.56, 49.83],
+  [17.75, 50.32],
+  [16.58, 50.64],
+  [15.02, 51.02],
+  [14.83, 50.87],
+  [14.32, 50.87],
+  [13.18, 50.5],
+  [12.09, 50.32],
+];
+
+export function isPointInCzechia(lng: number, lat: number): boolean {
+  return isPointInPolygon(lng, lat, CZECHIA_SIMPLE);
+}
+
+// ---- Poland ----
+export const POLAND_SIMPLE: [number, number][] = [
+  [14.12, 53.92],
+  [16.8, 54.56],
+  [18.31, 54.84],
+  [19.64, 54.45],
+  [22.78, 54.36],
+  [23.89, 52.73],
+  [24.15, 50.86],
+  [23.51, 50.41],
+  [22.03, 49.09],
+  [20.61, 49.33],
+  [18.85, 49.52],
+  [17.75, 50.32],
+  [16.58, 50.64],
+  [15.02, 51.02],
+  [14.64, 52.07],
+  [14.12, 52.84],
+  [14.12, 53.92],
+];
+
+export function isPointInPoland(lng: number, lat: number): boolean {
+  return isPointInPolygon(lng, lat, POLAND_SIMPLE);
+}
+
+// ---- Luxembourg ----
+export const LUXEMBOURG_SIMPLE: [number, number][] = [
+  [5.73, 49.55],
+  [5.82, 49.45],
+  [6.13, 49.46],
+  [6.53, 49.47],
+  [6.53, 49.83],
+  [6.36, 50.13],
+  [6.12, 50.13],
+  [5.73, 50.06],
+  [5.73, 49.55],
+];
+
+export function isPointInLuxembourg(lng: number, lat: number): boolean {
+  return isPointInPolygon(lng, lat, LUXEMBOURG_SIMPLE);
 }
 
 /**

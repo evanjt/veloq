@@ -1,7 +1,7 @@
 # Settings Theme Toggle Tests
 # Tests theme switching in settings
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -22,14 +22,14 @@ tags:
 # Switch to dark theme
 - tapOn:
     id: "theme-button-dark"
-- takeScreenshot: "settings-dark-theme"
+- takeScreenshot: "settings-theme-dark"
 
 # Switch to light theme
 - tapOn:
     id: "theme-button-light"
-- takeScreenshot: "settings-light-theme"
+- takeScreenshot: "settings-theme-light"
 
 # Switch back to system
 - tapOn:
     id: "theme-button-system"
-- takeScreenshot: "settings-system-theme"
+- takeScreenshot: "settings-theme-system"

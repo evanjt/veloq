@@ -106,3 +106,41 @@ describe('isValidRecord', () => {
     expect(result).toBe(true);
   });
 });
+
+describe('validateCustomSection', () => {
+  // Migrated from schemas.test.ts — validates size limit enforcement
+  const { validateCustomSection } = require('@/lib/validation/schemas');
+
+  const validSection = {
+    id: 'sec1',
+    name: 'Hill Climb',
+    polyline: [
+      { latitude: 45.0, longitude: 7.0 },
+      { latitude: 45.1, longitude: 7.1 },
+    ],
+    sourceActivityId: 'act1',
+    startIndex: 0,
+    endIndex: 100,
+    sportType: 'Ride',
+    distanceMeters: 5000,
+  };
+
+  it('validates object input and returns parsed section', () => {
+    const result = validateCustomSection(validSection);
+    expect(result.id).toBe('sec1');
+    expect(result.name).toBe('Hill Climb');
+  });
+
+  it('throws on invalid JSON string, schema failure, or oversized payload', () => {
+    expect(() => validateCustomSection('not json')).toThrow('Invalid JSON string');
+    expect(() => validateCustomSection({ id: '' })).toThrow('validation failed');
+    const hugePolyline = Array.from({ length: 50000 }, (_, i) => ({
+      latitude: 45.0 + i * 0.0001,
+      longitude: 7.0 + i * 0.0001,
+      elevation: 100,
+    }));
+    expect(() => validateCustomSection({ ...validSection, polyline: hugePolyline })).toThrow(
+      'Payload size exceeded'
+    );
+  });
+});

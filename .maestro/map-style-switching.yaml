@@ -1,0 +1,47 @@
+# Map Style Switching Test
+# Tests: cycling through light, dark, and satellite map styles
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-map.yaml
+
+# Wait for map controls
+- extendedWaitUntil:
+    visible:
+      id: "map-toggle-activities"
+    timeout: 20000
+
+- takeScreenshot: "map-style-initial"
+
+# Look for a map style toggle
+- tapOn:
+    id: "map-style-toggle"
+    optional: true
+
+- takeScreenshot: "map-style-switched-1"
+
+# Toggle again
+- tapOn:
+    id: "map-style-toggle"
+    optional: true
+
+- takeScreenshot: "map-style-switched-2"
+
+# Toggle back
+- tapOn:
+    id: "map-style-toggle"
+    optional: true
+
+- takeScreenshot: "map-style-switched-3"
+
+# Verify map is still responsive
+- assertVisible:
+    id: "map-screen"
+
+- takeScreenshot: "map-style-switching-complete"

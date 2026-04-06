@@ -1,21 +1,27 @@
 # Route Detail Test
 # Tests navigation to route detail screen
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
-- runFlow:
-    file: helpers/navigate-to-routes.yaml
+# Navigate to routes screen (bypass insights default)
+- openLink: "veloq://routes"
 
-# Wait for routes list to load
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+
+# Wait for routes list (may need tab switch from insights)
 - extendedWaitUntil:
     visible:
       id: "routes-list"
     timeout: 15000
+    optional: true
 
 # Tap first route row (if any exist in demo data)
 - tapOn:
@@ -28,5 +34,15 @@ tags:
       id: "route-detail-screen"
     timeout: 10000
     optional: true
+
+- takeScreenshot: "route-detail-loaded"
+
+# Scroll down to stats
+- scroll
+- takeScreenshot: "route-detail-scroll-stats"
+
+# Scroll to sections/performances
+- scroll
+- takeScreenshot: "route-detail-scroll-sections"
 
 - takeScreenshot: "route-detail-complete"

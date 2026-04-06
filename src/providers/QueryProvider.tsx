@@ -5,6 +5,7 @@ import { QueryClient, focusManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isInfiniteActivitiesStale } from '@/hooks/activities/useActivities';
 
 // Sync TanStack Query's focus state with React Native AppState
 // Module-level so it's active before any query runs
@@ -77,12 +78,20 @@ export function QueryProvider({ children }: QueryProviderProps) {
             if (key === 'activity-streams-v3') return false;
             // Also skip individual activity data (we persist the list, not each activity)
             if (key === 'activity') return false;
-            // Skip activity queries - page params / date ranges become stale across
-            // sessions. Fresh fetch on startup ensures engine-API alignment.
-            if (key === 'activities-infinite' || key === 'activities') return false;
+            // Skip fixed-range activity queries (date params become stale across sessions)
+            if (key === 'activities') return false;
             return true;
           },
         },
+      }}
+      onSuccess={() => {
+        // After restoring persisted cache, check if the infinite activities query
+        // has stale page params (newest date is not today). If so, reset it so
+        // initialPageParam is re-evaluated with today's date — otherwise the feed
+        // will never fetch today's activities since invalidateQueries reuses stored params.
+        if (isInfiniteActivitiesStale(queryClient)) {
+          queryClient.resetQueries({ queryKey: ['activities-infinite'] });
+        }
       }}
       onError={() => {
         // Log cache error for debugging

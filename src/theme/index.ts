@@ -11,6 +11,7 @@ export {
   activityTypeColors,
   zoneColors,
   colorWithOpacity,
+  insightCategoryColors,
 } from './colors';
 export { spacing, layout } from './spacing';
 export { typography } from './typography';

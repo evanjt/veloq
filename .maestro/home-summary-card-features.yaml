@@ -1,0 +1,43 @@
+# Home Summary Card Features Test
+# Tests: InsightLine rotation, TodayTeaser display, summary card interactions
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Wait for home screen
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+# Check for InsightLine component in summary card
+- assertVisible:
+    id: "insight-line"
+    optional: true
+
+- takeScreenshot: "summary-card-insight-line"
+
+# Check for TodayTeaser component
+- assertVisible:
+    id: "today-teaser"
+    optional: true
+
+- takeScreenshot: "summary-card-today-teaser"
+
+# Tap InsightLine to navigate to insights tab
+- tapOn:
+    id: "insight-line"
+    optional: true
+
+# Verify navigation to routes/insights screen
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+    optional: true
+
+- takeScreenshot: "summary-card-features-complete"

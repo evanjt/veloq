@@ -1,0 +1,57 @@
+# Insights Tab Display Test
+# Verifies insights panel loads, card tapping shows detail sheet with methodology
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Navigate to routes/insights tab
+- openLink: "veloq://routes"
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+
+# Insights panel should always be present in demo mode
+- extendedWaitUntil:
+    visible:
+      id: "insights-panel"
+    timeout: 15000
+
+- takeScreenshot: "insights-panel-loaded"
+
+# Tap first insight card
+- tapOn:
+    id: "insight-card-0"
+    optional: true
+
+# Verify detail sheet opened
+- extendedWaitUntil:
+    visible:
+      id: "insight-detail-sheet"
+    timeout: 5000
+    optional: true
+
+# Check for quick take section
+- assertVisible:
+    id: "insight-quick-take"
+    optional: true
+
+# Check for methodology section
+- assertVisible:
+    id: "methodology-section"
+    optional: true
+
+- takeScreenshot: "insights-detail-sheet"
+
+# Try tapping a different card (if pattern detail exists)
+- extendedWaitUntil:
+    visible:
+      id: "pattern-detail-sheet"
+    timeout: 3000
+    optional: true
+
+- takeScreenshot: "insights-display-complete"

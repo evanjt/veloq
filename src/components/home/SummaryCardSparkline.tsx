@@ -5,7 +5,7 @@ import { Canvas, Rect, Line as SkiaLine, vec } from '@shopify/react-native-skia'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTheme } from '@/hooks';
-import { darkColors, colors } from '@/theme';
+import { darkColors, colors, colorWithOpacity } from '@/theme';
 import { getFormZone, FORM_ZONE_COLORS } from '@/lib';
 
 const CHART_HEIGHT = 44;
@@ -103,7 +103,10 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     const daysAgo = fitness.length - 1 - index;
     const date = new Date();
     date.setDate(date.getDate() - daysAgo);
-    const dateLabel = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const dateLabel = date.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
     cb({
       fitness: fitness[index],
       fatigue: fatigue ? fatigue[index] : fitness[index],
@@ -201,10 +204,10 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
 
   const labelColor = isDark ? darkColors.textMuted : colors.textMuted;
   const casingColor = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)';
-  const fitnessLineColor = isDark ? '#42A5F5' : 'rgba(66,165,245,0.85)';
-  const fatigueLineColor = isDark ? '#EC407A' : 'rgba(236,64,122,0.75)';
+  const fitnessLineColor = isDark ? colors.fitnessBlue : colorWithOpacity(colors.fitnessBlue, 0.85);
+  const fatigueLineColor = isDark ? colors.chartPink : colorWithOpacity(colors.chartPink, 0.75);
 
-  const dividerColor = isDark ? '#18181B' : '#FFFFFF';
+  const dividerColor = isDark ? darkColors.surface : colors.surface;
 
   const { formBarRects, transitions } = useMemo(() => {
     const N = formData.length;
@@ -335,7 +338,9 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
               <View
                 style={[
                   styles.crosshairLine,
-                  { backgroundColor: isDark ? darkColors.textSecondary : colors.textSecondary },
+                  {
+                    backgroundColor: isDark ? darkColors.textSecondary : colors.textSecondary,
+                  },
                 ]}
               />
             </Animated.View>

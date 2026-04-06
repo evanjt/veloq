@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { decodeSkylineBytes } from '@/lib';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/hooks/useSportSettings';
+import { colors, darkColors } from '@/theme';
 
 interface SkylineBarProps {
   skylineBytes: string;
@@ -19,7 +20,7 @@ export const SkylineBar = React.memo(function SkylineBar({
   if (!decoded || decoded.intervals.length === 0) return null;
 
   const palette = decoded.zoneBasis === 'hr' ? HR_ZONE_COLORS : POWER_ZONE_COLORS;
-  const dividerColor = isDark ? '#18181B' : '#FFFFFF';
+  const dividerColor = isDark ? darkColors.surface : colors.surface;
 
   return (
     <View style={[styles.container, { height }]}>
@@ -28,7 +29,7 @@ export const SkylineBar = React.memo(function SkylineBar({
         let color = palette[zoneIndex];
         // Z7 is near-black — swap to light grey in dark mode for visibility
         if (isDark && interval.zone === 7 && decoded.zoneBasis === 'power') {
-          color = '#B0B0B0';
+          color = darkColors.zone7;
         }
         const prevZone = i > 0 ? decoded.intervals[i - 1].zone : interval.zone;
         const showDivider = i > 0 && prevZone !== interval.zone;

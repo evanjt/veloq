@@ -1,0 +1,74 @@
+# Deep Link Navigation Regression
+# Tests all deep links work and don't crash the app
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Test fitness deep link
+- openLink: "veloq://fitness"
+- extendedWaitUntil:
+    visible:
+      id: "fitness-screen"
+    timeout: 10000
+- takeScreenshot: "navigation-deep-links-fitness"
+
+# Test training deep link
+- openLink: "veloq://training"
+- extendedWaitUntil:
+    visible:
+      id: "training-screen"
+    timeout: 10000
+- takeScreenshot: "navigation-deep-links-training"
+
+# Test map deep link
+- openLink: "veloq://map"
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 10000
+- takeScreenshot: "navigation-deep-links-map"
+
+# Test routes deep link
+- openLink: "veloq://routes"
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+- takeScreenshot: "navigation-deep-links-routes"
+
+# Test settings deep link
+- openLink: "veloq://settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+- takeScreenshot: "navigation-deep-links-settings"
+
+# Test activity deep link
+- openLink: "veloq://activity/demo-test-0"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-screen"
+    timeout: 15000
+- takeScreenshot: "navigation-deep-links-activity"
+
+# Test nonexistent activity deep link (verify no crash)
+- openLink: "veloq://activity/nonexistent-id"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 5000
+    optional: true
+
+# Verify app is still responsive by navigating home
+- openLink: "veloq://"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+- takeScreenshot: "navigation-deep-links-complete"

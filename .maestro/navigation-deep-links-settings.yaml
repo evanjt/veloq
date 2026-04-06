@@ -1,0 +1,41 @@
+# Settings Deep Links Test
+# Tests: deep linking to specific settings sections
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Deep link to settings cache section
+- openLink: "veloq://settings#cache"
+
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+
+# Verify cache section is visible (should have scrolled to it)
+- assertVisible:
+    id: "settings-clear-cache"
+    optional: true
+
+- takeScreenshot: "deep-link-settings-cache"
+
+# Deep link to settings notifications section
+- openLink: "veloq://settings#notifications"
+
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+
+# Verify notifications toggle is visible
+- assertVisible:
+    id: "settings-notifications-toggle"
+    optional: true
+
+- takeScreenshot: "deep-link-settings-notifications"
+
+- takeScreenshot: "navigation-deep-links-settings-complete"

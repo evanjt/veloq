@@ -1,7 +1,7 @@
 # Activity Detail Navigation Tests
 # Tests navigation to activity detail screens with demo data
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -20,6 +20,7 @@ tags:
     visible:
       id: "activity-detail-content"
     timeout: 15000
+- takeScreenshot: "navigation-activity-detail-first"
 
 # Back to home
 - openLink: "veloq://"
@@ -34,3 +35,4 @@ tags:
     visible:
       id: "activity-detail-content"
     timeout: 15000
+- takeScreenshot: "navigation-activity-detail-second"

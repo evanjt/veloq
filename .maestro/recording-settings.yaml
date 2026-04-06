@@ -1,0 +1,79 @@
+# Recording Settings Screen Test
+# Tests auto-pause toggle, threshold adjustment, and data field visibility
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+onFlowComplete:
+  - openLink: "veloq://home"
+  - runFlow:
+      when:
+        visible: "DISCARD"
+      commands:
+        - tapOn: "DISCARD"
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Tap the record FAB on the home screen
+- tapOn:
+    id: "record-fab"
+
+# Dismiss any "Resume previous recording?" dialog
+- runFlow:
+    when:
+      visible: "DISCARD"
+    commands:
+      - tapOn: "DISCARD"
+
+# Wait for record screen to show activity types
+- extendedWaitUntil:
+    visible:
+      id: "record-type-Ride"
+    timeout: 10000
+
+# Tap settings button to navigate to recording settings
+- tapOn:
+    id: "record-settings"
+
+# Wait for recording settings screen
+- extendedWaitUntil:
+    visible:
+      id: "recording-settings-screen"
+    timeout: 10000
+
+- takeScreenshot: "recording-settings-loaded"
+
+# Verify auto-pause toggle is visible
+- assertVisible:
+    id: "settings-auto-pause"
+
+- takeScreenshot: "recording-settings-auto-pause"
+
+# Tap auto-pause toggle to disable
+- tapOn:
+    id: "settings-auto-pause"
+
+# Tap auto-pause toggle to re-enable
+- tapOn:
+    id: "settings-auto-pause"
+
+# Verify threshold controls are visible (cycling threshold row)
+- assertVisible:
+    id: "settings-threshold-cycling"
+
+# Tap threshold plus button to increase cycling threshold
+- tapOn:
+    id: "settings-threshold-cycling-plus"
+
+- takeScreenshot: "recording-settings-threshold-adjusted"
+
+# Scroll down to see data fields
+- scroll
+
+- takeScreenshot: "recording-settings-data-fields"
+
+# Navigate back using back button
+- back
+
+- takeScreenshot: "recording-settings-complete"

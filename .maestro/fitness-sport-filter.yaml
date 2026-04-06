@@ -1,0 +1,64 @@
+# Fitness Sport Filter Test
+# Tests: switching between cycling, running, swimming sport modes
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
+
+# Wait for fitness screen
+- extendedWaitUntil:
+    visible:
+      id: "fitness-screen"
+    timeout: 10000
+
+# Scroll down to sport toggles
+- scrollUntilVisible:
+    element:
+      id: "fitness-sport-toggle-Running"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+
+# Tap Running
+- tapOn:
+    id: "fitness-sport-toggle-Running"
+
+- assertVisible:
+    id: "fitness-screen"
+
+# Verify no NaN values after switching
+- assertNotVisible:
+    text: "NaN"
+    optional: true
+
+- takeScreenshot: "fitness-sport-running"
+
+# Tap Swimming
+- tapOn:
+    id: "fitness-sport-toggle-Swimming"
+
+- assertVisible:
+    id: "fitness-screen"
+
+- assertNotVisible:
+    text: "NaN"
+    optional: true
+
+- takeScreenshot: "fitness-sport-swimming"
+
+# Return to Cycling
+- tapOn:
+    id: "fitness-sport-toggle-Cycling"
+
+- assertVisible:
+    id: "fitness-screen"
+
+- takeScreenshot: "fitness-sport-cycling"
+
+- takeScreenshot: "fitness-sport-filter-complete"

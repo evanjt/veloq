@@ -1,7 +1,7 @@
 # Sections List Tests
 # Tests the sections list display
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -15,5 +15,7 @@ tags:
 - assertVisible:
     id: "sections-list"
     optional: true
+
+- takeScreenshot: "sections-list-loaded"
 
 - takeScreenshot: "sections-list-complete"

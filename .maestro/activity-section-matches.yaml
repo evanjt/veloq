@@ -1,7 +1,7 @@
 # Activity Section Matches Test
 # Tests that section matches display on activity detail
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -33,5 +33,7 @@ tags:
       id: "activity-sections-list"
     timeout: 10000
     optional: true
+
+- takeScreenshot: "activity-section-matches-loaded"
 
 - takeScreenshot: "activity-section-matches-complete"

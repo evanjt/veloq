@@ -22,9 +22,10 @@ interface LinkRowProps {
   label: string;
   url: string;
   isDark: boolean;
+  testID?: string;
 }
 
-function LinkRow({ icon, label, url, isDark }: LinkRowProps) {
+function LinkRow({ icon, label, url, isDark, testID }: LinkRowProps) {
   const handlePress = () => {
     Linking.openURL(url);
   };
@@ -33,7 +34,12 @@ function LinkRow({ icon, label, url, isDark }: LinkRowProps) {
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
-    <TouchableOpacity style={styles.linkRow} onPress={handlePress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.linkRow}
+      onPress={handlePress}
+      activeOpacity={0.7}
+      testID={testID}
+    >
       <MaterialCommunityIcons name={icon as any} size={22} color={colors.primary} />
       <Text style={[styles.linkText, { color: textColor }]}>{label}</Text>
       <MaterialCommunityIcons name="open-in-new" size={18} color={mutedColor} />
@@ -46,9 +52,10 @@ interface NavRowProps {
   label: string;
   route: string;
   isDark: boolean;
+  testID?: string;
 }
 
-function NavRow({ icon, label, route, isDark }: NavRowProps) {
+function NavRow({ icon, label, route, isDark, testID }: NavRowProps) {
   const handlePress = () => {
     router.push(route as any);
   };
@@ -57,7 +64,12 @@ function NavRow({ icon, label, route, isDark }: NavRowProps) {
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
-    <TouchableOpacity style={styles.linkRow} onPress={handlePress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.linkRow}
+      onPress={handlePress}
+      activeOpacity={0.7}
+      testID={testID}
+    >
       <MaterialCommunityIcons name={icon as any} size={22} color={colors.primary} />
       <Text style={[styles.linkText, { color: textColor }]}>{label}</Text>
       <MaterialCommunityIcons name="chevron-right" size={22} color={mutedColor} />
@@ -89,7 +101,7 @@ export default function AboutScreen() {
         </View>
 
         {/* App Info */}
-        <View style={styles.section(isDark)}>
+        <View testID="about-app-info" style={styles.section(isDark)}>
           <View style={styles.appInfo}>
             <View style={styles.appIcon(isDark)}>
               <MaterialCommunityIcons name="bike-fast" size={40} color={colors.primary} />
@@ -116,6 +128,7 @@ export default function AboutScreen() {
         <Text style={[styles.sectionLabel, shared.textSecondary]}>INTERVALS.ICU</Text>
         <View style={styles.section(isDark)}>
           <LinkRow
+            testID="about-link-privacy"
             icon="shield-account"
             label={t('about.intervalsPrivacy')}
             url={INTERVALS_URLS.privacyPolicy}
@@ -123,6 +136,7 @@ export default function AboutScreen() {
           />
           <View style={styles.linkDivider(isDark)} />
           <LinkRow
+            testID="about-link-terms"
             icon="file-document"
             label={t('about.intervalsTerms')}
             url={INTERVALS_URLS.termsOfService}
@@ -130,6 +144,7 @@ export default function AboutScreen() {
           />
           <View style={styles.linkDivider(isDark)} />
           <LinkRow
+            testID="about-link-api-terms"
             icon="api"
             label={t('about.intervalsApiTerms')}
             url={INTERVALS_URLS.apiTerms}
@@ -141,6 +156,7 @@ export default function AboutScreen() {
         <Text style={[styles.sectionLabel, shared.textSecondary]}>VELOQ</Text>
         <View style={styles.section(isDark)}>
           <LinkRow
+            testID="about-link-veloq-privacy"
             icon="shield-lock"
             label={t('about.veloqPrivacy')}
             url={VELOQ_URLS.privacy}
@@ -148,6 +164,7 @@ export default function AboutScreen() {
           />
           <View style={styles.linkDivider(isDark)} />
           <LinkRow
+            testID="about-link-license"
             icon="license"
             label={t('about.openSource')}
             url={VELOQ_URLS.license}
@@ -155,6 +172,7 @@ export default function AboutScreen() {
           />
           <View style={styles.linkDivider(isDark)} />
           <NavRow
+            testID="about-link-licenses"
             icon="file-document-multiple"
             label={t('about.thirdPartyLicenses')}
             route="/licenses"
@@ -162,6 +180,7 @@ export default function AboutScreen() {
           />
           <View style={styles.linkDivider(isDark)} />
           <LinkRow
+            testID="about-link-source"
             icon="github"
             label={t('about.sourceCode')}
             url={VELOQ_URLS.github}
@@ -169,6 +188,7 @@ export default function AboutScreen() {
           />
           <View style={styles.linkDivider(isDark)} />
           <LinkRow
+            testID="about-link-tracematch"
             icon="code-braces"
             label={t('about.tracematchSource')}
             url={VELOQ_URLS.tracematch}

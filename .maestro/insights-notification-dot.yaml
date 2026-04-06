@@ -1,0 +1,43 @@
+# Insights Notification Dot Test
+# Tests: orange notification dot on insights tab when new insights available
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Wait for home screen
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+# Check for insights badge dot on tab bar (may not trigger in demo mode)
+- assertVisible:
+    id: "tab-insights-badge"
+    optional: true
+
+- takeScreenshot: "insights-notification-dot"
+
+# Navigate to insights tab (should clear the dot)
+- openLink: "veloq://routes"
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+
+# Navigate back to home
+- openLink: "veloq://home"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+# Badge should be cleared after visiting insights
+- assertNotVisible:
+    id: "tab-insights-badge"
+    optional: true
+
+- takeScreenshot: "insights-notification-dot-complete"

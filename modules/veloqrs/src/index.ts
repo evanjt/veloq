@@ -52,6 +52,9 @@ import {
   type FfiSectionPerformanceRecord,
   type FfiRoutePerformanceResult,
   type FfiRoutePerformance,
+  type FfiRankedSection,
+  type FfiEfficiencyTrend,
+  type FfiEfficiencyPoint,
   type PersistentEngineStats,
   type SectionSummary,
   type GroupSummary,
@@ -59,6 +62,10 @@ import {
   type FfiPeriodStats,
   type FfiFtpTrend,
   type FfiPaceTrend,
+  type FfiInsightsData,
+  type FfiRecentPr,
+  type FfiStartupData,
+  type FfiPreviewTrack,
   type FfiRoutesScreenData,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
@@ -79,6 +86,9 @@ export type SectionPerformanceResult = FfiSectionPerformanceResult;
 export type SectionPerformanceRecord = FfiSectionPerformanceRecord;
 export type RoutePerformanceResult = FfiRoutePerformanceResult;
 export type RoutePerformance = FfiRoutePerformance;
+export type RankedSection = FfiRankedSection;
+export type EfficiencyTrend = FfiEfficiencyTrend;
+export type EfficiencyPoint = FfiEfficiencyPoint;
 // These are already exported without Ffi prefix:
 export type {
   PersistentEngineStats,
@@ -91,11 +101,38 @@ export type {
 export type PeriodStats = FfiPeriodStats;
 export type FtpTrend = FfiFtpTrend;
 export type PaceTrend = FfiPaceTrend;
+// Insights batch types
+export type InsightsData = FfiInsightsData;
+export type RecentPR = FfiRecentPr;
+// Startup batch types
+export type StartupData = FfiStartupData;
+export type PreviewTrack = FfiPreviewTrack;
 // Routes screen batch types
 export type RoutesScreenData = FfiRoutesScreenData;
 export type GroupWithPolyline = FfiGroupWithPolyline;
 export type SectionWithPolyline = FfiSectionWithPolyline;
 export type PotentialSection = FfiPotentialSection;
+export type {
+  FfiSectionMatch as SectionMatch,
+  FfiMergeCandidate as MergeCandidate,
+  FfiNearbySectionSummary as NearbySectionSummary,
+} from './RouteEngineClient';
+// Strength training types (generated after Rust rebuild)
+export interface ExerciseSet {
+  activityId: string;
+  setOrder: number;
+  exerciseCategory: number;
+  exerciseName: number | undefined;
+  displayName: string;
+  setType: number;
+  repetitions: number | undefined;
+  weightKg: number | undefined;
+  durationSecs: number | undefined;
+}
+export interface MuscleGroup {
+  slug: string;
+  intensity: number;
+}
 
 // For backward compatibility, also export the module initialization status
 export function isRouteMatcherInitialized(): boolean {

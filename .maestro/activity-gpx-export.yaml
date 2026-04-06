@@ -1,7 +1,7 @@
 # Activity GPX Export Test
 # Tests that the GPX export button exists on activity detail
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -26,5 +26,7 @@ tags:
 - assertVisible:
     id: "activity-export-gpx"
     optional: true
+
+- takeScreenshot: "activity-gpx-export-button-visible"
 
 - takeScreenshot: "activity-gpx-export-complete"

@@ -1,0 +1,82 @@
+# Activity Chart Type Selector Test
+# Tests toggling through all available chart types on activity detail
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Wait for demo data to load before deep linking
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
+# Open activity detail via deep link
+- openLink: "veloq://activity/demo-test-0"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+# Wait for chart type selector to appear
+- extendedWaitUntil:
+    visible:
+      id: "chart-type-selector"
+    timeout: 10000
+
+- takeScreenshot: "activity-chart-default"
+
+# Toggle heart rate chart
+- tapOn:
+    id: "chart-type-heartrate"
+    optional: true
+
+- takeScreenshot: "activity-chart-heartrate"
+
+# Toggle power chart
+- tapOn:
+    id: "chart-type-power"
+    optional: true
+
+- takeScreenshot: "activity-chart-power"
+
+# Toggle elevation chart
+- tapOn:
+    id: "chart-type-elevation"
+    optional: true
+
+- takeScreenshot: "activity-chart-elevation"
+
+# Toggle speed chart
+- tapOn:
+    id: "chart-type-speed"
+    optional: true
+
+- takeScreenshot: "activity-chart-speed"
+
+# Toggle cadence chart
+- tapOn:
+    id: "chart-type-cadence"
+    optional: true
+
+- takeScreenshot: "activity-chart-cadence"
+
+# Toggle grade chart
+- tapOn:
+    id: "chart-type-grade"
+    optional: true
+
+- takeScreenshot: "activity-chart-grade"
+
+# Toggle pace chart (may not be available for cycling activities)
+- tapOn:
+    id: "chart-type-pace"
+    optional: true
+
+- takeScreenshot: "activity-chart-pace"
+
+- takeScreenshot: "activity-chart-types-complete"

@@ -57,27 +57,27 @@ describe('calculateTSB', () => {
 
 describe('getFormZone', () => {
   const testCases: { tsb: number; expected: FormZone }[] = [
-    // High Risk zone (TSB < -30)
+    // highRisk zone (TSB < -30)
     { tsb: -50, expected: 'highRisk' },
     { tsb: -40, expected: 'highRisk' },
     { tsb: -31, expected: 'highRisk' },
 
-    // Optimal zone (-30 <= TSB < -10)
+    // optimal zone (-30 <= TSB < -10)
     { tsb: -30, expected: 'optimal' },
     { tsb: -20, expected: 'optimal' },
     { tsb: -11, expected: 'optimal' },
 
-    // Grey zone (-10 <= TSB < 5)
-    { tsb: -10, expected: 'grey' },
-    { tsb: 0, expected: 'grey' },
-    { tsb: 4, expected: 'grey' },
+    // greyZone zone (-10 <= TSB < 5)
+    { tsb: -10, expected: 'greyZone' },
+    { tsb: 0, expected: 'greyZone' },
+    { tsb: 4, expected: 'greyZone' },
 
     // Fresh zone (5 <= TSB < 25)
     { tsb: 5, expected: 'fresh' },
     { tsb: 15, expected: 'fresh' },
     { tsb: 24, expected: 'fresh' },
 
-    // Transition zone (TSB >= 25)
+    // transition zone (TSB >= 25)
     { tsb: 25, expected: 'transition' },
     { tsb: 30, expected: 'transition' },
     { tsb: 50, expected: 'transition' },

@@ -229,7 +229,7 @@ export default function FitnessScreen() {
     if (!decouplingStreams?.watts || !decouplingStreams?.heartrate) return null;
     const power = decouplingStreams.watts;
     const hr = decouplingStreams.heartrate;
-    if (power.length === 0 || hr.length === 0) return null;
+    if (power.length < 4 || hr.length < 4) return null;
 
     const midpoint = Math.floor(power.length / 2);
     const avgFirstPower = power.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint;
@@ -453,7 +453,10 @@ export default function FitnessScreen() {
 
             {/* Activity dots chart - deferred to reduce simultaneous shader compilation */}
             {chartsReady && (
-              <View style={[styles.dotsSection, isDark && styles.dotsSectionDark]}>
+              <View
+                testID="fitness-activity-dots"
+                style={[styles.dotsSection, isDark && styles.dotsSectionDark]}
+              >
                 <ActivityDotsChart
                   data={wellness}
                   activities={activities || []}
@@ -468,7 +471,10 @@ export default function FitnessScreen() {
 
             {/* Form zone chart - deferred to reduce simultaneous shader compilation */}
             {chartsReady && (
-              <View style={[styles.formSection, isDark && styles.formSectionDark]}>
+              <View
+                testID="fitness-form-zone-chart"
+                style={[styles.formSection, isDark && styles.formSectionDark]}
+              >
                 <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
                   {t('metrics.form')}
                 </Text>
@@ -480,6 +486,20 @@ export default function FitnessScreen() {
                   onDateSelect={handleDateSelect}
                   onInteractionChange={handleInteractionChange}
                 />
+                {/* Contextual form zone guidance */}
+                {formZone && (
+                  <View
+                    style={[
+                      styles.guidanceCard,
+                      isDark && styles.guidanceCardDark,
+                      { borderLeftColor: FORM_ZONE_COLORS[formZone] },
+                    ]}
+                  >
+                    <Text style={[styles.guidanceText, isDark && styles.guidanceTextDark]}>
+                      {t(`fitnessScreen.guidance.${formZone}` as never)}
+                    </Text>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -489,10 +509,13 @@ export default function FitnessScreen() {
             {(['Cycling', 'Running', 'Swimming'] as const).map((sport) => (
               <TouchableOpacity
                 key={sport}
+                testID={`fitness-sport-toggle-${sport}`}
                 style={[
                   styles.sportToggleButton,
                   isDark && styles.sportToggleButtonDark,
-                  sportMode === sport && { backgroundColor: SPORT_COLORS[sport] },
+                  sportMode === sport && {
+                    backgroundColor: SPORT_COLORS[sport],
+                  },
                 ]}
                 onPress={() => setSportMode(sport)}
                 activeOpacity={0.7}
@@ -747,10 +770,14 @@ export default function FitnessScreen() {
                     <Text
                       style={[
                         styles.headerValue,
-                        { color: decouplingValue.isGood ? colors.success : colors.warning },
+                        {
+                          color: decouplingValue.isGood ? colors.success : colors.warning,
+                        },
                       ]}
                     >
-                      {decouplingValue.value.toFixed(1)}%
+                      {Number.isFinite(decouplingValue.value)
+                        ? `${decouplingValue.value.toFixed(1)}%`
+                        : '-'}
                     </Text>
                   ) : null
                 }
@@ -980,6 +1007,26 @@ const styles = StyleSheet.create({
   },
   formSectionDark: {
     borderTopColor: opacity.overlayDark.medium,
+  },
+  guidanceCard: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  guidanceCardDark: {
+    backgroundColor: darkColors.surface,
+  },
+  guidanceText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  guidanceTextDark: {
+    color: darkColors.textSecondary,
   },
   chartTitle: {
     ...typography.bodySmall,

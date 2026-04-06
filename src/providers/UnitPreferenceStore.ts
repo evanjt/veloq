@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting } from '@/lib/backup';
 import { getLocales } from 'expo-localization';
 
 const UNIT_PREFERENCE_KEY = 'veloq-unit-preference';
@@ -52,7 +52,7 @@ export const useUnitPreference = create<UnitPreferenceState>((set, get) => ({
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(UNIT_PREFERENCE_KEY);
+      const stored = await getSetting(UNIT_PREFERENCE_KEY);
       if (stored && ['auto', 'metric', 'imperial'].includes(stored)) {
         set({
           unitPreference: stored as UnitPreference,
@@ -67,7 +67,7 @@ export const useUnitPreference = create<UnitPreferenceState>((set, get) => ({
   },
 
   setUnitPreference: async (pref: UnitPreference) => {
-    await AsyncStorage.setItem(UNIT_PREFERENCE_KEY, pref);
+    await setSetting(UNIT_PREFERENCE_KEY, pref);
     set({ unitPreference: pref });
   },
 

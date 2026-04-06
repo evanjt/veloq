@@ -12,6 +12,7 @@ import { useFocusEffect } from 'expo-router';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useEngineSubscription } from './useRouteEngine';
 import type { RoutesScreenData, GroupWithPolyline, SectionWithPolyline } from 'veloqrs';
+import type { LatLng } from '@/lib/geo/distance';
 
 const DEFAULT_PAGE_SIZE = 50;
 
@@ -35,9 +36,16 @@ interface UseRoutesScreenDataResult {
 export function useRoutesScreenData(opts?: {
   groupLimit?: number;
   sectionLimit?: number;
+  prioritizeNearestGroups?: boolean;
+  prioritizeNearestSections?: boolean;
+  userLocation?: LatLng | null;
 }): UseRoutesScreenDataResult {
   const groupLimit = opts?.groupLimit ?? DEFAULT_PAGE_SIZE;
   const sectionLimit = opts?.sectionLimit ?? DEFAULT_PAGE_SIZE;
+  const prioritizeNearestGroups = opts?.prioritizeNearestGroups ?? false;
+  const prioritizeNearestSections = opts?.prioritizeNearestSections ?? false;
+  const userLat = opts?.userLocation?.lat ?? Number.NaN;
+  const userLng = opts?.userLocation?.lng ?? Number.NaN;
 
   // Subscribe to engine events — triggers re-render when data changes
   const trigger = useEngineSubscription(['groups', 'sections', 'activities']);
@@ -80,6 +88,7 @@ export function useRoutesScreenData(opts?: {
 
   // Track the trigger value that last reset the refs
   const lastTriggerRef = useRef(trigger);
+  const lastQueryConfigRef = useRef('');
 
   // Track last successful result for error recovery
   const lastResultRef = useRef<PaginatedRoutesData | null>(null);
@@ -89,8 +98,17 @@ export function useRoutesScreenData(opts?: {
 
   // Reset pagination on engine events (new sync, etc.)
   useEffect(() => {
-    if (combinedTrigger !== lastTriggerRef.current) {
+    const queryConfig = [
+      combinedTrigger,
+      prioritizeNearestGroups ? 1 : 0,
+      prioritizeNearestSections ? 1 : 0,
+      Number.isFinite(userLat) ? userLat.toFixed(6) : 'nan',
+      Number.isFinite(userLng) ? userLng.toFixed(6) : 'nan',
+    ].join(':');
+
+    if (combinedTrigger !== lastTriggerRef.current || queryConfig !== lastQueryConfigRef.current) {
       lastTriggerRef.current = combinedTrigger;
+      lastQueryConfigRef.current = queryConfig;
       groupsRef.current = [];
       sectionsRef.current = [];
       isLoadingGroupsRef.current = false;
@@ -98,7 +116,7 @@ export function useRoutesScreenData(opts?: {
       setGroupOffset(0);
       setSectionOffset(0);
     }
-  }, [combinedTrigger]);
+  }, [combinedTrigger, prioritizeNearestGroups, prioritizeNearestSections, userLat, userLng]);
 
   // Compute data from engine
   const data = useMemo(() => {
@@ -110,7 +128,12 @@ export function useRoutesScreenData(opts?: {
         groupLimit,
         groupOffset,
         sectionLimit,
-        sectionOffset
+        sectionOffset,
+        2,
+        prioritizeNearestGroups,
+        prioritizeNearestSections,
+        userLat,
+        userLng
       );
       if (!result) return lastResultRef.current;
 
@@ -167,7 +190,17 @@ export function useRoutesScreenData(opts?: {
       isLoadingSectionsRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [combinedTrigger, groupOffset, sectionOffset, groupLimit, sectionLimit]);
+  }, [
+    combinedTrigger,
+    groupOffset,
+    sectionOffset,
+    groupLimit,
+    sectionLimit,
+    prioritizeNearestGroups,
+    prioritizeNearestSections,
+    userLat,
+    userLng,
+  ]);
 
   const loadMoreGroups = useCallback(() => {
     if (hasMoreGroupsRef.current && !isLoadingGroupsRef.current) {

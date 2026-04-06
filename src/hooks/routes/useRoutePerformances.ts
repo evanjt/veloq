@@ -11,6 +11,7 @@ import type { RouteGroup, MatchDirection, DirectionStats } from '@/types';
 import { toActivityType } from '@/types';
 import type { RoutePerformanceResult, FfiActivityMetrics } from 'veloqrs';
 import { toDirectionStats, fromUnixSeconds } from '@/lib/utils/ffiConversions';
+import { safeGetTime } from '@/lib/utils/format';
 
 /** Match info returned from the Rust engine (uses camelCase from serde) */
 interface RustMatchInfo {
@@ -77,7 +78,8 @@ interface UseRoutePerformancesResult {
 
 export function useRoutePerformances(
   activityId: string | undefined,
-  routeGroupId?: string
+  routeGroupId?: string,
+  sportType?: string
 ): UseRoutePerformancesResult {
   const { groups } = useEngineGroups({ minActivities: 1 });
 
@@ -144,7 +146,8 @@ export function useRoutePerformances(
       // Get typed performance data directly from Rust engine (now includes metrics)
       const result: RoutePerformanceResult = engine.getRoutePerformances(
         engineGroup.groupId,
-        activityId || ''
+        activityId || '',
+        sportType
       );
       const performances = result.performances || [];
 
@@ -176,7 +179,7 @@ export function useRoutePerformances(
     } catch {
       return emptyResult;
     }
-  }, [engineGroup, activityId]);
+  }, [engineGroup, activityId, sportType]);
 
   const {
     matchInfoMap,
@@ -234,7 +237,7 @@ export function useRoutePerformances(
     }
 
     // Sort by date (oldest first for charting)
-    points.sort((a, b) => a.date.getTime() - b.date.getTime());
+    points.sort((a, b) => safeGetTime(a.date) - safeGetTime(b.date));
 
     // Find best (fastest speed) - overall
     const bestPoint =

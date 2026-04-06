@@ -1,0 +1,120 @@
+# Recording Live Metrics Test
+# Tests: data field grid visibility, GPS indicator, HR zone bar during recording
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+onFlowComplete:
+  - openLink: "veloq://home"
+  - runFlow:
+      when:
+        visible: "DISCARD"
+      commands:
+        - tapOn: "DISCARD"
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Start recording
+- tapOn:
+    id: "record-fab"
+
+# Dismiss any resume dialog
+- runFlow:
+    when:
+      visible: "DISCARD"
+    commands:
+      - tapOn: "DISCARD"
+
+# Verify GPS readiness indicator on record screen
+- assertVisible:
+    id: "record-gps-status"
+
+- takeScreenshot: "recording-gps-readiness"
+
+# Expand Cycling category if needed
+- runFlow:
+    when:
+      notVisible:
+        id: "record-type-Ride"
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Cycling"
+          direction: DOWN
+          timeout: 5000
+          speed: 40
+      - tapOn:
+          text: "Cycling"
+
+# Select Ride
+- scrollUntilVisible:
+    element:
+      id: "record-type-Ride"
+    direction: DOWN
+    timeout: 5000
+    speed: 40
+    centerElement: true
+
+- tapOn:
+    id: "record-type-Ride"
+
+# Wait for recording screen
+- extendedWaitUntil:
+    visible:
+      id: "recording-timer"
+    timeout: 10000
+
+# Verify data fields are visible
+- assertVisible:
+    id: "data-field-speed"
+    optional: true
+
+- assertVisible:
+    id: "data-field-distance"
+    optional: true
+
+# Check HR zone bar (optional — depends on simulated sensor data)
+- assertVisible:
+    id: "hr-zone-bar"
+    optional: true
+
+- takeScreenshot: "recording-live-metrics"
+
+# Clean up: unlock, pause, stop, discard
+- swipe:
+    from:
+      id: "lock-overlay-unlock"
+    direction: RIGHT
+    duration: 800
+
+- extendedWaitUntil:
+    visible:
+      id: "control-pause"
+    timeout: 5000
+
+- tapOn:
+    id: "control-pause"
+
+- extendedWaitUntil:
+    visible:
+      id: "control-resume"
+    timeout: 5000
+
+- longPressOn:
+    id: "control-stop"
+
+- extendedWaitUntil:
+    visible:
+      id: "review-save-button"
+    timeout: 10000
+
+- longPressOn:
+    id: "review-discard-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+- takeScreenshot: "recording-live-metrics-complete"

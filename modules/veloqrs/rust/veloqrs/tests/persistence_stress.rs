@@ -16,9 +16,7 @@ use tracematch::synthetic::SyntheticScenario;
 use veloqrs::PersistentRouteEngine;
 
 /// Helper: create engine with temp DB, ingest synthetic activities, return engine + temp dir.
-fn setup_engine_with_activities(
-    scenario: &SyntheticScenario,
-) -> (PersistentRouteEngine, TempDir) {
+fn setup_engine_with_activities(scenario: &SyntheticScenario) -> (PersistentRouteEngine, TempDir) {
     let tmp_dir = TempDir::new().expect("failed to create temp dir");
     let db_path = tmp_dir.path().join("test.db");
     let mut engine =
@@ -157,15 +155,15 @@ fn test_sqlite_file_size() {
         let dataset = scenario.generate();
         for (id, track) in &dataset.tracks {
             let sport = dataset.sport_types.get(id).cloned().unwrap_or_default();
-            engine.add_activity(id.clone(), track.clone(), sport).unwrap();
+            engine
+                .add_activity(id.clone(), track.clone(), sport)
+                .unwrap();
         }
 
         // Force flush to disk
         drop(engine);
 
-        let file_size = std::fs::metadata(&db_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let file_size = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
 
         let size_str = if file_size > 1_000_000 {
             format!("{:.1} MB", file_size as f64 / 1_000_000.0)
@@ -295,7 +293,10 @@ fn test_long_section_70km() {
             points,
             points as f64 / km
         );
-        assert!(points > 10, "Section polyline should have reasonable detail");
+        assert!(
+            points > 10,
+            "Section polyline should have reasonable detail"
+        );
     }
 
     // Verify summaries match

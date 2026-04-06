@@ -9,8 +9,8 @@ import { useMemo } from 'react';
 import { useFrequentSections } from './useFrequentSections';
 import { useCustomSections } from './useCustomSections';
 import { usePotentialSections } from './usePotentialSections';
+import { useEngineSubscription } from './useRouteEngine';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
-import { useSupersededSections, useDisabledSections } from '@/providers';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
 import { computePolylineOverlap } from '@/lib/utils/geometry';
@@ -65,29 +65,33 @@ export function useUnifiedSections(
     preloadedEngineSections,
   } = options;
 
-  // Get pre-computed superseded sections (computed when custom sections are created)
-  // NOTE: Select raw data, not the Set - calling getAllSuperseded() in selector
-  // creates new Set on every render, causing infinite loop
-  const supersededBy = useSupersededSections((s) => s.supersededBy);
-  const supersededSet = useMemo(() => {
-    const result = new Set<string>();
-    for (const autoIds of Object.values(supersededBy)) {
-      for (const id of autoIds) {
-        result.add(id);
-      }
-    }
-    return result;
-  }, [supersededBy]);
-
-  // Load auto-detected sections from engine
-  // Pass excludeDisabled: false because we handle disabled sections ourselves (sort to bottom with visual indicator)
-  // Skip FFI calls when preloaded engine sections are available from batch data
+  // Load ALL engine sections including disabled/superseded (for sections list restore UI).
+  // This uses getAllSectionsIncludingHidden() so disabled sections appear at the bottom.
   const skipEngineFetch = !!preloadedEngineSections;
-  const { sections: hookEngineSections } = useFrequentSections({
-    sportType,
-    excludeDisabled: false,
-    enabled: enabled && !skipEngineFetch,
-  });
+  const sectionsTrigger = useEngineSubscription(['sections']);
+  const hookEngineSections = useMemo(() => {
+    if (!enabled || skipEngineFetch) return [];
+    const engine = getRouteEngine();
+    if (!engine) return [];
+    const summaries = engine.getAllSectionsIncludingHidden(sportType);
+    // Cast: disabled/supersededBy fields are added by migration 020.
+    // Generated bindings will include them after Rust rebuild.
+    return summaries.map((s: Record<string, unknown>) => ({
+      id: s.id as string,
+      sectionType: (s.sectionType === 'custom' ? 'custom' : 'auto') as 'custom' | 'auto',
+      name: (s.name as string) ?? undefined,
+      sportType: s.sportType as string,
+      polyline: [] as RoutePoint[],
+      activityIds: [] as string[],
+      visitCount: s.visitCount as number,
+      distanceMeters: s.distanceMeters as number,
+      confidence: s.confidence as number,
+      createdAt: s.createdAt as string,
+      disabled: (s.disabled as boolean) ?? false,
+      supersededBy: (s.supersededBy as string | null) ?? null,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, skipEngineFetch, sportType, sectionsTrigger]);
   const engineSections = skipEngineFetch ? preloadedEngineSections! : hookEngineSections;
 
   // Load custom sections
@@ -102,9 +106,6 @@ export function useUnifiedSections(
 
   // Get dismissals
   const isDismissed = useSectionDismissals((s) => s.isDismissed);
-
-  // Get disabled sections
-  const disabledIds = useDisabledSections((s) => s.disabledIds);
 
   // Filter out dismissed potentials
   const potentialSections = useMemo(() => {
@@ -140,27 +141,21 @@ export function useUnifiedSections(
     }
 
     // Add engine sections (auto-detected and custom from batch data)
-    // Superseded list is pre-computed when custom sections are created
-    // Note: engineSections now use lightweight summaries (empty polyline/activityIds)
-    // Polylines are lazy-loaded via useSectionPolyline in SectionRow
+    // Disabled/superseded state is in the section data from SQLite
     for (const engine of engineSections) {
       if (seenIds.has(engine.id)) continue;
 
-      // Determine actual section type from data or ID prefix
       const actualType =
         engine.sectionType === 'custom' || engine.id.startsWith('custom_') ? 'custom' : 'auto';
 
-      // Use pre-computed superseded list (instant lookup instead of O(n²) overlap calculation)
-      if (!supersededSet.has(engine.id)) {
-        seenIds.add(engine.id);
-        result.push({
-          ...engine,
-          sectionType: actualType,
-          name: engine.name || generateSectionName(engine),
-          activityIds: engine.activityIds || [],
-          createdAt: engine.createdAt || new Date().toISOString(),
-        });
-      }
+      seenIds.add(engine.id);
+      result.push({
+        ...engine,
+        sectionType: actualType,
+        name: engine.name || generateSectionName(engine),
+        activityIds: engine.activityIds || [],
+        createdAt: engine.createdAt || new Date().toISOString(),
+      });
     }
 
     // Add potential sections (suggestions)
@@ -201,43 +196,32 @@ export function useUnifiedSections(
       }
     }
 
-    // Sort: disabled sections last, then by type (custom > auto > potential), then by visit count
+    // Sort: disabled/superseded sections last, then by type, then by visit count
     result.sort((a, b) => {
-      // Disabled sections go to the bottom
-      const aDisabled = disabledIds.has(a.id);
-      const bDisabled = disabledIds.has(b.id);
-      if (aDisabled && !bDisabled) return 1;
-      if (!aDisabled && bDisabled) return -1;
+      const aHidden = !!(a.disabled || a.supersededBy);
+      const bHidden = !!(b.disabled || b.supersededBy);
+      if (aHidden && !bHidden) return 1;
+      if (!aHidden && bHidden) return -1;
 
-      // Type priority
       const typePriority: Record<string, number> = { custom: 0, auto: 1, potential: 2 };
       const aPriority = typePriority[a.sectionType] ?? 1;
       const bPriority = typePriority[b.sectionType] ?? 1;
 
       if (aPriority !== bPriority) return aPriority - bPriority;
 
-      // Then by visit count
       return b.visitCount - a.visitCount;
     });
 
     return result;
-  }, [
-    engineSections,
-    customSections,
-    potentialSections,
-    includeCustom,
-    includePotentials,
-    supersededSet,
-    disabledIds,
-  ]);
+  }, [engineSections, customSections, potentialSections, includeCustom, includePotentials]);
 
-  // Compute counts
+  // Compute counts (disabled/superseded are hidden from counts)
   const autoCount = unified.filter(
-    (s) => s.sectionType === 'auto' && !disabledIds.has(s.id)
+    (s) => s.sectionType === 'auto' && !s.disabled && !s.supersededBy
   ).length;
   const customCount = unified.filter((s) => s.sectionType === 'custom').length;
   const potentialCount = unified.filter((s) => s.sectionType === 'potential').length;
-  const disabledCount = unified.filter((s) => disabledIds.has(s.id)).length;
+  const disabledCount = unified.filter((s) => !!(s.disabled || s.supersededBy)).length;
 
   return {
     sections: unified,

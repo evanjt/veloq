@@ -342,6 +342,7 @@ jobs:
 
       - name: Upload App Store metadata
         if: steps.check_creds.outputs.skip != 'true'
+        continue-on-error: true  # deliver fails if no editable version exists in App Store Connect
         working-directory: config/fastlane
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}

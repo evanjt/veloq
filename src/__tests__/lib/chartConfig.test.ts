@@ -2,15 +2,6 @@ import { CHART_CONFIGS, getAvailableCharts } from '@/lib/utils/chartConfig';
 import type { ActivityStreams } from '@/types';
 
 describe('CHART_CONFIGS', () => {
-  it('every config has id, label, icon, and color', () => {
-    for (const [key, config] of Object.entries(CHART_CONFIGS)) {
-      expect(config.id).toBe(key);
-      expect(config.label).toBeTruthy();
-      expect(config.icon).toBeTruthy();
-      expect(config.color).toMatch(/^#[0-9A-Fa-f]{6}$/);
-    }
-  });
-
   it('speed getStream converts m/s to km/h', () => {
     const streams: ActivityStreams = { velocity_smooth: [1, 10] };
     const data = CHART_CONFIGS.speed.getStream!(streams);

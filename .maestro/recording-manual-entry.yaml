@@ -1,0 +1,84 @@
+# Recording Manual Entry Test
+# Tests the manual entry flow: select WeightTraining via All Activities, verify form, discard
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+onFlowComplete:
+  - openLink: "veloq://home"
+  - runFlow:
+      when:
+        visible: "DISCARD"
+      commands:
+        - tapOn: "DISCARD"
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Tap the record FAB on the home screen
+- tapOn:
+    id: "record-fab"
+
+# Dismiss any "Resume previous recording?" dialog
+- runFlow:
+    when:
+      visible: "Discard"
+    commands:
+      - tapOn: "Discard"
+
+# Scroll down to reach the All Activities collapsible sections
+- scrollUntilVisible:
+    element:
+      text: "Gym & Fitness"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+
+# Expand the Gym & Fitness category to access WeightTraining
+- tapOn:
+    text: "Gym & Fitness"
+
+# Scroll WeightTraining to center of screen (away from tab bar overlap at bottom)
+- scrollUntilVisible:
+    element:
+      id: "record-type-WeightTraining"
+    direction: DOWN
+    timeout: 5000
+    speed: 40
+    centerElement: true
+
+# Wait for WeightTraining to be ready then tap
+- tapOn:
+    id: "record-type-WeightTraining"
+
+# Wait for manual entry form to load — verify key form fields
+- extendedWaitUntil:
+    visible:
+      id: "manual-entry-name"
+    timeout: 10000
+
+- assertVisible:
+    id: "manual-entry-duration"
+
+- assertVisible:
+    id: "manual-entry-distance"
+
+# Verify the continue button is visible
+- assertVisible:
+    id: "manual-entry-continue"
+
+- takeScreenshot: "recording-manual-entry-form"
+
+# Navigate back to record type picker then to home
+- back
+
+# Back again from record picker to home
+- back
+
+# Verify return to home screen
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+- takeScreenshot: "recording-manual-entry-complete"

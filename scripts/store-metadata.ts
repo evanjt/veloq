@@ -132,6 +132,19 @@ async function generateChangelogs(options: ChangelogOptions): Promise<void> {
   const sourceContent = fs.readFileSync(sourceFile, 'utf-8');
   console.log(`Source changelog (${versionCode}):\n${sourceContent}\n`);
 
+  // Validate length: Google Play caps release notes at 500 characters.
+  // Keep English source ≤ 450 chars so translations have headroom (they can run 10-20% longer).
+  const ANDROID_CHANGELOG_MAX_CHARS = 450;
+  if (sourceContent.length > ANDROID_CHANGELOG_MAX_CHARS) {
+    console.error(
+      `ERROR: Source changelog is ${sourceContent.length} chars — exceeds ${ANDROID_CHANGELOG_MAX_CHARS} char limit.`
+    );
+    console.error(
+      `Google Play enforces a hard 500-char limit on release notes. Keep the English source ≤ ${ANDROID_CHANGELOG_MAX_CHARS} chars to leave room for translations.`
+    );
+    process.exit(1);
+  }
+
   // Generate for Android
   console.log('=== Android Changelogs ===');
   for (const locale of getUniqueStoreLocales('android')) {

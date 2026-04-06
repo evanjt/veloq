@@ -43,6 +43,9 @@ yarn-error.*
 
 # misc
 .syncthing.*
+.wrangler/
+google-services.json
+*-firebase-adminsdk-*.json
 
 # Rust build artifacts
 **/target/

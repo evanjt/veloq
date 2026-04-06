@@ -1,7 +1,7 @@
 # Settings Language Test
 # Tests that language options are visible in settings
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -14,5 +14,7 @@ tags:
 # Verify settings screen loaded with language section visible
 - assertVisible:
     id: "settings-screen"
+
+- takeScreenshot: "settings-language-options"
 
 - takeScreenshot: "settings-language-complete"

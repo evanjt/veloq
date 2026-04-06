@@ -4,7 +4,11 @@
 # App identifier (used in all flows)
 # Android: com.veloq.app
 # iOS: com.veloq.app (bundle identifier)
-appId: com.veloq.app
+appId: com.veloq.app.dev
+
+# Execution order: continue running remaining flows after a failure
+executionOrder:
+  continueOnFailure: true
 
 # Deep link scheme for navigation
 # Uses veloq:// scheme defined in app.json

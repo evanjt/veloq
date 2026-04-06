@@ -1,12 +1,7 @@
-v0.2.0 (Feb 2026)
-
-• Aktivitätskarten zeigen jetzt +/−-Änderungsindikatoren für jede Kennzahl
-• Karten ohne Kartendaten werden automatisch minimiert, um Platz zu sparen
-• Fitness-Diagramm kombiniert CTL/ATL mit der Form als horizontale Linie und Zonengrenzmarkierungen
-• Aktivitäts-Feed: Filterschaltflächen vereinfacht, Suchleiste beim Laden unter den sichtbaren Bereich verschoben (nach unten wischen zum Einblenden), längere Sparklines und untere Chips sind jetzt tippbar
-• Karten: kleinere Start-/Zielmarkierungen, Streckenlinie mit Kontrastrand für bessere Sichtbarkeit in der Satellitenansicht, Karte erweitert sich in die Karte mit überlagertem Text
-• Diagramme: Wechsel zwischen Zeit und Distanz auf der X-Achse, Durchschnittswert auf der Linie angezeigt, verbessertes Scrubbing im Fitness-Plot
-• Leistungszonen und Intervalltabelle zur Aktivitätsdetailansicht hinzugefügt
-• Saisonbestleistungen werden jetzt zusammen mit persönlichen Rekorden angezeigt
-
-Alle Details: https://github.com/evanjt/veloq/releases/tag/v0.2.0
+• Activity cards: +/− change indicators, auto-minimise cards without maps
+• Fitness chart: CTL/ATL with form as horizontal line and zone markers
+• Activity feed: unnested filters, collapsible search bar, longer sparklines
+• Maps: contrasting trace border, map expands into card
+• Charts: time/distance x-axis toggle, average value on line
+• Power zones and intervals table in activity detail
+• Season bests alongside personal records

@@ -8,7 +8,7 @@ import { router } from 'expo-router';
 import { useTheme } from '@/hooks';
 import { useMapPreferences } from '@/providers';
 import { getActivityIcon } from '@/lib';
-import { colors, darkColors, spacing, brand } from '@/theme';
+import { colors, darkColors, spacing, brand, shadows } from '@/theme';
 import type { Activity } from '@/types';
 import type { MapStyleType } from '@/components/maps/mapStyles';
 
@@ -212,17 +212,7 @@ const styles = StyleSheet.create({
     width: 300,
     borderRadius: 16,
     paddingVertical: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 12,
-      },
-    }),
+    ...shadows.modal,
   },
   header: {
     flexDirection: 'row',

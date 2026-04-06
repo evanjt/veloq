@@ -2,6 +2,7 @@ import {
   getEffectiveWindow,
   smoothDataPoints,
   getSmoothingDescription,
+  gaussianSmooth,
 } from '@/lib/utils/smoothing';
 
 describe('getEffectiveWindow', () => {
@@ -94,5 +95,43 @@ describe('getSmoothingDescription', () => {
 
   it('numeric 14 returns "14-day average"', () => {
     expect(getSmoothingDescription(14, '7d')).toBe('14-day average');
+  });
+});
+
+describe('gaussianSmooth edge cases', () => {
+  it('handles outputCount of 1 without division by zero', () => {
+    const result = gaussianSmooth([1, 2, 3], [10, 20, 30], 1);
+    // outputCount=1 is clamped to 2
+    expect(result.length).toBe(2);
+    expect(Number.isFinite(result[0].x)).toBe(true);
+    expect(Number.isFinite(result[0].y)).toBe(true);
+  });
+
+  it('handles minimum valid input (2 points)', () => {
+    const result = gaussianSmooth([1, 2], [10, 20], 10);
+    // n === 2 triggers early return with exactly 2 points, ignoring outputCount
+    expect(result.length).toBe(2);
+    result.forEach((pt) => {
+      expect(Number.isFinite(pt.x)).toBe(true);
+      expect(Number.isFinite(pt.y)).toBe(true);
+    });
+  });
+
+  it('returns empty array when xs and ys have different lengths', () => {
+    const result = gaussianSmooth([1, 2, 3], [10, 20]);
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array for fewer than 2 points', () => {
+    expect(gaussianSmooth([1], [10])).toEqual([]);
+    expect(gaussianSmooth([], [])).toEqual([]);
+  });
+
+  it('handles all-identical x values (span === 0)', () => {
+    const result = gaussianSmooth([5, 5, 5], [10, 20, 30]);
+    // span === 0 triggers single-point mean return
+    expect(result.length).toBe(1);
+    expect(result[0].x).toBe(5);
+    expect(result[0].y).toBe(20); // mean of 10, 20, 30
   });
 });

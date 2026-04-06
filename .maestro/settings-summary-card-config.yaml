@@ -1,0 +1,50 @@
+# Settings Summary Card Configuration Test
+# Tests: hero metric selection, sparkline toggle
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+# Wait for settings screen
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+
+# Scroll to summary card settings section
+- scrollUntilVisible:
+    element:
+      id: "settings-summary-card"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+    optional: true
+
+# Verify the summary card settings section exists
+- assertVisible:
+    id: "settings-summary-card"
+    optional: true
+
+- takeScreenshot: "settings-summary-card-config"
+
+# Try toggling sparkline
+- tapOn:
+    id: "settings-summary-card-sparkline-toggle"
+    optional: true
+
+- takeScreenshot: "settings-summary-card-sparkline-toggled"
+
+# Navigate to home to verify changes applied
+- openLink: "veloq://home"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+- takeScreenshot: "settings-summary-card-config-complete"

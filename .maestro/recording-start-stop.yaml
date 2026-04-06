@@ -1,0 +1,139 @@
+# Recording Start/Stop Test
+# Tests: start recording, unlock screen, pause, stop, review, discard
+
+appId: com.veloq.app.dev
+tags:
+  - tier1
+onFlowComplete:
+  - openLink: "veloq://home"
+  - runFlow:
+      when:
+        visible: "DISCARD"
+      commands:
+        - tapOn: "DISCARD"
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Tap the record FAB on the home screen
+- tapOn:
+    id: "record-fab"
+
+# Dismiss any "Resume previous recording?" dialog
+- runFlow:
+    when:
+      visible: "DISCARD"
+    commands:
+      - tapOn: "DISCARD"
+
+# Expand Cycling category if Ride isn't directly visible (may be collapsed due to
+# a previous test selecting a different activity type, e.g. WeightTraining)
+- runFlow:
+    when:
+      notVisible:
+        id: "record-type-Ride"
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Cycling"
+          direction: DOWN
+          timeout: 5000
+          speed: 40
+      - tapOn:
+          text: "Cycling"
+
+# Select Ride activity type
+- scrollUntilVisible:
+    element:
+      id: "record-type-Ride"
+    direction: DOWN
+    timeout: 5000
+    speed: 40
+    centerElement: true
+
+- tapOn:
+    id: "record-type-Ride"
+
+# Wait for recording screen to load
+- extendedWaitUntil:
+    visible:
+      id: "recording-timer"
+    timeout: 10000
+
+- takeScreenshot: "recording-active"
+
+# Unlock the lock overlay by swiping the handle right
+- swipe:
+    from:
+      id: "lock-overlay-unlock"
+    direction: RIGHT
+    duration: 800
+
+# Wait for controls to appear after unlock
+- extendedWaitUntil:
+    visible:
+      id: "control-pause"
+    timeout: 5000
+
+- takeScreenshot: "recording-unlocked"
+
+# Tap pause (recording → paused state)
+- tapOn:
+    id: "control-pause"
+
+# Wait for paused state (resume + stop buttons)
+- extendedWaitUntil:
+    visible:
+      id: "control-resume"
+    timeout: 5000
+
+- takeScreenshot: "recording-paused"
+
+# Resume the recording
+- tapOn:
+    id: "control-resume"
+
+# Wait for recording to resume (pause button reappears)
+- extendedWaitUntil:
+    visible:
+      id: "control-pause"
+    timeout: 5000
+
+- takeScreenshot: "recording-resumed"
+
+# Pause again before stopping
+- tapOn:
+    id: "control-pause"
+
+# Wait for paused state again
+- extendedWaitUntil:
+    visible:
+      id: "control-resume"
+    timeout: 5000
+
+# Long-press stop to end recording (paused-state stop requires hold)
+- longPressOn:
+    id: "control-stop"
+
+# Wait for review screen
+- extendedWaitUntil:
+    visible:
+      id: "review-save-button"
+    timeout: 10000
+
+- assertVisible:
+    id: "review-discard-button"
+
+- takeScreenshot: "recording-review-screen"
+
+# Long-press discard to return to home
+- longPressOn:
+    id: "review-discard-button"
+
+# Verify return to home screen
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+- takeScreenshot: "recording-start-stop-complete"

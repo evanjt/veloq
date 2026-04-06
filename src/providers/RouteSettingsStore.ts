@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting } from '@/lib/backup';
 import { debug, safeJsonParseWithSchema } from '@/lib';
 
 const log = debug.create('RouteSettings');
@@ -58,7 +58,7 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(ROUTE_SETTINGS_KEY);
+      const stored = await getSetting(ROUTE_SETTINGS_KEY);
       if (stored) {
         const parsed = safeJsonParseWithSchema(stored, isRouteSettings, DEFAULT_SETTINGS);
         set({
@@ -78,7 +78,7 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
     set((state) => {
       const newSettings = { ...state.settings, enabled };
       // Persist asynchronously - errors logged but don't block state update
-      AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
+      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
         log.error('Failed to save settings:', error);
       });
       return { settings: newSettings };
@@ -93,7 +93,7 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
     set((state) => {
       const newSettings = { ...state.settings, retentionDays: validatedDays };
       // Persist asynchronously - errors logged but don't block state update
-      AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
+      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
         log.error('Failed to save retention days:', error);
       });
       return { settings: newSettings };
@@ -109,7 +109,7 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
     set((state) => {
       const newSettings = { ...state.settings, autoCleanupEnabled: enabled };
       // Persist asynchronously - errors logged but don't block state update
-      AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
+      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
         log.error('Failed to save auto cleanup setting:', error);
       });
       return { settings: newSettings };

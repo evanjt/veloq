@@ -8,7 +8,7 @@
  * In-memory Map backed by AsyncStorage for persistence across sessions.
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting } from '@/lib/backup';
 import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import { deleteTerrainPreviewsForActivity } from './terrainPreviewCache';
 
@@ -24,7 +24,7 @@ let initialized = false;
 export async function initCameraOverrides(): Promise<void> {
   if (initialized) return;
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const raw = await getSetting(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Record<string, TerrainCamera>;
       for (const [id, camera] of Object.entries(parsed)) {
@@ -85,5 +85,5 @@ function persistOverrides(): void {
   for (const [id, camera] of overrides) {
     obj[id] = camera;
   }
-  AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(obj)).catch(() => {});
+  setSetting(STORAGE_KEY, JSON.stringify(obj)).catch(() => {});
 }

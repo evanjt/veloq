@@ -1,7 +1,7 @@
 # Stress Test: Rapid Navigation
 # Tests app stability under rapid screen transitions
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier3
 ---

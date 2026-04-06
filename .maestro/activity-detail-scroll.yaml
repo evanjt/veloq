@@ -1,0 +1,50 @@
+# Activity Detail Scroll Test
+# Scrolls through the full activity detail screen with screenshots
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Wait for data then open activity
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+- openLink: "veloq://activity/demo-test-0"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+# Screenshot hero section (map + title)
+- takeScreenshot: "activity-detail-scroll-hero"
+
+# Scroll down to stats
+- scroll
+- takeScreenshot: "activity-detail-scroll-stats"
+
+# Scroll to charts
+- scroll
+- takeScreenshot: "activity-detail-scroll-charts"
+
+# Scroll further
+- scroll
+- takeScreenshot: "activity-detail-scroll-mid"
+
+# Scroll to bottom
+- scroll
+- takeScreenshot: "activity-detail-scroll-bottom"
+
+- scroll
+- takeScreenshot: "activity-detail-scroll-end"
+
+# Verify no NaN anywhere on page
+- assertNotVisible:
+    text: "NaN"
+- assertNotVisible:
+    text: "undefined"
+
+- takeScreenshot: "activity-detail-scroll-complete"

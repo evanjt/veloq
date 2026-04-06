@@ -13,7 +13,7 @@ import { useTheme } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as WebBrowser from 'expo-web-browser';
-import { colors, darkColors, typography, spacing } from '@/theme';
+import { colors, darkColors, typography, spacing, shadows } from '@/theme';
 import type { Activity, WellnessData } from '@/types';
 import { useActivityStats } from './useActivityStats';
 import { StatCard } from './StatCard';
@@ -95,11 +95,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     borderRadius: spacing.md,
     padding: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: spacing.sm,
-    elevation: 2,
+    ...shadows.card,
   },
   containerDark: {
     backgroundColor: darkColors.surface,

@@ -1,11 +1,12 @@
 import React from 'react';
 import { Text, StyleSheet, TextStyle } from 'react-native';
+import { gradients } from '@/theme';
 
 // GradientText simplified - shows solid color (gradient requires dev build)
 // Brand: Teal primary, Gold for achievements only
 export function GradientText({
   children,
-  colors = ['#2DD4BF', '#14B8A6'],
+  colors = [...gradients.primary],
   style,
 }: {
   children: string | number;

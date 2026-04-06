@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   small: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
-    minHeight: 32,
+    minHeight: layout.minTapTarget,
   },
   medium: {
     paddingVertical: spacing.sm,
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     minHeight: layout.minTapTarget,
   },
   large: {
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     minHeight: 52,
   },
@@ -187,15 +187,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   smallLabel: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
   },
   mediumLabel: {
-    fontSize: 15,
+    fontSize: typography.body.fontSize,
     lineHeight: 20,
   },
   largeLabel: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     lineHeight: 22,
   },
 

@@ -6,7 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDashboardPreferences, getMetricDefinition, type MetricId } from '@/providers';
 import { SummaryCard } from '@/components/home';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { settingsStyles } from './settingsStyles';
 
 export function SummaryCardSection() {
   const { isDark } = useTheme();
@@ -18,10 +19,14 @@ export function SummaryCardSection() {
 
   return (
     <>
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
         {t('settings.summaryCard').toUpperCase()}
       </Text>
-      <View style={[styles.section, isDark && styles.sectionDark]}>
+      <View
+        key={isDark ? 'dark' : 'light'}
+        style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}
+        testID="settings-summary-card"
+      >
         {/* Live Preview using actual SummaryCard with real data */}
         <View style={styles.summaryCardPreview}>
           <SummaryCard
@@ -48,14 +53,15 @@ export function SummaryCardSection() {
         {/* Hero Metric Picker - always visible */}
         <View style={styles.summaryCardContainer}>
           <View style={styles.heroMetricHeader}>
-            <Text style={[styles.summaryCardLabel, isDark && styles.textLight]}>
+            <Text style={[styles.summaryCardLabel, isDark && settingsStyles.textLight]}>
               {t('settings.heroMetric')}
             </Text>
             <View style={styles.sparklineToggleInline}>
-              <Text style={[styles.sparklineToggleLabel, isDark && styles.textMuted]}>
+              <Text style={[styles.sparklineToggleLabel, isDark && settingsStyles.textMuted]}>
                 {t('settings.showSparkline')}
               </Text>
               <Switch
+                testID="settings-summary-card-sparkline-toggle"
                 value={summaryCard.showSparkline}
                 onValueChange={(value) => setSummaryCardPreferences({ showSparkline: value })}
                 color={colors.primary}
@@ -79,7 +85,7 @@ export function SummaryCardSection() {
           onPress={() => setShowSummaryCardConfig(!showSummaryCardConfig)}
         >
           <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
-          <Text style={[styles.actionText, isDark && styles.textLight]}>
+          <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
             {t('settings.supportingMetrics')}
           </Text>
           <MaterialCommunityIcons
@@ -91,7 +97,7 @@ export function SummaryCardSection() {
 
         {showSummaryCardConfig && (
           <View style={styles.summaryCardContainer}>
-            <Text style={[styles.summaryCardHint, isDark && styles.textMuted]}>
+            <Text style={[styles.summaryCardHint, isDark && settingsStyles.textMuted]}>
               {t('settings.maxMetricsHint')}
             </Text>
 
@@ -119,7 +125,7 @@ export function SummaryCardSection() {
                   key={metricId}
                   style={[styles.summaryMetricRow, isDark && styles.summaryMetricRowDark]}
                 >
-                  <Text style={[styles.summaryMetricLabel, isDark && styles.textLight]}>
+                  <Text style={[styles.summaryMetricLabel, isDark && settingsStyles.textLight]}>
                     {t(def.labelKey as never)}
                   </Text>
                   <Switch
@@ -150,24 +156,6 @@ export function SummaryCardSection() {
 }
 
 const styles = StyleSheet.create({
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    marginHorizontal: layout.screenPadding,
-    letterSpacing: 0.5,
-  },
-  section: {
-    backgroundColor: colors.surface,
-    marginHorizontal: layout.screenPadding,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  sectionDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
   summaryCardPreview: {
     marginHorizontal: -layout.screenPadding,
     paddingTop: spacing.sm,
@@ -184,7 +172,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   summaryCardLabel: {
-    fontSize: 14,
+    ...typography.bodySmall,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -194,7 +182,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   sparklineToggleLabel: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   summaryCardPicker: {
@@ -212,12 +200,12 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   actionText: {
+    ...typography.body,
     flex: 1,
-    fontSize: 16,
     color: colors.textPrimary,
   },
   summaryCardHint: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.textSecondary,
     marginBottom: spacing.sm,
   },
@@ -233,13 +221,7 @@ const styles = StyleSheet.create({
     borderBottomColor: darkColors.border,
   },
   summaryMetricLabel: {
-    fontSize: 15,
+    ...typography.body,
     color: colors.textPrimary,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  textMuted: {
-    color: darkColors.textSecondary,
   },
 });

@@ -1,0 +1,29 @@
+# Home Scroll Test
+# Scrolls through the home feed activity list
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
+# Screenshot the top (summary card + first activities)
+- takeScreenshot: "home-scroll-top"
+
+# Scroll down through activity list
+- scroll
+- takeScreenshot: "home-scroll-mid-1"
+
+- scroll
+- takeScreenshot: "home-scroll-mid-2"
+
+- scroll
+- takeScreenshot: "home-scroll-bottom"
+
+- takeScreenshot: "home-scroll-complete"

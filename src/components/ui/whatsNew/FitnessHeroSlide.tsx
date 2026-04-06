@@ -8,7 +8,7 @@ import { colors, darkColors, spacing } from '@/theme';
 const FORM_ZONE_COLORS = {
   highRisk: '#EF5350',
   optimal: '#66BB6A',
-  grey: '#9E9E9E',
+  greyZone: '#9E9E9E',
   fresh: '#81C784',
   transition: '#64B5F6',
 };
@@ -22,7 +22,7 @@ const HERO_METRICS = [
 const ZONE_BAR = [
   { zone: 'highRisk', flex: 1, color: FORM_ZONE_COLORS.highRisk },
   { zone: 'optimal', flex: 1, color: FORM_ZONE_COLORS.optimal },
-  { zone: 'grey', flex: 1, color: FORM_ZONE_COLORS.grey },
+  { zone: 'greyZone', flex: 1, color: FORM_ZONE_COLORS.greyZone },
   { zone: 'fresh', flex: 1, color: FORM_ZONE_COLORS.fresh },
   { zone: 'transition', flex: 1, color: FORM_ZONE_COLORS.transition },
 ];

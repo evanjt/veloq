@@ -1,5 +1,12 @@
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, ViewStyle, DimensionValue } from 'react-native';
+import React from 'react';
+import { View, StyleSheet, ViewStyle, DimensionValue } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { colors, darkColors, layout, spacing } from '@/theme';
 import { useTheme } from '@/hooks';
 
@@ -10,35 +17,26 @@ interface ShimmerProps {
   style?: ViewStyle;
 }
 
-export function Shimmer({ width = '100%', height = 20, borderRadius = 8, style }: ShimmerProps) {
+export function Shimmer({
+  width = '100%',
+  height = 20,
+  borderRadius = layout.borderRadiusSm,
+  style,
+}: ShimmerProps) {
   const { isDark } = useTheme();
-  const animatedValue = useRef(new Animated.Value(0)).current;
+  const opacity = useSharedValue(0.3);
 
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(animatedValue, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(animatedValue, {
-          toValue: 0,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
+  React.useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(withTiming(0.7, { duration: 800 }), withTiming(0.3, { duration: 800 })),
+      -1
     );
-    animation.start();
-    return () => animation.stop();
-  }, [animatedValue]);
+  }, [opacity]);
 
-  const opacity = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 0.7],
-  });
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
 
-  // Use theme-aware shimmer colors
   const baseColor = isDark ? darkColors.surface : colors.border;
   const highlightColor = isDark ? darkColors.border : colors.divider;
 
@@ -60,9 +58,9 @@ export function Shimmer({ width = '100%', height = 20, borderRadius = 8, style }
           StyleSheet.absoluteFill,
           {
             backgroundColor: highlightColor,
-            opacity,
             borderRadius,
           },
+          animatedStyle,
         ]}
       />
     </View>
@@ -84,10 +82,15 @@ export function ChartSkeleton({ height = 200 }: { height?: number }) {
   return (
     <View>
       <View style={styles.chartHeader}>
-        <Shimmer width={140} height={20} borderRadius={4} />
-        <Shimmer width={80} height={16} borderRadius={4} />
+        <Shimmer width={140} height={20} borderRadius={layout.borderRadiusXs} />
+        <Shimmer width={80} height={16} borderRadius={layout.borderRadiusXs} />
       </View>
-      <Shimmer width="100%" height={height} borderRadius={12} style={{ marginTop: 12 }} />
+      <Shimmer
+        width="100%"
+        height={height}
+        borderRadius={layout.borderRadius}
+        style={{ marginTop: spacing.sm + spacing.xs }}
+      />
     </View>
   );
 }
@@ -95,9 +98,19 @@ export function ChartSkeleton({ height = 200 }: { height?: number }) {
 export function StatsPillSkeleton() {
   return (
     <View style={styles.pillRow}>
-      <Shimmer width={80} height={44} borderRadius={14} />
-      <Shimmer width={70} height={44} borderRadius={14} style={{ marginLeft: 6 }} />
-      <Shimmer width={75} height={44} borderRadius={14} style={{ marginLeft: 6 }} />
+      <Shimmer width={80} height={44} borderRadius={layout.borderRadius} />
+      <Shimmer
+        width={70}
+        height={44}
+        borderRadius={layout.borderRadius}
+        style={{ marginLeft: spacing.xs + 2 }}
+      />
+      <Shimmer
+        width={75}
+        height={44}
+        borderRadius={layout.borderRadius}
+        style={{ marginLeft: spacing.xs + 2 }}
+      />
     </View>
   );
 }
@@ -107,12 +120,17 @@ export function WellnessCardSkeleton() {
 
   return (
     <View style={[styles.wellnessCard, isDark && styles.cardDark]}>
-      <Shimmer width={120} height={18} borderRadius={4} />
+      <Shimmer width={120} height={18} borderRadius={layout.borderRadiusXs} />
       <View style={styles.wellnessGrid}>
         {[1, 2, 3, 4].map((i) => (
           <View key={i} style={styles.wellnessItem}>
-            <Shimmer width={40} height={40} borderRadius={8} />
-            <Shimmer width={60} height={14} borderRadius={4} style={{ marginTop: 8 }} />
+            <Shimmer width={40} height={40} borderRadius={layout.borderRadiusSm} />
+            <Shimmer
+              width={60}
+              height={14}
+              borderRadius={layout.borderRadiusXs}
+              style={{ marginTop: spacing.sm }}
+            />
           </View>
         ))}
       </View>
@@ -126,9 +144,9 @@ const styles = StyleSheet.create({
   },
   activityCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
-    marginHorizontal: 12,
-    marginBottom: 12,
+    borderRadius: layout.borderRadius,
+    marginHorizontal: layout.cardMargin,
+    marginBottom: layout.cardMargin,
     overflow: 'hidden',
   },
   cardDark: {

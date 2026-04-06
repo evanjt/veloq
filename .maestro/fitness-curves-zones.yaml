@@ -1,0 +1,109 @@
+# Fitness Curves and Zones Test
+# Tests: power/pace curves, zone distribution, season bests, FTP trend, decoupling
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "fitness-screen"
+    timeout: 10000
+
+# Scroll to performance section (power curve for cycling, default sport)
+- scrollUntilVisible:
+    element:
+      id: "fitness-section-performance"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+
+# Expand performance section if collapsed
+- tapOn:
+    id: "fitness-section-performance"
+
+- takeScreenshot: "fitness-power-curve"
+
+# Scroll to season bests section
+- scrollUntilVisible:
+    element:
+      id: "fitness-section-bests"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+
+- tapOn:
+    id: "fitness-section-bests"
+
+- takeScreenshot: "fitness-season-bests"
+
+# Scroll to zones section
+- scrollUntilVisible:
+    element:
+      id: "fitness-section-zones"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+
+- tapOn:
+    id: "fitness-section-zones"
+
+- takeScreenshot: "fitness-zones"
+
+# Scroll to trends section
+- scrollUntilVisible:
+    element:
+      id: "fitness-section-trends"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+    optional: true
+
+- tapOn:
+    id: "fitness-section-trends"
+    optional: true
+
+- takeScreenshot: "fitness-trends"
+
+# Scroll to threshold section (FTP trend)
+- scrollUntilVisible:
+    element:
+      id: "fitness-section-threshold"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+    optional: true
+
+- tapOn:
+    id: "fitness-section-threshold"
+    optional: true
+
+- takeScreenshot: "fitness-threshold-trend"
+
+# Scroll to efficiency section (decoupling)
+- scrollUntilVisible:
+    element:
+      id: "fitness-section-efficiency"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+    optional: true
+
+- tapOn:
+    id: "fitness-section-efficiency"
+    optional: true
+
+- takeScreenshot: "fitness-efficiency-decoupling"
+
+# Verify no NaN anywhere
+- assertNotVisible:
+    text: "NaN"
+    optional: true
+
+- takeScreenshot: "fitness-curves-zones-complete"

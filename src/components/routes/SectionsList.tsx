@@ -16,14 +16,14 @@ import {
   Alert,
   Animated,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
-import { useTheme, useCacheDays } from '@/hooks';
+import { useTheme, useCacheDays, useSectionRescan } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { router, Href } from 'expo-router';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
 import { SectionRow } from './SectionRow';
@@ -31,12 +31,12 @@ import { PotentialSectionCard } from './PotentialSectionCard';
 import { DataRangeFooter } from './DataRangeFooter';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
-import { useDisabledSections } from '@/providers/DisabledSectionsStore';
-import { useSupersededSections } from '@/providers/SupersededSectionsStore';
-import { debug } from '@/lib';
+import { debug, navigateTo } from '@/lib';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { UnifiedSection, FrequentSection } from '@/types';
 import type { SectionWithPolyline } from 'veloqrs';
 import { generateSectionName } from '@/hooks/routes/useUnifiedSections';
+import { computeCenter, haversineDistance, type LatLng } from '@/lib/geo/distance';
 
 const log = debug.create('SectionsList');
 
@@ -62,6 +62,12 @@ interface SectionsListProps {
   hasMore?: boolean;
   /** Total section count from engine (for accurate filter badge counts) */
   totalSectionCount?: number;
+  /** User's current location for "Nearby" sort */
+  userLocation?: LatLng | null;
+  /** Active sort option */
+  sortOption: SectionsSortOption;
+  /** Called when sort changes */
+  onSortChange: (next: SectionsSortOption) => void;
 }
 
 type HiddenFilters = {
@@ -69,6 +75,8 @@ type HiddenFilters = {
   auto: boolean;
   disabled: boolean;
 };
+
+export type SectionsSortOption = 'visits' | 'distance' | 'name' | 'nearby';
 
 /**
  * Convert batch SectionWithPolyline to FrequentSection for useUnifiedSections.
@@ -80,6 +88,14 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
   for (let i = 0; i < s.polyline.length - 1; i += 2) {
     polyline.push({ lat: s.polyline[i], lng: s.polyline[i + 1] });
   }
+  const center = s.bounds
+    ? computeCenter({
+        minLat: s.bounds.minLat,
+        maxLat: s.bounds.maxLat,
+        minLng: s.bounds.minLng,
+        maxLng: s.bounds.maxLng,
+      })
+    : undefined;
   const section: FrequentSection = {
     id: s.id,
     sectionType: s.id.startsWith('custom_') ? 'custom' : 'auto',
@@ -93,6 +109,8 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
     scale: s.scale ?? undefined,
     name: s.name ?? undefined,
     createdAt: new Date().toISOString(),
+    sportTypes: 'sportTypes' in s ? (s as any).sportTypes : undefined,
+    center,
   };
   // Generate display name using same logic as useFrequentSections
   if (!section.name) {
@@ -105,6 +123,7 @@ interface SectionListItemProps {
   item: UnifiedSection;
   isDark: boolean;
   isDisabled: boolean;
+  distanceFromUser?: number;
   onPress: (id: string) => void;
   onSwipeableOpen: (id: string) => void;
   onDelete: (item: UnifiedSection) => void;
@@ -118,6 +137,7 @@ const SectionListItem = memo(
     item,
     isDark,
     isDisabled,
+    distanceFromUser,
     onPress,
     onSwipeableOpen,
     onDelete,
@@ -153,18 +173,18 @@ const SectionListItem = memo(
           <Animated.View
             style={[
               styles.swipeAction,
-              isDisabled ? styles.showAction : styles.hideAction,
+              isDisabled ? styles.showAction : styles.deleteAction,
               { opacity },
             ]}
           >
             <RectButton style={styles.swipeActionButton} onPress={() => onToggleHide(item)}>
               <MaterialCommunityIcons
-                name={isDisabled ? 'eye' : 'eye-off'}
+                name={isDisabled ? 'undo' : 'delete-outline'}
                 size={24}
                 color={colors.textOnDark}
               />
               <Text style={styles.swipeActionText}>
-                {isDisabled ? t('common.show') : t('common.hide')}
+                {isDisabled ? t('common.restore') : t('common.remove')}
               </Text>
             </RectButton>
           </Animated.View>
@@ -190,7 +210,12 @@ const SectionListItem = memo(
             isDisabled && styles.disabledSection,
           ]}
         >
-          <SectionRow section={item} isDisabled={isDisabled} onPress={onPress} />
+          <SectionRow
+            section={item}
+            isDisabled={isDisabled}
+            distanceFromUser={distanceFromUser}
+            onPress={onPress}
+          />
         </View>
       </Swipeable>
     );
@@ -207,7 +232,11 @@ const SectionListItem = memo(
       )
         return false;
     }
-    return prev.isDisabled === next.isDisabled && prev.isDark === next.isDark;
+    return (
+      prev.isDisabled === next.isDisabled &&
+      prev.isDark === next.isDark &&
+      prev.distanceFromUser === next.distanceFromUser
+    );
   }
 );
 
@@ -218,6 +247,9 @@ export function SectionsList({
   onLoadMore,
   hasMore = false,
   totalSectionCount,
+  userLocation,
+  sortOption,
+  onSortChange,
 }: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -226,6 +258,7 @@ export function SectionsList({
     auto: false,
     disabled: true, // Hidden sections are hidden by default
   });
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Convert batch sections to FrequentSection[] for preloading into useUnifiedSections
   const preloadedEngineSections = useMemo(() => {
@@ -256,24 +289,10 @@ export function SectionsList({
   } = data;
 
   const { createSection, removeSection } = useCustomSections();
-  const disabledIds = useDisabledSections((s) => s.disabledIds);
-  const { disable, enable } = useDisabledSections();
+  const { rescan, isScanning } = useSectionRescan();
 
-  // Compute true total counts for filter badges (independent of pagination)
-  const supersededBy = useSupersededSections((s) => s.supersededBy);
-  const supersededCount = useMemo(() => {
-    let count = 0;
-    for (const ids of Object.values(supersededBy)) {
-      count += ids.length;
-    }
-    return count;
-  }, [supersededBy]);
-
-  const trueAutoCount =
-    totalSectionCount != null
-      ? Math.max(0, totalSectionCount - supersededCount - disabledIds.size)
-      : autoCount;
-  const trueDisabledCount = totalSectionCount != null ? disabledIds.size : disabledCount;
+  const trueAutoCount = totalSectionCount != null ? totalSectionCount : autoCount;
+  const trueDisabledCount = disabledCount;
 
   // Track open swipeable refs to close them when another opens
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
@@ -282,10 +301,11 @@ export function SectionsList({
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays();
 
-  // Separate regular sections from potential sections and apply filter
+  // Separate regular sections from potential sections, apply filter, search, and sort
   const { regularSections, potentialSections } = useMemo(() => {
     const regular: UnifiedSection[] = [];
     const potential: UnifiedSection[] = [];
+    const query = searchQuery.toLowerCase();
 
     for (const section of unifiedSections) {
       if (section.sectionType === 'potential') {
@@ -293,8 +313,9 @@ export function SectionsList({
       } else {
         // Apply hide filters - hide if the filter is set for this type
         const isCustom = section.sectionType === 'custom';
-        const isAuto = section.sectionType === 'auto' && !disabledIds.has(section.id);
-        const isDisabledAuto = section.sectionType === 'auto' && disabledIds.has(section.id);
+        const isAuto = section.sectionType === 'auto' && !section.disabled && !section.supersededBy;
+        const isDisabledAuto =
+          section.sectionType === 'auto' && !!(section.disabled || section.supersededBy);
 
         if (
           (isCustom && hiddenFilters.custom) ||
@@ -303,12 +324,41 @@ export function SectionsList({
         ) {
           continue; // Skip (hide) this section
         }
+
+        // Apply search filter
+        if (query && !section.name?.toLowerCase().includes(query)) {
+          continue;
+        }
+
         regular.push(section);
       }
     }
 
+    // Apply sort
+    if (sortOption === 'visits') {
+      regular.sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0));
+    } else if (sortOption === 'distance') {
+      regular.sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
+    } else if (sortOption === 'name') {
+      regular.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+    }
+
+    // Preserve native order for nearby sorting so pagination stays correct.
+
     return { regularSections: regular, potentialSections: potential };
-  }, [unifiedSections, hiddenFilters]);
+  }, [unifiedSections, hiddenFilters, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
+
+  // Pre-compute distance from user for each section (used for display on every row)
+  const distanceMap = useMemo(() => {
+    if (!userLocation) return null;
+    const map = new Map<string, number>();
+    for (const s of regularSections) {
+      if (s.center) {
+        map.set(s.id, haversineDistance(userLocation, s.center));
+      }
+    }
+    return map;
+  }, [regularSections, userLocation]);
 
   // Toggle filter - pressing hides/shows that type
   const handleFilterPress = useCallback((filterType: keyof HiddenFilters) => {
@@ -325,7 +375,7 @@ export function SectionsList({
 
   // Navigate to section detail page
   const handleSectionPress = useCallback((id: string) => {
-    router.push(`/section/${id}` as Href);
+    navigateTo(`/section/${id}`);
   }, []);
 
   // Handle promoting a potential section to a custom section
@@ -408,127 +458,54 @@ export function SectionsList({
     );
   };
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={[styles.infoNotice, isDark && styles.infoNoticeDark]}>
-        <MaterialCommunityIcons
-          name="information-outline"
-          size={14}
-          color={isDark ? darkColors.textDisabled : colors.textDisabled}
-        />
-        <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-          {t('routes.frequentSectionsInfo')}
-        </Text>
-      </View>
-
-      {/* Section type counts - clickable to hide/show types */}
-      {(customCount > 0 || trueAutoCount > 0 || trueDisabledCount > 0) && (
-        <View style={styles.sectionCounts}>
-          {customCount > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.countBadge,
-                styles.customBadge,
-                hiddenFilters.custom && styles.countBadgeHidden,
-              ]}
-              onPress={() => handleFilterPress('custom')}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name={hiddenFilters.custom ? 'eye-off' : 'account'}
-                size={12}
-                color={hiddenFilters.custom ? colors.textDisabled : colors.primary}
-              />
-              <Text
-                style={[
-                  styles.countText,
-                  {
-                    color: hiddenFilters.custom ? colors.textDisabled : colors.primary,
-                  },
-                  hiddenFilters.custom && styles.countTextHidden,
-                ]}
-              >
-                {customCount} {t('routes.custom')}
-              </Text>
-            </TouchableOpacity>
-          )}
-          {trueAutoCount > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.countBadge,
-                styles.autoBadge,
-                hiddenFilters.auto && styles.countBadgeHidden,
-              ]}
-              onPress={() => handleFilterPress('auto')}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name={hiddenFilters.auto ? 'eye-off' : 'auto-fix'}
-                size={12}
-                color={hiddenFilters.auto ? colors.textDisabled : colors.success}
-              />
-              <Text
-                style={[
-                  styles.countText,
-                  {
-                    color: hiddenFilters.auto ? colors.textDisabled : colors.success,
-                  },
-                  hiddenFilters.auto && styles.countTextHidden,
-                ]}
-              >
-                {trueAutoCount} {t('routes.autoDetected')}
-              </Text>
-            </TouchableOpacity>
-          )}
-          {trueDisabledCount > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.countBadge,
-                hiddenFilters.disabled ? styles.showHiddenBadge : styles.disabledBadge,
-              ]}
-              onPress={() => handleFilterPress('disabled')}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name={hiddenFilters.disabled ? 'eye' : 'eye-off'}
-                size={12}
-                color={hiddenFilters.disabled ? colors.primary : colors.warning}
-              />
-              <Text
-                style={[
-                  styles.countText,
-                  {
-                    color: hiddenFilters.disabled ? colors.primary : colors.warning,
-                  },
-                ]}
-              >
-                {hiddenFilters.disabled
-                  ? t('routes.showHidden', { count: trueDisabledCount })
-                  : `${trueDisabledCount} ${t('sections.disabled')}`}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {/* Potential section suggestions */}
-      {potentialSections.length > 0 && (
-        <View style={styles.suggestionsContainer}>
-          <Text style={[styles.suggestionsTitle, isDark && styles.textLight]}>
-            {t('routes.suggestions' as never)}
-          </Text>
-          {potentialSections.slice(0, 3).map((section) => (
-            <PotentialSectionCard
-              key={section.id}
-              section={section}
-              onPromote={() => handlePromotePotential(section)}
-              onDismiss={() => handleDismissPotential(section)}
-            />
-          ))}
-        </View>
-      )}
-    </View>
+  const sortChips: { key: SectionsSortOption; label: string; icon: string }[] = useMemo(
+    () => [
+      { key: 'nearby', label: t('routes.sortNearby' as never) as string, icon: 'crosshairs-gps' },
+      {
+        key: 'visits',
+        label: t('routes.sortMostVisited' as never) as string,
+        icon: 'sort-numeric-descending',
+      },
+      {
+        key: 'distance',
+        label: t('routes.sortDistance' as never) as string,
+        icon: 'map-marker-distance',
+      },
+      {
+        key: 'name',
+        label: t('routes.sortNameAZ' as never) as string,
+        icon: 'sort-alphabetical-ascending',
+      },
+    ],
+    [t]
   );
+
+  const handleRescan = useCallback(() => {
+    if (!isScanning) {
+      rescan();
+    }
+  }, [isScanning, rescan]);
+
+  const displaySectionCount = totalSectionCount ?? totalCount;
+
+  const renderHeader = () => {
+    if (potentialSections.length === 0) return null;
+    return (
+      <View style={styles.suggestionsContainer}>
+        <Text style={[styles.suggestionsTitle, isDark && styles.textLight]}>
+          {t('routes.suggestions' as never)}
+        </Text>
+        {potentialSections.slice(0, 3).map((section) => (
+          <PotentialSectionCard
+            key={section.id}
+            section={section}
+            onPromote={() => handlePromotePotential(section)}
+            onDismiss={() => handleDismissPotential(section)}
+          />
+        ))}
+      </View>
+    );
+  };
 
   // Close any open swipeable when another opens
   const handleSwipeableOpen = useCallback((id: string) => {
@@ -539,19 +516,26 @@ export function SectionsList({
     openSwipeableRef.current = id;
   }, []);
 
-  // Handle hide/show action for auto sections
+  // Handle remove/restore action for auto sections
   const handleToggleHide = useCallback(
-    async (item: UnifiedSection) => {
+    (item: UnifiedSection) => {
       const swipeable = swipeableRefs.current.get(item.id);
       swipeable?.close();
 
-      if (disabledIds.has(item.id)) {
-        await enable(item.id);
+      if (item.disabled || item.supersededBy) {
+        getRouteEngine()?.enableSection(item.id);
       } else {
-        await disable(item.id);
+        Alert.alert(t('sections.removeSection'), t('sections.removeSectionConfirm'), [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.remove'),
+            style: 'destructive',
+            onPress: () => getRouteEngine()?.disableSection(item.id),
+          },
+        ]);
       }
     },
-    [disable, enable]
+    [t]
   );
 
   // Handle delete action for custom sections
@@ -583,7 +567,8 @@ export function SectionsList({
       <SectionListItem
         item={item}
         isDark={isDark}
-        isDisabled={disabledIds.has(item.id)}
+        isDisabled={!!(item.disabled || item.supersededBy)}
+        distanceFromUser={distanceMap?.get(item.id)}
         onPress={handleSectionPress}
         onSwipeableOpen={handleSwipeableOpen}
         onDelete={handleDelete}
@@ -594,7 +579,7 @@ export function SectionsList({
     ),
     [
       isDark,
-      disabledIds,
+      distanceMap,
       handleSectionPress,
       handleSwipeableOpen,
       handleDelete,
@@ -618,39 +603,204 @@ export function SectionsList({
   };
 
   return (
-    <FlatList
-      testID="sections-list"
-      data={regularSections}
-      keyExtractor={(item) => item.id}
-      renderItem={renderItem}
-      ListHeaderComponent={renderHeader}
-      ListEmptyComponent={renderEmpty}
-      ListFooterComponent={renderFooter}
-      contentContainerStyle={regularSections.length === 0 ? styles.emptyList : styles.list}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      onEndReached={hasMore ? onLoadMore : undefined}
-      onEndReachedThreshold={0.5}
-      // Performance optimizations
-      removeClippedSubviews={Platform.OS === 'ios'}
-      maxToRenderPerBatch={10}
-      windowSize={5}
-      initialNumToRender={8}
-    />
+    <View style={styles.outerContainer}>
+      {/* Search and sport filters — outside FlatList to prevent keyboard dismissal */}
+      <View style={styles.header}>
+        <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>
+          <MaterialCommunityIcons
+            name="magnify"
+            size={18}
+            color={isDark ? darkColors.textDisabled : colors.textDisabled}
+          />
+          <TextInput
+            style={[styles.searchInput, isDark && styles.searchInputDark]}
+            placeholder={t('routes.searchSections')}
+            placeholderTextColor={isDark ? darkColors.textDisabled : colors.textDisabled}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
+              <MaterialCommunityIcons
+                name="close-circle"
+                size={16}
+                color={isDark ? darkColors.textDisabled : colors.textDisabled}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+        {/* Count line */}
+        <View style={styles.countRow}>
+          <Text style={[styles.summaryText, isDark && styles.summaryTextDark]}>
+            {displaySectionCount} {t('trainingScreen.sections')}
+          </Text>
+          <TouchableOpacity
+            onPress={handleRescan}
+            disabled={isScanning}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {isScanning ? (
+              <ActivityIndicator
+                size={13}
+                color={isDark ? darkColors.textDisabled : colors.textDisabled}
+              />
+            ) : (
+              <MaterialCommunityIcons
+                name="reload"
+                size={14}
+                color={isDark ? darkColors.textDisabled : colors.textDisabled}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+        {/* Sort + filter chips */}
+        <View style={styles.sortChipRow}>
+          {regularSections.length > 1 &&
+            sortChips.map((chip) => {
+              const isActive = sortOption === chip.key;
+              return (
+                <TouchableOpacity
+                  key={chip.key}
+                  style={[
+                    styles.sortChip,
+                    isDark && styles.sortChipDark,
+                    isActive && styles.sortChipActive,
+                  ]}
+                  onPress={() => onSortChange(chip.key)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons
+                    name={chip.icon as any}
+                    size={13}
+                    color={
+                      isActive
+                        ? colors.primary
+                        : isDark
+                          ? darkColors.textSecondary
+                          : colors.textSecondary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.sortChipLabel,
+                      isDark && styles.textMuted,
+                      isActive && styles.sortChipLabelActive,
+                    ]}
+                  >
+                    {chip.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          {customCount > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.sortChip,
+                isDark && styles.sortChipDark,
+                !hiddenFilters.custom && styles.sortChipActive,
+              ]}
+              onPress={() => handleFilterPress('custom')}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="account"
+                size={13}
+                color={
+                  !hiddenFilters.custom
+                    ? colors.primary
+                    : isDark
+                      ? darkColors.textSecondary
+                      : colors.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.sortChipLabel,
+                  isDark && styles.textMuted,
+                  !hiddenFilters.custom && styles.sortChipLabelActive,
+                ]}
+              >
+                {customCount} {t('routes.custom')}
+              </Text>
+            </TouchableOpacity>
+          )}
+          {trueDisabledCount > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.sortChip,
+                isDark && styles.sortChipDark,
+                !hiddenFilters.disabled && styles.sortChipActive,
+              ]}
+              onPress={() => handleFilterPress('disabled')}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={hiddenFilters.disabled ? 'eye-off' : 'eye'}
+                size={13}
+                color={
+                  !hiddenFilters.disabled
+                    ? colors.primary
+                    : isDark
+                      ? darkColors.textSecondary
+                      : colors.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.sortChipLabel,
+                  isDark && styles.textMuted,
+                  !hiddenFilters.disabled && styles.sortChipLabelActive,
+                ]}
+              >
+                {trueDisabledCount} {t('sections.removed')}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      <FlatList
+        testID="sections-list"
+        style={styles.flatList}
+        data={regularSections}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        ListHeaderComponent={potentialSections.length > 0 ? renderHeader : null}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
+        contentContainerStyle={regularSections.length === 0 ? styles.emptyList : styles.list}
+        ListHeaderComponentStyle={{ margin: 0, padding: 0 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        onEndReached={hasMore ? onLoadMore : undefined}
+        onEndReachedThreshold={0.5}
+        removeClippedSubviews={Platform.OS === 'ios'}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        initialNumToRender={8}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
+  flatList: {
+    marginTop: 0,
+  },
   list: {
-    paddingTop: spacing.md,
     paddingBottom: spacing.xxl,
   },
   emptyList: {
     flexGrow: 1,
-    paddingTop: spacing.md,
   },
   header: {
-    marginBottom: spacing.sm,
+    marginBottom: 0,
   },
   emptyContainer: {
     flex: 1,
@@ -698,18 +848,57 @@ const styles = StyleSheet.create({
   infoTextDark: {
     color: darkColors.textDisabled,
   },
+  countRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    marginTop: 2,
+  },
+  summaryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  summaryTextDark: {
+    color: darkColors.textPrimary,
+  },
+  sportFilterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    marginTop: 2,
+  },
+  sportFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sportFilterChipDark: {
+    borderColor: darkColors.border,
+  },
+  sportFilterLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
   sectionCounts: {
     flexDirection: 'row',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    marginTop: spacing.sm,
+    marginTop: 2,
   },
   countBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: 2,
     borderRadius: layout.borderRadius / 2,
   },
   customBadge: {
@@ -774,8 +963,72 @@ const styles = StyleSheet.create({
   deleteAction: {
     backgroundColor: colors.error,
   },
-  hideAction: {
-    backgroundColor: colors.warning,
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: Platform.OS === 'ios' ? 4 : 2,
+    borderRadius: 10,
+    backgroundColor: colors.gray100,
+  },
+  searchContainerDark: {
+    backgroundColor: darkColors.surface,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textPrimary,
+    paddingVertical: 0,
+  },
+  searchInputDark: {
+    color: colors.textOnDark,
+  },
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    marginTop: 2,
+  },
+  rescanButton: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sortChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    marginTop: 2,
+  },
+  sortChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sortChipDark: {
+    borderColor: darkColors.border,
+  },
+  sortChipActive: {
+    backgroundColor: colors.primary + '15',
+    borderColor: colors.primary,
+  },
+  sortChipLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  sortChipLabelActive: {
+    color: colors.primary,
   },
   showAction: {
     backgroundColor: colors.success,

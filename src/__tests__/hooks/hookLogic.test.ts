@@ -322,10 +322,10 @@ describe('getFormZone', () => {
     { tsb: -20, expected: 'optimal' },
     { tsb: -11, expected: 'optimal' },
 
-    // grey: -10 <= TSB < 5
-    { tsb: -10, expected: 'grey' },
-    { tsb: 0, expected: 'grey' },
-    { tsb: 4, expected: 'grey' },
+    // greyZone: -10 <= TSB < 5
+    { tsb: -10, expected: 'greyZone' },
+    { tsb: 0, expected: 'greyZone' },
+    { tsb: 4, expected: 'greyZone' },
 
     // fresh: 5 <= TSB < 25
     { tsb: 5, expected: 'fresh' },
@@ -349,14 +349,14 @@ describe('getFormZone', () => {
     expect(getFormZone(-30.01)).toBe('highRisk');
   });
 
-  it('handles exact boundary at -10 (start of grey)', () => {
-    expect(getFormZone(-10)).toBe('grey');
+  it('handles exact boundary at -10 (start of greyZone)', () => {
+    expect(getFormZone(-10)).toBe('greyZone');
     expect(getFormZone(-10.01)).toBe('optimal');
   });
 
   it('handles exact boundary at 5 (start of fresh)', () => {
     expect(getFormZone(5)).toBe('fresh');
-    expect(getFormZone(4.99)).toBe('grey');
+    expect(getFormZone(4.99)).toBe('greyZone');
   });
 
   it('handles exact boundary at 25 (start of transition)', () => {
@@ -366,7 +366,7 @@ describe('getFormZone', () => {
 });
 
 describe('FORM_ZONE_COLORS', () => {
-  const allZones: FormZone[] = ['highRisk', 'optimal', 'grey', 'fresh', 'transition'];
+  const allZones: FormZone[] = ['highRisk', 'optimal', 'greyZone', 'fresh', 'transition'];
 
   it('has a color for every form zone', () => {
     allZones.forEach((zone) => {
@@ -382,7 +382,7 @@ describe('FORM_ZONE_COLORS', () => {
 });
 
 describe('FORM_ZONE_LABELS', () => {
-  const allZones: FormZone[] = ['highRisk', 'optimal', 'grey', 'fresh', 'transition'];
+  const allZones: FormZone[] = ['highRisk', 'optimal', 'greyZone', 'fresh', 'transition'];
 
   it('has a label for every form zone', () => {
     allZones.forEach((zone) => {
@@ -394,7 +394,7 @@ describe('FORM_ZONE_LABELS', () => {
 });
 
 describe('FORM_ZONE_BOUNDARIES', () => {
-  const allZones: FormZone[] = ['highRisk', 'optimal', 'grey', 'fresh', 'transition'];
+  const allZones: FormZone[] = ['highRisk', 'optimal', 'greyZone', 'fresh', 'transition'];
 
   it('has boundaries for every form zone', () => {
     allZones.forEach((zone) => {

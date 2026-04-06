@@ -1,7 +1,7 @@
 # Comprehensive Map Integration Test
 # Tests map features: activities, routes, sections, popups, filters, and toggles
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier2
 ---
@@ -11,11 +11,13 @@ tags:
 - runFlow:
     file: helpers/navigate-to-map.yaml
 
-# Wait for map controls to load
+# Wait for map controls to load (map may take time to initialize)
 - extendedWaitUntil:
     visible:
       id: "map-toggle-activities"
-    timeout: 10000
+    timeout: 20000
+
+- takeScreenshot: "map-controls-loaded"
 
 # =============================================================================
 # Activity Markers - Basic Interaction
@@ -39,6 +41,8 @@ tags:
       id: "activity-popup"
     timeout: 3000
     optional: true
+
+- takeScreenshot: "map-activity-popup"
 
 - tapOn:
     id: "activity-popup-zoom"
@@ -206,6 +210,8 @@ tags:
     id: "map-filter-hike"
     optional: true
 
+- takeScreenshot: "map-filter-applied"
+
 - tapOn:
     id: "map-filter-clear"
     optional: true
@@ -214,14 +220,25 @@ tags:
 # Layer Toggles
 # =============================================================================
 
+# Wait for map controls to be available after filter interactions
+- extendedWaitUntil:
+    visible:
+      id: "map-toggle-activities"
+    timeout: 15000
+
 - tapOn:
     id: "map-toggle-activities"
-    optional: true
 
 - extendedWaitUntil:
     visible:
       id: "map-screen"
     timeout: 2000
+
+- extendedWaitUntil:
+    visible:
+      id: "map-toggle-sections"
+    timeout: 20000
+    optional: true
 
 - tapOn:
     id: "map-toggle-sections"
@@ -234,7 +251,6 @@ tags:
 
 - tapOn:
     id: "map-toggle-routes"
-    optional: true
 
 - extendedWaitUntil:
     visible:
@@ -244,7 +260,6 @@ tags:
 # Toggle back on
 - tapOn:
     id: "map-toggle-routes"
-    optional: true
 
 - tapOn:
     id: "map-toggle-sections"
@@ -252,11 +267,44 @@ tags:
 
 - tapOn:
     id: "map-toggle-activities"
+
+- takeScreenshot: "map-layers-toggled"
+
+# =============================================================================
+# Section/Route Popup Interaction
+# =============================================================================
+
+# With sections layer on, try to tap a section marker
+- tapOn:
+    id: "map-section-marker-0"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "section-popup"
+    timeout: 3000
     optional: true
 
 - tapOn:
-    id: "map-toggle-heatmap"
+    id: "section-popup-close"
     optional: true
+
+# Try route marker popup
+- tapOn:
+    id: "map-route-marker-0"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "route-popup"
+    timeout: 3000
+    optional: true
+
+- tapOn:
+    id: "route-popup-close"
+    optional: true
+
+- takeScreenshot: "map-section-route-popups"
 
 # =============================================================================
 # Toggle Stress Test
@@ -267,26 +315,16 @@ tags:
     commands:
       - tapOn:
           id: "map-toggle-activities"
-          optional: true
       - tapOn:
           id: "map-toggle-routes"
-          optional: true
       - tapOn:
           id: "map-toggle-sections"
           optional: true
 
 # =============================================================================
-# 3D Mode and Map Controls
+# Map Controls (compass, location, fit)
+# Note: 3D mode skipped — Map3DWebView (WebGL WebView) crashes on emulator
 # =============================================================================
-
-- tapOn:
-    id: "map-toggle-3d"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 2000
 
 - tapOn:
     id: "map-compass"
@@ -310,9 +348,7 @@ tags:
       id: "map-screen"
     timeout: 2000
 
-- tapOn:
-    id: "map-toggle-3d"
-    optional: true
+- takeScreenshot: "map-controls-used"
 
 # =============================================================================
 # Final State Validation

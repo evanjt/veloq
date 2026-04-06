@@ -1,0 +1,60 @@
+# Settings Units Toggle Test
+# Tests: switching between metric and imperial units
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+# Wait for settings screen
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+
+# Find and tap the unit toggle
+- scrollUntilVisible:
+    element:
+      id: "settings-unit-toggle"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+    optional: true
+
+- tapOn:
+    id: "settings-unit-toggle"
+    optional: true
+
+- takeScreenshot: "settings-units-toggled"
+
+# Navigate to home to verify units applied
+- openLink: "veloq://home"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+- takeScreenshot: "settings-units-applied"
+
+# Return to settings and toggle back
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+- scrollUntilVisible:
+    element:
+      id: "settings-unit-toggle"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+    optional: true
+
+- tapOn:
+    id: "settings-unit-toggle"
+    optional: true
+
+- takeScreenshot: "settings-units-toggle-complete"

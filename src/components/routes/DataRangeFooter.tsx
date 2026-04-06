@@ -23,7 +23,7 @@ export function DataRangeFooter({ days, isDark = false }: DataRangeFooterProps) 
   const { t } = useTranslation();
 
   const handleExpandPress = () => {
-    router.push('/settings?scrollTo=cache');
+    router.push('/cache-settings' as never);
   };
 
   // Format days as human readable (e.g., "3 years", "90 days")

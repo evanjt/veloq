@@ -1,19 +1,33 @@
 /**
- * Veloq OAuth Proxy - Cloudflare Worker
+ * Veloq API Worker - Cloudflare Worker
  *
- * Handles OAuth token exchange for intervals.icu.
+ * Handles:
+ *   1. OAuth token exchange for intervals.icu (existing)
+ *   2. Webhook relay: receives intervals.icu webhooks, sends silent push notifications
+ *   3. Device token management: register/unregister push tokens
+ *
  * See README.md for deployment instructions.
  *
  * Environment:
  * - INTERVALS_CLIENT_ID: OAuth client ID
  * - INTERVALS_CLIENT_SECRET: OAuth client secret
  * - OAUTH_STATES: KV namespace for CSRF state validation and rate limiting
+ * - DEVICE_TOKENS: KV namespace for push token storage
+ * - WEBHOOK_SECRET: Shared secret from intervals.icu webhook config
  */
 
 interface Env {
   INTERVALS_CLIENT_ID: string;
   INTERVALS_CLIENT_SECRET: string;
   OAUTH_STATES: KVNamespace;
+  DEVICE_TOKENS: KVNamespace;
+  WEBHOOK_SECRET?: string;
+}
+
+interface DeviceToken {
+  token: string;
+  platform: "ios" | "android";
+  registeredAt: string;
 }
 
 /** Rate limiting configuration */
@@ -60,6 +74,23 @@ export default {
       // OAuth callback
       if (path === "/oauth/callback" && request.method === "GET") {
         return handleOAuthCallback(url, env);
+      }
+
+      // --- Push notification endpoints (additive, backwards-compatible) ---
+
+      // Register device push token
+      if (path === "/devices/register" && request.method === "POST") {
+        return handleDeviceRegister(request, env);
+      }
+
+      // Unregister device push token
+      if (path === "/devices/unregister" && request.method === "DELETE") {
+        return handleDeviceUnregister(request, env);
+      }
+
+      // Webhook receiver for intervals.icu events
+      if (path === "/webhook/intervals" && request.method === "POST") {
+        return handleIntervalsWebhook(request, env);
       }
 
       return new Response("Not Found", { status: 404 });
@@ -299,5 +330,237 @@ function redirectToAppWithError(error: string): Response {
   return new Response(html, {
     status: 200,
     headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Push notification endpoints
+// ---------------------------------------------------------------------------
+
+/** Device token TTL: 30 days (re-registered on every app open) */
+const DEVICE_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+/** Webhook events we process (others are ignored) */
+const PROCESSED_EVENTS = new Set([
+  "ACTIVITY_UPLOADED",
+  "ACTIVITY_ANALYZED",
+  "ACTIVITY_ACHIEVEMENTS",
+  "FITNESS_UPDATED",
+  "WELLNESS_UPDATED",
+  "SPORT_SETTINGS_UPDATED",
+]);
+
+/**
+ * Register a device push token for an athlete.
+ * Called after user opts in to notifications.
+ * Body: { athleteId: string, token: string, platform: "ios" | "android" }
+ */
+async function handleDeviceRegister(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  try {
+    const body = (await request.json()) as {
+      athleteId?: string;
+      token?: string;
+      platform?: string;
+    };
+
+    if (!body.athleteId || !body.token || !body.platform) {
+      return jsonResponse({ error: "Missing required fields" }, 400);
+    }
+
+    if (body.platform !== "ios" && body.platform !== "android") {
+      return jsonResponse({ error: "Invalid platform" }, 400);
+    }
+
+    const key = `athlete:${body.athleteId}`;
+    const existing = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
+    const tokens: DeviceToken[] = existing ?? [];
+
+    // Update existing token or add new one
+    const idx = tokens.findIndex((t) => t.token === body.token);
+    const entry: DeviceToken = {
+      token: body.token,
+      platform: body.platform as "ios" | "android",
+      registeredAt: new Date().toISOString(),
+    };
+
+    if (idx >= 0) {
+      tokens[idx] = entry;
+    } else {
+      tokens.push(entry);
+    }
+
+    // Store with TTL
+    await env.DEVICE_TOKENS.put(key, JSON.stringify(tokens), {
+      expirationTtl: DEVICE_TOKEN_TTL_SECONDS,
+    });
+
+    return jsonResponse({ success: true });
+  } catch {
+    return jsonResponse({ error: "Invalid request" }, 400);
+  }
+}
+
+/**
+ * Unregister a device push token.
+ * Called on logout or when user disables notifications.
+ * Body: { athleteId: string, token: string }
+ */
+async function handleDeviceUnregister(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  try {
+    const body = (await request.json()) as {
+      athleteId?: string;
+      token?: string;
+    };
+
+    if (!body.athleteId || !body.token) {
+      return jsonResponse({ error: "Missing required fields" }, 400);
+    }
+
+    const key = `athlete:${body.athleteId}`;
+    const existing = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
+    if (!existing) {
+      return jsonResponse({ success: true }); // Already gone
+    }
+
+    const filtered = existing.filter((t) => t.token !== body.token);
+    if (filtered.length === 0) {
+      await env.DEVICE_TOKENS.delete(key);
+    } else {
+      await env.DEVICE_TOKENS.put(key, JSON.stringify(filtered), {
+        expirationTtl: DEVICE_TOKEN_TTL_SECONDS,
+      });
+    }
+
+    return jsonResponse({ success: true });
+  } catch {
+    return jsonResponse({ error: "Invalid request" }, 400);
+  }
+}
+
+/**
+ * Receive webhook events from intervals.icu.
+ * Validates shared secret, looks up device tokens, sends silent push.
+ *
+ * intervals.icu payload format:
+ * { secret: "...", events: [{ athlete_id, type, timestamp, activity?: {...} }] }
+ */
+async function handleIntervalsWebhook(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  if (!env.WEBHOOK_SECRET) {
+    console.error("WEBHOOK_SECRET not configured");
+    return jsonResponse({ error: "Server misconfigured" }, 500);
+  }
+
+  try {
+    const payload = (await request.json()) as {
+      secret?: string;
+      events?: Array<{
+        athlete_id?: string;
+        type?: string;
+        timestamp?: string;
+        activity?: { id?: string };
+      }>;
+    };
+
+    // Validate shared secret
+    if (payload.secret !== env.WEBHOOK_SECRET) {
+      console.error("Invalid webhook secret");
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
+    if (!payload.events || !Array.isArray(payload.events)) {
+      return jsonResponse({ success: true }); // Nothing to process
+    }
+
+    // Process each event (with deduplication)
+    const pushPromises: Promise<void>[] = [];
+
+    for (const event of payload.events) {
+      if (!event.athlete_id || !event.type) continue;
+      if (!PROCESSED_EVENTS.has(event.type)) continue;
+
+      // Deduplicate: skip if we already processed this event recently
+      const dedupeKey = `dedup:${event.athlete_id}:${event.type}:${event.activity?.id ?? "none"}`;
+      const alreadyProcessed = await env.OAUTH_STATES.get(dedupeKey);
+      if (alreadyProcessed) continue;
+
+      // Mark as processed (5-minute TTL)
+      await env.OAUTH_STATES.put(dedupeKey, "1", { expirationTtl: 300 });
+
+      // Look up device tokens for this athlete
+      const key = `athlete:${event.athlete_id}`;
+      const tokens = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
+      if (!tokens || tokens.length === 0) continue;
+
+      // Send silent push to each device
+      for (const device of tokens) {
+        const pushData = {
+          event_type: event.type,
+          athlete_id: event.athlete_id,
+          activity_id: event.activity?.id ?? null,
+        };
+
+        pushPromises.push(
+          sendExpoPush(device.token, pushData).catch((err) => {
+            console.error(`Push failed for ${device.platform}:`, err);
+          })
+        );
+      }
+    }
+
+    // Fire all pushes in parallel
+    await Promise.allSettled(pushPromises);
+
+    return jsonResponse({ success: true });
+  } catch (err) {
+    console.error("Webhook processing error:", err);
+    return jsonResponse({ error: "Processing failed" }, 500);
+  }
+}
+
+/**
+ * Send a silent push notification via Expo Push Service.
+ * Expo handles FCM (Android) and APNs (iOS) routing transparently.
+ * No Firebase project or APNs key required — Expo Push is free.
+ *
+ * Payload contains only event_type + activity_id (zero personal data).
+ */
+async function sendExpoPush(
+  token: string,
+  data: Record<string, unknown>
+): Promise<void> {
+  const response = await fetch("https://exp.host/--/api/v2/push/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      to: token,
+      data,
+      priority: "normal",
+      _contentAvailable: true,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    console.error(`Expo push failed (${response.status}): ${body}`);
+  }
+}
+
+/** Helper to create JSON responses */
+function jsonResponse(body: Record<string, unknown>, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
   });
 }

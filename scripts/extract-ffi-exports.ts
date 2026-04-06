@@ -163,7 +163,11 @@ if (checkMode) {
 
   // Verify all function names match
   const existingNames = new Set(
-    [...existingContent.matchAll(/"name":\s*"(\w+)"/g)].map((m) => m[1])
+    [
+      ...existingContent.matchAll(
+        /(?:["']name["']|name)\s*:\s*["']([A-Za-z0-9_]+)["']/g
+      ),
+    ].map((m) => m[1])
   );
 
   const missingInManifest: string[] = [];

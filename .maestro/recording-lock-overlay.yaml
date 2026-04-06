@@ -1,0 +1,134 @@
+# Recording Lock Overlay Test
+# Tests: lock overlay display, unlock swipe, re-lock, timer visibility through overlay
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+onFlowComplete:
+  - openLink: "veloq://home"
+  - runFlow:
+      when:
+        visible: "DISCARD"
+      commands:
+        - tapOn: "DISCARD"
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Start recording
+- tapOn:
+    id: "record-fab"
+
+# Dismiss any resume dialog
+- runFlow:
+    when:
+      visible: "DISCARD"
+    commands:
+      - tapOn: "DISCARD"
+
+# Expand Cycling if needed
+- runFlow:
+    when:
+      notVisible:
+        id: "record-type-Ride"
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Cycling"
+          direction: DOWN
+          timeout: 5000
+          speed: 40
+      - tapOn:
+          text: "Cycling"
+
+- scrollUntilVisible:
+    element:
+      id: "record-type-Ride"
+    direction: DOWN
+    timeout: 5000
+    speed: 40
+    centerElement: true
+
+- tapOn:
+    id: "record-type-Ride"
+
+# Wait for recording screen
+- extendedWaitUntil:
+    visible:
+      id: "recording-timer"
+    timeout: 10000
+
+# Lock overlay should be auto-engaged
+- assertVisible:
+    id: "lock-overlay"
+
+# Timer should be visible through the overlay
+- assertVisible:
+    id: "recording-timer"
+
+- takeScreenshot: "lock-overlay-active"
+
+# Unlock by swiping
+- swipe:
+    from:
+      id: "lock-overlay-unlock"
+    direction: RIGHT
+    duration: 800
+
+# Controls should now be visible
+- extendedWaitUntil:
+    visible:
+      id: "control-pause"
+    timeout: 5000
+
+- takeScreenshot: "lock-overlay-unlocked"
+
+# Re-lock by tapping lock button
+- tapOn:
+    id: "control-lock"
+
+# Lock overlay should reappear
+- extendedWaitUntil:
+    visible:
+      id: "lock-overlay"
+    timeout: 5000
+
+- takeScreenshot: "lock-overlay-relocked"
+
+# Clean up: unlock, pause, stop, discard
+- swipe:
+    from:
+      id: "lock-overlay-unlock"
+    direction: RIGHT
+    duration: 800
+
+- extendedWaitUntil:
+    visible:
+      id: "control-pause"
+    timeout: 5000
+
+- tapOn:
+    id: "control-pause"
+
+- extendedWaitUntil:
+    visible:
+      id: "control-resume"
+    timeout: 5000
+
+- longPressOn:
+    id: "control-stop"
+
+- extendedWaitUntil:
+    visible:
+      id: "review-save-button"
+    timeout: 10000
+
+- longPressOn:
+    id: "review-discard-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+- takeScreenshot: "lock-overlay-complete"

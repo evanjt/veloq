@@ -1,0 +1,51 @@
+# Activity Map Interactions Test
+# Tests: activity map rendering, chart scrub gesture, 3D toggle (optional)
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Navigate to activity detail
+- openLink: "veloq://activity/demo-test-0"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+# Verify map is rendered (terrain preview ready indicates map loaded)
+- extendedWaitUntil:
+    visible:
+      id: "activity-map-preview-ready-demo-test-0"
+    timeout: 10000
+    optional: true
+
+- takeScreenshot: "activity-map-loaded"
+
+# 3D toggle (optional — crashes on emulator with WebGL)
+- tapOn:
+    id: "map-toggle-3d"
+    optional: true
+
+- takeScreenshot: "activity-map-3d-attempt"
+
+# Scroll to charts area
+- scroll
+- scroll
+
+# Perform a horizontal swipe on the chart area to trigger scrub
+- swipe:
+    start: 30%, 50%
+    end: 70%, 50%
+    duration: 1000
+
+- takeScreenshot: "activity-chart-scrubbed"
+
+# Verify no crash after interactions
+- assertVisible:
+    id: "activity-detail-content"
+
+- takeScreenshot: "activity-map-interactions-complete"

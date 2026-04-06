@@ -1,0 +1,55 @@
+# Settings Profile and Storage Test
+# Tests: profile section, storage stats, tile cache visibility
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+# Wait for settings screen
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+
+# Verify profile section visible
+- assertVisible:
+    id: "settings-profile-section"
+    optional: true
+
+- takeScreenshot: "settings-profile"
+
+# Scroll to storage stats
+- scrollUntilVisible:
+    element:
+      id: "settings-storage-stats"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+    optional: true
+
+- assertVisible:
+    id: "settings-storage-stats"
+    optional: true
+
+- takeScreenshot: "settings-storage-stats"
+
+# Scroll to tile cache
+- scrollUntilVisible:
+    element:
+      id: "settings-tile-cache"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+    optional: true
+
+- assertVisible:
+    id: "settings-tile-cache"
+    optional: true
+
+- takeScreenshot: "settings-profile-storage-complete"

@@ -13,7 +13,6 @@ export const DARK_MATTER_STYLE = {
       url: 'https://tiles.openfreemap.org/planet',
     },
   },
-  sprite: 'https://openmaptiles.github.io/dark-matter-gl-style/sprite',
   glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
   layers: [
     {

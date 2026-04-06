@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting, removeSetting } from '@/lib/backup';
 
 const DISMISSALS_KEY = 'veloq-section-dismissals';
 
@@ -30,7 +30,7 @@ export const useSectionDismissals = create<SectionDismissalsState>((set, get) =>
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(DISMISSALS_KEY);
+      const stored = await getSetting(DISMISSALS_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         if (isStringArray(parsed)) {
@@ -53,7 +53,7 @@ export const useSectionDismissals = create<SectionDismissalsState>((set, get) =>
     const { dismissedIds } = get();
     const updated = new Set(dismissedIds);
     updated.add(sectionId);
-    await AsyncStorage.setItem(DISMISSALS_KEY, JSON.stringify([...updated]));
+    await setSetting(DISMISSALS_KEY, JSON.stringify([...updated]));
     set({ dismissedIds: updated });
   },
 
@@ -61,7 +61,7 @@ export const useSectionDismissals = create<SectionDismissalsState>((set, get) =>
     const { dismissedIds } = get();
     const updated = new Set(dismissedIds);
     updated.delete(sectionId);
-    await AsyncStorage.setItem(DISMISSALS_KEY, JSON.stringify([...updated]));
+    await setSetting(DISMISSALS_KEY, JSON.stringify([...updated]));
     set({ dismissedIds: updated });
   },
 
@@ -70,7 +70,7 @@ export const useSectionDismissals = create<SectionDismissalsState>((set, get) =>
   },
 
   clear: async () => {
-    await AsyncStorage.removeItem(DISMISSALS_KEY);
+    await removeSetting(DISMISSALS_KEY);
     set({ dismissedIds: new Set() });
   },
 }));

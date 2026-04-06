@@ -45,7 +45,7 @@ describe('Demo Data Integration Tests', () => {
         } else if (day.tsb < -10) {
           expect(zone).toBe('optimal');
         } else if (day.tsb < 5) {
-          expect(zone).toBe('grey');
+          expect(zone).toBe('greyZone');
         } else if (day.tsb < 25) {
           expect(zone).toBe('fresh');
         } else {

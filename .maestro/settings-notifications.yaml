@@ -1,0 +1,39 @@
+# Settings Notifications Test
+# Tests: notification toggle disabled in demo mode, OAuth gate display
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+# Wait for settings screen
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+
+# Scroll to notifications section
+- scrollUntilVisible:
+    element:
+      id: "settings-notifications-toggle"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+
+# Verify notifications toggle exists
+- assertVisible:
+    id: "settings-notifications-toggle"
+
+# Verify OAuth hint text (demo mode is not OAuth)
+- assertVisible:
+    id: "settings-notifications-oauth-hint"
+    optional: true
+
+- takeScreenshot: "settings-notifications"
+
+- takeScreenshot: "settings-notifications-complete"

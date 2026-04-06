@@ -1,12 +1,7 @@
-v0.2.0 (Feb 2026)
-
-• Aktivitetskort viser nu +/−-ændringsindikatorer for hver måling
-• Kort uden kortdata minimeres automatisk for at spare plads
-• Fitnessgraf kombinerer CTL/ATL med formen vist som en vandret linje med zonegrænsemarkeringer
-• Aktivitetsfeed: filterknapper forenklet, søgebjælken flyttes under den synlige kant ved indlæsning (stryg ned for at vise), længere sparklines og chips i nederste række er nu tappable
-• Kort: mindre start-/slutmarkører, sporlinjen har en kontrasterende kant for bedre synlighed i satellitvisning, kortet udvider sig i kortet med overlappet tekst
-• Diagrammer: skift mellem tid og afstand på X-aksen, gennemsnitsværdi vist på linjen, forbedret skrubning i fitnessplottet
-• Strømzoner og intervalltabel tilføjet til aktivitetsdetaljer
-• Sæsonens bedste værdier vises nu ved siden af personlige rekorder
-
-Alle detaljer: https://github.com/evanjt/veloq/releases/tag/v0.2.0
+• Activity cards: +/− change indicators, auto-minimise cards without maps
+• Fitness chart: CTL/ATL with form as horizontal line and zone markers
+• Activity feed: unnested filters, collapsible search bar, longer sparklines
+• Maps: contrasting trace border, map expands into card
+• Charts: time/distance x-axis toggle, average value on line
+• Power zones and intervals table in activity detail
+• Season bests alongside personal records

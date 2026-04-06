@@ -45,6 +45,27 @@ describe('tileGeometry', () => {
       const south = lat2tile(46.0, 10); // Southern Switzerland
       expect(north).toBeLessThan(south);
     });
+
+    it('handles north pole (lat=90) without Infinity', () => {
+      const tile = lat2tile(90, 10);
+      expect(Number.isFinite(tile)).toBe(true);
+    });
+
+    it('handles south pole (lat=-90) without Infinity', () => {
+      const tile = lat2tile(-90, 10);
+      expect(Number.isFinite(tile)).toBe(true);
+    });
+
+    it('handles near-pole latitudes (85.05°, Web Mercator limit)', () => {
+      const tile = lat2tile(85, 10);
+      expect(Number.isFinite(tile)).toBe(true);
+    });
+
+    it('handles equator (lat=0)', () => {
+      const tile = lat2tile(0, 10);
+      expect(Number.isFinite(tile)).toBe(true);
+      expect(tile).toBeGreaterThanOrEqual(0);
+    });
   });
 
   describe('boundsToTileRange', () => {
@@ -121,6 +142,13 @@ describe('tileGeometry', () => {
       const expanded = expandBounds(bounds, 0);
       expect(expanded.minLat).toBeCloseTo(bounds.minLat, 5);
       expect(expanded.maxLat).toBeCloseTo(bounds.maxLat, 5);
+    });
+
+    it('handles polar bounds without Infinity in lngDelta', () => {
+      const polarBounds: Bounds = { minLat: 89, maxLat: 90, minLng: 0, maxLng: 1 };
+      const expanded = expandBounds(polarBounds, 5);
+      expect(Number.isFinite(expanded.minLng)).toBe(true);
+      expect(Number.isFinite(expanded.maxLng)).toBe(true);
     });
   });
 

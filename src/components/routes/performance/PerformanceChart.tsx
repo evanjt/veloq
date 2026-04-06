@@ -6,8 +6,8 @@
 import React, { useMemo, useRef, useCallback } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
-import { CartesianChart, Line } from 'victory-native';
-import { Circle } from '@shopify/react-native-skia';
+import { CartesianChart } from 'victory-native';
+import { Circle, Path, Skia } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -21,6 +21,7 @@ import Animated, {
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { ChartCrosshair } from '@/components/charts/base';
 import { CHART_CONFIG } from '@/constants';
+import { gaussianSmooth } from '@/lib/utils/smoothing';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
 import { formatShortDate } from '@/lib';
 
@@ -83,6 +84,14 @@ export function PerformanceChart({
       direction: p.direction,
     }));
   }, [performances, bestActivityId]);
+
+  // Compute Gaussian kernel trend line for all point counts
+  const trendPoints = useMemo(() => {
+    if (chartData.length < 2) return [];
+    const xs = chartData.map((d) => d.x);
+    const ys = chartData.map((d) => d.speed);
+    return gaussianSmooth(xs, ys, 200);
+  }, [chartData]);
 
   // Calculate chart width
   const chartWidth = useMemo(() => {
@@ -275,20 +284,77 @@ export function PerformanceChart({
                   pointXCoordsShared.value = newCoords;
                 }
 
+                // Build LOESS trend path mapped to chart coordinates
+                const trendPath = (() => {
+                  if (trendPoints.length < 2) return null;
+                  const xMin = 0;
+                  const xMax = chartData.length - 1;
+                  const xRange = xMax - xMin || 1;
+                  const yRange = maxSpeed - minSpeed || 1;
+                  const chartW = chartBounds.right - chartBounds.left;
+                  const chartH = chartBounds.bottom - chartBounds.top;
+
+                  const toX = (x: number) => chartBounds.left + ((x - xMin) / xRange) * chartW;
+                  const toY = (y: number) => chartBounds.top + ((maxSpeed - y) / yRange) * chartH;
+
+                  const linePath = Skia.Path.Make();
+                  linePath.moveTo(toX(trendPoints[0].x), toY(trendPoints[0].y));
+                  for (let i = 1; i < trendPoints.length; i++) {
+                    linePath.lineTo(toX(trendPoints[i].x), toY(trendPoints[i].y));
+                  }
+
+                  // Confidence band: upper forward, lower backward
+                  const bandPath = Skia.Path.Make();
+                  bandPath.moveTo(
+                    toX(trendPoints[0].x),
+                    toY(trendPoints[0].y + trendPoints[0].std)
+                  );
+                  for (let i = 1; i < trendPoints.length; i++) {
+                    bandPath.lineTo(
+                      toX(trendPoints[i].x),
+                      toY(trendPoints[i].y + trendPoints[i].std)
+                    );
+                  }
+                  for (let i = trendPoints.length - 1; i >= 0; i--) {
+                    bandPath.lineTo(
+                      toX(trendPoints[i].x),
+                      toY(trendPoints[i].y - trendPoints[i].std)
+                    );
+                  }
+                  bandPath.close();
+
+                  return { line: linePath, band: bandPath };
+                })();
+
                 return (
                   <>
-                    <Line
-                      points={points.speed}
-                      color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
-                      strokeWidth={2}
-                      curveType="monotoneX"
-                    />
-                    <Line
-                      points={points.speed}
-                      color={isDark ? '#444' : '#DDD'}
-                      strokeWidth={1}
-                      curveType="monotoneX"
-                    />
+                    {trendPath && (
+                      <>
+                        <Path
+                          path={trendPath.band}
+                          color={colors.primary}
+                          style="fill"
+                          opacity={0.08}
+                        />
+                        <Path
+                          path={trendPath.line}
+                          color={isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.12)'}
+                          strokeWidth={3}
+                          style="stroke"
+                          strokeCap="round"
+                          strokeJoin="round"
+                        />
+                        <Path
+                          path={trendPath.line}
+                          color={colors.primary}
+                          strokeWidth={2}
+                          style="stroke"
+                          strokeCap="round"
+                          strokeJoin="round"
+                          opacity={0.6}
+                        />
+                      </>
+                    )}
                     {points.speed.map((point, idx) => {
                       if (point.x == null || point.y == null) return null;
                       const d = chartData[idx];

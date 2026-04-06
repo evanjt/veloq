@@ -1,0 +1,65 @@
+# Route Detail Full Coverage Test
+# Thorough route detail screen test with scrolling through all sections
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Navigate to routes screen
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+
+# Wait for routes list to load
+- extendedWaitUntil:
+    visible:
+      id: "routes-list"
+    timeout: 15000
+    optional: true
+
+# Tap first route row
+- tapOn:
+    id: "route-row-0"
+    optional: true
+
+# Wait for route detail screen to load
+- extendedWaitUntil:
+    visible:
+      id: "route-detail-screen"
+    timeout: 10000
+    optional: true
+
+- takeScreenshot: "route-detail-hero"
+
+# Scroll down to see stats
+- scroll
+
+- takeScreenshot: "route-detail-stats"
+
+# Scroll further to see chart/performance section
+- scroll
+
+- takeScreenshot: "route-detail-chart"
+
+# Scroll further to see more content
+- scroll
+
+- takeScreenshot: "route-detail-performances"
+
+# Scroll to bottom
+- scroll
+
+- takeScreenshot: "route-detail-bottom"
+
+# Navigate back to routes list
+- back
+
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+    optional: true
+
+- takeScreenshot: "route-detail-full-complete"

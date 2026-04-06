@@ -3,6 +3,8 @@ export {
   initializeTheme,
   setThemePreference,
   getThemePreference,
+  useThemePreferenceStore,
+  useResolvedColorScheme,
   type ThemePreference,
 } from './ThemeProvider';
 export {
@@ -91,5 +93,25 @@ export {
   type MetricPreference,
 } from './DashboardPreferencesStore';
 export { useDebugStore, isDebugEnabled, initializeDebugStore } from './DebugStore';
+export { useEngineStatus } from './EngineStatusStore';
 export { useTileCacheStore, initializeTileCacheStore } from './TileCacheStore';
 export { useWhatsNewStore, initializeWhatsNewStore } from './WhatsNewStore';
+export {
+  useInsightsStore,
+  initializeInsightsStore,
+  computeInsightFingerprint,
+  diffInsights,
+} from './InsightsStore';
+export {
+  useNotificationPreferences,
+  getNotificationPreferences,
+  initializeNotificationPreferences,
+  type NotificationPreferences,
+} from './NotificationPreferencesStore';
+export { useRecordingStore, getRecordingStatus } from './RecordingStore';
+export {
+  useRecordingPreferences,
+  initializeRecordingPreferences,
+} from './RecordingPreferencesStore';
+export { useUploadPermissionStore, initializeUploadPermission } from './UploadPermissionStore';
+export { useNotificationPrompt, initializeNotificationPrompt } from './NotificationPromptStore';

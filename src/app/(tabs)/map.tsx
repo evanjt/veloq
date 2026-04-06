@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RegionalMapView, TimelineSlider, SyncProgressBanner } from '@/components/maps';
 import {
   ComponentErrorBoundary,
@@ -17,9 +16,8 @@ import {
   useTheme,
   useEngineMapActivities,
 } from '@/hooks';
-import { useRouteSettings, useSyncDateRange } from '@/providers';
+import { useSyncDateRange } from '@/providers';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { createSharedStyles } from '@/styles';
 import { formatLocalDate } from '@/lib';
 
 // Debounce delay for expensive operations during timeline scrubbing
@@ -34,15 +32,10 @@ export default function MapScreen() {
   });
 
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
-  const { isDark, colors: themeColors } = useTheme();
-  const shared = createSharedStyles(isDark);
+  const { isDark } = useTheme();
 
   // Attribution text from map (updated dynamically)
   const [attribution, setAttribution] = useState('© OpenFreeMap © OpenMapTiles © OpenStreetMap');
-
-  // Get route settings
-  const routeSettings = useRouteSettings((s) => s.settings);
 
   // Get the sync date range from global store
   const syncOldest = useSyncDateRange((s) => s.oldest);

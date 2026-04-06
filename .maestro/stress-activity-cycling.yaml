@@ -1,7 +1,7 @@
 # Stress Test: Activity Cycling
 # Rapidly cycles through different demo activities to test loading and rendering
 
-appId: com.veloq.app
+appId: com.veloq.app.dev
 tags:
   - tier3
 ---

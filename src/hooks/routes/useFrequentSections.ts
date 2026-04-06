@@ -9,7 +9,6 @@
 
 import { useMemo } from 'react';
 import { useSectionSummaries } from './useRouteEngine';
-import { useDisabledSections } from '@/providers';
 import type { FrequentSection } from '@/types';
 import type { SectionSummary } from 'veloqrs';
 
@@ -20,8 +19,6 @@ export interface UseFrequentSectionsOptions {
   minVisits?: number;
   /** Sort order */
   sortBy?: 'visits' | 'distance' | 'name';
-  /** Exclude disabled sections (default: true) */
-  excludeDisabled?: boolean;
   /** Whether to run the hook (default: true). When false, returns empty defaults without FFI calls. */
   enabled?: boolean;
 }
@@ -61,16 +58,10 @@ function summaryToFrequentSection(
 export function useFrequentSections(
   options: UseFrequentSectionsOptions = {}
 ): UseFrequentSectionsResult {
-  const {
-    sportType,
-    minVisits = 3,
-    sortBy = 'visits',
-    excludeDisabled = true,
-    enabled = true,
-  } = options;
+  const { sportType, minVisits = 3, sortBy = 'visits', enabled = true } = options;
 
   // Use lightweight summaries - no polylines loaded, queries SQLite on-demand
-  // Pass enabled to skip FFI calls when batch data is available
+  // Rust already filters out disabled/superseded sections
   const { totalCount, summaries } = useSectionSummaries({
     sportType,
     minVisits: 1,
@@ -78,29 +69,16 @@ export function useFrequentSections(
   });
   const isReady = true;
 
-  // Get disabled sections for filtering
-  const disabledIds = useDisabledSections((s) => s.disabledIds);
-
   const sections = useMemo(() => {
-    // Skip processing when disabled
     if (!enabled) return [];
-    // Convert summaries to FrequentSection format
     let filtered = summaries.map(summaryToFrequentSection);
 
-    // Filter by sport type (already done by useSectionSummaries, but double-check)
     if (sportType) {
       filtered = filtered.filter((s) => s.sportType === sportType);
     }
 
-    // Filter by minimum visits
     filtered = filtered.filter((s) => s.visitCount >= minVisits);
 
-    // Filter out disabled sections
-    if (excludeDisabled) {
-      filtered = filtered.filter((s) => !disabledIds.has(s.id));
-    }
-
-    // Sort
     switch (sortBy) {
       case 'visits':
         filtered.sort((a, b) => b.visitCount - a.visitCount);
@@ -114,7 +92,7 @@ export function useFrequentSections(
     }
 
     return filtered;
-  }, [summaries, sportType, minVisits, sortBy, excludeDisabled, disabledIds, enabled]);
+  }, [summaries, sportType, minVisits, sortBy, enabled]);
 
   return {
     sections,

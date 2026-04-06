@@ -1,4 +1,4 @@
-use super::error::{with_engine, VeloqError};
+use super::error::{VeloqError, with_engine};
 use std::sync::Arc;
 use tracematch::Bounds;
 
@@ -38,12 +38,12 @@ impl MapManager {
         sport_types: Vec<String>,
     ) -> Result<Vec<crate::persistence::MapActivityComplete>, VeloqError> {
         with_engine(|e| {
-            let sport_filter: Option<std::collections::HashSet<String>> =
-                if sport_types.is_empty() {
-                    None
-                } else {
-                    Some(sport_types.into_iter().collect())
-                };
+            let sport_filter: Option<std::collections::HashSet<String>> = if sport_types.is_empty()
+            {
+                None
+            } else {
+                Some(sport_types.into_iter().collect())
+            };
             e.activity_metadata
                 .iter()
                 .filter_map(|(id, meta)| {
@@ -77,12 +77,12 @@ impl MapManager {
         sport_types: Vec<String>,
     ) -> Result<Option<crate::ffi_types::FfiBounds>, VeloqError> {
         with_engine(|e| {
-            let sport_filter: Option<std::collections::HashSet<String>> =
-                if sport_types.is_empty() {
-                    None
-                } else {
-                    Some(sport_types.into_iter().collect())
-                };
+            let sport_filter: Option<std::collections::HashSet<String>> = if sport_types.is_empty()
+            {
+                None
+            } else {
+                Some(sport_types.into_iter().collect())
+            };
 
             let mut min_lat = f64::MAX;
             let mut max_lat = f64::MIN;
@@ -111,7 +111,12 @@ impl MapManager {
             }
 
             if found {
-                Some(crate::ffi_types::FfiBounds { min_lat, max_lat, min_lng, max_lng })
+                Some(crate::ffi_types::FfiBounds {
+                    min_lat,
+                    max_lat,
+                    min_lng,
+                    max_lng,
+                })
             } else {
                 None
             }

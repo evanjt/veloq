@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSetting, setSetting } from '@/lib/backup';
 
 const DEBUG_MODE_KEY = 'veloq-debug-mode';
 
@@ -22,7 +22,7 @@ export const useDebugStore = create<DebugState>((set) => ({
 
   initialize: async () => {
     try {
-      const stored = await AsyncStorage.getItem(DEBUG_MODE_KEY);
+      const stored = await getSetting(DEBUG_MODE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         const enabled = parsed.enabled === true;
@@ -44,7 +44,7 @@ export const useDebugStore = create<DebugState>((set) => ({
   },
 
   setEnabled: async (enabled: boolean) => {
-    await AsyncStorage.setItem(DEBUG_MODE_KEY, JSON.stringify({ enabled }));
+    await setSetting(DEBUG_MODE_KEY, JSON.stringify({ enabled }));
     set({ enabled, unlocked: enabled });
   },
 }));

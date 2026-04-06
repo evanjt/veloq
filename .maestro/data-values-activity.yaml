@@ -1,0 +1,84 @@
+# Activity Detail Data Validation
+# Verifies activity detail shows valid data and chart types don't crash
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Wait for demo data to be loaded before deep linking
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
+# Open activity via deep link
+- openLink: "veloq://activity/demo-test-0"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+# Wait for full load (chart selector confirms streams loaded)
+- extendedWaitUntil:
+    visible:
+      id: "chart-type-selector"
+    timeout: 10000
+
+# Assert no invalid values on screen
+- assertNotVisible:
+    text: "NaN"
+- assertNotVisible:
+    text: "undefined"
+- assertNotVisible:
+    text: "Infinity"
+
+- takeScreenshot: "data-values-activity-initial"
+
+# Tap heart rate chart type and verify no crash
+- tapOn:
+    id: "chart-type-heartrate"
+    optional: true
+- assertVisible:
+    id: "chart-type-selector"
+
+- takeScreenshot: "data-values-activity-heartrate"
+
+# Tap power chart type and verify no crash
+- tapOn:
+    id: "chart-type-power"
+    optional: true
+- assertVisible:
+    id: "chart-type-selector"
+
+- takeScreenshot: "data-values-activity-power"
+
+# Tap elevation chart type and verify no crash
+- tapOn:
+    id: "chart-type-elevation"
+    optional: true
+- assertVisible:
+    id: "chart-type-selector"
+
+- takeScreenshot: "data-values-activity-elevation"
+
+# Tap speed chart type and verify no crash
+- tapOn:
+    id: "chart-type-speed"
+    optional: true
+- assertVisible:
+    id: "chart-type-selector"
+
+- takeScreenshot: "data-values-activity-speed"
+
+# Final assertion: no invalid values appeared after chart switching
+- assertNotVisible:
+    text: "NaN"
+- assertNotVisible:
+    text: "undefined"
+- assertNotVisible:
+    text: "Infinity"
+
+- takeScreenshot: "data-values-activity-complete"
