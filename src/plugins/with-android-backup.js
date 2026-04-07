@@ -14,7 +14,7 @@ const path = require("path");
  * - Includes the routes.db SQLite database
  * - Includes the backups/ directory (local backup copies)
  * - Excludes SecureStore (API keys, OAuth tokens)
- * - Excludes cache and terrain preview directories
+ * Only listed paths are backed up; all others (gps_tracks, terrain_previews, etc.) are excluded implicitly
  */
 
 const BACKUP_RULES = `<?xml version="1.0" encoding="utf-8"?>
@@ -28,10 +28,6 @@ const BACKUP_RULES = `<?xml version="1.0" encoding="utf-8"?>
   <include domain="file" path="backups/" />
   <!-- Exclude sensitive credential storage -->
   <exclude domain="sharedpref" path="SecureStore" />
-  <!-- Exclude regenerable caches -->
-  <exclude domain="file" path="gps_tracks/" />
-  <exclude domain="file" path="terrain_previews/" />
-  <exclude domain="file" path="bounds_cache/" />
 </full-backup-content>
 `;
 
