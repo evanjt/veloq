@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
+import { CACHE } from '@/lib/utils/constants';
 import { useAuthStore } from '@/providers/AuthStore';
 import type { CalendarEvent } from '@/types';
 
@@ -26,8 +27,8 @@ export function useTodayWorkout() {
         category: 'WORKOUT',
       }),
     enabled: isAuthenticated,
-    staleTime: 1000 * 60 * 5, // 5 min — planned workouts don't change often
-    gcTime: 1000 * 60 * 60, // 1 hour
+    staleTime: CACHE.SHORT, // 5 min — planned workouts don't change often
+    gcTime: CACHE.HOUR, // 1 hour
   });
 
   const todayWorkout = query.data?.find((e) => e.start_date_local?.startsWith(today)) ?? null;

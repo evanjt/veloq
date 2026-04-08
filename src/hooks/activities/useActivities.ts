@@ -7,6 +7,7 @@ import {
 import { useMemo } from 'react';
 import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
+import { CACHE } from '@/lib/utils/constants';
 import type { Activity, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/providers/AuthStore';
 
@@ -58,8 +59,8 @@ export function useActivities(options: UseActivitiesOptions = {}) {
         includeStats,
       }),
     // Stale-while-revalidate: show cached data immediately, refetch in background
-    staleTime: 1000 * 60 * 5, // 5 minutes - data appears instantly from cache
-    gcTime: 1000 * 60 * 60, // 1 hour - keep in memory for navigation
+    staleTime: CACHE.SHORT, // 5 minutes - data appears instantly from cache
+    gcTime: CACHE.HOUR, // 1 hour - keep in memory for navigation
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: true, // Pick up new activities on foreground
     enabled: enabled && !!athleteId,
@@ -123,8 +124,8 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
       };
     },
     // Stale-while-revalidate: show cached data immediately, refetch in background
-    staleTime: 1000 * 60 * 5, // 5 minutes - data appears instantly from cache
-    gcTime: 1000 * 60 * 60, // 1 hour - keep in memory for navigation
+    staleTime: CACHE.SHORT, // 5 minutes - data appears instantly from cache
+    gcTime: CACHE.HOUR, // 1 hour - keep in memory for navigation
     // refetchOnMount: false (inherits global default) — persisted cache shows instantly,
     // 'always' bypasses staleTime so new activities appear immediately on foreground
     refetchOnWindowFocus: 'always',
@@ -149,9 +150,9 @@ export function useActivity(id: string) {
     queryKey: ['activity', id],
     queryFn: () => intervalsApi.getActivity(id),
     // Single activity - cache for 1 hour, rarely changes
-    staleTime: 1000 * 60 * 60,
+    staleTime: CACHE.HOUR,
     // GC after 4 hours to prevent memory bloat when viewing many activities
-    gcTime: 1000 * 60 * 60 * 4,
+    gcTime: CACHE.HOUR * 4,
     enabled: !!id,
   });
 }
@@ -175,7 +176,7 @@ export function useActivityStreams(id: string) {
     // Streams NEVER change - infinite staleTime prevents refetching
     staleTime: Infinity,
     // GC after 30 minutes - streams are large (100-500KB), free memory sooner
-    gcTime: 1000 * 60 * 30,
+    gcTime: CACHE.LONG,
     enabled: !!id,
   });
 }
@@ -186,7 +187,7 @@ export function useActivityIntervals(id: string) {
     queryFn: () => intervalsApi.getActivityIntervals(id),
     // Intervals never change
     staleTime: Infinity,
-    gcTime: 1000 * 60 * 60 * 2,
+    gcTime: CACHE.HOUR * 2,
     enabled: !!id,
   });
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { CACHE } from '@/lib/utils/constants';
 import { buildStrengthProgression } from '@/lib/strength/analysis';
 import type {
   StrengthSummary,
@@ -117,8 +118,8 @@ export function useStrengthVolume(period: StrengthPeriod) {
         return { muscleVolumes: [], activityCount: 0, totalSets: 0 };
       }
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 30, // 30 minutes
+    staleTime: CACHE.SHORT, // 5 minutes
+    gcTime: CACHE.LONG, // 30 minutes
   });
 }
 
@@ -158,8 +159,8 @@ export function useStrengthProgression(muscleSlug: string | null) {
       }
     },
     enabled: !!muscleSlug,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
+    staleTime: CACHE.SHORT,
+    gcTime: CACHE.LONG,
   });
 }
 
@@ -207,8 +208,8 @@ export function useExercisesForMuscle(period: StrengthPeriod, muscleSlug: string
       }
     },
     enabled: !!muscleSlug,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
+    staleTime: CACHE.SHORT,
+    gcTime: CACHE.LONG,
   });
 }
 
@@ -260,8 +261,8 @@ export function useActivitiesForExercise(
       }
     },
     enabled: !!muscleSlug && exerciseCategory != null,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
+    staleTime: CACHE.SHORT,
+    gcTime: CACHE.LONG,
   });
 }
 
