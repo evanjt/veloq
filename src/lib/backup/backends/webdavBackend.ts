@@ -23,6 +23,28 @@ function joinUrl(base: string, ...parts: string[]): string {
   return `${trimmed}/${joined}`;
 }
 
+const PROPFIND_BODY = `<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/></d:prop></d:propfind>`;
+
+/**
+ * Normalize a WebDAV URL: ensure trailing slash, handle common Nextcloud paths.
+ * Exported for testing.
+ */
+export function normalizeWebdavUrl(url: string): string {
+  let normalized = url.trim();
+  // Strip trailing whitespace/slashes first for consistent handling
+  normalized = normalized.replace(/\/+$/, '');
+
+  // Common Nextcloud pattern: user gives base URL without /remote.php/dav/files/USER/
+  // If URL ends with /remote.php/dav or similar incomplete path, leave it as-is
+  // (the user likely knows their path).
+  // But if they just give https://cloud.example.com, don't guess — they need to provide the path.
+
+  // Ensure trailing slash (WebDAV collections should end with /)
+  normalized += '/';
+
+  return normalized;
+}
+
 async function ensureRemoteDir(baseUrl: string, headers: Record<string, string>): Promise<void> {
   const dirUrl = joinUrl(baseUrl, REMOTE_DIR);
   // MKCOL creates the directory — 201 = created, 405 = already exists, both are fine
@@ -33,7 +55,8 @@ async function ensureRemoteDir(baseUrl: string, headers: Record<string, string>)
     // Check if it already exists with PROPFIND
     const check = await fetch(dirUrl, {
       method: 'PROPFIND',
-      headers: { ...headers, Depth: '0' },
+      headers: { ...headers, Depth: '0', 'Content-Type': 'application/xml' },
+      body: PROPFIND_BODY,
     });
     if (!check.ok && check.status !== 207) {
       throw new Error(`Failed to create remote directory (${res.status})`);
@@ -48,12 +71,16 @@ export async function testWebdavConnection(): Promise<string | null> {
 
   try {
     const headers = authHeaders(config.username, config.password);
-    const res = await fetch(config.url, {
+    const url = normalizeWebdavUrl(config.url);
+    const res = await fetch(url, {
       method: 'PROPFIND',
-      headers: { ...headers, Depth: '0' },
+      headers: { ...headers, Depth: '0', 'Content-Type': 'application/xml' },
+      body: PROPFIND_BODY,
     });
     if (res.status === 207 || res.ok) return null;
     if (res.status === 401) return 'Authentication failed';
+    if (res.status === 405)
+      return 'Check your WebDAV URL format — the server does not accept PROPFIND at this path';
     return `Server returned ${res.status}`;
   } catch (e) {
     return e instanceof Error ? e.message : 'Connection failed';
