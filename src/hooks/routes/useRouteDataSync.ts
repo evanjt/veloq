@@ -43,6 +43,7 @@ import { InteractionManager } from 'react-native';
 import { useRouteSyncProgress } from './useRouteSyncProgress';
 import { useRouteSyncContext, resetGlobalSyncState } from './useRouteSyncContext';
 import { useGpsDataFetcher } from './useGpsDataFetcher';
+import { i18n } from '@/i18n';
 import { getNativeModule } from '@/lib/native/routeEngine';
 import { routeEngine } from 'veloqrs';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
@@ -156,7 +157,7 @@ export function useRouteDataSync(
             completed: 0,
             total: 0,
             percent: 0,
-            message: 'Offline - using cached routes',
+            message: i18n.t('cache.offlineUsingCached'),
           });
         }
         return;
@@ -331,7 +332,7 @@ export function useRouteDataSync(
               completed: engineActivityIds.size,
               total: engineActivityIds.size,
               percent: 100,
-              message: 'All activities synced',
+              message: i18n.t('cache.allActivitiesSynced'),
             });
           }
           markSyncComplete();

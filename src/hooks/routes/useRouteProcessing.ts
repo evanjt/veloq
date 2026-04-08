@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useState } from 'react';
+import { i18n } from '@/i18n';
 import type { ActivityType } from '@/types';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 
@@ -59,7 +60,7 @@ export function useRouteProcessing(): UseRouteProcessingResult {
         status: 'processing',
         current: 0,
         total: activityIds.length,
-        message: 'Adding activities...',
+        message: i18n.t('cache.addingActivities'),
       });
 
       try {
@@ -71,7 +72,7 @@ export function useRouteProcessing(): UseRouteProcessingResult {
           status: 'complete',
           current: activityIds.length,
           total: activityIds.length,
-          message: 'Complete',
+          message: i18n.t('cache.complete'),
         });
       } catch (error) {
         setProgress({
