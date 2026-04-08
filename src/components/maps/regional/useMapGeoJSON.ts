@@ -12,6 +12,7 @@ import type { TFunction } from 'i18next';
 import { convertLatLngTuples } from '@/lib';
 import type { ActivityBoundsItem, FrequentSection, ActivityType } from '@/types';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
+import { getSectionStyle, getRouteStyle } from '@/lib/utils/constants';
 import type { RouteSignature } from '@/hooks/routes';
 import type { SelectedActivity } from './ActivityPopup';
 
@@ -259,7 +260,7 @@ export function useMapGeoJSON({
 
     let skippedCount = 0;
     const features = sections
-      .map((section) => {
+      .map((section, idx) => {
         // Filter out NaN coordinates and validate polyline has at least 2 points
         // GeoJSON LineString requires minimum 2 coordinates to be valid
         const originalCount = section.polyline.length;
@@ -282,7 +283,8 @@ export function useMapGeoJSON({
         }
 
         const coordinates = finitePoints.map((pt) => [pt.lng, pt.lat]);
-        const config = getActivityTypeConfig(section.sportType);
+        // Use per-section color from expanded palette (cycles through 60 unique styles)
+        const sectionStyle = getSectionStyle(idx);
 
         return {
           type: 'Feature' as const,
@@ -293,7 +295,8 @@ export function useMapGeoJSON({
             sportType: section.sportType,
             visitCount: section.visitCount,
             distanceMeters: section.distanceMeters,
-            color: config.color,
+            color: sectionStyle.color,
+            patternIndex: sectionStyle.patternIndex,
           },
           geometry: {
             type: 'LineString' as const,
@@ -320,6 +323,7 @@ export function useMapGeoJSON({
     if (!showRoutes || routeGroups.length === 0) return EMPTY_COLLECTION;
 
     let skippedCount = 0;
+    let validIdx = 0;
     const features = routeGroups
       .filter((group) => routeSignatures[group.representativeId])
       .map((group) => {
@@ -343,6 +347,9 @@ export function useMapGeoJSON({
           return null;
         }
 
+        // Assign per-route color from the route palette
+        const routeStyle = getRouteStyle(validIdx++);
+
         return {
           type: 'Feature' as const,
           id: group.id,
@@ -353,6 +360,7 @@ export function useMapGeoJSON({
             sportType: group.sportType,
             type: group.type,
             bestTime: group.bestTime,
+            color: routeStyle.color,
           },
           geometry: {
             type: 'LineString' as const,
