@@ -1343,17 +1343,23 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // Click handler — posts map coordinates back to React Native
       map.on('click', function(e) {
         // Check if the click hit a section line feature first
-        var sectionFeatures = map.queryRenderedFeatures(e.point, { layers: ['sections-layer'] });
-        if (sectionFeatures && sectionFeatures.length > 0) {
-          var props = sectionFeatures[0].properties;
-          var sectionId = props && (props.sectionId || props.id);
-          if (sectionId && window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'sectionClick',
-              sectionId: String(sectionId)
-            }));
-            return;
+        try {
+          if (map.getLayer('sections-layer')) {
+            var sectionFeatures = map.queryRenderedFeatures(e.point, { layers: ['sections-layer'] });
+            if (sectionFeatures && sectionFeatures.length > 0) {
+              var props = sectionFeatures[0].properties;
+              var sectionId = props && (props.sectionId || props.id);
+              if (sectionId && window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'sectionClick',
+                  sectionId: String(sectionId)
+                }));
+                return;
+              }
+            }
           }
+        } catch (err) {
+          // queryRenderedFeatures may fail if layer was just removed — ignore
         }
         // Otherwise, send a generic map click with coordinates
         if (window.ReactNativeWebView) {
