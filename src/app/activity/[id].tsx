@@ -145,7 +145,11 @@ export default function ActivityDetailScreen() {
   const hasExercises = (exerciseSets?.length ?? 0) > 0;
 
   // Get auto-detected sections from engine that include this activity
-  const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);
+  const {
+    sections: engineSectionMatches,
+    count: engineSectionCount,
+    isLoading: sectionsLoading,
+  } = useSectionMatches(id);
 
   // Scan for additional section matches
   const {
@@ -590,6 +594,7 @@ export default function ActivityDetailScreen() {
             removeSection={removeSection}
             scanMatches={scanMatches}
             isScanning={isRematching}
+            isSectionsLoading={sectionsLoading}
             onScan={() => scanForSections(id)}
             onRematch={(sectionId) => rematchSection(id, sectionId)}
           />

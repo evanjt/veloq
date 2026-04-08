@@ -50,6 +50,8 @@ interface ActivitySectionsSectionProps {
   scanMatches: FfiSectionMatch[];
   /** Whether a scan is in progress */
   isScanning: boolean;
+  /** Whether section data is still loading from the engine */
+  isSectionsLoading?: boolean;
   /** Trigger a scan for this activity */
   onScan: () => void;
   /** Force-match to a specific section */
@@ -99,6 +101,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   removeSection,
   scanMatches,
   isScanning,
+  isSectionsLoading,
   onScan,
   onRematch,
 }: ActivitySectionsSectionProps) {
@@ -406,6 +409,15 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
 
   // Render empty state for section list
   const renderSectionsListEmpty = useCallback(() => {
+    // Show loading spinner while engine subscription is being established
+    if (isSectionsLoading) {
+      return (
+        <View style={styles.emptyStateContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+
     return (
       <View style={styles.emptyStateContainer}>
         <MaterialCommunityIcons
@@ -438,7 +450,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         )}
       </View>
     );
-  }, [isDark, t, hasScanned, isScanning, onScan]);
+  }, [isDark, t, hasScanned, isScanning, isSectionsLoading, onScan]);
 
   // Render a single scan match result row
   // Look up proper display names for scan results (same names shown in the app)
