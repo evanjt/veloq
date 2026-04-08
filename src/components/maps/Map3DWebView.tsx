@@ -134,12 +134,18 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     // Track mapStyle in ref — style changes are applied via setStyle() injection
     const mapStyleRef = useRef(mapStyle);
     const initialMapStyleRef = useRef(mapStyle);
+    // Track pending style change timeout for cleanup
+    const styleChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Cleanup on unmount — stop WebView loading and mark map as not ready
     useEffect(() => {
       return () => {
         mapReadyRef.current = false;
         webViewRef.current?.stopLoading();
+        if (styleChangeTimerRef.current) {
+          clearTimeout(styleChangeTimerRef.current);
+          styleChangeTimerRef.current = null;
+        }
       };
     }, []);
 
@@ -538,8 +544,15 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         true;
       `);
 
-      // After style change, re-apply GeoJSON overlay layers once the new style settles
-      setTimeout(() => updateLayers(), 500);
+      // After style change, re-apply GeoJSON overlay layers once the new style settles.
+      // Cancel any pending timer from a previous style change to prevent stale calls.
+      if (styleChangeTimerRef.current) {
+        clearTimeout(styleChangeTimerRef.current);
+      }
+      styleChangeTimerRef.current = setTimeout(() => {
+        styleChangeTimerRef.current = null;
+        updateLayers();
+      }, 500);
     }, [mapStyle, routeColor, terrainExaggeration, updateLayers]);
 
     // Expose reset method to parent

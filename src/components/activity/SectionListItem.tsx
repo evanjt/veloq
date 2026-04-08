@@ -84,7 +84,11 @@ export const SectionListItem = memo(
       <View>
         <Swipeable
           ref={(ref) => {
-            swipeableRefs.current.set(sectionId, ref);
+            if (ref) {
+              swipeableRefs.current.set(sectionId, ref);
+            } else {
+              swipeableRefs.current.delete(sectionId);
+            }
           }}
           renderRightActions={renderRightActions}
           onSwipeableOpen={() => onSwipeableOpen(sectionId)}

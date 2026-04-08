@@ -196,7 +196,11 @@ const SectionListItem = memo(
     return (
       <Swipeable
         ref={(ref) => {
-          swipeableRefs.current.set(item.id, ref);
+          if (ref) {
+            swipeableRefs.current.set(item.id, ref);
+          } else {
+            swipeableRefs.current.delete(item.id);
+          }
         }}
         renderRightActions={renderRightActions}
         onSwipeableOpen={() => onSwipeableOpen(item.id)}

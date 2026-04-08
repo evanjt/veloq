@@ -76,7 +76,11 @@ export const SectionInlinePlot = memo(
       <View testID={`section-inline-plot-${index}`}>
         <Swipeable
           ref={(ref) => {
-            swipeableRefs.current.set(sectionId, ref);
+            if (ref) {
+              swipeableRefs.current.set(sectionId, ref);
+            } else {
+              swipeableRefs.current.delete(sectionId);
+            }
           }}
           renderRightActions={renderRightActions}
           onSwipeableOpen={() => onSwipeableOpen(sectionId)}

@@ -64,8 +64,12 @@ async function loadCache(): Promise<GeocodeCacheData> {
     const cached = await AsyncStorage.getItem(GEOCODE_CACHE_KEY);
     if (cached) {
       const data = safeJsonParseWithSchema(cached, isGeocodeCacheData, DEFAULT_CACHE);
-      // Populate memory cache
-      for (const [key, entry] of Object.entries(data.entries)) {
+      // Populate memory cache, trimmed to MAX_MEMORY_CACHE_SIZE
+      // Sort by timestamp descending so we keep the most recent entries
+      const entries = Object.entries(data.entries);
+      entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
+      const toLoad = entries.slice(0, MAX_MEMORY_CACHE_SIZE);
+      for (const [key, entry] of toLoad) {
         memoryCache.set(key, entry.name);
       }
       return data;
