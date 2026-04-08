@@ -723,34 +723,63 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       webViewRef.current.injectJavaScript(`
         (function() {
           if (!window.map) return;
-          // Update section creation line
-          var lineData = ${lineJSON};
-          var lineSource = window.map.getSource('section-creation-line');
-          if (lineSource) {
-            if (lineData) {
-              lineSource.setData(lineData);
-              window.map.setLayoutProperty('section-creation-line-outline', 'visibility', 'visible');
-              window.map.setLayoutProperty('section-creation-line-fill', 'visibility', 'visible');
-            } else {
-              window.map.setLayoutProperty('section-creation-line-outline', 'visibility', 'none');
-              window.map.setLayoutProperty('section-creation-line-fill', 'visibility', 'none');
+          try {
+            // Update section creation line — re-create source/layers after setStyle wipes them
+            var lineData = ${lineJSON};
+            var lineSource = window.map.getSource('section-creation-line');
+            if (lineSource) {
+              if (lineData) {
+                lineSource.setData(lineData);
+                window.map.setLayoutProperty('section-creation-line-outline', 'visibility', 'visible');
+                window.map.setLayoutProperty('section-creation-line-fill', 'visibility', 'visible');
+              } else {
+                window.map.setLayoutProperty('section-creation-line-outline', 'visibility', 'none');
+                window.map.setLayoutProperty('section-creation-line-fill', 'visibility', 'none');
+              }
+            } else if (lineData) {
+              window.map.addSource('section-creation-line', { type: 'geojson', data: lineData });
+              window.map.addLayer({
+                id: 'section-creation-line-outline', type: 'line', source: 'section-creation-line',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.6 },
+              });
+              window.map.addLayer({
+                id: 'section-creation-line-fill', type: 'line', source: 'section-creation-line',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#22C55E', 'line-width': 6, 'line-opacity': 1 },
+              });
             }
-          }
-          // Update section creation markers
-          var markersData = ${markersJSON};
-          var markerSource = window.map.getSource('section-creation-markers');
-          if (markerSource) {
-            if (markersData) {
-              markerSource.setData(markersData);
-              window.map.setLayoutProperty('section-creation-marker-border', 'visibility', 'visible');
-              window.map.setLayoutProperty('section-creation-marker-fill', 'visibility', 'visible');
-              window.map.setLayoutProperty('section-creation-marker-icon', 'visibility', 'visible');
-            } else {
-              window.map.setLayoutProperty('section-creation-marker-border', 'visibility', 'none');
-              window.map.setLayoutProperty('section-creation-marker-fill', 'visibility', 'none');
-              window.map.setLayoutProperty('section-creation-marker-icon', 'visibility', 'none');
+            // Update section creation markers — re-create if missing
+            var markersData = ${markersJSON};
+            var markerSource = window.map.getSource('section-creation-markers');
+            if (markerSource) {
+              if (markersData) {
+                markerSource.setData(markersData);
+                window.map.setLayoutProperty('section-creation-marker-border', 'visibility', 'visible');
+                window.map.setLayoutProperty('section-creation-marker-fill', 'visibility', 'visible');
+                window.map.setLayoutProperty('section-creation-marker-icon', 'visibility', 'visible');
+              } else {
+                window.map.setLayoutProperty('section-creation-marker-border', 'visibility', 'none');
+                window.map.setLayoutProperty('section-creation-marker-fill', 'visibility', 'none');
+                window.map.setLayoutProperty('section-creation-marker-icon', 'visibility', 'none');
+              }
+            } else if (markersData) {
+              window.map.addSource('section-creation-markers', { type: 'geojson', data: markersData });
+              window.map.addLayer({
+                id: 'section-creation-marker-border', type: 'circle', source: 'section-creation-markers',
+                paint: { 'circle-radius': 10, 'circle-color': '#FFFFFF' },
+              });
+              window.map.addLayer({
+                id: 'section-creation-marker-fill', type: 'circle', source: 'section-creation-markers',
+                paint: { 'circle-radius': 8, 'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.9)', 'rgba(239,68,68,0.9)'] },
+              });
+              window.map.addLayer({
+                id: 'section-creation-marker-icon', type: 'symbol', source: 'section-creation-markers',
+                layout: { 'text-field': ['case', ['==', ['get', 'type'], 'start'], '\\u25B6', '\\u25A0'], 'text-size': 10, 'text-allow-overlap': true, 'text-ignore-placement': true },
+                paint: { 'text-color': '#FFFFFF' },
+              });
             }
-          }
+          } catch (e) { console.warn('[3D] Section creation layer error:', e); }
         })();
         true;
       `);
