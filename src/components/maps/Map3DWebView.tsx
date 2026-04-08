@@ -286,9 +286,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             // Update routes layer (with outline for visibility) - purple to match 2D
             addLayerWithOutline('routes-source', 'routes-layer', routesData, '#9C27B0', 3, 0.8);
 
-            // Update sections layer - vibrant green for visibility on all map styles
-            // Don't use sportType color as it may fall back to dark gray
-            addLayerWithOutline('sections-source', 'sections-layer', sectionsData, '#4CAF50', 5, 0.9);
+            // Update sections layer — match 2D palette: cyan (#00BCD4) default, gold (#D4AF37) for PRs
+            addLayerWithOutline('sections-source', 'sections-layer', sectionsData,
+              ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#00BCD4'], 5, 0.9);
 
             // Update traces layer (activity GPS tracks) - use color from GeoJSON
             addLayerWithOutline('traces-source', 'traces-layer', tracesData, ['get', 'color'], 2, 0.7);
