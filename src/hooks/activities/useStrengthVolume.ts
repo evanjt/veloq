@@ -1,3 +1,4 @@
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { buildStrengthProgression } from '@/lib/strength/analysis';
@@ -266,13 +267,29 @@ export function useActivitiesForExercise(
 
 /**
  * Check if any strength training data exists in the engine.
+ * Memoized to avoid redundant FFI calls on every render.
  */
 export function useHasStrengthData(): boolean {
-  const engine = getRouteEngine();
-  if (!engine || typeof engine.hasStrengthData !== 'function') return false;
-  try {
-    return engine.hasStrengthData();
-  } catch {
-    return false;
-  }
+  const [engineVersion, setEngineVersion] = useState(0);
+
+  useEffect(() => {
+    const engine = getRouteEngine();
+    if (!engine) return;
+
+    const unsubscribe = engine.subscribe('activities', () => {
+      setEngineVersion((v) => v + 1);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  return useMemo(() => {
+    const engine = getRouteEngine();
+    if (!engine || typeof engine.hasStrengthData !== 'function') return false;
+    try {
+      return engine.hasStrengthData();
+    } catch {
+      return false;
+    }
+  }, [engineVersion]);
 }

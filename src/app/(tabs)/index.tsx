@@ -305,6 +305,7 @@ export default function FeedScreen() {
         navigateTo('/fitness');
         break;
       case 'hrv':
+      case 'rhr':
         navigateTo('/training');
         break;
       default:

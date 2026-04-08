@@ -660,63 +660,65 @@ export default function ReviewScreen() {
           <MaterialCommunityIcons name="chevron-down" size={18} color={textSecondary} />
         </TouchableOpacity>
 
-        {/* RPE Slider */}
-        <View testID="review-rpe" style={styles.rpeSection}>
-          <View style={styles.rpeHeader}>
-            <Text style={[styles.label, { color: textSecondary }]}>
-              {t('recording.rpe', 'RPE')}
+        {/* RPE Slider — only for GPS activities; not applicable to manual entries */}
+        {!isManual && (
+          <View testID="review-rpe" style={styles.rpeSection}>
+            <View style={styles.rpeHeader}>
+              <Text style={[styles.label, { color: textSecondary }]}>
+                {t('recording.rpe', 'RPE')}
+              </Text>
+              <Text style={[styles.rpeValue, { color: getRpeColor(rpe) }]}>
+                {rpe} — {getRpeLabel(rpe)}
+              </Text>
+            </View>
+            <Text style={[styles.rpeDescription, { color: textSecondary }]}>
+              {t('recording.rpeDescription', '1 = effortless, 10 = maximum effort')}
             </Text>
-            <Text style={[styles.rpeValue, { color: getRpeColor(rpe) }]}>
-              {rpe} — {getRpeLabel(rpe)}
-            </Text>
-          </View>
-          <Text style={[styles.rpeDescription, { color: textSecondary }]}>
-            {t('recording.rpeDescription', '1 = effortless, 10 = maximum effort')}
-          </Text>
-          <View
-            style={[
-              styles.rpeTrack,
-              { backgroundColor: isDark ? darkColors.surfaceElevated : colors.backgroundAlt },
-            ]}
-            onLayout={(e) => {
-              rpeTrackWidth.current = e.nativeEvent.layout.width;
-            }}
-            {...rpePan.panHandlers}
-          >
-            {/* Filled portion — driven by Animated.Value for smooth drag */}
-            <Animated.View
+            <View
               style={[
-                styles.rpeFill,
-                {
-                  width: rpeAnimValue.interpolate({
-                    inputRange: [1, 10],
-                    outputRange: ['0%', '100%'],
-                  }),
-                  backgroundColor: getRpeColor(rpe),
-                },
+                styles.rpeTrack,
+                { backgroundColor: isDark ? darkColors.surfaceElevated : colors.backgroundAlt },
               ]}
-            />
-            {/* Thumb — driven by Animated.Value for smooth drag */}
-            <Animated.View
-              style={[
-                styles.rpeThumb,
-                {
-                  left: rpeAnimValue.interpolate({
-                    inputRange: [1, 10],
-                    outputRange: ['0%', '100%'],
-                  }),
-                  backgroundColor: getRpeColor(rpe),
-                },
-              ]}
-            />
+              onLayout={(e) => {
+                rpeTrackWidth.current = e.nativeEvent.layout.width;
+              }}
+              {...rpePan.panHandlers}
+            >
+              {/* Filled portion — driven by Animated.Value for smooth drag */}
+              <Animated.View
+                style={[
+                  styles.rpeFill,
+                  {
+                    width: rpeAnimValue.interpolate({
+                      inputRange: [1, 10],
+                      outputRange: ['0%', '100%'],
+                    }),
+                    backgroundColor: getRpeColor(rpe),
+                  },
+                ]}
+              />
+              {/* Thumb — driven by Animated.Value for smooth drag */}
+              <Animated.View
+                style={[
+                  styles.rpeThumb,
+                  {
+                    left: rpeAnimValue.interpolate({
+                      inputRange: [1, 10],
+                      outputRange: ['0%', '100%'],
+                    }),
+                    backgroundColor: getRpeColor(rpe),
+                  },
+                ]}
+              />
+            </View>
+            {/* Scale labels */}
+            <View style={styles.rpeScaleRow}>
+              <Text style={[styles.rpeScaleLabel, { color: textSecondary }]}>1</Text>
+              <Text style={[styles.rpeScaleLabel, { color: textSecondary }]}>5</Text>
+              <Text style={[styles.rpeScaleLabel, { color: textSecondary }]}>10</Text>
+            </View>
           </View>
-          {/* Scale labels */}
-          <View style={styles.rpeScaleRow}>
-            <Text style={[styles.rpeScaleLabel, { color: textSecondary }]}>1</Text>
-            <Text style={[styles.rpeScaleLabel, { color: textSecondary }]}>5</Text>
-            <Text style={[styles.rpeScaleLabel, { color: textSecondary }]}>10</Text>
-          </View>
-        </View>
+        )}
 
         {/* Notes */}
         <TextInput

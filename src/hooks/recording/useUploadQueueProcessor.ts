@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { AppState } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useNetwork } from '@/providers/NetworkContext';
@@ -23,7 +23,7 @@ export function useUploadQueueProcessor() {
   const needsUpgrade = useUploadPermissionStore((s) => s.needsUpgrade);
   const isProcessing = useRef(false);
 
-  const processQueue = async () => {
+  const processQueue = useCallback(async () => {
     if (isProcessing.current) return;
     isProcessing.current = true;
 
@@ -92,14 +92,14 @@ export function useUploadQueueProcessor() {
     } finally {
       isProcessing.current = false;
     }
-  };
+  }, [isOnline]);
 
   // Process when network comes online
   useEffect(() => {
     if (isOnline) {
       processQueue();
     }
-  }, [isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOnline, processQueue]);
 
   // Process when app comes to foreground
   useEffect(() => {
@@ -109,12 +109,12 @@ export function useUploadQueueProcessor() {
       }
     });
     return () => sub.remove();
-  }, [isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOnline, processQueue]);
 
   // Re-process queue after successful permission upgrade
   useEffect(() => {
     if (!needsUpgrade && isOnline) {
       processQueue();
     }
-  }, [needsUpgrade]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [needsUpgrade, isOnline, processQueue]);
 }
