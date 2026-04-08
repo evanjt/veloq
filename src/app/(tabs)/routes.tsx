@@ -149,7 +149,8 @@ export default function RoutesScreen() {
 
   const debugEnabled = useDebugStore((s) => s.enabled);
   const engineInitFailed = useEngineStatus((s) => s.initFailed);
-  const [engineBannerDismissed, setEngineBannerDismissed] = useState(false);
+  const engineBannerDismissed = useEngineStatus((s) => s.engineBannerDismissed);
+  const setEngineBannerDismissed = useEngineStatus((s) => s.setEngineBannerDismissed);
 
   const {
     data: routesData,
