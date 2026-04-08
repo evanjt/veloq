@@ -157,7 +157,7 @@ function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteG
   };
 }
 
-export function RoutesList({
+export const RoutesList = memo(function RoutesList({
   onRefresh,
   isRefreshing = false,
   startDate,
@@ -483,7 +483,7 @@ export function RoutesList({
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   outerContainer: {

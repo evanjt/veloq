@@ -244,7 +244,7 @@ const SectionListItem = memo(
   }
 );
 
-export function SectionsList({
+export const SectionsList = memo(function SectionsList({
   sportType,
   prefetchedData,
   batchSections,
@@ -788,7 +788,7 @@ export function SectionsList({
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   outerContainer: {
