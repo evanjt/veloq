@@ -1391,7 +1391,9 @@
     "mapTiles": "Kartenkacheln",
     "recording": "Aufzeichnung",
     "cache": "Cache",
-    "permissions": "Berechtigungen"
+    "permissions": "Berechtigungen",
+    "geocoding": "Routen automatisch benennen",
+    "geocodingDescription": "Verwendet OpenStreetMap, um Routen anhand von GPS-Koordinaten zu benennen"
   },
   "stats": {
     "activities": "Aktivitäten",

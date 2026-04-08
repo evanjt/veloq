@@ -1391,7 +1391,9 @@
     "mapTiles": "Mosaicos de mapa",
     "recording": "Grabación",
     "cache": "Caché",
-    "permissions": "Permisos"
+    "permissions": "Permisos",
+    "geocoding": "Nombrar rutas automáticamente",
+    "geocodingDescription": "Usa OpenStreetMap para nombrar rutas a partir de coordenadas GPS"
   },
   "stats": {
     "activities": "Actividades",

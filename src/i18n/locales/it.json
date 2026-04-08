@@ -1391,7 +1391,9 @@
     "mapTiles": "Riquadri mappa",
     "recording": "Registrazione",
     "cache": "Cache",
-    "permissions": "Autorizzazioni"
+    "permissions": "Autorizzazioni",
+    "geocoding": "Denomina percorsi automaticamente",
+    "geocodingDescription": "Usa OpenStreetMap per denominare i percorsi dalle coordinate GPS"
   },
   "stats": {
     "activities": "Attività",

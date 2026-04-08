@@ -20,7 +20,11 @@ import { settingsStyles, DIVIDER_INSET } from './settingsStyles';
 export function DataSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } = useRouteSettings();
+  const {
+    settings: routeSettings,
+    setEnabled: setRouteMatchingEnabled,
+    setGeocodingEnabled,
+  } = useRouteSettings();
 
   // Lightweight cache size computation
   const { nativeSizeEstimate } = useTileCacheStore();
@@ -123,6 +127,30 @@ export function DataSection() {
             color={colors.primary}
           />
         </View>
+
+        <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
+
+        {/* Geocoding toggle - uses OpenStreetMap Nominatim for reverse geocoding */}
+        <View style={settingsStyles.actionRow}>
+          <MaterialCommunityIcons
+            name="map-search-outline"
+            size={22}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <View style={styles.toggleTextContainer}>
+            <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
+              {t('settings.geocoding')}
+            </Text>
+            <Text style={[styles.toggleHint, isDark && settingsStyles.textMuted]}>
+              {t('settings.geocodingDescription')}
+            </Text>
+          </View>
+          <Switch
+            value={routeSettings.geocodingEnabled}
+            onValueChange={setGeocodingEnabled}
+            color={colors.primary}
+          />
+        </View>
       </View>
     </>
   );
@@ -133,5 +161,13 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textSecondary,
     marginRight: spacing.xs,
+  },
+  toggleTextContainer: {
+    flex: 1,
+  },
+  toggleHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 });

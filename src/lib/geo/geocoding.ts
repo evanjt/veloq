@@ -1,6 +1,13 @@
 /**
  * Geocoding utilities for route naming.
  * Uses OpenStreetMap Nominatim for free reverse geocoding.
+ *
+ * Nominatim Usage Policy (https://operations.osmfoundation.org/policies/nominatim/):
+ * - Max 1 request per second (enforced by caller in useRouteNameGeocoding via 1.1s delay)
+ * - Provide a valid User-Agent identifying the application
+ * - Cache results to avoid repeat lookups (we cache in memory + AsyncStorage)
+ * - No large-scale bulk geocoding
+ * - User can disable geocoding via settings toggle
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -201,9 +208,11 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
+    // Nominatim requires a valid User-Agent identifying the application and
+    // contact info per https://operations.osmfoundation.org/policies/nominatim/
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Veloq/1.0 (Fitness App)',
+        'User-Agent': 'Veloq/0.3.0 (https://veloq.fit; https://github.com/evanjt/veloq/issues)',
         'Accept-Language': 'en',
       },
       signal: controller.signal,

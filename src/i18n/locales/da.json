@@ -1391,7 +1391,9 @@
     "version": "Version",
     "viewRoutes": "Vis ruter",
     "mapTiles": "Korttegn",
-    "recording": "Optagelse"
+    "recording": "Optagelse",
+    "geocoding": "Automatisk navngivning af ruter",
+    "geocodingDescription": "Bruger OpenStreetMap til at navngive ruter fra GPS-koordinater"
   },
   "stats": {
     "activities": "Aktiviteter",

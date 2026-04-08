@@ -1391,7 +1391,9 @@
     "mapTiles": "Blocos do mapa",
     "recording": "Gravação",
     "cache": "Cache",
-    "permissions": "Permissões"
+    "permissions": "Permissões",
+    "geocoding": "Nomear rotas automaticamente",
+    "geocodingDescription": "Usa o OpenStreetMap para nomear rotas a partir de coordenadas GPS"
   },
   "stats": {
     "activities": "Atividades",

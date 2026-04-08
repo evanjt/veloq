@@ -1391,7 +1391,9 @@
     "mapTiles": "Kafelki mapy",
     "recording": "Nagrywanie",
     "cache": "Pamięć podręczna",
-    "permissions": "Uprawnienia"
+    "permissions": "Uprawnienia",
+    "geocoding": "Automatyczne nazywanie tras",
+    "geocodingDescription": "Używa OpenStreetMap do nazywania tras na podstawie współrzędnych GPS"
   },
   "stats": {
     "activities": "Aktywności",
