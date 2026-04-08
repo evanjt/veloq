@@ -134,11 +134,6 @@ export interface MuscleGroup {
   intensity: number;
 }
 
-// For backward compatibility, also export the module initialization status
-export function isRouteMatcherInitialized(): boolean {
-  return installed;
-}
-
 export function getDownloadProgress(): DownloadProgressResult {
   return ffiGetDownloadProgress();
 }
