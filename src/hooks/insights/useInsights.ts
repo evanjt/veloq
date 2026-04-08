@@ -10,6 +10,7 @@ import {
   diffInsights,
 } from '@/providers/InsightsStore';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from './computeInsightsData';
+import type { FfiInsightsDataShape, FfiSummaryCardDataShape } from './computeInsightsData';
 import type { Insight } from '@/types';
 
 /**
@@ -23,12 +24,10 @@ import type { Insight } from '@/types';
  * in background tasks without React.
  */
 export function useInsights(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  preComputedInsightsData?: any,
+  preComputedInsightsData?: FfiInsightsDataShape | null,
   /** When true, never make own getInsightsData FFI call — wait for preComputedInsightsData */
   skipOwnFfiCall = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  preComputedSummaryCardData?: any
+  preComputedSummaryCardData?: FfiSummaryCardDataShape | null
 ): {
   insights: Insight[];
   topInsight: Insight | null;

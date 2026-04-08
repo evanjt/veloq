@@ -85,11 +85,87 @@ export interface WellnessInput {
   sleepSecs?: number | null;
 }
 
+/** Matches FfiPeriodStats shape from veloqrs generated bindings */
+interface FfiPeriodStatsShape {
+  count: number;
+  totalDuration: bigint | number;
+  totalDistance: number;
+  totalTss: number;
+}
+
+/** Matches FfiPaceTrend shape from veloqrs generated bindings */
+interface FfiPaceTrendShape {
+  latestPace: number | undefined;
+  latestDate: bigint | number | undefined;
+  previousPace: number | undefined;
+  previousDate: bigint | number | undefined;
+}
+
+/** Matches FfiActivityPattern shape from veloqrs generated bindings */
+interface FfiActivityPatternShape {
+  primaryDay: number;
+  confidence: number;
+  sportType: string;
+  avgDurationSecs: number;
+  activityCount: number;
+  commonSections?: Array<{
+    sectionId: string;
+    sectionName: string;
+    trend: number | undefined;
+    medianRecentSecs: number;
+    bestTimeSecs: number;
+    traversalCount: number;
+  }>;
+}
+
+/** Matches FfiInsightsData shape from veloqrs generated bindings */
+export interface FfiInsightsDataShape {
+  currentWeek: FfiPeriodStatsShape;
+  previousWeek: FfiPeriodStatsShape;
+  chronicPeriod: FfiPeriodStatsShape;
+  todayPeriod: FfiPeriodStatsShape;
+  ftpTrend: {
+    latestFtp: number | undefined;
+    latestDate: bigint | number | undefined;
+    previousFtp: number | undefined;
+    previousDate: bigint | number | undefined;
+  };
+  runPaceTrend: FfiPaceTrendShape;
+  swimPaceTrend?: FfiPaceTrendShape;
+  allPatterns: FfiActivityPatternShape[];
+  todayPattern: FfiActivityPatternShape | null | undefined;
+  recentPrs: Array<{
+    sectionId: string;
+    sectionName: string;
+    bestTime: number;
+    daysAgo: number;
+  }>;
+}
+
+/** Matches FfiSummaryCardData shape from veloqrs generated bindings */
+export interface FfiSummaryCardDataShape {
+  currentWeek: FfiPeriodStatsShape;
+  prevWeek: FfiPeriodStatsShape;
+  ftpTrend: FfiInsightsDataShape['ftpTrend'];
+  runPaceTrend: FfiPaceTrendShape;
+  swimPaceTrend: FfiPaceTrendShape;
+}
+
+/** Shape returned by getRankedSections() */
+interface RankedSectionShape {
+  sectionId: string;
+  sectionName: string;
+  trend: number;
+  medianRecentSecs: number;
+  bestTimeSecs: number;
+  traversalCount: number;
+  daysSinceLast?: number;
+  latestIsPr?: boolean;
+}
+
 interface InsightsEnginePayload {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  insightsData: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  summaryCardData: any | null;
+  insightsData: FfiInsightsDataShape;
+  summaryCardData: FfiSummaryCardDataShape | null;
 }
 
 const MAX_SECTION_STORY_INSIGHTS = 2;
@@ -165,23 +241,16 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
  * @returns Ranked array of insights
  */
 export function computeInsightsFromData(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ffiData: any,
+  ffiData: FfiInsightsDataShape | null,
   wellnessData: WellnessInput[] | null,
   t: TFunc,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  summaryCardData?: any | null
+  summaryCardData?: FfiSummaryCardDataShape | null
 ): Insight[] {
   if (!ffiData) return [];
 
   try {
     // Convert FFI bigint fields to number
-    const toPeriod = (p: {
-      count: number;
-      totalDuration: bigint | number;
-      totalDistance: number;
-      totalTss: number;
-    }) => ({
+    const toPeriod = (p: FfiPeriodStatsShape) => ({
       count: p.count,
       totalDuration: Number(p.totalDuration),
       totalDistance: p.totalDistance,
@@ -209,22 +278,7 @@ export function computeInsightsFromData(
     const sectionCount = engine?.getStats()?.sectionCount ?? 0;
     const sectionsReady = sectionCount > 0;
 
-    // Type the patterns array
-    const allPatterns = (ffiData.allPatterns ?? []) as Array<{
-      primaryDay: number;
-      confidence: number;
-      sportType: string;
-      avgDurationSecs: number;
-      activityCount: number;
-      commonSections?: Array<{
-        sectionId: string;
-        sectionName: string;
-        trend: number | null;
-        medianRecentSecs: number;
-        bestTimeSecs: number;
-        traversalCount: number;
-      }>;
-    }>;
+    const allPatterns = ffiData.allPatterns ?? [];
 
     // Build section trends from ML-ranked sections
     const sectionTrendMap = new Map<
@@ -243,8 +297,7 @@ export function computeInsightsFromData(
     >();
 
     // Cache ranked sections per sport to avoid duplicate FFI calls below
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rankedSectionsCache = new Map<string, any[]>();
+    const rankedSectionsCache = new Map<string, RankedSectionShape[]>();
 
     if (sectionsReady && engine) {
       const patternSports =
@@ -312,14 +365,7 @@ export function computeInsightsFromData(
 
     // Recent PRs (skip if sections aren't loaded)
     const recentPRs = sectionsReady
-      ? (
-          (ffiData.recentPrs ?? []) as Array<{
-            sectionId: string;
-            sectionName: string;
-            bestTime: number;
-            daysAgo: number;
-          }>
-        ).map((pr) => ({
+      ? (ffiData.recentPrs ?? []).map((pr) => ({
           sectionId: pr.sectionId,
           sectionName: pr.sectionName,
           bestTime: pr.bestTime,
@@ -328,7 +374,7 @@ export function computeInsightsFromData(
       : [];
 
     // Aerobic efficiency section IDs — reuse cached ranked sections from above
-    let efficiencyTrendSectionIds: string[] = [];
+    const efficiencyTrendSectionIds: string[] = [];
     for (const [, cached] of rankedSectionsCache) {
       for (const rs of cached.slice(0, 5)) {
         if (!efficiencyTrendSectionIds.includes(rs.sectionId)) {
