@@ -800,7 +800,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    marginBottom: 0,
+    marginBottom: spacing.sm,
   },
   emptyContainer: {
     flex: 1,
