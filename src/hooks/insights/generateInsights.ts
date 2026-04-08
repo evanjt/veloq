@@ -115,7 +115,92 @@ type TFunc = (key: string, params?: Record<string, string | number>) => string;
 // ---------------------------------------------------------------------------
 
 const MAX_PR_INSIGHTS = 3;
-const VOLUME_CHANGE_THRESHOLD = 0.1; // 10%
+const MAX_INSIGHTS = 8; // Cap total insight count to keep the feed focused
+const VOLUME_CHANGE_THRESHOLD = 0.15; // 15% — require meaningful change to surface
+const MIN_HRV_DATA_POINTS = 5; // Need enough HRV data for a reliable trend
+const MIN_FTP_CHANGE_WATTS = 5; // Ignore sub-5W FTP fluctuations
+const MAX_STALE_PR_SECTIONS_IN_BODY = 3; // Limit stale PR group card to top 3
+
+// ---------------------------------------------------------------------------
+// Scoring — ranks insights by actionability and surprise value
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute a quality score for an insight. Higher is better.
+ * Used for sorting when we need to trim to MAX_INSIGHTS.
+ *
+ * Factors:
+ * - Priority (1 = highest, inverted so higher score = better)
+ * - Confidence (0-1, defaults to 0.5 if not set)
+ * - Category-specific bonuses for actionability
+ */
+function scoreInsight(insight: Insight): number {
+  const priorityScore = (6 - insight.priority) * 20; // P1=100, P2=80, P3=60, P4=40, P5=20
+  const confidenceScore = (insight.confidence ?? 0.5) * 30;
+
+  // Category bonuses: actionable insights rank higher
+  let categoryBonus = 0;
+  switch (insight.category) {
+    case 'section_pr':
+      categoryBonus = 15; // Recent achievement — always interesting
+      break;
+    case 'efficiency_trend':
+      categoryBonus = 12; // Physiological insight — high value
+      break;
+    case 'stale_pr':
+      categoryBonus = 10; // Actionable — go beat your PR
+      break;
+    case 'fitness_milestone':
+      categoryBonus = 10; // Clear fitness signal
+      break;
+    case 'hrv_trend':
+      categoryBonus = 8; // Recovery awareness
+      break;
+    case 'period_comparison':
+      categoryBonus = 5; // Informational but less actionable
+      break;
+    case 'strength_balance':
+      categoryBonus = 6; // Corrective action possible
+      break;
+    case 'strength_progression':
+      categoryBonus = 4; // Informational
+      break;
+  }
+
+  return priorityScore + confidenceScore + categoryBonus;
+}
+
+// ---------------------------------------------------------------------------
+// Debug logging — __DEV__ only
+// ---------------------------------------------------------------------------
+
+interface InsightCandidate {
+  id: string;
+  category: string;
+  priority: number;
+  score: number;
+  included: boolean;
+  reason?: string;
+}
+
+function logInsightGeneration(candidates: InsightCandidate[], final: Insight[]): void {
+  if (!__DEV__) return;
+
+  console.log('\n[INSIGHTS] ═══════════════════════════════════════');
+  console.log(`[INSIGHTS] Generated ${candidates.length} candidates, kept ${final.length}`);
+
+  for (const c of candidates) {
+    const status = c.included ? '  KEPT' : 'DROPPED';
+    const reason = c.reason ? ` (${c.reason})` : '';
+    console.log(
+      `[INSIGHTS] [${status}] ${c.category}/${c.id} — priority=${c.priority} score=${c.score.toFixed(0)}${reason}`
+    );
+  }
+
+  console.log('[INSIGHTS] ═══════════════════════════════════════\n');
+}
+
+// ---------------------------------------------------------------------------
 
 function toSecondsPerDistanceMeters(speedMetersPerSecond: number, distanceMeters: number): number {
   if (!Number.isFinite(speedMetersPerSecond) || speedMetersPerSecond <= 0) return 0;
@@ -225,9 +310,31 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   // Priority 1: Aerobic Efficiency Trends
   addEfficiencyTrendInsights(insights, data, now, t);
 
-  insights.sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
+  // Score and rank insights, then cap at MAX_INSIGHTS
+  const scored = insights.map((insight) => ({
+    insight,
+    score: scoreInsight(insight),
+  }));
+  scored.sort((a, b) => a.score - b.score || a.insight.priority - b.insight.priority);
+  scored.sort((a, b) => b.score - a.score);
 
-  return insights;
+  const kept = scored.slice(0, MAX_INSIGHTS).map((s) => s.insight);
+
+  // Debug logging
+  if (__DEV__) {
+    const keptIds = new Set(kept.map((i) => i.id));
+    const candidates: InsightCandidate[] = scored.map((s) => ({
+      id: s.insight.id,
+      category: s.insight.category,
+      priority: s.insight.priority,
+      score: s.score,
+      included: keptIds.has(s.insight.id),
+      reason: keptIds.has(s.insight.id) ? undefined : 'exceeded MAX_INSIGHTS',
+    }));
+    logInsightGeneration(candidates, kept);
+  }
+
+  return kept;
 }
 
 // ---------------------------------------------------------------------------
@@ -303,8 +410,8 @@ function addHrvTrendInsight(
   const window = data.wellnessWindow ?? [];
   const hrvValues = window.filter((w) => typeof w.hrv === 'number' && w.hrv > 0);
 
-  // Need at least 3 HRV values to compute a trend
-  if (hrvValues.length < 3) return;
+  // Need enough HRV values for a reliable trend
+  if (hrvValues.length < MIN_HRV_DATA_POINTS) return;
 
   const hrvNums = hrvValues.map((w) => w.hrv as number);
   const avg = hrvNums.reduce((s, v) => s + v, 0) / hrvNums.length;
@@ -530,7 +637,7 @@ function addLastWeekVsAverageInsight(
 
   const ratio = prevValue / avgValue - 1;
   const percent = Math.round(Math.abs(ratio) * 100);
-  if (percent < 10) return; // Same threshold as normal comparison
+  if (percent < Math.round(VOLUME_CHANGE_THRESHOLD * 100)) return;
 
   const direction = ratio > 0 ? t('insights.weeklyLoad.above') : t('insights.weeklyLoad.below');
 
@@ -593,7 +700,7 @@ function addFitnessMilestoneInsights(
     ftp.latestFtp > ftp.previousFtp
   ) {
     const delta = Math.round(ftp.latestFtp - ftp.previousFtp);
-    if (delta > 0) {
+    if (delta >= MIN_FTP_CHANGE_WATTS) {
       insights.push(
         makeInsight({
           id: 'fitness_milestone-ftp',
@@ -730,7 +837,12 @@ function addStalePRInsights(
         iconColor: '#FF9800',
         title: t('insights.stalePr.groupTitle', { count: filtered.length }),
         subtitle: subtitleParts.join(', '),
-        body: filtered.map((o) => o.sectionName).join(', '),
+        body: filtered
+          .slice(0, MAX_STALE_PR_SECTIONS_IN_BODY)
+          .map((o) => o.sectionName)
+          .join(', ') + (filtered.length > MAX_STALE_PR_SECTIONS_IN_BODY
+            ? ` (+${filtered.length - MAX_STALE_PR_SECTIONS_IN_BODY} more)`
+            : ''),
         navigationTarget: '/routes?tab=sections',
         timestamp: now,
         supportingData: {
