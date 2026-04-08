@@ -74,9 +74,9 @@ export const InsightLine = React.memo(function InsightLine({ insights }: Insight
   }));
 
   const handlePress = useCallback(() => {
-    // Always navigate to insights tab — detail navigation happens from there
-    navigateTo('/(tabs)/routes');
-  }, []);
+    const target = displayInsights[currentIndex]?.navigationTarget;
+    navigateTo(target || '/(tabs)/routes');
+  }, [displayInsights, currentIndex]);
 
   if (displayInsights.length === 0) return null;
 
