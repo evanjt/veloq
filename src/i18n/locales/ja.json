@@ -767,6 +767,7 @@
   },
   "mapScreen": {
     "loadingActivities": "アクティビティを読み込み中...",
+    "loadingOlderActivities": "過去のアクティビティを読み込み中...",
     "syncing": "同期中: {{completed}}/{{total}}"
   },
   "maps": {

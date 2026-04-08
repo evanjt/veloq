@@ -32,6 +32,7 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   // GPS sync progress from shared store
   const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
+  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
 
   // Check if we're syncing bounds or processing routes
   const isSyncingBounds = boundsProgress.status === 'syncing';
@@ -39,7 +40,11 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
     isGpsSyncing &&
     (gpsSyncProgress.status === 'fetching' || gpsSyncProgress.status === 'computing');
 
-  // Use shared formatter — bounds syncing takes priority
+  // Show immediate feedback when fetching extended date range (before GPS sync starts)
+  const isLoadingExtended =
+    isFetchingExtended && !isSyncingBounds && !isProcessingRoutes;
+
+  // Use shared formatter — bounds syncing takes priority, then GPS sync, then extended fetch
   const displayInfo = useMemo(() => {
     if (isSyncingBounds) {
       return formatBoundsSyncProgress(boundsProgress, t);
@@ -47,8 +52,17 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
     if (isProcessingRoutes) {
       return formatGpsSyncProgress(gpsSyncProgress, false, t);
     }
+    if (isLoadingExtended) {
+      return {
+        icon: 'cloud-download-outline',
+        text: t('mapScreen.loadingOlderActivities') as string,
+        percent: 0,
+        countText: null,
+        indeterminate: true,
+      };
+    }
     return null;
-  }, [isSyncingBounds, isProcessingRoutes, boundsProgress, gpsSyncProgress, t]);
+  }, [isSyncingBounds, isProcessingRoutes, isLoadingExtended, boundsProgress, gpsSyncProgress, t]);
 
   // Should show when visible AND there's something to display
   const shouldShow = visible && displayInfo !== null;

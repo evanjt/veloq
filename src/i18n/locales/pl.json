@@ -767,6 +767,7 @@
   },
   "mapScreen": {
     "loadingActivities": "Wczytywanie aktywności...",
+    "loadingOlderActivities": "Wczytywanie starszych aktywności...",
     "syncing": "Synchronizacja: {{completed}}/{{total}}"
   },
   "maps": {

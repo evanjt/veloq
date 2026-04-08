@@ -924,6 +924,7 @@ export interface TranslationResource {
 
   mapScreen: {
     loadingActivities: string;
+    loadingOlderActivities: string;
     syncing: string;
   };
 

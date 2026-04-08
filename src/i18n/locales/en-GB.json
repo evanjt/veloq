@@ -767,6 +767,7 @@
   },
   "mapScreen": {
     "loadingActivities": "Loading activities...",
+    "loadingOlderActivities": "Loading older activities...",
     "syncing": "Syncing: {{completed}}/{{total}}"
   },
   "maps": {

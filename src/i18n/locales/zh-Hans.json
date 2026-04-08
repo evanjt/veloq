@@ -767,6 +767,7 @@
   },
   "mapScreen": {
     "loadingActivities": "加载活动中...",
+    "loadingOlderActivities": "加载更早的活动...",
     "syncing": "同步中: {{completed}}/{{total}}"
   },
   "maps": {
