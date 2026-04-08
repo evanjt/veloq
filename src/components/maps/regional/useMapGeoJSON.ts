@@ -69,6 +69,7 @@ interface UseMapGeoJSONOptions {
 interface UseMapGeoJSONResult {
   markersGeoJSON: GeoJSON.FeatureCollection;
   tracesGeoJSON: GeoJSON.FeatureCollection;
+  startPointsGeoJSON: GeoJSON.FeatureCollection;
   sectionsGeoJSON: GeoJSON.FeatureCollection;
   routesGeoJSON: GeoJSON.FeatureCollection;
   routeMarkersGeoJSON: GeoJSON.FeatureCollection;
@@ -213,6 +214,39 @@ export function useMapGeoJSON({
 
     if (features.length === 0) return EMPTY_COLLECTION;
 
+    return { type: 'FeatureCollection', features };
+  }, [visibleActivities, routeSignatures]);
+
+  // ===========================================
+  // 2b. ACTIVITY START POINTS - First GPS coordinate per activity
+  // ===========================================
+  // Shown at high zoom as small directional markers indicating where each activity began.
+  // Uses the first point from routeSignatures (actual GPS start, not bounds center).
+  const startPointsGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    const features = visibleActivities
+      .filter((activity) => routeSignatures[activity.id])
+      .map((activity) => {
+        const signature = routeSignatures[activity.id];
+        const startPt = signature.points[0];
+        if (!startPt || !Number.isFinite(startPt.lng) || !Number.isFinite(startPt.lat)) {
+          return null;
+        }
+        const config = getActivityTypeConfig(activity.type);
+        return {
+          type: 'Feature' as const,
+          properties: {
+            id: activity.id,
+            color: config.color,
+          },
+          geometry: {
+            type: 'Point' as const,
+            coordinates: [startPt.lng, startPt.lat],
+          },
+        };
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+
+    if (features.length === 0) return EMPTY_COLLECTION;
     return { type: 'FeatureCollection', features };
   }, [visibleActivities, routeSignatures]);
 
@@ -541,6 +575,7 @@ export function useMapGeoJSON({
   return {
     markersGeoJSON,
     tracesGeoJSON,
+    startPointsGeoJSON,
     sectionsGeoJSON,
     routesGeoJSON,
     routeMarkersGeoJSON,

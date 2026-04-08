@@ -230,6 +230,7 @@ export function RegionalMapView({
   const {
     markersGeoJSON,
     tracesGeoJSON,
+    startPointsGeoJSON,
     sectionsGeoJSON,
     routesGeoJSON,
     routeMarkersGeoJSON,
@@ -683,12 +684,22 @@ export function RegionalMapView({
           </RasterSource>
 
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
-          {/* Vector traces replaced by raster heatmap above — keep source mounted with opacity 0 */}
-          <ShapeSource id="activity-traces" shape={tracesGeoJSON}>
-            <LineLayer
-              id="tracesLine"
+          {/* Vector traces fully replaced by raster heatmap — no LineLayer needed */}
+          {/* ShapeSource kept mounted (empty) to prevent Fabric view reconciliation crash */}
+          <ShapeSource id="activity-traces" shape={tracesGeoJSON} />
+
+          {/* Activity start-point markers — small dots at the first GPS coordinate */}
+          {/* Visible when zoomed in past trace threshold and activities are shown */}
+          <ShapeSource id="activity-start-points" shape={startPointsGeoJSON}>
+            <CircleLayer
+              id="start-point-outer"
               style={{
-                lineOpacity: 0,
+                circleRadius: 5,
+                circleColor: ['get', 'color'],
+                circleOpacity: showTraces ? 0.9 : 0,
+                circleStrokeWidth: 1.5,
+                circleStrokeColor: '#FFFFFF',
+                circleStrokeOpacity: showTraces ? 1 : 0,
               }}
             />
           </ShapeSource>
