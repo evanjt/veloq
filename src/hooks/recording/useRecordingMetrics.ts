@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useRecordingStore } from '@/providers/RecordingStore';
+import { useAuthStore } from '@/providers';
 
 // MET values for calorie estimation
 const MET_VALUES: Record<string, number> = {
@@ -49,6 +50,11 @@ export function useRecordingMetrics(): {
   const activityType = useRecordingStore((s) => s.activityType);
   const startTime = useRecordingStore((s) => s.startTime);
   const pausedDuration = useRecordingStore((s) => s.pausedDuration);
+  const athleteWeight = useAuthStore((s) => {
+    // Weight comes from the intervals.icu API but is not typed on Athlete
+    const a = s.athlete as Record<string, unknown> | null;
+    return typeof a?.weight === 'number' ? a.weight : undefined;
+  });
 
   return useMemo(() => {
     const len = streams.time.length;
@@ -101,7 +107,8 @@ export function useRecordingMetrics(): {
     // Calories estimation: duration_hours * weight_kg * MET
     const met = getMet(activityType ?? 'Other');
     const durationHours = elapsedSeconds / 3600;
-    const calories = Math.round(durationHours * DEFAULT_WEIGHT_KG * met);
+    const weightKg = athleteWeight ?? DEFAULT_WEIGHT_KG;
+    const calories = Math.round(durationHours * weightKg * met);
 
     // Lap metrics
     const lastLap = laps.length > 0 ? laps[laps.length - 1] : null;
@@ -128,5 +135,5 @@ export function useRecordingMetrics(): {
       lapDistance,
       lapTime,
     };
-  }, [streams, laps, activityType, startTime, pausedDuration]);
+  }, [streams, laps, activityType, startTime, pausedDuration, athleteWeight]);
 }
