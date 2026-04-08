@@ -77,6 +77,16 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
     bearing: number;
     pitch: number;
   } | null;
+  /** Called when user taps on the map (for section creation) */
+  onMapClick?: (coordinate: [number, number]) => void;
+  /** Called when user taps on a section line feature */
+  onSectionClick?: (sectionId: string) => void;
+  /** GeoJSON for section creation line (start to end highlight) */
+  sectionCreationGeoJSON?: GeoJSON.FeatureCollection | GeoJSON.Feature | null;
+  /** Section creation start marker [lng, lat] */
+  sectionCreationStart?: [number, number] | null;
+  /** Section creation end marker [lng, lat] */
+  sectionCreationEnd?: [number, number] | null;
 }
 
 /**
@@ -108,6 +118,11 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       onBearingChange,
       onCameraStateChange,
       initialCamera,
+      onMapClick,
+      onSectionClick,
+      sectionCreationGeoJSON,
+      sectionCreationStart,
+      sectionCreationEnd,
     },
     ref
   ) {
@@ -125,6 +140,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const routesGeoJSONRef = useRef(routesGeoJSON);
     const sectionsGeoJSONRef = useRef(sectionsGeoJSON);
     const tracesGeoJSONRef = useRef(tracesGeoJSON);
+
+    // Store callback refs to avoid stale closures in message handler
+    const onMapClickRef = useRef(onMapClick);
+    const onSectionClickRef = useRef(onSectionClick);
+    onMapClickRef.current = onMapClick;
+    onSectionClickRef.current = onSectionClick;
 
     // Store initial center/zoom/camera in refs - only used on first render
     // This prevents HTML regeneration when parent updates these values
@@ -304,6 +325,14 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             // Save camera state for restoration
             savedCameraRef.current = data.camera;
             onCameraStateChange?.(data.camera);
+          } else if (
+            data.type === 'mapClick' &&
+            Array.isArray(data.coordinate) &&
+            data.coordinate.length === 2
+          ) {
+            onMapClickRef.current?.(data.coordinate as [number, number]);
+          } else if (data.type === 'sectionClick' && typeof data.sectionId === 'string') {
+            onSectionClickRef.current?.(data.sectionId);
           } else if (data.type === 'heatmapTileRequest' && data.requestId && data.tilePath) {
             // Heatmap tile request from WebView — read PNG from filesystem, return as base64
             const fullPath = `${HEATMAP_TILES_DIR}${data.tilePath}`;
@@ -603,6 +632,76 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         `);
       }
     }, [highlightCoordinate]);
+
+    // Update section creation layers dynamically (line + start/end markers)
+    useEffect(() => {
+      if (!webViewRef.current || !mapReadyRef.current) return;
+
+      const hasLine =
+        sectionCreationGeoJSON &&
+        ((sectionCreationGeoJSON as GeoJSON.Feature).type === 'Feature' ||
+          ((sectionCreationGeoJSON as GeoJSON.FeatureCollection).features?.length ?? 0) > 0);
+
+      const lineJSON = hasLine ? JSON.stringify(sectionCreationGeoJSON) : 'null';
+      const hasStart = !!sectionCreationStart;
+      const hasEnd = !!sectionCreationEnd;
+
+      // Build markers FeatureCollection
+      const markerFeatures: GeoJSON.Feature[] = [];
+      if (hasStart && sectionCreationStart) {
+        markerFeatures.push({
+          type: 'Feature',
+          properties: { type: 'start' },
+          geometry: { type: 'Point', coordinates: sectionCreationStart },
+        });
+      }
+      if (hasEnd && sectionCreationEnd) {
+        markerFeatures.push({
+          type: 'Feature',
+          properties: { type: 'end' },
+          geometry: { type: 'Point', coordinates: sectionCreationEnd },
+        });
+      }
+      const markersJSON =
+        markerFeatures.length > 0
+          ? JSON.stringify({ type: 'FeatureCollection', features: markerFeatures })
+          : 'null';
+
+      webViewRef.current.injectJavaScript(`
+        (function() {
+          if (!window.map) return;
+          // Update section creation line
+          var lineData = ${lineJSON};
+          var lineSource = window.map.getSource('section-creation-line');
+          if (lineSource) {
+            if (lineData) {
+              lineSource.setData(lineData);
+              window.map.setLayoutProperty('section-creation-line-outline', 'visibility', 'visible');
+              window.map.setLayoutProperty('section-creation-line-fill', 'visibility', 'visible');
+            } else {
+              window.map.setLayoutProperty('section-creation-line-outline', 'visibility', 'none');
+              window.map.setLayoutProperty('section-creation-line-fill', 'visibility', 'none');
+            }
+          }
+          // Update section creation markers
+          var markersData = ${markersJSON};
+          var markerSource = window.map.getSource('section-creation-markers');
+          if (markerSource) {
+            if (markersData) {
+              markerSource.setData(markersData);
+              window.map.setLayoutProperty('section-creation-marker-border', 'visibility', 'visible');
+              window.map.setLayoutProperty('section-creation-marker-fill', 'visibility', 'visible');
+              window.map.setLayoutProperty('section-creation-marker-icon', 'visibility', 'visible');
+            } else {
+              window.map.setLayoutProperty('section-creation-marker-border', 'visibility', 'none');
+              window.map.setLayoutProperty('section-creation-marker-fill', 'visibility', 'none');
+              window.map.setLayoutProperty('section-creation-marker-icon', 'visibility', 'none');
+            }
+          }
+        })();
+        true;
+      `);
+    }, [sectionCreationGeoJSON, sectionCreationStart, sectionCreationEnd]);
 
     // Toggle heatmap visibility dynamically (without regenerating HTML)
     useEffect(() => {
@@ -1098,6 +1197,89 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         source: 'highlight-point',
         paint: { 'circle-radius': 5, 'circle-color': '#00BCD4' },
         layout: { visibility: 'none' },
+      });
+
+      // Section creation layers — used for interactive section creation in 3D mode
+      // Line showing the selected section portion
+      map.addSource('section-creation-line', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+      map.addLayer({
+        id: 'section-creation-line-outline',
+        type: 'line',
+        source: 'section-creation-line',
+        layout: { 'line-join': 'round', 'line-cap': 'round', visibility: 'none' },
+        paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.6 },
+      });
+      map.addLayer({
+        id: 'section-creation-line-fill',
+        type: 'line',
+        source: 'section-creation-line',
+        layout: { 'line-join': 'round', 'line-cap': 'round', visibility: 'none' },
+        paint: { 'line-color': '#22C55E', 'line-width': 6, 'line-opacity': 1 },
+      });
+
+      // Section creation start/end markers
+      map.addSource('section-creation-markers', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+      map.addLayer({
+        id: 'section-creation-marker-border',
+        type: 'circle',
+        source: 'section-creation-markers',
+        paint: { 'circle-radius': 10, 'circle-color': '#FFFFFF' },
+        layout: { visibility: 'none' },
+      });
+      map.addLayer({
+        id: 'section-creation-marker-fill',
+        type: 'circle',
+        source: 'section-creation-markers',
+        paint: {
+          'circle-radius': 8,
+          'circle-color': ['case',
+            ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.9)',
+            'rgba(239,68,68,0.9)'],
+        },
+        layout: { visibility: 'none' },
+      });
+      map.addLayer({
+        id: 'section-creation-marker-icon',
+        type: 'symbol',
+        source: 'section-creation-markers',
+        layout: {
+          'text-field': ['case', ['==', ['get', 'type'], 'start'], '▶', '■'],
+          'text-size': 10,
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          visibility: 'none',
+        },
+        paint: { 'text-color': '#FFFFFF' },
+      });
+
+      // Click handler — posts map coordinates back to React Native
+      map.on('click', function(e) {
+        // Check if the click hit a section line feature first
+        var sectionFeatures = map.queryRenderedFeatures(e.point, { layers: ['sections-layer'] });
+        if (sectionFeatures && sectionFeatures.length > 0) {
+          var props = sectionFeatures[0].properties;
+          var sectionId = props && (props.sectionId || props.id);
+          if (sectionId && window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'sectionClick',
+              sectionId: String(sectionId)
+            }));
+            return;
+          }
+        }
+        // Otherwise, send a generic map click with coordinates
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'mapClick',
+            coordinate: [e.lngLat.lng, e.lngLat.lat]
+          }));
+        }
       });
 
       // Heatmap raster overlay (reads tiles from device filesystem via heatmap-file:// protocol)

@@ -168,6 +168,21 @@ interface InsightsEnginePayload {
   summaryCardData: FfiSummaryCardDataShape | null;
 }
 
+// Module-level cache for fetchInsightsDataFromEngine results.
+// Avoids redundant FFI calls when called multiple times between engine updates.
+let _cachedPayload: InsightsEnginePayload | null = null;
+let _cacheTimestamp = 0;
+const INSIGHTS_CACHE_TTL_MS = 30_000; // 30 seconds
+
+/**
+ * Invalidate the cached insights engine payload.
+ * Call when engine data changes (new sync, etc).
+ */
+export function invalidateInsightsCache(): void {
+  _cachedPayload = null;
+  _cacheTimestamp = 0;
+}
+
 const MAX_SECTION_STORY_INSIGHTS = 2;
 
 function isSectionStoryInsight(insight: Insight): boolean {
@@ -468,13 +483,22 @@ export function computeInsightsFromData(
 /**
  * Fetch FFI insights data from the engine.
  * Pure function — calls synchronous FFI, no React.
+ *
+ * Results are cached for 30 seconds to avoid redundant FFI calls when
+ * the routes tab re-renders without engine data having changed.
  */
 export function fetchInsightsDataFromEngine(): InsightsEnginePayload | null {
+  // Return cached result if still fresh
+  const now = Date.now();
+  if (_cachedPayload && now - _cacheTimestamp < INSIGHTS_CACHE_TTL_MS) {
+    return _cachedPayload;
+  }
+
   const engine = getRouteEngine();
   if (!engine) return null;
 
-  const now = new Date();
-  const startOfWeek = new Date(now);
+  const nowDate = new Date();
+  const startOfWeek = new Date(nowDate);
   const day = startOfWeek.getDay();
   startOfWeek.setDate(startOfWeek.getDate() - day + (day === 0 ? -6 : 1));
   startOfWeek.setHours(0, 0, 0, 0);
@@ -485,13 +509,13 @@ export function fetchInsightsDataFromEngine(): InsightsEnginePayload | null {
   const fourWeeksAgo = new Date(startOfWeek);
   fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
 
-  const todayStart = new Date(now);
+  const todayStart = new Date(nowDate);
   todayStart.setHours(0, 0, 0, 0);
 
   const toTs = (d: Date) => Math.floor(d.getTime() / 1000);
 
   const currentStart = toTs(startOfWeek);
-  const currentEnd = toTs(now);
+  const currentEnd = toTs(nowDate);
   const prevStart = toTs(startOfLastWeek);
   const prevEnd = toTs(startOfWeek);
   const chronicStart = toTs(fourWeeksAgo);
@@ -509,8 +533,13 @@ export function fetchInsightsDataFromEngine(): InsightsEnginePayload | null {
 
   if (!insightsData) return null;
 
-  return {
+  const payload: InsightsEnginePayload = {
     insightsData,
     summaryCardData: engine.getSummaryCardData(currentStart, currentEnd, prevStart, prevEnd),
   };
+
+  _cachedPayload = payload;
+  _cacheTimestamp = now;
+
+  return payload;
 }

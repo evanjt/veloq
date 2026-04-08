@@ -9,7 +9,11 @@ import {
   computeInsightFingerprint,
   diffInsights,
 } from '@/providers/InsightsStore';
-import { computeInsightsFromData, fetchInsightsDataFromEngine } from './computeInsightsData';
+import {
+  computeInsightsFromData,
+  fetchInsightsDataFromEngine,
+  invalidateInsightsCache,
+} from './computeInsightsData';
 import type { FfiInsightsDataShape, FfiSummaryCardDataShape } from './computeInsightsData';
 import type { Insight } from '@/types';
 
@@ -48,6 +52,8 @@ export function useInsights(
     if (trigger !== lastSeenTriggerRef.current) {
       dirtyRef.current = true;
       lastSeenTriggerRef.current = trigger;
+      // Invalidate cached FFI results so next computation fetches fresh data
+      invalidateInsightsCache();
     }
   }, [trigger]);
   useFocusEffect(
@@ -66,6 +72,31 @@ export function useInsights(
 
   // Get wellness data for form/TSB (from TanStack Query, not FFI)
   const { data: wellnessData } = useWellness('1m');
+
+  // Stabilise wellness reference — only update when the latest CTL/ATL values
+  // actually change.  useWellness returns a new array on every background
+  // refetch (refetchOnWindowFocus: true) even when data is identical, which
+  // would otherwise trigger a full insights recomputation.
+  const prevWellnessRef = useRef(wellnessData);
+  const stableWellness = useMemo(() => {
+    const prev = prevWellnessRef.current;
+    if (prev && wellnessData && prev.length === wellnessData.length) {
+      const last = wellnessData[wellnessData.length - 1];
+      const prevLast = prev[prev.length - 1];
+      if (
+        last &&
+        prevLast &&
+        last.id === prevLast.id &&
+        last.ctl === prevLast.ctl &&
+        last.atl === prevLast.atl &&
+        last.hrv === prevLast.hrv
+      ) {
+        return prev;
+      }
+    }
+    prevWellnessRef.current = wellnessData;
+    return wellnessData;
+  }, [wellnessData]);
 
   // Deferred insights computation — starts empty, populates after interactions
   const [insights, setInsights] = useState<Insight[]>([]);
@@ -87,6 +118,7 @@ export function useInsights(
       let summaryData = preComputedSummaryCardData;
       if (!data) {
         if (skipOwnFfiCall) return;
+        // fetchInsightsDataFromEngine uses a 30s cache to avoid redundant FFI calls
         const fetched = fetchInsightsDataFromEngine();
         data = fetched?.insightsData ?? null;
         summaryData = fetched?.summaryCardData ?? null;
@@ -97,7 +129,7 @@ export function useInsights(
       // Delegate to the shared pure function
       const result = computeInsightsFromData(
         data,
-        wellnessData ?? null,
+        stableWellness ?? null,
         t as (key: string, params?: Record<string, string | number>) => string,
         summaryData
       );
@@ -109,7 +141,7 @@ export function useInsights(
 
     return () => handle.cancel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trigger, focusTrigger, preComputedInsightsData, preComputedSummaryCardData, wellnessData, t]);
+  }, [trigger, focusTrigger, preComputedInsightsData, preComputedSummaryCardData, stableWellness, t]);
 
   // Stabilise reference -- only update when insight IDs actually change
   const prevInsightsRef = useRef<Insight[]>([]);

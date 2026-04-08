@@ -595,6 +595,40 @@ export const ActivityMapView = memo(function ActivityMapView({
     [bearingAnim]
   );
 
+  // Handle 3D map click — forward to section creation hook
+  const handle3DMapClick = useCallback(
+    (coordinate: [number, number]) => {
+      if (creationMode) {
+        handleCreationTap(coordinate[0], coordinate[1]);
+      }
+    },
+    [creationMode, handleCreationTap]
+  );
+
+  // Handle 3D section click — forward to parent handler
+  const handle3DSectionClick = useCallback(
+    (sectionId: string) => {
+      onSectionMarkerPress?.(sectionId);
+    },
+    [onSectionMarkerPress]
+  );
+
+  // Section creation start/end coordinates in [lng, lat] format for 3D map
+  const sectionCreationStartCoord: [number, number] | null = useMemo(
+    () =>
+      creationMode && sectionStartPoint
+        ? [sectionStartPoint.longitude, sectionStartPoint.latitude]
+        : null,
+    [creationMode, sectionStartPoint]
+  );
+  const sectionCreationEndCoord: [number, number] | null = useMemo(
+    () =>
+      creationMode && sectionEndPoint
+        ? [sectionEndPoint.longitude, sectionEndPoint.latitude]
+        : null,
+    [creationMode, sectionEndPoint]
+  );
+
   const activityColor = getActivityColor(activityType);
   const startPoint = validCoordinates[0];
   const endPoint = validCoordinates[validCoordinates.length - 1];
@@ -1048,6 +1082,11 @@ export const ActivityMapView = memo(function ActivityMapView({
                 onBearingChange={handleBearingChange}
                 onCameraStateChange={handleCameraStateChange}
                 initialCamera={initial3DCamera}
+                onMapClick={handle3DMapClick}
+                onSectionClick={handle3DSectionClick}
+                sectionCreationGeoJSON={creationMode ? sectionGeoJSON : null}
+                sectionCreationStart={sectionCreationStartCoord}
+                sectionCreationEnd={sectionCreationEndCoord}
               />
             </Animated.View>
           </ComponentErrorBoundary>
