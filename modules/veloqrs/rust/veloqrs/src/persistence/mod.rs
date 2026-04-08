@@ -184,7 +184,8 @@ pub struct MapActivityComplete {
 
 #[derive(Debug, Clone)]
 pub struct SectionDetectionProgress {
-    /// Current phase: "loading", "building_rtrees", "finding_overlaps", "postprocessing"
+    /// Current phase: "loading", "building_rtrees", "finding_overlaps",
+    /// "clustering", "postprocessing", "saving", "complete"
     pub phase: Arc<std::sync::Mutex<String>>,
     /// Number of items completed in current phase
     pub completed: Arc<AtomicU32>,
@@ -237,6 +238,46 @@ impl tracematch::DetectionProgressCallback for SectionDetectionProgress {
 impl Default for SectionDetectionProgress {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Wrapper that injects a "clustering" phase between FindingOverlaps and Postprocessing.
+///
+/// tracematch reports three phases: BuildingRtrees, FindingOverlaps, Postprocessing.
+/// Between FindingOverlaps and Postprocessing, significant work happens (clustering,
+/// medoid selection, consensus computation) with no progress reporting. This wrapper
+/// intercepts the Postprocessing phase transition and briefly reports "clustering"
+/// before forwarding Postprocessing, giving the TypeScript side a finer-grained view.
+pub struct ClusteringAwareProgress {
+    inner: SectionDetectionProgress,
+}
+
+impl ClusteringAwareProgress {
+    pub fn new(inner: SectionDetectionProgress) -> Self {
+        Self { inner }
+    }
+}
+
+impl tracematch::DetectionProgressCallback for ClusteringAwareProgress {
+    fn on_phase(&self, phase: tracematch::DetectionPhase, total: u32) {
+        match phase {
+            tracematch::DetectionPhase::Postprocessing => {
+                // Before entering postprocessing, signal that clustering just finished.
+                // Set clustering phase as "complete" (1/1) so TypeScript sees it at 100%
+                // of the clustering range before transitioning to postprocessing.
+                self.inner.set_phase("clustering", 1);
+                self.inner.increment(); // 1/1 = complete
+                // Now forward the real postprocessing phase
+                self.inner.set_phase(phase.as_str(), total);
+            }
+            _ => {
+                self.inner.set_phase(phase.as_str(), total);
+            }
+        }
+    }
+
+    fn on_progress(&self) {
+        self.inner.increment();
     }
 }
 
