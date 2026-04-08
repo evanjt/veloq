@@ -174,6 +174,24 @@ let _cachedPayload: InsightsEnginePayload | null = null;
 let _cacheTimestamp = 0;
 const INSIGHTS_CACHE_TTL_MS = 30_000; // 30 seconds
 
+// Module-level cache for section/strength data fetched during computeInsightsFromData.
+// These FFI calls (getRankedSections per sport, getStrengthSummary x5) are expensive
+// and their results only change when the engine data changes.
+let _cachedSectionTrends: Array<{
+  sectionId: string;
+  sectionName: string;
+  trend: number;
+  medianRecentSecs: number;
+  bestTimeSecs: number;
+  traversalCount: number;
+  sportType?: string;
+  daysSinceLast?: number;
+  latestIsPr?: boolean;
+}> | null = null;
+let _cachedEfficiencyIds: string[] | null = null;
+let _cachedStrengthInsights: Insight[] | null = null;
+let _computeCacheTimestamp = 0;
+
 /**
  * Invalidate the cached insights engine payload.
  * Call when engine data changes (new sync, etc).
@@ -181,6 +199,10 @@ const INSIGHTS_CACHE_TTL_MS = 30_000; // 30 seconds
 export function invalidateInsightsCache(): void {
   _cachedPayload = null;
   _cacheTimestamp = 0;
+  _cachedSectionTrends = null;
+  _cachedEfficiencyIds = null;
+  _cachedStrengthInsights = null;
+  _computeCacheTimestamp = 0;
 }
 
 const MAX_SECTION_STORY_INSIGHTS = 2;
@@ -313,78 +335,109 @@ export function computeInsightsFromData(
 
     const allPatterns = ffiData.allPatterns ?? [];
 
-    // Build section trends from ML-ranked sections
-    const sectionTrendMap = new Map<
-      string,
-      {
-        sectionId: string;
-        sectionName: string;
-        trend: number;
-        medianRecentSecs: number;
-        bestTimeSecs: number;
-        traversalCount: number;
-        sportType?: string;
-        daysSinceLast?: number;
-        latestIsPr?: boolean;
-      }
-    >();
+    // Use cached section trends and efficiency IDs when available (saves ~5 FFI calls).
+    // The cache is invalidated by invalidateInsightsCache() when engine data changes.
+    const computeNow = Date.now();
+    const useComputeCache =
+      _cachedSectionTrends !== null &&
+      _cachedEfficiencyIds !== null &&
+      computeNow - _computeCacheTimestamp < INSIGHTS_CACHE_TTL_MS;
 
-    // Cache ranked sections per sport to avoid duplicate FFI calls below
-    const rankedSectionsCache = new Map<string, RankedSectionShape[]>();
+    let sectionTrends: typeof _cachedSectionTrends;
+    let efficiencyTrendSectionIds: string[];
 
-    if (sectionsReady && engine) {
-      const patternSports =
-        allPatterns.length > 0 ? [...new Set(allPatterns.map((p) => p.sportType))] : [];
-      const sportTypes =
-        patternSports.length > 0
-          ? patternSports
-          : (engine.getAvailableSportTypes?.() ?? ['Ride', 'Run']);
+    if (useComputeCache) {
+      sectionTrends = _cachedSectionTrends!;
+      efficiencyTrendSectionIds = _cachedEfficiencyIds!;
+    } else {
+      // Build section trends from ML-ranked sections
+      const sectionTrendMap = new Map<
+        string,
+        {
+          sectionId: string;
+          sectionName: string;
+          trend: number;
+          medianRecentSecs: number;
+          bestTimeSecs: number;
+          traversalCount: number;
+          sportType?: string;
+          daysSinceLast?: number;
+          latestIsPr?: boolean;
+        }
+      >();
 
-      for (const sport of sportTypes) {
-        const ranked = engine.getRankedSections(sport, 50);
-        rankedSectionsCache.set(sport, ranked);
-        for (const rs of ranked) {
-          if (!rs.sectionId) continue;
-          if (!sectionTrendMap.has(rs.sectionId)) {
-            sectionTrendMap.set(rs.sectionId, {
-              sectionId: rs.sectionId,
-              sectionName: rs.sectionName || 'Section',
-              trend: rs.trend,
-              medianRecentSecs: rs.medianRecentSecs,
-              bestTimeSecs: rs.bestTimeSecs,
-              traversalCount: rs.traversalCount,
-              sportType: sport,
-              daysSinceLast: rs.daysSinceLast,
-              latestIsPr: rs.latestIsPr,
-            });
+      // Cache ranked sections per sport to avoid duplicate FFI calls below
+      const rankedSectionsCache = new Map<string, RankedSectionShape[]>();
+
+      if (sectionsReady && engine) {
+        const patternSports =
+          allPatterns.length > 0 ? [...new Set(allPatterns.map((p) => p.sportType))] : [];
+        const sportTypes =
+          patternSports.length > 0
+            ? patternSports
+            : (engine.getAvailableSportTypes?.() ?? ['Ride', 'Run']);
+
+        for (const sport of sportTypes) {
+          const ranked = engine.getRankedSections(sport, 50);
+          rankedSectionsCache.set(sport, ranked);
+          for (const rs of ranked) {
+            if (!rs.sectionId) continue;
+            if (!sectionTrendMap.has(rs.sectionId)) {
+              sectionTrendMap.set(rs.sectionId, {
+                sectionId: rs.sectionId,
+                sectionName: rs.sectionName || 'Section',
+                trend: rs.trend,
+                medianRecentSecs: rs.medianRecentSecs,
+                bestTimeSecs: rs.bestTimeSecs,
+                traversalCount: rs.traversalCount,
+                sportType: sport,
+                daysSinceLast: rs.daysSinceLast,
+                latestIsPr: rs.latestIsPr,
+              });
+            }
           }
         }
       }
-    }
 
-    // Fallback: pattern-based commonSections
-    if (sectionTrendMap.size === 0 && sectionsReady) {
-      for (const pattern of allPatterns) {
-        if (!pattern.commonSections) continue;
-        for (const section of pattern.commonSections) {
-          if (section.trend == null || !section.sectionId) continue;
-          const existing = sectionTrendMap.get(section.sectionId);
-          if (!existing || section.traversalCount > existing.traversalCount) {
-            sectionTrendMap.set(section.sectionId, {
-              sectionId: section.sectionId,
-              sectionName: section.sectionName || 'Section',
-              trend: section.trend,
-              medianRecentSecs: section.medianRecentSecs,
-              bestTimeSecs: section.bestTimeSecs,
-              traversalCount: section.traversalCount,
-              sportType: pattern.sportType,
-            });
+      // Fallback: pattern-based commonSections
+      if (sectionTrendMap.size === 0 && sectionsReady) {
+        for (const pattern of allPatterns) {
+          if (!pattern.commonSections) continue;
+          for (const section of pattern.commonSections) {
+            if (section.trend == null || !section.sectionId) continue;
+            const existing = sectionTrendMap.get(section.sectionId);
+            if (!existing || section.traversalCount > existing.traversalCount) {
+              sectionTrendMap.set(section.sectionId, {
+                sectionId: section.sectionId,
+                sectionName: section.sectionName || 'Section',
+                trend: section.trend,
+                medianRecentSecs: section.medianRecentSecs,
+                bestTimeSecs: section.bestTimeSecs,
+                traversalCount: section.traversalCount,
+                sportType: pattern.sportType,
+              });
+            }
           }
         }
       }
-    }
 
-    const sectionTrends = Array.from(sectionTrendMap.values());
+      sectionTrends = Array.from(sectionTrendMap.values());
+
+      // Aerobic efficiency section IDs — reuse cached ranked sections from above
+      efficiencyTrendSectionIds = [];
+      for (const [, cached] of rankedSectionsCache) {
+        for (const rs of cached.slice(0, 5)) {
+          if (!efficiencyTrendSectionIds.includes(rs.sectionId)) {
+            efficiencyTrendSectionIds.push(rs.sectionId);
+          }
+        }
+      }
+
+      // Persist to module-level cache
+      _cachedSectionTrends = sectionTrends;
+      _cachedEfficiencyIds = efficiencyTrendSectionIds;
+      _computeCacheTimestamp = computeNow;
+    }
 
     // 7-day wellness window
     const wellnessWindow = sortedWellness.slice(-7).map((w) => ({
@@ -405,16 +458,6 @@ export function computeInsightsFromData(
           daysAgo: pr.daysAgo,
         }))
       : [];
-
-    // Aerobic efficiency section IDs — reuse cached ranked sections from above
-    const efficiencyTrendSectionIds: string[] = [];
-    for (const [, cached] of rankedSectionsCache) {
-      for (const rs of cached.slice(0, 5)) {
-        if (!efficiencyTrendSectionIds.includes(rs.sectionId)) {
-          efficiencyTrendSectionIds.push(rs.sectionId);
-        }
-      }
-    }
 
     const coreInsights = generateInsights(
       {
@@ -439,8 +482,11 @@ export function computeInsightsFromData(
       t
     );
 
+    // Use cached strength insights when available (saves ~5 getStrengthSummary FFI calls)
     let strengthInsights: Insight[] = [];
-    if (
+    if (useComputeCache && _cachedStrengthInsights !== null) {
+      strengthInsights = _cachedStrengthInsights;
+    } else if (
       engine &&
       typeof engine.hasStrengthData === 'function' &&
       typeof engine.getStrengthSummary === 'function'
@@ -459,6 +505,7 @@ export function computeInsightsFromData(
       } catch {
         strengthInsights = [];
       }
+      _cachedStrengthInsights = strengthInsights;
     }
 
     const consolidated = consolidateInsights([...coreInsights, ...strengthInsights]);
