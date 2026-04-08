@@ -378,6 +378,17 @@ export function RegionalMapView({
     [routeGroups]
   );
 
+  // Handle 3D section click — receives section ID string, looks up section to select
+  const handle3DSectionClick = useCallback(
+    (sectionId: string) => {
+      const section = sections.find((s) => s.id === sectionId);
+      if (section) {
+        setSelectedSection(section);
+      }
+    },
+    [sections]
+  );
+
   // Selected activity ID for MapLibre expressions (cheap to pass, doesn't trigger GeoJSON rebuild)
   const selectedActivityId = selected?.activity.id ?? null;
 
@@ -447,6 +458,7 @@ export function RegionalMapView({
             // In 3D mode, use showActivities directly (no zoom check - 3D doesn't track zoom)
             tracesGeoJSON={showActivities ? (tracesGeoJSON ?? undefined) : undefined}
             showHeatmap={showActivities}
+            onSectionClick={handle3DSectionClick}
           />
         </ComponentErrorBoundary>
       ) : (
