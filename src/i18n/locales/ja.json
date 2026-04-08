@@ -1194,7 +1194,9 @@
     "mapTiles": "マップタイル",
     "recording": "記録",
     "cache": "キャッシュ",
-    "permissions": "権限"
+    "permissions": "権限",
+    "geocoding": "ルートの自動命名",
+    "geocodingDescription": "OpenStreetMapを使用してGPS座標からルート名を設定します"
   },
   "stats": {
     "activities": "アクティビティ",

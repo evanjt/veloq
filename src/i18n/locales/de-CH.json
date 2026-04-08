@@ -1194,7 +1194,9 @@
     "mapTiles": "Chartechachle",
     "recording": "Aufzeichnung",
     "cache": "Cache",
-    "permissions": "Berechtigungen"
+    "permissions": "Berechtigungen",
+    "geocoding": "Route automatisch benennen",
+    "geocodingDescription": "Bruucht OpenStreetMap zum Route vo GPS-Koordinate benennen"
   },
   "stats": {
     "activities": "Aktivitäte",

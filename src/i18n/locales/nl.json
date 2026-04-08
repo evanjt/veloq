@@ -1194,7 +1194,9 @@
     "mapTiles": "Kaarttegels",
     "recording": "Opname",
     "cache": "Cache",
-    "permissions": "Machtigingen"
+    "permissions": "Machtigingen",
+    "geocoding": "Routes automatisch benoemen",
+    "geocodingDescription": "Gebruikt OpenStreetMap om routes te benoemen op basis van GPS-coördinaten"
   },
   "stats": {
     "activities": "Activiteiten",

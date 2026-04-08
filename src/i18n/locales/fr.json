@@ -1194,7 +1194,9 @@
     "mapTiles": "Tuiles de carte",
     "recording": "Enregistrement",
     "cache": "Cache",
-    "permissions": "Autorisations"
+    "permissions": "Autorisations",
+    "geocoding": "Nommer les itinéraires automatiquement",
+    "geocodingDescription": "Utilise OpenStreetMap pour nommer les itinéraires à partir des coordonnées GPS"
   },
   "stats": {
     "activities": "Activités",

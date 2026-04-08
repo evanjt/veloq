@@ -1194,7 +1194,9 @@
     "mapTiles": "地图瓦片",
     "recording": "录制",
     "cache": "缓存",
-    "permissions": "权限"
+    "permissions": "权限",
+    "geocoding": "自动命名路线",
+    "geocodingDescription": "使用OpenStreetMap根据GPS坐标命名路线"
   },
   "stats": {
     "activities": "活动",
