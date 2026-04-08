@@ -54,12 +54,14 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         style: 'destructive',
         onPress: async () => {
           try {
-            await clearCredentials();
+            // Cancel in-flight queries first to prevent re-fetches during teardown
             await queryClient.cancelQueries();
             await clearAllAppCaches(queryClient);
             await clearUploadQueue();
             resetSyncDateRange();
             useUploadPermissionStore.getState().reset();
+            // Clear credentials last so auth state change doesn't trigger new queries
+            await clearCredentials();
             replaceTo('/login');
           } catch {
             Alert.alert(t('alerts.error'), t('alerts.failedToDisconnect'));
