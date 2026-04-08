@@ -184,22 +184,32 @@ export default function SettingsScreen() {
 
           <SummaryCardSection />
 
-          {/* Display Settings: Appearance, Units, Language, Primary Sport */}
-          <DisplaySettings
-            themePreference={themePreference}
-            onThemeChange={handleThemeChange}
-            unitPreference={unitPreference}
-            onUnitChange={handleUnitChange}
-            intervalsUnitPreference={intervalsPreferences}
-            primarySport={primarySport}
-            onSportChange={handleSportChange}
-            language={language ?? 'en-GB'}
-            onLanguageChange={handleLanguageChange}
-            showLanguages={showLanguages}
-            setShowLanguages={setShowLanguages}
-          />
-
-          <MapsSection />
+          {/* Display & Maps — merged section */}
+          <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+            {t('settings.displayAndMaps').toUpperCase()}
+          </Text>
+          <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+            <DisplaySettings
+              themePreference={themePreference}
+              onThemeChange={handleThemeChange}
+              unitPreference={unitPreference}
+              onUnitChange={handleUnitChange}
+              intervalsUnitPreference={intervalsPreferences}
+              primarySport={primarySport}
+              onSportChange={handleSportChange}
+              language={language ?? 'en-GB'}
+              onLanguageChange={handleLanguageChange}
+              showLanguages={showLanguages}
+              setShowLanguages={setShowLanguages}
+              embedded
+            />
+            <View style={styles.sectionDivider}>
+              <View
+                style={[styles.sectionDividerLine, isDark && styles.sectionDividerLineDark]}
+              />
+            </View>
+            <MapsSection embedded />
+          </View>
 
           <NotificationSection />
 
@@ -282,5 +292,16 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: 1,
+  },
+  sectionDivider: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  sectionDividerLine: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  sectionDividerLineDark: {
+    backgroundColor: darkColors.border,
   },
 });

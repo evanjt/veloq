@@ -65,7 +65,12 @@ const MAP_ACTIVITY_GROUPS: {
   },
 ];
 
-export function MapsSection() {
+interface MapsSectionProps {
+  /** When true, skip section label and outer card (for embedding in a parent card) */
+  embedded?: boolean;
+}
+
+export function MapsSection({ embedded }: MapsSectionProps = {}) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const [showActivityStyles, setShowActivityStyles] = useState(false);
@@ -127,14 +132,10 @@ export function MapsSection() {
         ? t('settings.terrain3DSmart', { defaultValue: 'Smart' })
         : t('settings.terrain3DAlways', { defaultValue: 'Always' });
 
-  return (
+  const mapsContent = (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
-        {t('settings.maps').toUpperCase()}
-      </Text>
-      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-        {/* Default style + 3D terrain toggle in header row */}
-        <View style={styles.styleHeaderRow}>
+      {/* Default style + 3D terrain toggle in header row */}
+      <View style={styles.styleHeaderRow}>
           <Text style={[styles.mapStyleLabel, isDark && settingsStyles.textLight]}>
             {t('settings.defaultStyle')}
           </Text>
@@ -243,6 +244,20 @@ export function MapsSection() {
             </Text>
           </View>
         )}
+    </>
+  );
+
+  if (embedded) {
+    return mapsContent;
+  }
+
+  return (
+    <>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+        {t('settings.maps').toUpperCase()}
+      </Text>
+      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+        {mapsContent}
       </View>
     </>
   );
