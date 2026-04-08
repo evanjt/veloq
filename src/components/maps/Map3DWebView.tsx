@@ -47,6 +47,8 @@ interface Map3DWebViewProps {
   sectionsGeoJSON?: GeoJSON.FeatureCollection;
   /** GeoJSON for traces layer */
   tracesGeoJSON?: GeoJSON.FeatureCollection;
+  /** GeoJSON for section marker circles (numbered/PR labels) */
+  sectionMarkersGeoJSON?: GeoJSON.FeatureCollection;
   /** Highlight marker position as [lng, lat] (from chart scrubbing) */
   highlightCoordinate?: [number, number] | null;
   /** Whether to show the heatmap raster overlay */
@@ -112,6 +114,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       routesGeoJSON,
       sectionsGeoJSON,
       tracesGeoJSON,
+      sectionMarkersGeoJSON,
       highlightCoordinate,
       showHeatmap = false,
       onMapReady,
@@ -140,6 +143,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const routesGeoJSONRef = useRef(routesGeoJSON);
     const sectionsGeoJSONRef = useRef(sectionsGeoJSON);
     const tracesGeoJSONRef = useRef(tracesGeoJSON);
+    const sectionMarkersGeoJSONRef = useRef(sectionMarkersGeoJSON);
 
     // Store callback refs to avoid stale closures in message handler
     const onMapClickRef = useRef(onMapClick);
@@ -155,18 +159,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     // Track mapStyle in ref — style changes are applied via setStyle() injection
     const mapStyleRef = useRef(mapStyle);
     const initialMapStyleRef = useRef(mapStyle);
-    // Track pending style change timeout for cleanup
-    const styleChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Cleanup on unmount — stop WebView loading and mark map as not ready
     useEffect(() => {
       return () => {
         mapReadyRef.current = false;
         webViewRef.current?.stopLoading();
-        if (styleChangeTimerRef.current) {
-          clearTimeout(styleChangeTimerRef.current);
-          styleChangeTimerRef.current = null;
-        }
       };
     }, []);
 
@@ -175,7 +173,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       routesGeoJSONRef.current = routesGeoJSON;
       sectionsGeoJSONRef.current = sectionsGeoJSON;
       tracesGeoJSONRef.current = tracesGeoJSON;
-    }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON]);
+      sectionMarkersGeoJSONRef.current = sectionMarkersGeoJSON;
+    }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON, sectionMarkersGeoJSON]);
 
     // Update GeoJSON layers dynamically without reloading WebView
     // Reads from refs to avoid stale closure issues
@@ -191,6 +190,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         : 'null';
       const tracesJSON = tracesGeoJSONRef.current
         ? JSON.stringify(tracesGeoJSONRef.current)
+        : 'null';
+      const sectionMarkersJSON = sectionMarkersGeoJSONRef.current
+        ? JSON.stringify(sectionMarkersGeoJSONRef.current)
         : 'null';
 
       webViewRef.current.injectJavaScript(`
@@ -217,6 +219,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             const routesData = ${routesJSON};
             const sectionsData = ${sectionsJSON};
             const tracesData = ${tracesJSON};
+            const sectionMarkersData = ${sectionMarkersJSON};
 
             // Helper to safely add or update a layer
             function updateLayer(sourceId, layerId, data, layerConfig) {
@@ -283,16 +286,73 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             // Update routes layer (with outline for visibility) - purple to match 2D
             addLayerWithOutline('routes-source', 'routes-layer', routesData, '#9C27B0', 3, 0.8);
 
-            // Update sections layer - vibrant green for visibility on all map styles
-            // Don't use sportType color as it may fall back to dark gray
-            addLayerWithOutline('sections-source', 'sections-layer', sectionsData, '#4CAF50', 5, 0.9);
+            // Update sections layer — match 2D palette: cyan (#00BCD4) default, gold (#D4AF37) for PRs
+            addLayerWithOutline('sections-source', 'sections-layer', sectionsData,
+              ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#00BCD4'], 5, 0.9);
 
             // Update traces layer (activity GPS tracks) - use color from GeoJSON
             addLayerWithOutline('traces-source', 'traces-layer', tracesData, ['get', 'color'], 2, 0.7);
 
+            // Update section markers (numbered/PR circles matching 2D parity)
+            var markerSourceExists = !!window.map.getSource('section-markers-source');
+            var hasMarkers = sectionMarkersData && sectionMarkersData.features && sectionMarkersData.features.length > 0;
+
+            try {
+              if (markerSourceExists) {
+                if (hasMarkers) {
+                  window.map.getSource('section-markers-source').setData(sectionMarkersData);
+                  window.map.setLayoutProperty('section-marker-circle-3d', 'visibility', 'visible');
+                  window.map.setLayoutProperty('section-marker-border-3d', 'visibility', 'visible');
+                  window.map.setLayoutProperty('section-marker-text-3d', 'visibility', 'visible');
+                } else {
+                  window.map.setLayoutProperty('section-marker-circle-3d', 'visibility', 'none');
+                  window.map.setLayoutProperty('section-marker-border-3d', 'visibility', 'none');
+                  window.map.setLayoutProperty('section-marker-text-3d', 'visibility', 'none');
+                }
+              } else if (hasMarkers) {
+                window.map.addSource('section-markers-source', { type: 'geojson', data: sectionMarkersData });
+                window.map.addLayer({
+                  id: 'section-marker-border-3d',
+                  type: 'circle',
+                  source: 'section-markers-source',
+                  paint: {
+                    'circle-radius': ['case', ['get', 'isPR'], 16, 14],
+                    'circle-color': '#FFFFFF',
+                  },
+                });
+                window.map.addLayer({
+                  id: 'section-marker-circle-3d',
+                  type: 'circle',
+                  source: 'section-markers-source',
+                  paint: {
+                    'circle-radius': ['case', ['get', 'isPR'], 14, 12],
+                    'circle-color': ['case', ['get', 'isPR'], '#D4AF37', '#00BCD4'],
+                    'circle-stroke-width': ['case', ['get', 'isPR'], 2.5, 2],
+                    'circle-stroke-color': '#FFFFFF',
+                  },
+                });
+                window.map.addLayer({
+                  id: 'section-marker-text-3d',
+                  type: 'symbol',
+                  source: 'section-markers-source',
+                  layout: {
+                    'text-field': ['get', 'label'],
+                    'text-size': 10,
+                    'text-anchor': 'center',
+                    'text-allow-overlap': true,
+                    'text-ignore-placement': true,
+                  },
+                  paint: { 'text-color': '#FFFFFF' },
+                });
+              }
+            } catch (e) {
+              console.warn('Section marker layer error:', e);
+            }
+
             console.log('[3D] Layers updated - routes:', routesData?.features?.length || 0,
                         'sections:', sectionsData?.features?.length || 0,
-                        'traces:', tracesData?.features?.length || 0);
+                        'traces:', tracesData?.features?.length || 0,
+                        'markers:', sectionMarkersData?.features?.length || 0);
           }
 
           addOrUpdateLayers();
@@ -411,7 +471,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       if (mapReadyRef.current) {
         updateLayers();
       }
-    }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON, updateLayers]);
+    }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON, sectionMarkersGeoJSON, updateLayers]);
 
     // Apply style changes via setStyle() injection — avoids full WebView reload.
     // Builds a complete style object with terrain, sky, hillshade, and route layers,
@@ -573,15 +633,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         true;
       `);
 
-      // After style change, re-apply GeoJSON overlay layers once the new style settles.
-      // Cancel any pending timer from a previous style change to prevent stale calls.
-      if (styleChangeTimerRef.current) {
-        clearTimeout(styleChangeTimerRef.current);
-      }
-      styleChangeTimerRef.current = setTimeout(() => {
-        styleChangeTimerRef.current = null;
-        updateLayers();
-      }, 500);
+      // After style change, re-apply GeoJSON overlay layers once the new style settles
+      setTimeout(() => updateLayers(), 500);
     }, [mapStyle, routeColor, terrainExaggeration, updateLayers]);
 
     // Expose reset method to parent
@@ -670,34 +723,63 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       webViewRef.current.injectJavaScript(`
         (function() {
           if (!window.map) return;
-          // Update section creation line
-          var lineData = ${lineJSON};
-          var lineSource = window.map.getSource('section-creation-line');
-          if (lineSource) {
-            if (lineData) {
-              lineSource.setData(lineData);
-              window.map.setLayoutProperty('section-creation-line-outline', 'visibility', 'visible');
-              window.map.setLayoutProperty('section-creation-line-fill', 'visibility', 'visible');
-            } else {
-              window.map.setLayoutProperty('section-creation-line-outline', 'visibility', 'none');
-              window.map.setLayoutProperty('section-creation-line-fill', 'visibility', 'none');
+          try {
+            // Update section creation line — re-create source/layers after setStyle wipes them
+            var lineData = ${lineJSON};
+            var lineSource = window.map.getSource('section-creation-line');
+            if (lineSource) {
+              if (lineData) {
+                lineSource.setData(lineData);
+                window.map.setLayoutProperty('section-creation-line-outline', 'visibility', 'visible');
+                window.map.setLayoutProperty('section-creation-line-fill', 'visibility', 'visible');
+              } else {
+                window.map.setLayoutProperty('section-creation-line-outline', 'visibility', 'none');
+                window.map.setLayoutProperty('section-creation-line-fill', 'visibility', 'none');
+              }
+            } else if (lineData) {
+              window.map.addSource('section-creation-line', { type: 'geojson', data: lineData });
+              window.map.addLayer({
+                id: 'section-creation-line-outline', type: 'line', source: 'section-creation-line',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.6 },
+              });
+              window.map.addLayer({
+                id: 'section-creation-line-fill', type: 'line', source: 'section-creation-line',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#22C55E', 'line-width': 6, 'line-opacity': 1 },
+              });
             }
-          }
-          // Update section creation markers
-          var markersData = ${markersJSON};
-          var markerSource = window.map.getSource('section-creation-markers');
-          if (markerSource) {
-            if (markersData) {
-              markerSource.setData(markersData);
-              window.map.setLayoutProperty('section-creation-marker-border', 'visibility', 'visible');
-              window.map.setLayoutProperty('section-creation-marker-fill', 'visibility', 'visible');
-              window.map.setLayoutProperty('section-creation-marker-icon', 'visibility', 'visible');
-            } else {
-              window.map.setLayoutProperty('section-creation-marker-border', 'visibility', 'none');
-              window.map.setLayoutProperty('section-creation-marker-fill', 'visibility', 'none');
-              window.map.setLayoutProperty('section-creation-marker-icon', 'visibility', 'none');
+            // Update section creation markers — re-create if missing
+            var markersData = ${markersJSON};
+            var markerSource = window.map.getSource('section-creation-markers');
+            if (markerSource) {
+              if (markersData) {
+                markerSource.setData(markersData);
+                window.map.setLayoutProperty('section-creation-marker-border', 'visibility', 'visible');
+                window.map.setLayoutProperty('section-creation-marker-fill', 'visibility', 'visible');
+                window.map.setLayoutProperty('section-creation-marker-icon', 'visibility', 'visible');
+              } else {
+                window.map.setLayoutProperty('section-creation-marker-border', 'visibility', 'none');
+                window.map.setLayoutProperty('section-creation-marker-fill', 'visibility', 'none');
+                window.map.setLayoutProperty('section-creation-marker-icon', 'visibility', 'none');
+              }
+            } else if (markersData) {
+              window.map.addSource('section-creation-markers', { type: 'geojson', data: markersData });
+              window.map.addLayer({
+                id: 'section-creation-marker-border', type: 'circle', source: 'section-creation-markers',
+                paint: { 'circle-radius': 10, 'circle-color': '#FFFFFF' },
+              });
+              window.map.addLayer({
+                id: 'section-creation-marker-fill', type: 'circle', source: 'section-creation-markers',
+                paint: { 'circle-radius': 8, 'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.9)', 'rgba(239,68,68,0.9)'] },
+              });
+              window.map.addLayer({
+                id: 'section-creation-marker-icon', type: 'symbol', source: 'section-creation-markers',
+                layout: { 'text-field': ['case', ['==', ['get', 'type'], 'start'], '\\u25B6', '\\u25A0'], 'text-size': 10, 'text-allow-overlap': true, 'text-ignore-placement': true },
+                paint: { 'text-color': '#FFFFFF' },
+              });
             }
-          }
+          } catch (e) { console.warn('[3D] Section creation layer error:', e); }
         })();
         true;
       `);
@@ -1261,17 +1343,23 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // Click handler — posts map coordinates back to React Native
       map.on('click', function(e) {
         // Check if the click hit a section line feature first
-        var sectionFeatures = map.queryRenderedFeatures(e.point, { layers: ['sections-layer'] });
-        if (sectionFeatures && sectionFeatures.length > 0) {
-          var props = sectionFeatures[0].properties;
-          var sectionId = props && (props.sectionId || props.id);
-          if (sectionId && window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'sectionClick',
-              sectionId: String(sectionId)
-            }));
-            return;
+        try {
+          if (map.getLayer('sections-layer')) {
+            var sectionFeatures = map.queryRenderedFeatures(e.point, { layers: ['sections-layer'] });
+            if (sectionFeatures && sectionFeatures.length > 0) {
+              var props = sectionFeatures[0].properties;
+              var sectionId = props && (props.sectionId || props.id);
+              if (sectionId && window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'sectionClick',
+                  sectionId: String(sectionId)
+                }));
+                return;
+              }
+            }
           }
+        } catch (err) {
+          // queryRenderedFeatures may fail if layer was just removed — ignore
         }
         // Otherwise, send a generic map click with coordinates
         if (window.ReactNativeWebView) {
