@@ -274,14 +274,35 @@ export function useHasStrengthData(): boolean {
   const [engineVersion, setEngineVersion] = useState(0);
 
   useEffect(() => {
-    const engine = getRouteEngine();
-    if (!engine) return;
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
 
-    const unsubscribe = engine.subscribe('activities', () => {
-      setEngineVersion((v) => v + 1);
-    });
+    function trySubscribe(): boolean {
+      const engine = getRouteEngine();
+      if (!engine) return false;
 
-    return unsubscribe;
+      unsubscribe = engine.subscribe('activities', () => {
+        if (!cancelled) setEngineVersion((v) => v + 1);
+      });
+      if (!cancelled) setEngineVersion((v) => v + 1);
+      return true;
+    }
+
+    if (!trySubscribe()) {
+      const interval = setInterval(() => {
+        if (trySubscribe()) clearInterval(interval);
+      }, 200);
+      return () => {
+        cancelled = true;
+        clearInterval(interval);
+        unsubscribe?.();
+      };
+    }
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, []);
 
   return useMemo(() => {

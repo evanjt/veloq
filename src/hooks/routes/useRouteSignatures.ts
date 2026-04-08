@@ -68,21 +68,41 @@ export function useRouteSignatures(enabled = true): Record<string, RouteSignatur
 
   useEffect(() => {
     isMountedRef.current = true;
-    const engine = getRouteEngine();
-    if (!engine || !enabled) return;
+    if (!enabled) return;
 
-    // Defer loading until after navigation animations complete
-    const task = InteractionManager.runAfterInteractions(() => {
-      buildSignatures();
-    });
+    let unsubscribe: (() => void) | null = null;
+    let task: ReturnType<typeof InteractionManager.runAfterInteractions> | null = null;
 
-    // Subscribe to activity changes
-    const unsubscribe = engine.subscribe('activities', buildSignatures);
+    function trySubscribe(): boolean {
+      const engine = getRouteEngine();
+      if (!engine) return false;
+
+      // Defer loading until after navigation animations complete
+      task = InteractionManager.runAfterInteractions(() => {
+        buildSignatures();
+      });
+
+      // Subscribe to activity changes
+      unsubscribe = engine.subscribe('activities', buildSignatures);
+      return true;
+    }
+
+    if (!trySubscribe()) {
+      const interval = setInterval(() => {
+        if (trySubscribe()) clearInterval(interval);
+      }, 200);
+      return () => {
+        isMountedRef.current = false;
+        clearInterval(interval);
+        task?.cancel();
+        unsubscribe?.();
+      };
+    }
 
     return () => {
       isMountedRef.current = false;
-      task.cancel();
-      unsubscribe();
+      task?.cancel();
+      unsubscribe?.();
     };
   }, [buildSignatures, enabled]);
 

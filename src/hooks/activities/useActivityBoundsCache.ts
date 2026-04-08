@@ -98,13 +98,14 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     };
   }, []);
 
-  // Subscribe to Rust engine activity changes
+  // Subscribe to Rust engine activity changes — retry if engine not ready on mount
   useEffect(() => {
-    const engine = getRouteEngine();
-    if (!engine) return;
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
 
     // Helper to update both count and date range from engine stats
     const updateFromEngine = () => {
+      if (cancelled || !isMountedRef.current) return;
       const eng = getRouteEngine();
       if (!eng) {
         setActivityCount(0);
@@ -123,16 +124,36 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       }
     };
 
-    // Initial update
-    updateFromEngine();
+    function trySubscribe(): boolean {
+      const engine = getRouteEngine();
+      if (!engine) return false;
 
-    // Subscribe to updates
-    const unsubscribe = engine.subscribe('activities', () => {
-      if (!isMountedRef.current) return;
       updateFromEngine();
-    });
 
-    return unsubscribe;
+      unsubscribe = engine.subscribe('activities', () => {
+        if (!isMountedRef.current) return;
+        updateFromEngine();
+      });
+      return true;
+    }
+
+    if (!trySubscribe()) {
+      const interval = setInterval(() => {
+        if (trySubscribe()) {
+          clearInterval(interval);
+        }
+      }, 200);
+      return () => {
+        cancelled = true;
+        clearInterval(interval);
+        unsubscribe?.();
+      };
+    }
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, []);
 
   // Cache statistics from engine (date range from engine's actual data)
