@@ -12,13 +12,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import {
-  useExportDatabaseBackup,
-  useImportDatabaseBackup,
-  useExportBackup,
-  useImportBackup,
-  useBulkExport,
-} from '@/hooks';
+import { useExportDatabaseBackup, useImportDatabaseBackup, useBulkExport } from '@/hooks';
 import { formatFileSize } from '@/lib';
 import { useTheme } from '@/hooks';
 import { getRouteEngine } from '@/lib/native/routeEngine';
@@ -115,13 +109,9 @@ export function BackupSection() {
     }
   }, [handleSaveWebdav, t]);
 
-  // Database backup (primary)
+  // Database backup
   const { exportDatabaseBackup, exporting: dbExporting } = useExportDatabaseBackup();
   const { importDatabaseBackup, importing: dbImporting } = useImportDatabaseBackup();
-
-  // Legacy JSON backup
-  const { exportBackup: legacyExport, exporting: legacyExporting } = useExportBackup();
-  const { importBackup: legacyImport, importing: legacyImporting } = useImportBackup();
 
   // Bulk export
   const {
@@ -326,7 +316,7 @@ export function BackupSection() {
         </View>
         <View style={[styles.divider, isDark && styles.dividerDark]} />
 
-        {/* Database export */}
+        {/* Export backup */}
         <TouchableOpacity
           style={styles.actionRow}
           onPress={dbExporting ? undefined : exportDatabaseBackup}
@@ -335,7 +325,7 @@ export function BackupSection() {
         >
           <MaterialCommunityIcons name="database-export-outline" size={22} color={colors.primary} />
           <Text style={[styles.actionText, isDark && styles.textLight]}>
-            {dbExporting ? t('backup.exportingDatabase') : t('backup.exportDatabase')}
+            {dbExporting ? t('backup.exporting') : t('backup.exportBackup')}
           </Text>
           <MaterialCommunityIcons
             name="chevron-right"
@@ -345,7 +335,7 @@ export function BackupSection() {
         </TouchableOpacity>
         <View style={[styles.divider, isDark && styles.dividerDark]} />
 
-        {/* Database import */}
+        {/* Import backup (auto-detects .veloqdb and legacy .veloq) */}
         <TouchableOpacity
           style={styles.actionRow}
           onPress={dbImporting ? undefined : importDatabaseBackup}
@@ -354,45 +344,7 @@ export function BackupSection() {
         >
           <MaterialCommunityIcons name="database-import-outline" size={22} color={colors.primary} />
           <Text style={[styles.actionText, isDark && styles.textLight]}>
-            {dbImporting ? t('backup.importingDatabase') : t('backup.importDatabase')}
-          </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textSecondary}
-          />
-        </TouchableOpacity>
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
-
-        {/* Legacy JSON export */}
-        <TouchableOpacity
-          style={styles.actionRow}
-          onPress={legacyExporting ? undefined : legacyExport}
-          disabled={legacyExporting}
-          activeOpacity={0.2}
-        >
-          <MaterialCommunityIcons name="cloud-upload-outline" size={22} color={colors.primary} />
-          <Text style={[styles.actionText, isDark && styles.textLight]}>
-            {legacyExporting ? t('backup.exporting') : t('backup.exportBackup')}
-          </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textSecondary}
-          />
-        </TouchableOpacity>
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
-
-        {/* Legacy JSON import */}
-        <TouchableOpacity
-          style={styles.actionRow}
-          onPress={legacyImporting ? undefined : legacyImport}
-          disabled={legacyImporting}
-          activeOpacity={0.2}
-        >
-          <MaterialCommunityIcons name="cloud-download-outline" size={22} color={colors.primary} />
-          <Text style={[styles.actionText, isDark && styles.textLight]}>
-            {legacyImporting ? t('backup.importing') : t('backup.importBackup')}
+            {dbImporting ? t('backup.importing') : t('backup.importBackup')}
           </Text>
           <MaterialCommunityIcons
             name="chevron-right"

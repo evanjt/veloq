@@ -131,10 +131,5 @@ export { useUserLocation } from './useUserLocation';
 
 // Export hooks
 export { useGpxExport } from './export';
-export {
-  useExportBackup,
-  useImportBackup,
-  useExportDatabaseBackup,
-  useImportDatabaseBackup,
-} from './export';
+export { useExportDatabaseBackup, useImportDatabaseBackup } from './export';
 export { useBulkExport } from './export';
