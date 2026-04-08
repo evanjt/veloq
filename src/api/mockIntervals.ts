@@ -176,18 +176,6 @@ export const mockIntervalsApi = {
   },
 
   /**
-   * Get athlete profile with sport settings
-   */
-  async getAthleteProfile(): Promise<Athlete & { sport_settings?: SportSettings[] }> {
-    await delay(100);
-    const [{ fixtures }, { demoSportSettings }] = await Promise.all([loadFixtures(), loadCurves()]);
-    return {
-      ...(fixtures.athlete as Athlete),
-      sport_settings: demoSportSettings as SportSettings[],
-    };
-  },
-
-  /**
    * Get activity map data (GPS coordinates and bounds)
    */
   async getActivityMap(id: string, boundsOnly = false): Promise<ActivityMapData | null> {

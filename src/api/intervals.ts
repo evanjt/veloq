@@ -308,16 +308,6 @@ export const intervalsApi = {
   },
 
   /**
-   * Get athlete profile with settings
-   */
-  async getAthleteProfile(): Promise<Athlete & { sport_settings?: SportSettings[] }> {
-    if (isDemoMode()) return mockIntervalsApi.getAthleteProfile();
-    const athleteId = getAthleteId();
-    const response = await apiClient.get(`/athlete/${athleteId}`);
-    return response.data;
-  },
-
-  /**
    * Get activity map data (bounds and/or coordinates)
    * @param id - Activity ID
    * @param boundsOnly - If true, only returns bounds (faster, smaller response)
