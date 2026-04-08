@@ -573,7 +573,6 @@
     "today": "TODAY",
     "tomorrow": "TOMORROW",
     "showMethodology": "Show methodology",
-    "howCalculated": "How was this calculated?",
     "sourceActivities": "Source activities",
     "basedOnActivities": "Based on {{count}} activities",
     "confidence": "{{value}}% confident",
@@ -676,7 +675,9 @@
       "volumeDown": "Recent 2-week average is {{percent}}% below the prior 2 weeks.",
       "volumeSteady": "Recent 2-week average is holding steady versus the earlier part of the month."
     },
+    "howCalculated": "How was this calculated?",
     "quickTake": {
+      "howCalculated": "How was this calculated?",
       "title": "Quick Take",
       "whatChanged": "What changed",
       "whyItMatters": "Why it matters",

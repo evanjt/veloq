@@ -677,6 +677,7 @@
       "volumeSteady": "A média das 2 últimas semanas está estável em relação ao início do mês."
     },
     "quickTake": {
+      "howCalculated": "How was this calculated?",
       "title": "Quick Take",
       "whatChanged": "What changed",
       "whyItMatters": "Why it matters",
@@ -1323,6 +1324,7 @@
     "dialect": "Dialeto",
     "disconnectAccount": "Desconectar conta",
     "disconnectDescription": "Isso removera suas credenciais de API do aplicativo. Voce precisara inseri-las novamente para usar o aplicativo.",
+    "displayAndMaps": "Display & Maps",
     "display": "Tela",
     "enableRouteMatching": "Ativar correspondencia de rotas",
     "expandCache": "Carregar mais",

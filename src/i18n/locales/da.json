@@ -677,6 +677,7 @@
       "volumeSteady": "De seneste 2 ugers gennemsnit er stabilt sammenlignet med starten af måneden."
     },
     "quickTake": {
+      "howCalculated": "How was this calculated?",
       "title": "Quick Take",
       "whatChanged": "What changed",
       "whyItMatters": "Why it matters",
@@ -1324,6 +1325,7 @@
     "dialect": "Dialekt",
     "disconnectAccount": "Afbryd konto",
     "disconnectDescription": "Dette vil fjerne dine API-legitimationsoplysninger fra appen. Du skal indtaste dem igen for at bruge appen.",
+    "displayAndMaps": "Display & Maps",
     "display": "Visning",
     "enableRouteMatching": "Aktivér rutematchning",
     "expandCache": "Indlæs mere",

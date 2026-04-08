@@ -677,6 +677,7 @@
       "volumeSteady": "La media de las 2 últimas semanas se mantiene estable respecto al inicio del mes."
     },
     "quickTake": {
+      "howCalculated": "How was this calculated?",
       "title": "Quick Take",
       "whatChanged": "What changed",
       "whyItMatters": "Why it matters",
@@ -1323,6 +1324,7 @@
     "dialect": "Dialecto",
     "disconnectAccount": "Desconectar cuenta",
     "disconnectDescription": "Esto eliminará vuestras credenciales API de la app. Tendréis que ingresarlas de nuevo para usar la app.",
+    "displayAndMaps": "Display & Maps",
     "display": "Pantalla",
     "enableRouteMatching": "Activar coincidencia de rutas",
     "expandCache": "Cargar más",

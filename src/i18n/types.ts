@@ -289,6 +289,7 @@ export interface TranslationResource {
   settings: {
     title: string;
     display: string;
+    displayAndMaps: string;
     appearance: string;
     system: string;
     light: string;
@@ -684,6 +685,7 @@ export interface TranslationResource {
       volumeSteady: string;
     };
     quickTake: {
+      howCalculated: string;
       title: string;
       whatChanged: string;
       whyItMatters: string;

@@ -677,6 +677,7 @@
       "volumeSteady": "Het 2-weken-gemiddelde is stabiel vergeleken met het begin van de maand."
     },
     "quickTake": {
+      "howCalculated": "How was this calculated?",
       "title": "Quick Take",
       "whatChanged": "What changed",
       "whyItMatters": "Why it matters",
@@ -1323,6 +1324,7 @@
     "dialect": "Dialect",
     "disconnectAccount": "Account loskoppelen",
     "disconnectDescription": "Dit verwijdert je API-gegevens uit de app. Je moet ze opnieuw invoeren om de app te gebruiken.",
+    "displayAndMaps": "Display & Maps",
     "display": "Weergave",
     "enableRouteMatching": "Route-matching inschakelen",
     "expandCache": "Meer laden",

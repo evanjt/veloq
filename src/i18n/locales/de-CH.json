@@ -677,6 +677,7 @@
       "volumeSteady": "De 2-Wuche-Schnitt isch stabil im Vergliich zum Monatsaafang."
     },
     "quickTake": {
+      "howCalculated": "How was this calculated?",
       "title": "Quick Take",
       "whatChanged": "What changed",
       "whyItMatters": "Why it matters",
@@ -1323,6 +1324,7 @@
     "dialect": "Dialekt",
     "disconnectAccount": "Konto trenne",
     "disconnectDescription": "Entfernt API-Date. Muesch nomol iigee.",
+    "displayAndMaps": "Display & Maps",
     "display": "Anzeige",
     "enableRouteMatching": "Route-Matching aa",
     "expandCache": "Meh lade",

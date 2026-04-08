@@ -677,6 +677,7 @@
       "volumeSteady": "Średnia z ostatnich 2 tygodni jest stabilna w porównaniu z początkiem miesiąca."
     },
     "quickTake": {
+      "howCalculated": "How was this calculated?",
       "title": "Quick Take",
       "whatChanged": "What changed",
       "whyItMatters": "Why it matters",
@@ -1323,6 +1324,7 @@
     "dialect": "Dialekt",
     "disconnectAccount": "Odłącz konto",
     "disconnectDescription": "Usunie Twoje dane uwierzytelniające API z aplikacji. Będziesz musiał je ponownie wprowadzić, aby korzystać z aplikacji.",
+    "displayAndMaps": "Display & Maps",
     "display": "Wyświetlanie",
     "enableRouteMatching": "Włącz dopasowywanie tras",
     "expandCache": "Załaduj więcej",

@@ -677,6 +677,7 @@
       "volumeSteady": "Der 2-Wochen-Durchschnitt ist stabil im Vergleich zum Monatsbeginn."
     },
     "quickTake": {
+      "howCalculated": "How was this calculated?",
       "title": "Quick Take",
       "whatChanged": "What changed",
       "whyItMatters": "Why it matters",
@@ -1323,6 +1324,7 @@
     "dialect": "Dialekt",
     "disconnectAccount": "Konto trennen",
     "disconnectDescription": "Dies entfernt deine API-Zugangsdaten aus der App. Du musst sie erneut eingeben, um die App zu nutzen.",
+    "displayAndMaps": "Display & Maps",
     "display": "Anzeige",
     "enableRouteMatching": "Routenabgleich aktivieren",
     "expandCache": "Mehr laden",

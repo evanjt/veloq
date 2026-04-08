@@ -677,6 +677,7 @@
       "volumeSteady": "直近2週間の平均は月初と比べて安定しています。"
     },
     "quickTake": {
+      "howCalculated": "How was this calculated?",
       "title": "Quick Take",
       "whatChanged": "What changed",
       "whyItMatters": "Why it matters",
@@ -1323,6 +1324,7 @@
     "dialect": "方言",
     "disconnectAccount": "アカウントを切断",
     "disconnectDescription": "アプリからAPI認証情報が削除されます。アプリを使用するには再度入力が必要です。",
+    "displayAndMaps": "Display & Maps",
     "display": "表示",
     "enableRouteMatching": "ルートマッチングを有効化",
     "expandCache": "もっと読み込む",
