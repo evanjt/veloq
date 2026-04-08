@@ -223,7 +223,7 @@ export function useGpsDataFetcher() {
         return {
           syncedIds: [],
           withGpsCount: 0,
-          message: 'Engine not available',
+          message: i18n.t('cache.engineNotAvailable'),
         };
       }
 
@@ -234,7 +234,7 @@ export function useGpsDataFetcher() {
           completed: 0,
           total: activities.length,
           percent: 0,
-          message: 'Loading demo GPS data...',
+          message: i18n.t('cache.loadingDemoGps'),
         });
       }
 
@@ -408,14 +408,14 @@ export function useGpsDataFetcher() {
             completed: ids.length,
             total: activities.length,
             percent: 100,
-            message: `Synced ${ids.length} demo activities`,
+            message: i18n.t('cache.syncedDemoActivities', { count: ids.length }),
           });
         }
 
         return {
           syncedIds: ids,
           withGpsCount: activities.length,
-          message: `Synced ${ids.length} demo activities`,
+          message: i18n.t('cache.syncedDemoActivities', { count: ids.length }),
         };
       }
 
@@ -426,7 +426,7 @@ export function useGpsDataFetcher() {
           completed: 0,
           total: activities.length,
           percent: 0,
-          message: `No valid GPS data found (checked ${activities.length} activities)`,
+          message: i18n.t('cache.noValidGpsChecked', { count: activities.length }),
         });
       }
 
@@ -445,7 +445,7 @@ export function useGpsDataFetcher() {
       return {
         syncedIds: [],
         withGpsCount: activities.length,
-        message: 'No valid GPS data in fixtures',
+        message: i18n.t('cache.noValidGpsData'),
       };
     },
     []
@@ -516,7 +516,7 @@ export function useGpsDataFetcher() {
           completed: 0,
           total: activities.length,
           percent: 0,
-          message: 'Fetching GPS data...',
+          message: i18n.t('cache.fetchingGpsData'),
         });
       }
 
@@ -538,7 +538,7 @@ export function useGpsDataFetcher() {
           completed: 0,
           total: activityIds.length,
           percent: 0,
-          message: `Downloading GPS data... 0/${activityIds.length}`,
+          message: i18n.t('cache.downloadingGpsProgress', { completed: 0, total: activityIds.length }),
         });
       }
 
@@ -568,7 +568,7 @@ export function useGpsDataFetcher() {
             completed: progress.completed,
             total: progress.total,
             percent: dlPercent,
-            message: `Downloading GPS data... ${progress.completed}/${progress.total}`,
+            message: i18n.t('cache.downloadingGpsProgress', { completed: progress.completed, total: progress.total }),
           });
         } else {
           if (__DEV__) {
@@ -741,14 +741,14 @@ export function useGpsDataFetcher() {
           completed: result.successCount,
           total: activities.length,
           percent: 100,
-          message: `Synced ${result.successCount} activities`,
+          message: i18n.t('cache.syncedActivities', { count: result.successCount }),
         });
       }
 
       return {
         syncedIds: result.syncedIds,
         withGpsCount: activities.length,
-        message: `Synced ${result.successCount} activities`,
+        message: i18n.t('cache.syncedActivities', { count: result.successCount }),
       };
     },
     []

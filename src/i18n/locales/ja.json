@@ -314,7 +314,11 @@
     "syncResetDiscarded": "同期がリセットされました - 結果は破棄されました",
     "downloadingTiles": "マップタイルをキャッシュ中",
     "renderingTerrainPreviews": "3Dプレビューを生成中",
-    "syncingActivities": "アクティビティを同期中"
+    "syncingActivities": "アクティビティを同期中",
+    "syncedActivities": "Synced {{count}} activities",
+    "syncedDemoActivities": "Synced {{count}} demo activities",
+    "downloadingGpsProgress": "Downloading GPS data... {{completed}}/{{total}}",
+    "noValidGpsChecked": "No valid GPS data found (checked {{count}} activities)"
   },
   "chartTypes": {
     "alt": "高度",
@@ -565,7 +569,17 @@
       "kmeans": "アクティビティを曜日、時間、スポーツタイプでグループ化し、繰り返しのトレーニングパターンを特定します。",
       "prDetection": "最新の区間タイムを過去のすべてのタイムと比較してPRを検出します。",
       "sectionTrend": "頻繁に訪れる区間での中央値パフォーマンスの推移を追跡します。",
-      "periodComparison": "連続する週間のトレーニング指標を比較して進捗を追跡します。"
+      "periodComparison": "連続する週間のトレーニング指標を比較して進捗を追跡します。",
+      "hrvName": "HRV rolling average trend",
+      "hrvDescription": "HRV trend based on your 7-day rolling average. HRV accuracy depends on measurement device and consistency. Trends over days are more reliable than single readings.",
+      "prDetectionName": "Personal record detection",
+      "periodComparisonName": "Period comparison",
+      "periodComparisonRestDay": "Compares last week against your 4-week average when the current week has no activities yet.",
+      "ftpEstimation": "Tracks changes in your estimated FTP over time based on power data from your activities. FTP detection uses intervals.icu's algorithms, which may include auto-detection from activity data.",
+      "ftpEstimationName": "Functional Threshold Power estimation",
+      "thresholdSpeedName": "Threshold speed trend analysis",
+      "thresholdSpeedDescription": "Compares your latest threshold-speed estimate against previous values, then formats the change as athlete-readable pace for display.",
+      "fitnessPrName": "Fitness-PR cross-reference"
     },
     "alternatives": {
       "selected": "現在の評価",
@@ -1273,7 +1287,9 @@
     "rematchActivities": "Re-match activities",
     "awayDistance": "{{distance}}m away",
     "viewSection": "View",
-    "merge": "Merge"
+    "merge": "Merge",
+    "autoName": "{{sport}} Section ({{distance}})",
+    "suggestedName": "Suggested: {{sport}} ({{distance}})"
   },
   "settings": {
     "account": "アカウント",

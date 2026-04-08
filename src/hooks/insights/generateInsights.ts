@@ -275,9 +275,8 @@ function addPaceMilestoneInsight(
         ],
       },
       methodology: {
-        name: 'Threshold speed trend analysis',
-        description:
-          'Compares your latest threshold-speed estimate against previous values, then formats the change as athlete-readable pace for display.',
+        name: t('insights.methodology.thresholdSpeedName'),
+        description: t('insights.methodology.thresholdSpeedDescription'),
       },
     })
   );
@@ -387,8 +386,8 @@ function addSectionPRInsights(
           ],
         },
         methodology: {
-          name: 'Personal record detection',
-          description: 'Compares your latest section time against all previous efforts.',
+          name: t('insights.methodology.prDetectionName'),
+          description: t('insights.methodology.prDetection'),
         },
       })
     );
@@ -487,9 +486,8 @@ function addHrvTrendInsight(
         sparklineLabel: t('insights.data.hrvSevenDay'),
       },
       methodology: {
-        name: 'HRV rolling average trend',
-        description:
-          'HRV trend based on your 7-day rolling average. HRV accuracy depends on measurement device and consistency. Trends over days are more reliable than single readings.',
+        name: t('insights.methodology.hrvName'),
+        description: t('insights.methodology.hrvDescription'),
       },
     })
   );
@@ -545,8 +543,8 @@ function addPeriodComparisonInsights(
   const downKey = useTss ? 'insights.weeklyLoadDown' : 'insights.weeklyVolumeDown';
 
   const comparisonMethodology: InsightMethodology = {
-    name: 'Period comparison',
-    description: 'Compares training metrics between consecutive weeks to track progression.',
+    name: t('insights.methodology.periodComparisonName'),
+    description: t('insights.methodology.periodComparison'),
   };
 
   const comparisonSupportingData: InsightSupportingData = {
@@ -670,9 +668,8 @@ function addLastWeekVsAverageInsight(
         },
       },
       methodology: {
-        name: 'Period comparison',
-        description:
-          'Compares last week against your 4-week average when the current week has no activities yet.',
+        name: t('insights.methodology.periodComparisonName'),
+        description: t('insights.methodology.periodComparisonRestDay'),
       },
     })
   );
@@ -735,9 +732,8 @@ function addFitnessMilestoneInsights(
             ],
           },
           methodology: {
-            name: 'Functional Threshold Power estimation',
-            description:
-              "Tracks changes in your estimated FTP over time based on power data from your activities. FTP detection uses intervals.icu's algorithms, which may include auto-detection from activity data.",
+            name: t('insights.methodology.ftpEstimationName'),
+            description: t('insights.methodology.ftpEstimation'),
           },
         })
       );
@@ -855,7 +851,7 @@ function addStalePRInsights(
           algorithmDescription: t('insights.stalePr.methodology'),
         },
         methodology: {
-          name: 'Fitness-PR cross-reference',
+          name: t('insights.methodology.fitnessPrName'),
           description: t('insights.stalePr.methodology'),
         },
       })

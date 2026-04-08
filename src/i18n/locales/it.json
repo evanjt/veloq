@@ -314,7 +314,11 @@
     "syncResetDiscarded": "Sync reimpostata - risultati scartati",
     "downloadingTiles": "Cache delle tessere mappa",
     "renderingTerrainPreviews": "Generazione anteprime 3D",
-    "syncingActivities": "Sincronizzazione attività"
+    "syncingActivities": "Sincronizzazione attività",
+    "syncedActivities": "Synced {{count}} activities",
+    "syncedDemoActivities": "Synced {{count}} demo activities",
+    "downloadingGpsProgress": "Downloading GPS data... {{completed}}/{{total}}",
+    "noValidGpsChecked": "No valid GPS data found (checked {{count}} activities)"
   },
   "chartTypes": {
     "alt": "Alt",
@@ -565,7 +569,17 @@
       "kmeans": "Raggruppa le tue attività per giorno, durata e tipo di sport per identificare schemi di allenamento ricorrenti.",
       "prDetection": "Confronta il tuo ultimo tempo su una sezione con tutti i tentativi precedenti per rilevare record personali.",
       "sectionTrend": "Monitora la prestazione mediana sulle sezioni visitate frequentemente nel tempo.",
-      "periodComparison": "Confronta le metriche di allenamento tra settimane consecutive per monitorare la progressione."
+      "periodComparison": "Confronta le metriche di allenamento tra settimane consecutive per monitorare la progressione.",
+      "hrvName": "HRV rolling average trend",
+      "hrvDescription": "HRV trend based on your 7-day rolling average. HRV accuracy depends on measurement device and consistency. Trends over days are more reliable than single readings.",
+      "prDetectionName": "Personal record detection",
+      "periodComparisonName": "Period comparison",
+      "periodComparisonRestDay": "Compares last week against your 4-week average when the current week has no activities yet.",
+      "ftpEstimation": "Tracks changes in your estimated FTP over time based on power data from your activities. FTP detection uses intervals.icu's algorithms, which may include auto-detection from activity data.",
+      "ftpEstimationName": "Functional Threshold Power estimation",
+      "thresholdSpeedName": "Threshold speed trend analysis",
+      "thresholdSpeedDescription": "Compares your latest threshold-speed estimate against previous values, then formats the change as athlete-readable pace for display.",
+      "fitnessPrName": "Fitness-PR cross-reference"
     },
     "alternatives": {
       "selected": "Valutazione attuale",
@@ -1273,7 +1287,9 @@
     "rematchActivities": "Re-match activities",
     "awayDistance": "{{distance}}m away",
     "viewSection": "View",
-    "merge": "Merge"
+    "merge": "Merge",
+    "autoName": "{{sport}} Section ({{distance}})",
+    "suggestedName": "Suggested: {{sport}} ({{distance}})"
   },
   "settings": {
     "account": "Account",

@@ -6,7 +6,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTheme } from '@/hooks';
 import { darkColors, colors, colorWithOpacity } from '@/theme';
-import { getFormZone, FORM_ZONE_COLORS } from '@/lib';
+import { getFormZone, FORM_ZONE_COLORS, getIntlLocale } from '@/lib';
 
 const CHART_HEIGHT = 44;
 const FORM_BAR_HEIGHT = 4;
@@ -103,7 +103,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     const daysAgo = fitness.length - 1 - index;
     const date = new Date();
     date.setDate(date.getDate() - daysAgo);
-    const dateLabel = date.toLocaleDateString(undefined, {
+    const dateLabel = date.toLocaleDateString(getIntlLocale(), {
       month: 'short',
       day: 'numeric',
     });

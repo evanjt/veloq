@@ -935,6 +935,8 @@ export default function SectionDetailScreen() {
                 isDark={isDark}
                 isRunning={isRunning}
                 activityColor={activityColor}
+                onSetAsReference={handleSetAsReference}
+                referenceActivityId={effectiveReferenceId}
               />
             )}
           </View>

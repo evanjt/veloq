@@ -21,7 +21,7 @@ import {
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { navigateTo, safeGetTime } from '@/lib';
+import { navigateTo, safeGetTime, getIntlLocale } from '@/lib';
 import { CartesianChart, Line, type PointsArray } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -70,7 +70,7 @@ function formatShortDate(date: Date): string {
 
 /** Format date for axis labels - includes year as 2-digit suffix */
 function formatAxisDate(date: Date): string {
-  const month = date.toLocaleDateString(undefined, { month: 'short' });
+  const month = date.toLocaleDateString(getIntlLocale(), { month: 'short' });
   const year = date.getFullYear().toString().slice(-2);
   return `${month} '${year}`;
 }

@@ -18,7 +18,7 @@ import Animated, {
   useAnimatedReaction,
   runOnJS,
 } from 'react-native-reanimated';
-import { navigateTo } from '@/lib';
+import { navigateTo, getIntlLocale } from '@/lib';
 import {
   formatPace,
   formatSpeed,
@@ -47,7 +47,7 @@ function formatShortDate(date: Date): string {
 
 /** Format date for axis labels */
 function formatAxisDate(date: Date): string {
-  const month = date.toLocaleDateString(undefined, { month: 'short' });
+  const month = date.toLocaleDateString(getIntlLocale(), { month: 'short' });
   const year = date.getFullYear().toString().slice(-2);
   return `${month} '${year}`;
 }
@@ -779,14 +779,16 @@ export function SectionScatterChart({
                 {onSetAsReference && !selectedPoint.isExcluded && (
                   <TouchableOpacity
                     onPress={() => onSetAsReference(selectedPoint.activityId)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     style={styles.referenceButton}
                     accessibilityLabel="Set as reference"
                     accessibilityRole="button"
                   >
                     <MaterialCommunityIcons
                       name={
-                        selectedPoint.activityId === referenceActivityId ? 'flag' : 'flag-outline'
+                        selectedPoint.activityId === referenceActivityId
+                          ? 'star'
+                          : 'star-outline'
                       }
                       size={18}
                       color={
@@ -1035,8 +1037,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   referenceButton: {
-    padding: 4,
-    marginLeft: 4,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 2,
   },
   excludeButton: {
     padding: 2,

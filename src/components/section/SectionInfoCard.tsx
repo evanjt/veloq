@@ -8,13 +8,13 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { navigateTo } from '@/lib';
+import { navigateTo, getIntlLocale } from '@/lib';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 
 /** Format date as "Jan '24" */
 function formatShortYearDate(date: Date): string {
-  const month = date.toLocaleDateString(undefined, { month: 'short' });
+  const month = date.toLocaleDateString(getIntlLocale(), { month: 'short' });
   const year = date.getFullYear().toString().slice(-2);
   return `${month} '${year}`;
 }
@@ -88,7 +88,7 @@ export function SectionInfoCard({
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons
-            name={isReferenceUserDefined ? 'flag' : 'flag-outline'}
+            name={isReferenceUserDefined ? 'star' : 'star-outline'}
             size={14}
             color={isReferenceUserDefined ? colors.primary : textSecondary}
           />

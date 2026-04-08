@@ -1054,6 +1054,8 @@ export interface TranslationResource {
     totalTraversals: string;
     last: string;
     lastActivity: string;
+    autoName: string;
+    suggestedName: string;
     defaultName: string;
     deleteSection: string;
     deleteSectionConfirm: string;
@@ -1161,11 +1163,35 @@ export interface TranslationResource {
   };
 
   cache: {
-    syncingActivities: string;
+    addingActivities: string;
+    allActivitiesSynced: string;
+    analyzingRouteGroups: string;
     analyzingRoutes: string;
     analyzingRoutesProgress: string;
-    routeAnalysisComplete: string;
+    cancelled: string;
+    complete: string;
+    detectingSections: string;
+    detectingSectionsProgress: string;
+    downloadingActivities: string;
+    downloadingGpsProgress: string;
+    downloadingTiles: string;
+    engineNotAvailable: string;
+    fetchingGpsData: string;
+    loadingDemoGps: string;
+    nativeModuleUnavailable: string;
+    noValidGpsData: string;
+    noValidGpsChecked: string;
+    offlineUsingCached: string;
+    processingGpsTracks: string;
+    processingRoutes: string;
     renderingTerrainPreviews: string;
+    routeAnalysisComplete: string;
+    syncComplete: string;
+    syncFailed: string;
+    syncResetDiscarded: string;
+    syncedActivities: string;
+    syncedDemoActivities: string;
+    syncingActivities: string;
   };
 
   chartTypes: {
