@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { router } from 'expo-router';
@@ -12,13 +12,14 @@ import {
   useSportPreference,
   useLanguageStore,
   useUnitPreference,
+  useAuthStore,
   type ThemePreference,
   type PrimarySport,
   type UnitPreference,
 } from '@/providers';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { navigateTo } from '@/lib';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import {
-  ProfileAccountSection,
   DisplaySettings,
   MapsSection,
   SummaryCardSection,
@@ -27,6 +28,81 @@ import {
   NotificationSection,
   SupportSection,
 } from '@/components/settings';
+import { settingsStyles } from '@/components/settings/settingsStyles';
+
+interface AccountRowProps {
+  athlete?: { name?: string; profile?: string; profile_medium?: string };
+  authMethod: string | null;
+  profileImageError: boolean;
+  onProfileImageError: () => void;
+  isDark: boolean;
+}
+
+function AccountRow({
+  athlete,
+  authMethod,
+  profileImageError,
+  onProfileImageError,
+  isDark,
+}: AccountRowProps) {
+  const { t } = useTranslation();
+  const profileUrl = athlete?.profile_medium || athlete?.profile;
+  const hasValidProfileUrl =
+    profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
+
+  const badgeLabel =
+    authMethod === 'oauth' ? 'OAuth' : authMethod === 'apiKey' ? 'API key' : 'Demo';
+
+  return (
+    <View
+      style={[
+        settingsStyles.sectionCard,
+        isDark && settingsStyles.sectionCardDark,
+        styles.accountCard,
+      ]}
+    >
+      <TouchableOpacity
+        testID="settings-account-row"
+        style={styles.accountRow}
+        onPress={() => navigateTo('/account')}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.accountPhoto, isDark && styles.accountPhotoDark]}>
+          {hasValidProfileUrl && !profileImageError ? (
+            <Image
+              source={{ uri: profileUrl }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+              onError={onProfileImageError}
+            />
+          ) : (
+            <MaterialCommunityIcons
+              name="account"
+              size={22}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            />
+          )}
+        </View>
+        <View style={styles.accountInfo}>
+          <Text
+            style={[styles.accountName, isDark && settingsStyles.textLight]}
+            numberOfLines={1}
+          >
+            {athlete?.name || t('settings.account')}
+          </Text>
+          <Text style={[styles.accountBadge, isDark && settingsStyles.textMuted]}>
+            {badgeLabel}
+          </Text>
+        </View>
+        <MaterialCommunityIcons
+          name="chevron-right"
+          size={20}
+          color={isDark ? darkColors.textMuted : colors.textSecondary}
+        />
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 export default function SettingsScreen() {
   // Performance timing
@@ -42,6 +118,8 @@ export default function SettingsScreen() {
   const [showLanguages, setShowLanguages] = useState(false);
 
   const { data: athlete } = useAthlete();
+  const authMethod = useAuthStore((state) => state.authMethod);
+  const [profileImageError, setProfileImageError] = useState(false);
   const primarySport = useSportPreference((s) => s.primarySport);
   const setPrimarySport = useSportPreference((s) => s.setPrimarySport);
   const language = useLanguageStore((s) => s.language);
@@ -95,8 +173,14 @@ export default function SettingsScreen() {
             <View style={styles.headerSpacer} />
           </View>
 
-          {/* Profile & Account Section */}
-          <ProfileAccountSection athlete={athlete} />
+          {/* Account navigation row */}
+          <AccountRow
+            athlete={athlete}
+            authMethod={authMethod}
+            profileImageError={profileImageError}
+            onProfileImageError={() => setProfileImageError(true)}
+            isDark={isDark}
+          />
 
           <SummaryCardSection />
 
@@ -162,5 +246,41 @@ const styles = StyleSheet.create({
   },
   textLight: {
     color: colors.textOnDark,
+  },
+  accountCard: {
+    marginTop: spacing.md,
+    marginHorizontal: layout.screenPadding,
+  },
+  accountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    gap: spacing.sm,
+    minHeight: layout.minTapTarget,
+  },
+  accountPhoto: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  accountPhotoDark: {
+    backgroundColor: darkColors.surfaceElevated,
+  },
+  accountInfo: {
+    flex: 1,
+  },
+  accountName: {
+    ...typography.body,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  accountBadge: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 1,
   },
 });
