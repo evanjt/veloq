@@ -55,11 +55,18 @@ export function BackupSection() {
     if (backingUp) return;
     setBackingUp(true);
     try {
-      await performBackup(true);
+      const success = await performBackup(true);
+      if (success) {
+        Alert.alert(t('backup.backupSuccessTitle'), t('backup.backupSuccessMessage'));
+      } else {
+        Alert.alert(t('backup.backupFailedTitle'), t('backup.backupFailedMessage'));
+      }
+    } catch {
+      Alert.alert(t('backup.backupFailedTitle'), t('backup.backupFailedMessage'));
     } finally {
       setBackingUp(false);
     }
-  }, [backingUp]);
+  }, [backingUp, t]);
 
   // Backend picker state
   const [currentBackend, setCurrentBackend] = useState(() => getConfiguredBackend());
