@@ -25,7 +25,7 @@ const MPS_TO_MPH = 2.23694;
  * getIntlLocale(); // "zh-CN" for "zh-Hans"
  * ```
  */
-function getIntlLocale(): string {
+export function getIntlLocale(): string {
   const locale = getCurrentLanguage();
 
   // Map custom locale codes to valid Intl codes

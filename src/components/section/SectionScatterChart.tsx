@@ -18,7 +18,7 @@ import Animated, {
   useAnimatedReaction,
   runOnJS,
 } from 'react-native-reanimated';
-import { navigateTo } from '@/lib';
+import { navigateTo, getIntlLocale } from '@/lib';
 import {
   formatPace,
   formatSpeed,
@@ -47,7 +47,7 @@ function formatShortDate(date: Date): string {
 
 /** Format date for axis labels */
 function formatAxisDate(date: Date): string {
-  const month = date.toLocaleDateString(undefined, { month: 'short' });
+  const month = date.toLocaleDateString(getIntlLocale(), { month: 'short' });
   const year = date.getFullYear().toString().slice(-2);
   return `${month} '${year}`;
 }
