@@ -414,7 +414,7 @@ describe('generateInsights', () => {
 
     it('does not generate ramp rate insight', () => {
       const result = generateInsights(
-        { ...EMPTY_INPUT, formTsb: 0, formCtl: 50, formAtl: 50, rampRate: 4 },
+        { ...EMPTY_INPUT, formTsb: 0, formCtl: 50, formAtl: 50 },
         mockT
       );
       expect(result.find((i) => i.id === 'form_trajectory-ramp')).toBeUndefined();

@@ -99,8 +99,6 @@ export interface InsightInputData {
   }>;
   // 4-week chronic period for weekly load change
   chronicPeriod?: PeriodStats | null;
-  // Ramp rate from wellness (unused — removed ramp rate insight)
-  rampRate?: number | null;
   // All section trends (for cluster/trend insights)
   allSectionTrends?: SectionTrendData[];
   // Section IDs to check for aerobic efficiency trends (from getRankedSections)
