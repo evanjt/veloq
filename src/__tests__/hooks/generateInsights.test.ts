@@ -155,7 +155,7 @@ describe('generateInsights', () => {
     it('includes methodology with Kiviniemi reference in APA format', () => {
       const result = generateInsights(makeHrvInput([50, 52, 55, 58, 60]), mockT);
       const hrv = result.find((i) => i.id === 'hrv_trend');
-      expect(hrv!.methodology?.description).toContain('HRV');
+      expect(hrv!.methodology?.description).toContain('insights.methodology.hrvDescription');
     });
 
     it('skips when all HRV values are zero', () => {
