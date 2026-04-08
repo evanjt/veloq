@@ -16,7 +16,7 @@ import {
   useTheme,
   useEngineMapActivities,
 } from '@/hooks';
-import { useSyncDateRange } from '@/providers';
+import { useAuthStore, useSyncDateRange } from '@/providers';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { formatLocalDate } from '@/lib';
 
@@ -33,6 +33,7 @@ export default function MapScreen() {
 
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   // Attribution text from map (updated dynamically)
   const [attribution, setAttribution] = useState('© OpenFreeMap © OpenMapTiles © OpenStreetMap');
@@ -55,6 +56,7 @@ export default function MapScreen() {
     oldest: syncOldest,
     newest: syncNewest,
     includeStats: false,
+    enabled: isAuthenticated,
   });
 
   // Get sync state from engine cache
