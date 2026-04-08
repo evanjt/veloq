@@ -236,54 +236,6 @@ export const StrengthTab = React.memo(function StrengthTab() {
         </View>
       ) : (
         <>
-          <View style={[styles.heroCard, isDark && styles.heroCardDark]}>
-            <LinearGradient
-              colors={isDark ? ['#2A1A10', '#181818'] : ['#FFF5EC', '#FFFFFF']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.heroGradient}
-            >
-              <View style={styles.heroHeader}>
-                <Text style={[styles.heroEyebrow, isDark && styles.heroEyebrowDark]}>
-                  {t('strength.snapshot')}
-                </Text>
-                <Text style={[styles.heroTitle, isDark && styles.heroTitleDark]}>{heroTitle}</Text>
-                <Text style={[styles.heroBody, isDark && styles.heroBodyDark]}>
-                  {heroObservation}
-                </Text>
-              </View>
-
-              <View style={styles.heroChipRow}>
-                <View style={[styles.heroChip, isDark && styles.heroChipDark]}>
-                  <Text style={[styles.heroChipValue, isDark && styles.heroChipValueDark]}>
-                    {summary.activityCount}
-                  </Text>
-                  <Text style={[styles.heroChipLabel, isDark && styles.heroChipLabelDark]}>
-                    {t('strength.workoutCount_label', {
-                      count: summary.activityCount,
-                    })}
-                  </Text>
-                </View>
-                <View style={[styles.heroChip, isDark && styles.heroChipDark]}>
-                  <Text style={[styles.heroChipValue, isDark && styles.heroChipValueDark]}>
-                    {summary.totalSets}
-                  </Text>
-                  <Text style={[styles.heroChipLabel, isDark && styles.heroChipLabelDark]}>
-                    {t('strength.sets')}
-                  </Text>
-                </View>
-                <View style={[styles.heroChip, isDark && styles.heroChipDark]}>
-                  <Text style={[styles.heroChipValue, isDark && styles.heroChipValueDark]}>
-                    {summary.muscleVolumes.length}
-                  </Text>
-                  <Text style={[styles.heroChipLabel, isDark && styles.heroChipLabelDark]}>
-                    {t('strength.muscleGroups')}
-                  </Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
-
           {/* Body diagrams */}
           <View style={[styles.bodyCard, isDark && styles.bodyCardDark]}>
             <View style={styles.bodyHeader}>
@@ -376,124 +328,6 @@ export const StrengthTab = React.memo(function StrengthTab() {
               </View>
             </View>
           </View>
-
-          {visibleBalancePairs.length > 0 ? (
-            <View style={[styles.balanceCard, isDark && styles.balanceCardDark]}>
-              <View style={styles.balanceHeader}>
-                <View>
-                  <Text style={[styles.balanceTitle, isDark && styles.balanceTitleDark]}>
-                    {t('insights.strengthBalance.volumeSplit')}
-                  </Text>
-                  <Text style={[styles.balanceSubtitle, isDark && styles.balanceSubtitleDark]}>
-                    {t('strength.balanceObservedPairs', {
-                      period: periodLabel,
-                    })}
-                  </Text>
-                </View>
-                {featuredBalancePair ? (
-                  <View
-                    style={[
-                      styles.balanceHeroBadge,
-                      featuredBalancePair.status === 'balanced'
-                        ? styles.balanceHeroBadgeBalanced
-                        : styles.balanceHeroBadgeAlert,
-                    ]}
-                  >
-                    <Text style={styles.balanceHeroBadgeText}>
-                      {formatBalanceRatio(featuredBalancePair)}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-
-              {featuredBalancePair ? (
-                <Text style={[styles.balanceHeroText, isDark && styles.balanceHeroTextDark]}>
-                  {featuredBalancePair.status === 'balanced'
-                    ? t('strength.balancedPairsClose')
-                    : t('strength.balanceDominant', {
-                        dominant: featuredBalancePair.dominantLabel ?? 'One side',
-                        other:
-                          featuredBalancePair.dominantSlug === featuredBalancePair.leftSlug
-                            ? featuredBalancePair.rightLabel
-                            : featuredBalancePair.leftLabel,
-                        pair: featuredBalancePair.label.toLowerCase(),
-                      })}
-                </Text>
-              ) : null}
-
-              {visibleBalancePairs.map((pair, index) => (
-                <View
-                  key={pair.id}
-                  style={[
-                    styles.balanceRow,
-                    index > 0 && styles.balanceRowBorder,
-                    index > 0 && isDark && styles.balanceRowBorderDark,
-                  ]}
-                >
-                  <View style={styles.balanceRowHeader}>
-                    <Text style={[styles.balanceRowTitle, isDark && styles.balanceRowTitleDark]}>
-                      {pair.label}
-                    </Text>
-                    <View
-                      style={[
-                        styles.balanceStatusBadge,
-                        pair.status === 'balanced'
-                          ? styles.balanceStatusBalanced
-                          : pair.status === 'watch'
-                            ? styles.balanceStatusWatch
-                            : styles.balanceStatusImbalanced,
-                      ]}
-                    >
-                      <Text style={styles.balanceStatusText}>
-                        {pair.status === 'balanced'
-                          ? t('insights.strengthBalance.balanced')
-                          : pair.status === 'watch'
-                            ? t('insights.strengthBalance.watch')
-                            : pair.status === 'imbalanced'
-                              ? t('insights.strengthBalance.imbalanced')
-                              : pair.status === 'one-sided'
-                                ? t('insights.strengthBalance.oneSided')
-                                : t('insights.strengthBalance.lowSignal')}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.balanceValueRow}>
-                    <Text style={[styles.balanceValueText, isDark && styles.balanceValueTextDark]}>
-                      {pair.leftLabel} {formatSetCount(pair.leftWeightedSets)}
-                    </Text>
-                    <Text style={[styles.balanceValueText, isDark && styles.balanceValueTextDark]}>
-                      {pair.rightLabel} {formatSetCount(pair.rightWeightedSets)}
-                    </Text>
-                  </View>
-
-                  <View style={[styles.balanceScale, isDark && styles.balanceScaleDark]}>
-                    <View
-                      style={[
-                        styles.balanceScaleSide,
-                        { flex: Math.max(pair.leftWeightedSets, 0.2) },
-                      ]}
-                    />
-                    <View style={styles.balanceScaleGap} />
-                    <View
-                      style={[
-                        styles.balanceScaleSideSecondary,
-                        { flex: Math.max(pair.rightWeightedSets, 0.2) },
-                      ]}
-                    />
-                  </View>
-
-                  <Text style={[styles.balanceRatioText, isDark && styles.balanceRatioTextDark]}>
-                    {formatBalanceRatio(pair)}
-                  </Text>
-                </View>
-              ))}
-
-              <Text style={[styles.balanceFootnote, isDark && styles.balanceFootnoteDark]}>
-                {t('strength.balanceFootnote')}
-              </Text>
-            </View>
-          ) : null}
 
           {selectedVolume && progression ? (
             <View style={[styles.progressCard, isDark && styles.progressCardDark]}>
@@ -752,6 +586,174 @@ export const StrengthTab = React.memo(function StrengthTab() {
               )}
             </View>
           )}
+
+          {/* Hero summary card */}
+          <View style={[styles.heroCard, isDark && styles.heroCardDark]}>
+            <LinearGradient
+              colors={isDark ? ['#2A1A10', '#181818'] : ['#FFF5EC', '#FFFFFF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroGradient}
+            >
+              <View style={styles.heroHeader}>
+                <Text style={[styles.heroEyebrow, isDark && styles.heroEyebrowDark]}>
+                  {t('strength.snapshot')}
+                </Text>
+                <Text style={[styles.heroTitle, isDark && styles.heroTitleDark]}>{heroTitle}</Text>
+                <Text style={[styles.heroBody, isDark && styles.heroBodyDark]}>
+                  {heroObservation}
+                </Text>
+              </View>
+
+              <View style={styles.heroChipRow}>
+                <View style={[styles.heroChip, isDark && styles.heroChipDark]}>
+                  <Text style={[styles.heroChipValue, isDark && styles.heroChipValueDark]}>
+                    {summary.activityCount}
+                  </Text>
+                  <Text style={[styles.heroChipLabel, isDark && styles.heroChipLabelDark]}>
+                    {t('strength.workoutCount_label', {
+                      count: summary.activityCount,
+                    })}
+                  </Text>
+                </View>
+                <View style={[styles.heroChip, isDark && styles.heroChipDark]}>
+                  <Text style={[styles.heroChipValue, isDark && styles.heroChipValueDark]}>
+                    {summary.totalSets}
+                  </Text>
+                  <Text style={[styles.heroChipLabel, isDark && styles.heroChipLabelDark]}>
+                    {t('strength.sets')}
+                  </Text>
+                </View>
+                <View style={[styles.heroChip, isDark && styles.heroChipDark]}>
+                  <Text style={[styles.heroChipValue, isDark && styles.heroChipValueDark]}>
+                    {summary.muscleVolumes.length}
+                  </Text>
+                  <Text style={[styles.heroChipLabel, isDark && styles.heroChipLabelDark]}>
+                    {t('strength.muscleGroups')}
+                  </Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* Balance card */}
+          {visibleBalancePairs.length > 0 ? (
+            <View style={[styles.balanceCard, isDark && styles.balanceCardDark]}>
+              <View style={styles.balanceHeader}>
+                <View>
+                  <Text style={[styles.balanceTitle, isDark && styles.balanceTitleDark]}>
+                    {t('insights.strengthBalance.volumeSplit')}
+                  </Text>
+                  <Text style={[styles.balanceSubtitle, isDark && styles.balanceSubtitleDark]}>
+                    {t('strength.balanceObservedPairs', {
+                      period: periodLabel,
+                    })}
+                  </Text>
+                </View>
+                {featuredBalancePair ? (
+                  <View
+                    style={[
+                      styles.balanceHeroBadge,
+                      featuredBalancePair.status === 'balanced'
+                        ? styles.balanceHeroBadgeBalanced
+                        : styles.balanceHeroBadgeAlert,
+                    ]}
+                  >
+                    <Text style={styles.balanceHeroBadgeText}>
+                      {formatBalanceRatio(featuredBalancePair)}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {featuredBalancePair ? (
+                <Text style={[styles.balanceHeroText, isDark && styles.balanceHeroTextDark]}>
+                  {featuredBalancePair.status === 'balanced'
+                    ? t('strength.balancedPairsClose')
+                    : t('strength.balanceDominant', {
+                        dominant: featuredBalancePair.dominantLabel ?? 'One side',
+                        other:
+                          featuredBalancePair.dominantSlug === featuredBalancePair.leftSlug
+                            ? featuredBalancePair.rightLabel
+                            : featuredBalancePair.leftLabel,
+                        pair: featuredBalancePair.label.toLowerCase(),
+                      })}
+                </Text>
+              ) : null}
+
+              {visibleBalancePairs.map((pair, index) => (
+                <View
+                  key={pair.id}
+                  style={[
+                    styles.balanceRow,
+                    index > 0 && styles.balanceRowBorder,
+                    index > 0 && isDark && styles.balanceRowBorderDark,
+                  ]}
+                >
+                  <View style={styles.balanceRowHeader}>
+                    <Text style={[styles.balanceRowTitle, isDark && styles.balanceRowTitleDark]}>
+                      {pair.label}
+                    </Text>
+                    <View
+                      style={[
+                        styles.balanceStatusBadge,
+                        pair.status === 'balanced'
+                          ? styles.balanceStatusBalanced
+                          : pair.status === 'watch'
+                            ? styles.balanceStatusWatch
+                            : styles.balanceStatusImbalanced,
+                      ]}
+                    >
+                      <Text style={styles.balanceStatusText}>
+                        {pair.status === 'balanced'
+                          ? t('insights.strengthBalance.balanced')
+                          : pair.status === 'watch'
+                            ? t('insights.strengthBalance.watch')
+                            : pair.status === 'imbalanced'
+                              ? t('insights.strengthBalance.imbalanced')
+                              : pair.status === 'one-sided'
+                                ? t('insights.strengthBalance.oneSided')
+                                : t('insights.strengthBalance.lowSignal')}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.balanceValueRow}>
+                    <Text style={[styles.balanceValueText, isDark && styles.balanceValueTextDark]}>
+                      {pair.leftLabel} {formatSetCount(pair.leftWeightedSets)}
+                    </Text>
+                    <Text style={[styles.balanceValueText, isDark && styles.balanceValueTextDark]}>
+                      {pair.rightLabel} {formatSetCount(pair.rightWeightedSets)}
+                    </Text>
+                  </View>
+
+                  <View style={[styles.balanceScale, isDark && styles.balanceScaleDark]}>
+                    <View
+                      style={[
+                        styles.balanceScaleSide,
+                        { flex: Math.max(pair.leftWeightedSets, 0.2) },
+                      ]}
+                    />
+                    <View style={styles.balanceScaleGap} />
+                    <View
+                      style={[
+                        styles.balanceScaleSideSecondary,
+                        { flex: Math.max(pair.rightWeightedSets, 0.2) },
+                      ]}
+                    />
+                  </View>
+
+                  <Text style={[styles.balanceRatioText, isDark && styles.balanceRatioTextDark]}>
+                    {formatBalanceRatio(pair)}
+                  </Text>
+                </View>
+              ))}
+
+              <Text style={[styles.balanceFootnote, isDark && styles.balanceFootnoteDark]}>
+                {t('strength.balanceFootnote')}
+              </Text>
+            </View>
+          ) : null}
 
           {/* Info card */}
           <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
