@@ -282,7 +282,12 @@
     "backupFound": "Backup Found",
     "differentAccount": "Warning: This backup belongs to a different account.",
     "differentAccountMessage": "Die wiederhergestellten Daten gehören zu einem anderen Konto. Daten löschen und für dieses Konto neu synchronisieren?",
-    "clearAndSync": "Löschen & Sync"
+    "clearAndSync": "Löschen & Sync",
+    "backupSuccessTitle": "Backup Complete",
+    "backupSuccessMessage": "Your data has been backed up successfully.",
+    "backupFailedTitle": "Backup Failed",
+    "backupFailedMessage": "Could not complete the backup. Check your backup destination and try again.",
+    "legacyImportNotice": "This is a legacy backup (.veloq). Only preferences, section names, and route names were restored. For a full restore, use a database backup (.veloqdb)."
   },
   "cache": {
     "addingActivities": "Aktivitäten hinzufügen...",

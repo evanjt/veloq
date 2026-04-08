@@ -444,6 +444,13 @@ export interface TranslationResource {
     restoreFromBackup: string;
     backupFound: string;
     differentAccount: string;
+    differentAccountMessage: string;
+    clearAndSync: string;
+    backupSuccessTitle: string;
+    backupSuccessMessage: string;
+    backupFailedTitle: string;
+    backupFailedMessage: string;
+    legacyImportNotice: string;
   };
 
   about: {
