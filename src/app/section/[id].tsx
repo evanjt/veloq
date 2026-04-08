@@ -15,7 +15,7 @@ import {
   Alert,
   InteractionManager,
 } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, SegmentedButtons } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -57,7 +57,12 @@ import {
 } from '@/lib';
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import type { SectionTimeRange, BucketType } from '@/constants';
+import {
+  SECTION_TIME_RANGES,
+  DEFAULT_BUCKET_TYPE,
+  type SectionTimeRange,
+  type BucketType,
+} from '@/constants';
 import type {
   Activity,
   ActivityType,
@@ -110,8 +115,8 @@ export default function SectionDetailScreen() {
   const [mergeTarget, setMergeTarget] = useState<(typeof mergeCandidates)[number] | null>(null);
 
   // Time range for chart data (passed to useSectionChartData)
-  const [sectionTimeRange] = useState<SectionTimeRange>('1y');
-  const [bucketType] = useState<BucketType>('monthly');
+  const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>('1y');
+  const [bucketType, setBucketType] = useState<BucketType>('monthly');
 
   // State for section renaming
   const [isEditing, setIsEditing] = useState(false);
@@ -875,6 +880,23 @@ export default function SectionDetailScreen() {
               </TouchableOpacity>
             )}
 
+            {/* Time range selector */}
+            <View style={styles.timeRangeContainer}>
+              <SegmentedButtons
+                value={sectionTimeRange}
+                onValueChange={(value) => {
+                  const range = value as SectionTimeRange;
+                  setSectionTimeRange(range);
+                  setBucketType(DEFAULT_BUCKET_TYPE[range]);
+                }}
+                buttons={SECTION_TIME_RANGES.map((r) => ({
+                  value: r.id,
+                  label: r.label,
+                }))}
+                density="small"
+              />
+            </View>
+
             {/* Performance chart with eye toggle */}
             <SectionPerformanceSection
               isDark={isDark}
@@ -1095,6 +1117,10 @@ export default function SectionDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  timeRangeContainer: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,
