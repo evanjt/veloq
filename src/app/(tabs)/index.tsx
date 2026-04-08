@@ -33,6 +33,7 @@ import {
   NetworkErrorState,
   ErrorStatePreset,
   ScreenErrorBoundary,
+  ComponentErrorBoundary,
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
 import { SummaryCard, InsightLine, NotificationOptInCard } from '@/components/home';
@@ -538,7 +539,15 @@ export default function FeedScreen() {
         />
 
         {/* Hidden WebView for generating 3D terrain snapshots — deferred to avoid startup cost */}
-        {snapshotWebViewReady && <TerrainSnapshotWebView ref={snapshotRef} />}
+        {snapshotWebViewReady && (
+          <ComponentErrorBoundary
+            componentName="3D Terrain Snapshots"
+            showRetry={false}
+            onError={() => setSnapshotWebViewReady(false)}
+          >
+            <TerrainSnapshotWebView ref={snapshotRef} />
+          </ComponentErrorBoundary>
+        )}
       </ScreenSafeAreaView>
     </ScreenErrorBoundary>
   );
