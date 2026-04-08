@@ -81,6 +81,7 @@ const PAGE_SIZE_DAYS = 30;
 export function useInfiniteActivities(options: { includeStats?: boolean } = {}) {
   const { includeStats = false } = options;
   const athleteId = useAuthStore((s) => s.athleteId);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const query = useInfiniteQuery<Activity[], Error>({
     queryKey: ['activities-infinite', athleteId ?? 'anon', includeStats ? 'stats' : 'base'],
@@ -129,7 +130,7 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
     // 'always' bypasses staleTime so new activities appear immediately on foreground
     refetchOnWindowFocus: 'always',
     maxPages: 10, // Evict old pages to prevent memory growth
-    enabled: !!athleteId,
+    enabled: isAuthenticated && !!athleteId,
   });
 
   // All activities flattened from loaded pages
