@@ -135,7 +135,9 @@ const MAX_STALE_PR_SECTIONS_IN_BODY = 3; // Limit stale PR group card to top 3
  * - Category-specific bonuses for actionability
  */
 function scoreInsight(insight: Insight): number {
-  const priorityScore = (6 - insight.priority) * 20; // P1=100, P2=80, P3=60, P4=40, P5=20
+  // Priority gap (50) must exceed max(confidenceScore + categoryBonus) = 30+15 = 45
+  // to guarantee that higher-priority insights always outrank lower-priority ones.
+  const priorityScore = (6 - insight.priority) * 50; // P1=250, P2=200, P3=150, P4=100, P5=50
   const confidenceScore = (insight.confidence ?? 0.5) * 30;
 
   // Category bonuses: actionable insights rank higher
