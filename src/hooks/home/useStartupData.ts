@@ -81,6 +81,39 @@ function buildPreviewTracks(
 }
 
 /**
+ * Fetch startup data from the engine using current timestamps.
+ * Shared by initial useMemo and manual refresh — single source of truth
+ * for the computeTimestamps + getStartupData + result-building pipeline.
+ */
+function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
+  const engine = getRouteEngine();
+  if (!engine) return null;
+
+  try {
+    const ts = computeTimestamps();
+    const result = engine.getStartupData(
+      ts.currentStart,
+      ts.currentEnd,
+      ts.prevStart,
+      ts.prevEnd,
+      ts.chronicStart,
+      ts.todayStart,
+      previewActivityIds
+    );
+    if (!result) return null;
+
+    return {
+      insightsData: result.insights,
+      summaryCardData: result.summaryCard,
+      previewTracks: buildPreviewTracks(result.previewTracks ?? []),
+      cachedMetricIds: new Set(result.cachedMetricIds ?? []),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Single FFI call on mount that fetches ALL data the feed screen needs:
  * insights, summary card, GPS preview tracks, and cached metric IDs.
  *
@@ -102,35 +135,12 @@ export function useStartupData(previewActivityIds: string[]): {
   }, []);
 
   // Synchronous initial call — provides insights/summary immediately
-  const initialData = useMemo((): StartupResult | null => {
-    const engine = getRouteEngine();
-    if (!engine) return null;
-
-    try {
-      const ts = computeTimestamps();
-      const result = engine.getStartupData(
-        ts.currentStart,
-        ts.currentEnd,
-        ts.prevStart,
-        ts.prevEnd,
-        ts.chronicStart,
-        ts.todayStart,
-        previewActivityIds
-      );
-      if (!result) return null;
-
-      return {
-        insightsData: result.insights,
-        summaryCardData: result.summaryCard,
-        previewTracks: buildPreviewTracks(result.previewTracks ?? []),
-        cachedMetricIds: new Set(result.cachedMetricIds ?? []),
-      };
-    } catch {
-      return null;
-    }
+  const initialData = useMemo(
+    () => fetchStartupData(previewActivityIds),
     // Only re-run when engine data changes or preview IDs change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trigger, previewActivityIds.length > 0 ? previewActivityIds.join(',') : '']);
+    [trigger, previewActivityIds.length > 0 ? previewActivityIds.join(',') : '']
+  );
 
   // Track latest data (initial sync, updated when trigger changes)
   const [data, setData] = useState<StartupResult | null>(initialData);
@@ -143,30 +153,10 @@ export function useStartupData(previewActivityIds: string[]): {
   }, [initialData]);
 
   const refresh = useCallback(() => {
-    const engine = getRouteEngine();
-    if (!engine || !isMountedRef.current) return;
-
-    try {
-      const ts = computeTimestamps();
-      const result = engine.getStartupData(
-        ts.currentStart,
-        ts.currentEnd,
-        ts.prevStart,
-        ts.prevEnd,
-        ts.chronicStart,
-        ts.todayStart,
-        previewActivityIds
-      );
-      if (!result || !isMountedRef.current) return;
-
-      setData({
-        insightsData: result.insights,
-        summaryCardData: result.summaryCard,
-        previewTracks: buildPreviewTracks(result.previewTracks ?? []),
-        cachedMetricIds: new Set(result.cachedMetricIds ?? []),
-      });
-    } catch {
-      // best-effort
+    if (!isMountedRef.current) return;
+    const result = fetchStartupData(previewActivityIds);
+    if (result && isMountedRef.current) {
+      setData(result);
     }
   }, [previewActivityIds]);
 
