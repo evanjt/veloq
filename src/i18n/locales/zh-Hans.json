@@ -246,7 +246,11 @@
     "syncResetDiscarded": "同步已重置 - 结果已丢弃",
     "downloadingTiles": "正在缓存地图瓦片",
     "renderingTerrainPreviews": "正在渲染3D预览",
-    "syncingActivities": "正在同步活动"
+    "syncingActivities": "正在同步活动",
+    "syncedActivities": "Synced {{count}} activities",
+    "syncedDemoActivities": "Synced {{count}} demo activities",
+    "downloadingGpsProgress": "Downloading GPS data... {{completed}}/{{total}}",
+    "noValidGpsChecked": "No valid GPS data found (checked {{count}} activities)"
   },
   "chartTypes": {
     "alt": "Alt",
@@ -491,7 +495,17 @@
       "kmeans": "按日期、时长和运动类型对你的活动进行分组，以识别反复出现的训练模式。",
       "prDetection": "将你最近一次路段时间与所有之前的表现进行比较，以检测个人纪录。",
       "sectionTrend": "跟踪经常访问的路段上的中位表现随时间的变化。",
-      "periodComparison": "比较连续各周的训练指标以跟踪进展。"
+      "periodComparison": "比较连续各周的训练指标以跟踪进展。",
+      "hrvName": "HRV rolling average trend",
+      "hrvDescription": "HRV trend based on your 7-day rolling average. HRV accuracy depends on measurement device and consistency. Trends over days are more reliable than single readings.",
+      "prDetectionName": "Personal record detection",
+      "periodComparisonName": "Period comparison",
+      "periodComparisonRestDay": "Compares last week against your 4-week average when the current week has no activities yet.",
+      "ftpEstimation": "Tracks changes in your estimated FTP over time based on power data from your activities. FTP detection uses intervals.icu's algorithms, which may include auto-detection from activity data.",
+      "ftpEstimationName": "Functional Threshold Power estimation",
+      "thresholdSpeedName": "Threshold speed trend analysis",
+      "thresholdSpeedDescription": "Compares your latest threshold-speed estimate against previous values, then formats the change as athlete-readable pace for display.",
+      "fitnessPrName": "Fitness-PR cross-reference"
     },
     "alternatives": {
       "selected": "当前评估",
@@ -1076,7 +1090,9 @@
     "rematchActivities": "Re-match activities",
     "awayDistance": "{{distance}}m away",
     "viewSection": "View",
-    "merge": "Merge"
+    "merge": "Merge",
+    "autoName": "{{sport}} Section ({{distance}})",
+    "suggestedName": "Suggested: {{sport}} ({{distance}})"
   },
   "settings": {
     "account": "账户",

@@ -941,6 +941,8 @@ export interface TranslationResource {
     totalTraversals: string;
     last: string;
     lastActivity: string;
+    autoName: string;
+    suggestedName: string;
     defaultName: string;
     deleteSection: string;
     deleteSectionConfirm: string;
@@ -1053,6 +1055,10 @@ export interface TranslationResource {
     analyzingRoutesProgress: string;
     routeAnalysisComplete: string;
     renderingTerrainPreviews: string;
+    syncedActivities: string;
+    syncedDemoActivities: string;
+    downloadingGpsProgress: string;
+    noValidGpsChecked: string;
   };
 
   chartTypes: {
