@@ -12,7 +12,6 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { brand, colorWithOpacity, spacing } from '@/theme';
-import { useInsightsStore } from '@/providers/InsightsStore';
 import { PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { navigateTab } from '@/lib';
 
@@ -48,8 +47,6 @@ function BottomTabBarComponent() {
   const pathname = usePathname();
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const hasNewInsights = useInsightsStore((s) => s.hasNewInsights);
-
   // Colors with proper contrast for accessibility
   const activeColor = isDark ? ACTIVE_COLOR_DARK : brand.tealLight;
   const inactiveColor = isDark ? INACTIVE_COLOR_DARK : INACTIVE_COLOR_LIGHT;
@@ -133,9 +130,6 @@ function BottomTabBarComponent() {
                     size={isActive ? ICON_SIZE + 2 : ICON_SIZE}
                     color={isActive ? activeColor : inactiveColor}
                   />
-                  {item.key === 'insights' && hasNewInsights && (
-                    <View testID="tab-insights-badge" style={styles.notificationDot} />
-                  )}
                 </View>
                 <Text
                   style={[
@@ -192,14 +186,5 @@ const styles = StyleSheet.create({
   },
   labelActive: {
     fontWeight: '700',
-  },
-  notificationDot: {
-    position: 'absolute',
-    top: 0,
-    right: -4,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: brand.orange,
   },
 });
