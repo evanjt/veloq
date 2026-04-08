@@ -779,14 +779,16 @@ export function SectionScatterChart({
                 {onSetAsReference && !selectedPoint.isExcluded && (
                   <TouchableOpacity
                     onPress={() => onSetAsReference(selectedPoint.activityId)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={styles.excludeButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={styles.referenceButton}
+                    accessibilityLabel="Set as reference"
+                    accessibilityRole="button"
                   >
                     <MaterialCommunityIcons
                       name={
                         selectedPoint.activityId === referenceActivityId ? 'flag' : 'flag-outline'
                       }
-                      size={16}
+                      size={18}
                       color={
                         selectedPoint.activityId === referenceActivityId
                           ? colors.primary
@@ -1031,6 +1033,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+  },
+  referenceButton: {
+    padding: 4,
+    marginLeft: 4,
   },
   excludeButton: {
     padding: 2,
