@@ -137,7 +137,7 @@ export const INTERVALS_URLS = {
  * Section visualization styles for map rendering
  * Patterns use small, tight thatches (short dashes with small gaps)
  * to create distinct textures while appearing as continuous lines
- * Patterns cycle first, then colors (6 patterns x 3 colors = 18 unique styles)
+ * Patterns cycle first, then colors (6 patterns x 10 colors = 60 unique styles)
  */
 export const SECTION_PATTERNS: (number[] | undefined)[] = [
   undefined, // solid
@@ -148,7 +148,37 @@ export const SECTION_PATTERNS: (number[] | undefined)[] = [
   [8, 3], // slightly longer thatches
 ];
 
-export const SECTION_COLORS = ['#00BCD4', '#009688', '#4CAF50'] as const;
+/**
+ * 10 distinct hues chosen for contrast on both light and dark map styles.
+ * Avoids pure red (confusion with primary #FC4C02) and pure white/black.
+ */
+export const SECTION_COLORS = [
+  '#00BCD4', // cyan
+  '#4CAF50', // green
+  '#FF9800', // amber
+  '#E91E63', // pink
+  '#3F51B5', // indigo
+  '#009688', // teal
+  '#CDDC39', // lime-yellow
+  '#9C27B0', // purple
+  '#00E5FF', // light cyan
+  '#FF5722', // deep orange
+] as const;
+
+/**
+ * Route colors — a separate warm/purple family so routes are visually distinct
+ * from sections even when overlapping on the same map.
+ */
+export const ROUTE_COLORS = [
+  '#7C4DFF', // deep purple accent
+  '#AA00FF', // purple accent
+  '#D500F9', // bright purple
+  '#651FFF', // deep purple
+  '#6200EA', // deep purple dark
+  '#B388FF', // light purple
+  '#EA80FC', // pink-purple
+  '#CE93D8', // light mauve
+] as const;
 
 /**
  * Get visual style for a section by index
@@ -161,6 +191,17 @@ export function getSectionStyle(index: number) {
     pattern: SECTION_PATTERNS[patternIndex],
     color: SECTION_COLORS[colorIndex],
     patternIndex,
+    colorIndex,
+  };
+}
+
+/**
+ * Get visual style for a route by index
+ */
+export function getRouteStyle(index: number) {
+  const colorIndex = index % ROUTE_COLORS.length;
+  return {
+    color: ROUTE_COLORS[colorIndex],
     colorIndex,
   };
 }

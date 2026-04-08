@@ -12,6 +12,7 @@ import type { TFunction } from 'i18next';
 import { convertLatLngTuples } from '@/lib';
 import type { ActivityBoundsItem, FrequentSection, ActivityType } from '@/types';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
+import { getSectionStyle, getRouteStyle } from '@/lib/utils/constants';
 import type { RouteSignature } from '@/hooks/routes';
 import type { SelectedActivity } from './ActivityPopup';
 
@@ -69,6 +70,7 @@ interface UseMapGeoJSONOptions {
 interface UseMapGeoJSONResult {
   markersGeoJSON: GeoJSON.FeatureCollection;
   tracesGeoJSON: GeoJSON.FeatureCollection;
+  startPointsGeoJSON: GeoJSON.FeatureCollection;
   sectionsGeoJSON: GeoJSON.FeatureCollection;
   routesGeoJSON: GeoJSON.FeatureCollection;
   routeMarkersGeoJSON: GeoJSON.FeatureCollection;
@@ -217,6 +219,39 @@ export function useMapGeoJSON({
   }, [visibleActivities, routeSignatures]);
 
   // ===========================================
+  // 2b. ACTIVITY START POINTS - First GPS coordinate per activity
+  // ===========================================
+  // Shown at high zoom as small directional markers indicating where each activity began.
+  // Uses the first point from routeSignatures (actual GPS start, not bounds center).
+  const startPointsGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    const features = visibleActivities
+      .filter((activity) => routeSignatures[activity.id])
+      .map((activity) => {
+        const signature = routeSignatures[activity.id];
+        const startPt = signature.points[0];
+        if (!startPt || !Number.isFinite(startPt.lng) || !Number.isFinite(startPt.lat)) {
+          return null;
+        }
+        const config = getActivityTypeConfig(activity.type);
+        return {
+          type: 'Feature' as const,
+          properties: {
+            id: activity.id,
+            color: config.color,
+          },
+          geometry: {
+            type: 'Point' as const,
+            coordinates: [startPt.lng, startPt.lat],
+          },
+        };
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+
+    if (features.length === 0) return EMPTY_COLLECTION;
+    return { type: 'FeatureCollection', features };
+  }, [visibleActivities, routeSignatures]);
+
+  // ===========================================
   // 3. SECTIONS - Frequent road/trail section polylines
   // ===========================================
   // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
@@ -225,7 +260,7 @@ export function useMapGeoJSON({
 
     let skippedCount = 0;
     const features = sections
-      .map((section) => {
+      .map((section, idx) => {
         // Filter out NaN coordinates and validate polyline has at least 2 points
         // GeoJSON LineString requires minimum 2 coordinates to be valid
         const originalCount = section.polyline.length;
@@ -248,7 +283,8 @@ export function useMapGeoJSON({
         }
 
         const coordinates = finitePoints.map((pt) => [pt.lng, pt.lat]);
-        const config = getActivityTypeConfig(section.sportType);
+        // Use per-section color from expanded palette (cycles through 60 unique styles)
+        const sectionStyle = getSectionStyle(idx);
 
         return {
           type: 'Feature' as const,
@@ -259,7 +295,8 @@ export function useMapGeoJSON({
             sportType: section.sportType,
             visitCount: section.visitCount,
             distanceMeters: section.distanceMeters,
-            color: config.color,
+            color: sectionStyle.color,
+            patternIndex: sectionStyle.patternIndex,
           },
           geometry: {
             type: 'LineString' as const,
@@ -286,6 +323,7 @@ export function useMapGeoJSON({
     if (!showRoutes || routeGroups.length === 0) return EMPTY_COLLECTION;
 
     let skippedCount = 0;
+    let validIdx = 0;
     const features = routeGroups
       .filter((group) => routeSignatures[group.representativeId])
       .map((group) => {
@@ -309,6 +347,9 @@ export function useMapGeoJSON({
           return null;
         }
 
+        // Assign per-route color from the route palette
+        const routeStyle = getRouteStyle(validIdx++);
+
         return {
           type: 'Feature' as const,
           id: group.id,
@@ -319,6 +360,7 @@ export function useMapGeoJSON({
             sportType: group.sportType,
             type: group.type,
             bestTime: group.bestTime,
+            color: routeStyle.color,
           },
           geometry: {
             type: 'LineString' as const,
@@ -541,6 +583,7 @@ export function useMapGeoJSON({
   return {
     markersGeoJSON,
     tracesGeoJSON,
+    startPointsGeoJSON,
     sectionsGeoJSON,
     routesGeoJSON,
     routeMarkersGeoJSON,

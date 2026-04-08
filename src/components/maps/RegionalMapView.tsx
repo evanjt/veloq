@@ -46,6 +46,7 @@ import {
   type SelectedActivity,
   type SelectedRoute,
 } from './regional';
+import { ROUTE_COLORS } from '@/lib/utils/constants';
 
 /**
  * 120Hz OPTIMIZATION SUMMARY:
@@ -230,6 +231,7 @@ export function RegionalMapView({
   const {
     markersGeoJSON,
     tracesGeoJSON,
+    startPointsGeoJSON,
     sectionsGeoJSON,
     routesGeoJSON,
     routeMarkersGeoJSON,
@@ -551,7 +553,7 @@ export function RegionalMapView({
             />
           </ShapeSource>
 
-          {/* Routes layer - dashed polylines for route groups */}
+          {/* Routes layer - solid wider polylines for route groups (purple family) */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash during reconciliation */}
           <ShapeSource
             id="routes"
@@ -559,24 +561,45 @@ export function RegionalMapView({
             onPress={handleRoutePress}
             hitbox={{ width: 44, height: 44 }}
           >
+            {/* Route outline — dark border for depth and readability */}
             <LineLayer
-              id="routesLine"
+              id="routesOutline"
               style={{
                 visibility: showRoutes ? 'visible' : 'none',
-                lineColor: '#9C27B0',
+                lineColor: 'rgba(0, 0, 0, 0.3)',
                 lineWidth: [
                   'case',
                   ['==', ['get', 'id'], selectedRoute?.id ?? ''],
-                  7, // Bold when selected
-                  4,
+                  12, // Wide glow when selected
+                  8,
                 ],
                 lineOpacity: [
                   'case',
                   ['==', ['get', 'id'], selectedRoute?.id ?? ''],
-                  1, // Full opacity when selected
-                  0.8,
+                  0.7,
+                  0.4,
                 ],
-                lineDasharray: [4, 2],
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+            <LineLayer
+              id="routesLine"
+              style={{
+                visibility: showRoutes ? 'visible' : 'none',
+                lineColor: ['get', 'color'],
+                lineWidth: [
+                  'case',
+                  ['==', ['get', 'id'], selectedRoute?.id ?? ''],
+                  8, // Bold when selected
+                  5,
+                ],
+                lineOpacity: [
+                  'case',
+                  ['==', ['get', 'id'], selectedRoute?.id ?? ''],
+                  1,
+                  0.85,
+                ],
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
@@ -607,12 +630,11 @@ export function RegionalMapView({
               id="sectionsLine"
               style={{
                 lineColor: ['get', 'color'],
-                // Note: zoom expressions cannot be nested inside case expressions
                 lineWidth: selectedSection
                   ? [
                       'case',
                       ['==', ['get', 'id'], selectedSection.id],
-                      8, // Bold when selected
+                      9, // Bold + prominent when selected
                       4,
                     ]
                   : ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 5, 18, 7],
@@ -621,25 +643,33 @@ export function RegionalMapView({
                     ? [
                         'case',
                         ['==', ['get', 'id'], selectedSection.id],
-                        1, // Full opacity when selected
-                        0.85,
+                        1,
+                        0.55, // Dim unselected to make selected pop
                       ]
-                    : 0.85
+                    : 0.92
                   : 0,
+                lineDasharray: [4, 2],
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
             />
-            {/* Section outline — white for contrast against orange heatmap */}
+            {/* Section outline — white border for contrast on any map style */}
             <LineLayer
               id="sectionsOutline"
               style={{
-                lineColor: '#FFFFFF',
+                lineColor: selectedSection
+                  ? [
+                      'case',
+                      ['==', ['get', 'id'], selectedSection.id],
+                      '#FFFFFF',
+                      'rgba(255,255,255,0.4)',
+                    ]
+                  : '#FFFFFF',
                 lineWidth: selectedSection
                   ? [
                       'case',
                       ['==', ['get', 'id'], selectedSection.id],
-                      12, // Bold when selected
+                      14, // Wide glow behind selected section
                       7,
                     ]
                   : ['interpolate', ['linear'], ['zoom'], 10, 6, 14, 8, 18, 10],
@@ -648,10 +678,10 @@ export function RegionalMapView({
                     ? [
                         'case',
                         ['==', ['get', 'id'], selectedSection.id],
-                        0.7, // More visible when selected
-                        0.5,
+                        0.8, // Bright glow when selected
+                        0.35,
                       ]
-                    : 0.5
+                    : 0.55
                   : 0,
                 lineCap: 'round',
                 lineJoin: 'round',
@@ -683,12 +713,22 @@ export function RegionalMapView({
           </RasterSource>
 
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
-          {/* Vector traces replaced by raster heatmap above — keep source mounted with opacity 0 */}
-          <ShapeSource id="activity-traces" shape={tracesGeoJSON}>
-            <LineLayer
-              id="tracesLine"
+          {/* Vector traces fully replaced by raster heatmap — no LineLayer needed */}
+          {/* ShapeSource kept mounted (empty) to prevent Fabric view reconciliation crash */}
+          <ShapeSource id="activity-traces" shape={tracesGeoJSON} />
+
+          {/* Activity start-point markers — small dots at the first GPS coordinate */}
+          {/* Visible when zoomed in past trace threshold and activities are shown */}
+          <ShapeSource id="activity-start-points" shape={startPointsGeoJSON}>
+            <CircleLayer
+              id="start-point-outer"
               style={{
-                lineOpacity: 0,
+                circleRadius: 5,
+                circleColor: ['get', 'color'],
+                circleOpacity: showTraces ? 0.9 : 0,
+                circleStrokeWidth: 1.5,
+                circleStrokeColor: '#FFFFFF',
+                circleStrokeOpacity: showTraces ? 1 : 0,
               }}
             />
           </ShapeSource>
@@ -774,7 +814,7 @@ export function RegionalMapView({
                     width: 32,
                     height: 32,
                     borderRadius: 16,
-                    backgroundColor: isSelected ? colors.primary : '#9C27B0',
+                    backgroundColor: isSelected ? colors.primary : ROUTE_COLORS[0],
                     borderWidth: 2,
                     borderColor: colors.textOnDark,
                     justifyContent: 'center',
