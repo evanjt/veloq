@@ -1011,6 +1011,8 @@
     "bestTime": "Best Time",
     "current": "Current",
     "date": "Date",
+    "autoName": "{{sport}} Section ({{distance}})",
+    "suggestedName": "Suggested: {{sport}} ({{distance}})",
     "defaultName": "Section {{number}}",
     "deleteSection": "Delete Section",
     "deleteSectionConfirm": "Are you sure you want to delete this section? This action cannot be undone.",
