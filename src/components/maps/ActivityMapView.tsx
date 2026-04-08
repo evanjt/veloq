@@ -1078,6 +1078,11 @@ export const ActivityMapView = memo(function ActivityMapView({
                 highlightCoordinate={
                   highlightPoint ? [highlightPoint.longitude, highlightPoint.latitude] : null
                 }
+                sectionsGeoJSON={
+                  consolidatedSectionsGeoJSON.features.length > 0
+                    ? consolidatedSectionsGeoJSON
+                    : undefined
+                }
                 onMapReady={handleMap3DReady}
                 onBearingChange={handleBearingChange}
                 onCameraStateChange={handleCameraStateChange}
