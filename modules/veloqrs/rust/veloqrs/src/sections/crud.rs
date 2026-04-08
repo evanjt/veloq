@@ -9,7 +9,7 @@ use rusqlite::params;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracematch::matching::calculate_route_distance;
-use tracematch::sections::{build_rtree, find_all_track_portions};
+use tracematch::sections::{build_rtree, find_all_track_portions, find_all_track_portions_with_gap};
 use tracematch::{GpsPoint, SectionPortion};
 
 impl PersistentRouteEngine {
@@ -631,8 +631,11 @@ impl PersistentRouteEngine {
                 return Err("Section has no polyline to match against".to_string());
             }
 
-            // Compute all traversals (laps) for the new reference activity
-            let portions = compute_section_portions(activity_id, &track, &current_polyline);
+            let current_distance = calculate_route_distance(&current_polyline);
+
+            // Use strict matching (30m threshold, gap tolerance 1) to avoid
+            // including parallel roads or large non-matching spans
+            let portions = compute_section_portions_strict(activity_id, &track, &current_polyline);
             if portions.is_empty() {
                 return Err(format!(
                     "Activity {} does not overlap sufficiently with section {}",
@@ -645,41 +648,96 @@ impl PersistentRouteEngine {
             let start = first.start_index as usize;
             let end = (first.end_index as usize + 1).min(track.len());
             let new_polyline: Vec<GpsPoint> = track[start..end].to_vec();
+            let new_distance = calculate_route_distance(&new_polyline);
 
-            let polyline_json =
-                serde_json::to_string(&new_polyline).unwrap_or_else(|_| "[]".to_string());
-            let distance = calculate_route_distance(&new_polyline);
-            let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
+            log::info!(
+                "tracematch: [set_section_reference] section={} activity={} \
+                 track_points={} portion_points={} current_distance={:.0}m new_distance={:.0}m",
+                section_id,
+                activity_id,
+                track.len(),
+                new_polyline.len(),
+                current_distance,
+                new_distance,
+            );
 
-            self.db
-                .execute(
-                    "UPDATE sections SET
-                        representative_activity_id = ?,
-                        polyline_json = ?,
-                        distance_meters = ?,
-                        is_user_defined = 1,
-                        updated_at = ?,
-                        bounds_min_lat = ?,
-                        bounds_max_lat = ?,
-                        bounds_min_lng = ?,
-                        bounds_max_lng = ?
-                     WHERE id = ?",
-                    params![
-                        activity_id,
-                        polyline_json,
-                        distance,
-                        updated_at,
-                        bounds.min_lat,
-                        bounds.max_lat,
-                        bounds.min_lng,
-                        bounds.max_lng,
-                        section_id
-                    ],
-                )
-                .map_err(|e| format!("Failed to update section reference: {}", e))?;
+            // Sanity check: if extracted portion is > 3x the original section length,
+            // the matching likely went wrong (e.g. parallel road included). In that case,
+            // only update the representative_activity_id without replacing the polyline.
+            let max_allowed_distance = current_distance * 3.0;
+            if new_distance > max_allowed_distance {
+                log::warn!(
+                    "tracematch: [set_section_reference] Extracted portion ({:.0}m) exceeds 3x \
+                     original section length ({:.0}m). Keeping original polyline, only updating \
+                     representative_activity_id.",
+                    new_distance,
+                    current_distance,
+                );
 
-            // Re-match all activities against the new polyline
-            self.rematch_section_activities(section_id, &new_polyline)?;
+                self.db
+                    .execute(
+                        "UPDATE sections SET
+                            representative_activity_id = ?,
+                            is_user_defined = 1,
+                            updated_at = ?
+                         WHERE id = ?",
+                        params![activity_id, updated_at, section_id],
+                    )
+                    .map_err(|e| format!("Failed to update section reference: {}", e))?;
+            } else {
+                // Back up original polyline if not already backed up
+                let has_original: bool = self
+                    .db
+                    .query_row(
+                        "SELECT original_polyline_json IS NOT NULL FROM sections WHERE id = ?",
+                        params![section_id],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or(false);
+
+                if !has_original {
+                    self.db
+                        .execute(
+                            "UPDATE sections SET original_polyline_json = polyline_json WHERE id = ?",
+                            params![section_id],
+                        )
+                        .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
+                }
+
+                let polyline_json =
+                    serde_json::to_string(&new_polyline).unwrap_or_else(|_| "[]".to_string());
+                let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
+
+                self.db
+                    .execute(
+                        "UPDATE sections SET
+                            representative_activity_id = ?,
+                            polyline_json = ?,
+                            distance_meters = ?,
+                            is_user_defined = 1,
+                            updated_at = ?,
+                            bounds_min_lat = ?,
+                            bounds_max_lat = ?,
+                            bounds_min_lng = ?,
+                            bounds_max_lng = ?
+                         WHERE id = ?",
+                        params![
+                            activity_id,
+                            polyline_json,
+                            new_distance,
+                            updated_at,
+                            bounds.min_lat,
+                            bounds.max_lat,
+                            bounds.min_lng,
+                            bounds.max_lng,
+                            section_id
+                        ],
+                    )
+                    .map_err(|e| format!("Failed to update section reference: {}", e))?;
+
+                // Re-match all activities against the new polyline
+                self.rematch_section_activities(section_id, &new_polyline)?;
+            }
 
             // Add the new reference activity with proper portion details (all laps)
             // (rematch only includes previously-associated activities)
@@ -1487,6 +1545,31 @@ fn compute_section_portions(
     section_polyline: &[GpsPoint],
 ) -> Vec<SectionPortion> {
     let traversals = find_all_track_portions(track, section_polyline, 50.0);
+
+    traversals
+        .into_iter()
+        .map(|(start_idx, end_idx, direction)| {
+            let distance = calculate_route_distance(&track[start_idx..end_idx]);
+            SectionPortion {
+                activity_id: activity_id.to_string(),
+                start_index: start_idx as u32,
+                end_index: end_idx as u32,
+                distance_meters: distance,
+                direction,
+            }
+        })
+        .collect()
+}
+
+/// Stricter version of compute_section_portions for reference changes.
+/// Uses a tighter proximity threshold (30m vs 50m) and gap tolerance (1 vs 3)
+/// to avoid including parallel roads or large non-matching spans.
+fn compute_section_portions_strict(
+    activity_id: &str,
+    track: &[GpsPoint],
+    section_polyline: &[GpsPoint],
+) -> Vec<SectionPortion> {
+    let traversals = find_all_track_portions_with_gap(track, section_polyline, 30.0, 1);
 
     traversals
         .into_iter()
