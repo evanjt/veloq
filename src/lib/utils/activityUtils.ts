@@ -5,7 +5,7 @@
  * Used throughout the app for consistent activity representation.
  */
 
-import type { ActivityType } from '@/types';
+import type { Activity, ActivityType } from '@/types';
 import type { ComponentProps } from 'react';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { activityTypeColors } from '@/theme';
@@ -193,4 +193,11 @@ const SPORT_DISPLAY: Record<string, string> = {
 export function getSportDisplayName(sportType?: string): string {
   if (!sportType) return '';
   return SPORT_DISPLAY[sportType] ?? sportType.toLowerCase();
+}
+
+/** Resolve the apparent/feels-like temperature from whichever field is populated */
+export function getApparentTemperature(
+  activity: Pick<Activity, 'apparent_temperature' | 'average_feels_like' | 'average_temp_feels_like'>
+): number | undefined {
+  return activity.apparent_temperature ?? activity.average_feels_like ?? activity.average_temp_feels_like;
 }
