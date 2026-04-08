@@ -315,8 +315,7 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
     insight,
     score: scoreInsight(insight),
   }));
-  scored.sort((a, b) => a.score - b.score || a.insight.priority - b.insight.priority);
-  scored.sort((a, b) => b.score - a.score);
+  scored.sort((a, b) => b.score - a.score || a.insight.priority - b.insight.priority);
 
   const kept = scored.slice(0, MAX_INSIGHTS).map((s) => s.insight);
 
