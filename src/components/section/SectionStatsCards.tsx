@@ -50,6 +50,8 @@ export interface SectionStatsCardsProps {
   isDark: boolean;
   isRunning: boolean;
   activityColor: string;
+  onSetAsReference?: (activityId: string) => void;
+  referenceActivityId?: string;
 }
 
 export function SectionStatsCards({
@@ -57,6 +59,8 @@ export function SectionStatsCards({
   isDark,
   isRunning,
   activityColor,
+  onSetAsReference,
+  referenceActivityId,
 }: SectionStatsCardsProps) {
   const { t } = useTranslation();
   const [showHistory, setShowHistory] = useState(false);
@@ -188,56 +192,110 @@ export function SectionStatsCards({
                     </Text>
                     <View style={styles.calendarMonthEntries}>
                       {fwd && (
-                        <Pressable
-                          style={styles.calendarMonthEntry}
-                          onPress={() => router.push(`/activity/${fwd.bestActivityId}`)}
-                        >
-                          <View
-                            style={[styles.calendarDirDot, { backgroundColor: activityColor }]}
-                          />
-                          <Text
-                            style={[
-                              styles.calendarMonthTime,
-                              isDark && styles.textLight,
-                              isMonthFwdYearBest && { fontWeight: '700' },
-                            ]}
+                        <View style={styles.calendarMonthEntryRow}>
+                          <Pressable
+                            style={styles.calendarMonthEntry}
+                            onPress={() => router.push(`/activity/${fwd.bestActivityId}`)}
                           >
-                            {isRunning ? formatPace(fwd.bestPace) : formatDuration(fwd.bestTime)}
-                          </Text>
-                          {(isMonthFwdYearBest || isMonthFwdOverallPr) && (
-                            <MaterialCommunityIcons
-                              name="trophy"
-                              size={12}
-                              color={isMonthFwdOverallPr ? colors.chartGold : activityColor}
+                            <View
+                              style={[styles.calendarDirDot, { backgroundColor: activityColor }]}
                             />
+                            <Text
+                              style={[
+                                styles.calendarMonthTime,
+                                isDark && styles.textLight,
+                                isMonthFwdYearBest && { fontWeight: '700' },
+                              ]}
+                            >
+                              {isRunning
+                                ? formatPace(fwd.bestPace)
+                                : formatDuration(fwd.bestTime)}
+                            </Text>
+                            {(isMonthFwdYearBest || isMonthFwdOverallPr) && (
+                              <MaterialCommunityIcons
+                                name="trophy"
+                                size={12}
+                                color={isMonthFwdOverallPr ? colors.chartGold : activityColor}
+                              />
+                            )}
+                          </Pressable>
+                          {onSetAsReference && (
+                            <Pressable
+                              onPress={() => onSetAsReference(fwd.bestActivityId)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={styles.referenceButton}
+                            >
+                              <MaterialCommunityIcons
+                                name={
+                                  fwd.bestActivityId === referenceActivityId
+                                    ? 'star'
+                                    : 'star-outline'
+                                }
+                                size={16}
+                                color={
+                                  fwd.bestActivityId === referenceActivityId
+                                    ? colors.primary
+                                    : isDark
+                                      ? darkColors.textSecondary
+                                      : colors.textSecondary
+                                }
+                              />
+                            </Pressable>
                           )}
-                        </Pressable>
+                        </View>
                       )}
                       {rev && (
-                        <Pressable
-                          style={styles.calendarMonthEntry}
-                          onPress={() => router.push(`/activity/${rev.bestActivityId}`)}
-                        >
-                          <View
-                            style={[styles.calendarDirDot, { backgroundColor: REVERSE_COLOR }]}
-                          />
-                          <Text
-                            style={[
-                              styles.calendarMonthTime,
-                              isDark && styles.textLight,
-                              isMonthRevYearBest && { fontWeight: '700' },
-                            ]}
+                        <View style={styles.calendarMonthEntryRow}>
+                          <Pressable
+                            style={styles.calendarMonthEntry}
+                            onPress={() => router.push(`/activity/${rev.bestActivityId}`)}
                           >
-                            {isRunning ? formatPace(rev.bestPace) : formatDuration(rev.bestTime)}
-                          </Text>
-                          {(isMonthRevYearBest || isMonthRevOverallPr) && (
-                            <MaterialCommunityIcons
-                              name="trophy"
-                              size={12}
-                              color={isMonthRevOverallPr ? colors.chartGold : REVERSE_COLOR}
+                            <View
+                              style={[styles.calendarDirDot, { backgroundColor: REVERSE_COLOR }]}
                             />
+                            <Text
+                              style={[
+                                styles.calendarMonthTime,
+                                isDark && styles.textLight,
+                                isMonthRevYearBest && { fontWeight: '700' },
+                              ]}
+                            >
+                              {isRunning
+                                ? formatPace(rev.bestPace)
+                                : formatDuration(rev.bestTime)}
+                            </Text>
+                            {(isMonthRevYearBest || isMonthRevOverallPr) && (
+                              <MaterialCommunityIcons
+                                name="trophy"
+                                size={12}
+                                color={isMonthRevOverallPr ? colors.chartGold : REVERSE_COLOR}
+                              />
+                            )}
+                          </Pressable>
+                          {onSetAsReference && (
+                            <Pressable
+                              onPress={() => onSetAsReference(rev.bestActivityId)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={styles.referenceButton}
+                            >
+                              <MaterialCommunityIcons
+                                name={
+                                  rev.bestActivityId === referenceActivityId
+                                    ? 'star'
+                                    : 'star-outline'
+                                }
+                                size={16}
+                                color={
+                                  rev.bestActivityId === referenceActivityId
+                                    ? colors.primary
+                                    : isDark
+                                      ? darkColors.textSecondary
+                                      : colors.textSecondary
+                                }
+                              />
+                            </Pressable>
                           )}
-                        </Pressable>
+                        </View>
                       )}
                     </View>
                   </View>
@@ -305,10 +363,21 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  calendarMonthEntryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   calendarMonthEntry: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  referenceButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   calendarDirDot: {
     width: 8,

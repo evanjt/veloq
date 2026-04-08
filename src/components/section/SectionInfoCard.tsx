@@ -88,7 +88,7 @@ export function SectionInfoCard({
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons
-            name={isReferenceUserDefined ? 'flag' : 'flag-outline'}
+            name={isReferenceUserDefined ? 'star' : 'star-outline'}
             size={14}
             color={isReferenceUserDefined ? colors.primary : textSecondary}
           />
