@@ -47,6 +47,8 @@ interface Map3DWebViewProps {
   sectionsGeoJSON?: GeoJSON.FeatureCollection;
   /** GeoJSON for traces layer */
   tracesGeoJSON?: GeoJSON.FeatureCollection;
+  /** GeoJSON for section marker circles (numbered/PR labels) */
+  sectionMarkersGeoJSON?: GeoJSON.FeatureCollection;
   /** Highlight marker position as [lng, lat] (from chart scrubbing) */
   highlightCoordinate?: [number, number] | null;
   /** Whether to show the heatmap raster overlay */
@@ -112,6 +114,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       routesGeoJSON,
       sectionsGeoJSON,
       tracesGeoJSON,
+      sectionMarkersGeoJSON,
       highlightCoordinate,
       showHeatmap = false,
       onMapReady,
@@ -140,6 +143,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const routesGeoJSONRef = useRef(routesGeoJSON);
     const sectionsGeoJSONRef = useRef(sectionsGeoJSON);
     const tracesGeoJSONRef = useRef(tracesGeoJSON);
+    const sectionMarkersGeoJSONRef = useRef(sectionMarkersGeoJSON);
 
     // Store callback refs to avoid stale closures in message handler
     const onMapClickRef = useRef(onMapClick);
@@ -169,7 +173,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       routesGeoJSONRef.current = routesGeoJSON;
       sectionsGeoJSONRef.current = sectionsGeoJSON;
       tracesGeoJSONRef.current = tracesGeoJSON;
-    }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON]);
+      sectionMarkersGeoJSONRef.current = sectionMarkersGeoJSON;
+    }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON, sectionMarkersGeoJSON]);
 
     // Update GeoJSON layers dynamically without reloading WebView
     // Reads from refs to avoid stale closure issues
@@ -185,6 +190,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         : 'null';
       const tracesJSON = tracesGeoJSONRef.current
         ? JSON.stringify(tracesGeoJSONRef.current)
+        : 'null';
+      const sectionMarkersJSON = sectionMarkersGeoJSONRef.current
+        ? JSON.stringify(sectionMarkersGeoJSONRef.current)
         : 'null';
 
       webViewRef.current.injectJavaScript(`
@@ -211,6 +219,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             const routesData = ${routesJSON};
             const sectionsData = ${sectionsJSON};
             const tracesData = ${tracesJSON};
+            const sectionMarkersData = ${sectionMarkersJSON};
 
             // Helper to safely add or update a layer
             function updateLayer(sourceId, layerId, data, layerConfig) {
@@ -284,9 +293,66 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             // Update traces layer (activity GPS tracks) - use color from GeoJSON
             addLayerWithOutline('traces-source', 'traces-layer', tracesData, ['get', 'color'], 2, 0.7);
 
+            // Update section markers (numbered/PR circles matching 2D parity)
+            var markerSourceExists = !!window.map.getSource('section-markers-source');
+            var hasMarkers = sectionMarkersData && sectionMarkersData.features && sectionMarkersData.features.length > 0;
+
+            try {
+              if (markerSourceExists) {
+                if (hasMarkers) {
+                  window.map.getSource('section-markers-source').setData(sectionMarkersData);
+                  window.map.setLayoutProperty('section-marker-circle-3d', 'visibility', 'visible');
+                  window.map.setLayoutProperty('section-marker-border-3d', 'visibility', 'visible');
+                  window.map.setLayoutProperty('section-marker-text-3d', 'visibility', 'visible');
+                } else {
+                  window.map.setLayoutProperty('section-marker-circle-3d', 'visibility', 'none');
+                  window.map.setLayoutProperty('section-marker-border-3d', 'visibility', 'none');
+                  window.map.setLayoutProperty('section-marker-text-3d', 'visibility', 'none');
+                }
+              } else if (hasMarkers) {
+                window.map.addSource('section-markers-source', { type: 'geojson', data: sectionMarkersData });
+                window.map.addLayer({
+                  id: 'section-marker-border-3d',
+                  type: 'circle',
+                  source: 'section-markers-source',
+                  paint: {
+                    'circle-radius': ['case', ['get', 'isPR'], 16, 14],
+                    'circle-color': '#FFFFFF',
+                  },
+                });
+                window.map.addLayer({
+                  id: 'section-marker-circle-3d',
+                  type: 'circle',
+                  source: 'section-markers-source',
+                  paint: {
+                    'circle-radius': ['case', ['get', 'isPR'], 14, 12],
+                    'circle-color': ['case', ['get', 'isPR'], '#D4AF37', '#00BCD4'],
+                    'circle-stroke-width': ['case', ['get', 'isPR'], 2.5, 2],
+                    'circle-stroke-color': '#FFFFFF',
+                  },
+                });
+                window.map.addLayer({
+                  id: 'section-marker-text-3d',
+                  type: 'symbol',
+                  source: 'section-markers-source',
+                  layout: {
+                    'text-field': ['get', 'label'],
+                    'text-size': 10,
+                    'text-anchor': 'center',
+                    'text-allow-overlap': true,
+                    'text-ignore-placement': true,
+                  },
+                  paint: { 'text-color': '#FFFFFF' },
+                });
+              }
+            } catch (e) {
+              console.warn('Section marker layer error:', e);
+            }
+
             console.log('[3D] Layers updated - routes:', routesData?.features?.length || 0,
                         'sections:', sectionsData?.features?.length || 0,
-                        'traces:', tracesData?.features?.length || 0);
+                        'traces:', tracesData?.features?.length || 0,
+                        'markers:', sectionMarkersData?.features?.length || 0);
           }
 
           addOrUpdateLayers();
@@ -405,7 +471,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       if (mapReadyRef.current) {
         updateLayers();
       }
-    }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON, updateLayers]);
+    }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON, sectionMarkersGeoJSON, updateLayers]);
 
     // Apply style changes via setStyle() injection — avoids full WebView reload.
     // Builds a complete style object with terrain, sky, hillshade, and route layers,
