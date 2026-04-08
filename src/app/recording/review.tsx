@@ -65,27 +65,23 @@ const ACTIVITY_TYPE_OPTIONS: ActivityType[] = [
   'Other',
 ];
 
-function getTimeOfDay(): string {
+type TimeOfDayKey = 'morning' | 'afternoon' | 'evening' | 'night';
+type RpeLabelKey = 'easy' | 'moderate' | 'hard' | 'veryHard' | 'max';
+
+function getTimeOfDayKey(): TimeOfDayKey {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Morning';
-  if (hour < 17) return 'Afternoon';
-  if (hour < 21) return 'Evening';
-  return 'Night';
+  if (hour < 12) return 'morning';
+  if (hour < 17) return 'afternoon';
+  if (hour < 21) return 'evening';
+  return 'night';
 }
 
-function generateDefaultName(type: ActivityType): string {
-  const timeOfDay = getTimeOfDay();
-  const typeDisplay = type.replace(/([A-Z])/g, ' $1').trim();
-  return `${timeOfDay} ${typeDisplay}`;
-}
-
-// RPE labels mapped to value ranges
-function getRpeLabel(value: number): string {
-  if (value <= 2) return 'Easy';
-  if (value <= 4) return 'Moderate';
-  if (value <= 6) return 'Hard';
-  if (value <= 8) return 'Very Hard';
-  return 'Max';
+function getRpeLabelKey(value: number): RpeLabelKey {
+  if (value <= 2) return 'easy';
+  if (value <= 4) return 'moderate';
+  if (value <= 6) return 'hard';
+  if (value <= 8) return 'veryHard';
+  return 'max';
 }
 
 function getRpeColor(value: number): string {
@@ -259,7 +255,8 @@ export default function ReviewScreen() {
       return;
     }
 
-    const defaultName = generateDefaultName(type);
+    const tod = getTimeOfDayKey();
+    const defaultName = `${t(`recording.timeOfDay.${tod}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim())}`;
     setName(defaultName);
 
     // Try geocoding for GPS activities
@@ -600,7 +597,7 @@ export default function ReviewScreen() {
           ]}
           value={name}
           onChangeText={setName}
-          placeholder={generateDefaultName(type)}
+          placeholder={`${t(`recording.timeOfDay.${getTimeOfDayKey()}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim())}`}
           placeholderTextColor={textSecondary}
           editable={!isProcessing}
         />
@@ -668,7 +665,7 @@ export default function ReviewScreen() {
                 {t('recording.rpe', 'RPE')}
               </Text>
               <Text style={[styles.rpeValue, { color: getRpeColor(rpe) }]}>
-                {rpe} — {getRpeLabel(rpe)}
+                {rpe} — {t(`recording.rpeLabels.${getRpeLabelKey(rpe)}`)}
               </Text>
             </View>
             <Text style={[styles.rpeDescription, { color: textSecondary }]}>
