@@ -158,6 +158,60 @@
     "bodyShapeRandom": "体型はランダムに選択 — intervals.icuプロフィールに性別なし",
     "tapMuscle": "Tap for details"
   },
+  "activityTypes": {
+    "AlpineSki": "アルペンスキー",
+    "BackcountrySki": "バックカントリースキー",
+    "Badminton": "バドミントン",
+    "Canoeing": "カヌー",
+    "Crossfit": "クロスフィット",
+    "EBikeRide": "Eバイク",
+    "Elliptical": "エリプティカル",
+    "Golf": "ゴルフ",
+    "GravelRide": "グラベル",
+    "Handcycle": "ハンドサイクル",
+    "HighIntensityIntervalTraining": "HIIT",
+    "Hike": "ハイキング",
+    "IceSkate": "アイススケート",
+    "InlineSkate": "インラインスケート",
+    "Kayaking": "カヤック",
+    "Kitesurf": "カイトサーフィン",
+    "MountainBikeRide": "マウンテンバイク",
+    "NordicSki": "クロスカントリースキー",
+    "OpenWaterSwim": "オープンウォータースイム",
+    "Other": "その他",
+    "Pickleball": "ピックルボール",
+    "Pilates": "ピラティス",
+    "Racquetball": "ラケットボール",
+    "Ride": "ライド",
+    "RockClimbing": "ロッククライミング",
+    "RollerSki": "ローラースキー",
+    "Rowing": "ローイング",
+    "Run": "ラン",
+    "Sail": "セーリング",
+    "Skateboard": "スケートボード",
+    "Snowboard": "スノーボード",
+    "Snowshoe": "スノーシュー",
+    "Soccer": "サッカー",
+    "Squash": "スカッシュ",
+    "StairStepper": "ステアステッパー",
+    "StandUpPaddling": "SUP",
+    "Surfing": "サーフィン",
+    "Swim": "スイム",
+    "TableTennis": "卓球",
+    "Tennis": "テニス",
+    "TrailRun": "トレイルラン",
+    "Treadmill": "トレッドミル",
+    "Velomobile": "ベロモービル",
+    "VirtualRide": "バーチャルライド",
+    "VirtualRow": "バーチャルローイング",
+    "VirtualRun": "バーチャルラン",
+    "Walk": "ウォーク",
+    "WeightTraining": "ウエイトトレーニング",
+    "Wheelchair": "車椅子",
+    "Windsurf": "ウィンドサーフィン",
+    "Workout": "ワークアウト",
+    "Yoga": "ヨガ"
+  },
   "alerts": {
     "cacheCleared": "キャッシュをクリアしました",
     "cacheCorruptionMessage": "ローカルデータキャッシュが破損していたためクリアされました。サーバーからデータが更新されます。",
@@ -368,6 +422,12 @@
   "feed": {
     "activitiesCount": "{{count}}件のアクティビティ",
     "failedToLoad": "アクティビティの読み込みに失敗しました",
+    "groups": {
+      "cycling": "サイクリング",
+      "running": "ランニング",
+      "swimming": "スイミング",
+      "other": "その他"
+    },
     "noActivities": "アクティビティが見つかりません",
     "noMatchingActivities": "一致するアクティビティがありません",
     "recentActivities": "最近のアクティビティ",
@@ -718,10 +778,72 @@
     "wellness": "ウェルネス",
     "insights": "インサイト"
   },
+  "notifications": {
+    "sectionPr": {
+      "title": "New PR!"
+    },
+    "fitnessMilestone": {
+      "title": "Fitness Milestone"
+    },
+    "periodComparison": {
+      "title": "Weekly Summary"
+    },
+    "hrvTrend": {
+      "title": "HRV Trend"
+    },
+    "stalePr": {
+      "title": "PR更新情報"
+    },
+    "efficiencyTrend": {
+      "title": "Efficiency Trend"
+    },
+    "generic": {
+      "title": "New Insight"
+    },
+    "activityRecorded": {
+      "title": "Activity Recorded",
+      "body": "New activity synced. Open the app for details."
+    },
+    "privacy": {
+      "title": "Privacy Notice",
+      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
+      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 30-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
+      "accept": "I understand"
+    },
+    "settings": {
+      "title": "Notifications",
+      "enable": "Enable notifications",
+      "categories": "Notification categories",
+      "sectionPr": "Section personal records",
+      "fitnessMilestone": "Fitness milestones",
+      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
+      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
+      "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
+    },
+    "prompt": {
+      "title": "アクティビティ通知",
+      "description": "新しいアクティビティや達成についての通知を受け取る",
+      "enable": "有効にする",
+      "dismiss": "結構です",
+      "settingsHint": "通知はいつでも設定から有効にできます"
+    }
+  },
   "recording": {
     "activityName": "Activity Name",
+    "activityType": "Activity Type",
     "allActivities": "All Activities",
+    "autoPaused": "自動一時停止中",
+    "autoPausedHint": "動きを待っています",
+    "avgHr": "Average Heart Rate (bpm)",
+    "avgHrLabel": "Avg HR",
+    "avgPower": "Avg Power",
+    "avgSpeed": "Avg Speed",
+    "backgroundNotificationBody": "Veloqが位置情報を追跡中",
+    "backgroundNotificationTitle": "アクティビティ記録中",
     "backgroundPermission": "Background location permission allows recording when the app is in the background.",
+    "banner": {
+      "returnToRecording": "Return to recording"
+    },
     "categories": {
       "cycling": "Cycling",
       "gym": "Gym & Fitness",
@@ -732,8 +854,27 @@
       "water": "Water Sports",
       "winter": "Winter Sports"
     },
+    "changeType": "アクティビティタイプを変更",
+    "continue": "Continue",
+    "controls": {
+      "lap": "LAP",
+      "lock": "LOCK",
+      "pause": "PAUSE",
+      "resume": "RESUME",
+      "save": "SAVE",
+      "stop": "STOP"
+    },
     "discard": "Discard",
     "discardConfirm": "Are you sure you want to discard this activity? This cannot be undone.",
+    "discardMessage": "This action cannot be undone.",
+    "discardTitle": "Discard Activity?",
+    "distance": "Distance (km)",
+    "distanceInvalid": "Please enter a valid distance (0-999).",
+    "duration": "Duration (minutes)",
+    "durationLabel": "Duration",
+    "durationRequired": "Please enter a valid duration.",
+    "elevation": "Elevation",
+    "error": "Error",
     "fields": {
       "avgPace": "Avg Pace",
       "avgSpeed": "Avg Speed",
@@ -751,109 +892,91 @@
       "speed": "Speed",
       "timer": "Time"
     },
+    "gpsAcquiring": "GPSを取得中...",
+    "gpsAlertContinue": "GPSなしで続行",
+    "gpsAlertMessage": "GPS信号を取得できません。位置情報サービスが有効になっていること、空が見える場所にいることを確認してください。",
+    "gpsAlertSettings": "設定を開く",
+    "gpsAlertStop": "記録を停止",
+    "gpsAlertTitle": "GPS信号が見つかりません",
+    "gpsNone": "位置情報が拒否されました",
+    "gpsPermissionDenied": "位置情報の許可が拒否されました。GPSを記録するには設定でアクセスを許可してください。",
+    "gpsReady": "GPS準備完了",
+    "gpsTrackingError": "GPSトラッキングを開始できませんでした。一時停止して再開してみてください。",
+    "gpsWaiting": "GPS信号を待っています。屋外に出るとより良い受信が得られます。",
+    "gpsWeakWarning": "GPS信号が弱い — 記録が不正確になる可能性があります",
+    "grantAccess": "アクセスを許可",
+    "hrInvalid": "Please enter a valid heart rate (30-250).",
     "lap": "Lap",
     "manualDistance": "Distance",
     "manualDuration": "Duration (minutes)",
     "manualHR": "Avg Heart Rate",
+    "noWorkoutsPlanned": "今日のワークアウト予定はありません",
     "notes": "Notes",
+    "notesPlaceholder": "How did it feel?",
     "paused": "Paused",
+    "permissionExplanation": "Veloqがintervals.icuにアクティビティをアップロードするには許可が必要です",
+    "permissionGranted": "アップロードの許可が付与されました",
+    "permissionNeeded": "アクティビティのアップロードには許可が必要です",
     "permissionRequired": "Location permission is required to record GPS activities.",
     "quickStart": "Quick Start",
-    "recording": "REC",
-    "review": "Review Activity",
-    "rpe": "RPE",
-    "saveAndUpload": "Save & Upload",
-    "saveForLater": "Save for Later",
-    "savedOffline": "Saved for later upload",
-    "saving": "Saving...",
-    "startActivity": "Start Activity",
-    "stopped": "Stopped",
-    "summaryStats": "Summary",
-    "todaysWorkouts": "Today's Workouts",
-    "uploadError": "Failed to upload activity",
-    "uploadSuccess": "Activity uploaded successfully",
-    "banner": {
-      "returnToRecording": "Return to recording"
-    },
-    "controls": {
-      "lap": "LAP",
-      "lock": "LOCK",
-      "pause": "PAUSE",
-      "resume": "RESUME",
-      "save": "SAVE",
-      "stop": "STOP"
-    },
-    "status": {
-      "paused": "PAUSED",
-      "recording": "Recording"
-    },
-    "activityType": "Activity Type",
-    "avgHrLabel": "Avg HR",
-    "avgPower": "Avg Power",
-    "avgSpeed": "Avg Speed",
-    "continue": "Continue",
-    "discardMessage": "This action cannot be undone.",
-    "discardTitle": "Discard Activity?",
-    "durationLabel": "Duration",
-    "durationRequired": "Please enter a valid duration.",
-    "elevation": "Elevation",
-    "error": "Error",
-    "notesPlaceholder": "How did it feel?",
     "rec": "REC",
-    "reviewActivity": "Review Activity",
-    "saveError": "Save Failed",
-    "saved": "Saved",
-    "savedForLater": "Activity saved for upload when online.",
-    "stop": "Finish",
-    "stopMessage": "Do you want to stop recording and review your activity?",
-    "stopTitle": "Finish Activity?",
-    "summary": "Summary",
-    "types": "types",
-    "uploadErrorMessage": "Could not upload activity: {{error}}",
-    "distance": "Distance (km)",
-    "duration": "Duration (minutes)",
-    "avgHr": "Average Heart Rate (bpm)",
-    "slideToUnlock": "スライドしてロック解除",
-    "trimActivity": "アクティビティをトリミング",
-    "rpeDescription": "1 = 楽、10 = 最大限の努力",
-    "savedQueued": "アクティビティを保存しました。オンラインに戻ると自動的にアップロードされます。",
-    "gpsPermissionDenied": "位置情報の許可が拒否されました。GPSを記録するには設定でアクセスを許可してください。",
-    "gpsWaiting": "GPS信号を待っています。屋外に出るとより良い受信が得られます。",
-    "gpsTrackingError": "GPSトラッキングを開始できませんでした。一時停止して再開してみてください。",
-    "autoPaused": "自動一時停止中",
-    "autoPausedHint": "動きを待っています",
+    "recording": "REC",
     "resumePrevious": "前回の記録を再開しますか？",
     "resumePreviousMessage": "記録が中断されました。再開しますか？",
-    "gpsAcquiring": "GPSを取得中...",
-    "gpsReady": "GPS準備完了",
-    "gpsWeakWarning": "GPS信号が弱い — 記録が不正確になる可能性があります",
-    "gpsNone": "位置情報が拒否されました",
-    "gpsAlertTitle": "GPS信号が見つかりません",
-    "gpsAlertMessage": "GPS信号を取得できません。位置情報サービスが有効になっていること、空が見える場所にいることを確認してください。",
-    "gpsAlertContinue": "GPSなしで続行",
-    "gpsAlertSettings": "設定を開く",
-    "gpsAlertStop": "記録を停止",
-    "changeType": "アクティビティタイプを変更",
-    "noWorkoutsPlanned": "今日のワークアウト予定はありません",
-    "backgroundNotificationTitle": "アクティビティ記録中",
-    "backgroundNotificationBody": "Veloqが位置情報を追跡中",
-    "trimmed": "トリミング済み",
-    "splitBanner": "{{unit}} {{index}} — {{pace}}",
+    "review": "Review Activity",
+    "reviewActivity": "Review Activity",
+    "rpe": "RPE",
+    "rpeDescription": "1 = 楽、10 = 最大限の努力",
+    "rpeLabels": {
+      "easy": "楽",
+      "moderate": "普通",
+      "hard": "きつい",
+      "veryHard": "とてもきつい",
+      "max": "最大"
+    },
+    "saveAndUpload": "Save & Upload",
+    "saveError": "Save Failed",
+    "saveForLater": "Save for Later",
+    "saved": "Saved",
+    "savedForLater": "Activity saved for upload when online.",
+    "savedOffline": "Saved for later upload",
+    "savedQueued": "アクティビティを保存しました。オンラインに戻ると自動的にアップロードされます。",
+    "saving": "Saving...",
     "settings": "記録設定",
     "settingsAutoPause": "自動一時停止",
     "settingsAutoPauseThreshold": "速度しきい値",
     "settingsDataFields": "データフィールド",
     "settingsUnits": "単位",
-    "distanceInvalid": "Please enter a valid distance (0-999).",
-    "hrInvalid": "Please enter a valid heart rate (30-250).",
-    "permissionNeeded": "アクティビティのアップロードには許可が必要です",
-    "grantAccess": "アクセスを許可",
-    "permissionExplanation": "Veloqがintervals.icuにアクティビティをアップロードするには許可が必要です",
-    "permissionGranted": "アップロードの許可が付与されました",
-    "writePermissionRequired": "書き込み権限が必要です",
-    "writePermissionDescription": "記録には書き込み権限が必要です。下をタップしてアクセスを許可してください。",
+    "slideToUnlock": "スライドしてロック解除",
+    "splitBanner": "{{unit}} {{index}} — {{pace}}",
+    "startActivity": "Start Activity",
+    "status": {
+      "paused": "PAUSED",
+      "recording": "Recording"
+    },
+    "stop": "Finish",
+    "stopMessage": "Do you want to stop recording and review your activity?",
+    "stopTitle": "Finish Activity?",
+    "stopped": "Stopped",
+    "summary": "Summary",
+    "summaryStats": "Summary",
+    "timeOfDay": {
+      "morning": "朝",
+      "afternoon": "午後",
+      "evening": "夕方",
+      "night": "夜"
+    },
+    "todaysWorkouts": "Today's Workouts",
+    "trimActivity": "アクティビティをトリミング",
+    "trimmed": "トリミング済み",
+    "types": "types",
+    "uploadError": "Failed to upload activity",
+    "uploadErrorMessage": "Could not upload activity: {{error}}",
+    "uploadSuccess": "Activity uploaded successfully",
     "writePermissionActive": "書き込み権限が有効です",
-    "writePermissionNotGranted": "書き込み権限が付与されていません"
+    "writePermissionDescription": "記録には書き込み権限が必要です。下をタップしてアクセスを許可してください。",
+    "writePermissionNotGranted": "書き込み権限が付与されていません",
+    "writePermissionRequired": "書き込み権限が必要です"
   },
   "routeDetail": {
     "avgTime": "平均時間",
@@ -1310,6 +1433,9 @@
     "yearsCount": "{{count}}年間",
     "yesterday": "昨日"
   },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} セクションPR（今週）"
+  },
   "trainingScreen": {
     "checkingActivities": "{{count}}件のアクティビティを確認中...",
     "disabledInSettings": "無効 - 設定で有効化",
@@ -1366,56 +1492,6 @@
     "title": "ウェルネス",
     "trends": "ウェルネストレンド"
   },
-  "notifications": {
-    "sectionPr": {
-      "title": "New PR!"
-    },
-    "fitnessMilestone": {
-      "title": "Fitness Milestone"
-    },
-    "periodComparison": {
-      "title": "Weekly Summary"
-    },
-    "hrvTrend": {
-      "title": "HRV Trend"
-    },
-    "stalePr": {
-      "title": "PR更新情報"
-    },
-    "efficiencyTrend": {
-      "title": "Efficiency Trend"
-    },
-    "generic": {
-      "title": "New Insight"
-    },
-    "activityRecorded": {
-      "title": "Activity Recorded",
-      "body": "New activity synced. Open the app for details."
-    },
-    "privacy": {
-      "title": "Privacy Notice",
-      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
-      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 30-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
-      "accept": "I understand"
-    },
-    "settings": {
-      "title": "Notifications",
-      "enable": "Enable notifications",
-      "categories": "Notification categories",
-      "sectionPr": "Section personal records",
-      "fitnessMilestone": "Fitness milestones",
-      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
-      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
-      "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
-    },
-    "prompt": {
-      "title": "アクティビティ通知",
-      "description": "新しいアクティビティや達成についての通知を受け取る",
-      "enable": "有効にする",
-      "dismiss": "結構です",
-      "settingsHint": "通知はいつでも設定から有効にできます"
-    }
-  },
   "whatsNew": {
     "skipButton": "スキップ",
     "nextButton": "次へ",
@@ -1435,8 +1511,5 @@
       "fitnessTitle": "フィットネス概要",
       "fitnessBody": "フィットネス、疲労、フォームを色分けされたゾーンで追跡。フレッシュでパフォーマンスの準備ができている時を把握できます。"
     }
-  },
-  "todayBanner": {
-    "prCountThisWeek": "{{count}} セクションPR（今週）"
   }
 }

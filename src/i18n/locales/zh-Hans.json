@@ -158,6 +158,60 @@
     "bodyShapeRandom": "随机选择身体 — intervals.icu资料中无性别",
     "tapMuscle": "Tap for details"
   },
+  "activityTypes": {
+    "AlpineSki": "高山滑雪",
+    "BackcountrySki": "越野滑雪",
+    "Badminton": "羽毛球",
+    "Canoeing": "划艇",
+    "Crossfit": "CrossFit",
+    "EBikeRide": "电动自行车",
+    "Elliptical": "椭圆机",
+    "Golf": "高尔夫",
+    "GravelRide": "砾石骑行",
+    "Handcycle": "手摇车",
+    "HighIntensityIntervalTraining": "HIIT",
+    "Hike": "徒步",
+    "IceSkate": "滑冰",
+    "InlineSkate": "轮滑",
+    "Kayaking": "皮划艇",
+    "Kitesurf": "风筝冲浪",
+    "MountainBikeRide": "山地骑行",
+    "NordicSki": "越野滑雪",
+    "OpenWaterSwim": "公开水域游泳",
+    "Other": "其他",
+    "Pickleball": "匹克球",
+    "Pilates": "普拉提",
+    "Racquetball": "壁球",
+    "Ride": "骑行",
+    "RockClimbing": "攀岩",
+    "RollerSki": "滑轮",
+    "Rowing": "赛艇",
+    "Run": "跑步",
+    "Sail": "帆船",
+    "Skateboard": "滑板",
+    "Snowboard": "单板滑雪",
+    "Snowshoe": "雪鞋",
+    "Soccer": "足球",
+    "Squash": "壁球",
+    "StairStepper": "踏步机",
+    "StandUpPaddling": "桨板",
+    "Surfing": "冲浪",
+    "Swim": "游泳",
+    "TableTennis": "乒乓球",
+    "Tennis": "网球",
+    "TrailRun": "越野跑",
+    "Treadmill": "跑步机",
+    "Velomobile": "自行车汽车",
+    "VirtualRide": "虚拟骑行",
+    "VirtualRow": "虚拟赛艇",
+    "VirtualRun": "虚拟跑步",
+    "Walk": "步行",
+    "WeightTraining": "力量训练",
+    "Wheelchair": "轮椅",
+    "Windsurf": "帆板",
+    "Workout": "训练",
+    "Yoga": "瑜伽"
+  },
   "alerts": {
     "cacheCleared": "缓存已清除",
     "cacheCorruptionMessage": "本地数据缓存已损坏并已清除。您的数据将从服务器重新加载。",
@@ -368,6 +422,12 @@
   "feed": {
     "activitiesCount": "{{count}} 个活动",
     "failedToLoad": "加载活动失败",
+    "groups": {
+      "cycling": "骑行",
+      "running": "跑步",
+      "swimming": "游泳",
+      "other": "其他"
+    },
     "noActivities": "未找到活动",
     "noMatchingActivities": "无匹配活动",
     "recentActivities": "最近活动",
@@ -718,10 +778,72 @@
     "wellness": "健康",
     "insights": "洞察"
   },
+  "notifications": {
+    "sectionPr": {
+      "title": "New PR!"
+    },
+    "fitnessMilestone": {
+      "title": "Fitness Milestone"
+    },
+    "periodComparison": {
+      "title": "Weekly Summary"
+    },
+    "hrvTrend": {
+      "title": "HRV Trend"
+    },
+    "stalePr": {
+      "title": "PR更新"
+    },
+    "efficiencyTrend": {
+      "title": "Efficiency Trend"
+    },
+    "generic": {
+      "title": "New Insight"
+    },
+    "activityRecorded": {
+      "title": "Activity Recorded",
+      "body": "New activity synced. Open the app for details."
+    },
+    "privacy": {
+      "title": "Privacy Notice",
+      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
+      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 30-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
+      "accept": "I understand"
+    },
+    "settings": {
+      "title": "Notifications",
+      "enable": "Enable notifications",
+      "categories": "Notification categories",
+      "sectionPr": "Section personal records",
+      "fitnessMilestone": "Fitness milestones",
+      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
+      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
+      "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
+    },
+    "prompt": {
+      "title": "活动通知",
+      "description": "接收有关新活动和成就的通知",
+      "enable": "启用",
+      "dismiss": "不用了",
+      "settingsHint": "您可以随时在设置中启用通知"
+    }
+  },
   "recording": {
     "activityName": "Activity Name",
+    "activityType": "Activity Type",
     "allActivities": "All Activities",
+    "autoPaused": "已自动暂停",
+    "autoPausedHint": "等待移动",
+    "avgHr": "Average Heart Rate (bpm)",
+    "avgHrLabel": "Avg HR",
+    "avgPower": "Avg Power",
+    "avgSpeed": "Avg Speed",
+    "backgroundNotificationBody": "Veloq正在跟踪您的位置",
+    "backgroundNotificationTitle": "正在记录活动",
     "backgroundPermission": "Background location permission allows recording when the app is in the background.",
+    "banner": {
+      "returnToRecording": "Return to recording"
+    },
     "categories": {
       "cycling": "Cycling",
       "gym": "Gym & Fitness",
@@ -732,8 +854,27 @@
       "water": "Water Sports",
       "winter": "Winter Sports"
     },
+    "changeType": "更改活动类型",
+    "continue": "Continue",
+    "controls": {
+      "lap": "LAP",
+      "lock": "LOCK",
+      "pause": "PAUSE",
+      "resume": "RESUME",
+      "save": "SAVE",
+      "stop": "STOP"
+    },
     "discard": "Discard",
     "discardConfirm": "Are you sure you want to discard this activity? This cannot be undone.",
+    "discardMessage": "This action cannot be undone.",
+    "discardTitle": "Discard Activity?",
+    "distance": "Distance (km)",
+    "distanceInvalid": "Please enter a valid distance (0-999).",
+    "duration": "Duration (minutes)",
+    "durationLabel": "Duration",
+    "durationRequired": "Please enter a valid duration.",
+    "elevation": "Elevation",
+    "error": "Error",
     "fields": {
       "avgPace": "Avg Pace",
       "avgSpeed": "Avg Speed",
@@ -751,109 +892,91 @@
       "speed": "Speed",
       "timer": "Time"
     },
+    "gpsAcquiring": "正在获取GPS...",
+    "gpsAlertContinue": "不使用GPS继续",
+    "gpsAlertMessage": "无法获取GPS信号。请检查定位服务是否已开启，以及是否有开阔的天空视野。",
+    "gpsAlertSettings": "打开设置",
+    "gpsAlertStop": "停止录制",
+    "gpsAlertTitle": "未找到GPS信号",
+    "gpsNone": "位置权限被拒绝",
+    "gpsPermissionDenied": "定位权限被拒绝。请在设置中授予权限以记录GPS。",
+    "gpsReady": "GPS就绪",
+    "gpsTrackingError": "无法启动GPS追踪。请尝试暂停并恢复。",
+    "gpsWaiting": "正在等待GPS信号。请移至室外以获得更好的信号。",
+    "gpsWeakWarning": "GPS信号弱 — 录制可能不准确",
+    "grantAccess": "授予访问权限",
+    "hrInvalid": "Please enter a valid heart rate (30-250).",
     "lap": "Lap",
     "manualDistance": "Distance",
     "manualDuration": "Duration (minutes)",
     "manualHR": "Avg Heart Rate",
+    "noWorkoutsPlanned": "今天没有计划的训练",
     "notes": "Notes",
+    "notesPlaceholder": "How did it feel?",
     "paused": "Paused",
+    "permissionExplanation": "Veloq需要您的授权才能将活动上传到intervals.icu",
+    "permissionGranted": "上传权限已授予",
+    "permissionNeeded": "上传活动需要授权",
     "permissionRequired": "Location permission is required to record GPS activities.",
     "quickStart": "Quick Start",
-    "recording": "REC",
-    "review": "Review Activity",
-    "rpe": "RPE",
-    "saveAndUpload": "Save & Upload",
-    "saveForLater": "Save for Later",
-    "savedOffline": "Saved for later upload",
-    "saving": "Saving...",
-    "startActivity": "Start Activity",
-    "stopped": "Stopped",
-    "summaryStats": "Summary",
-    "todaysWorkouts": "Today's Workouts",
-    "uploadError": "Failed to upload activity",
-    "uploadSuccess": "Activity uploaded successfully",
-    "banner": {
-      "returnToRecording": "Return to recording"
-    },
-    "controls": {
-      "lap": "LAP",
-      "lock": "LOCK",
-      "pause": "PAUSE",
-      "resume": "RESUME",
-      "save": "SAVE",
-      "stop": "STOP"
-    },
-    "status": {
-      "paused": "PAUSED",
-      "recording": "Recording"
-    },
-    "activityType": "Activity Type",
-    "avgHrLabel": "Avg HR",
-    "avgPower": "Avg Power",
-    "avgSpeed": "Avg Speed",
-    "continue": "Continue",
-    "discardMessage": "This action cannot be undone.",
-    "discardTitle": "Discard Activity?",
-    "durationLabel": "Duration",
-    "durationRequired": "Please enter a valid duration.",
-    "elevation": "Elevation",
-    "error": "Error",
-    "notesPlaceholder": "How did it feel?",
     "rec": "REC",
-    "reviewActivity": "Review Activity",
-    "saveError": "Save Failed",
-    "saved": "Saved",
-    "savedForLater": "Activity saved for upload when online.",
-    "stop": "Finish",
-    "stopMessage": "Do you want to stop recording and review your activity?",
-    "stopTitle": "Finish Activity?",
-    "summary": "Summary",
-    "types": "types",
-    "uploadErrorMessage": "Could not upload activity: {{error}}",
-    "distance": "Distance (km)",
-    "duration": "Duration (minutes)",
-    "avgHr": "Average Heart Rate (bpm)",
-    "slideToUnlock": "滑动解锁",
-    "trimActivity": "裁剪活动",
-    "rpeDescription": "1 = 毫不费力，10 = 最大努力",
-    "savedQueued": "活动已保存。当您恢复在线时将自动上传。",
-    "gpsPermissionDenied": "定位权限被拒绝。请在设置中授予权限以记录GPS。",
-    "gpsWaiting": "正在等待GPS信号。请移至室外以获得更好的信号。",
-    "gpsTrackingError": "无法启动GPS追踪。请尝试暂停并恢复。",
-    "autoPaused": "已自动暂停",
-    "autoPausedHint": "等待移动",
+    "recording": "REC",
     "resumePrevious": "恢复之前的录制？",
     "resumePreviousMessage": "录制被中断。是否要恢复？",
-    "gpsAcquiring": "正在获取GPS...",
-    "gpsReady": "GPS就绪",
-    "gpsWeakWarning": "GPS信号弱 — 录制可能不准确",
-    "gpsNone": "位置权限被拒绝",
-    "gpsAlertTitle": "未找到GPS信号",
-    "gpsAlertMessage": "无法获取GPS信号。请检查定位服务是否已开启，以及是否有开阔的天空视野。",
-    "gpsAlertContinue": "不使用GPS继续",
-    "gpsAlertSettings": "打开设置",
-    "gpsAlertStop": "停止录制",
-    "changeType": "更改活动类型",
-    "noWorkoutsPlanned": "今天没有计划的训练",
-    "backgroundNotificationTitle": "正在记录活动",
-    "backgroundNotificationBody": "Veloq正在跟踪您的位置",
-    "trimmed": "已裁剪",
-    "splitBanner": "{{unit}} {{index}} — {{pace}}",
+    "review": "Review Activity",
+    "reviewActivity": "Review Activity",
+    "rpe": "RPE",
+    "rpeDescription": "1 = 毫不费力，10 = 最大努力",
+    "rpeLabels": {
+      "easy": "轻松",
+      "moderate": "中等",
+      "hard": "困难",
+      "veryHard": "非常困难",
+      "max": "极限"
+    },
+    "saveAndUpload": "Save & Upload",
+    "saveError": "Save Failed",
+    "saveForLater": "Save for Later",
+    "saved": "Saved",
+    "savedForLater": "Activity saved for upload when online.",
+    "savedOffline": "Saved for later upload",
+    "savedQueued": "活动已保存。当您恢复在线时将自动上传。",
+    "saving": "Saving...",
     "settings": "录制设置",
     "settingsAutoPause": "自动暂停",
     "settingsAutoPauseThreshold": "速度阈值",
     "settingsDataFields": "数据字段",
     "settingsUnits": "单位",
-    "distanceInvalid": "Please enter a valid distance (0-999).",
-    "hrInvalid": "Please enter a valid heart rate (30-250).",
-    "permissionNeeded": "上传活动需要授权",
-    "grantAccess": "授予访问权限",
-    "permissionExplanation": "Veloq需要您的授权才能将活动上传到intervals.icu",
-    "permissionGranted": "上传权限已授予",
-    "writePermissionRequired": "需要写入权限",
-    "writePermissionDescription": "录制需要写入权限。点击下方授予访问权限。",
+    "slideToUnlock": "滑动解锁",
+    "splitBanner": "{{unit}} {{index}} — {{pace}}",
+    "startActivity": "Start Activity",
+    "status": {
+      "paused": "PAUSED",
+      "recording": "Recording"
+    },
+    "stop": "Finish",
+    "stopMessage": "Do you want to stop recording and review your activity?",
+    "stopTitle": "Finish Activity?",
+    "stopped": "Stopped",
+    "summary": "Summary",
+    "summaryStats": "Summary",
+    "timeOfDay": {
+      "morning": "早晨",
+      "afternoon": "下午",
+      "evening": "傍晚",
+      "night": "夜间"
+    },
+    "todaysWorkouts": "Today's Workouts",
+    "trimActivity": "裁剪活动",
+    "trimmed": "已裁剪",
+    "types": "types",
+    "uploadError": "Failed to upload activity",
+    "uploadErrorMessage": "Could not upload activity: {{error}}",
+    "uploadSuccess": "Activity uploaded successfully",
     "writePermissionActive": "写入权限已激活",
-    "writePermissionNotGranted": "写入权限未授予"
+    "writePermissionDescription": "录制需要写入权限。点击下方授予访问权限。",
+    "writePermissionNotGranted": "写入权限未授予",
+    "writePermissionRequired": "需要写入权限"
   },
   "routeDetail": {
     "avgTime": "平均时间",
@@ -1310,6 +1433,9 @@
     "yearsCount": "{{count}} 年",
     "yesterday": "昨天"
   },
+  "todayBanner": {
+    "prCountThisWeek": "本周 {{count}} 个区间最佳成绩"
+  },
   "trainingScreen": {
     "checkingActivities": "正在检查 {{count}} 个活动...",
     "disabledInSettings": "已禁用 - 在设置中启用",
@@ -1366,56 +1492,6 @@
     "title": "健康",
     "trends": "健康趋势"
   },
-  "notifications": {
-    "sectionPr": {
-      "title": "New PR!"
-    },
-    "fitnessMilestone": {
-      "title": "Fitness Milestone"
-    },
-    "periodComparison": {
-      "title": "Weekly Summary"
-    },
-    "hrvTrend": {
-      "title": "HRV Trend"
-    },
-    "stalePr": {
-      "title": "PR更新"
-    },
-    "efficiencyTrend": {
-      "title": "Efficiency Trend"
-    },
-    "generic": {
-      "title": "New Insight"
-    },
-    "activityRecorded": {
-      "title": "Activity Recorded",
-      "body": "New activity synced. Open the app for details."
-    },
-    "privacy": {
-      "title": "Privacy Notice",
-      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
-      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 30-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
-      "accept": "I understand"
-    },
-    "settings": {
-      "title": "Notifications",
-      "enable": "Enable notifications",
-      "categories": "Notification categories",
-      "sectionPr": "Section personal records",
-      "fitnessMilestone": "Fitness milestones",
-      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
-      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
-      "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
-    },
-    "prompt": {
-      "title": "活动通知",
-      "description": "接收有关新活动和成就的通知",
-      "enable": "启用",
-      "dismiss": "不用了",
-      "settingsHint": "您可以随时在设置中启用通知"
-    }
-  },
   "whatsNew": {
     "skipButton": "跳过",
     "nextButton": "下一步",
@@ -1435,8 +1511,5 @@
       "fitnessTitle": "体能概览",
       "fitnessBody": "通过彩色区域追踪您的体能、疲劳和状态。了解何时状态最佳，准备好发挥最好表现。"
     }
-  },
-  "todayBanner": {
-    "prCountThisWeek": "本周 {{count}} 个区间最佳成绩"
   }
 }

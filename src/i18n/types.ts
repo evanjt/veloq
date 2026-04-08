@@ -208,6 +208,12 @@ export interface TranslationResource {
     noMatchingActivities: string;
     failedToLoad: string;
     searchPlaceholder: string;
+    groups: {
+      cycling: string;
+      running: string;
+      swimming: string;
+      other: string;
+    };
   };
 
   filters: {
@@ -1372,6 +1378,19 @@ export interface TranslationResource {
     settingsAutoPauseThreshold: string;
     settingsDataFields: string;
     settingsUnits: string;
+    timeOfDay: {
+      morning: string;
+      afternoon: string;
+      evening: string;
+      night: string;
+    };
+    rpeLabels: {
+      easy: string;
+      moderate: string;
+      hard: string;
+      veryHard: string;
+      max: string;
+    };
   };
 
   maps: {
@@ -1417,6 +1436,61 @@ export interface TranslationResource {
       walk: string;
       water: string;
     };
+  };
+
+  activityTypes: {
+    AlpineSki: string;
+    BackcountrySki: string;
+    Badminton: string;
+    Canoeing: string;
+    Crossfit: string;
+    EBikeRide: string;
+    Elliptical: string;
+    Golf: string;
+    GravelRide: string;
+    Handcycle: string;
+    HighIntensityIntervalTraining: string;
+    Hike: string;
+    IceSkate: string;
+    InlineSkate: string;
+    Kayaking: string;
+    Kitesurf: string;
+    MountainBikeRide: string;
+    NordicSki: string;
+    OpenWaterSwim: string;
+    Other: string;
+    Pickleball: string;
+    Pilates: string;
+    Racquetball: string;
+    Ride: string;
+    RockClimbing: string;
+    RollerSki: string;
+    Rowing: string;
+    Run: string;
+    Sail: string;
+    Skateboard: string;
+    Snowboard: string;
+    Snowshoe: string;
+    Soccer: string;
+    Squash: string;
+    StairStepper: string;
+    StandUpPaddling: string;
+    Surfing: string;
+    Swim: string;
+    TableTennis: string;
+    Tennis: string;
+    TrailRun: string;
+    Treadmill: string;
+    Velomobile: string;
+    VirtualRide: string;
+    VirtualRow: string;
+    VirtualRun: string;
+    Walk: string;
+    WeightTraining: string;
+    Wheelchair: string;
+    Windsurf: string;
+    Workout: string;
+    Yoga: string;
   };
 }
 

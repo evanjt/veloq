@@ -158,6 +158,60 @@
     "bodyShapeRandom": "Lichaam willekeurig gekozen — geen geslacht in intervals.icu-profiel",
     "tapMuscle": "Tap for details"
   },
+  "activityTypes": {
+    "AlpineSki": "Alpineskiën",
+    "BackcountrySki": "Skitoer",
+    "Badminton": "Badminton",
+    "Canoeing": "Kanoën",
+    "Crossfit": "CrossFit",
+    "EBikeRide": "E-bike",
+    "Elliptical": "Crosstrainer",
+    "Golf": "Golf",
+    "GravelRide": "Gravel",
+    "Handcycle": "Handbike",
+    "HighIntensityIntervalTraining": "HIIT",
+    "Hike": "Wandeling",
+    "IceSkate": "Schaatsen",
+    "InlineSkate": "Skeeleren",
+    "Kayaking": "Kajakken",
+    "Kitesurf": "Kitesurfen",
+    "MountainBikeRide": "Mountainbike",
+    "NordicSki": "Langlaufen",
+    "OpenWaterSwim": "Openwaterzwemmen",
+    "Other": "Anders",
+    "Pickleball": "Pickleball",
+    "Pilates": "Pilates",
+    "Racquetball": "Racquetball",
+    "Ride": "Fietsen",
+    "RockClimbing": "Klimmen",
+    "RollerSki": "Rollerski",
+    "Rowing": "Roeien",
+    "Run": "Hardlopen",
+    "Sail": "Zeilen",
+    "Skateboard": "Skateboard",
+    "Snowboard": "Snowboard",
+    "Snowshoe": "Sneeuwschoenen",
+    "Soccer": "Voetbal",
+    "Squash": "Squash",
+    "StairStepper": "Stepper",
+    "StandUpPaddling": "Stand Up Paddle",
+    "Surfing": "Surfen",
+    "Swim": "Zwemmen",
+    "TableTennis": "Tafeltennis",
+    "Tennis": "Tennis",
+    "TrailRun": "Trailrunning",
+    "Treadmill": "Loopband",
+    "Velomobile": "Velomobiel",
+    "VirtualRide": "Virtueel fietsen",
+    "VirtualRow": "Virtueel roeien",
+    "VirtualRun": "Virtueel hardlopen",
+    "Walk": "Wandelen",
+    "WeightTraining": "Krachttraining",
+    "Wheelchair": "Rolstoel",
+    "Windsurf": "Windsurfen",
+    "Workout": "Training",
+    "Yoga": "Yoga"
+  },
   "alerts": {
     "cacheCleared": "Cache gewist",
     "cacheCorruptionMessage": "De lokale datacache was beschadigd en is gewist. Je gegevens worden bijgewerkt vanaf de server.",
@@ -368,6 +422,12 @@
   "feed": {
     "activitiesCount": "{{count}} Activiteiten",
     "failedToLoad": "Activiteiten laden mislukt",
+    "groups": {
+      "cycling": "Fietsen",
+      "running": "Hardlopen",
+      "swimming": "Zwemmen",
+      "other": "Anders"
+    },
     "noActivities": "Geen activiteiten gevonden",
     "noMatchingActivities": "Geen overeenkomende activiteiten",
     "recentActivities": "Recente activiteiten",
@@ -718,10 +778,72 @@
     "wellness": "Welzijn",
     "insights": "Inzichten"
   },
+  "notifications": {
+    "sectionPr": {
+      "title": "New PR!"
+    },
+    "fitnessMilestone": {
+      "title": "Fitness Milestone"
+    },
+    "periodComparison": {
+      "title": "Weekly Summary"
+    },
+    "hrvTrend": {
+      "title": "HRV Trend"
+    },
+    "stalePr": {
+      "title": "PR-update"
+    },
+    "efficiencyTrend": {
+      "title": "Efficiency Trend"
+    },
+    "generic": {
+      "title": "New Insight"
+    },
+    "activityRecorded": {
+      "title": "Activity Recorded",
+      "body": "New activity synced. Open the app for details."
+    },
+    "privacy": {
+      "title": "Privacy Notice",
+      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
+      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 30-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
+      "accept": "I understand"
+    },
+    "settings": {
+      "title": "Notifications",
+      "enable": "Enable notifications",
+      "categories": "Notification categories",
+      "sectionPr": "Section personal records",
+      "fitnessMilestone": "Fitness milestones",
+      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
+      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
+      "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
+    },
+    "prompt": {
+      "title": "Activiteitsmeldingen",
+      "description": "Ontvang meldingen over nieuwe activiteiten en prestaties",
+      "enable": "Inschakelen",
+      "dismiss": "Nee bedankt",
+      "settingsHint": "Je kunt meldingen op elk moment inschakelen via Instellingen"
+    }
+  },
   "recording": {
     "activityName": "Activity Name",
+    "activityType": "Activity Type",
     "allActivities": "All Activities",
+    "autoPaused": "Automatisch gepauzeerd",
+    "autoPausedHint": "Wachten op beweging",
+    "avgHr": "Average Heart Rate (bpm)",
+    "avgHrLabel": "Avg HR",
+    "avgPower": "Avg Power",
+    "avgSpeed": "Avg Speed",
+    "backgroundNotificationBody": "Veloq volgt je locatie",
+    "backgroundNotificationTitle": "Activiteit opnemen",
     "backgroundPermission": "Background location permission allows recording when the app is in the background.",
+    "banner": {
+      "returnToRecording": "Return to recording"
+    },
     "categories": {
       "cycling": "Cycling",
       "gym": "Gym & Fitness",
@@ -732,8 +854,27 @@
       "water": "Water Sports",
       "winter": "Winter Sports"
     },
+    "changeType": "Activiteitstype wijzigen",
+    "continue": "Continue",
+    "controls": {
+      "lap": "LAP",
+      "lock": "LOCK",
+      "pause": "PAUSE",
+      "resume": "RESUME",
+      "save": "SAVE",
+      "stop": "STOP"
+    },
     "discard": "Discard",
     "discardConfirm": "Are you sure you want to discard this activity? This cannot be undone.",
+    "discardMessage": "This action cannot be undone.",
+    "discardTitle": "Discard Activity?",
+    "distance": "Distance (km)",
+    "distanceInvalid": "Please enter a valid distance (0-999).",
+    "duration": "Duration (minutes)",
+    "durationLabel": "Duration",
+    "durationRequired": "Please enter a valid duration.",
+    "elevation": "Elevation",
+    "error": "Error",
     "fields": {
       "avgPace": "Avg Pace",
       "avgSpeed": "Avg Speed",
@@ -751,109 +892,91 @@
       "speed": "Speed",
       "timer": "Time"
     },
+    "gpsAcquiring": "Wachten op GPS...",
+    "gpsAlertContinue": "Doorgaan zonder GPS",
+    "gpsAlertMessage": "Kan geen GPS-signaal ontvangen. Controleer of locatieservices zijn ingeschakeld en je vrij zicht op de lucht hebt.",
+    "gpsAlertSettings": "Instellingen openen",
+    "gpsAlertStop": "Opname stoppen",
+    "gpsAlertTitle": "GPS-signaal niet gevonden",
+    "gpsNone": "Locatie geweigerd",
+    "gpsPermissionDenied": "Locatietoestemming geweigerd. Geef toegang in Instellingen om GPS op te nemen.",
+    "gpsReady": "GPS gereed",
+    "gpsTrackingError": "Kon GPS-tracking niet starten. Probeer te pauzeren en hervatten.",
+    "gpsWaiting": "Wachten op GPS-signaal. Ga naar buiten voor een beter signaal.",
+    "gpsWeakWarning": "GPS-signaal zwak — opname kan onnauwkeurig zijn",
+    "grantAccess": "Toegang verlenen",
+    "hrInvalid": "Please enter a valid heart rate (30-250).",
     "lap": "Lap",
     "manualDistance": "Distance",
     "manualDuration": "Duration (minutes)",
     "manualHR": "Avg Heart Rate",
+    "noWorkoutsPlanned": "Geen trainingen gepland voor vandaag",
     "notes": "Notes",
+    "notesPlaceholder": "How did it feel?",
     "paused": "Paused",
+    "permissionExplanation": "Veloq heeft je toestemming nodig om activiteiten naar intervals.icu te uploaden",
+    "permissionGranted": "Uploadtoestemming verleend",
+    "permissionNeeded": "Toestemming nodig om activiteiten te uploaden",
     "permissionRequired": "Location permission is required to record GPS activities.",
     "quickStart": "Quick Start",
-    "recording": "REC",
-    "review": "Review Activity",
-    "rpe": "RPE",
-    "saveAndUpload": "Save & Upload",
-    "saveForLater": "Save for Later",
-    "savedOffline": "Saved for later upload",
-    "saving": "Saving...",
-    "startActivity": "Start Activity",
-    "stopped": "Stopped",
-    "summaryStats": "Summary",
-    "todaysWorkouts": "Today's Workouts",
-    "uploadError": "Failed to upload activity",
-    "uploadSuccess": "Activity uploaded successfully",
-    "banner": {
-      "returnToRecording": "Return to recording"
-    },
-    "controls": {
-      "lap": "LAP",
-      "lock": "LOCK",
-      "pause": "PAUSE",
-      "resume": "RESUME",
-      "save": "SAVE",
-      "stop": "STOP"
-    },
-    "status": {
-      "paused": "PAUSED",
-      "recording": "Recording"
-    },
-    "activityType": "Activity Type",
-    "avgHrLabel": "Avg HR",
-    "avgPower": "Avg Power",
-    "avgSpeed": "Avg Speed",
-    "continue": "Continue",
-    "discardMessage": "This action cannot be undone.",
-    "discardTitle": "Discard Activity?",
-    "durationLabel": "Duration",
-    "durationRequired": "Please enter a valid duration.",
-    "elevation": "Elevation",
-    "error": "Error",
-    "notesPlaceholder": "How did it feel?",
     "rec": "REC",
-    "reviewActivity": "Review Activity",
-    "saveError": "Save Failed",
-    "saved": "Saved",
-    "savedForLater": "Activity saved for upload when online.",
-    "stop": "Finish",
-    "stopMessage": "Do you want to stop recording and review your activity?",
-    "stopTitle": "Finish Activity?",
-    "summary": "Summary",
-    "types": "types",
-    "uploadErrorMessage": "Could not upload activity: {{error}}",
-    "distance": "Distance (km)",
-    "duration": "Duration (minutes)",
-    "avgHr": "Average Heart Rate (bpm)",
-    "slideToUnlock": "Schuif om te ontgrendelen",
-    "trimActivity": "Activiteit bijsnijden",
-    "rpeDescription": "1 = moeiteloos, 10 = maximale inspanning",
-    "savedQueued": "Activiteit opgeslagen. Deze wordt automatisch geüpload wanneer je weer online bent.",
-    "gpsPermissionDenied": "Locatietoestemming geweigerd. Geef toegang in Instellingen om GPS op te nemen.",
-    "gpsWaiting": "Wachten op GPS-signaal. Ga naar buiten voor een beter signaal.",
-    "gpsTrackingError": "Kon GPS-tracking niet starten. Probeer te pauzeren en hervatten.",
-    "autoPaused": "Automatisch gepauzeerd",
-    "autoPausedHint": "Wachten op beweging",
+    "recording": "REC",
     "resumePrevious": "Vorige opname hervatten?",
     "resumePreviousMessage": "Een opname werd onderbroken. Wil je deze hervatten?",
-    "gpsAcquiring": "Wachten op GPS...",
-    "gpsReady": "GPS gereed",
-    "gpsWeakWarning": "GPS-signaal zwak — opname kan onnauwkeurig zijn",
-    "gpsNone": "Locatie geweigerd",
-    "gpsAlertTitle": "GPS-signaal niet gevonden",
-    "gpsAlertMessage": "Kan geen GPS-signaal ontvangen. Controleer of locatieservices zijn ingeschakeld en je vrij zicht op de lucht hebt.",
-    "gpsAlertContinue": "Doorgaan zonder GPS",
-    "gpsAlertSettings": "Instellingen openen",
-    "gpsAlertStop": "Opname stoppen",
-    "changeType": "Activiteitstype wijzigen",
-    "noWorkoutsPlanned": "Geen trainingen gepland voor vandaag",
-    "backgroundNotificationTitle": "Activiteit opnemen",
-    "backgroundNotificationBody": "Veloq volgt je locatie",
-    "trimmed": "Bijgesneden",
-    "splitBanner": "{{unit}} {{index}} — {{pace}}",
+    "review": "Review Activity",
+    "reviewActivity": "Review Activity",
+    "rpe": "RPE",
+    "rpeDescription": "1 = moeiteloos, 10 = maximale inspanning",
+    "rpeLabels": {
+      "easy": "Makkelijk",
+      "moderate": "Matig",
+      "hard": "Zwaar",
+      "veryHard": "Zeer zwaar",
+      "max": "Maximaal"
+    },
+    "saveAndUpload": "Save & Upload",
+    "saveError": "Save Failed",
+    "saveForLater": "Save for Later",
+    "saved": "Saved",
+    "savedForLater": "Activity saved for upload when online.",
+    "savedOffline": "Saved for later upload",
+    "savedQueued": "Activiteit opgeslagen. Deze wordt automatisch geüpload wanneer je weer online bent.",
+    "saving": "Saving...",
     "settings": "Opname-instellingen",
     "settingsAutoPause": "Auto-pauze",
     "settingsAutoPauseThreshold": "Snelheidsdrempel",
     "settingsDataFields": "Gegevensvelden",
     "settingsUnits": "Eenheden",
-    "distanceInvalid": "Please enter a valid distance (0-999).",
-    "hrInvalid": "Please enter a valid heart rate (30-250).",
-    "permissionNeeded": "Toestemming nodig om activiteiten te uploaden",
-    "grantAccess": "Toegang verlenen",
-    "permissionExplanation": "Veloq heeft je toestemming nodig om activiteiten naar intervals.icu te uploaden",
-    "permissionGranted": "Uploadtoestemming verleend",
-    "writePermissionRequired": "Schrijfrechten vereist",
-    "writePermissionDescription": "Opname vereist schrijfrechten. Tik hieronder om toegang te verlenen.",
+    "slideToUnlock": "Schuif om te ontgrendelen",
+    "splitBanner": "{{unit}} {{index}} — {{pace}}",
+    "startActivity": "Start Activity",
+    "status": {
+      "paused": "PAUSED",
+      "recording": "Recording"
+    },
+    "stop": "Finish",
+    "stopMessage": "Do you want to stop recording and review your activity?",
+    "stopTitle": "Finish Activity?",
+    "stopped": "Stopped",
+    "summary": "Summary",
+    "summaryStats": "Summary",
+    "timeOfDay": {
+      "morning": "Ochtend",
+      "afternoon": "Middag",
+      "evening": "Avond",
+      "night": "Nacht"
+    },
+    "todaysWorkouts": "Today's Workouts",
+    "trimActivity": "Activiteit bijsnijden",
+    "trimmed": "Bijgesneden",
+    "types": "types",
+    "uploadError": "Failed to upload activity",
+    "uploadErrorMessage": "Could not upload activity: {{error}}",
+    "uploadSuccess": "Activity uploaded successfully",
     "writePermissionActive": "Schrijfrechten actief",
-    "writePermissionNotGranted": "Schrijfrechten niet verleend"
+    "writePermissionDescription": "Opname vereist schrijfrechten. Tik hieronder om toegang te verlenen.",
+    "writePermissionNotGranted": "Schrijfrechten niet verleend",
+    "writePermissionRequired": "Schrijfrechten vereist"
   },
   "routeDetail": {
     "avgTime": "Gem. tijd",
@@ -1310,6 +1433,9 @@
     "yearsCount": "{{count}} jaar",
     "yesterday": "Gisteren"
   },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} sectie-PRs deze week"
+  },
   "trainingScreen": {
     "checkingActivities": "{{count}} activiteiten controleren...",
     "disabledInSettings": "Uitgeschakeld - Inschakelen in Instellingen",
@@ -1366,56 +1492,6 @@
     "title": "Welzijn",
     "trends": "Welzijnstrends"
   },
-  "notifications": {
-    "sectionPr": {
-      "title": "New PR!"
-    },
-    "fitnessMilestone": {
-      "title": "Fitness Milestone"
-    },
-    "periodComparison": {
-      "title": "Weekly Summary"
-    },
-    "hrvTrend": {
-      "title": "HRV Trend"
-    },
-    "stalePr": {
-      "title": "PR-update"
-    },
-    "efficiencyTrend": {
-      "title": "Efficiency Trend"
-    },
-    "generic": {
-      "title": "New Insight"
-    },
-    "activityRecorded": {
-      "title": "Activity Recorded",
-      "body": "New activity synced. Open the app for details."
-    },
-    "privacy": {
-      "title": "Privacy Notice",
-      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
-      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 30-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
-      "accept": "I understand"
-    },
-    "settings": {
-      "title": "Notifications",
-      "enable": "Enable notifications",
-      "categories": "Notification categories",
-      "sectionPr": "Section personal records",
-      "fitnessMilestone": "Fitness milestones",
-      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
-      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
-      "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
-    },
-    "prompt": {
-      "title": "Activiteitsmeldingen",
-      "description": "Ontvang meldingen over nieuwe activiteiten en prestaties",
-      "enable": "Inschakelen",
-      "dismiss": "Nee bedankt",
-      "settingsHint": "Je kunt meldingen op elk moment inschakelen via Instellingen"
-    }
-  },
   "whatsNew": {
     "skipButton": "Overslaan",
     "nextButton": "Volgende",
@@ -1435,8 +1511,5 @@
       "fitnessTitle": "Fitnessoverzicht",
       "fitnessBody": "Volg je fitheid, vermoeidheid en vorm met kleurgecodeerde zones. Weet wanneer je fris en klaar bent om te presteren."
     }
-  },
-  "todayBanner": {
-    "prCountThisWeek": "{{count}} sectie-PRs deze week"
   }
 }

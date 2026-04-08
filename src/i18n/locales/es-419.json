@@ -158,6 +158,60 @@
     "bodyShapeRandom": "Cuerpo elegido al azar — sin género en el perfil de intervals.icu",
     "tapMuscle": "Tap for details"
   },
+  "activityTypes": {
+    "AlpineSki": "Esquí alpino",
+    "BackcountrySki": "Esquí de travesía",
+    "Badminton": "Bádminton",
+    "Canoeing": "Canotaje",
+    "Crossfit": "CrossFit",
+    "EBikeRide": "Bicicleta eléctrica",
+    "Elliptical": "Elíptica",
+    "Golf": "Golf",
+    "GravelRide": "Gravel",
+    "Handcycle": "Handbike",
+    "HighIntensityIntervalTraining": "HIIT",
+    "Hike": "Senderismo",
+    "IceSkate": "Patinaje sobre hielo",
+    "InlineSkate": "Patinaje en línea",
+    "Kayaking": "Kayak",
+    "Kitesurf": "Kitesurf",
+    "MountainBikeRide": "Bicicleta de montaña",
+    "NordicSki": "Esquí de fondo",
+    "OpenWaterSwim": "Natación en aguas abiertas",
+    "Other": "Otro",
+    "Pickleball": "Pickleball",
+    "Pilates": "Pilates",
+    "Racquetball": "Racquetball",
+    "Ride": "Ciclismo",
+    "RockClimbing": "Escalada",
+    "RollerSki": "Esquí sobre ruedas",
+    "Rowing": "Remo",
+    "Run": "Carrera",
+    "Sail": "Navegación a vela",
+    "Skateboard": "Skateboard",
+    "Snowboard": "Snowboard",
+    "Snowshoe": "Raquetas de nieve",
+    "Soccer": "Fútbol",
+    "Squash": "Squash",
+    "StairStepper": "Stepper",
+    "StandUpPaddling": "Stand Up Paddle",
+    "Surfing": "Surf",
+    "Swim": "Natación",
+    "TableTennis": "Tenis de mesa",
+    "Tennis": "Tenis",
+    "TrailRun": "Trail running",
+    "Treadmill": "Caminadora",
+    "Velomobile": "Velomóvil",
+    "VirtualRide": "Ciclismo virtual",
+    "VirtualRow": "Remo virtual",
+    "VirtualRun": "Carrera virtual",
+    "Walk": "Caminata",
+    "WeightTraining": "Pesas",
+    "Wheelchair": "Silla de ruedas",
+    "Windsurf": "Windsurf",
+    "Workout": "Entrenamiento",
+    "Yoga": "Yoga"
+  },
   "alerts": {
     "cacheCleared": "Caché borrada",
     "cacheCorruptionMessage": "El caché de datos local estaba dañado y se borró. Tus datos se actualizarán desde el servidor.",
@@ -368,6 +422,12 @@
   "feed": {
     "activitiesCount": "{{count}} Actividades",
     "failedToLoad": "Error al cargar actividades",
+    "groups": {
+      "cycling": "Ciclismo",
+      "running": "Carrera",
+      "swimming": "Natación",
+      "other": "Otro"
+    },
     "noActivities": "No se encontraron actividades",
     "noMatchingActivities": "No hay actividades coincidentes",
     "recentActivities": "Actividades recientes",
@@ -718,10 +778,72 @@
     "wellness": "Bienestar",
     "insights": "Perspectivas"
   },
+  "notifications": {
+    "sectionPr": {
+      "title": "New PR!"
+    },
+    "fitnessMilestone": {
+      "title": "Fitness Milestone"
+    },
+    "periodComparison": {
+      "title": "Weekly Summary"
+    },
+    "hrvTrend": {
+      "title": "HRV Trend"
+    },
+    "stalePr": {
+      "title": "Actualización de PR"
+    },
+    "efficiencyTrend": {
+      "title": "Efficiency Trend"
+    },
+    "generic": {
+      "title": "New Insight"
+    },
+    "activityRecorded": {
+      "title": "Activity Recorded",
+      "body": "New activity synced. Open the app for details."
+    },
+    "privacy": {
+      "title": "Privacy Notice",
+      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
+      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 30-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
+      "accept": "I understand"
+    },
+    "settings": {
+      "title": "Notifications",
+      "enable": "Enable notifications",
+      "categories": "Notification categories",
+      "sectionPr": "Section personal records",
+      "fitnessMilestone": "Fitness milestones",
+      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
+      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
+      "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
+    },
+    "prompt": {
+      "title": "Notificaciones de actividad",
+      "description": "Recibe notificaciones sobre nuevas actividades y logros",
+      "enable": "Activar",
+      "dismiss": "No, gracias",
+      "settingsHint": "Puedes activar las notificaciones en cualquier momento en Configuración"
+    }
+  },
   "recording": {
     "activityName": "Activity Name",
+    "activityType": "Activity Type",
     "allActivities": "All Activities",
+    "autoPaused": "Pausa automática",
+    "autoPausedHint": "Esperando movimiento",
+    "avgHr": "Average Heart Rate (bpm)",
+    "avgHrLabel": "Avg HR",
+    "avgPower": "Avg Power",
+    "avgSpeed": "Avg Speed",
+    "backgroundNotificationBody": "Veloq está rastreando tu ubicación",
+    "backgroundNotificationTitle": "Grabando actividad",
     "backgroundPermission": "Background location permission allows recording when the app is in the background.",
+    "banner": {
+      "returnToRecording": "Return to recording"
+    },
     "categories": {
       "cycling": "Cycling",
       "gym": "Gym & Fitness",
@@ -732,8 +854,27 @@
       "water": "Water Sports",
       "winter": "Winter Sports"
     },
+    "changeType": "Cambiar tipo de actividad",
+    "continue": "Continue",
+    "controls": {
+      "lap": "LAP",
+      "lock": "LOCK",
+      "pause": "PAUSE",
+      "resume": "RESUME",
+      "save": "SAVE",
+      "stop": "STOP"
+    },
     "discard": "Discard",
     "discardConfirm": "Are you sure you want to discard this activity? This cannot be undone.",
+    "discardMessage": "This action cannot be undone.",
+    "discardTitle": "Discard Activity?",
+    "distance": "Distance (km)",
+    "distanceInvalid": "Please enter a valid distance (0-999).",
+    "duration": "Duration (minutes)",
+    "durationLabel": "Duration",
+    "durationRequired": "Please enter a valid duration.",
+    "elevation": "Elevation",
+    "error": "Error",
     "fields": {
       "avgPace": "Avg Pace",
       "avgSpeed": "Avg Speed",
@@ -751,109 +892,91 @@
       "speed": "Speed",
       "timer": "Time"
     },
+    "gpsAcquiring": "Esperando GPS...",
+    "gpsAlertContinue": "Continuar sin GPS",
+    "gpsAlertMessage": "No se puede obtener señal GPS. Verifica que los servicios de ubicación estén habilitados y que tengas vista despejada al cielo.",
+    "gpsAlertSettings": "Abrir configuración",
+    "gpsAlertStop": "Detener grabación",
+    "gpsAlertTitle": "Señal GPS no encontrada",
+    "gpsNone": "Ubicación denegada",
+    "gpsPermissionDenied": "Permiso de ubicación denegado. Da acceso en Configuración para grabar GPS.",
+    "gpsReady": "GPS listo",
+    "gpsTrackingError": "No se pudo iniciar el rastreo GPS. Intenta pausar y reanudar.",
+    "gpsWaiting": "Esperando señal GPS. Ve al exterior para mejor recepción.",
+    "gpsWeakWarning": "Señal GPS débil — la grabación puede ser imprecisa",
+    "grantAccess": "Conceder acceso",
+    "hrInvalid": "Please enter a valid heart rate (30-250).",
     "lap": "Lap",
     "manualDistance": "Distance",
     "manualDuration": "Duration (minutes)",
     "manualHR": "Avg Heart Rate",
+    "noWorkoutsPlanned": "No hay entrenamientos planeados para hoy",
     "notes": "Notes",
+    "notesPlaceholder": "How did it feel?",
     "paused": "Paused",
+    "permissionExplanation": "Veloq necesita tu permiso para subir actividades a intervals.icu",
+    "permissionGranted": "Permiso de subida concedido",
+    "permissionNeeded": "Se necesita permiso para subir actividades",
     "permissionRequired": "Location permission is required to record GPS activities.",
     "quickStart": "Quick Start",
-    "recording": "REC",
-    "review": "Review Activity",
-    "rpe": "RPE",
-    "saveAndUpload": "Save & Upload",
-    "saveForLater": "Save for Later",
-    "savedOffline": "Saved for later upload",
-    "saving": "Saving...",
-    "startActivity": "Start Activity",
-    "stopped": "Stopped",
-    "summaryStats": "Summary",
-    "todaysWorkouts": "Today's Workouts",
-    "uploadError": "Failed to upload activity",
-    "uploadSuccess": "Activity uploaded successfully",
-    "banner": {
-      "returnToRecording": "Return to recording"
-    },
-    "controls": {
-      "lap": "LAP",
-      "lock": "LOCK",
-      "pause": "PAUSE",
-      "resume": "RESUME",
-      "save": "SAVE",
-      "stop": "STOP"
-    },
-    "status": {
-      "paused": "PAUSED",
-      "recording": "Recording"
-    },
-    "activityType": "Activity Type",
-    "avgHrLabel": "Avg HR",
-    "avgPower": "Avg Power",
-    "avgSpeed": "Avg Speed",
-    "continue": "Continue",
-    "discardMessage": "This action cannot be undone.",
-    "discardTitle": "Discard Activity?",
-    "durationLabel": "Duration",
-    "durationRequired": "Please enter a valid duration.",
-    "elevation": "Elevation",
-    "error": "Error",
-    "notesPlaceholder": "How did it feel?",
     "rec": "REC",
-    "reviewActivity": "Review Activity",
-    "saveError": "Save Failed",
-    "saved": "Saved",
-    "savedForLater": "Activity saved for upload when online.",
-    "stop": "Finish",
-    "stopMessage": "Do you want to stop recording and review your activity?",
-    "stopTitle": "Finish Activity?",
-    "summary": "Summary",
-    "types": "types",
-    "uploadErrorMessage": "Could not upload activity: {{error}}",
-    "distance": "Distance (km)",
-    "duration": "Duration (minutes)",
-    "avgHr": "Average Heart Rate (bpm)",
-    "slideToUnlock": "Desliza para desbloquear",
-    "trimActivity": "Recortar actividad",
-    "rpeDescription": "1 = sin esfuerzo, 10 = esfuerzo máximo",
-    "savedQueued": "Actividad guardada. Se subirá automáticamente cuando vuelvas a estar en línea.",
-    "gpsPermissionDenied": "Permiso de ubicación denegado. Da acceso en Configuración para grabar GPS.",
-    "gpsWaiting": "Esperando señal GPS. Ve al exterior para mejor recepción.",
-    "gpsTrackingError": "No se pudo iniciar el rastreo GPS. Intenta pausar y reanudar.",
-    "autoPaused": "Pausa automática",
-    "autoPausedHint": "Esperando movimiento",
+    "recording": "REC",
     "resumePrevious": "¿Reanudar grabación anterior?",
     "resumePreviousMessage": "Una grabación fue interrumpida. ¿Deseas reanudarla?",
-    "gpsAcquiring": "Esperando GPS...",
-    "gpsReady": "GPS listo",
-    "gpsWeakWarning": "Señal GPS débil — la grabación puede ser imprecisa",
-    "gpsNone": "Ubicación denegada",
-    "gpsAlertTitle": "Señal GPS no encontrada",
-    "gpsAlertMessage": "No se puede obtener señal GPS. Verifica que los servicios de ubicación estén habilitados y que tengas vista despejada al cielo.",
-    "gpsAlertContinue": "Continuar sin GPS",
-    "gpsAlertSettings": "Abrir configuración",
-    "gpsAlertStop": "Detener grabación",
-    "changeType": "Cambiar tipo de actividad",
-    "noWorkoutsPlanned": "No hay entrenamientos planeados para hoy",
-    "backgroundNotificationTitle": "Grabando actividad",
-    "backgroundNotificationBody": "Veloq está rastreando tu ubicación",
-    "trimmed": "Recortado",
-    "splitBanner": "{{unit}} {{index}} — {{pace}}",
+    "review": "Review Activity",
+    "reviewActivity": "Review Activity",
+    "rpe": "RPE",
+    "rpeDescription": "1 = sin esfuerzo, 10 = esfuerzo máximo",
+    "rpeLabels": {
+      "easy": "Fácil",
+      "moderate": "Moderado",
+      "hard": "Difícil",
+      "veryHard": "Muy difícil",
+      "max": "Máximo"
+    },
+    "saveAndUpload": "Save & Upload",
+    "saveError": "Save Failed",
+    "saveForLater": "Save for Later",
+    "saved": "Saved",
+    "savedForLater": "Activity saved for upload when online.",
+    "savedOffline": "Saved for later upload",
+    "savedQueued": "Actividad guardada. Se subirá automáticamente cuando vuelvas a estar en línea.",
+    "saving": "Saving...",
     "settings": "Configuración de grabación",
     "settingsAutoPause": "Pausa automática",
     "settingsAutoPauseThreshold": "Umbral de velocidad",
     "settingsDataFields": "Campos de datos",
     "settingsUnits": "Unidades",
-    "distanceInvalid": "Please enter a valid distance (0-999).",
-    "hrInvalid": "Please enter a valid heart rate (30-250).",
-    "permissionNeeded": "Se necesita permiso para subir actividades",
-    "grantAccess": "Conceder acceso",
-    "permissionExplanation": "Veloq necesita tu permiso para subir actividades a intervals.icu",
-    "permissionGranted": "Permiso de subida concedido",
-    "writePermissionRequired": "Permiso de escritura requerido",
-    "writePermissionDescription": "La grabación requiere permiso de escritura. Toca abajo para conceder acceso.",
+    "slideToUnlock": "Desliza para desbloquear",
+    "splitBanner": "{{unit}} {{index}} — {{pace}}",
+    "startActivity": "Start Activity",
+    "status": {
+      "paused": "PAUSED",
+      "recording": "Recording"
+    },
+    "stop": "Finish",
+    "stopMessage": "Do you want to stop recording and review your activity?",
+    "stopTitle": "Finish Activity?",
+    "stopped": "Stopped",
+    "summary": "Summary",
+    "summaryStats": "Summary",
+    "timeOfDay": {
+      "morning": "Mañana",
+      "afternoon": "Tarde",
+      "evening": "Tarde-noche",
+      "night": "Noche"
+    },
+    "todaysWorkouts": "Today's Workouts",
+    "trimActivity": "Recortar actividad",
+    "trimmed": "Recortado",
+    "types": "types",
+    "uploadError": "Failed to upload activity",
+    "uploadErrorMessage": "Could not upload activity: {{error}}",
+    "uploadSuccess": "Activity uploaded successfully",
     "writePermissionActive": "Permiso de escritura activo",
-    "writePermissionNotGranted": "Permiso de escritura no concedido"
+    "writePermissionDescription": "La grabación requiere permiso de escritura. Toca abajo para conceder acceso.",
+    "writePermissionNotGranted": "Permiso de escritura no concedido",
+    "writePermissionRequired": "Permiso de escritura requerido"
   },
   "routeDetail": {
     "avgTime": "Tiempo promedio",
@@ -1310,6 +1433,9 @@
     "yearsCount": "{{count}} años",
     "yesterday": "Ayer"
   },
+  "todayBanner": {
+    "prCountThisWeek": "{{count}} PRs de tramo esta semana"
+  },
   "trainingScreen": {
     "checkingActivities": "Verificando {{count}} actividades...",
     "disabledInSettings": "Desactivado - Activar en Configuración",
@@ -1366,56 +1492,6 @@
     "title": "Bienestar",
     "trends": "Tendencias de bienestar"
   },
-  "notifications": {
-    "sectionPr": {
-      "title": "New PR!"
-    },
-    "fitnessMilestone": {
-      "title": "Fitness Milestone"
-    },
-    "periodComparison": {
-      "title": "Weekly Summary"
-    },
-    "hrvTrend": {
-      "title": "HRV Trend"
-    },
-    "stalePr": {
-      "title": "Actualización de PR"
-    },
-    "efficiencyTrend": {
-      "title": "Efficiency Trend"
-    },
-    "generic": {
-      "title": "New Insight"
-    },
-    "activityRecorded": {
-      "title": "Activity Recorded",
-      "body": "New activity synced. Open the app for details."
-    },
-    "privacy": {
-      "title": "Privacy Notice",
-      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time.",
-      "body": "When you enable notifications, a device token and your athlete ID are stored on auth.veloq.fit (our server) with automatic 30-day expiry. When a new activity is detected, a minimal push message (containing only an activity ID) is routed through Apple's or Google's push notification service to reach your device. The actual notification content (PR details, insights) is generated entirely on your device — Apple and Google never see it. No activity data, GPS, or personal information is stored on our server. You can disable notifications at any time, which immediately removes your data from our server.",
-      "accept": "I understand"
-    },
-    "settings": {
-      "title": "Notifications",
-      "enable": "Enable notifications",
-      "categories": "Notification categories",
-      "sectionPr": "Section personal records",
-      "fitnessMilestone": "Fitness milestones",
-      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
-      "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
-      "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
-    },
-    "prompt": {
-      "title": "Notificaciones de actividad",
-      "description": "Recibe notificaciones sobre nuevas actividades y logros",
-      "enable": "Activar",
-      "dismiss": "No, gracias",
-      "settingsHint": "Puedes activar las notificaciones en cualquier momento en Configuración"
-    }
-  },
   "whatsNew": {
     "skipButton": "Omitir",
     "nextButton": "Siguiente",
@@ -1435,8 +1511,5 @@
       "fitnessTitle": "Resumen de fitness",
       "fitnessBody": "Sigue tu condición física, fatiga y forma con zonas codificadas por colores. Sabe cuándo estás fresco y listo para rendir."
     }
-  },
-  "todayBanner": {
-    "prCountThisWeek": "{{count}} PRs de tramo esta semana"
   }
 }
