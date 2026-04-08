@@ -45,26 +45,33 @@ interface FetchDeps {
  * Phase weights for section detection progress calculation.
  * Maps Rust detection phases to 0-100% progress within the section detection stage.
  *
- * Rust emits phases: "loading", "detecting", "complete"
- * Legacy phases (building_rtrees, etc.) are kept for backwards compatibility.
+ * Rust emits phases: "loading", "building_rtrees", "finding_overlaps",
+ *                    "clustering", "postprocessing", "saving", "complete"
  */
 const PHASE_WEIGHTS: Record<string, { start: number; weight: number }> = {
-  // Rust phases (from DetectionProgressCallback)
-  loading: { start: 0, weight: 10 },
-  building_rtrees: { start: 10, weight: 5 },
-  finding_overlaps: { start: 15, weight: 70 },
-  postprocessing: { start: 85, weight: 15 },
+  loading: { start: 0, weight: 8 },
+  building_rtrees: { start: 8, weight: 7 },
+  finding_overlaps: { start: 15, weight: 50 },
+  clustering: { start: 65, weight: 15 },
+  postprocessing: { start: 80, weight: 15 },
+  saving: { start: 95, weight: 5 },
   complete: { start: 100, weight: 0 },
-  detecting: { start: 10, weight: 85 }, // backwards compat (single blocking call)
+  detecting: { start: 15, weight: 80 }, // backwards compat (single blocking call)
 };
 
 // Track the last known progress to prevent backwards jumps
 let lastKnownProgress = 0;
 
+// Timestamp of last progress update, used for time-based interpolation
+let lastProgressUpdateTime = 0;
+
 /**
  * Calculate overall progress percentage across all phases.
  * Returns a smoothly increasing value from 0-100.
  * Uses monotonic tracking to prevent backwards jumps from unknown phases.
+ *
+ * Applies time-based interpolation: if no new progress has arrived for a while,
+ * nudge the displayed value forward slowly to give a sense of continuous movement.
  */
 function calculateOverallProgress(phase: string, completed: number, total: number): number {
   // Handle scale phases (e.g., "scale_short", "scale_medium") - treat as finding_overlaps
@@ -73,7 +80,6 @@ function calculateOverallProgress(phase: string, completed: number, total: numbe
   const phaseInfo = PHASE_WEIGHTS[normalizedPhase];
   if (!phaseInfo) {
     // Unknown phase - return last known progress instead of 0 to prevent jumps
-    // This handles any phases added in Rust that aren't yet mapped here
     if (__DEV__) {
       console.log(
         `[calculateOverallProgress] Unknown phase: "${phase}", keeping progress at ${lastKnownProgress}`
@@ -82,15 +88,38 @@ function calculateOverallProgress(phase: string, completed: number, total: numbe
     return lastKnownProgress;
   }
 
+  const now = Date.now();
+
   // Calculate progress within this phase
   const phaseProgress = total > 0 ? Math.min(completed / total, 1) : 0;
 
   // Overall = phase start + (phase weight * progress within phase)
-  const newProgress = Math.round(phaseInfo.start + phaseInfo.weight * phaseProgress);
+  const rawProgress = Math.round(phaseInfo.start + phaseInfo.weight * phaseProgress);
+
+  // Compute the maximum the display should reach for the current phase
+  // (the end of the phase range). Used to cap time-based interpolation.
+  const phaseEnd = phaseInfo.start + phaseInfo.weight;
+
+  // Time-based interpolation: if the raw progress hasn't changed but time has elapsed,
+  // creep forward by up to 1% per 300ms towards the phase ceiling.
+  // This prevents the bar from appearing frozen during long computations.
+  let newProgress = rawProgress;
+  if (rawProgress === lastKnownProgress && lastProgressUpdateTime > 0) {
+    const elapsed = now - lastProgressUpdateTime;
+    const interpolatedCreep = Math.floor(elapsed / 300); // 1% per 300ms
+    if (interpolatedCreep > 0) {
+      // Don't creep past the end of the current phase
+      const maxCreep = Math.max(0, Math.floor(phaseEnd) - lastKnownProgress - 1);
+      newProgress = lastKnownProgress + Math.min(interpolatedCreep, maxCreep);
+    }
+  }
 
   // Only allow progress to increase (monotonic) to prevent backwards jumps
   // Exception: if we're at 'loading' phase, allow reset to start new detection
   if (newProgress >= lastKnownProgress || normalizedPhase === 'loading') {
+    if (newProgress !== lastKnownProgress) {
+      lastProgressUpdateTime = now;
+    }
     lastKnownProgress = newProgress;
     return newProgress;
   }
@@ -104,6 +133,7 @@ function calculateOverallProgress(phase: string, completed: number, total: numbe
  */
 export function resetProgressTracker(): void {
   lastKnownProgress = 0;
+  lastProgressUpdateTime = 0;
 }
 
 /**

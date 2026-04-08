@@ -61,7 +61,9 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   // Update shared values reactively
   heightFraction.value = withTiming(shouldShow ? 1 : 0, { duration: 200 });
   if (displayInfo) {
-    progressValue.value = withTiming(displayInfo.percent / 100, { duration: 150 });
+    // Use a longer duration for the progress bar so it smoothly interpolates
+    // between reported values instead of jumping (600ms matches ~4 poll cycles).
+    progressValue.value = withTiming(displayInfo.percent / 100, { duration: 600 });
   }
 
   // Indeterminate animation
