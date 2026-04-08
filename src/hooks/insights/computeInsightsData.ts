@@ -195,6 +195,7 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
   const sorted = [...insights].sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
 
   const kept: Insight[] = [];
+  const dropped: Array<{ id: string; category: string; reason: string }> = [];
   const seenSectionIds = new Set<string>();
   let keptSectionStories = 0;
 
@@ -207,11 +208,21 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
 
     if (isSectionStoryInsight(insight)) {
       if (keptSectionStories >= MAX_SECTION_STORY_INSIGHTS) {
+        dropped.push({
+          id: insight.id,
+          category: insight.category,
+          reason: `section story limit (max ${MAX_SECTION_STORY_INSIGHTS})`,
+        });
         continue;
       }
 
       const sectionIds = getInsightSectionIds(insight);
       if (sectionIds.length > 0 && sectionIds.every((sectionId) => seenSectionIds.has(sectionId))) {
+        dropped.push({
+          id: insight.id,
+          category: insight.category,
+          reason: 'duplicate section (already covered by PR insight)',
+        });
         continue;
       }
 
@@ -222,6 +233,13 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
     }
 
     kept.push(insight);
+  }
+
+  if (__DEV__ && dropped.length > 0) {
+    console.log(`[INSIGHTS] Consolidation dropped ${dropped.length} insights:`);
+    for (const d of dropped) {
+      console.log(`[INSIGHTS]   ${d.category}/${d.id} — ${d.reason}`);
+    }
   }
 
   return kept;
@@ -428,7 +446,20 @@ export function computeInsightsFromData(
       }
     }
 
-    return consolidateInsights([...coreInsights, ...strengthInsights]);
+    const consolidated = consolidateInsights([...coreInsights, ...strengthInsights]);
+
+    if (__DEV__) {
+      console.log(
+        `[INSIGHTS] Final: ${consolidated.length} insights (${coreInsights.length} core + ${strengthInsights.length} strength, after consolidation)`
+      );
+      for (const i of consolidated) {
+        console.log(
+          `[INSIGHTS]   ${i.category}/${i.id} — P${i.priority} "${i.title.slice(0, 60)}"`
+        );
+      }
+    }
+
+    return consolidated;
   } catch {
     return [];
   }

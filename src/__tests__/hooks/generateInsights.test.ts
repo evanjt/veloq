@@ -123,7 +123,7 @@ describe('generateInsights', () => {
       expect(hrv!.priority).toBe(2);
     });
 
-    it('does not generate with fewer than 3 HRV values', () => {
+    it('does not generate with fewer than 5 HRV values', () => {
       const result = generateInsights(makeHrvInput([50, 52]), mockT);
       expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
     });
@@ -263,7 +263,7 @@ describe('generateInsights', () => {
   // ============================================================
 
   describe('period comparison', () => {
-    it('detects load increase >10% (uses TSS when available)', () => {
+    it('detects load increase >15% (uses TSS when available)', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -278,7 +278,7 @@ describe('generateInsights', () => {
       expect(vol!.title).toContain('weeklyLoadUp');
     });
 
-    it('detects load decrease >10% (uses TSS when available)', () => {
+    it('detects load decrease >15% (uses TSS when available)', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -293,7 +293,7 @@ describe('generateInsights', () => {
       expect(vol!.title).toContain('weeklyLoadDown');
     });
 
-    it('no insight when load change <10%', () => {
+    it('no insight when load change <15%', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -947,14 +947,17 @@ describe('generateInsights — additional edge cases', () => {
 describe('generateInsights — boundary conditions', () => {
   /**
    * HRV trend with exactly 3 values (minimum for trend detection).
-   * The guard requires >= 3 HRV values. At exactly 3, the split is:
-   * firstHalf = [0..floor(3/2)) = [v0], secondHalf = [floor(3/2)..) = [v1, v2]
+   * The guard requires >= 5 HRV values for a reliable trend.
+   * At exactly 5, the split is:
+   * firstHalf = [0..floor(5/2)) = [v0, v1], secondHalf = [floor(5/2)..) = [v2, v3, v4]
    */
-  it('HRV trend with exactly 3 values generates insight', () => {
+  it('HRV trend with exactly 5 values generates insight', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
         wellnessWindow: [
+          { date: '2026-02-13', hrv: 45 },
+          { date: '2026-02-14', hrv: 48 },
           { date: '2026-02-15', hrv: 50 },
           { date: '2026-02-16', hrv: 55 },
           { date: '2026-02-17', hrv: 60 },
@@ -965,11 +968,11 @@ describe('generateInsights — boundary conditions', () => {
     const hrv = result.find((i) => i.id === 'hrv_trend');
     expect(hrv).toBeDefined();
     expect(hrv!.category).toBe('hrv_trend');
-    // Confidence should be 3/7
-    expect(hrv!.confidence).toBeCloseTo(3 / 7, 2);
+    // Confidence should be 5/7
+    expect(hrv!.confidence).toBeCloseTo(5 / 7, 2);
   });
 
-  it('HRV trend with exactly 3 values detects upward trend correctly', () => {
+  it('HRV trend with fewer than 5 values does not generate insight', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -982,33 +985,32 @@ describe('generateInsights — boundary conditions', () => {
       mockT
     );
     const hrv = result.find((i) => i.id === 'hrv_trend');
-    expect(hrv).toBeDefined();
-    // firstHalf=[40], secondHalf=[50,60] => firstAvg=40, secondAvg=55
-    // secondAvg > firstAvg * 1.02 => upward
-    expect(hrv!.title).toContain('trendingUp');
+    expect(hrv).toBeUndefined();
   });
 
-  it('HRV sparkline data with 3 values is accurate', () => {
+  it('HRV sparkline data with 5 values is accurate', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
         wellnessWindow: [
-          { date: '2026-02-15', hrv: 48 },
-          { date: '2026-02-16', hrv: 52 },
-          { date: '2026-02-17', hrv: 49 },
+          { date: '2026-02-13', hrv: 45 },
+          { date: '2026-02-14', hrv: 48 },
+          { date: '2026-02-15', hrv: 52 },
+          { date: '2026-02-16', hrv: 49 },
+          { date: '2026-02-17', hrv: 51 },
         ],
       },
       mockT
     );
     const hrv = result.find((i) => i.id === 'hrv_trend');
-    expect(hrv!.supportingData?.sparklineData).toEqual([48, 52, 49]);
+    expect(hrv!.supportingData?.sparklineData).toEqual([45, 48, 52, 49, 51]);
   });
 
   /**
-   * FTP improvement by tiny delta (1W).
-   * Math.round(latestFtp - previousFtp) = 1 > 0, so it should still generate.
+   * FTP improvement by tiny delta (1W) does not generate insight.
+   * The minimum threshold is 5W to filter noise from small fluctuations.
    */
-  it('FTP improvement by exactly 1W still generates insight', () => {
+  it('FTP improvement by exactly 1W does not generate insight (below 5W threshold)', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -1022,8 +1024,28 @@ describe('generateInsights — boundary conditions', () => {
       mockT
     );
     const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
+    expect(ftp).toBeUndefined();
+  });
+
+  /**
+   * FTP improvement at exactly 5W boundary generates insight.
+   */
+  it('FTP improvement by exactly 5W generates insight', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        ftpTrend: {
+          latestFtp: 255,
+          latestDate: BigInt(1000),
+          previousFtp: 250,
+          previousDate: BigInt(500),
+        },
+      },
+      mockT
+    );
+    const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
     expect(ftp).toBeDefined();
-    expect(ftp!.title).toContain('change: 1');
+    expect(ftp!.title).toContain('change: 5');
   });
 
   it('FTP improvement by sub-watt delta (0.4W) does not generate insight', () => {
@@ -1144,17 +1166,15 @@ describe('generateInsights — boundary conditions', () => {
       },
       mockT
     );
-    // Only 1 valid HRV value, need >= 3
+    // Only 1 valid HRV value, need >= 5
     expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
   });
 
   /**
-   * Period comparison at exactly the threshold boundary (10%).
-   * ratio = 110/100 - 1 = 0.10000000000000009 (floating point).
-   * The guard is `ratio > 0.1`, and due to IEEE 754 this evaluates to true.
-   * This documents the floating-point boundary behavior.
+   * Period comparison at 10% does not trigger (threshold raised to 15%).
+   * 110/100 - 1 = 0.1, which is below the 0.15 threshold.
    */
-  it('period comparison at exact 10% boundary triggers due to floating point', () => {
+  it('period comparison at 10% change does not trigger (below 15% threshold)', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -1163,7 +1183,23 @@ describe('generateInsights — boundary conditions', () => {
       },
       mockT
     );
-    // 110/100 - 1 = 0.10000000000000009 > 0.1 due to IEEE 754
+    const vol = result.find((i) => i.id === 'period_comparison-volume');
+    expect(vol).toBeUndefined();
+  });
+
+  /**
+   * Period comparison at 16% triggers (above 15% threshold).
+   * 116/100 - 1 = 0.16 > 0.15.
+   */
+  it('period comparison at 16% triggers (above 15% threshold)', () => {
+    const result = generateInsights(
+      {
+        ...EMPTY_INPUT,
+        currentPeriod: { count: 3, totalDuration: 5800, totalDistance: 50000, totalTss: 116 },
+        previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 100 },
+      },
+      mockT
+    );
     const vol = result.find((i) => i.id === 'period_comparison-volume');
     expect(vol).toBeDefined();
     expect(vol!.icon).toBe('trending-up');
