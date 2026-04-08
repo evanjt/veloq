@@ -60,6 +60,7 @@ import {
   TourReturnPill,
 } from '@/components/ui';
 import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
+import { useRouteReoptimization } from '@/hooks/routes/useRouteReoptimization';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 import {
   migrateSettingsToSqlite,
@@ -119,6 +120,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   // Process queued uploads on network restore / app foreground
   useUploadQueueProcessor();
+
+  // Trigger route re-detection when sync date range expands
+  useRouteReoptimization();
 
   // Initialize Rust route engine with persistent storage when authenticated
   // Data persists in SQLite - GPS tracks, routes, sections load instantly
