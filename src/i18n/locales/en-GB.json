@@ -1197,7 +1197,9 @@
     "version": "Version",
     "viewRoutes": "View Routes",
     "mapTiles": "Map tiles",
-    "recording": "Recording"
+    "recording": "Recording",
+    "geocoding": "Auto-name Routes",
+    "geocodingDescription": "Uses OpenStreetMap to name routes from GPS coordinates"
   },
   "stats": {
     "activities": "Activities",

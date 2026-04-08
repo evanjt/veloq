@@ -1197,7 +1197,9 @@
     "lowStorage": "Low device storage — tile download paused",
     "availableStorage": "{{size}} available on device",
     "mapTiles": "Map tiles",
-    "recording": "Recording"
+    "recording": "Recording",
+    "geocoding": "Auto-name Routes",
+    "geocodingDescription": "Uses OpenStreetMap to name routes from GPS coordinates"
   },
   "stats": {
     "activities": "Activities",

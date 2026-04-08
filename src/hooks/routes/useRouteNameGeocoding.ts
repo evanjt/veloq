@@ -3,21 +3,26 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateRouteName } from '@/lib/geo/geocoding';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { safeJsonParse } from '@/lib/utils/validation';
+import { isGeocodingEnabled } from '@/providers';
 
 const GEOCODED_IDS_KEY = 'veloq-geocoded-route-ids';
 const GEOCODED_SECTION_IDS_KEY = 'veloq-geocoded-section-ids';
 
 /**
  * Background geocoding for routes and sections with generic "Route N" / "Section N" names.
- * Runs after the list renders and geocodes items one at a time (1 req/sec Nominatim policy).
+ * Uses OpenStreetMap Nominatim (https://nominatim.org/release-docs/latest/api/Reverse/)
+ * and respects their usage policy: max 1 req/sec, meaningful User-Agent, caching results.
+ * Runs after the list renders and geocodes items one at a time.
  * Saves the result via engine.setRouteName() / engine.setSectionName().
  * Tracks processed IDs in AsyncStorage to avoid re-processing.
+ * Controlled by the geocodingEnabled setting in RouteSettingsStore.
  */
 export function useRouteNameGeocoding(enabled: boolean = true) {
   const runningRef = useRef(false);
 
   const geocodeRoutes = useCallback(async () => {
     if (runningRef.current) return;
+    if (!isGeocodingEnabled()) return;
     runningRef.current = true;
 
     try {
