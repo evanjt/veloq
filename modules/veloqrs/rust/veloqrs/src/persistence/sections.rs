@@ -9,8 +9,8 @@ use std::sync::mpsc;
 use std::thread;
 
 use super::{
-    PersistentRouteEngine, SectionDetectionHandle, SectionDetectionProgress, SectionSummary,
-    get_section_word, load_groups_from_db,
+    ClusteringAwareProgress, PersistentRouteEngine, SectionDetectionHandle,
+    SectionDetectionProgress, SectionSummary, get_section_word, load_groups_from_db,
 };
 
 /// Haversine distance between two lat/lng points in meters.
@@ -1545,7 +1545,7 @@ impl PersistentRouteEngine {
                     &sport_map,
                     &groups,
                     &section_config,
-                    Arc::new(progress_clone.clone()),
+                    Arc::new(ClusteringAwareProgress::new(progress_clone.clone())),
                 );
 
                 log::info!(
@@ -1560,7 +1560,8 @@ impl PersistentRouteEngine {
                 let mut all_sections = result.updated_sections;
                 all_sections.extend(result.new_sections);
 
-                progress_clone.set_phase("complete", 0);
+                // Signal saving phase before sending results for DB persistence
+                progress_clone.set_phase("saving", 1);
                 tx.send((all_sections, all_activity_ids)).ok();
             } else {
                 // Full detection mode with batching for large datasets.
@@ -1575,7 +1576,7 @@ impl PersistentRouteEngine {
                         &sport_map,
                         &groups,
                         &section_config,
-                        Arc::new(progress_clone.clone()),
+                        Arc::new(ClusteringAwareProgress::new(progress_clone.clone())),
                     );
 
                     log::info!(
@@ -1584,7 +1585,8 @@ impl PersistentRouteEngine {
                         result.potentials.len()
                     );
 
-                    progress_clone.set_phase("complete", 0);
+                    // Signal saving phase before sending results for DB persistence
+                    progress_clone.set_phase("saving", 1);
                     tx.send((result.sections, all_activity_ids)).ok();
                 } else {
                     // Large dataset: process in batches
@@ -1603,7 +1605,7 @@ impl PersistentRouteEngine {
                         &sport_map,
                         &groups,
                         &section_config,
-                        Arc::new(progress_clone.clone()),
+                        Arc::new(ClusteringAwareProgress::new(progress_clone.clone())),
                     );
 
                     let mut accumulated_sections = result.sections;
@@ -1637,7 +1639,7 @@ impl PersistentRouteEngine {
                                 &sport_map,
                                 &groups,
                                 &section_config,
-                                Arc::new(progress_clone.clone()),
+                                Arc::new(ClusteringAwareProgress::new(progress_clone.clone())),
                             );
 
                         // Replace accumulated with updated + new
@@ -1662,7 +1664,8 @@ impl PersistentRouteEngine {
                         accumulated_sections.len()
                     );
 
-                    progress_clone.set_phase("complete", 0);
+                    // Signal saving phase before sending results for DB persistence
+                    progress_clone.set_phase("saving", 1);
                     tx.send((accumulated_sections, all_activity_ids)).ok();
                 }
             }
