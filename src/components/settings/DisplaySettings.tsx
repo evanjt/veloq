@@ -34,6 +34,8 @@ interface DisplaySettingsProps {
   onLanguageChange: (value: string) => void;
   showLanguages: boolean;
   setShowLanguages: (show: boolean) => void;
+  /** When true, skip section label and outer card (for embedding in a parent card) */
+  embedded?: boolean;
 }
 
 function DisplaySettingsComponent({
@@ -48,6 +50,7 @@ function DisplaySettingsComponent({
   onLanguageChange,
   showLanguages,
   setShowLanguages,
+  embedded,
 }: DisplaySettingsProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -76,13 +79,8 @@ function DisplaySettingsComponent({
     return 'English'; // Fallback
   }, [language, availableLanguages]);
 
-  return (
+  const displayContent = (
     <>
-      {/* Display Settings Section - Appearance, Units, Language combined */}
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
-        {t('settings.display').toUpperCase()}
-      </Text>
-      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         {/* Appearance */}
         <View style={styles.subsectionHeader}>
           <MaterialCommunityIcons
@@ -281,6 +279,57 @@ function DisplaySettingsComponent({
             })
           )}
         </CollapsibleSection>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <>
+        {displayContent}
+
+        {/* Primary Sport Section */}
+        <View style={[styles.divider, isDark && styles.dividerDark]} />
+        <View style={styles.subsectionHeader}>
+          <MaterialCommunityIcons
+            name="run"
+            size={18}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <Text style={[styles.subsectionLabel, isDark && settingsStyles.textMuted]}>
+            {t('settings.primarySport')}
+          </Text>
+        </View>
+        <View style={styles.themePickerContainer}>
+          <SegmentedButtons
+            value={primarySport}
+            onValueChange={onSportChange}
+            buttons={[
+              { value: 'Cycling', label: t('filters.cycling'), icon: 'bike' },
+              { value: 'Running', label: t('filters.running'), icon: 'run' },
+              { value: 'Swimming', label: t('filters.swimming'), icon: 'swim' },
+            ]}
+            style={styles.themePicker}
+          />
+        </View>
+        <Text style={[styles.embeddedHint, isDark && settingsStyles.textMuted]}>
+          {primarySport === 'Cycling'
+            ? t('settings.primarySportHintCycling')
+            : primarySport === 'Running'
+              ? t('settings.primarySportHintRunning')
+              : t('settings.primarySportHintSwimming')}
+        </Text>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {/* Display Settings Section - Appearance, Units, Language combined */}
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+        {t('settings.display').toUpperCase()}
+      </Text>
+      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+        {displayContent}
       </View>
 
       {/* Primary Sport Section */}
@@ -454,5 +503,12 @@ const styles = StyleSheet.create({
   dialectLegendText: {
     ...typography.captionBold,
     color: colors.textSecondary,
+  },
+  embeddedHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    fontStyle: 'italic',
   },
 });
