@@ -148,26 +148,41 @@ export const StrengthTab = React.memo(function StrengthTab() {
   );
 
   const periodLabels: Record<StrengthPeriod, string> = {
-    week: 'week',
-    '4weeks': '4 weeks',
-    '3months': '3 months',
-    '6months': '6 months',
+    week: t('strength.periodWeek'),
+    '4weeks': t('strength.period4Weeks'),
+    '3months': t('strength.period3Months'),
+    '6months': t('strength.period6Months'),
   };
   const periodLabel = periodLabels[period];
+  const selectedMuscleName = selectedVolume
+    ? (MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug)
+    : '';
+  const topMuscleName = topMuscle
+    ? (MUSCLE_DISPLAY_NAMES[topMuscle.slug as MuscleSlug] ?? topMuscle.slug)
+    : '';
   const heroTitle = selectedVolume
-    ? `${MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug} is in focus`
+    ? t('strength.muscleInFocus', { muscle: selectedMuscleName })
     : topMuscle
-      ? `${MUSCLE_DISPLAY_NAMES[topMuscle.slug as MuscleSlug] ?? topMuscle.slug} stands out this period`
-      : 'Strength snapshot';
+      ? t('strength.muscleStandsOut', { muscle: topMuscleName })
+      : t('strength.snapshot');
   const heroObservation = selectedVolume
-    ? `${MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug} accounts for ${formatSetCount(
-        selectedVolume.weightedSets
-      )} weighted sets in the current ${periodLabel}.`
+    ? t('strength.selectedMuscleObservation', {
+        muscle: selectedMuscleName,
+        sets: formatSetCount(selectedVolume.weightedSets),
+        period: periodLabel,
+      })
     : topMuscle && featuredBalancePair
-      ? `${MUSCLE_DISPLAY_NAMES[topMuscle.slug as MuscleSlug] ?? topMuscle.slug} carries the highest tracked volume in the current ${periodLabel}. ${featuredBalancePair.label} shows the widest split among the observed pairs.`
+      ? t('strength.topMuscleWithBalance', {
+          muscle: topMuscleName,
+          period: periodLabel,
+          pair: featuredBalancePair.label,
+        })
       : topMuscle
-        ? `${MUSCLE_DISPLAY_NAMES[topMuscle.slug as MuscleSlug] ?? topMuscle.slug} carries the highest tracked volume in the current ${periodLabel}.`
-        : `Weighted sets are distributed across the tracked muscle groups in the current ${periodLabel}.`;
+        ? t('strength.topMuscleOnly', {
+            muscle: topMuscleName,
+            period: periodLabel,
+          })
+        : t('strength.defaultObservation', { period: periodLabel });
 
   return (
     <ScrollView
@@ -213,10 +228,10 @@ export const StrengthTab = React.memo(function StrengthTab() {
             color={isDark ? darkColors.textMuted : colors.textDisabled}
           />
           <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
-            No strength workouts in the last {periodLabel}
+            {t('strength.noWorkouts', { period: periodLabel })}
           </Text>
           <Text style={[styles.emptyHint, isDark && styles.emptyTextDark]}>
-            Complete a strength workout to see your muscle group breakdown here
+            {t('strength.noWorkoutsHint')}
           </Text>
         </View>
       ) : (
@@ -230,7 +245,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
             >
               <View style={styles.heroHeader}>
                 <Text style={[styles.heroEyebrow, isDark && styles.heroEyebrowDark]}>
-                  Strength snapshot
+                  {t('strength.snapshot')}
                 </Text>
                 <Text style={[styles.heroTitle, isDark && styles.heroTitleDark]}>{heroTitle}</Text>
                 <Text style={[styles.heroBody, isDark && styles.heroBodyDark]}>
@@ -244,7 +259,9 @@ export const StrengthTab = React.memo(function StrengthTab() {
                     {summary.activityCount}
                   </Text>
                   <Text style={[styles.heroChipLabel, isDark && styles.heroChipLabelDark]}>
-                    {summary.activityCount === 1 ? 'workout' : 'workouts'}
+                    {t('strength.workoutCount_label', {
+                      count: summary.activityCount,
+                    })}
                   </Text>
                 </View>
                 <View style={[styles.heroChip, isDark && styles.heroChipDark]}>
@@ -252,7 +269,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                     {summary.totalSets}
                   </Text>
                   <Text style={[styles.heroChipLabel, isDark && styles.heroChipLabelDark]}>
-                    sets
+                    {t('strength.sets')}
                   </Text>
                 </View>
                 <View style={[styles.heroChip, isDark && styles.heroChipDark]}>
@@ -260,7 +277,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                     {summary.muscleVolumes.length}
                   </Text>
                   <Text style={[styles.heroChipLabel, isDark && styles.heroChipLabelDark]}>
-                    muscle groups
+                    {t('strength.muscleGroups')}
                   </Text>
                 </View>
               </View>
@@ -271,10 +288,10 @@ export const StrengthTab = React.memo(function StrengthTab() {
           <View style={[styles.bodyCard, isDark && styles.bodyCardDark]}>
             <View style={styles.bodyHeader}>
               <Text style={[styles.bodyTitle, isDark && styles.bodyTitleDark]}>
-                Muscle Group Volume
+                {t('strength.muscleGroupVolume')}
               </Text>
               <Text style={[styles.bodySubtitle, isDark && styles.bodySubtitleDark]}>
-                Relative weighted sets across the selected period
+                {t('strength.relativeWeightedSets')}
               </Text>
             </View>
             {selectedVolume ? (
@@ -300,8 +317,10 @@ export const StrengthTab = React.memo(function StrengthTab() {
                   {selectedVolume.weightedSets % 1 === 0
                     ? selectedVolume.weightedSets.toFixed(0)
                     : selectedVolume.weightedSets.toFixed(1)}{' '}
-                  sets
-                  {selectedVolume.totalReps > 0 ? ` · ${selectedVolume.totalReps} reps` : ''}
+                  {t('strength.sets')}
+                  {selectedVolume.totalReps > 0
+                    ? ` · ${selectedVolume.totalReps} ${t('strength.reps')}`
+                    : ''}
                 </Text>
                 <MaterialCommunityIcons
                   name="close"
@@ -311,7 +330,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
               </TouchableOpacity>
             ) : (
               <Text style={[styles.bodyHint, isDark && styles.bodyHintDark]}>
-                Tap a muscle group for details
+                {t('strength.tapMuscleGroup')}
               </Text>
             )}
 
@@ -329,7 +348,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
             {/* Continuous scale bar — normalized 0-10 */}
             <View style={styles.scaleBarContainer}>
               <Text style={[styles.scaleLabel, isDark && styles.scaleLabelDark]}>
-                Relative volume
+                {t('strength.relativeVolume')}
               </Text>
               <View style={styles.scaleBar}>
                 <LinearGradient
@@ -352,7 +371,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                   {maxWeightedSets % 1 === 0
                     ? maxWeightedSets.toFixed(0)
                     : maxWeightedSets.toFixed(1)}{' '}
-                  sets
+                  {t('strength.sets')}
                 </Text>
               </View>
             </View>
@@ -366,7 +385,9 @@ export const StrengthTab = React.memo(function StrengthTab() {
                     {t('insights.strengthBalance.volumeSplit')}
                   </Text>
                   <Text style={[styles.balanceSubtitle, isDark && styles.balanceSubtitleDark]}>
-                    Observed across tracked antagonist pairs in the current {periodLabel}
+                    {t('strength.balanceObservedPairs', {
+                      period: periodLabel,
+                    })}
                   </Text>
                 </View>
                 {featuredBalancePair ? (
@@ -388,12 +409,15 @@ export const StrengthTab = React.memo(function StrengthTab() {
               {featuredBalancePair ? (
                 <Text style={[styles.balanceHeroText, isDark && styles.balanceHeroTextDark]}>
                   {featuredBalancePair.status === 'balanced'
-                    ? 'The tracked pairs sit relatively close together in this period.'
-                    : `${featuredBalancePair.dominantLabel ?? 'One side'} carries more weighted-set volume than ${
-                        featuredBalancePair.dominantSlug === featuredBalancePair.leftSlug
-                          ? featuredBalancePair.rightLabel
-                          : featuredBalancePair.leftLabel
-                      } in ${featuredBalancePair.label.toLowerCase()}.`}
+                    ? t('strength.balancedPairsClose')
+                    : t('strength.balanceDominant', {
+                        dominant: featuredBalancePair.dominantLabel ?? 'One side',
+                        other:
+                          featuredBalancePair.dominantSlug === featuredBalancePair.leftSlug
+                            ? featuredBalancePair.rightLabel
+                            : featuredBalancePair.leftLabel,
+                        pair: featuredBalancePair.label.toLowerCase(),
+                      })}
                 </Text>
               ) : null}
 
@@ -466,8 +490,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
               ))}
 
               <Text style={[styles.balanceFootnote, isDark && styles.balanceFootnoteDark]}>
-                Ratios compare weighted sets, where primary work counts as 1.0 and secondary work
-                counts as 0.5.
+                {t('strength.balanceFootnote')}
               </Text>
             </View>
           ) : null}
@@ -477,11 +500,14 @@ export const StrengthTab = React.memo(function StrengthTab() {
               <View style={styles.progressHeader}>
                 <View style={styles.progressHeaderText}>
                   <Text style={[styles.progressTitle, isDark && styles.progressTitleDark]}>
-                    {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug}{' '}
-                    progression
+                    {t('strength.progression', {
+                      muscle:
+                        MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ??
+                        selectedVolume.slug,
+                    })}
                   </Text>
                   <Text style={[styles.progressSubtitle, isDark && styles.progressSubtitleDark]}>
-                    Last 4 weeks
+                    {t('strength.last4Weeks')}
                   </Text>
                 </View>
                 <View
@@ -496,7 +522,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                 >
                   <Text style={styles.progressBadgeText}>
                     {progression.changePct == null
-                      ? 'New signal'
+                      ? t('strength.newSignal')
                       : `${progression.changePct > 0 ? '+' : ''}${Math.round(
                           progression.changePct
                         )}%`}
@@ -567,7 +593,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                       <Text
                         style={[styles.progressMetaLabel, isDark && styles.progressMetaLabelDark]}
                       >
-                        Recent avg
+                        {t('strength.recentAvg')}
                       </Text>
                     </View>
                     <View style={[styles.progressMetaBox, isDark && styles.progressMetaBoxDark]}>
@@ -579,7 +605,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                       <Text
                         style={[styles.progressMetaLabel, isDark && styles.progressMetaLabelDark]}
                       >
-                        Earlier avg
+                        {t('strength.earlierAvg')}
                       </Text>
                     </View>
                     <View style={[styles.progressMetaBox, isDark && styles.progressMetaBoxDark]}>
@@ -591,7 +617,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                       <Text
                         style={[styles.progressMetaLabel, isDark && styles.progressMetaLabelDark]}
                       >
-                        Peak week
+                        {t('strength.peakWeek')}
                       </Text>
                     </View>
                   </View>
@@ -604,8 +630,10 @@ export const StrengthTab = React.memo(function StrengthTab() {
           {selectedVolume && exerciseSummary && exerciseSummary.exercises.length > 0 && (
             <View style={[styles.exerciseCard, isDark && styles.exerciseCardDark]}>
               <Text style={[styles.exerciseCardTitle, isDark && styles.exerciseCardTitleDark]}>
-                Exercises targeting{' '}
-                {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug}
+                {t('strength.exercisesTargeting', {
+                  muscle:
+                    MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug,
+                })}
               </Text>
               {exerciseSummary.exercises.map((exercise: ExerciseSummary, idx: number) => {
                 const isExpanded = expandedExercise === exercise.exerciseCategory;
@@ -640,8 +668,13 @@ export const StrengthTab = React.memo(function StrengthTab() {
                         <Text
                           style={[styles.exerciseCardMeta, isDark && styles.exerciseCardMetaDark]}
                         >
-                          {exercise.totalSets} sets · {exercise.activityCount}{' '}
-                          {exercise.activityCount === 1 ? 'workout' : 'workouts'}
+                          {t('strength.exerciseSets', {
+                            sets: exercise.totalSets,
+                          })}{' '}
+                          ·{' '}
+                          {t('strength.exerciseWorkoutCount', {
+                            count: exercise.activityCount,
+                          })}
                           {exercise.totalWeightKg > 0
                             ? ` · ${formatWeight(exercise.totalWeightKg, isMetric)}`
                             : ''}
@@ -678,7 +711,9 @@ export const StrengthTab = React.memo(function StrengthTab() {
                             <Text
                               style={[styles.activityStats, isDark && styles.activityStatsDark]}
                             >
-                              {activity.sets} sets
+                              {t('strength.exerciseSets', {
+                                sets: activity.sets,
+                              })}
                               {activity.totalWeightKg > 0
                                 ? ` · ${formatWeight(activity.totalWeightKg, isMetric)}`
                                 : ''}
@@ -703,7 +738,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                       isDark && styles.exerciseCardTotalLabelDark,
                     ]}
                   >
-                    Total volume
+                    {t('strength.totalVolume')}
                   </Text>
                   <Text
                     style={[
@@ -727,7 +762,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                 color={isDark ? darkColors.textMuted : colors.textDisabled}
               />
               <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-                Primary exercises count as 1 set, secondary as 0.5 sets toward each muscle group.
+                {t('strength.infoWeighting')}
               </Text>
             </View>
           </View>

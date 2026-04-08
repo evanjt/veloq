@@ -569,6 +569,15 @@ export interface TranslationResource {
       hot: string;
       cold: string;
     };
+    muscle: {
+      sets: string;
+      reps: string;
+      volume: string;
+      contributingExercises: string;
+      setCount_one: string;
+      setCount_other: string;
+      repsCount: string;
+    };
   };
 
   time: {
@@ -665,6 +674,84 @@ export interface TranslationResource {
       volumeDown: string;
       volumeSteady: string;
     };
+    quickTake: {
+      title: string;
+      whatChanged: string;
+      whyItMatters: string;
+      nextLook: string;
+      sectionPr: { changed: string; matters: string; next: string };
+      hrvTrend: { changed: string; matters: string; next: string };
+      periodComparison: { changed: string; matters: string; next: string };
+      fitnessMilestone: {
+        changedFtp: string;
+        changedSwimPace: string;
+        changedRunPace: string;
+        mattersFtp: string;
+        mattersPace: string;
+        nextFtp: string;
+        nextPace: string;
+      };
+      strengthProgression: { changed: string; matters: string; next: string };
+      strengthBalance: { changed: string; matters: string; next: string };
+      stalePr: {
+        changedPowerGrouped: string;
+        changedPowerSingle: string;
+        changedSwimGrouped: string;
+        changedSwimSingle: string;
+        changedRunGrouped: string;
+        changedRunSingle: string;
+        changedGenericGrouped: string;
+        changedGenericSingle: string;
+        matters: string;
+        nextGrouped: string;
+        nextSingle: string;
+      };
+      efficiencyTrend: { changed: string; matters: string; next: string };
+    };
+    viewInDetail: string;
+  };
+
+  strength: {
+    snapshot: string;
+    muscleInFocus: string;
+    muscleStandsOut: string;
+    selectedMuscleObservation: string;
+    topMuscleWithBalance: string;
+    topMuscleOnly: string;
+    defaultObservation: string;
+    noWorkouts: string;
+    noWorkoutsHint: string;
+    workoutCount_one: string;
+    workoutCount_other: string;
+    workoutCount_label_one: string;
+    workoutCount_label_other: string;
+    sets: string;
+    muscleGroups: string;
+    muscleGroupVolume: string;
+    relativeWeightedSets: string;
+    reps: string;
+    tapMuscleGroup: string;
+    relativeVolume: string;
+    balanceObservedPairs: string;
+    balancedPairsClose: string;
+    balanceDominant: string;
+    balanceFootnote: string;
+    exercisesTargeting: string;
+    exerciseSets: string;
+    exerciseWorkoutCount_one: string;
+    exerciseWorkoutCount_other: string;
+    totalVolume: string;
+    infoWeighting: string;
+    progression: string;
+    last4Weeks: string;
+    newSignal: string;
+    recentAvg: string;
+    earlierAvg: string;
+    peakWeek: string;
+    periodWeek: string;
+    period4Weeks: string;
+    period3Months: string;
+    period6Months: string;
   };
 
   fitnessScreen: {
@@ -710,6 +797,16 @@ export interface TranslationResource {
       heatmapTip: string;
       fitnessTitle: string;
       fitnessBody: string;
+    };
+    v030: {
+      insightsTitle: string;
+      insightsBody: string;
+      strengthTitle: string;
+      strengthBody: string;
+      sectionTrimTitle: string;
+      sectionTrimBody: string;
+      backupTitle: string;
+      backupBody: string;
     };
   };
 

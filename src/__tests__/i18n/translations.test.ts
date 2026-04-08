@@ -325,7 +325,9 @@ describe('Translation Key Usage', () => {
     }[] = [];
 
     for (const [key, usages] of keyUsages) {
-      if (!referenceKeys.has(key)) {
+      // i18next plural keys: t('key', { count }) resolves to key_one / key_other
+      const isPluralKey = referenceKeys.has(`${key}_one`) || referenceKeys.has(`${key}_other`);
+      if (!referenceKeys.has(key) && !isPluralKey) {
         undefinedKeys.push({ key, usages });
       }
     }

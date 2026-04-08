@@ -121,7 +121,16 @@
     "vsYourAvg": "vs tu promedio",
     "whatIsThis": "¿Qué es esto?",
     "xAxisDistance": "Distancia",
-    "xAxisTime": "Tiempo"
+    "xAxisTime": "Tiempo",
+    "muscle": {
+      "sets": "Sets",
+      "reps": "Reps",
+      "volume": "Volume",
+      "contributingExercises": "Contributing Exercises",
+      "setCount_one": "{{count}} set",
+      "setCount_other": "{{count}} sets",
+      "repsCount": "{{count}} reps"
+    }
   },
   "activityDetail": {
     "avgHR": "FC Prom",
@@ -647,7 +656,66 @@
       "volumeUp": "La media de las 2 últimas semanas está {{percent}}% por encima de las 2 anteriores.",
       "volumeDown": "La media de las 2 últimas semanas está {{percent}}% por debajo de las 2 anteriores.",
       "volumeSteady": "La media de las 2 últimas semanas se mantiene estable respecto al inicio del mes."
-    }
+    },
+    "quickTake": {
+      "title": "Quick Take",
+      "whatChanged": "What changed",
+      "whyItMatters": "Why it matters",
+      "nextLook": "Next look",
+      "sectionPr": {
+        "changed": "A repeatable route now carries a new best.",
+        "matters": "Compares this effort against all previous times on the same section.",
+        "next": "Route detail stores the effort list and timing."
+      },
+      "hrvTrend": {
+        "changed": "Short-term recovery readings nudged up or down.",
+        "matters": "Shows the direction of your 7-day HRV rolling average.",
+        "next": "Fitness tab shows HRV alongside other wellness data."
+      },
+      "periodComparison": {
+        "changed": "Weekly load landed differently than the week before.",
+        "matters": "Compares this week's load against the previous week.",
+        "next": "Routes tab lists the activities from both weeks."
+      },
+      "fitnessMilestone": {
+        "changedFtp": "Your FTP estimate moved upward.",
+        "changedSwimPace": "Your threshold swim speed moved upward, which shows up as faster pace per 100m.",
+        "changedRunPace": "Your running threshold speed moved upward, which shows up as faster pace per kilometre.",
+        "mattersFtp": "Tracks the difference between your latest and previous FTP estimates.",
+        "mattersPace": "Tracks the difference between your latest and previous threshold pace estimates.",
+        "nextFtp": "Fitness tab shows the FTP trend over time.",
+        "nextPace": "Fitness tab shows the pace trend over time."
+      },
+      "strengthProgression": {
+        "changed": "A muscle group's weighted-set volume moved compared to earlier weeks.",
+        "matters": "Compares weighted-set volume in the recent 2 weeks against the earlier 2 weeks.",
+        "next": "Strength tab shows the 4-week history per muscle group."
+      },
+      "strengthBalance": {
+        "changed": "An antagonist pair shows one side carrying more weighted sets.",
+        "matters": "Shows the weighted-set ratio between antagonist muscle pairs over 4 weeks.",
+        "next": "Strength tab shows the pair totals side by side."
+      },
+      "stalePr": {
+        "changedPowerGrouped": "Current cycling power now sits above the level tied to several section bests.",
+        "changedPowerSingle": "Current cycling power now sits above the level tied to this section best.",
+        "changedSwimGrouped": "Current swim threshold now sits above the level tied to several section bests.",
+        "changedSwimSingle": "Current swim threshold now sits above the level tied to this section best.",
+        "changedRunGrouped": "Current running threshold now sits above the level tied to several section bests.",
+        "changedRunSingle": "Current running threshold now sits above the level tied to this section best.",
+        "changedGenericGrouped": "Current fitness now sits above the level tied to several section bests.",
+        "changedGenericSingle": "Current fitness now sits above the level tied to this section best.",
+        "matters": "Cross-references fitness trend dates against section PR dates.",
+        "nextGrouped": "Sections tab lists the flagged sections.",
+        "nextSingle": "Section detail shows the effort history."
+      },
+      "efficiencyTrend": {
+        "changed": "Matched efforts on this section now show a lower heart-rate cost.",
+        "matters": "Tracks the HR/pace ratio across matched efforts on this section over time.",
+        "next": "Section detail shows the individual efforts and HR data."
+      }
+    },
+    "viewInDetail": "View in detail"
   },
   "licenses": {
     "footer": "Toca cualquier insignia de licencia para ver el texto completo. Toca el icono de enlace para visitar el repositorio del proyecto.",
@@ -1510,6 +1578,58 @@
       "heatmapTip": "Mantén pulsado sobre las métricas de salud para ver los valores. El mapa de actividad se actualiza a la vez.",
       "fitnessTitle": "Resumen de fitness",
       "fitnessBody": "Sigue tu estado físico, fatiga y forma con zonas codificadas por colores. Sabe cuándo estás fresco y listo para rendir."
+    },
+    "v030": {
+      "insightsTitle": "Daily Insights",
+      "insightsBody": "Personalised daily insights based on your training: section PRs, efficiency trends, fitness milestones, and HRV patterns. A rotating highlight appears on the home screen.",
+      "strengthTitle": "Strength Tracking",
+      "strengthBody": "Visualise muscle group volume with body diagrams. Track balance between antagonist pairs and monitor progression over time.",
+      "sectionTrimTitle": "Section Trimming",
+      "sectionTrimBody": "Adjust section start and end boundaries with a dual-handle slider. See your changes reflected on the map in real time.",
+      "backupTitle": "Backup & Restore",
+      "backupBody": "Export all your data as a full backup and share it via your device's share sheet. Restore from any backup to pick up right where you left off."
     }
+  },
+  "strength": {
+    "snapshot": "Strength snapshot",
+    "muscleInFocus": "{{muscle}} is in focus",
+    "muscleStandsOut": "{{muscle}} stands out this period",
+    "selectedMuscleObservation": "{{muscle}} accounts for {{sets}} weighted sets in the current {{period}}.",
+    "topMuscleWithBalance": "{{muscle}} carries the highest tracked volume in the current {{period}}. {{pair}} shows the widest split among the observed pairs.",
+    "topMuscleOnly": "{{muscle}} carries the highest tracked volume in the current {{period}}.",
+    "defaultObservation": "Weighted sets are distributed across the tracked muscle groups in the current {{period}}.",
+    "noWorkouts": "No strength workouts in the last {{period}}",
+    "noWorkoutsHint": "Complete a strength workout to see your muscle group breakdown here",
+    "workoutCount_one": "{{count}} workout",
+    "workoutCount_other": "{{count}} workouts",
+    "workoutCount_label_one": "workout",
+    "workoutCount_label_other": "workouts",
+    "sets": "sets",
+    "muscleGroups": "muscle groups",
+    "muscleGroupVolume": "Muscle Group Volume",
+    "relativeWeightedSets": "Relative weighted sets across the selected period",
+    "reps": "reps",
+    "tapMuscleGroup": "Tap a muscle group for details",
+    "relativeVolume": "Relative volume",
+    "balanceObservedPairs": "Observed across tracked antagonist pairs in the current {{period}}",
+    "balancedPairsClose": "The tracked pairs sit relatively close together in this period.",
+    "balanceDominant": "{{dominant}} carries more weighted-set volume than {{other}} in {{pair}}.",
+    "balanceFootnote": "Ratios compare weighted sets, where primary work counts as 1.0 and secondary work counts as 0.5.",
+    "exercisesTargeting": "Exercises targeting {{muscle}}",
+    "exerciseSets": "{{sets}} sets",
+    "exerciseWorkoutCount_one": "{{count}} workout",
+    "exerciseWorkoutCount_other": "{{count}} workouts",
+    "totalVolume": "Total volume",
+    "infoWeighting": "Primary exercises count as 1 set, secondary as 0.5 sets toward each muscle group.",
+    "progression": "{{muscle}} progression",
+    "last4Weeks": "Last 4 weeks",
+    "newSignal": "New signal",
+    "recentAvg": "Recent avg",
+    "earlierAvg": "Earlier avg",
+    "peakWeek": "Peak week",
+    "periodWeek": "week",
+    "period4Weeks": "4 weeks",
+    "period3Months": "3 months",
+    "period6Months": "6 months"
   }
 }

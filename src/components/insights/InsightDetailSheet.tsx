@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { Modal, View, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/lib';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, typography, opacity, colorWithOpacity } from '@/theme';
@@ -24,6 +25,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   onClose,
 }: InsightDetailSheetProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
 
   const handleNavigate = useCallback(() => {
     if (insight?.navigationTarget) {
@@ -118,7 +120,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
               onPress={handleNavigate}
             >
               <Text style={[styles.navLinkText, isDark && styles.navLinkTextDark]}>
-                View in detail
+                {t('insights.viewInDetail')}
               </Text>
               <MaterialCommunityIcons
                 name="chevron-right"

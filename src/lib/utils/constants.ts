@@ -116,7 +116,8 @@ export const OAUTH = {
   APP_SCHEME: 'veloq',
   /** OAuth scopes */
   /** WRITE implies READ — don't request both for the same category */
-  SCOPES: ['ACTIVITY:WRITE', 'WELLNESS:READ', 'CALENDAR:READ', 'SETTINGS:READ'],
+  /** ACTIVITY:WRITE removed for 0.3.0 — recording not shipping yet, no write access needed */
+  SCOPES: ['ACTIVITY:READ', 'WELLNESS:READ', 'CALENDAR:READ', 'SETTINGS:READ'],
 } as const;
 
 /**

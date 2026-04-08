@@ -150,8 +150,13 @@ export function MuscleGroupView({
                     </TouchableOpacity>
                   </View>
                   <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
-                    {muscleDetail.totalSets} {muscleDetail.totalSets === 1 ? 'set' : 'sets'} ·{' '}
-                    {muscleDetail.totalReps} reps
+                    {t('activity.muscle.setCount', {
+                      count: muscleDetail.totalSets,
+                    })}{' '}
+                    ·{' '}
+                    {t('activity.muscle.repsCount', {
+                      count: muscleDetail.totalReps,
+                    })}
                   </Text>
                   {muscleDetail.totalVolumeKg > 0 && (
                     <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
