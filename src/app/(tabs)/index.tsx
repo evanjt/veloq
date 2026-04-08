@@ -379,7 +379,7 @@ export default function FeedScreen() {
                     selectedTypeGroup === group && styles.filterChipTextActive,
                   ]}
                 >
-                  {group}
+                  {t(`feed.groups.${group.toLowerCase()}`, group)}
                 </Text>
               </TouchableOpacity>
             ))}
