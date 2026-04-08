@@ -677,62 +677,62 @@
       "volumeSteady": "最近2周平均值与月初相比保持稳定。"
     },
     "quickTake": {
-      "howCalculated": "How was this calculated?",
-      "title": "Quick Take",
-      "whatChanged": "What changed",
-      "whyItMatters": "Why it matters",
-      "nextLook": "Next look",
+      "howCalculated": "这是如何计算的？",
+      "title": "快速概览",
+      "whatChanged": "变化内容",
+      "whyItMatters": "为什么重要",
+      "nextLook": "下一步",
       "sectionPr": {
-        "changed": "A repeatable route now carries a new best.",
-        "matters": "Compares this effort against all previous times on the same section.",
-        "next": "Route detail stores the effort list and timing."
+        "changed": "重复路线现在有了新的最佳成绩。",
+        "matters": "将此次努力与同一区间的所有历史成绩进行比较。",
+        "next": "路线详情显示努力列表和时间。"
       },
       "hrvTrend": {
-        "changed": "Short-term recovery readings nudged up or down.",
-        "matters": "Shows the direction of your 7-day HRV rolling average.",
-        "next": "Fitness tab shows HRV alongside other wellness data."
+        "changed": "短期恢复指标上升或下降。",
+        "matters": "显示您的7天HRV移动平均的方向。",
+        "next": "健身标签页显示HRV及其他健康数据。"
       },
       "periodComparison": {
-        "changed": "Weekly load landed differently than the week before.",
-        "matters": "Compares this week's load against the previous week.",
-        "next": "Routes tab lists the activities from both weeks."
+        "changed": "本周负荷与上周不同。",
+        "matters": "将本周负荷与上周进行比较。",
+        "next": "路线标签页显示两周的活动。"
       },
       "fitnessMilestone": {
-        "changedFtp": "Your FTP estimate moved upward.",
-        "changedSwimPace": "Your threshold swim speed moved upward, which shows up as faster pace per 100m.",
-        "changedRunPace": "Your running threshold speed moved upward, which shows up as faster pace per kilometre.",
-        "mattersFtp": "Tracks the difference between your latest and previous FTP estimates.",
-        "mattersPace": "Tracks the difference between your latest and previous threshold pace estimates.",
-        "nextFtp": "Fitness tab shows the FTP trend over time.",
-        "nextPace": "Fitness tab shows the pace trend over time."
+        "changedFtp": "您的FTP估计值上升了。",
+        "changedSwimPace": "您的游泳闈值速度提高，每100米配速更快。",
+        "changedRunPace": "您的跑步闈值速度提高，每公里配速更快。",
+        "mattersFtp": "追踪当前与之前的FTP估计值差异。",
+        "mattersPace": "追踪当前与之前的闈值配速差异。",
+        "nextFtp": "健身标签页显示FTP趋势。",
+        "nextPace": "健身标签页显示配速趋势。"
       },
       "strengthProgression": {
-        "changed": "A muscle group's weighted-set volume moved compared to earlier weeks.",
-        "matters": "Compares weighted-set volume in the recent 2 weeks against the earlier 2 weeks.",
-        "next": "Strength tab shows the 4-week history per muscle group."
+        "changed": "某肌肉群的负重组数量与前几周相比发生了变化。",
+        "matters": "比较近两周与前两周的负重组数量。",
+        "next": "力量标签页显示每个肌肉群的4周历史。"
       },
       "strengthBalance": {
-        "changed": "An antagonist pair shows one side carrying more weighted sets.",
-        "matters": "Shows the weighted-set ratio between antagonist muscle pairs over 4 weeks.",
-        "next": "Strength tab shows the pair totals side by side."
+        "changed": "拮抗肌对显示一侧的负重组数更多。",
+        "matters": "显示4周内拮抗肌对的负重组数比率。",
+        "next": "力量标签页并排显示肌对总计。"
       },
       "stalePr": {
-        "changedPowerGrouped": "Current cycling power now sits above the level tied to several section bests.",
-        "changedPowerSingle": "Current cycling power now sits above the level tied to this section best.",
-        "changedSwimGrouped": "Current swim threshold now sits above the level tied to several section bests.",
-        "changedSwimSingle": "Current swim threshold now sits above the level tied to this section best.",
-        "changedRunGrouped": "Current running threshold now sits above the level tied to several section bests.",
-        "changedRunSingle": "Current running threshold now sits above the level tied to this section best.",
-        "changedGenericGrouped": "Current fitness now sits above the level tied to several section bests.",
-        "changedGenericSingle": "Current fitness now sits above the level tied to this section best.",
-        "matters": "Cross-references fitness trend dates against section PR dates.",
-        "nextGrouped": "Sections tab lists the flagged sections.",
-        "nextSingle": "Section detail shows the effort history."
+        "changedPowerGrouped": "当前骑行功率已超过多个区间最佳成绩的水平。",
+        "changedPowerSingle": "当前骑行功率已超过此区间最佳成绩的水平。",
+        "changedSwimGrouped": "当前游泳闈值已超过多个区间最佳成绩的水平。",
+        "changedSwimSingle": "当前游泳闈值已超过此区间最佳成绩的水平。",
+        "changedRunGrouped": "当前跑步闈值已超过多个区间最佳成绩的水平。",
+        "changedRunSingle": "当前跑步闈值已超过此区间最佳成绩的水平。",
+        "changedGenericGrouped": "当前体能已超过多个区间最佳成绩的水平。",
+        "changedGenericSingle": "当前体能已超过此区间最佳成绩的水平。",
+        "matters": "将体能趋势日期与区间最佳成绩日期进行交叉对比。",
+        "nextGrouped": "区间标签页显示标记的区间。",
+        "nextSingle": "区间详情显示努力历史。"
       },
       "efficiencyTrend": {
-        "changed": "Matched efforts on this section now show a lower heart-rate cost.",
-        "matters": "Tracks the HR/pace ratio across matched efforts on this section over time.",
-        "next": "Section detail shows the individual efforts and HR data."
+        "changed": "此区间的可比较努力现在显示更低的心率成本。",
+        "matters": "追踪此区间可比较努力的心率/配速比率。",
+        "next": "区间详情显示各个努力和心率数据。"
       }
     },
     "viewInDetail": "View in detail"

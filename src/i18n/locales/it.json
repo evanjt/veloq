@@ -677,62 +677,62 @@
       "volumeSteady": "La media delle ultime 2 settimane è stabile rispetto all'inizio del mese."
     },
     "quickTake": {
-      "howCalculated": "How was this calculated?",
-      "title": "Quick Take",
-      "whatChanged": "What changed",
-      "whyItMatters": "Why it matters",
-      "nextLook": "Next look",
+      "howCalculated": "Come è stato calcolato?",
+      "title": "Riepilogo rapido",
+      "whatChanged": "Cosa è cambiato",
+      "whyItMatters": "Perché è importante",
+      "nextLook": "Prossimo passo",
       "sectionPr": {
-        "changed": "A repeatable route now carries a new best.",
-        "matters": "Compares this effort against all previous times on the same section.",
-        "next": "Route detail stores the effort list and timing."
+        "changed": "Un percorso ripetuto ora ha un nuovo miglior tempo.",
+        "matters": "Confronta questo sforzo con tutti i tempi precedenti sulla stessa sezione.",
+        "next": "Il dettaglio del percorso mostra la lista degli sforzi e i tempi."
       },
       "hrvTrend": {
-        "changed": "Short-term recovery readings nudged up or down.",
-        "matters": "Shows the direction of your 7-day HRV rolling average.",
-        "next": "Fitness tab shows HRV alongside other wellness data."
+        "changed": "Le letture di recupero a breve termine si sono mosse verso l’alto o il basso.",
+        "matters": "Mostra la direzione della tua media mobile HRV a 7 giorni.",
+        "next": "La scheda Fitness mostra HRV insieme ad altri dati sul benessere."
       },
       "periodComparison": {
-        "changed": "Weekly load landed differently than the week before.",
-        "matters": "Compares this week's load against the previous week.",
-        "next": "Routes tab lists the activities from both weeks."
+        "changed": "Il carico settimanale è stato diverso rispetto alla settimana precedente.",
+        "matters": "Confronta il carico di questa settimana con la settimana precedente.",
+        "next": "La scheda Percorsi mostra le attività di entrambe le settimane."
       },
       "fitnessMilestone": {
-        "changedFtp": "Your FTP estimate moved upward.",
-        "changedSwimPace": "Your threshold swim speed moved upward, which shows up as faster pace per 100m.",
-        "changedRunPace": "Your running threshold speed moved upward, which shows up as faster pace per kilometre.",
-        "mattersFtp": "Tracks the difference between your latest and previous FTP estimates.",
-        "mattersPace": "Tracks the difference between your latest and previous threshold pace estimates.",
-        "nextFtp": "Fitness tab shows the FTP trend over time.",
-        "nextPace": "Fitness tab shows the pace trend over time."
+        "changedFtp": "La tua stima FTP è aumentata.",
+        "changedSwimPace": "La tua velocità soglia di nuoto è aumentata, con un ritmo più veloce per 100m.",
+        "changedRunPace": "La tua velocità soglia di corsa è aumentata, con un ritmo più veloce per chilometro.",
+        "mattersFtp": "Traccia la differenza tra la tua stima FTP attuale e precedente.",
+        "mattersPace": "Traccia la differenza tra il tuo ritmo soglia attuale e precedente.",
+        "nextFtp": "La scheda Fitness mostra il trend FTP nel tempo.",
+        "nextPace": "La scheda Fitness mostra il trend del ritmo nel tempo."
       },
       "strengthProgression": {
-        "changed": "A muscle group's weighted-set volume moved compared to earlier weeks.",
-        "matters": "Compares weighted-set volume in the recent 2 weeks against the earlier 2 weeks.",
-        "next": "Strength tab shows the 4-week history per muscle group."
+        "changed": "Il volume di serie con peso di un gruppo muscolare è cambiato rispetto alle settimane precedenti.",
+        "matters": "Confronta il volume di serie con peso delle ultime 2 settimane con le 2 settimane precedenti.",
+        "next": "La scheda Forza mostra lo storico di 4 settimane per gruppo muscolare."
       },
       "strengthBalance": {
-        "changed": "An antagonist pair shows one side carrying more weighted sets.",
-        "matters": "Shows the weighted-set ratio between antagonist muscle pairs over 4 weeks.",
-        "next": "Strength tab shows the pair totals side by side."
+        "changed": "Una coppia antagonista mostra che un lato ha più serie con peso.",
+        "matters": "Mostra il rapporto di serie con peso tra coppie muscolari antagoniste su 4 settimane.",
+        "next": "La scheda Forza mostra i totali delle coppie affiancati."
       },
       "stalePr": {
-        "changedPowerGrouped": "Current cycling power now sits above the level tied to several section bests.",
-        "changedPowerSingle": "Current cycling power now sits above the level tied to this section best.",
-        "changedSwimGrouped": "Current swim threshold now sits above the level tied to several section bests.",
-        "changedSwimSingle": "Current swim threshold now sits above the level tied to this section best.",
-        "changedRunGrouped": "Current running threshold now sits above the level tied to several section bests.",
-        "changedRunSingle": "Current running threshold now sits above the level tied to this section best.",
-        "changedGenericGrouped": "Current fitness now sits above the level tied to several section bests.",
-        "changedGenericSingle": "Current fitness now sits above the level tied to this section best.",
-        "matters": "Cross-references fitness trend dates against section PR dates.",
-        "nextGrouped": "Sections tab lists the flagged sections.",
-        "nextSingle": "Section detail shows the effort history."
+        "changedPowerGrouped": "La potenza ciclistica attuale supera ora il livello associato a diversi record di sezione.",
+        "changedPowerSingle": "La potenza ciclistica attuale supera ora il livello associato a questo record di sezione.",
+        "changedSwimGrouped": "La soglia di nuoto attuale supera ora il livello associato a diversi record di sezione.",
+        "changedSwimSingle": "La soglia di nuoto attuale supera ora il livello associato a questo record di sezione.",
+        "changedRunGrouped": "La soglia di corsa attuale supera ora il livello associato a diversi record di sezione.",
+        "changedRunSingle": "La soglia di corsa attuale supera ora il livello associato a questo record di sezione.",
+        "changedGenericGrouped": "La forma fisica attuale supera ora il livello associato a diversi record di sezione.",
+        "changedGenericSingle": "La forma fisica attuale supera ora il livello associato a questo record di sezione.",
+        "matters": "Incrocia le date del trend fitness con le date dei record di sezione.",
+        "nextGrouped": "La scheda Sezioni mostra le sezioni segnalate.",
+        "nextSingle": "Il dettaglio sezione mostra lo storico degli sforzi."
       },
       "efficiencyTrend": {
-        "changed": "Matched efforts on this section now show a lower heart-rate cost.",
-        "matters": "Tracks the HR/pace ratio across matched efforts on this section over time.",
-        "next": "Section detail shows the individual efforts and HR data."
+        "changed": "Sforzi comparabili su questa sezione mostrano ora un costo cardiaco inferiore.",
+        "matters": "Traccia il rapporto FC/ritmo degli sforzi comparabili nel tempo.",
+        "next": "Il dettaglio sezione mostra gli sforzi individuali e i dati FC."
       }
     },
     "viewInDetail": "View in detail"

@@ -677,62 +677,62 @@
       "volumeSteady": "De seneste 2 ugers gennemsnit er stabilt sammenlignet med starten af måneden."
     },
     "quickTake": {
-      "howCalculated": "How was this calculated?",
-      "title": "Quick Take",
-      "whatChanged": "What changed",
-      "whyItMatters": "Why it matters",
-      "nextLook": "Next look",
+      "howCalculated": "Hvordan blev dette beregnet?",
+      "title": "Overblik",
+      "whatChanged": "Hvad har ændret sig",
+      "whyItMatters": "Hvorfor det er vigtigt",
+      "nextLook": "Næste skridt",
       "sectionPr": {
-        "changed": "A repeatable route now carries a new best.",
-        "matters": "Compares this effort against all previous times on the same section.",
-        "next": "Route detail stores the effort list and timing."
+        "changed": "En gentaget rute har nu en ny bedste tid.",
+        "matters": "Sammenligner denne præstation med alle tidligere tider på samme stigning.",
+        "next": "Rutedetaljer viser listen over præstationer og tider."
       },
       "hrvTrend": {
-        "changed": "Short-term recovery readings nudged up or down.",
-        "matters": "Shows the direction of your 7-day HRV rolling average.",
-        "next": "Fitness tab shows HRV alongside other wellness data."
+        "changed": "Kortsigtede restitutionsmålinger rykkede op eller ned.",
+        "matters": "Viser retningen af dit 7-dages rullende HRV-gennemsnit.",
+        "next": "Fitness-fanen viser HRV sammen med andre wellnessdata."
       },
       "periodComparison": {
-        "changed": "Weekly load landed differently than the week before.",
-        "matters": "Compares this week's load against the previous week.",
-        "next": "Routes tab lists the activities from both weeks."
+        "changed": "Ugentlig belastning endte anderledes end ugen før.",
+        "matters": "Sammenligner denne uges belastning med den forrige uge.",
+        "next": "Ruter-fanen viser aktiviteterne fra begge uger."
       },
       "fitnessMilestone": {
-        "changedFtp": "Your FTP estimate moved upward.",
-        "changedSwimPace": "Your threshold swim speed moved upward, which shows up as faster pace per 100m.",
-        "changedRunPace": "Your running threshold speed moved upward, which shows up as faster pace per kilometre.",
-        "mattersFtp": "Tracks the difference between your latest and previous FTP estimates.",
-        "mattersPace": "Tracks the difference between your latest and previous threshold pace estimates.",
-        "nextFtp": "Fitness tab shows the FTP trend over time.",
-        "nextPace": "Fitness tab shows the pace trend over time."
+        "changedFtp": "Dit FTP-estimat er steget.",
+        "changedSwimPace": "Din svømmetærskelhastighed er steget, hvilket viser sig som hurtigere tempo pr. 100m.",
+        "changedRunPace": "Din løbetærskelhastighed er steget, hvilket viser sig som hurtigere tempo pr. kilometer.",
+        "mattersFtp": "Sporer forskellen mellem dit seneste og tidligere FTP-estimat.",
+        "mattersPace": "Sporer forskellen mellem dit seneste og tidligere tærskeltempo.",
+        "nextFtp": "Fitness-fanen viser FTP-udviklingen over tid.",
+        "nextPace": "Fitness-fanen viser tempoudviklingen over tid."
       },
       "strengthProgression": {
-        "changed": "A muscle group's weighted-set volume moved compared to earlier weeks.",
-        "matters": "Compares weighted-set volume in the recent 2 weeks against the earlier 2 weeks.",
-        "next": "Strength tab shows the 4-week history per muscle group."
+        "changed": "En muskelgruppes vægtede sætvolumen har ændret sig sammenlignet med tidligere uger.",
+        "matters": "Sammenligner vægtet sætvolumen i de seneste 2 uger mod de forrige 2 uger.",
+        "next": "Styrke-fanen viser 4-ugers historikken pr. muskelgruppe."
       },
       "strengthBalance": {
-        "changed": "An antagonist pair shows one side carrying more weighted sets.",
-        "matters": "Shows the weighted-set ratio between antagonist muscle pairs over 4 weeks.",
-        "next": "Strength tab shows the pair totals side by side."
+        "changed": "Et antagonistpar viser, at den ene side bærer flere vægtede sæt.",
+        "matters": "Viser forholdet mellem vægtede sæt for antagonistmuskelpar over 4 uger.",
+        "next": "Styrke-fanen viser parenes totaler side om side."
       },
       "stalePr": {
-        "changedPowerGrouped": "Current cycling power now sits above the level tied to several section bests.",
-        "changedPowerSingle": "Current cycling power now sits above the level tied to this section best.",
-        "changedSwimGrouped": "Current swim threshold now sits above the level tied to several section bests.",
-        "changedSwimSingle": "Current swim threshold now sits above the level tied to this section best.",
-        "changedRunGrouped": "Current running threshold now sits above the level tied to several section bests.",
-        "changedRunSingle": "Current running threshold now sits above the level tied to this section best.",
-        "changedGenericGrouped": "Current fitness now sits above the level tied to several section bests.",
-        "changedGenericSingle": "Current fitness now sits above the level tied to this section best.",
-        "matters": "Cross-references fitness trend dates against section PR dates.",
-        "nextGrouped": "Sections tab lists the flagged sections.",
-        "nextSingle": "Section detail shows the effort history."
+        "changedPowerGrouped": "Nuværende cykeleffekt ligger nu over niveauet for flere stigningsrekorder.",
+        "changedPowerSingle": "Nuværende cykeleffekt ligger nu over niveauet for denne stigningsrekord.",
+        "changedSwimGrouped": "Nuværende svømmetærskel ligger nu over niveauet for flere stigningsrekorder.",
+        "changedSwimSingle": "Nuværende svømmetærskel ligger nu over niveauet for denne stigningsrekord.",
+        "changedRunGrouped": "Nuværende løbetærskel ligger nu over niveauet for flere stigningsrekorder.",
+        "changedRunSingle": "Nuværende løbetærskel ligger nu over niveauet for denne stigningsrekord.",
+        "changedGenericGrouped": "Nuværende fitness ligger nu over niveauet for flere stigningsrekorder.",
+        "changedGenericSingle": "Nuværende fitness ligger nu over niveauet for denne stigningsrekord.",
+        "matters": "Krydsrefererer fitnesstrenddatoer med stigningsrekorddatoer.",
+        "nextGrouped": "Stigninger-fanen viser de markerede stigninger.",
+        "nextSingle": "Stigningsdetaljer viser præstationshistorikken."
       },
       "efficiencyTrend": {
-        "changed": "Matched efforts on this section now show a lower heart-rate cost.",
-        "matters": "Tracks the HR/pace ratio across matched efforts on this section over time.",
-        "next": "Section detail shows the individual efforts and HR data."
+        "changed": "Matchede præstationer på denne stigning viser nu en lavere pulsomkostning.",
+        "matters": "Sporer puls/tempo-forholdet på tværs af matchede præstationer over tid.",
+        "next": "Stigningsdetaljer viser de individuelle præstationer og pulsdata."
       }
     },
     "viewInDetail": "View in detail"

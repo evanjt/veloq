@@ -677,62 +677,62 @@
       "volumeSteady": "直近2週間の平均は月初と比べて安定しています。"
     },
     "quickTake": {
-      "howCalculated": "How was this calculated?",
-      "title": "Quick Take",
-      "whatChanged": "What changed",
-      "whyItMatters": "Why it matters",
-      "nextLook": "Next look",
+      "howCalculated": "どのように計算されましたか？",
+      "title": "概要",
+      "whatChanged": "変化したこと",
+      "whyItMatters": "重要な理由",
+      "nextLook": "次のステップ",
       "sectionPr": {
-        "changed": "A repeatable route now carries a new best.",
-        "matters": "Compares this effort against all previous times on the same section.",
-        "next": "Route detail stores the effort list and timing."
+        "changed": "繰り返しのルートで新しいベストが記録されました。",
+        "matters": "この努力を同じセクションの過去の全タイムと比較します。",
+        "next": "ルート詳細に努力リストとタイムが表示されます。"
       },
       "hrvTrend": {
-        "changed": "Short-term recovery readings nudged up or down.",
-        "matters": "Shows the direction of your 7-day HRV rolling average.",
-        "next": "Fitness tab shows HRV alongside other wellness data."
+        "changed": "短期的な回復指標が上下しました。",
+        "matters": "7日間のHRV移動平均の方向を示します。",
+        "next": "フィットネスタブにHRVと他のウェルネスデータが表示されます。"
       },
       "periodComparison": {
-        "changed": "Weekly load landed differently than the week before.",
-        "matters": "Compares this week's load against the previous week.",
-        "next": "Routes tab lists the activities from both weeks."
+        "changed": "週間負荷が前週と異なりました。",
+        "matters": "今週の負荷を前週と比較します。",
+        "next": "ルートタブに両週のアクティビティが表示されます。"
       },
       "fitnessMilestone": {
-        "changedFtp": "Your FTP estimate moved upward.",
-        "changedSwimPace": "Your threshold swim speed moved upward, which shows up as faster pace per 100m.",
-        "changedRunPace": "Your running threshold speed moved upward, which shows up as faster pace per kilometre.",
-        "mattersFtp": "Tracks the difference between your latest and previous FTP estimates.",
-        "mattersPace": "Tracks the difference between your latest and previous threshold pace estimates.",
-        "nextFtp": "Fitness tab shows the FTP trend over time.",
-        "nextPace": "Fitness tab shows the pace trend over time."
+        "changedFtp": "FTP推定値が上昇しました。",
+        "changedSwimPace": "泳ぎの閾値速度が上昇し、100mあたりのペースが速くなりました。",
+        "changedRunPace": "ランニングの閾値速度が上昇し、1kmあたりのペースが速くなりました。",
+        "mattersFtp": "現在と以前のFTP推定値の差を追跡します。",
+        "mattersPace": "現在と以前の閾値ペースの差を追跡します。",
+        "nextFtp": "フィットネスタブにFTPトレンドが表示されます。",
+        "nextPace": "フィットネスタブにペーストレンドが表示されます。"
       },
       "strengthProgression": {
-        "changed": "A muscle group's weighted-set volume moved compared to earlier weeks.",
-        "matters": "Compares weighted-set volume in the recent 2 weeks against the earlier 2 weeks.",
-        "next": "Strength tab shows the 4-week history per muscle group."
+        "changed": "筋肉群の重み付きセット量が前の週と比べて変化しました。",
+        "matters": "直近2週間の重み付きセット量をその前の2週間と比較します。",
+        "next": "筋力タブに筋肉群ごとの4週間履歴が表示されます。"
       },
       "strengthBalance": {
-        "changed": "An antagonist pair shows one side carrying more weighted sets.",
-        "matters": "Shows the weighted-set ratio between antagonist muscle pairs over 4 weeks.",
-        "next": "Strength tab shows the pair totals side by side."
+        "changed": "拮抗筋ペアで片側の重み付きセットが多くなっています。",
+        "matters": "4週間にわたる拮抗筋ペアの重み付きセット比率を表示します。",
+        "next": "筋力タブにペアの合計が並べて表示されます。"
       },
       "stalePr": {
-        "changedPowerGrouped": "Current cycling power now sits above the level tied to several section bests.",
-        "changedPowerSingle": "Current cycling power now sits above the level tied to this section best.",
-        "changedSwimGrouped": "Current swim threshold now sits above the level tied to several section bests.",
-        "changedSwimSingle": "Current swim threshold now sits above the level tied to this section best.",
-        "changedRunGrouped": "Current running threshold now sits above the level tied to several section bests.",
-        "changedRunSingle": "Current running threshold now sits above the level tied to this section best.",
-        "changedGenericGrouped": "Current fitness now sits above the level tied to several section bests.",
-        "changedGenericSingle": "Current fitness now sits above the level tied to this section best.",
-        "matters": "Cross-references fitness trend dates against section PR dates.",
-        "nextGrouped": "Sections tab lists the flagged sections.",
-        "nextSingle": "Section detail shows the effort history."
+        "changedPowerGrouped": "現在のサイクリングパワーが複数のセクション記録のレベルを超えました。",
+        "changedPowerSingle": "現在のサイクリングパワーがこのセクション記録のレベルを超えました。",
+        "changedSwimGrouped": "現在の泳ぎの閾値が複数のセクション記録のレベルを超えました。",
+        "changedSwimSingle": "現在の泳ぎの閾値がこのセクション記録のレベルを超えました。",
+        "changedRunGrouped": "現在のランニング閾値が複数のセクション記録のレベルを超えました。",
+        "changedRunSingle": "現在のランニング閾値がこのセクション記録のレベルを超えました。",
+        "changedGenericGrouped": "現在のフィットネスが複数のセクション記録のレベルを超えました。",
+        "changedGenericSingle": "現在のフィットネスがこのセクション記録のレベルを超えました。",
+        "matters": "フィットネストレンドの日付とセクション記録の日付を照合します。",
+        "nextGrouped": "セクションタブにフラグ付きのセクションが表示されます。",
+        "nextSingle": "セクション詳細に努力履歴が表示されます。"
       },
       "efficiencyTrend": {
-        "changed": "Matched efforts on this section now show a lower heart-rate cost.",
-        "matters": "Tracks the HR/pace ratio across matched efforts on this section over time.",
-        "next": "Section detail shows the individual efforts and HR data."
+        "changed": "このセクションでの比較可能な努力が、より低い心拍コストを示しています。",
+        "matters": "このセクションでの比較可能な努力のHR/ペース比を経時的に追跡します。",
+        "next": "セクション詳細に個々の努力とHRデータが表示されます。"
       }
     },
     "viewInDetail": "View in detail"
