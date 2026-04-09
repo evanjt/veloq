@@ -268,3 +268,50 @@ export function registerSnapshotNeededListener(listener: SnapshotNeededListener)
 export function signalSnapshotNeeded(): void {
   snapshotNeededListener?.();
 }
+
+// ============================================================================
+// Pending snapshot queue (background task → foreground generation)
+// ============================================================================
+
+const PENDING_SNAPSHOTS_KEY = 'veloq-pending-terrain-snapshots';
+
+interface PendingSnapshot {
+  activityId: string;
+  timestamp: number;
+}
+
+/**
+ * Queue an activity for priority terrain snapshot generation.
+ * Called from the background notification task after GPS data is ingested.
+ * The feed screen reads this queue on mount and generates snapshots first.
+ */
+export async function addPendingSnapshot(activityId: string): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_SNAPSHOTS_KEY);
+    const pending: PendingSnapshot[] = raw ? JSON.parse(raw) : [];
+    if (!pending.some((p) => p.activityId === activityId)) {
+      pending.push({ activityId, timestamp: Date.now() });
+      // Keep at most 10 pending to avoid unbounded growth
+      const trimmed = pending.slice(-10);
+      await AsyncStorage.setItem(PENDING_SNAPSHOTS_KEY, JSON.stringify(trimmed));
+    }
+  } catch {
+    // Best effort — snapshot will still be generated on scroll
+  }
+}
+
+/**
+ * Get and clear the pending snapshot queue.
+ * Called by the feed screen on mount to prioritize these activities.
+ */
+export async function consumePendingSnapshots(): Promise<string[]> {
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_SNAPSHOTS_KEY);
+    if (!raw) return [];
+    await AsyncStorage.removeItem(PENDING_SNAPSHOTS_KEY);
+    const pending: PendingSnapshot[] = JSON.parse(raw);
+    return pending.map((p) => p.activityId);
+  } catch {
+    return [];
+  }
+}

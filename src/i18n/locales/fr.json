@@ -50,6 +50,7 @@
     "mapStyle": "Style de carte",
     "maxHR": "Max : {{value}} bpm",
     "noDataAvailable": "Aucune donnée disponible",
+    "zoneDefault": "Zone {{number}}",
     "noElevationData": "Pas de données d'altitude",
     "noHeartRateData": "Pas de données de fréquence cardiaque",
     "noMetricData": "Pas de données de {{metric}}",
@@ -424,7 +425,9 @@
     },
     "defaultMessage": "Échec du chargement des données. Veuillez réessayer.",
     "defaultTitle": "Une erreur s'est produite",
-    "tryAgain": "Réessayer"
+    "tryAgain": "Réessayer",
+    "unableToLoad": "Impossible de charger {{componentName}}",
+    "restartHint": "Veuillez réessayer ou redémarrer l'application"
   },
   "export": {
     "bulkComplete": "Exportation terminee",

@@ -68,7 +68,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } = useRouteSettings();
 
   // Map tile cache stats
-  const { nativeSizeEstimate } = useTileCacheStore();
+  const nativeSizeEstimate = useTileCacheStore((s) => s.nativeSizeEstimate);
   const [terrainCacheSize, setTerrainCacheSize] = useState(0);
   const [tileCacheStats, setTileCacheStats] = useState<TileCacheStats | null>(null);
   const [freeStorage, setFreeStorage] = useState<number | null>(null);

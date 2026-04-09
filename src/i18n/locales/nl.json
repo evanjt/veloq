@@ -50,6 +50,7 @@
     "mapStyle": "Kaartstijl",
     "maxHR": "Max: {{value}} bpm",
     "noDataAvailable": "Geen gegevens beschikbaar",
+    "zoneDefault": "Zone {{number}}",
     "noElevationData": "Geen hoogtegegevens",
     "noHeartRateData": "Geen hartslaggegevens",
     "noMetricData": "Geen {{metric}}-gegevens",
@@ -424,7 +425,9 @@
     },
     "defaultMessage": "Gegevens laden mislukt. Probeer opnieuw.",
     "defaultTitle": "Er ging iets mis",
-    "tryAgain": "Opnieuw proberen"
+    "tryAgain": "Opnieuw proberen",
+    "unableToLoad": "Kan {{componentName}} niet laden",
+    "restartHint": "Probeer het opnieuw of herstart de app"
   },
   "export": {
     "bulkComplete": "Export voltooid",

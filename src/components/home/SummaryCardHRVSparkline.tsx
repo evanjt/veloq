@@ -11,6 +11,7 @@ import type { ScrubValues } from './SummaryCardSparkline';
 /** Match total height of fitness sparkline (44 chart + 4 form bar) */
 const CHART_HEIGHT = 48;
 const LONG_PRESS_MS = 200;
+const HRV_DOMAIN = { y: [-6, 106] as [number, number] } as const;
 
 interface SummaryCardHRVSparklineProps {
   hrvData: number[];
@@ -68,7 +69,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
     });
   }, [hrvData, rhrData, hasRhr]);
 
-  const domain = useMemo(() => ({ y: [-6, 106] as [number, number] }), []);
+  const domain = HRV_DOMAIN;
 
   // Crosshair state
   const crosshairX = useSharedValue(-1);

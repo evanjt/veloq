@@ -50,6 +50,7 @@
     "mapStyle": "Chartestil",
     "maxHR": "Max: {{value}} bpm",
     "noDataAvailable": "Kei Date da",
+    "zoneDefault": "Zone {{number}}",
     "noElevationData": "Kei Höhedate",
     "noHeartRateData": "Kei Pulsdate",
     "noMetricData": "Kei {{metric}}-Date",
@@ -424,7 +425,9 @@
     },
     "defaultMessage": "Hät nöd klappet. Nomol probiere!",
     "defaultTitle": "Gopferteckel!",
-    "tryAgain": "Nomol!"
+    "tryAgain": "Nomol!",
+    "unableToLoad": "{{componentName}} konnte nicht geladen werden",
+    "restartHint": "Bitte versuche es erneut oder starte die App neu"
   },
   "export": {
     "bulkComplete": "Export fertig",

@@ -50,6 +50,7 @@
     "mapStyle": "マップスタイル",
     "maxHR": "最大: {{value}} bpm",
     "noDataAvailable": "データがありません",
+    "zoneDefault": "ゾーン{{number}}",
     "noElevationData": "標高データなし",
     "noHeartRateData": "心拍データなし",
     "noMetricData": "{{metric}}データなし",
@@ -424,7 +425,9 @@
     },
     "defaultMessage": "データの読み込みに失敗しました。再試行してください。",
     "defaultTitle": "問題が発生しました",
-    "tryAgain": "再試行"
+    "tryAgain": "再試行",
+    "unableToLoad": "{{componentName}}を読み込めません",
+    "restartHint": "もう一度お試しいただくか、アプリを再起動してください"
   },
   "export": {
     "bulkComplete": "エクスポート完了",

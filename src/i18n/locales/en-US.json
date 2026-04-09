@@ -50,6 +50,7 @@
     "mapStyle": "Map Style",
     "maxHR": "Max: {{value}} bpm",
     "noDataAvailable": "No data available",
+    "zoneDefault": "Zone {{number}}",
     "noElevationData": "No elevation data",
     "noHeartRateData": "No heart rate data",
     "noMetricData": "No {{metric}} data",
@@ -424,7 +425,9 @@
     },
     "defaultMessage": "Failed to load data. Please try again.",
     "defaultTitle": "Something went wrong",
-    "tryAgain": "Try Again"
+    "tryAgain": "Try Again",
+    "unableToLoad": "Unable to load {{componentName}}",
+    "restartHint": "Please try again or restart the app"
   },
   "export": {
     "bulkComplete": "Export Complete",

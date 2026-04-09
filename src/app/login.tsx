@@ -137,7 +137,8 @@ export default function LoginScreen() {
   }, [detectedBackup, restoringDetected, t]);
 
   // Language selection
-  const { language, setLanguage } = useLanguageStore();
+  const language = useLanguageStore((s) => s.language);
+  const setLanguage = useLanguageStore((s) => s.setLanguage);
   const [showLanguages, setShowLanguages] = useState(false);
   const availableLanguages = getAvailableLanguages();
 

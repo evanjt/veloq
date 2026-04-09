@@ -41,7 +41,7 @@ import {
   FORM_ZONE_LABELS,
   type TimeRange,
 } from '@/hooks';
-import { useSportPreference, SPORT_COLORS, type PrimarySport } from '@/providers';
+import { useSportPreference, SPORT_COLORS, type PrimarySport, useAuthStore } from '@/providers';
 import {
   formatLocalDate,
   formatShortDateWithWeekday,
@@ -83,6 +83,7 @@ export default function FitnessScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isDark, colors: themeColors } = useTheme();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const shared = createSharedStyles(isDark);
   const [timeRange, setTimeRange] = useState<TimeRange>('3m');
   const [chartInteracting, setChartInteracting] = useState(false);
@@ -143,6 +144,7 @@ export default function FitnessScreen() {
   const { data: activities, isLoading: loadingActivities } = useActivities({
     days: timeRangeToDays(timeRange),
     includeStats: true,
+    enabled: isAuthenticated,
   });
 
   // Compute zone distributions - filtered by current sport mode

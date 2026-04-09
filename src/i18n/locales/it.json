@@ -50,6 +50,7 @@
     "mapStyle": "Stile mappa",
     "maxHR": "Max: {{value}} bpm",
     "noDataAvailable": "Nessun dato disponibile",
+    "zoneDefault": "Zona {{number}}",
     "noElevationData": "Nessun dato dislivello",
     "noHeartRateData": "Nessun dato frequenza cardiaca",
     "noMetricData": "Nessun dato {{metric}}",
@@ -424,7 +425,9 @@
     },
     "defaultMessage": "Impossibile caricare i dati. Riprova.",
     "defaultTitle": "Qualcosa è andato storto",
-    "tryAgain": "Riprova"
+    "tryAgain": "Riprova",
+    "unableToLoad": "Impossibile caricare {{componentName}}",
+    "restartHint": "Riprova o riavvia l'app"
   },
   "export": {
     "bulkComplete": "Esportazione completata",

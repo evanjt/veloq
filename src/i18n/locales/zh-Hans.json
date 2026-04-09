@@ -50,6 +50,7 @@
     "mapStyle": "地图样式",
     "maxHR": "最大: {{value}} bpm",
     "noDataAvailable": "无可用数据",
+    "zoneDefault": "区间{{number}}",
     "noElevationData": "无海拔数据",
     "noHeartRateData": "无心率数据",
     "noMetricData": "无{{metric}}数据",
@@ -424,7 +425,9 @@
     },
     "defaultMessage": "加载数据失败。请重试。",
     "defaultTitle": "出错了",
-    "tryAgain": "重试"
+    "tryAgain": "重试",
+    "unableToLoad": "无法加载{{componentName}}",
+    "restartHint": "请重试或重启应用"
   },
   "export": {
     "bulkComplete": "导出完成",

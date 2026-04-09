@@ -50,6 +50,7 @@
     "mapStyle": "Estilo de mapa",
     "maxHR": "Max: {{value}} lpm",
     "noDataAvailable": "Sin datos disponibles",
+    "zoneDefault": "Zona {{number}}",
     "noElevationData": "Sin datos de elevación",
     "noHeartRateData": "Sin datos de frecuencia cardíaca",
     "noMetricData": "Sin datos de {{metric}}",
@@ -424,7 +425,9 @@
     },
     "defaultMessage": "Error al cargar los datos. Por favor, intentadlo de nuevo.",
     "defaultTitle": "Algo ha salido mal",
-    "tryAgain": "Reintentar"
+    "tryAgain": "Reintentar",
+    "unableToLoad": "No se pudo cargar {{componentName}}",
+    "restartHint": "Inténtalo de nuevo o reinicia la aplicación"
   },
   "export": {
     "bulkComplete": "Exportación completada",

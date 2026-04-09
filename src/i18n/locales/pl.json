@@ -50,6 +50,7 @@
     "mapStyle": "Styl mapy",
     "maxHR": "Maks: {{value}} bpm",
     "noDataAvailable": "Brak dostępnych danych",
+    "zoneDefault": "Strefa {{number}}",
     "noElevationData": "Brak danych o przewyższeniu",
     "noHeartRateData": "Brak danych o tętnie",
     "noMetricData": "Brak danych {{metric}}",
@@ -424,7 +425,9 @@
     },
     "defaultMessage": "Nie udało się wczytać danych. Spróbuj ponownie.",
     "defaultTitle": "Coś poszło nie tak",
-    "tryAgain": "Spróbuj ponownie"
+    "tryAgain": "Spróbuj ponownie",
+    "unableToLoad": "Nie można załadować {{componentName}}",
+    "restartHint": "Spróbuj ponownie lub uruchom ponownie aplikację"
   },
   "export": {
     "bulkComplete": "Eksport zakończony",

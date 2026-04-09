@@ -123,6 +123,10 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       log.log(
         `Activity ingested: ${activityInfo.name} (${result.totalPoints} GPS points, ${Date.now() - startTime}ms)`
       );
+
+      // Queue for priority terrain snapshot generation when app opens
+      const { addPendingSnapshot } = require('@/lib/storage/terrainPreviewCache');
+      addPendingSnapshot(activityId).catch(() => {});
     }
 
     return activityInfo;

@@ -50,6 +50,7 @@
     "mapStyle": "Kartenstil",
     "maxHR": "Max: {{value}} bpm",
     "noDataAvailable": "Keine Daten verfügbar",
+    "zoneDefault": "Zone {{number}}",
     "noElevationData": "Keine Höhendaten",
     "noHeartRateData": "Keine Herzfrequenzdaten",
     "noMetricData": "Keine {{metric}}-Daten",
@@ -424,7 +425,9 @@
     },
     "defaultMessage": "Daten konnten nicht geladen werden. Bitte versuche es erneut.",
     "defaultTitle": "Etwas ist schiefgelaufen",
-    "tryAgain": "Erneut versuchen"
+    "tryAgain": "Erneut versuchen",
+    "unableToLoad": "{{componentName}} konnte nicht geladen werden",
+    "restartHint": "Bitte versuche es erneut oder starte die App neu"
   },
   "export": {
     "bulkComplete": "Export abgeschlossen",

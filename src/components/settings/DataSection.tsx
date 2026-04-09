@@ -27,7 +27,7 @@ export function DataSection() {
   } = useRouteSettings();
 
   // Lightweight cache size computation
-  const { nativeSizeEstimate } = useTileCacheStore();
+  const nativeSizeEstimate = useTileCacheStore((s) => s.nativeSizeEstimate);
   const [terrainCacheSize, setTerrainCacheSize] = useState(0);
   const [tileCacheStats, setTileCacheStats] = useState<TileCacheStats | null>(null);
   const [routesSize, setRoutesSize] = useState(0);

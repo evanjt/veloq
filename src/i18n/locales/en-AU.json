@@ -50,6 +50,7 @@
     "mapStyle": "Map Style",
     "maxHR": "Maxed out: {{value}} bpm",
     "noDataAvailable": "No data here yet",
+    "zoneDefault": "Zone {{number}}",
     "noElevationData": "No elevation data yet",
     "noHeartRateData": "No ticker data yet",
     "noMetricData": "No {{metric}} data yet",
@@ -424,7 +425,9 @@
     },
     "defaultMessage": "Couldn't grab the data, mate. Give it another go.",
     "defaultTitle": "She's cactus",
-    "tryAgain": "Have another crack"
+    "tryAgain": "Have another crack",
+    "unableToLoad": "Unable to load {{componentName}}",
+    "restartHint": "Please try again or restart the app"
   },
   "export": {
     "bulkComplete": "Export done and dusted",

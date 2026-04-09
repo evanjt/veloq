@@ -50,6 +50,7 @@
     "mapStyle": "Kortstil",
     "maxHR": "Maks: {{value}} bpm",
     "noDataAvailable": "Ingen data tilgængelig",
+    "zoneDefault": "Zone {{number}}",
     "noElevationData": "Ingen stigningsdata",
     "noHeartRateData": "Ingen pulsdata",
     "noMetricData": "Ingen {{metric}}-data",
@@ -424,7 +425,9 @@
     },
     "defaultMessage": "Kunne ikke indlæse data. Prøv venligst igen.",
     "defaultTitle": "Noget gik galt",
-    "tryAgain": "Prøv igen"
+    "tryAgain": "Prøv igen",
+    "unableToLoad": "Kan ikke indlæse {{componentName}}",
+    "restartHint": "Prøv igen eller genstart appen"
   },
   "export": {
     "bulkComplete": "Eksport fuldført",

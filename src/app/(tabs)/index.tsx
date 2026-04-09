@@ -42,7 +42,11 @@ import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
 } from '@/components/maps/TerrainSnapshotWebView';
-import { initTerrainPreviewCache } from '@/lib/storage/terrainPreviewCache';
+import {
+  initTerrainPreviewCache,
+  consumePendingSnapshots,
+  signalSnapshotNeeded,
+} from '@/lib/storage/terrainPreviewCache';
 import { initCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
@@ -69,6 +73,7 @@ const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
 
 // Height of the search section (search bar + chips + padding) for scroll-to-reveal
 const SEARCH_SECTION_HEIGHT = 78;
+const INITIAL_CONTENT_OFFSET = { x: 0, y: SEARCH_SECTION_HEIGHT } as const;
 
 export default function FeedScreen() {
   // Performance timing — tracks total render time and sub-component costs
@@ -106,6 +111,14 @@ export default function FeedScreen() {
     if (isAnyTerrain3DEnabled) {
       initTerrainPreviewCache();
       initCameraOverrides();
+      // Check for activities ingested by background notification task —
+      // mount WebView workers immediately instead of waiting 500ms
+      consumePendingSnapshots().then((pending) => {
+        if (pending.length > 0) {
+          setSnapshotWebViewReady(true);
+          signalSnapshotNeeded();
+        }
+      });
     }
   }, [isAnyTerrain3DEnabled]);
 
@@ -319,7 +332,7 @@ export default function FeedScreen() {
   }, []);
 
   // Initial content offset to hide search section (iOS-style hidden search)
-  const initialContentOffset = useMemo(() => ({ x: 0, y: SEARCH_SECTION_HEIGHT }), []);
+  const initialContentOffset = INITIAL_CONTENT_OFFSET;
 
   // List header: search bar + filter chips + section title
   const renderListHeader = useCallback(

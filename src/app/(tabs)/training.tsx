@@ -25,6 +25,7 @@ import { colors, darkColors, spacing, layout, typography, opacity } from '@/them
 import { createSharedStyles } from '@/styles';
 import { SMOOTHING_PRESETS, getSmoothingDescription, type SmoothingWindow } from '@/lib';
 import { logScreenRender } from '@/lib/debug/renderTimer';
+import { useAuthStore } from '@/providers';
 
 import { TIME_RANGES } from '@/lib/utils/constants';
 
@@ -33,6 +34,7 @@ export default function HealthScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isDark, colors: themeColors } = useTheme();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
 
   // Log render time (JS phase only)
@@ -85,6 +87,7 @@ export default function HealthScreen() {
     oldest,
     newest,
     includeStats: true,
+    enabled: isAuthenticated,
   });
 
   // Fetch wellness data

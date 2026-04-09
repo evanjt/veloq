@@ -499,6 +499,7 @@ export interface TranslationResource {
     ftp: string;
     maxHR: string;
     noDataAvailable: string;
+    zoneDefault: string;
     avg: string;
     xAxisDistance: string;
     xAxisTime: string;
@@ -1133,6 +1134,8 @@ export interface TranslationResource {
     defaultTitle: string;
     defaultMessage: string;
     tryAgain: string;
+    unableToLoad: string;
+    restartHint: string;
   };
 
   emptyState: {

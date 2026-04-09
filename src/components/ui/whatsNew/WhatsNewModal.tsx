@@ -28,6 +28,7 @@ const TIMING_CONFIG = { duration: 250, easing: Easing.out(Easing.cubic) };
 
 const MODAL_HORIZONTAL_PADDING = spacing.xl;
 const CONTENT_WIDTH = SCREEN_WIDTH - MODAL_HORIZONTAL_PADDING * 2;
+const ALL_SLIDES = getAllSlides();
 
 export function WhatsNewModal() {
   const { t } = useTranslation();
@@ -44,7 +45,7 @@ export function WhatsNewModal() {
 
   const currentVersion = Constants.expoConfig?.version ?? '';
   const versionSlides = WHATS_NEW_SLIDES[currentVersion] ?? [];
-  const allSlides = useMemo(() => getAllSlides(), []);
+  const allSlides = ALL_SLIDES;
   const isAutoTriggered = lastSeenVersion !== currentVersion;
 
   // Auto-trigger tour after login:
