@@ -990,34 +990,60 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Compute source hash
+        id: hash
+        run: |
+          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.kt" -o -name "*.java" -o -name "*.gradle" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+          echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
+
+      - name: Cache dev APK
+        id: apk-cache
+        uses: actions/cache@v4
+        with:
+          path: android/app/build/outputs/apk/release/app-release.apk
+          key: android-dev-apk-v1-${{ steps.hash.outputs.source_hash }}
+
+      - name: Skip build (cache hit)
+        if: steps.apk-cache.outputs.cache-hit == 'true'
+        run: echo "Using cached dev APK (hash ${{ steps.hash.outputs.source_hash }})"
+
       - uses: actions/setup-node@v4
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - run: npm ci
+      - if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: npm ci
 
       - uses: actions/setup-java@v4
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         with:
           distribution: temurin
           java-version: 17
 
       - uses: android-actions/setup-android@v3
+        if: steps.apk-cache.outputs.cache-hit != 'true'
 
       - uses: gradle/actions/setup-gradle@v4
+        if: steps.apk-cache.outputs.cache-hit != 'true'
 
       - uses: dtolnay/rust-toolchain@stable
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         with:
           targets: aarch64-linux-android,x86_64-linux-android
 
       - uses: Swatinem/rust-cache@v2
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         with:
           workspaces: modules/veloqrs/rust
 
       - name: Install cargo-ndk
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         run: cargo install cargo-ndk
 
       - name: Build Rust libraries
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
         run: |
           mkdir -p ../android/src/main/jniLibs
@@ -1026,6 +1052,7 @@ jobs:
             build --release -p veloqrs
 
       - name: Write google-services.json stub
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         run: |
           cat > google-services.json << 'EOF'
           {
@@ -1049,9 +1076,11 @@ jobs:
           EOF
 
       - name: Generate native project (dev variant)
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         run: npx expo prebuild --platform android
 
       - name: Build release APK
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         run: |
           cd android && ./gradlew assembleRelease \
             -PreactNativeArchitectures=arm64-v8a,x86_64 \
@@ -1076,26 +1105,49 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Compute source hash
+        id: hash
+        run: |
+          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.podspec" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+          echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
+
+      - name: Cache dev simulator app
+        id: app-cache
+        uses: actions/cache@v4
+        with:
+          path: artifacts/ios-dev-simulator.zip
+          key: ios-dev-sim-v1-${{ steps.hash.outputs.source_hash }}
+
+      - name: Skip build (cache hit)
+        if: steps.app-cache.outputs.cache-hit == 'true'
+        run: echo "Using cached dev simulator app (hash ${{ steps.hash.outputs.source_hash }})"
+
       - uses: maxim-lobanov/setup-xcode@v1
+        if: steps.app-cache.outputs.cache-hit != 'true'
         with:
           xcode-version: '26.2'
 
       - uses: actions/setup-node@v4
+        if: steps.app-cache.outputs.cache-hit != 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - run: npm ci
+      - if: steps.app-cache.outputs.cache-hit != 'true'
+        run: npm ci
 
       - uses: dtolnay/rust-toolchain@stable
+        if: steps.app-cache.outputs.cache-hit != 'true'
         with:
           targets: aarch64-apple-ios-sim,x86_64-apple-ios
 
       - uses: Swatinem/rust-cache@v2
+        if: steps.app-cache.outputs.cache-hit != 'true'
         with:
           workspaces: modules/veloqrs/rust
 
       - name: Copy C++ files for iOS build
+        if: steps.app-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p modules/veloqrs/ios/cpp/generated
           cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/
@@ -1104,6 +1156,7 @@ jobs:
           cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/generated/
 
       - name: Build Rust for iOS simulator
+        if: steps.app-cache.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
         run: |
           for target in aarch64-apple-ios-sim x86_64-apple-ios; do
@@ -1121,13 +1174,16 @@ jobs:
             -output ../ios/Frameworks/VeloqrsFFI.xcframework
 
       - name: Generate native project (dev variant)
+        if: steps.app-cache.outputs.cache-hit != 'true'
         run: npx expo prebuild --platform ios
 
       - name: Install Pods
+        if: steps.app-cache.outputs.cache-hit != 'true'
         working-directory: ios
         run: pod install
 
       - name: Find simulator
+        if: steps.app-cache.outputs.cache-hit != 'true'
         id: simulator
         run: |
           UDID=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
@@ -1137,6 +1193,7 @@ jobs:
           echo "udid=$UDID" >> $GITHUB_OUTPUT
 
       - name: Build simulator app
+        if: steps.app-cache.outputs.cache-hit != 'true'
         run: |
           xcodebuild -workspace ios/VeloqDev.xcworkspace \
             -scheme VeloqDev \
@@ -1149,6 +1206,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
       - name: Package simulator app
+        if: steps.app-cache.outputs.cache-hit != 'true'
         run: |
           APP_PATH="ios/build/Build/Products/Release-iphonesimulator/VeloqDev.app"
           if [ ! -d "$APP_PATH" ]; then
@@ -1206,10 +1264,14 @@ jobs:
 
       - name: Create and boot emulator
         run: |
-          sdkmanager "system-images;android-35;google_apis;x86_64"
+          sdkmanager "system-images;android-35;google_apis;x86_64" "emulator"
           echo "no" | avdmanager create avd -n test -k "system-images;android-35;google_apis;x86_64" --force
 
-          $ANDROID_HOME/emulator/emulator -avd test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save &
+          echo "=== AVD verification ==="
+          avdmanager list avd
+          ls -la $HOME/.android/avd/ || true
+
+          $ANDROID_HOME/emulator/emulator -avd test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -read-only &
           EMULATOR_PID=$!
           echo "Emulator PID: $EMULATOR_PID"
 
@@ -1235,14 +1297,7 @@ jobs:
 
       - name: Determine test tier
         id: tier
-        run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "tags=tier0,tier1,tier2,tier3" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "tags=tier0,tier1,tier2" >> $GITHUB_OUTPUT
-          else
-            echo "tags=tier0,tier1" >> $GITHUB_OUTPUT
-          fi
+        run: echo "tags=tier0,tier1,tier2,tier3" >> $GITHUB_OUTPUT
 
       - name: Run Maestro tests
         env:
@@ -1251,7 +1306,7 @@ jobs:
           export PATH="$HOME/.maestro/bin:$PATH"
           maestro test .maestro/ \
             --include-tags=${{ steps.tier.outputs.tags }} \
-            --format junit --output maestro-report.xml --no-ansi || true
+            --format junit --output maestro-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> $GITHUB_ENV
 
       - name: Capture diagnostic logs
         if: always()
@@ -1301,6 +1356,10 @@ jobs:
           report_paths: maestro-report.xml
           check_name: E2E Android Results
           fail_on_failure: false
+
+      - name: Fail if tests failed
+        if: always() && env.MAESTRO_FAILED == 'true'
+        run: exit 1
 
   # ============================================
   # E2E Tests - iOS with Maestro
@@ -1362,14 +1421,7 @@ jobs:
 
       - name: Determine test tier
         id: tier
-        run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "tags=tier0,tier1,tier2,tier3" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "tags=tier0,tier1,tier2" >> $GITHUB_OUTPUT
-          else
-            echo "tags=tier0,tier1" >> $GITHUB_OUTPUT
-          fi
+        run: echo "tags=tier0,tier1,tier2,tier3" >> $GITHUB_OUTPUT
 
       - name: Run Maestro tests
         env:
@@ -1378,7 +1430,7 @@ jobs:
           export PATH="$HOME/.maestro/bin:$PATH"
           maestro test .maestro/ \
             --include-tags=${{ steps.tier.outputs.tags }} \
-            --format junit --output maestro-report.xml --no-ansi || true
+            --format junit --output maestro-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> $GITHUB_ENV
 
       - name: Capture diagnostic logs
         if: always()
@@ -1428,6 +1480,10 @@ jobs:
           report_paths: maestro-report.xml
           check_name: E2E iOS Results
           fail_on_failure: false
+
+      - name: Fail if tests failed
+        if: always() && env.MAESTRO_FAILED == 'true'
+        run: exit 1
 
   # ============================================
   # E2E Summary

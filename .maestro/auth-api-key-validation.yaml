@@ -59,7 +59,8 @@ tags:
 - inputText: "invalid-test-key"
 
 # Dismiss keyboard then tap connect button
-- hideKeyboard
+- tapOn:
+    point: "50%,20%"
 - tapOn:
     id: "login-apikey-button"
 
