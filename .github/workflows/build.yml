@@ -70,7 +70,7 @@ jobs:
 
   test-rust:
     name: Test (rust)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, salamanca]
     timeout-minutes: 15
     steps:
       - name: Checkout repository
@@ -96,7 +96,7 @@ jobs:
   # ============================================
   verify-bindings:
     name: Verify Bindings
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, salamanca]
     timeout-minutes: 15
     steps:
       - name: Checkout repository
@@ -147,7 +147,7 @@ jobs:
   # ============================================
   build-android:
     name: Build Android
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, salamanca]
     timeout-minutes: 60
     env:
       JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
@@ -980,7 +980,7 @@ jobs:
   # ============================================
   build-android-dev:
     name: Build Android Dev
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, salamanca]
     timeout-minutes: 45
     env:
       JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
