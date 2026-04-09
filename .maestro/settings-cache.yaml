@@ -13,6 +13,11 @@ tags:
 
 # Navigate to cache settings sub-screen
 - openLink: "veloq://cache-settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:

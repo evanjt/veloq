@@ -19,6 +19,11 @@ tags:
 
 # Navigate away to fitness
 - openLink: "veloq://fitness"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "fitness-screen"
@@ -28,6 +33,11 @@ tags:
 
 # Navigate back to settings
 - openLink: "veloq://settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "settings-screen"

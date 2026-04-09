@@ -10,6 +10,11 @@ tags:
 
 # Navigate to about screen via deep link
 - openLink: "veloq://about"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:

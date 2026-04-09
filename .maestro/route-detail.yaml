@@ -10,6 +10,11 @@ tags:
 
 # Navigate to routes screen (bypass insights default)
 - openLink: "veloq://routes"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:

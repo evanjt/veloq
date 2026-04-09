@@ -14,6 +14,11 @@ tags:
       id: "home-activity-list"
     timeout: 15000
 - openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-content"

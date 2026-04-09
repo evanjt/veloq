@@ -42,6 +42,11 @@ tags:
 
 # Navigate to home to verify changes applied
 - openLink: "veloq://home"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "home-screen"

@@ -69,6 +69,11 @@ tags:
 
 # Navigate back to home to check SummaryCard components
 - openLink: "veloq://home"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "home-screen"

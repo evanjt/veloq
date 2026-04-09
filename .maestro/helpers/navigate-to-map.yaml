@@ -2,6 +2,11 @@
 appId: com.veloq.app.dev
 ---
 - openLink: "veloq://map"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "map-screen"

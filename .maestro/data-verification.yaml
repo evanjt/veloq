@@ -60,6 +60,11 @@ tags:
 
 # Navigate to Routes tab (deep link with tab=routes to skip insights default)
 - openLink: "veloq://routes?tab=routes"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "routes-screen"
@@ -79,6 +84,11 @@ tags:
 
 # Navigate to activity detail and verify stats display
 - openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-content"

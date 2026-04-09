@@ -10,6 +10,11 @@ tags:
 
 # Deep link to settings cache section
 - openLink: "veloq://settings#cache"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:
@@ -25,6 +30,11 @@ tags:
 
 # Deep link to settings notifications section
 - openLink: "veloq://settings#notifications"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:
