@@ -976,15 +976,205 @@ jobs:
           retention-days: 30
 
   # ============================================
+  # Build Dev Variant for E2E (Android)
+  # ============================================
+  build-android-dev:
+    name: Build Android Dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
+      GRADLE_OPTS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: modules/veloqrs/rust
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Build Rust libraries
+        working-directory: modules/veloqrs/rust
+        run: |
+          mkdir -p ../android/src/main/jniLibs
+          cargo ndk -t aarch64-linux-android -t x86_64-linux-android \
+            --platform 24 -o ../android/src/main/jniLibs \
+            build --release -p veloqrs
+
+      - name: Write google-services.json stub
+        run: |
+          cat > google-services.json << 'EOF'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "firebase_url": "https://placeholder.firebaseio.com",
+              "project_id": "placeholder",
+              "storage_bucket": "placeholder.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                  "android_client_info": { "package_name": "com.veloq.app.dev" }
+                },
+                "api_key": [{"current_key": "placeholder"}]
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+
+      - name: Generate native project (dev variant)
+        run: npx expo prebuild --platform android
+
+      - name: Build release APK
+        run: |
+          cd android && ./gradlew assembleRelease \
+            -PreactNativeArchitectures=arm64-v8a,x86_64 \
+            --no-daemon --no-build-cache
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-dev-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 7
+
+  # ============================================
+  # Build Dev Variant for E2E (iOS)
+  # ============================================
+  build-ios-dev:
+    name: Build iOS Dev
+
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.2'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: modules/veloqrs/rust
+
+      - name: Copy C++ files for iOS build
+        run: |
+          mkdir -p modules/veloqrs/ios/cpp/generated
+          cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/
+          cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/
+          cp modules/veloqrs/cpp/generated/veloqrs.hpp modules/veloqrs/ios/cpp/generated/
+          cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/generated/
+
+      - name: Build Rust for iOS simulator
+        working-directory: modules/veloqrs/rust
+        run: |
+          for target in aarch64-apple-ios-sim x86_64-apple-ios; do
+            cargo build --release --target $target -p veloqrs
+          done
+          mkdir -p target/sim-fat
+          lipo -create \
+            target/aarch64-apple-ios-sim/release/libveloqrs.a \
+            target/x86_64-apple-ios/release/libveloqrs.a \
+            -output target/sim-fat/libveloqrs_ffi.a
+          mkdir -p ../ios/Frameworks
+          rm -rf ../ios/Frameworks/VeloqrsFFI.xcframework
+          xcodebuild -create-xcframework \
+            -library target/sim-fat/libveloqrs_ffi.a \
+            -output ../ios/Frameworks/VeloqrsFFI.xcframework
+
+      - name: Generate native project (dev variant)
+        run: npx expo prebuild --platform ios
+
+      - name: Install Pods
+        working-directory: ios
+        run: pod install
+
+      - name: Find simulator
+        id: simulator
+        run: |
+          UDID=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          if [ -z "$UDID" ]; then
+            UDID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+          echo "udid=$UDID" >> $GITHUB_OUTPUT
+
+      - name: Build simulator app
+        run: |
+          xcodebuild -workspace ios/VeloqDev.xcworkspace \
+            -scheme VeloqDev \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
+            -derivedDataPath ios/build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package simulator app
+        run: |
+          APP_PATH="ios/build/Build/Products/Release-iphonesimulator/VeloqDev.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: VeloqDev.app not found"
+            ls -la ios/build/Build/Products/Release-iphonesimulator/ || true
+            exit 1
+          fi
+          mkdir -p artifacts
+          cd "$(dirname "$APP_PATH")"
+          zip -yr "$OLDPWD/artifacts/ios-dev-simulator.zip" VeloqDev.app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-dev-simulator
+          path: artifacts/ios-dev-simulator.zip
+          retention-days: 7
+
+  # ============================================
   # E2E Tests - Android with Maestro
   # ============================================
   e2e-android:
-    needs: build-android
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_e2e }}
+    needs: build-android-dev
+
     name: E2E Android (Maestro)
-    runs-on: macos-26
+    runs-on: ubuntu-latest
     timeout-minutes: 45
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -996,7 +1186,7 @@ jobs:
       - name: Download APK
         uses: actions/download-artifact@v4
         with:
-          name: android-apk-${{ needs.build-android.outputs.filename }}
+          name: android-dev-apk
           path: /tmp/android-artifact
 
       - name: Install Maestro
@@ -1005,16 +1195,21 @@ jobs:
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
           "$HOME/.maestro/bin/maestro" --version
 
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Create and boot emulator
         run: |
-          echo "no" | avdmanager create avd -n test -k "system-images;android-34;google_apis;arm64-v8a" --force || \
-          (sdkmanager "system-images;android-34;google_apis;arm64-v8a" && \
-           echo "no" | avdmanager create avd -n test -k "system-images;android-34;google_apis;arm64-v8a" --force)
+          sdkmanager "system-images;android-35;google_apis;x86_64"
+          echo "no" | avdmanager create avd -n test -k "system-images;android-35;google_apis;x86_64" --force
 
-          $ANDROID_HOME/emulator/emulator -avd test -no-window -gpu host -noaudio -no-boot-anim -no-snapshot-save &
+          $ANDROID_HOME/emulator/emulator -avd test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save &
           EMULATOR_PID=$!
           echo "Emulator PID: $EMULATOR_PID"
 
@@ -1111,26 +1306,18 @@ jobs:
   # E2E Tests - iOS with Maestro
   # ============================================
   e2e-ios:
-    needs: build-ios
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_e2e }}
+    needs: build-ios-dev
+
     name: E2E iOS (Maestro)
     runs-on: macos-26
     timeout-minutes: 45
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
-      - run: npm ci
 
       - name: Download iOS app
         uses: actions/download-artifact@v4
         with:
-          name: ios-simulator-${{ needs.build-ios.outputs.filename }}
+          name: ios-dev-simulator
           path: /tmp/ios-artifact
 
       - name: Extract iOS app
@@ -1171,7 +1358,7 @@ jobs:
 
       - name: Install app
         run: |
-          xcrun simctl install "${{ steps.simulator.outputs.udid }}" ios/build/Build/Products/Release-iphonesimulator/Veloq.app
+          xcrun simctl install "${{ steps.simulator.outputs.udid }}" ios/build/Build/Products/Release-iphonesimulator/VeloqDev.app
 
       - name: Determine test tier
         id: tier
@@ -1196,8 +1383,8 @@ jobs:
       - name: Capture diagnostic logs
         if: always()
         run: |
-          xcrun simctl spawn "${{ steps.simulator.outputs.udid }}" log show --last 5m --predicate 'process == "Veloq" OR processImagePath CONTAINS "Veloq"' > /tmp/ios-sim-log.txt 2>&1 || true
-          find ~/Library/Logs/DiagnosticReports -name "Veloq*" -exec cp {} /tmp/ \; 2>/dev/null || true
+          xcrun simctl spawn "${{ steps.simulator.outputs.udid }}" log show --last 5m --predicate 'process == "VeloqDev" OR processImagePath CONTAINS "VeloqDev"' > /tmp/ios-sim-log.txt 2>&1 || true
+          find ~/Library/Logs/DiagnosticReports -name "VeloqDev*" -exec cp {} /tmp/ \; 2>/dev/null || true
 
       - name: Collect screenshots
         if: always()
@@ -1223,7 +1410,7 @@ jobs:
           name: ios-sim-logs
           path: |
             /tmp/ios-sim-log.txt
-            /tmp/Veloq*
+            /tmp/VeloqDev*
           retention-days: 7
 
       - name: Upload test report
@@ -1247,7 +1434,7 @@ jobs:
   # ============================================
   e2e-summary:
     needs: [e2e-ios, e2e-android]
-    if: ${{ always() && github.event_name == 'pull_request' }}
+    if: ${{ always() && (needs.e2e-ios.result != 'skipped' || needs.e2e-android.result != 'skipped') }}
     name: E2E Summary
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -1291,8 +1478,4 @@ jobs:
             echo ""
             echo "_See check annotations and artifacts for details_"
           } > summary.md
-
-      - name: Post PR comment
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          path: summary.md
+          cat summary.md >> $GITHUB_STEP_SUMMARY

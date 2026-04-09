@@ -42,7 +42,7 @@ tags:
             id: "section-rename-input"
           timeout: 5000
       - eraseText:
-            charactersToErase: 200
+          charactersToErase: 200
       - inputText: "A Very Long Section Name That Exceeds Normal Length Expectations And Should Be Handled Gracefully By The App"
       - tapOn:
           id: "section-rename-save"
@@ -62,7 +62,7 @@ tags:
             id: "section-rename-input"
           timeout: 5000
       - eraseText:
-            charactersToErase: 200
+          charactersToErase: 200
       - inputText: "Test Cote d'Azur - Section No1"
       - tapOn:
           id: "section-rename-save"
