@@ -1261,11 +1261,7 @@ jobs:
           sleep 1
           $ADB start-server
 
-          # Start virtual display for headless GPU rendering (doesn't touch real display)
-          Xvfb :99 -screen 0 1080x2340x24 &
-          export DISPLAY=:99
-
-          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu host -noaudio -no-boot-anim -no-snapshot-save -no-metrics &
+          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics &
           EMULATOR_PID=$!
           echo "Emulator PID: $EMULATOR_PID"
 
