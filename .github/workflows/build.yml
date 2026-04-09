@@ -1254,33 +1254,50 @@ jobs:
 
       - name: Boot emulator
         run: |
-          # Kill any existing emulator
-          $ANDROID_HOME/platform-tools/adb emu kill 2>/dev/null || true
-          sleep 2
+          ADB=$ANDROID_HOME/platform-tools/adb
 
-          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu host -noaudio -no-boot-anim -no-snapshot-save &
+          # Kill any existing emulator and disconnect all devices
+          $ADB kill-server 2>/dev/null || true
+          sleep 1
+          $ADB start-server
+
+          # Start virtual display for headless GPU rendering (doesn't touch real display)
+          Xvfb :99 -screen 0 1080x2340x24 &
+          export DISPLAY=:99
+
+          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu host -noaudio -no-boot-anim -no-snapshot-save -no-metrics &
           EMULATOR_PID=$!
           echo "Emulator PID: $EMULATOR_PID"
 
-          $ANDROID_HOME/platform-tools/adb wait-for-device
+          # Wait specifically for the emulator (not a physical device)
+          $ADB wait-for-device
           for i in $(seq 1 60); do
-            BOOT=$($ANDROID_HOME/platform-tools/adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+            BOOT=$($ADB -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
             if [ "$BOOT" = "1" ]; then echo "Boot complete after ${i}s"; break; fi
             echo "Waiting for boot... ($i/60)"
             sleep 2
           done
           sleep 5
 
-          $ANDROID_HOME/platform-tools/adb shell settings put global window_animation_scale 0
-          $ANDROID_HOME/platform-tools/adb shell settings put global transition_animation_scale 0
-          $ANDROID_HOME/platform-tools/adb shell settings put global animator_duration_scale 0
+          # Disconnect any physical devices, keep only emulator
+          $ADB devices | grep -v emulator | grep -v "List" | grep -v "^$" | awk '{print $1}' | while read dev; do
+            echo "Disconnecting non-emulator device: $dev"
+            $ADB disconnect "$dev" 2>/dev/null || true
+          done
+
+          echo "=== Connected devices ==="
+          $ADB devices
+
+          $ADB -s emulator-5554 shell settings put global window_animation_scale 0
+          $ADB -s emulator-5554 shell settings put global transition_animation_scale 0
+          $ADB -s emulator-5554 shell settings put global animator_duration_scale 0
 
       - name: Install APK and warm up
         run: |
           APK=$(find /tmp/android-artifact -name "*.apk" | head -1)
-          $ANDROID_HOME/platform-tools/adb install "$APK"
+          $ANDROID_HOME/platform-tools/adb -s emulator-5554 install "$APK"
           sleep 3
-          $ANDROID_HOME/platform-tools/adb logcat -c
+          $ANDROID_HOME/platform-tools/adb -s emulator-5554 logcat -c
 
       - name: Determine test tier
         id: tier
