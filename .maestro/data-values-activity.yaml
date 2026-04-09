@@ -35,6 +35,10 @@ tags:
 - assertNotVisible:
     text: "Infinity"
 
+# Assert demo-test-0 fixture values (Ride: 45km)
+- assertVisible:
+    text: "45.0"
+
 - takeScreenshot: "data-values-activity-initial"
 
 # Tap heart rate chart type and verify no crash

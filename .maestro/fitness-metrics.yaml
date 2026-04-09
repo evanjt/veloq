@@ -20,7 +20,6 @@ tags:
 # Verify CTL value is not NaN
 - assertNotVisible:
     text: "NaN"
-    optional: true
 
 # Verify ATL (fatigue) value is displayed
 - assertVisible:
@@ -29,12 +28,14 @@ tags:
 # Verify ATL value is not NaN
 - assertNotVisible:
     text: "NaN"
-    optional: true
 
 - takeScreenshot: "fitness-metrics-ctl-loaded"
 
 # Scroll down to form zone chart area
-- scroll
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 500
 
 # Verify form zone chart rendered
 - assertVisible:

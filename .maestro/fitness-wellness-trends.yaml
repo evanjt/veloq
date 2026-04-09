@@ -17,22 +17,21 @@ tags:
       id: "training-screen"
     timeout: 10000
 
-# Scroll to wellness dashboard
+# Scroll to wellness trends chart
 - scrollUntilVisible:
     element:
-      id: "wellness-dashboard"
+      id: "wellness-trends-chart"
     direction: DOWN
     timeout: 15000
     speed: 40
 
 - assertVisible:
-    id: "wellness-dashboard"
+    id: "wellness-trends-chart"
 
 - takeScreenshot: "wellness-dashboard-visible"
 
 # Verify no NaN in wellness values
 - assertNotVisible:
     text: "NaN"
-    optional: true
 
 - takeScreenshot: "fitness-wellness-trends-complete"

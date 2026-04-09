@@ -11,6 +11,14 @@ tags:
 - runFlow:
     file: helpers/navigate-to-settings.yaml
 
+# Navigate to cache settings sub-screen
+- openLink: "veloq://cache-settings"
+
+- extendedWaitUntil:
+    visible:
+      id: "settings-clear-cache"
+    timeout: 10000
+
 # Scroll down to find clear cache button
 - scrollUntilVisible:
     element:

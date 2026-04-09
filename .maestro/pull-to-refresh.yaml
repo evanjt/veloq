@@ -29,7 +29,6 @@ tags:
 # Verify activity data is actually present after refresh
 - assertVisible:
     id: "activity-card-demo-test-0"
-    optional: true
 
 - takeScreenshot: "pull-to-refresh-home"
 

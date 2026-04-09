@@ -151,28 +151,35 @@ if (isNewArchitectureEnabled()) {
   }
 }
 
-// Build Rust library if not present (local development)
+// Build Rust library for each requested architecture (local development)
 // In CI, the library is pre-built by a separate workflow step
+// Only builds missing architectures — skips those already present in jniLibs
 task buildRustLibrary {
   def jniLibsDir = file("${projectDir}/src/main/jniLibs")
   def rustDir = file("${projectDir}/../rust/veloqrs")
-  def targetArch = "arm64-v8a"  // Primary dev target
-  def targetLib = file("${jniLibsDir}/${targetArch}/libveloqrs.so")
+  def architectures = reactNativeArchitectures()
 
-  outputs.file(targetLib)
+  architectures.each { arch ->
+    outputs.file(file("${jniLibsDir}/${arch}/libveloqrs.so"))
+  }
 
   doLast {
-    if (!targetLib.exists()) {
-      println "[veloqrs] Building Rust library for ${targetArch}..."
-      exec {
-        workingDir rustDir
-        commandLine "cargo", "ndk", "-t", targetArch, "--platform", "24",
-                    "-o", jniLibsDir.absolutePath, "build", "--release", "-p", "veloqrs"
-      }
-      println "[veloqrs] Rust library built successfully"
-    } else {
-      println "[veloqrs] Rust library already exists: ${targetLib}"
+    def missing = architectures.findAll { arch ->
+      !file("${jniLibsDir}/${arch}/libveloqrs.so").exists()
     }
+    if (missing.isEmpty()) {
+      println "[veloqrs] Rust libraries already exist for: ${architectures.join(', ')}"
+      return
+    }
+    println "[veloqrs] Building Rust library for: ${missing.join(', ')}..."
+    def args = []
+    missing.each { arch -> args.addAll(["-t", arch]) }
+    exec {
+      workingDir rustDir
+      commandLine(["cargo", "ndk"] + args + ["--platform", "24",
+                   "-o", jniLibsDir.absolutePath, "build", "--release", "-p", "veloqrs"])
+    }
+    println "[veloqrs] Rust libraries built for: ${missing.join(', ')}"
   }
 }
 

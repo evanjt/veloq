@@ -234,7 +234,7 @@ export default function HealthScreen() {
           </View>
 
           {/* Wellness Trends Chart */}
-          <View style={[styles.card, isDark && styles.cardDark]}>
+          <View testID="wellness-trends-chart" style={[styles.card, isDark && styles.cardDark]}>
             <View style={styles.chartHeader}>
               <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>
                 {t('wellnessScreen.trends')}

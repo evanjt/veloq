@@ -19,10 +19,8 @@ tags:
 # Check for bad values on home screen
 - assertNotVisible:
     text: "NaN"
-    optional: true
 - assertNotVisible:
     text: "undefined"
-    optional: true
 
 # Navigate to training screen to check weekly summary
 - runFlow:
@@ -37,10 +35,8 @@ tags:
 # Check for bad values on training screen
 - assertNotVisible:
     text: "NaN"
-    optional: true
 - assertNotVisible:
     text: "undefined"
-    optional: true
 
 # Navigate to Fitness and check CTL/ATL values display
 - runFlow:
@@ -59,10 +55,8 @@ tags:
 # Check for bad values on fitness screen
 - assertNotVisible:
     text: "NaN"
-    optional: true
 - assertNotVisible:
     text: "undefined"
-    optional: true
 
 # Navigate to Routes tab (deep link with tab=routes to skip insights default)
 - openLink: "veloq://routes?tab=routes"
@@ -80,10 +74,8 @@ tags:
 # Check for bad values on routes screen
 - assertNotVisible:
     text: "NaN"
-    optional: true
 - assertNotVisible:
     text: "undefined"
-    optional: true
 
 # Navigate to activity detail and verify stats display
 - openLink: "veloq://activity/demo-test-0"
@@ -102,9 +94,7 @@ tags:
 # Check for bad values on activity detail screen
 - assertNotVisible:
     text: "NaN"
-    optional: true
 - assertNotVisible:
     text: "undefined"
-    optional: true
 
 - takeScreenshot: "data-verification-complete"
