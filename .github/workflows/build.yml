@@ -1231,7 +1231,7 @@ jobs:
     needs: build-android-dev
 
     name: E2E Android (Maestro)
-    runs-on: macos-26
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -1253,15 +1253,28 @@ jobs:
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
           "$HOME/.maestro/bin/maestro" --version
 
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Create and boot emulator
         run: |
-          sdkmanager "system-images;android-35;google_apis;arm64-v8a"
-          echo "no" | avdmanager create avd -n test -k "system-images;android-35;google_apis;arm64-v8a" --force
+          sdkmanager "system-images;android-35;google_apis;x86_64" "emulator"
+          echo "no" | avdmanager create avd -n test -k "system-images;android-35;google_apis;x86_64" --force
 
-          $ANDROID_HOME/emulator/emulator -avd test -no-window -gpu host -noaudio -no-boot-anim -no-snapshot-save &
+          # Fix AVD path mismatch: avdmanager may store AVD in .config/.android
+          # but emulator looks in .android — symlink to ensure both paths work
+          if [ -d "$HOME/.config/.android/avd" ] && [ ! -d "$HOME/.android/avd" ]; then
+            mkdir -p "$HOME/.android"
+            ln -s "$HOME/.config/.android/avd" "$HOME/.android/avd"
+          fi
+
+          $ANDROID_HOME/emulator/emulator -avd test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save &
           EMULATOR_PID=$!
           echo "Emulator PID: $EMULATOR_PID"
 
