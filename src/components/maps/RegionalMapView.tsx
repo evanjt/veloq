@@ -1,20 +1,7 @@
-import React, {
-  useState,
-  useMemo,
-  useCallback,
-  useRef,
-  useEffect,
-} from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-  Platform,
-} from "react-native";
-import { useRouter, usePathname } from "expo-router";
-import { useTheme } from "@/hooks";
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
+import { useRouter, usePathname } from 'expo-router';
+import { useTheme } from '@/hooks';
 import {
   MapView,
   Camera,
@@ -25,14 +12,14 @@ import {
   SymbolLayer,
   RasterSource,
   RasterLayer,
-} from "@maplibre/maplibre-react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTranslation } from "react-i18next";
-import { colors, darkColors, spacing, layout, shadows } from "@/theme";
-import { getActivityTypeConfig } from "./ActivityTypeFilter";
-import { Map3DWebView, type Map3DWebViewRef } from "./Map3DWebView";
-import { ComponentErrorBoundary } from "@/components/ui";
+} from '@maplibre/maplibre-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { colors, darkColors, spacing, layout, shadows } from '@/theme';
+import { getActivityTypeConfig } from './ActivityTypeFilter';
+import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
+import { ComponentErrorBoundary } from '@/components/ui';
 import {
   type MapStyleType,
   getMapStyle,
@@ -42,15 +29,11 @@ import {
   MAP_ATTRIBUTIONS,
   TERRAIN_ATTRIBUTION,
   getCombinedSatelliteAttribution,
-} from "./mapStyles";
-import type { ActivityBoundsItem } from "@/types";
-import {
-  useEngineSections,
-  useRouteSignatures,
-  useRouteGroups,
-} from "@/hooks/routes";
-import { HEATMAP_TILE_URL_TEMPLATE } from "@/hooks/maps/useHeatmapTiles";
-import type { FrequentSection } from "@/types";
+} from './mapStyles';
+import type { ActivityBoundsItem } from '@/types';
+import { useEngineSections, useRouteSignatures, useRouteGroups } from '@/hooks/routes';
+import { HEATMAP_TILE_URL_TEMPLATE } from '@/hooks/maps/useHeatmapTiles';
+import type { FrequentSection } from '@/types';
 import {
   ActivityPopup,
   SectionPopup,
@@ -63,8 +46,8 @@ import {
   type SelectedActivity,
   type SelectedRoute,
   type SpiderState,
-} from "./regional";
-import { ROUTE_COLORS } from "@/lib/utils/constants";
+} from './regional';
+import { ROUTE_COLORS } from '@/lib/utils/constants';
 
 /**
  * Generate spider layout GeoJSON for cluster fan-out at max zoom.
@@ -74,7 +57,7 @@ import { ROUTE_COLORS } from "@/lib/utils/constants";
  */
 function buildSpiderGeoJSON(
   spider: SpiderState,
-  zoom: number,
+  zoom: number
 ): { points: GeoJSON.FeatureCollection; lines: GeoJSON.FeatureCollection } {
   const { center, leaves } = spider;
   const n = leaves.length;
@@ -99,35 +82,35 @@ function buildSpiderGeoJSON(
 
     const leaf = leaves[i];
     pointFeatures.push({
-      type: "Feature",
+      type: 'Feature',
       properties: {
         ...leaf.properties,
         isSpider: true,
       },
       geometry: {
-        type: "Point",
+        type: 'Point',
         coordinates: spiderCoord,
       },
     });
 
     lineFeatures.push({
-      type: "Feature",
+      type: 'Feature',
       properties: {},
       geometry: {
-        type: "LineString",
+        type: 'LineString',
         coordinates: [center, spiderCoord],
       },
     });
   }
 
   return {
-    points: { type: "FeatureCollection", features: pointFeatures },
-    lines: { type: "FeatureCollection", features: lineFeatures },
+    points: { type: 'FeatureCollection', features: pointFeatures },
+    lines: { type: 'FeatureCollection', features: lineFeatures },
   };
 }
 
 const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = {
-  type: "FeatureCollection",
+  type: 'FeatureCollection',
   features: [],
 };
 
@@ -172,23 +155,17 @@ export function RegionalMapView({
   const { isDark: systemIsDark } = useTheme();
   const [showActivities, setShowActivities] = useState(true);
   const insets = useSafeAreaInsets();
-  const systemStyle: MapStyleType = systemIsDark ? "dark" : "light";
+  const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
   const [mapStyle, setMapStyle] = useState<MapStyleType>(systemStyle);
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
   const [is3DMode, setIs3DMode] = useState(false);
   const [showSections, setShowSections] = useState(false);
   const [showRoutes, setShowRoutes] = useState(false);
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(
-    null,
-  );
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
-  const [visibleActivityIds, setVisibleActivityIds] =
-    useState<Set<string> | null>(null);
-  const [selectedSection, setSelectedSection] =
-    useState<FrequentSection | null>(null);
-  const [selectedRoute, setSelectedRoute] = useState<SelectedRoute | null>(
-    null,
-  );
+  const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
+  const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<SelectedRoute | null>(null);
   const [spider, setSpider] = useState<SpiderState | null>(null);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
   const clusterSourceRef = useRef<React.ElementRef<typeof ShapeSource>>(null);
@@ -203,10 +180,10 @@ export function RegionalMapView({
   const RETRY_DELAY_MS = 1000;
 
   const handleMapLoadError = useCallback(() => {
-    if (Platform.OS === "ios" && retryCountRef.current < MAX_RETRIES) {
+    if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
       retryCountRef.current += 1;
       console.log(
-        `[RegionalMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`,
+        `[RegionalMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
       );
       setTimeout(() => {
         setMapKey((k) => k + 1);
@@ -222,7 +199,7 @@ export function RegionalMapView({
   // Only load route signatures when the map tab is focused
   // This prevents 80+ getGpsTrack FFI calls when switching to other tabs
   const pathname = usePathname();
-  const isMapFocused = pathname === "/map" || pathname.endsWith("/map");
+  const isMapFocused = pathname === '/map' || pathname.endsWith('/map');
   const routeSignatures = useRouteSignatures(isMapFocused);
 
   // Frequent sections from route matching (with polylines loaded)
@@ -237,13 +214,8 @@ export function RegionalMapView({
   const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
 
   // Camera, bounds, and pre-computed activity centers
-  const {
-    activityCenters,
-    mapCenter,
-    currentZoomRef,
-    currentCenterRef,
-    markUserInteracted,
-  } = useMapCamera({ activities, routeSignatures, mapKey, cameraRef });
+  const { activityCenters, mapCenter, currentZoomRef, currentCenterRef, markUserInteracted } =
+    useMapCamera({ activities, routeSignatures, mapKey, cameraRef });
 
   // GPS trace visibility: zoom above threshold + activities visible.
   // aboveTraceZoom is state updated by handlers only on threshold crossing (avoids re-renders during pan).
@@ -284,31 +256,24 @@ export function RegionalMapView({
   // Stable callback for camera settle notifications (uses ref to avoid dep changes)
   const mapStyleRef = useRef(mapStyle);
   mapStyleRef.current = mapStyle;
-  const handleCameraSettled = useCallback(
-    (center: [number, number], zoom: number) => {
-      if (mapStyleRef.current === "satellite") {
-        setCameraForAttribution({ center, zoom });
-      }
-    },
-    [],
-  );
+  const handleCameraSettled = useCallback((center: [number, number], zoom: number) => {
+    if (mapStyleRef.current === 'satellite') {
+      setCameraForAttribution({ center, zoom });
+    }
+  }, []);
 
   // Dynamic attribution based on visible satellite sources at current location
   const attributionText = useMemo(() => {
-    if (mapStyle === "satellite" && cameraForAttribution) {
+    if (mapStyle === 'satellite' && cameraForAttribution) {
       const satAttribution = getCombinedSatelliteAttribution(
         cameraForAttribution.center[1],
         cameraForAttribution.center[0],
-        cameraForAttribution.zoom,
+        cameraForAttribution.zoom
       );
-      return is3DMode
-        ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}`
-        : satAttribution;
+      return is3DMode ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
     }
     const baseAttribution = MAP_ATTRIBUTIONS[mapStyle];
-    return is3DMode
-      ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}`
-      : baseAttribution;
+    return is3DMode ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
   }, [mapStyle, cameraForAttribution, is3DMode]);
 
   // Notify parent when attribution changes
@@ -427,9 +392,7 @@ export function RegionalMapView({
 
       if (userToggledSectionsRef.current) return;
 
-      const zoomLevel = (
-        feature.properties as { zoomLevel?: number } | undefined
-      )?.zoomLevel;
+      const zoomLevel = (feature.properties as { zoomLevel?: number } | undefined)?.zoomLevel;
       if (zoomLevel === undefined) return;
 
       if (zoomLevel >= SECTIONS_AUTO_SHOW_ZOOM && !showSections) {
@@ -438,7 +401,7 @@ export function RegionalMapView({
         setShowSections(false);
       }
     },
-    [baseHandleRegionDidChange, showSections],
+    [baseHandleRegionDidChange, showSections]
   );
 
   // Clear selections when their corresponding group visibility is turned off
@@ -489,7 +452,7 @@ export function RegionalMapView({
         }
       }
     },
-    [routeGroups],
+    [routeGroups]
   );
 
   // Handle 3D section click — receives section ID string, looks up section to select
@@ -500,7 +463,7 @@ export function RegionalMapView({
         setSelectedSection(section);
       }
     },
-    [sections],
+    [sections]
   );
 
   // Selected activity ID for MapLibre expressions (cheap to pass, doesn't trigger GeoJSON rebuild)
@@ -532,10 +495,7 @@ export function RegionalMapView({
         spiderLinesGeoJSON: EMPTY_FEATURE_COLLECTION,
       };
     }
-    const { points, lines } = buildSpiderGeoJSON(
-      spider,
-      currentZoomRef.current,
-    );
+    const { points, lines } = buildSpiderGeoJSON(spider, currentZoomRef.current);
     return { spiderPointsGeoJSON: points, spiderLinesGeoJSON: lines };
   }, [spider, currentZoomRef]);
 
@@ -570,11 +530,7 @@ export function RegionalMapView({
   });
 
   return (
-    <View
-      style={styles.container}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-    >
+    <View style={styles.container} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       {show3D ? (
         <ComponentErrorBoundary
           componentName="3D Map"
@@ -585,23 +541,13 @@ export function RegionalMapView({
             ref={map3DRef}
             coordinates={route3DCoords.length > 0 ? route3DCoords : undefined}
             mapStyle={mapStyle}
-            routeColor={
-              selected
-                ? getActivityTypeConfig(selected.activity.type).color
-                : undefined
-            }
+            routeColor={selected ? getActivityTypeConfig(selected.activity.type).color : undefined}
             initialCenter={currentCenterRef.current ?? mapCenter ?? undefined}
             initialZoom={currentZoomRef.current}
-            routesGeoJSON={
-              showRoutes ? (routesGeoJSON ?? undefined) : undefined
-            }
-            sectionsGeoJSON={
-              showSections ? (sectionsGeoJSON ?? undefined) : undefined
-            }
+            routesGeoJSON={showRoutes ? (routesGeoJSON ?? undefined) : undefined}
+            sectionsGeoJSON={showSections ? (sectionsGeoJSON ?? undefined) : undefined}
             // In 3D mode, use showActivities directly (no zoom check - 3D doesn't track zoom)
-            tracesGeoJSON={
-              showActivities ? (tracesGeoJSON ?? undefined) : undefined
-            }
+            tracesGeoJSON={showActivities ? (tracesGeoJSON ?? undefined) : undefined}
             showHeatmap={showActivities}
             onSectionClick={handle3DSectionClick}
           />
@@ -615,7 +561,7 @@ export function RegionalMapView({
           logoEnabled={false}
           attributionEnabled={false}
           compassEnabled={false}
-          onPress={Platform.OS === "android" ? handleMapPress : undefined}
+          onPress={Platform.OS === 'android' ? handleMapPress : undefined}
           onRegionIsChanging={handleRegionIsChanging}
           onRegionDidChange={handleRegionDidChange}
           onDidFailLoadingMap={handleMapLoadError}
@@ -637,21 +583,19 @@ export function RegionalMapView({
             clusterRadius={50}
             clusterMaxZoomLevel={17}
             onPress={
-              Platform.OS === "android" && showActivities
-                ? handleClusterOrMarkerPress
-                : undefined
+              Platform.OS === 'android' && showActivities ? handleClusterOrMarkerPress : undefined
             }
             hitbox={{ width: 44, height: 44 }}
           >
             {/* Cluster circles — sized by activity count */}
             <CircleLayer
               id="cluster-circles"
-              filter={["has", "point_count"]}
+              filter={['has', 'point_count']}
               style={{
                 circleColor: colors.primary,
                 circleRadius: [
-                  "step",
-                  ["get", "point_count"],
+                  'step',
+                  ['get', 'point_count'],
                   18, // default: 1-4 activities
                   5,
                   22, // 5-9
@@ -662,54 +606,49 @@ export function RegionalMapView({
                 ],
                 circleOpacity: showActivities ? 0.9 : 0,
                 circleStrokeWidth: 2,
-                circleStrokeColor: "rgba(255, 255, 255, 0.6)",
+                circleStrokeColor: 'rgba(255, 255, 255, 0.6)',
                 circleStrokeOpacity: showActivities ? 1 : 0,
               }}
             />
             {/* Cluster count labels */}
             <SymbolLayer
               id="cluster-count"
-              filter={["has", "point_count"]}
+              filter={['has', 'point_count']}
               style={{
-                textField: ["get", "point_count_abbreviated"],
+                textField: ['get', 'point_count_abbreviated'],
                 textSize: 13,
-                textColor: "#FFFFFF",
+                textColor: '#FFFFFF',
                 textAllowOverlap: true,
                 textIgnorePlacement: true,
-                visibility: showActivities ? "visible" : "none",
+                visibility: showActivities ? 'visible' : 'none',
               }}
             />
             {/* Individual unclustered activity points — colored by sport type */}
             <CircleLayer
               id="unclustered-point"
-              filter={["!", ["has", "point_count"]]}
+              filter={['!', ['has', 'point_count']]}
               style={{
-                circleColor: ["get", "color"],
+                circleColor: ['get', 'color'],
                 circleRadius: selectedActivityId
                   ? [
-                      "case",
-                      ["==", ["get", "id"], selectedActivityId],
+                      'case',
+                      ['==', ['get', 'id'], selectedActivityId],
                       12, // Selected: larger
                       8,
                     ]
                   : 8,
                 circleOpacity: showActivities ? 1 : 0,
                 circleStrokeWidth: selectedActivityId
-                  ? [
-                      "case",
-                      ["==", ["get", "id"], selectedActivityId],
-                      2.5,
-                      1.5,
-                    ]
+                  ? ['case', ['==', ['get', 'id'], selectedActivityId], 2.5, 1.5]
                   : 1.5,
                 circleStrokeColor: selectedActivityId
                   ? [
-                      "case",
-                      ["==", ["get", "id"], selectedActivityId],
+                      'case',
+                      ['==', ['get', 'id'], selectedActivityId],
                       colors.primary,
-                      "rgba(255, 255, 255, 0.8)",
+                      'rgba(255, 255, 255, 0.8)',
                     ]
-                  : "rgba(255, 255, 255, 0.8)",
+                  : 'rgba(255, 255, 255, 0.8)',
                 circleStrokeOpacity: showActivities ? 1 : 0,
               }}
             />
@@ -727,43 +666,33 @@ export function RegionalMapView({
             <LineLayer
               id="routesOutline"
               style={{
-                visibility: showRoutes ? "visible" : "none",
-                lineColor: "rgba(0, 0, 0, 0.3)",
+                visibility: showRoutes ? 'visible' : 'none',
+                lineColor: 'rgba(0, 0, 0, 0.3)',
                 lineWidth: [
-                  "case",
-                  ["==", ["get", "id"], selectedRoute?.id ?? ""],
+                  'case',
+                  ['==', ['get', 'id'], selectedRoute?.id ?? ''],
                   12, // Wide glow when selected
                   8,
                 ],
-                lineOpacity: [
-                  "case",
-                  ["==", ["get", "id"], selectedRoute?.id ?? ""],
-                  0.7,
-                  0.4,
-                ],
-                lineCap: "round",
-                lineJoin: "round",
+                lineOpacity: ['case', ['==', ['get', 'id'], selectedRoute?.id ?? ''], 0.7, 0.4],
+                lineCap: 'round',
+                lineJoin: 'round',
               }}
             />
             <LineLayer
               id="routesLine"
               style={{
-                visibility: showRoutes ? "visible" : "none",
-                lineColor: ["get", "color"],
+                visibility: showRoutes ? 'visible' : 'none',
+                lineColor: ['get', 'color'],
                 lineWidth: [
-                  "case",
-                  ["==", ["get", "id"], selectedRoute?.id ?? ""],
+                  'case',
+                  ['==', ['get', 'id'], selectedRoute?.id ?? ''],
                   8, // Bold when selected
                   5,
                 ],
-                lineOpacity: [
-                  "case",
-                  ["==", ["get", "id"], selectedRoute?.id ?? ""],
-                  1,
-                  0.85,
-                ],
-                lineCap: "round",
-                lineJoin: "round",
+                lineOpacity: ['case', ['==', ['get', 'id'], selectedRoute?.id ?? ''], 1, 0.85],
+                lineCap: 'round',
+                lineJoin: 'round',
               }}
             />
           </ShapeSource>
@@ -791,28 +720,28 @@ export function RegionalMapView({
             <LineLayer
               id="sectionsLine"
               style={{
-                lineColor: ["get", "color"],
+                lineColor: ['get', 'color'],
                 lineWidth: selectedSection
                   ? [
-                      "case",
-                      ["==", ["get", "id"], selectedSection.id],
+                      'case',
+                      ['==', ['get', 'id'], selectedSection.id],
                       9, // Bold + prominent when selected
                       4,
                     ]
-                  : ["interpolate", ["linear"], ["zoom"], 10, 3, 14, 5, 18, 7],
+                  : ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 5, 18, 7],
                 lineOpacity: showSections
                   ? selectedSection
                     ? [
-                        "case",
-                        ["==", ["get", "id"], selectedSection.id],
+                        'case',
+                        ['==', ['get', 'id'], selectedSection.id],
                         1,
                         0.55, // Dim unselected to make selected pop
                       ]
                     : 0.92
                   : 0,
                 lineDasharray: [4, 2],
-                lineCap: "round",
-                lineJoin: "round",
+                lineCap: 'round',
+                lineJoin: 'round',
               }}
             />
             {/* Section outline — white border for contrast on any map style */}
@@ -821,32 +750,32 @@ export function RegionalMapView({
               style={{
                 lineColor: selectedSection
                   ? [
-                      "case",
-                      ["==", ["get", "id"], selectedSection.id],
-                      "#FFFFFF",
-                      "rgba(255,255,255,0.4)",
+                      'case',
+                      ['==', ['get', 'id'], selectedSection.id],
+                      '#FFFFFF',
+                      'rgba(255,255,255,0.4)',
                     ]
-                  : "#FFFFFF",
+                  : '#FFFFFF',
                 lineWidth: selectedSection
                   ? [
-                      "case",
-                      ["==", ["get", "id"], selectedSection.id],
+                      'case',
+                      ['==', ['get', 'id'], selectedSection.id],
                       14, // Wide glow behind selected section
                       7,
                     ]
-                  : ["interpolate", ["linear"], ["zoom"], 10, 6, 14, 8, 18, 10],
+                  : ['interpolate', ['linear'], ['zoom'], 10, 6, 14, 8, 18, 10],
                 lineOpacity: showSections
                   ? selectedSection
                     ? [
-                        "case",
-                        ["==", ["get", "id"], selectedSection.id],
+                        'case',
+                        ['==', ['get', 'id'], selectedSection.id],
                         0.8, // Bright glow when selected
                         0.35,
                       ]
                     : 0.55
                   : 0,
-                lineCap: "round",
-                lineJoin: "round",
+                lineCap: 'round',
+                lineJoin: 'round',
               }}
               belowLayerID="sectionsLine"
             />
@@ -863,15 +792,11 @@ export function RegionalMapView({
             <RasterLayer
               id="heatmap-layer"
               style={{
-                rasterOpacity: showActivities
-                  ? mapStyle === "light"
-                    ? 0.82
-                    : 0.72
-                  : 0,
-                rasterContrast: mapStyle === "light" ? 0.25 : 0,
-                rasterBrightnessMax: mapStyle === "light" ? 0.7 : 1,
-                rasterSaturation: mapStyle === "light" ? 0.4 : 0,
-                rasterResampling: "linear",
+                rasterOpacity: showActivities ? (mapStyle === 'light' ? 0.82 : 0.72) : 0,
+                rasterContrast: mapStyle === 'light' ? 0.25 : 0,
+                rasterBrightnessMax: mapStyle === 'light' ? 0.7 : 1,
+                rasterSaturation: mapStyle === 'light' ? 0.4 : 0,
+                rasterResampling: 'linear',
                 rasterFadeDuration: 0,
               }}
               belowLayerID="cluster-circles"
@@ -890,10 +815,10 @@ export function RegionalMapView({
               id="start-point-outer"
               style={{
                 circleRadius: 5,
-                circleColor: ["get", "color"],
+                circleColor: ['get', 'color'],
                 circleOpacity: showTraces ? 0.9 : 0,
                 circleStrokeWidth: 1.5,
-                circleStrokeColor: "#FFFFFF",
+                circleStrokeColor: '#FFFFFF',
                 circleStrokeOpacity: showTraces ? 1 : 0,
               }}
             />
@@ -908,20 +833,18 @@ export function RegionalMapView({
               style={{
                 lineColor: colors.textOnDark,
                 lineWidth: 8,
-                lineCap: "round",
-                lineJoin: "round",
+                lineCap: 'round',
+                lineJoin: 'round',
                 lineOpacity: routeHasData ? 0.5 : 0,
               }}
             />
             <LineLayer
               id="selected-routeLine"
               style={{
-                lineColor: selected
-                  ? getActivityTypeConfig(selected.activity.type).color
-                  : "#000",
+                lineColor: selected ? getActivityTypeConfig(selected.activity.type).color : '#000',
                 lineWidth: 5,
-                lineCap: "round",
-                lineJoin: "round",
+                lineCap: 'round',
+                lineJoin: 'round',
                 lineOpacity: routeHasData ? 1 : 0,
               }}
             />
@@ -947,20 +870,16 @@ export function RegionalMapView({
                     width: 32,
                     height: 32,
                     borderRadius: 16,
-                    backgroundColor: isSelected ? colors.primary : "#4CAF50",
+                    backgroundColor: isSelected ? colors.primary : '#4CAF50',
                     borderWidth: 2,
                     borderColor: colors.textOnDark,
-                    justifyContent: "center",
-                    alignItems: "center",
+                    justifyContent: 'center',
+                    alignItems: 'center',
                     opacity: isVisible ? 1 : 0,
                     ...shadows.elevated,
                   }}
                 >
-                  <MaterialCommunityIcons
-                    name="road-variant"
-                    size={18}
-                    color={colors.textOnDark}
-                  />
+                  <MaterialCommunityIcons name="road-variant" size={18} color={colors.textOnDark} />
                 </View>
               </MarkerView>
             );
@@ -986,13 +905,11 @@ export function RegionalMapView({
                     width: 32,
                     height: 32,
                     borderRadius: 16,
-                    backgroundColor: isSelected
-                      ? colors.primary
-                      : ROUTE_COLORS[0],
+                    backgroundColor: isSelected ? colors.primary : ROUTE_COLORS[0],
                     borderWidth: 2,
                     borderColor: colors.textOnDark,
-                    justifyContent: "center",
-                    alignItems: "center",
+                    justifyContent: 'center',
+                    alignItems: 'center',
                     opacity: isVisible ? 1 : 0,
                     ...shadows.elevated,
                   }}
@@ -1013,9 +930,7 @@ export function RegionalMapView({
             <LineLayer
               id="spider-lines"
               style={{
-                lineColor: isDark
-                  ? "rgba(255, 255, 255, 0.5)"
-                  : "rgba(0, 0, 0, 0.3)",
+                lineColor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
                 lineWidth: 1.5,
                 lineOpacity: spider ? 1 : 0,
               }}
@@ -1024,21 +939,17 @@ export function RegionalMapView({
           <ShapeSource
             id="spider-markers"
             shape={spiderPointsGeoJSON}
-            onPress={
-              Platform.OS === "android" && spider
-                ? handleSpiderMarkerPress
-                : undefined
-            }
+            onPress={Platform.OS === 'android' && spider ? handleSpiderMarkerPress : undefined}
             hitbox={{ width: 44, height: 44 }}
           >
             <CircleLayer
               id="spider-points"
               style={{
-                circleColor: ["get", "color"],
+                circleColor: ['get', 'color'],
                 circleRadius: 10,
                 circleOpacity: spider ? 1 : 0,
                 circleStrokeWidth: 2,
-                circleStrokeColor: "#FFFFFF",
+                circleStrokeColor: '#FFFFFF',
                 circleStrokeOpacity: spider ? 1 : 0,
               }}
             />
@@ -1080,7 +991,7 @@ export function RegionalMapView({
         ]}
         onPress={toggleStyle}
         activeOpacity={0.8}
-        accessibilityLabel={t("maps.toggleStyle")}
+        accessibilityLabel={t('maps.toggleStyle')}
         accessibilityRole="button"
       >
         <MaterialCommunityIcons
@@ -1114,12 +1025,7 @@ export function RegionalMapView({
       />
       {/* Attribution */}
       {showAttribution && (
-        <View
-          style={[
-            styles.attribution,
-            { bottom: insets.bottom + attributionBottomOffset },
-          ]}
-        >
+        <View style={[styles.attribution, { bottom: insets.bottom + attributionBottomOffset }]}>
           <Text style={styles.attributionText}>{attributionText}</Text>
         </View>
       )}
@@ -1170,13 +1076,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   button: {
-    position: "absolute",
+    position: 'absolute',
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
     ...shadows.mapOverlay,
   },
   buttonDark: {
@@ -1186,10 +1092,10 @@ const styles = StyleSheet.create({
     right: spacing.md,
   },
   attribution: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderTopLeftRadius: spacing.sm,

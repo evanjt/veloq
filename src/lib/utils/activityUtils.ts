@@ -197,7 +197,12 @@ export function getSportDisplayName(sportType?: string): string {
 
 /** Resolve the apparent/feels-like temperature from whichever field is populated */
 export function getApparentTemperature(
-  activity: Pick<Activity, 'apparent_temperature' | 'average_feels_like' | 'average_temp_feels_like'>
+  activity: Pick<
+    Activity,
+    'apparent_temperature' | 'average_feels_like' | 'average_temp_feels_like'
+  >
 ): number | undefined {
-  return activity.apparent_temperature ?? activity.average_feels_like ?? activity.average_temp_feels_like;
+  return (
+    activity.apparent_temperature ?? activity.average_feels_like ?? activity.average_temp_feels_like
+  );
 }

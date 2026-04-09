@@ -786,9 +786,7 @@ export function SectionScatterChart({
                   >
                     <MaterialCommunityIcons
                       name={
-                        selectedPoint.activityId === referenceActivityId
-                          ? 'star'
-                          : 'star-outline'
+                        selectedPoint.activityId === referenceActivityId ? 'star' : 'star-outline'
                       }
                       size={18}
                       color={

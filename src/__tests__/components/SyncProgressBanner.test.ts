@@ -41,10 +41,8 @@ function computeDisplayInfo(state: {
   const isSyncingBounds = state.boundsStatus === 'syncing';
   const isProcessingRoutes =
     state.isGpsSyncing &&
-    (state.gpsSyncProgress.status === 'fetching' ||
-      state.gpsSyncProgress.status === 'computing');
-  const isLoadingExtended =
-    state.isFetchingExtended && !isSyncingBounds && !isProcessingRoutes;
+    (state.gpsSyncProgress.status === 'fetching' || state.gpsSyncProgress.status === 'computing');
+  const isLoadingExtended = state.isFetchingExtended && !isSyncingBounds && !isProcessingRoutes;
 
   if (isSyncingBounds) return 'bounds';
   if (isProcessingRoutes) return 'gps';

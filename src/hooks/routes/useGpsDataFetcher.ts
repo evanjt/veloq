@@ -538,7 +538,10 @@ export function useGpsDataFetcher() {
           completed: 0,
           total: activityIds.length,
           percent: 0,
-          message: i18n.t('cache.downloadingGpsProgress', { completed: 0, total: activityIds.length }),
+          message: i18n.t('cache.downloadingGpsProgress', {
+            completed: 0,
+            total: activityIds.length,
+          }),
         });
       }
 
@@ -568,7 +571,10 @@ export function useGpsDataFetcher() {
             completed: progress.completed,
             total: progress.total,
             percent: dlPercent,
-            message: i18n.t('cache.downloadingGpsProgress', { completed: progress.completed, total: progress.total }),
+            message: i18n.t('cache.downloadingGpsProgress', {
+              completed: progress.completed,
+              total: progress.total,
+            }),
           });
         } else {
           if (__DEV__) {

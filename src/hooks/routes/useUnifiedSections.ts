@@ -183,7 +183,10 @@ export function useUnifiedSections(
           result.push({
             id: potential.id,
             sectionType: 'potential',
-            name: i18n.t('sections.suggestedName', { sport: potential.sportType, distance: distanceStr }),
+            name: i18n.t('sections.suggestedName', {
+              sport: potential.sportType,
+              distance: distanceStr,
+            }),
             polyline: potential.polyline,
             sportType: potential.sportType,
             distanceMeters: potential.distanceMeters,

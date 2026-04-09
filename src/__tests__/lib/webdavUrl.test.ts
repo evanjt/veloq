@@ -26,9 +26,9 @@ describe('normalizeWebdavUrl', () => {
   });
 
   it('handles Nextcloud full path', () => {
-    expect(
-      normalizeWebdavUrl('https://mycloud.com/remote.php/dav/files/alice/')
-    ).toBe('https://mycloud.com/remote.php/dav/files/alice/');
+    expect(normalizeWebdavUrl('https://mycloud.com/remote.php/dav/files/alice/')).toBe(
+      'https://mycloud.com/remote.php/dav/files/alice/'
+    );
   });
 
   it('handles root URL', () => {

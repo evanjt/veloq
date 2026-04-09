@@ -153,7 +153,7 @@ describe('API Client', () => {
         apiClient.interceptors.request as unknown as {
           handlers: {
             fulfilled?: (
-              config: InternalAxiosRequestConfig,
+              config: InternalAxiosRequestConfig
             ) => InternalAxiosRequestConfig | Promise<never>;
           }[];
         }
@@ -164,9 +164,9 @@ describe('API Client', () => {
         method: 'get',
       };
 
-      await expect(
-        Promise.resolve(interceptor.fulfilled!(config)),
-      ).rejects.toMatchObject({ __CANCEL__: true });
+      await expect(Promise.resolve(interceptor.fulfilled!(config))).rejects.toMatchObject({
+        __CANCEL__: true,
+      });
     });
 
     it('prefers OAuth over API key when both present', async () => {

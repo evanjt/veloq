@@ -6,21 +6,13 @@
  * Returns undefined handlers on Android (Android uses ShapeSource.onPress).
  */
 
-import { useCallback, useRef } from "react";
-import { Platform, type GestureResponderEvent } from "react-native";
-import type {
-  Camera,
-  MapViewRef,
-  ShapeSource,
-} from "@maplibre/maplibre-react-native";
-import type {
-  ActivityBoundsItem,
-  FrequentSection,
-  ActivityType,
-} from "@/types";
-import type { SelectedActivity } from "./ActivityPopup";
-import type { SelectedRoute } from "./types";
-import type { SpiderState } from "./useMapHandlers";
+import { useCallback, useRef } from 'react';
+import { Platform, type GestureResponderEvent } from 'react-native';
+import type { Camera, MapViewRef, ShapeSource } from '@maplibre/maplibre-react-native';
+import type { ActivityBoundsItem, FrequentSection, ActivityType } from '@/types';
+import type { SelectedActivity } from './ActivityPopup';
+import type { SelectedRoute } from './types';
+import type { SpiderState } from './useMapHandlers';
 
 interface UseIOSTapHandlerOptions {
   mapRef: React.RefObject<MapViewRef | null>;
@@ -45,9 +37,7 @@ interface UseIOSTapHandlerOptions {
   showRoutes: boolean;
   show3D: boolean;
   handleMarkerTap: (activity: ActivityBoundsItem) => void;
-  clusterSourceRef: React.RefObject<React.ElementRef<
-    typeof ShapeSource
-  > | null>;
+  clusterSourceRef: React.RefObject<React.ElementRef<typeof ShapeSource> | null>;
   cameraRef: React.RefObject<React.ElementRef<typeof Camera> | null>;
   currentZoomLevel: React.MutableRefObject<number>;
   insetTop: number;
@@ -87,9 +77,7 @@ export function useIOSTapHandler({
   setSpider,
 }: UseIOSTapHandlerOptions): UseIOSTapHandlerResult {
   const lastTapTimeRef = useRef<number>(0);
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
-    null,
-  );
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   // iOS tap handler - uses queryRenderedFeaturesAtPoint for O(1) hit detection
   // Queries activity markers, section lines, and route lines based on visibility toggles
@@ -113,8 +101,7 @@ export function useIOSTapHandler({
         // Expand query rect based on zoom (matches CircleLayer radius interpolation)
         // Use different hit radius for points vs lines - lines are thin and need bigger area
         // Matches CircleLayer: zoom 0→16, 4→14, 8→12, 12→8, 16→6
-        const pointHitRadius =
-          zoom < 4 ? 16 : zoom < 8 ? 14 : zoom < 12 ? 12 : zoom < 16 ? 8 : 6;
+        const pointHitRadius = zoom < 4 ? 16 : zoom < 8 ? 14 : zoom < 12 ? 12 : zoom < 16 ? 8 : 6;
         // Lines need 3x the hit area since they're only a few pixels wide
         const lineHitRadius = Math.max(pointHitRadius * 3, 20); // Minimum 20px for lines
 
@@ -122,13 +109,13 @@ export function useIOSTapHandler({
         const layersToQuery: string[] = [];
         // Spider markers take priority — query them first so they are hit-tested before clusters
         if (spider) {
-          layersToQuery.push("spider-points");
+          layersToQuery.push('spider-points');
         }
         if (showActivities) {
-          layersToQuery.push("cluster-circles", "unclustered-point");
+          layersToQuery.push('cluster-circles', 'unclustered-point');
         }
-        if (showSections) layersToQuery.push("sectionsLine");
-        if (showRoutes) layersToQuery.push("routesLine");
+        if (showSections) layersToQuery.push('sectionsLine');
+        if (showRoutes) layersToQuery.push('routesLine');
 
         if (layersToQuery.length === 0) {
           if (selected) setSelected(null);
@@ -152,7 +139,7 @@ export function useIOSTapHandler({
         let features = await mapRef.current?.queryRenderedFeaturesAtPoint(
           [screenX, screenY],
           undefined,
-          layersToQuery,
+          layersToQuery
         );
 
         // If no hit at point, try with expanded bbox
@@ -160,7 +147,7 @@ export function useIOSTapHandler({
           features = await mapRef.current?.queryRenderedFeaturesInRect(
             bbox,
             undefined,
-            layersToQuery,
+            layersToQuery
           );
         }
 
@@ -180,28 +167,27 @@ export function useIOSTapHandler({
           }
 
           // Determine feature type by checking geometry and properties
-          if (feature.geometry?.type === "Point" && showActivities) {
+          if (feature.geometry?.type === 'Point' && showActivities) {
             // Cluster tap — zoom in or spider-expand at max zoom
             if (feature.properties?.cluster === true) {
               try {
                 if (clusterSourceRef.current) {
                   const expansionZoom =
-                    await clusterSourceRef.current.getClusterExpansionZoom(
-                      feature,
-                    );
-                  const coords = (feature.geometry as GeoJSON.Point)
-                    .coordinates as [number, number];
+                    await clusterSourceRef.current.getClusterExpansionZoom(feature);
+                  const coords = (feature.geometry as GeoJSON.Point).coordinates as [
+                    number,
+                    number,
+                  ];
                   const currentZoom = currentZoomLevel.current;
 
                   // At max zoom, fan out into spider pattern
                   if (expansionZoom >= 17 || currentZoom >= 16) {
                     const pointCount = feature.properties?.point_count ?? 0;
-                    const leaves =
-                      await clusterSourceRef.current.getClusterLeaves(
-                        feature,
-                        Math.min(pointCount, 50),
-                        0,
-                      );
+                    const leaves = await clusterSourceRef.current.getClusterLeaves(
+                      feature,
+                      Math.min(pointCount, 50),
+                      0
+                    );
                     if (leaves.features.length > 0) {
                       setSpider({ center: coords, leaves: leaves.features });
                     }
@@ -212,11 +198,11 @@ export function useIOSTapHandler({
                     centerCoordinate: coords,
                     zoomLevel: expansionZoom,
                     animationDuration: 400,
-                    animationMode: "flyTo",
+                    animationMode: 'flyTo',
                   });
                 }
               } catch (e) {
-                if (__DEV__) console.warn("[iOS tap] cluster error:", e);
+                if (__DEV__) console.warn('[iOS tap] cluster error:', e);
               }
               return;
             }
@@ -224,30 +210,27 @@ export function useIOSTapHandler({
             // Individual activity marker hit
             const activity = activities.find((a) => a.id === featureId);
             if (activity) {
-              console.log("[iOS tap] HIT activity:", featureId);
+              console.log('[iOS tap] HIT activity:', featureId);
               handleMarkerTap(activity);
               return;
             }
-          } else if (feature.geometry?.type === "LineString") {
+          } else if (feature.geometry?.type === 'LineString') {
             // Could be section or route - check properties to determine
             if (feature.properties?.visitCount !== undefined && showSections) {
               // Section hit (has visitCount property)
               const section = sections.find((s) => s.id === featureId);
               if (section) {
-                console.log("[iOS tap] HIT section:", featureId);
+                console.log('[iOS tap] HIT section:', featureId);
                 setSelectedSection(section);
                 setSelected(null);
                 setSelectedRoute(null);
                 return;
               }
-            } else if (
-              feature.properties?.activityCount !== undefined &&
-              showRoutes
-            ) {
+            } else if (feature.properties?.activityCount !== undefined && showRoutes) {
               // Route hit (has activityCount property)
               const route = routeGroups.find((g) => g.id === featureId);
               if (route) {
-                console.log("[iOS tap] HIT route:", featureId);
+                console.log('[iOS tap] HIT route:', featureId);
                 setSelectedRoute({
                   id: route.id,
                   name: route.name,
@@ -272,7 +255,7 @@ export function useIOSTapHandler({
       } catch (error) {
         // Log error but don't crash - gracefully handle MapLibre query failures
         if (__DEV__) {
-          console.warn("[iOS tap] Error during tap handling:", error);
+          console.warn('[iOS tap] Error during tap handling:', error);
         }
       }
     },
@@ -296,11 +279,11 @@ export function useIOSTapHandler({
       cameraRef,
       spider,
       setSpider,
-    ],
+    ]
   );
 
   // Android uses ShapeSource.onPress — no touch handlers needed
-  if (Platform.OS !== "ios") {
+  if (Platform.OS !== 'ios') {
     return { onTouchStart: undefined, onTouchEnd: undefined };
   }
 

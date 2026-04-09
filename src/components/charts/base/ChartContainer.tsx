@@ -73,7 +73,9 @@ export const ChartContainer = React.memo(function ChartContainer({
           </View>
         )}
         <View style={styles.centerContent}>
-          <Text style={[styles.statusText, isDark && chartStyles.textDark]}>{resolvedLoadingText}</Text>
+          <Text style={[styles.statusText, isDark && chartStyles.textDark]}>
+            {resolvedLoadingText}
+          </Text>
         </View>
       </View>
     );
@@ -90,7 +92,9 @@ export const ChartContainer = React.memo(function ChartContainer({
           </View>
         )}
         <View style={styles.centerContent}>
-          <Text style={[styles.statusText, isDark && chartStyles.textDark]}>{resolvedEmptyText}</Text>
+          <Text style={[styles.statusText, isDark && chartStyles.textDark]}>
+            {resolvedEmptyText}
+          </Text>
         </View>
       </View>
     );

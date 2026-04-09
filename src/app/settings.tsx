@@ -84,10 +84,7 @@ function AccountRow({
           )}
         </View>
         <View style={styles.accountInfo}>
-          <Text
-            style={[styles.accountName, isDark && settingsStyles.textLight]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.accountName, isDark && settingsStyles.textLight]} numberOfLines={1}>
             {athlete?.name || t('settings.account')}
           </Text>
           <Text style={[styles.accountBadge, isDark && settingsStyles.textMuted]}>
@@ -204,9 +201,7 @@ export default function SettingsScreen() {
               embedded
             />
             <View style={styles.sectionDivider}>
-              <View
-                style={[styles.sectionDividerLine, isDark && styles.sectionDividerLineDark]}
-              />
+              <View style={[styles.sectionDividerLine, isDark && styles.sectionDividerLineDark]} />
             </View>
             <MapsSection embedded />
           </View>

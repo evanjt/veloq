@@ -75,9 +75,7 @@ export function useImportDatabaseBackup() {
           messages.push(t('backup.sectionsRestored', { count: legacyResult.sectionsRestored }));
         }
         if (legacyResult.sectionsFailed.length > 0) {
-          messages.push(
-            t('backup.sectionsSkipped', { count: legacyResult.sectionsFailed.length })
-          );
+          messages.push(t('backup.sectionsSkipped', { count: legacyResult.sectionsFailed.length }));
         }
         messages.push('');
         messages.push(t('backup.legacyImportNotice'));

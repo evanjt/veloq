@@ -141,7 +141,14 @@ export function useInsights(
 
     return () => handle.cancel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trigger, focusTrigger, preComputedInsightsData, preComputedSummaryCardData, stableWellness, t]);
+  }, [
+    trigger,
+    focusTrigger,
+    preComputedInsightsData,
+    preComputedSummaryCardData,
+    stableWellness,
+    t,
+  ]);
 
   // Stabilise reference -- only update when insight IDs actually change
   const prevInsightsRef = useRef<Insight[]>([]);

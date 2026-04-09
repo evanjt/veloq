@@ -832,10 +832,12 @@ function addStalePRInsights(
         iconColor: '#FF9800',
         title: t('insights.stalePr.groupTitle', { count: filtered.length }),
         subtitle: subtitleParts.join(', '),
-        body: filtered
-          .slice(0, MAX_STALE_PR_SECTIONS_IN_BODY)
-          .map((o) => o.sectionName)
-          .join(', ') + (filtered.length > MAX_STALE_PR_SECTIONS_IN_BODY
+        body:
+          filtered
+            .slice(0, MAX_STALE_PR_SECTIONS_IN_BODY)
+            .map((o) => o.sectionName)
+            .join(', ') +
+          (filtered.length > MAX_STALE_PR_SECTIONS_IN_BODY
             ? ` (+${filtered.length - MAX_STALE_PR_SECTIONS_IN_BODY} more)`
             : ''),
         navigationTarget: '/routes?tab=sections',

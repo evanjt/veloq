@@ -81,204 +81,204 @@ function DisplaySettingsComponent({
 
   const displayContent = (
     <>
-        {/* Appearance */}
-        <View style={styles.subsectionHeader}>
-          <MaterialCommunityIcons
-            name="theme-light-dark"
-            size={18}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-          <Text style={[styles.subsectionLabel, isDark && settingsStyles.textMuted]}>
-            {t('settings.appearance')}
-          </Text>
-        </View>
-        <View testID="settings-theme-toggle" style={styles.themePickerContainer}>
-          <SegmentedButtons
-            value={themePreference}
-            onValueChange={onThemeChange}
-            buttons={[
-              {
-                value: 'system',
-                label: t('settings.system'),
-                icon: 'cellphone',
-                testID: 'theme-button-system',
-              },
-              {
-                value: 'light',
-                label: t('settings.light'),
-                icon: 'white-balance-sunny',
-                testID: 'theme-button-light',
-              },
-              {
-                value: 'dark',
-                label: t('settings.dark'),
-                icon: 'moon-waning-crescent',
-                testID: 'theme-button-dark',
-              },
-            ]}
-            style={styles.themePicker}
-          />
-        </View>
-
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
-
-        {/* Units */}
-        <View style={styles.subsectionHeader}>
-          <MaterialCommunityIcons
-            name="ruler"
-            size={18}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-          <Text style={[styles.subsectionLabel, isDark && settingsStyles.textMuted]}>
-            {t('settings.units')}
-          </Text>
-        </View>
-        <View testID="settings-unit-toggle" style={styles.themePickerContainer}>
-          <SegmentedButtons
-            value={unitPreference}
-            onValueChange={onUnitChange}
-            buttons={[
-              {
-                value: 'auto',
-                label: t('settings.unitsAuto'),
-                icon: 'cellphone-cog',
-              },
-              {
-                value: 'metric',
-                label: t('settings.unitsMetric'),
-                icon: 'ruler',
-              },
-              {
-                value: 'imperial',
-                label: t('settings.unitsImperial'),
-                icon: 'ruler',
-              },
-            ]}
-            style={styles.themePicker}
-          />
-        </View>
-        <Text style={[styles.subsectionHint, isDark && settingsStyles.textMuted]}>
-          {unitPreference === 'auto'
-            ? intervalsUnitPreference
-              ? t('settings.unitsAutoHintWithIntervals', {
-                  setting: getIntervalsPreferenceLabel(intervalsUnitPreference),
-                })
-              : t('settings.unitsAutoHint')
-            : unitPreference === 'metric'
-              ? t('settings.unitsMetricHint')
-              : t('settings.unitsImperialHint')}
+      {/* Appearance */}
+      <View style={styles.subsectionHeader}>
+        <MaterialCommunityIcons
+          name="theme-light-dark"
+          size={18}
+          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+        />
+        <Text style={[styles.subsectionLabel, isDark && settingsStyles.textMuted]}>
+          {t('settings.appearance')}
         </Text>
+      </View>
+      <View testID="settings-theme-toggle" style={styles.themePickerContainer}>
+        <SegmentedButtons
+          value={themePreference}
+          onValueChange={onThemeChange}
+          buttons={[
+            {
+              value: 'system',
+              label: t('settings.system'),
+              icon: 'cellphone',
+              testID: 'theme-button-system',
+            },
+            {
+              value: 'light',
+              label: t('settings.light'),
+              icon: 'white-balance-sunny',
+              testID: 'theme-button-light',
+            },
+            {
+              value: 'dark',
+              label: t('settings.dark'),
+              icon: 'moon-waning-crescent',
+              testID: 'theme-button-dark',
+            },
+          ]}
+          style={styles.themePicker}
+        />
+      </View>
 
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
+      <View style={[styles.divider, isDark && styles.dividerDark]} />
 
-        {/* Language */}
-        <CollapsibleSection
-          title={t('settings.language')}
-          subtitle={currentLanguageLabel}
-          expanded={showLanguages}
-          onToggle={setShowLanguages}
-          icon="translate"
-          estimatedHeight={500}
-          headerRight={
-            // Show dialect chip only when a dialect is selected
-            language === 'en-AU' || language === 'de-CH' ? (
-              <View style={[styles.dialectLegendChip, isDark && styles.dialectLegendChipDark]}>
-                <Text style={[styles.dialectLegendText, isDark && settingsStyles.textMuted]}>
-                  {t('settings.dialect')}
-                </Text>
-              </View>
-            ) : null
-          }
-        >
-          {availableLanguages.flatMap((group, groupIndex) =>
-            group.languages.map((lang, langIndex) => {
-              const index = groupIndex * 100 + langIndex;
-              const isSelected = language === lang.value;
-              const isVariantOfThisLanguage = isLanguageVariant(language, lang.value);
-              const showCheck = isSelected || isVariantOfThisLanguage;
+      {/* Units */}
+      <View style={styles.subsectionHeader}>
+        <MaterialCommunityIcons
+          name="ruler"
+          size={18}
+          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+        />
+        <Text style={[styles.subsectionLabel, isDark && settingsStyles.textMuted]}>
+          {t('settings.units')}
+        </Text>
+      </View>
+      <View testID="settings-unit-toggle" style={styles.themePickerContainer}>
+        <SegmentedButtons
+          value={unitPreference}
+          onValueChange={onUnitChange}
+          buttons={[
+            {
+              value: 'auto',
+              label: t('settings.unitsAuto'),
+              icon: 'cellphone-cog',
+            },
+            {
+              value: 'metric',
+              label: t('settings.unitsMetric'),
+              icon: 'ruler',
+            },
+            {
+              value: 'imperial',
+              label: t('settings.unitsImperial'),
+              icon: 'ruler',
+            },
+          ]}
+          style={styles.themePicker}
+        />
+      </View>
+      <Text style={[styles.subsectionHint, isDark && settingsStyles.textMuted]}>
+        {unitPreference === 'auto'
+          ? intervalsUnitPreference
+            ? t('settings.unitsAutoHintWithIntervals', {
+                setting: getIntervalsPreferenceLabel(intervalsUnitPreference),
+              })
+            : t('settings.unitsAutoHint')
+          : unitPreference === 'metric'
+            ? t('settings.unitsMetricHint')
+            : t('settings.unitsImperialHint')}
+      </Text>
 
-              return (
-                <View
-                  key={lang.value}
-                  style={[
-                    styles.languageRow,
-                    index > 0 && styles.languageRowBorder,
-                    isDark && styles.languageRowDark,
-                  ]}
+      <View style={[styles.divider, isDark && styles.dividerDark]} />
+
+      {/* Language */}
+      <CollapsibleSection
+        title={t('settings.language')}
+        subtitle={currentLanguageLabel}
+        expanded={showLanguages}
+        onToggle={setShowLanguages}
+        icon="translate"
+        estimatedHeight={500}
+        headerRight={
+          // Show dialect chip only when a dialect is selected
+          language === 'en-AU' || language === 'de-CH' ? (
+            <View style={[styles.dialectLegendChip, isDark && styles.dialectLegendChipDark]}>
+              <Text style={[styles.dialectLegendText, isDark && settingsStyles.textMuted]}>
+                {t('settings.dialect')}
+              </Text>
+            </View>
+          ) : null
+        }
+      >
+        {availableLanguages.flatMap((group, groupIndex) =>
+          group.languages.map((lang, langIndex) => {
+            const index = groupIndex * 100 + langIndex;
+            const isSelected = language === lang.value;
+            const isVariantOfThisLanguage = isLanguageVariant(language, lang.value);
+            const showCheck = isSelected || isVariantOfThisLanguage;
+
+            return (
+              <View
+                key={lang.value}
+                style={[
+                  styles.languageRow,
+                  index > 0 && styles.languageRowBorder,
+                  isDark && styles.languageRowDark,
+                ]}
+              >
+                <TouchableOpacity
+                  onPress={() => {
+                    // For languages with variants, use the defaultVariant (or first variant)
+                    const valueToUse =
+                      lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value;
+                    onLanguageChange(valueToUse);
+                    setShowLanguages(false);
+                  }}
+                  style={styles.languageLabelContainer}
                 >
-                  <TouchableOpacity
-                    onPress={() => {
-                      // For languages with variants, use the defaultVariant (or first variant)
-                      const valueToUse =
-                        lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value;
-                      onLanguageChange(valueToUse);
-                      setShowLanguages(false);
-                    }}
-                    style={styles.languageLabelContainer}
-                  >
-                    <Text style={[styles.languageLabel, isDark && settingsStyles.textLight]}>
-                      {lang.label}
-                    </Text>
-                  </TouchableOpacity>
-                  {lang.variants && (
-                    <View style={styles.variantChips}>
-                      {lang.variants.map((variant) => {
-                        const isVariantSelected =
-                          language === variant.value ||
-                          (lang.value === 'en' &&
-                            isEnglishVariant(language) &&
-                            getEnglishVariantValue(language) === variant.value);
-                        return (
-                          <TouchableOpacity
-                            key={variant.value}
+                  <Text style={[styles.languageLabel, isDark && settingsStyles.textLight]}>
+                    {lang.label}
+                  </Text>
+                </TouchableOpacity>
+                {lang.variants && (
+                  <View style={styles.variantChips}>
+                    {lang.variants.map((variant) => {
+                      const isVariantSelected =
+                        language === variant.value ||
+                        (lang.value === 'en' &&
+                          isEnglishVariant(language) &&
+                          getEnglishVariantValue(language) === variant.value);
+                      return (
+                        <TouchableOpacity
+                          key={variant.value}
+                          style={[
+                            styles.variantChip,
+                            isDark && styles.variantChipDark,
+                            // Non-selected dialect: gold dotted border
+                            variant.isDialect && !isVariantSelected && styles.variantChipDialect,
+                            variant.isDialect &&
+                              !isVariantSelected &&
+                              isDark &&
+                              styles.variantChipDialectDark,
+                            // Selected: teal background
+                            isVariantSelected && styles.variantChipSelected,
+                            isVariantSelected && isDark && styles.variantChipSelectedDark,
+                            // Selected dialect: keep gold dotted border with teal background
+                            variant.isDialect &&
+                              isVariantSelected &&
+                              styles.variantChipDialectSelected,
+                            variant.isDialect &&
+                              isVariantSelected &&
+                              isDark &&
+                              styles.variantChipDialectSelectedDark,
+                          ]}
+                          onPress={() => {
+                            onLanguageChange(variant.value);
+                            setShowLanguages(false);
+                          }}
+                        >
+                          <Text
                             style={[
-                              styles.variantChip,
-                              isDark && styles.variantChipDark,
-                              // Non-selected dialect: gold dotted border
-                              variant.isDialect && !isVariantSelected && styles.variantChipDialect,
-                              variant.isDialect &&
-                                !isVariantSelected &&
-                                isDark &&
-                                styles.variantChipDialectDark,
-                              // Selected: teal background
-                              isVariantSelected && styles.variantChipSelected,
-                              isVariantSelected && isDark && styles.variantChipSelectedDark,
-                              // Selected dialect: keep gold dotted border with teal background
-                              variant.isDialect &&
-                                isVariantSelected &&
-                                styles.variantChipDialectSelected,
-                              variant.isDialect &&
-                                isVariantSelected &&
-                                isDark &&
-                                styles.variantChipDialectSelectedDark,
+                              styles.variantChipText,
+                              isVariantSelected && styles.variantChipTextSelected,
+                              isDark && !isVariantSelected && settingsStyles.textMuted,
                             ]}
-                            onPress={() => {
-                              onLanguageChange(variant.value);
-                              setShowLanguages(false);
-                            }}
                           >
-                            <Text
-                              style={[
-                                styles.variantChipText,
-                                isVariantSelected && styles.variantChipTextSelected,
-                                isDark && !isVariantSelected && settingsStyles.textMuted,
-                              ]}
-                            >
-                              {variant.label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-                  {showCheck && !lang.variants && (
-                    <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
-                  )}
-                </View>
-              );
-            })
-          )}
-        </CollapsibleSection>
+                            {variant.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+                {showCheck && !lang.variants && (
+                  <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
+                )}
+              </View>
+            );
+          })
+        )}
+      </CollapsibleSection>
     </>
   );
 

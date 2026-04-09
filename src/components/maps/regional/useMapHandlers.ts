@@ -3,31 +3,23 @@
  * Extracts handler logic from the main component for better organization.
  */
 
-import { useCallback, useEffect, useRef } from "react";
-import { Animated } from "react-native";
-import { useRouter } from "expo-router";
-import * as Location from "expo-location";
-import type {
-  Camera,
-  OnPressEvent,
-  ShapeSource,
-} from "@maplibre/maplibre-react-native";
-import { LocationManager } from "@maplibre/maplibre-react-native";
+import { useCallback, useEffect, useRef } from 'react';
+import { Animated } from 'react-native';
+import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
+import type { Camera, OnPressEvent, ShapeSource } from '@maplibre/maplibre-react-native';
+import { LocationManager } from '@maplibre/maplibre-react-native';
 
 // Cache for last known location (avoid slow GPS re-acquisition)
 const LOCATION_CACHE_MAX_AGE_MS = 30000; // 30 seconds
-import {
-  normalizeBounds,
-  activitySpatialIndex,
-  mapBoundsToViewport,
-} from "@/lib";
-import { saveMapCameraState } from "@/lib/storage/mapCameraState";
-import { intervalsApi } from "@/api";
-import { getRouteEngine } from "@/lib/native/routeEngine";
-import type { ActivityBoundsItem } from "@/types";
-import type { FrequentSection } from "@/types";
-import type { SelectedActivity } from "./ActivityPopup";
-import type { Map3DWebViewRef } from "../Map3DWebView";
+import { normalizeBounds, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
+import { saveMapCameraState } from '@/lib/storage/mapCameraState';
+import { intervalsApi } from '@/api';
+import { getRouteEngine } from '@/lib/native/routeEngine';
+import type { ActivityBoundsItem } from '@/types';
+import type { FrequentSection } from '@/types';
+import type { SelectedActivity } from './ActivityPopup';
+import type { Map3DWebViewRef } from '../Map3DWebView';
 
 /** State for spider/fan-out expansion of clusters at max zoom */
 export interface SpiderState {
@@ -58,9 +50,7 @@ interface UseMapHandlersOptions {
   traceZoomThreshold: number;
   onCameraSettled?: (center: [number, number], zoom: number) => void;
   cameraRef: React.RefObject<React.ElementRef<typeof Camera> | null>;
-  clusterSourceRef: React.RefObject<React.ElementRef<
-    typeof ShapeSource
-  > | null>;
+  clusterSourceRef: React.RefObject<React.ElementRef<typeof ShapeSource> | null>;
   map3DRef: React.RefObject<Map3DWebViewRef | null>;
   bearingAnim: Animated.Value;
   currentZoomLevel: React.MutableRefObject<number>;
@@ -128,13 +118,11 @@ export function useMapHandlers({
 
   // Debounce timers for region change handlers
   const visibleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const zoomCenterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const zoomCenterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track previous visible IDs to avoid creating new Set references when content hasn't changed
-  const prevVisibleKeyRef = useRef<string>("");
+  const prevVisibleKeyRef = useRef<string>('');
   // Track previous viewport bounds to skip queryViewport FFI calls when camera hasn't moved
-  const prevBoundsKeyRef = useRef<string>("");
+  const prevBoundsKeyRef = useRef<string>('');
   // Track previous center/zoom to skip redundant ref updates and threshold checks
   const prevCenterRef = useRef<[number, number] | null>(null);
   const prevZoomRef = useRef<number>(-1);
@@ -143,8 +131,7 @@ export function useMapHandlers({
   useEffect(() => {
     return () => {
       if (visibleDebounceRef.current) clearTimeout(visibleDebounceRef.current);
-      if (zoomCenterDebounceRef.current)
-        clearTimeout(zoomCenterDebounceRef.current);
+      if (zoomCenterDebounceRef.current) clearTimeout(zoomCenterDebounceRef.current);
     };
   }, []);
 
@@ -203,7 +190,7 @@ export function useMapHandlers({
         }
       });
     },
-    [setSelected],
+    [setSelected]
   );
 
   // Close popup
@@ -233,7 +220,7 @@ export function useMapHandlers({
       ne,
       sw,
       [100, 60, 280, 60], // [top, right, bottom, left]
-      500,
+      500
     );
 
     // Release camera from fitBounds tracking state after animation completes
@@ -241,7 +228,7 @@ export function useMapHandlers({
     setTimeout(() => {
       cameraRef.current?.setCamera({
         animationDuration: 0,
-        animationMode: "moveTo",
+        animationMode: 'moveTo',
       });
     }, 600);
   }, [cameraRef]);
@@ -256,13 +243,9 @@ export function useMapHandlers({
       if (feature.properties?.cluster === true) {
         try {
           if (clusterSourceRef.current) {
-            const expansionZoom =
-              await clusterSourceRef.current.getClusterExpansionZoom(feature);
+            const expansionZoom = await clusterSourceRef.current.getClusterExpansionZoom(feature);
             const currentZoom = currentZoomRef.current;
-            const coords = (feature.geometry as GeoJSON.Point).coordinates as [
-              number,
-              number,
-            ];
+            const coords = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
 
             // At max zoom (can't expand further), fan out into spider pattern
             if (expansionZoom >= 17 || currentZoom >= 16) {
@@ -270,7 +253,7 @@ export function useMapHandlers({
               const leaves = await clusterSourceRef.current.getClusterLeaves(
                 feature,
                 Math.min(pointCount, 50),
-                0,
+                0
               );
               if (leaves.features.length > 0) {
                 setSpider({ center: coords, leaves: leaves.features });
@@ -282,11 +265,11 @@ export function useMapHandlers({
               centerCoordinate: coords,
               zoomLevel: expansionZoom,
               animationDuration: 400,
-              animationMode: "flyTo",
+              animationMode: 'flyTo',
             });
           }
         } catch (e) {
-          if (__DEV__) console.warn("[cluster] Error handling cluster tap:", e);
+          if (__DEV__) console.warn('[cluster] Error handling cluster tap:', e);
         }
         return;
       }
@@ -299,14 +282,7 @@ export function useMapHandlers({
         handleMarkerTap(activity);
       }
     },
-    [
-      activities,
-      handleMarkerTap,
-      clusterSourceRef,
-      cameraRef,
-      currentZoomRef,
-      setSpider,
-    ],
+    [activities, handleMarkerTap, clusterSourceRef, cameraRef, currentZoomRef, setSpider]
   );
 
   // Handle tap on a spider-expanded marker (Android only)
@@ -323,7 +299,7 @@ export function useMapHandlers({
         handleMarkerTap(activity);
       }
     },
-    [activities, handleMarkerTap, setSpider],
+    [activities, handleMarkerTap, setSpider]
   );
 
   // Handle map press - Android only (iOS uses onTouchEnd on container View)
@@ -337,7 +313,7 @@ export function useMapHandlers({
       // Dismiss spider on any map tap
       setSpider(null);
     },
-    [selected, setSelected, setSpider],
+    [selected, setSelected, setSpider]
   );
 
   // Handle section press
@@ -352,7 +328,7 @@ export function useMapHandlers({
         setSelectedSection(section);
       }
     },
-    [sections, setSelectedSection],
+    [sections, setSelectedSection]
   );
 
   // Ref for spider dismissal during gestures (avoids adding setSpider to hot path deps)
@@ -363,9 +339,7 @@ export function useMapHandlers({
   // Handle map region change to update compass (real-time during gesture)
   const handleRegionIsChanging = useCallback(
     (feature: GeoJSON.Feature) => {
-      const properties = feature.properties as
-        | { heading?: number; zoomLevel?: number }
-        | undefined;
+      const properties = feature.properties as { heading?: number; zoomLevel?: number } | undefined;
       const { heading, zoomLevel } = properties ?? {};
       if (heading !== undefined) {
         bearingAnim.setValue(-heading);
@@ -383,7 +357,7 @@ export function useMapHandlers({
         }, 500);
       }
     },
-    [bearingAnim, currentZoomLevel],
+    [bearingAnim, currentZoomLevel]
   );
 
   // Handle region change end - track zoom level, center, and update visible activities
@@ -399,7 +373,7 @@ export function useMapHandlers({
         | undefined;
       const { zoomLevel, visibleBounds } = properties ?? {};
       const center =
-        feature.geometry?.type === "Point"
+        feature.geometry?.type === 'Point'
           ? (feature.geometry.coordinates as [number, number])
           : undefined;
 
@@ -411,13 +385,9 @@ export function useMapHandlers({
       // Update zoom/center refs directly — no React state, no re-renders during gestures.
       // State updates from regionDidChange cause React re-renders that disrupt MapLibre
       // gesture handling on Android, causing camera snap-back.
-      if (zoomCenterDebounceRef.current)
-        clearTimeout(zoomCenterDebounceRef.current);
+      if (zoomCenterDebounceRef.current) clearTimeout(zoomCenterDebounceRef.current);
       zoomCenterDebounceRef.current = setTimeout(() => {
-        if (
-          zoomLevel !== undefined &&
-          Math.abs(zoomLevel - prevZoomRef.current) > 0.01
-        ) {
+        if (zoomLevel !== undefined && Math.abs(zoomLevel - prevZoomRef.current) > 0.01) {
           // Check trace threshold crossing BEFORE updating prev
           const wasAbove = prevZoomRef.current >= traceZoomThreshold;
           const nowAbove = zoomLevel >= traceZoomThreshold;
@@ -450,8 +420,7 @@ export function useMapHandlers({
 
       // v10: visibleBounds is [northEast, southWest] where each is [lng, lat]
       if (visibleBounds) {
-        if (visibleDebounceRef.current)
-          clearTimeout(visibleDebounceRef.current);
+        if (visibleDebounceRef.current) clearTimeout(visibleDebounceRef.current);
         visibleDebounceRef.current = setTimeout(() => {
           const [northEast, southWest] = visibleBounds;
           const [east, north] = northEast;
@@ -473,10 +442,10 @@ export function useMapHandlers({
             // → another regionDidChange, causing an infinite loop at wide zoom levels
             const key =
               visibleIds.length +
-              ":" +
+              ':' +
               (visibleIds.length <= 500
-                ? visibleIds.sort().join(",")
-                : visibleIds.slice(0, 20).sort().join(","));
+                ? visibleIds.sort().join(',')
+                : visibleIds.slice(0, 20).sort().join(','));
             if (key !== prevVisibleKeyRef.current) {
               prevVisibleKeyRef.current = key;
               if (visibleIds.length > 0 || activitySpatialIndex.size === 0) {
@@ -498,7 +467,7 @@ export function useMapHandlers({
       setVisibleActivityIds,
       onCameraSettled,
       markUserInteracted,
-    ],
+    ]
   );
 
   // Cache last location to avoid slow GPS re-acquisition
@@ -514,7 +483,7 @@ export function useMapHandlers({
       setLocationLoading(true);
 
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
+      if (status !== 'granted') {
         setLocationLoading(false);
         return;
       }
@@ -545,7 +514,7 @@ export function useMapHandlers({
         centerCoordinate: coords,
         zoomLevel: 13,
         animationDuration: 500,
-        animationMode: "moveTo",
+        animationMode: 'moveTo',
       });
 
       // After animation, stop any native tracking (but keep dot visible)
@@ -557,7 +526,7 @@ export function useMapHandlers({
         }
         cameraRef.current?.setCamera({
           animationDuration: 0,
-          animationMode: "moveTo",
+          animationMode: 'moveTo',
         });
       }, 600);
     } catch {
@@ -631,12 +600,7 @@ export function useMapHandlers({
       const bounds = activity.bounds;
       if (bounds && Array.isArray(bounds) && bounds.length === 2) {
         const [min, max] = bounds;
-        if (
-          Array.isArray(min) &&
-          Array.isArray(max) &&
-          min.length >= 2 &&
-          max.length >= 2
-        ) {
+        if (Array.isArray(min) && Array.isArray(max) && min.length >= 2 && max.length >= 2) {
           minLat = Math.min(minLat, min[0]);
           minLng = Math.min(minLng, min[1]);
           maxLat = Math.max(maxLat, max[0]);
@@ -656,7 +620,7 @@ export function useMapHandlers({
       ne,
       sw,
       [100, 60, 280, 60], // [top, right, bottom, left]
-      500,
+      500
     );
 
     // Release camera from fitBounds tracking state after animation completes
@@ -664,7 +628,7 @@ export function useMapHandlers({
     setTimeout(() => {
       cameraRef.current?.setCamera({
         animationDuration: 0,
-        animationMode: "moveTo",
+        animationMode: 'moveTo',
       });
     }, 600);
   }, [activities, cameraRef]);

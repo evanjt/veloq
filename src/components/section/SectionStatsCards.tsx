@@ -207,9 +207,7 @@ export function SectionStatsCards({
                                 isMonthFwdYearBest && { fontWeight: '700' },
                               ]}
                             >
-                              {isRunning
-                                ? formatPace(fwd.bestPace)
-                                : formatDuration(fwd.bestTime)}
+                              {isRunning ? formatPace(fwd.bestPace) : formatDuration(fwd.bestTime)}
                             </Text>
                             {(isMonthFwdYearBest || isMonthFwdOverallPr) && (
                               <MaterialCommunityIcons
@@ -260,9 +258,7 @@ export function SectionStatsCards({
                                 isMonthRevYearBest && { fontWeight: '700' },
                               ]}
                             >
-                              {isRunning
-                                ? formatPace(rev.bestPace)
-                                : formatDuration(rev.bestTime)}
+                              {isRunning ? formatPace(rev.bestPace) : formatDuration(rev.bestTime)}
                             </Text>
                             {(isMonthRevYearBest || isMonthRevOverallPr) && (
                               <MaterialCommunityIcons
