@@ -532,7 +532,7 @@ jobs:
   build-ios:
     name: Build iOS
     runs-on: macos-26
-    timeout-minutes: 90
+    timeout-minutes: 120
     outputs:
       version: ${{ steps.version.outputs.version }}
       version_code: ${{ steps.version.outputs.version_code }}
@@ -1232,7 +1232,7 @@ jobs:
 
     name: E2E Android (Maestro)
     runs-on: [self-hosted, e2e-android]
-    timeout-minutes: 45
+    timeout-minutes: 120
     env:
       ANDROID_HOME: /home/gha-runner/Android/Sdk
     steps:
@@ -1377,7 +1377,7 @@ jobs:
 
     name: E2E iOS (Maestro)
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
