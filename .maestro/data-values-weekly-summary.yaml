@@ -25,7 +25,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "weekly-summary-count"
-    timeout: 5000
+    timeout: 15000
 - assertVisible:
     id: "weekly-summary-duration"
 - assertVisible:

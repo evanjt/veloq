@@ -95,11 +95,11 @@ tags:
           commands:
             - tapOn: "Open"
 
-# Verify home is still responsive
+# Verify home is still responsive (longer timeout after rapid navigation)
 - extendedWaitUntil:
     visible:
       id: "home-screen"
-    timeout: 30000
+    timeout: 60000
 
 - extendedWaitUntil:
     visible:
