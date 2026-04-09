@@ -1231,15 +1231,12 @@ jobs:
     needs: build-android-dev
 
     name: E2E Android (Maestro)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, e2e-android]
     timeout-minutes: 45
+    env:
+      ANDROID_HOME: /home/gha-runner/Android/Sdk
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
 
       - name: Download APK
         uses: actions/download-artifact@v4
@@ -1249,54 +1246,41 @@ jobs:
 
       - name: Install Maestro
         run: |
-          curl -Ls "https://get.maestro.mobile.dev" | bash
+          if [ ! -f "$HOME/.maestro/bin/maestro" ]; then
+            curl -Ls "https://get.maestro.mobile.dev" | bash
+          fi
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
           "$HOME/.maestro/bin/maestro" --version
 
-      - name: Enable KVM
+      - name: Boot emulator
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
+          # Kill any existing emulator
+          $ANDROID_HOME/platform-tools/adb emu kill 2>/dev/null || true
+          sleep 2
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Create and boot emulator
-        run: |
-          sdkmanager "system-images;android-35;google_apis;x86_64" "emulator"
-          echo "no" | avdmanager create avd -n test -k "system-images;android-35;google_apis;x86_64" --force
-
-          # Fix AVD path mismatch: avdmanager may store AVD in .config/.android
-          # but emulator looks in .android — symlink to ensure both paths work
-          if [ -d "$HOME/.config/.android/avd" ] && [ ! -d "$HOME/.android/avd" ]; then
-            mkdir -p "$HOME/.android"
-            ln -s "$HOME/.config/.android/avd" "$HOME/.android/avd"
-          fi
-
-          $ANDROID_HOME/emulator/emulator -avd test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save &
+          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu host -noaudio -no-boot-anim -no-snapshot-save &
           EMULATOR_PID=$!
           echo "Emulator PID: $EMULATOR_PID"
 
-          adb wait-for-device
+          $ANDROID_HOME/platform-tools/adb wait-for-device
           for i in $(seq 1 60); do
-            BOOT=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+            BOOT=$($ANDROID_HOME/platform-tools/adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
             if [ "$BOOT" = "1" ]; then echo "Boot complete after ${i}s"; break; fi
             echo "Waiting for boot... ($i/60)"
             sleep 2
           done
           sleep 5
 
-          adb shell settings put global window_animation_scale 0
-          adb shell settings put global transition_animation_scale 0
-          adb shell settings put global animator_duration_scale 0
+          $ANDROID_HOME/platform-tools/adb shell settings put global window_animation_scale 0
+          $ANDROID_HOME/platform-tools/adb shell settings put global transition_animation_scale 0
+          $ANDROID_HOME/platform-tools/adb shell settings put global animator_duration_scale 0
 
       - name: Install APK and warm up
         run: |
           APK=$(find /tmp/android-artifact -name "*.apk" | head -1)
-          adb install "$APK"
+          $ANDROID_HOME/platform-tools/adb install "$APK"
           sleep 3
-          adb logcat -c
+          $ANDROID_HOME/platform-tools/adb logcat -c
 
       - name: Determine test tier
         id: tier
@@ -1311,10 +1295,14 @@ jobs:
             --include-tags=${{ steps.tier.outputs.tags }} \
             --format junit --output maestro-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> $GITHUB_ENV
 
+      - name: Kill emulator
+        if: always()
+        run: $ANDROID_HOME/platform-tools/adb emu kill 2>/dev/null || true
+
       - name: Capture diagnostic logs
         if: always()
         run: |
-          adb logcat -d > /tmp/logcat.txt 2>&1 || true
+          $ANDROID_HOME/platform-tools/adb logcat -d > /tmp/logcat.txt 2>&1 || true
           grep -E "(FATAL|veloqrs|ReactNative|AndroidRuntime|Process:|Signal|crash|panic)" /tmp/logcat.txt > /tmp/logcat-filtered.txt 2>/dev/null || true
 
       - name: Collect screenshots
