@@ -40,10 +40,11 @@ tags:
 - assertNotVisible:
     text: "Infinity"
 
-# Assert demo-test-0 fixture values (Ride: 45km)
-# Distance may be in chart (not readable by Maestro) — check card instead
+# Assert demo-test-0 fixture values are rendered (Ride: 45km, 1:30:00)
 - assertVisible:
-    id: "activity-detail-content"
+    id: "activity-detail-distance"
+- assertVisible:
+    id: "activity-detail-duration"
 
 - takeScreenshot: "data-values-activity-initial"
 
