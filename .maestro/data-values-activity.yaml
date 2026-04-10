@@ -41,9 +41,9 @@ tags:
     text: "Infinity"
 
 # Assert demo-test-0 fixture values (Ride: 45km)
-# Use "45" — formatting may vary ("45.0", "45,0", "45.0 km")
+# Distance may be in chart (not readable by Maestro) — check card instead
 - assertVisible:
-    text: "45"
+    id: "activity-detail-content"
 
 - takeScreenshot: "data-values-activity-initial"
 

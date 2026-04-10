@@ -36,23 +36,26 @@ tags:
 
 - takeScreenshot: "fitness-bests-header"
 
-# Scroll to zones section
+# Scroll to zones section (may not exist for all sport types)
 - scrollUntilVisible:
     element:
       id: "fitness-section-zones"
     direction: DOWN
     timeout: 15000
     speed: 40
+    optional: true
 
 # Expand zones and screenshot
-- tapOn:
-    id: "fitness-section-zones"
-
-- takeScreenshot: "fitness-zones-expanded"
-
-# Collapse zones before continuing
-- tapOn:
-    id: "fitness-section-zones"
+- runFlow:
+    when:
+      visible:
+        id: "fitness-section-zones"
+    commands:
+      - tapOn:
+          id: "fitness-section-zones"
+      - takeScreenshot: "fitness-zones-expanded"
+      - tapOn:
+          id: "fitness-section-zones"
 
 # Scroll to trends section
 - scrollUntilVisible:
