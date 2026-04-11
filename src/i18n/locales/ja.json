@@ -367,7 +367,8 @@
     "show": "表示",
     "showDetails": "開発者向け詳細を表示",
     "syncing": "同期中...",
-    "undo": "元に戻す"
+    "undo": "元に戻す",
+    "agree": "Agree"
   },
   "demo": {
     "banner": "デモモード",
@@ -1414,7 +1415,9 @@
     "cache": "キャッシュ",
     "permissions": "権限",
     "geocoding": "ルートの自動命名",
-    "geocodingDescription": "OpenStreetMapを使用してGPS座標からルート名を設定します"
+    "geocodingDescription": "OpenStreetMapを使用してGPS座標からルート名を設定します",
+    "geocodingTermsTitle": "OpenStreetMap Nominatim",
+    "geocodingTermsMessage": "Route and section names are generated using OpenStreetMap Nominatim, a free geocoding service. By enabling this feature you agree to the Nominatim Usage Policy. Veloq is not affiliated with OpenStreetMap."
   },
   "stats": {
     "activities": "アクティビティ",

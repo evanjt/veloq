@@ -26,7 +26,7 @@ const DEFAULT_SETTINGS: RouteSettings = {
   enabled: true, // Enabled by default - efficient Rust implementation
   retentionDays: 0, // 0 = keep all activities forever
   autoCleanupEnabled: false, // Don't auto-delete by default
-  geocodingEnabled: true, // Geocode generic route/section names via Nominatim
+  geocodingEnabled: false, // Off by default — user must acknowledge OSM Nominatim terms
 };
 
 /**

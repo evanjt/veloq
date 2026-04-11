@@ -367,7 +367,8 @@
     "show": "Afficher",
     "showDetails": "Afficher les details pour le developpeur",
     "syncing": "Synchronisation...",
-    "undo": "Annuler"
+    "undo": "Annuler",
+    "agree": "Agree"
   },
   "demo": {
     "banner": "Mode Démo",
@@ -1414,7 +1415,9 @@
     "cache": "Cache",
     "permissions": "Autorisations",
     "geocoding": "Nommer les itinéraires automatiquement",
-    "geocodingDescription": "Utilise OpenStreetMap pour nommer les itinéraires à partir des coordonnées GPS"
+    "geocodingDescription": "Utilise OpenStreetMap pour nommer les itinéraires à partir des coordonnées GPS",
+    "geocodingTermsTitle": "OpenStreetMap Nominatim",
+    "geocodingTermsMessage": "Route and section names are generated using OpenStreetMap Nominatim, a free geocoding service. By enabling this feature you agree to the Nominatim Usage Policy. Veloq is not affiliated with OpenStreetMap."
   },
   "stats": {
     "activities": "Activités",

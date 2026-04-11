@@ -367,7 +367,8 @@
     "show": "Pokaż",
     "showDetails": "Pokaż szczegóły dla dewelopera",
     "syncing": "Synchronizowanie...",
-    "undo": "Cofnij"
+    "undo": "Cofnij",
+    "agree": "Agree"
   },
   "demo": {
     "banner": "Tryb demo",
@@ -1414,7 +1415,9 @@
     "cache": "Pamięć podręczna",
     "permissions": "Uprawnienia",
     "geocoding": "Automatyczne nazywanie tras",
-    "geocodingDescription": "Używa OpenStreetMap do nazywania tras na podstawie współrzędnych GPS"
+    "geocodingDescription": "Używa OpenStreetMap do nazywania tras na podstawie współrzędnych GPS",
+    "geocodingTermsTitle": "OpenStreetMap Nominatim",
+    "geocodingTermsMessage": "Route and section names are generated using OpenStreetMap Nominatim, a free geocoding service. By enabling this feature you agree to the Nominatim Usage Policy. Veloq is not affiliated with OpenStreetMap."
   },
   "stats": {
     "activities": "Aktywności",

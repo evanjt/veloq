@@ -92,9 +92,10 @@ export function getLastBackupTimestamp(): number | null {
  * @param force - If true, skip time-based throttling (still checks if enabled)
  */
 function shouldBackup(force = false): boolean {
-  if (!isAutoBackupEnabled()) return false;
-
+  // Manual "Backup Now" should always work regardless of auto-backup setting
   if (force) return true;
+
+  if (!isAutoBackupEnabled()) return false;
 
   const lastBackup = getLastBackupTimestamp();
   if (!lastBackup) return true; // Never backed up

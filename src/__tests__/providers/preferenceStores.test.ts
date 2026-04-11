@@ -75,7 +75,7 @@ const DEFAULT_ROUTE_SETTINGS = {
   enabled: true,
   retentionDays: 0,
   autoCleanupEnabled: false,
-  geocodingEnabled: true,
+  geocodingEnabled: false,
 };
 
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {

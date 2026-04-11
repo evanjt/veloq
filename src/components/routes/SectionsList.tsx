@@ -1009,6 +1009,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     marginTop: 2,
+    marginBottom: spacing.md,
   },
   sortChip: {
     flexDirection: 'row',

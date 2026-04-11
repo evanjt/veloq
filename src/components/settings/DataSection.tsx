@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
 import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,7 @@ import { getLastBackupTimestamp } from '@/lib/backup';
 import { useRouteSettings } from '@/providers';
 import { useTileCacheStore } from '@/providers/TileCacheStore';
 import { getTerrainPreviewCacheSize } from '@/lib/storage/terrainPreviewCache';
+import { getHeatmapTilesCacheSize } from '@/hooks/maps/useHeatmapTiles';
 import {
   requestTileCacheStats,
   onTileCacheStats,
@@ -29,11 +30,13 @@ export function DataSection() {
   // Lightweight cache size computation
   const nativeSizeEstimate = useTileCacheStore((s) => s.nativeSizeEstimate);
   const [terrainCacheSize, setTerrainCacheSize] = useState(0);
+  const [heatmapCacheSize, setHeatmapCacheSize] = useState(0);
   const [tileCacheStats, setTileCacheStats] = useState<TileCacheStats | null>(null);
   const [routesSize, setRoutesSize] = useState(0);
 
   useEffect(() => {
     getTerrainPreviewCacheSize().then(setTerrainCacheSize);
+    getHeatmapTilesCacheSize().then(setHeatmapCacheSize);
     estimateRoutesDatabaseSize().then(setRoutesSize);
   }, []);
 
@@ -44,7 +47,11 @@ export function DataSection() {
   }, []);
 
   const totalCacheSize =
-    nativeSizeEstimate + terrainCacheSize + (tileCacheStats?.totalBytes ?? 0) + routesSize;
+    nativeSizeEstimate +
+    terrainCacheSize +
+    heatmapCacheSize +
+    (tileCacheStats?.totalBytes ?? 0) +
+    routesSize;
 
   // Backup summary
   const lastBackupText = useMemo(() => {
@@ -147,7 +154,26 @@ export function DataSection() {
           </View>
           <Switch
             value={routeSettings.geocodingEnabled}
-            onValueChange={setGeocodingEnabled}
+            onValueChange={(enabled) => {
+              if (enabled) {
+                Alert.alert(
+                  t('settings.geocodingTermsTitle', 'OpenStreetMap Nominatim'),
+                  t(
+                    'settings.geocodingTermsMessage',
+                    'Route and section names are generated using OpenStreetMap Nominatim, a free geocoding service. By enabling this feature you agree to the Nominatim Usage Policy. Veloq is not affiliated with OpenStreetMap.'
+                  ),
+                  [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    {
+                      text: t('common.agree', 'Agree'),
+                      onPress: () => setGeocodingEnabled(true),
+                    },
+                  ]
+                );
+              } else {
+                setGeocodingEnabled(false);
+              }
+            }}
             color={colors.primary}
           />
         </View>

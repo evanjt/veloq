@@ -367,7 +367,8 @@
     "show": "显示",
     "showDetails": "显示开发者详情",
     "syncing": "同步中...",
-    "undo": "撤销"
+    "undo": "撤销",
+    "agree": "Agree"
   },
   "demo": {
     "banner": "演示模式",
@@ -1414,7 +1415,9 @@
     "cache": "缓存",
     "permissions": "权限",
     "geocoding": "自动命名路线",
-    "geocodingDescription": "使用OpenStreetMap根据GPS坐标命名路线"
+    "geocodingDescription": "使用OpenStreetMap根据GPS坐标命名路线",
+    "geocodingTermsTitle": "OpenStreetMap Nominatim",
+    "geocodingTermsMessage": "Route and section names are generated using OpenStreetMap Nominatim, a free geocoding service. By enabling this feature you agree to the Nominatim Usage Policy. Veloq is not affiliated with OpenStreetMap."
   },
   "stats": {
     "activities": "活动",
