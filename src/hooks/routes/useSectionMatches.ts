@@ -72,6 +72,7 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
   // Subscribe to section changes.
   // If the engine isn't available on first mount, polls until it becomes available,
   // preventing a permanent miss when the engine initializes after the effect runs.
+  // Safety timeout: after 10s, mark as subscribed to prevent infinite loading.
   useEffect(() => {
     let cancelled = false;
 
@@ -88,21 +89,29 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
       return true;
     }
 
+    // Safety timeout: if engine never becomes available, stop showing loading
+    const timeout = setTimeout(() => {
+      if (!cancelled) setSubscribed(true);
+    }, 10000);
+
     if (!trySubscribe()) {
       // Engine not ready yet — poll until it becomes available
       const interval = setInterval(() => {
         if (trySubscribe()) {
           clearInterval(interval);
+          clearTimeout(timeout);
         }
       }, 200);
 
       return () => {
         cancelled = true;
         clearInterval(interval);
+        clearTimeout(timeout);
         unsubscribeRef.current?.();
       };
     }
 
+    clearTimeout(timeout);
     return () => {
       cancelled = true;
       unsubscribeRef.current?.();
