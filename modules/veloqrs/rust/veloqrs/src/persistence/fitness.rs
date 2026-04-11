@@ -2279,8 +2279,16 @@ impl PersistentRouteEngine {
             };
 
         if activity_routes.is_empty() {
+            log::debug!(
+                "tracematch: [route_highlights] No activity_matches found for {} IDs",
+                activity_ids.len()
+            );
             return vec![];
         }
+        log::debug!(
+            "tracematch: [route_highlights] Found {} activity-route pairs",
+            activity_routes.len()
+        );
 
         // Step 2: Collect distinct route IDs
         let route_ids: Vec<String> = {
@@ -2394,7 +2402,7 @@ impl PersistentRouteEngine {
         }
 
         // Step 5: Build results for the requested activities only
-        activity_routes
+        let route_results: Vec<_> = activity_routes
             .into_iter()
             .map(|(activity_id, route_id)| {
                 let route_name = route_names
@@ -2423,7 +2431,14 @@ impl PersistentRouteEngine {
                     trend,
                 }
             })
-            .collect()
+            .collect::<Vec<_>>();
+        log::info!(
+            "tracematch: [route_highlights] Returning {} results ({} non-zero trends, {} PRs)",
+            route_results.len(),
+            route_results.iter().filter(|r| r.trend != 0).count(),
+            route_results.iter().filter(|r| r.is_pr).count(),
+        );
+        route_results
     }
 }
 

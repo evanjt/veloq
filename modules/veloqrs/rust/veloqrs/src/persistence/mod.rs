@@ -522,6 +522,28 @@ impl PersistentRouteEngine {
         self.load_processed_activity_ids()?;
         self.load_activity_metrics()?;
 
+        // Backfill activities.duration_secs from activity_metrics.moving_time.
+        // Route highlights need duration_secs to compute trends/PRs, but it was
+        // historically not populated. This ensures it's always available at startup.
+        let backfilled = self.db.execute(
+            "UPDATE activities SET duration_secs = (
+                SELECT moving_time FROM activity_metrics
+                WHERE activity_metrics.activity_id = activities.id
+            )
+            WHERE duration_secs IS NULL
+              AND EXISTS (
+                SELECT 1 FROM activity_metrics
+                WHERE activity_metrics.activity_id = activities.id
+              )",
+            [],
+        ).unwrap_or(0);
+        if backfilled > 0 {
+            log::info!(
+                "tracematch: [PersistentEngine] Backfilled duration_secs for {} activities",
+                backfilled
+            );
+        }
+
         // If activities exist but none are marked as processed (migration cleared the table),
         // mark sections as dirty so re-detection runs with the updated algorithm.
         if !self.activity_metadata.is_empty() && self.processed_activity_ids.is_empty() {

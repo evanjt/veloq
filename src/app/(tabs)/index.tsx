@@ -303,11 +303,6 @@ export default function FeedScreen() {
   if (startupData?.previewTracks) {
     previewTracksRef.current = startupData.previewTracks;
   }
-  // Stabilize highlights refs to avoid FlatList re-renders from new Map instances
-  const highlightsRef = useRef(sectionHighlightsMap);
-  highlightsRef.current = sectionHighlightsMap;
-  const routeHighlightsRef = useRef(routeHighlightsMap);
-  routeHighlightsRef.current = routeHighlightsMap;
   const renderActivity = useCallback(
     ({ item, index }: { item: Activity; index: number }) => (
       <ActivityCard
@@ -318,8 +313,8 @@ export default function FeedScreen() {
         startupTrack={previewTracksRef.current?.get(item.id)}
         snapshotReady={snapshotWebViewReady}
         colorScheme={isDark}
-        sectionHighlights={highlightsRef.current.get(item.id)}
-        routeHighlight={routeHighlightsRef.current.get(item.id)}
+        sectionHighlights={sectionHighlightsMap.get(item.id)}
+        routeHighlight={routeHighlightsMap.get(item.id)}
       />
     ),
     [isFeedFocused, snapshotWebViewReady, isDark, sectionHighlightsMap, routeHighlightsMap]
