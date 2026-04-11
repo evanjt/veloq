@@ -723,7 +723,7 @@ impl PersistentRouteEngine {
 
         // Insert activity matches
         let mut match_stmt = self.db.prepare(
-            "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction)
+            "INSERT OR IGNORE INTO activity_matches (route_id, activity_id, match_percentage, direction)
              VALUES (?, ?, ?, ?)",
         )?;
 
@@ -734,6 +734,21 @@ impl PersistentRouteEngine {
                     m.activity_id,
                     m.match_percentage,
                     m.direction.to_string(),
+                ])?;
+            }
+        }
+
+        // Ensure every group member has an activity_matches entry.
+        // The grouping algorithm sometimes produces groups with activity IDs
+        // that don't have corresponding match info (e.g., when activities are
+        // added incrementally). Fill in missing entries with a default.
+        for group in &self.groups {
+            for activity_id in &group.activity_ids {
+                match_stmt.execute(params![
+                    group.group_id,
+                    activity_id,
+                    0.0f64, // default match percentage — will be recalculated
+                    "same",
                 ])?;
             }
         }
