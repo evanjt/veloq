@@ -154,8 +154,9 @@ export async function performBackup(force = false): Promise<boolean> {
     // Update last backup timestamp
     engine.setSetting(SETTING_LAST_BACKUP, String(Date.now()));
 
-    // Enforce retention (keep last N backups)
-    await enforceRetention(backend);
+    // Retention: backups are kept indefinitely. The user manages
+    // cleanup manually via the backup settings screen. Storage is on
+    // their own server/device so automatic deletion is too risky.
 
     log.log(`Auto-backup complete: ${entry.activityCount} activities, ${entry.sizeBytes} bytes`);
     return true;
