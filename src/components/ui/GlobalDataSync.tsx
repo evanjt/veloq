@@ -212,9 +212,9 @@ export function GlobalDataSync() {
     const percent = total > 0 ? Math.round((processed / total) * 100) : 0;
     return {
       icon: 'map-legend',
-      text: t('cache.generatingHeatmap', 'Generating heatmap...') as string,
+      text: `${t('cache.generatingHeatmap', 'Generating heatmap...')} ${total > 0 ? `${percent}%` : ''}`,
       percent,
-      countText: total > 0 ? `${processed}/${total}` : null,
+      countText: null,
       indeterminate: total === 0,
     };
   }, [heatmapProgress, t]);
