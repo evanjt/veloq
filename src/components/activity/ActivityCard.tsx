@@ -566,25 +566,16 @@ export const ActivityCard = React.memo(
                     {formatRelativeDate(activity.start_date_local)}
                   </RNText>
                 </View>
-                {routeHighlight && (
+                {routeHighlight && routeHighlight.trend !== 0 && (
                   <View style={styles.routeTrendBadge}>
                     <MaterialCommunityIcons
-                      name={
-                        routeHighlight.trend === 1
-                          ? 'trending-up'
-                          : routeHighlight.trend === -1
-                            ? 'trending-down'
-                            : 'trending-neutral'
-                      }
+                      name={routeHighlight.trend === 1 ? 'trending-up' : 'trending-down'}
                       size={20}
-                      color={
-                        routeHighlight.trend === 1
-                          ? '#66BB6A'
-                          : routeHighlight.trend === -1
-                            ? '#EF5350'
-                            : 'rgba(255,255,255,0.6)'
-                      }
+                      color={routeHighlight.trend === 1 ? '#66BB6A' : '#EF5350'}
                     />
+                    {routeHighlight.isPr && (
+                      <MaterialCommunityIcons name="trophy" size={14} color="#FFD700" />
+                    )}
                   </View>
                 )}
               </View>
@@ -830,10 +821,14 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   routeTrendBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
     marginLeft: spacing.sm,
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 12,
-    padding: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
   },
   overlayName: {
     fontSize: typography.cardTitle.fontSize,
