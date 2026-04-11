@@ -172,6 +172,8 @@ export function DataSection() {
                 getRouteEngine()?.clearHeatmapTiles(legacyDir);
                 // Prevent regeneration
                 getRouteEngine()?.disableHeatmapTiles();
+                // Update displayed cache size immediately
+                setHeatmapCacheSize(0);
               }
             }}
             color={colors.primary}
