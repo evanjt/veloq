@@ -170,7 +170,16 @@ fn background_generate_tiles(db_path: &str, tiles_path: &str, all_bounds: &[Boun
     };
 
     let mut generated = 0u32;
+    let mut skipped = 0u32;
     for (z, x, y) in &tile_coords {
+        // Skip tiles that already exist — only generate new ones.
+        // Tiles are invalidated (deleted) when activities change via
+        // invalidate_tiles_for_bounds(), so existing tiles are up-to-date.
+        if tiles::tile_exists(base, *z, *x, *y) {
+            skipped += 1;
+            continue;
+        }
+
         let tb = tiles::tile_bounds(*z, *x, *y);
 
         // Query activities overlapping this tile directly from SQL
@@ -203,23 +212,20 @@ fn background_generate_tiles(db_path: &str, tiles_path: &str, all_bounds: &[Boun
             continue;
         }
 
-        // Generate and write tile (overwrites any existing file — no flicker)
         match tiles::generate_heatmap_tile(*z, *x, *y, &tracks) {
             Some(png_data) => {
                 if tiles::save_tile(base, *z, *x, *y, &png_data).is_ok() {
                     generated += 1;
                 }
             }
-            None => {
-                // No visible heatmap data for this tile — skip writing.
-                // MapLibre renders missing tiles as transparent.
-            }
+            None => {}
         }
     }
 
     info!(
-        "[heatmap] Background: generated {} tiles in {}ms",
+        "[heatmap] Background: generated {} tiles, skipped {} existing, in {}ms",
         generated,
+        skipped,
         start.elapsed().as_millis()
     );
     generated

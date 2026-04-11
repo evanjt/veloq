@@ -11,7 +11,7 @@ import { useCallback } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 
-const HEATMAP_DIR = `${FileSystem.documentDirectory}heatmap-tiles/`;
+const HEATMAP_DIR = `${FileSystem.cacheDirectory}heatmap-tiles/`;
 
 /** file:// URL template for MapLibre RasterSource */
 export const HEATMAP_TILE_URL_TEMPLATE = `${HEATMAP_DIR}{z}/{x}/{y}.png`;
