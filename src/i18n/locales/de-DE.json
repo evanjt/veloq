@@ -131,7 +131,9 @@
       "setCount_one": "{{count}} Satz",
       "setCount_other": "{{count}} Sätze",
       "repsCount": "{{count}} Wdh."
-    }
+    },
+    "sectionPr": "PR",
+    "sectionCount": "{{count}} sections"
   },
   "activityDetail": {
     "avgHR": "Ø HF",
@@ -596,7 +598,8 @@
       "ftpEstimationName": "Functional Threshold Power Schätzung",
       "thresholdSpeedName": "Schwellengeschwindigkeit-Trendanalyse",
       "thresholdSpeedDescription": "Vergleicht deine neueste Schwellengeschwindigkeit mit vorherigen Werten und formatiert die Änderung als lesbares Tempo.",
-      "fitnessPrName": "Fitness-PR-Kreuzreferenz"
+      "fitnessPrName": "Fitness-PR-Kreuzreferenz",
+      "sectionTrendName": "Section performance trend"
     },
     "alternatives": {
       "selected": "Aktuelle Bewertung",
@@ -633,7 +636,8 @@
       "fourWeekAvgTss": "4-Wochen-Durchschnitt",
       "hrChange": "HF-Änderung",
       "efforts": "Versuche",
-      "trendSlope": "Trendsteigung"
+      "trendSlope": "Trendsteigung",
+      "recentMedian": "Recent median"
     },
     "hrvTrend": {
       "trendingUp": "Erholung verbessert sich",
@@ -755,7 +759,9 @@
     "viewInDetail": "Im Detail ansehen",
     "routesDisabled": "Routen aus",
     "routesDisabledLine1": "Routen & Abschnitte deaktiviert",
-    "routesDisabledLine2": "Tippen zum Aktivieren"
+    "routesDisabledLine2": "Tippen zum Aktivieren",
+    "sectionDeclining": "{{name}} slowing down",
+    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
   },
   "licenses": {
     "footer": "Tippe auf ein Lizenz-Badge um den vollständigen Lizenztext anzuzeigen. Tippe auf das Link-Symbol um das Projekt-Repository zu besuchen.",
@@ -808,7 +814,9 @@
   "mapScreen": {
     "loadingActivities": "Lade Aktivitäten...",
     "loadingOlderActivities": "Lade ältere Aktivitäten...",
-    "syncing": "Synchronisiere: {{completed}}/{{total}}"
+    "syncing": "Synchronisiere: {{completed}}/{{total}}",
+    "activities": "activities",
+    "expandRange": "Expand range"
   },
   "maps": {
     "activitiesCount": "{{count}} Aktivitäten",

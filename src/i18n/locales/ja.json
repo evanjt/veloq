@@ -131,7 +131,9 @@
       "setCount_one": "{{count}}セット",
       "setCount_other": "{{count}}セット",
       "repsCount": "{{count}}レップ"
-    }
+    },
+    "sectionPr": "PR",
+    "sectionCount": "{{count}} sections"
   },
   "activityDetail": {
     "avgHR": "平均心拍",
@@ -596,7 +598,8 @@
       "ftpEstimationName": "FTP（機能的閾値パワー）推定",
       "thresholdSpeedName": "閾値速度トレンド分析",
       "thresholdSpeedDescription": "最新の閾値速度推定値を以前の値と比較し、変化をペースとして表示します。",
-      "fitnessPrName": "フィットネス-PRクロスリファレンス"
+      "fitnessPrName": "フィットネス-PRクロスリファレンス",
+      "sectionTrendName": "Section performance trend"
     },
     "alternatives": {
       "selected": "現在の評価",
@@ -633,7 +636,8 @@
       "fourWeekAvgTss": "4週間平均",
       "hrChange": "心拍数変化",
       "efforts": "回数",
-      "trendSlope": "トレンド傾き"
+      "trendSlope": "トレンド傾き",
+      "recentMedian": "Recent median"
     },
     "hrvTrend": {
       "trendingUp": "回復が改善中",
@@ -755,7 +759,9 @@
     "viewInDetail": "詳細を見る",
     "routesDisabled": "ルート無効",
     "routesDisabledLine1": "ルートとセクションが無効です",
-    "routesDisabledLine2": "タップして有効にする"
+    "routesDisabledLine2": "タップして有効にする",
+    "sectionDeclining": "{{name}} slowing down",
+    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
   },
   "licenses": {
     "footer": "ライセンスバッジをタップすると、完全なライセンステキストが表示されます。リンクアイコンをタップすると、プロジェクトリポジトリにアクセスできます。",
@@ -808,7 +814,9 @@
   "mapScreen": {
     "loadingActivities": "アクティビティを読み込み中...",
     "loadingOlderActivities": "過去のアクティビティを読み込み中...",
-    "syncing": "同期中: {{completed}}/{{total}}"
+    "syncing": "同期中: {{completed}}/{{total}}",
+    "activities": "activities",
+    "expandRange": "Expand range"
   },
   "maps": {
     "activitiesCount": "{{count}}件のアクティビティ",

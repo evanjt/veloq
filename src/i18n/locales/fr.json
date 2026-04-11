@@ -131,7 +131,9 @@
       "setCount_one": "{{count}} série",
       "setCount_other": "{{count}} séries",
       "repsCount": "{{count}} reps"
-    }
+    },
+    "sectionPr": "PR",
+    "sectionCount": "{{count}} sections"
   },
   "activityDetail": {
     "avgHR": "FC Moy",
@@ -596,7 +598,8 @@
       "ftpEstimationName": "Estimation de la puissance au seuil fonctionnel",
       "thresholdSpeedName": "Analyse de tendance de la vitesse seuil",
       "thresholdSpeedDescription": "Compare votre dernière estimation de vitesse seuil aux valeurs précédentes, puis formate le changement en allure lisible pour l'affichage.",
-      "fitnessPrName": "Croisement forme-PR"
+      "fitnessPrName": "Croisement forme-PR",
+      "sectionTrendName": "Section performance trend"
     },
     "alternatives": {
       "selected": "Évaluation actuelle",
@@ -633,7 +636,8 @@
       "fourWeekAvgTss": "Moyenne sur 4 semaines",
       "hrChange": "Variation FC",
       "efforts": "Efforts",
-      "trendSlope": "Pente de tendance"
+      "trendSlope": "Pente de tendance",
+      "recentMedian": "Recent median"
     },
     "hrvTrend": {
       "trendingUp": "Récupération en hausse",
@@ -755,7 +759,9 @@
     "viewInDetail": "Voir en détail",
     "routesDisabled": "Parcours désactivés",
     "routesDisabledLine1": "Parcours et sections désactivés",
-    "routesDisabledLine2": "Appuyez pour activer"
+    "routesDisabledLine2": "Appuyez pour activer",
+    "sectionDeclining": "{{name}} slowing down",
+    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
   },
   "licenses": {
     "footer": "Appuyez sur un badge de licence pour voir le texte complet. Appuyez sur l'icône de lien pour visiter le dépôt du projet.",
@@ -808,7 +814,9 @@
   "mapScreen": {
     "loadingActivities": "Chargement des activités...",
     "loadingOlderActivities": "Chargement des activités plus anciennes...",
-    "syncing": "Synchronisation : {{completed}}/{{total}}"
+    "syncing": "Synchronisation : {{completed}}/{{total}}",
+    "activities": "activities",
+    "expandRange": "Expand range"
   },
   "maps": {
     "activitiesCount": "{{count}} activités",

@@ -1,5 +1,6 @@
 export type InsightCategory =
   | 'section_pr'
+  | 'section_trend'
   | 'stale_pr'
   | 'fitness_milestone'
   | 'period_comparison'

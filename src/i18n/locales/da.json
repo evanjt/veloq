@@ -131,7 +131,9 @@
       "setCount_one": "{{count}} sæt",
       "setCount_other": "{{count}} sæt",
       "repsCount": "{{count}} reps"
-    }
+    },
+    "sectionPr": "PR",
+    "sectionCount": "{{count}} sections"
   },
   "activityDetail": {
     "avgHR": "Gns puls",
@@ -596,7 +598,8 @@
       "ftpEstimationName": "Funktionel tærskeleffekt-estimering",
       "thresholdSpeedName": "Analyse af tærskelhastighedstendens",
       "thresholdSpeedDescription": "Sammenligner dit seneste tærskelhastighedsestimat med tidligere værdier og formaterer ændringen som atletlæsbart tempo.",
-      "fitnessPrName": "Fitness-PR krydsreference"
+      "fitnessPrName": "Fitness-PR krydsreference",
+      "sectionTrendName": "Section performance trend"
     },
     "alternatives": {
       "selected": "Nuværende vurdering",
@@ -633,7 +636,8 @@
       "fourWeekAvgTss": "4-ugers gennemsnit",
       "hrChange": "HR-ændring",
       "efforts": "Bestræbelser",
-      "trendSlope": "Tendenshældning"
+      "trendSlope": "Tendenshældning",
+      "recentMedian": "Recent median"
     },
     "hrvTrend": {
       "trendingUp": "Restitution forbedres",
@@ -755,7 +759,9 @@
     "viewInDetail": "Se i detaljer",
     "routesDisabled": "Ruter fra",
     "routesDisabledLine1": "Ruter og sektioner deaktiveret",
-    "routesDisabledLine2": "Tryk for at aktivere"
+    "routesDisabledLine2": "Tryk for at aktivere",
+    "sectionDeclining": "{{name}} slowing down",
+    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
   },
   "licenses": {
     "footer": "Tryk på et licensmærke for at se den fulde licenstekst. Tryk på linkikonet for at besøge projektets repository.",
@@ -808,7 +814,9 @@
   "mapScreen": {
     "loadingActivities": "Indlæser aktiviteter...",
     "loadingOlderActivities": "Indlæser ældre aktiviteter...",
-    "syncing": "Synkroniserer: {{completed}}/{{total}}"
+    "syncing": "Synkroniserer: {{completed}}/{{total}}",
+    "activities": "activities",
+    "expandRange": "Expand range"
   },
   "maps": {
     "activitiesCount": "{{count}} aktiviteter",

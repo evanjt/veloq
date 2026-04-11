@@ -131,7 +131,9 @@
       "setCount_one": "{{count}} serie",
       "setCount_other": "{{count}} serie",
       "repsCount": "{{count}} ripetizioni"
-    }
+    },
+    "sectionPr": "PR",
+    "sectionCount": "{{count}} sections"
   },
   "activityDetail": {
     "avgHR": "FC media",
@@ -596,7 +598,8 @@
       "ftpEstimationName": "Stima della Soglia di Potenza Funzionale",
       "thresholdSpeedName": "Analisi tendenza velocità soglia",
       "thresholdSpeedDescription": "Confronta la tua ultima stima di velocità soglia con i valori precedenti, poi formatta la variazione come passo leggibile per l'atleta.",
-      "fitnessPrName": "Incrocio forma-PR"
+      "fitnessPrName": "Incrocio forma-PR",
+      "sectionTrendName": "Section performance trend"
     },
     "alternatives": {
       "selected": "Valutazione attuale",
@@ -633,7 +636,8 @@
       "fourWeekAvgTss": "Media di 4 settimane",
       "hrChange": "Variazione FC",
       "efforts": "Sforzi",
-      "trendSlope": "Pendenza tendenza"
+      "trendSlope": "Pendenza tendenza",
+      "recentMedian": "Recent median"
     },
     "hrvTrend": {
       "trendingUp": "Recupero in miglioramento",
@@ -755,7 +759,9 @@
     "viewInDetail": "Vedi nel dettaglio",
     "routesDisabled": "Percorsi disattivati",
     "routesDisabledLine1": "Percorsi e sezioni disabilitati",
-    "routesDisabledLine2": "Tocca per attivare"
+    "routesDisabledLine2": "Tocca per attivare",
+    "sectionDeclining": "{{name}} slowing down",
+    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
   },
   "licenses": {
     "footer": "Tocca qualsiasi badge di licenza per vedere il testo completo. Tocca l'icona del link per visitare il repository del progetto.",
@@ -808,7 +814,9 @@
   "mapScreen": {
     "loadingActivities": "Caricamento attività...",
     "loadingOlderActivities": "Caricamento attività precedenti...",
-    "syncing": "Sincronizzazione: {{completed}}/{{total}}"
+    "syncing": "Sincronizzazione: {{completed}}/{{total}}",
+    "activities": "activities",
+    "expandRange": "Expand range"
   },
   "maps": {
     "activitiesCount": "{{count}} attività",

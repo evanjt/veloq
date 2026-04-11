@@ -131,7 +131,9 @@
       "setCount_one": "{{count}} Satz",
       "setCount_other": "{{count}} Sätz",
       "repsCount": "{{count}} Widerholige"
-    }
+    },
+    "sectionPr": "PR",
+    "sectionCount": "{{count}} sections"
   },
   "activityDetail": {
     "avgHR": "Ø Puls",
@@ -597,7 +599,8 @@
       "ftpEstimationName": "FTP-Schätzig",
       "thresholdSpeedName": "Schwelletempo-Trendanalyse",
       "thresholdSpeedDescription": "Vergliicht dini letschti Schwelletempo-Schätzig mit früheri Wert und zeigts als lesbars Tempo aa.",
-      "fitnessPrName": "Fitness-PR Chrüüzreferänz"
+      "fitnessPrName": "Fitness-PR Chrüüzreferänz",
+      "sectionTrendName": "Section performance trend"
     },
     "alternatives": {
       "selected": "Aktuelli Iiischätzig",
@@ -634,7 +637,8 @@
       "fourWeekAvgTss": "4-Wuche-Schnitt",
       "hrChange": "HF-Änderig",
       "efforts": "Versüech",
-      "trendSlope": "Trendsteiging"
+      "trendSlope": "Trendsteiging",
+      "recentMedian": "Recent median"
     },
     "hrvTrend": {
       "trendingUp": "Erholig am besser wärde",
@@ -755,7 +759,9 @@
     "viewInDetail": "Im Detail luege",
     "routesDisabled": "Route us",
     "routesDisabledLine1": "Route & Abschnitt deaktiviert",
-    "routesDisabledLine2": "Tipp zum Aktiviere"
+    "routesDisabledLine2": "Tipp zum Aktiviere",
+    "sectionDeclining": "{{name}} slowing down",
+    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
   },
   "licenses": {
     "footer": "Tipp uf es Lizenz-Badge um de voll Text z gseh. Tipp ufs Link-Symbol um s Projekt-Repository z bsueche.",
@@ -808,7 +814,9 @@
   "mapScreen": {
     "loadingActivities": "Am Lade...",
     "loadingOlderActivities": "Elteri Aktivitäte lade...",
-    "syncing": "Sync: {{completed}}/{{total}}"
+    "syncing": "Sync: {{completed}}/{{total}}",
+    "activities": "activities",
+    "expandRange": "Expand range"
   },
   "maps": {
     "activitiesCount": "{{count}} Aktivitäte",

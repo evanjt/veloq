@@ -131,7 +131,9 @@
       "setCount_one": "{{count}} serie",
       "setCount_other": "{{count}} series",
       "repsCount": "{{count}} repeticiones"
-    }
+    },
+    "sectionPr": "PR",
+    "sectionCount": "{{count}} sections"
   },
   "activityDetail": {
     "avgHR": "FC Prom",
@@ -596,7 +598,8 @@
       "ftpEstimationName": "Estimación de potencia umbral funcional",
       "thresholdSpeedName": "Análisis de tendencia de velocidad umbral",
       "thresholdSpeedDescription": "Compara tu estimación de velocidad umbral más reciente con valores anteriores, y formatea el cambio como ritmo legible para el atleta.",
-      "fitnessPrName": "Referencia cruzada condición física-PR"
+      "fitnessPrName": "Referencia cruzada condición física-PR",
+      "sectionTrendName": "Section performance trend"
     },
     "alternatives": {
       "selected": "Evaluación actual",
@@ -633,7 +636,8 @@
       "fourWeekAvgTss": "Promedio de 4 semanas",
       "hrChange": "Cambio FC",
       "efforts": "Esfuerzos",
-      "trendSlope": "Pendiente de tendencia"
+      "trendSlope": "Pendiente de tendencia",
+      "recentMedian": "Recent median"
     },
     "hrvTrend": {
       "trendingUp": "Recuperación mejorando",
@@ -755,7 +759,9 @@
     "viewInDetail": "Ver en detalle",
     "routesDisabled": "Rutas desactivadas",
     "routesDisabledLine1": "Rutas y secciones desactivadas",
-    "routesDisabledLine2": "Toca para activar"
+    "routesDisabledLine2": "Toca para activar",
+    "sectionDeclining": "{{name}} slowing down",
+    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
   },
   "licenses": {
     "footer": "Toca cualquier insignia de licencia para ver el texto completo. Toca el icono de enlace para visitar el repositorio del proyecto.",
@@ -808,7 +814,9 @@
   "mapScreen": {
     "loadingActivities": "Cargando actividades...",
     "loadingOlderActivities": "Cargando actividades anteriores...",
-    "syncing": "Sincronizando: {{completed}}/{{total}}"
+    "syncing": "Sincronizando: {{completed}}/{{total}}",
+    "activities": "activities",
+    "expandRange": "Expand range"
   },
   "maps": {
     "activitiesCount": "{{count}} actividades",

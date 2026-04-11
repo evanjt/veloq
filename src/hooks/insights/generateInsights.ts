@@ -159,6 +159,9 @@ function scoreInsight(insight: Insight): number {
     case 'period_comparison':
       categoryBonus = 5; // Informational but less actionable
       break;
+    case 'section_trend':
+      categoryBonus = 7; // Progress tracking on familiar routes
+      break;
     case 'strength_balance':
       categoryBonus = 6; // Corrective action possible
       break;
@@ -305,6 +308,9 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   // Priority 2: Stale PR / Opportunity Detection
   // Cross-references fitness trends against section PRs to find beatable records
   addStalePRInsights(insights, data, now, t);
+
+  // Priority 2-3: Section Trends (improving/declining on familiar sections)
+  addSectionTrendInsights(insights, data, now, t);
 
   // Priority 1: Aerobic Efficiency Trends
   addEfficiencyTrendInsights(insights, data, now, t);
@@ -858,6 +864,107 @@ function addStalePRInsights(
         },
       })
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Priority 2-3: Section Trends (improving/declining on familiar sections)
+// ---------------------------------------------------------------------------
+
+const MAX_SECTION_TREND_INSIGHTS = 2;
+const MIN_TREND_TRAVERSALS = 3;
+
+function addSectionTrendInsights(
+  insights: Insight[],
+  data: InsightInputData,
+  now: number,
+  t: TFunc
+): void {
+  const trends = data.sectionTrends;
+  if (!trends || trends.length === 0) return;
+
+  // Only sections with enough traversals for a meaningful trend
+  const eligible = trends.filter((s) => s.traversalCount >= MIN_TREND_TRAVERSALS && s.trend !== 0);
+  if (eligible.length === 0) return;
+
+  // Improving first (trend=1), then declining (trend=-1)
+  // Within each group, sort by: latestIsPr first, then traversalCount descending
+  const sorted = [...eligible].sort((a, b) => {
+    if (b.trend !== a.trend) return b.trend - a.trend; // improving before declining
+    if (a.latestIsPr !== b.latestIsPr) return a.latestIsPr ? -1 : 1;
+    return b.traversalCount - a.traversalCount;
+  });
+
+  let added = 0;
+  for (const section of sorted) {
+    if (added >= MAX_SECTION_TREND_INSIGHTS) break;
+
+    // Skip sections that already have a PR or stale-PR insight
+    if (insights.some((i) => i.id.includes(section.sectionId))) continue;
+
+    const isImproving = section.trend === 1;
+    const priority = isImproving && section.latestIsPr ? 2 : 3;
+
+    insights.push(
+      makeInsight({
+        id: `section_trend-${section.sectionId}`,
+        category: 'section_trend',
+        priority: priority as 2 | 3,
+        icon: isImproving ? 'trending-up' : 'trending-down',
+        iconColor: isImproving ? '#66BB6A' : '#FFA726',
+        title: isImproving
+          ? t('insights.sectionImproving', { name: section.sectionName })
+          : t('insights.sectionDeclining', { name: section.sectionName }),
+        body: isImproving
+          ? t('insights.sectionImprovingBody', {
+              median: formatDuration(section.medianRecentSecs),
+              best: formatDuration(section.bestTimeSecs),
+              count: section.traversalCount,
+            })
+          : t('insights.sectionDecliningBody', {
+              median: formatDuration(section.medianRecentSecs),
+              best: formatDuration(section.bestTimeSecs),
+              count: section.traversalCount,
+            }),
+        navigationTarget: `/section/${section.sectionId}`,
+        timestamp: now,
+        confidence: Math.min(1, section.traversalCount / 10),
+        supportingData: {
+          sections: [
+            {
+              sectionId: section.sectionId,
+              sectionName: section.sectionName,
+              bestTime: section.bestTimeSecs,
+              trend: section.trend,
+              traversalCount: section.traversalCount,
+              sportType: section.sportType,
+              hasRecentPR: section.latestIsPr,
+              daysSinceLast: section.daysSinceLast,
+            },
+          ],
+          dataPoints: [
+            {
+              label: t('insights.data.recentMedian'),
+              value: formatDuration(section.medianRecentSecs),
+            },
+            {
+              label: t('insights.data.bestTime'),
+              value: formatDuration(section.bestTimeSecs),
+              context: 'good' as const,
+            },
+            {
+              label: t('insights.data.efforts'),
+              value: section.traversalCount,
+            },
+          ],
+        },
+        methodology: {
+          name: t('insights.methodology.sectionTrendName'),
+          description: t('insights.methodology.sectionTrend'),
+        },
+      })
+    );
+    added += 1;
   }
 }
 

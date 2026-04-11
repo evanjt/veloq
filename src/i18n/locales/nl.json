@@ -131,7 +131,9 @@
       "setCount_one": "{{count}} set",
       "setCount_other": "{{count}} sets",
       "repsCount": "{{count}} reps"
-    }
+    },
+    "sectionPr": "PR",
+    "sectionCount": "{{count}} sections"
   },
   "activityDetail": {
     "avgHR": "Gem. HF",
@@ -596,7 +598,8 @@
       "ftpEstimationName": "Functioneel drempelvermogen-schatting",
       "thresholdSpeedName": "Drempelsnelheid-trendanalyse",
       "thresholdSpeedDescription": "Vergelijkt je laatste drempelsnelheid-schatting met eerdere waarden en zet het verschil om naar leesbaar tempo.",
-      "fitnessPrName": "Fitness-PR kruisverwijzing"
+      "fitnessPrName": "Fitness-PR kruisverwijzing",
+      "sectionTrendName": "Section performance trend"
     },
     "alternatives": {
       "selected": "Huidige beoordeling",
@@ -633,7 +636,8 @@
       "fourWeekAvgTss": "4-weken-gemiddelde",
       "hrChange": "HF-verandering",
       "efforts": "Pogingen",
-      "trendSlope": "Trendhelling"
+      "trendSlope": "Trendhelling",
+      "recentMedian": "Recent median"
     },
     "hrvTrend": {
       "trendingUp": "Herstel verbetert",
@@ -755,7 +759,9 @@
     "viewInDetail": "Bekijk in detail",
     "routesDisabled": "Routes uit",
     "routesDisabledLine1": "Routes & secties uitgeschakeld",
-    "routesDisabledLine2": "Tik om in te schakelen"
+    "routesDisabledLine2": "Tik om in te schakelen",
+    "sectionDeclining": "{{name}} slowing down",
+    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
   },
   "licenses": {
     "footer": "Tik op een licentiebadge om de volledige licentietekst te bekijken. Tik op het linkpictogram om de projectrepository te bezoeken.",
@@ -808,7 +814,9 @@
   "mapScreen": {
     "loadingActivities": "Activiteiten laden...",
     "loadingOlderActivities": "Oudere activiteiten laden...",
-    "syncing": "Synchroniseren: {{completed}}/{{total}}"
+    "syncing": "Synchroniseren: {{completed}}/{{total}}",
+    "activities": "activities",
+    "expandRange": "Expand range"
   },
   "maps": {
     "activitiesCount": "{{count}} activiteiten",

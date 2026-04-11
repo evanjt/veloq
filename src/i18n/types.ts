@@ -491,6 +491,8 @@ export interface TranslationResource {
     calories: string;
     tss: string;
     pwr: string;
+    sectionPr: string;
+    sectionCount: string;
     cal: string;
     temp: string;
     noHeartRateData: string;

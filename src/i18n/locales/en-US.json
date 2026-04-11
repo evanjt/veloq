@@ -57,6 +57,8 @@
     "ofMax": "of max",
     "power": "Power",
     "pwr": "PWR",
+    "sectionPr": "PR",
+    "sectionCount": "{{count}} sections",
     "resetToDefault": "Reset to Default",
     "share": "Share",
     "speed": "Speed",
@@ -553,6 +555,8 @@
     "sectionTrendSummaryBody": "Improving: {{names}}. {{stable}} stable.",
     "sectionImproving": "{{name}} getting faster",
     "sectionImprovingBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts.",
+    "sectionDeclining": "{{name}} slowing down",
+    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts.",
     "ftpIncrease": "Cycling power: {{current}}W (+{{change}}W)",
     "paceImproved": "Pace improved {{delta}}",
     "weeklyVolumeUp": "+{{percent}}% weekly volume",
@@ -613,6 +617,7 @@
       "prDetection": "Compares your latest section time against all previous efforts to detect personal records.",
       "prDetectionName": "Personal record detection",
       "sectionTrend": "Tracks median performance on frequently visited sections over time.",
+      "sectionTrendName": "Section performance trend",
       "periodComparison": "Compares training metrics between consecutive weeks to track progression.",
       "periodComparisonName": "Period comparison",
       "periodComparisonRestDay": "Compares last week against your 4-week average when the current week has no activities yet.",
@@ -657,7 +662,8 @@
       "fourWeekAvgTss": "4-week average",
       "hrChange": "HR change",
       "efforts": "Efforts",
-      "trendSlope": "Trend slope"
+      "trendSlope": "Trend slope",
+      "recentMedian": "Recent median"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -848,6 +854,8 @@
     "useApiKey": "Use API Key instead"
   },
   "mapScreen": {
+    "activities": "activities",
+    "expandRange": "Expand range",
     "loadingActivities": "Loading activities...",
     "loadingOlderActivities": "Loading older activities...",
     "syncing": "Syncing: {{completed}}/{{total}}"

@@ -131,7 +131,9 @@
       "setCount_one": "{{count}} 组",
       "setCount_other": "{{count}} 组",
       "repsCount": "{{count}} 次"
-    }
+    },
+    "sectionPr": "PR",
+    "sectionCount": "{{count}} sections"
   },
   "activityDetail": {
     "avgHR": "平均心率",
@@ -596,7 +598,8 @@
       "ftpEstimationName": "功能阈值功率估算",
       "thresholdSpeedName": "阈值速度趋势分析",
       "thresholdSpeedDescription": "将最新的阈值速度估算与之前的值进行比较，然后将变化格式化为运动员可读的配速显示。",
-      "fitnessPrName": "体能-PR 交叉参考"
+      "fitnessPrName": "体能-PR 交叉参考",
+      "sectionTrendName": "Section performance trend"
     },
     "alternatives": {
       "selected": "当前评估",
@@ -633,7 +636,8 @@
       "fourWeekAvgTss": "4周平均",
       "hrChange": "心率变化",
       "efforts": "次数",
-      "trendSlope": "趋势斜率"
+      "trendSlope": "趋势斜率",
+      "recentMedian": "Recent median"
     },
     "hrvTrend": {
       "trendingUp": "恢复改善中",
@@ -755,7 +759,9 @@
     "viewInDetail": "查看详情",
     "routesDisabled": "路线已关闭",
     "routesDisabledLine1": "路线和路段已禁用",
-    "routesDisabledLine2": "点击启用"
+    "routesDisabledLine2": "点击启用",
+    "sectionDeclining": "{{name}} slowing down",
+    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
   },
   "licenses": {
     "footer": "点击任何许可证徽章查看完整许可证文本。点击链接图标访问项目仓库。",
@@ -808,7 +814,9 @@
   "mapScreen": {
     "loadingActivities": "加载活动中...",
     "loadingOlderActivities": "加载更早的活动...",
-    "syncing": "同步中: {{completed}}/{{total}}"
+    "syncing": "同步中: {{completed}}/{{total}}",
+    "activities": "activities",
+    "expandRange": "Expand range"
   },
   "maps": {
     "activitiesCount": "{{count}} 个活动",
