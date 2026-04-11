@@ -610,7 +610,7 @@ export const ActivityCard = React.memo(
                   <View style={styles.trendBadge}>
                     {sectionHighlights.filter((h) => h.trend === 1).length > 0 && (
                       <View style={styles.trendItem}>
-                        <MaterialCommunityIcons name="arrow-up-bold" size={12} color="#66BB6A" />
+                        <MaterialCommunityIcons name="trending-up" size={14} color="#66BB6A" />
                         <RNText style={[styles.trendCount, { color: '#66BB6A' }]}>
                           {sectionHighlights.filter((h) => h.trend === 1).length}
                         </RNText>
@@ -618,7 +618,7 @@ export const ActivityCard = React.memo(
                     )}
                     {sectionHighlights.filter((h) => h.trend === -1).length > 0 && (
                       <View style={styles.trendItem}>
-                        <MaterialCommunityIcons name="arrow-down-bold" size={12} color="#FFA726" />
+                        <MaterialCommunityIcons name="trending-down" size={14} color="#FFA726" />
                         <RNText style={[styles.trendCount, { color: '#FFA726' }]}>
                           {sectionHighlights.filter((h) => h.trend === -1).length}
                         </RNText>
