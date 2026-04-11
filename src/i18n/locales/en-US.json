@@ -330,7 +330,8 @@
     "syncedDemoActivities": "Synced {{count}} demo activities",
     "downloadingGpsProgress": "Downloading GPS data... {{completed}}/{{total}}",
     "noValidGpsChecked": "No valid GPS data found (checked {{count}} activities)",
-    "syncingActivities": "Syncing activities"
+    "syncingActivities": "Syncing activities",
+    "fetchingActivities": "Fetching activities..."
   },
   "chartTypes": {
     "alt": "Alt",

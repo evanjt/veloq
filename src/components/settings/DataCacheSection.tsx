@@ -56,6 +56,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
+  const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
   const resetSyncDateRange = useSyncDateRange((s) => s.reset);
 
@@ -284,6 +285,8 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
           endDate={cachedEndDate}
           onRangeChange={handleRangeChange}
           isSyncing={isSyncing}
+          isFetchingExtended={isFetchingExtended}
+          syncProgress={gpsSyncProgress}
           activityCount={cacheStats.totalActivities}
           routeMatchingEnabled={routeSettings.enabled}
           isRouteProcessing={isRouteProcessing}

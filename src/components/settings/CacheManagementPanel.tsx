@@ -5,6 +5,14 @@ import { useTranslation } from 'react-i18next';
 import { TimelineSlider } from '@/components/maps';
 import { colors, darkColors, spacing } from '@/theme';
 
+interface SyncProgress {
+  status: string;
+  completed: number;
+  total: number;
+  percent: number;
+  message: string;
+}
+
 export interface CacheManagementPanelProps {
   isDark: boolean;
   isDemoMode: boolean;
@@ -15,6 +23,8 @@ export interface CacheManagementPanelProps {
   endDate: Date;
   onRangeChange: (start: Date, end: Date) => void;
   isSyncing: boolean;
+  isFetchingExtended: boolean;
+  syncProgress: SyncProgress;
   activityCount: number;
   /** Route processing */
   routeMatchingEnabled: boolean;
@@ -33,6 +43,8 @@ export function CacheManagementPanel({
   endDate,
   onRangeChange,
   isSyncing,
+  isFetchingExtended,
+  syncProgress,
   activityCount,
   routeMatchingEnabled,
   isRouteProcessing,
@@ -64,6 +76,24 @@ export function CacheManagementPanel({
         fixedEnd={true}
         expandOnly={true}
       />
+
+      {/* Sync progress — shown during GPS download and route analysis */}
+      {(isSyncing || isFetchingExtended) && (
+        <View style={[styles.progressRow, isDark && styles.progressRowDark]}>
+          <View style={styles.progressBarTrack}>
+            <View
+              style={[styles.progressBarFill, { width: `${Math.max(syncProgress.percent, 2)}%` }]}
+            />
+          </View>
+          <Text style={[styles.progressText, isDark && styles.progressTextDark]}>
+            {syncProgress.message ||
+              (isFetchingExtended
+                ? t('cache.fetchingActivities', 'Fetching activities...')
+                : t('common.loading'))}
+            {syncProgress.total > 0 && ` (${syncProgress.completed}/${syncProgress.total})`}
+          </Text>
+        </View>
+      )}
 
       <View style={[styles.divider, isDark && styles.dividerDark]} />
 
@@ -135,6 +165,33 @@ const styles = StyleSheet.create({
   },
   actionTextDanger: {
     color: colors.error,
+  },
+  progressRow: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: 'rgba(252, 76, 2, 0.06)',
+  },
+  progressRowDark: {
+    backgroundColor: 'rgba(252, 76, 2, 0.1)',
+  },
+  progressBarTrack: {
+    height: 4,
+    backgroundColor: colors.border,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  progressTextDark: {
+    color: darkColors.textSecondary,
   },
   divider: {
     height: 1,
