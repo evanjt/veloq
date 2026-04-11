@@ -57,12 +57,7 @@ import {
 } from '@/lib';
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import {
-  SECTION_TIME_RANGES,
-  DEFAULT_BUCKET_TYPE,
-  type SectionTimeRange,
-  type BucketType,
-} from '@/constants';
+import { SECTION_TIME_RANGES, type SectionTimeRange } from '@/constants';
 import type {
   Activity,
   ActivityType,
@@ -116,7 +111,6 @@ export default function SectionDetailScreen() {
 
   // Time range for chart data (passed to useSectionChartData)
   const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>('1y');
-  const [bucketType, setBucketType] = useState<BucketType>('monthly');
 
   // State for section renaming
   const [isEditing, setIsEditing] = useState(false);
@@ -562,7 +556,6 @@ export default function SectionDetailScreen() {
     sectionActivitiesUnsorted: filteredActivities,
     sectionWithTraces: null,
     sectionTimeRange,
-    bucketType,
   });
 
   // Build chart data points for excluded activities (shown dimmed on scatter chart)
@@ -885,9 +878,7 @@ export default function SectionDetailScreen() {
               <SegmentedButtons
                 value={sectionTimeRange}
                 onValueChange={(value) => {
-                  const range = value as SectionTimeRange;
-                  setSectionTimeRange(range);
-                  setBucketType(DEFAULT_BUCKET_TYPE[range]);
+                  setSectionTimeRange(value as SectionTimeRange);
                 }}
                 buttons={SECTION_TIME_RANGES.map((r) => ({
                   value: r.id,

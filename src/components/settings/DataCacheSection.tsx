@@ -230,15 +230,8 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             // The expansion lock prevents any expandRange() calls from re-expanding
             resetSyncDateRange();
 
-            // 3. CRITICAL: Yield to allow React to re-render GlobalDataSync with new date range
-            // Without this, removeQueries() triggers refetch before GlobalDataSync has the new
-            // 90-day syncOldest/syncNewest values, causing it to fetch the old extended range.
-            await new Promise((resolve) => setTimeout(resolve, 0));
-
-            // 4. Clear GPS/bounds cache and route cache BEFORE removing queries
-            // This ensures the engine is empty before any new queries start
-            // Note: clearCache() already calls engine.clear(), so don't call route clearCache
-            // as that would emit a second 'syncReset' event and trigger duplicate syncs
+            // 3. Clear GPS/bounds cache and route cache
+            // clearCache() calls engine.clear() which deletes all SQLite data
             await clearCache();
             await clearTerrainPreviews();
             await TileCacheService.clearAllPacks();
@@ -247,25 +240,21 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             setTerrainCacheSize(0);
             setHeatmapCacheSize(0);
             setTileCacheStats(null);
-
-            // 5. Remove all cached query data
-            // Now GlobalDataSync has the new 90-day range, so any refetch uses correct dates
-            queryClient.removeQueries({ queryKey: ['activities'] });
-            queryClient.removeQueries({ queryKey: ['activities-infinite'] });
-            queryClient.removeQueries({ queryKey: ['wellness'] });
-            queryClient.removeQueries({ queryKey: ['powerCurve'] });
-            queryClient.removeQueries({ queryKey: ['paceCurve'] });
-            queryClient.removeQueries({ queryKey: ['athlete'] });
             await AsyncStorage.removeItem('veloq-query-cache');
 
-            // 6. Invalidate ALL queries to trigger fresh fetches
-            queryClient.invalidateQueries({ queryKey: ['activities'] });
-            queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
-            queryClient.invalidateQueries({ queryKey: ['wellness'] });
-            queryClient.invalidateQueries({ queryKey: ['powerCurve'] });
-            queryClient.invalidateQueries({ queryKey: ['paceCurve'] });
-            queryClient.invalidateQueries({ queryKey: ['athlete'] });
-            queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
+            // 4. Yield to let GlobalDataSync re-render with new 90-day date range
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
+            // 5. Reset all queries — clears data AND preserves observers to trigger refetch.
+            // DO NOT use removeQueries + invalidateQueries — removeQueries destroys
+            // observers, so invalidateQueries has nothing to trigger.
+            queryClient.resetQueries({ queryKey: ['activities'] });
+            queryClient.resetQueries({ queryKey: ['activities-infinite'] });
+            queryClient.resetQueries({ queryKey: ['wellness'] });
+            queryClient.resetQueries({ queryKey: ['powerCurve'] });
+            queryClient.resetQueries({ queryKey: ['paceCurve'] });
+            queryClient.resetQueries({ queryKey: ['athlete'] });
+            queryClient.resetQueries({ queryKey: ['athlete-summary'] });
 
             // Refresh cache sizes
             refreshCacheSizes();

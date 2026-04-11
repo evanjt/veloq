@@ -9,10 +9,10 @@ import {
   type ChartSummaryStats,
   type DirectionSummaryStats,
 } from '@/components/routes/performance';
-import { RANGE_DAYS, BUCKET_THRESHOLD } from '@/constants';
+import { RANGE_DAYS } from '@/constants';
 import type { Activity, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
 import type { SectionPerformanceRecord } from './useSectionPerformances';
-import type { SectionTimeRange, BucketType } from '@/constants';
+import type { SectionTimeRange } from '@/constants';
 
 interface SectionWithTraces {
   activityTraces?: Record<string, RoutePoint[]>;
@@ -24,7 +24,6 @@ interface UseSectionChartDataParams {
   sectionActivitiesUnsorted: Activity[];
   sectionWithTraces: (FrequentSection & SectionWithTraces) | null;
   sectionTimeRange: SectionTimeRange;
-  bucketType: BucketType;
 }
 
 interface BucketEntry {
@@ -97,7 +96,6 @@ export function useSectionChartData({
   sectionActivitiesUnsorted,
   sectionWithTraces,
   sectionTimeRange,
-  bucketType,
 }: UseSectionChartDataParams): UseSectionChartDataResult {
   // Map of activity portions for direction lookup
   const portionMap = useMemo(() => {
@@ -105,14 +103,14 @@ export function useSectionChartData({
     return new Map(section.activityPortions.map((p: { activityId: string }) => [p.activityId, p]));
   }, [section?.activityPortions]);
 
-  // Determine if this section has enough traversals to use bucketed chart
-  const activityCount = section?.activityIds?.length ?? 0;
-  const useBucketedChart = activityCount >= BUCKET_THRESHOLD;
+  // Bucketing removed — only scatter chart is used
+  const useBucketedChart = false;
 
   // Client-side bucketing function
   const bucketResult = useMemo((): BucketResult | null => {
     if (!useBucketedChart || !performanceRecords || performanceRecords.length === 0) return null;
 
+    const bucketType: string = 'monthly'; // Dead code — bucketing disabled
     const t0 = performance.now();
     const rangeDays = RANGE_DAYS[sectionTimeRange];
     const now = Date.now() / 1000; // Unix timestamp in seconds
@@ -251,7 +249,7 @@ export function useSectionChartData({
       forwardStats: fwdStats,
       reverseStats: revStats,
     };
-  }, [useBucketedChart, performanceRecords, sectionTimeRange, bucketType]);
+  }, [useBucketedChart, performanceRecords, sectionTimeRange]);
 
   // Build chart data from buckets (for sections with many traversals)
   const { bucketChartData, bucketMinSpeed, bucketMaxSpeed, bucketBestIndex, bucketHasReverseRuns } =
