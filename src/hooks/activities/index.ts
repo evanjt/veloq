@@ -14,7 +14,10 @@ export { useSectionTimeStreams } from './useSectionTimeStreams';
 export { useExerciseSets, useMuscleGroups } from './useExerciseSets';
 export { useMuscleDetail } from './useMuscleDetail';
 export { useActivitySectionHighlights } from './useActivitySectionHighlights';
-export type { ActivitySectionHighlight } from './useActivitySectionHighlights';
+export type {
+  ActivitySectionHighlight,
+  ActivityRouteHighlight,
+} from './useActivitySectionHighlights';
 export {
   useStrengthVolume,
   useHasStrengthData,

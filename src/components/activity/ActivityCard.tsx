@@ -59,6 +59,12 @@ interface ActivityCardProps {
     isPr: boolean;
     trend: number; // -1=slower, 0=neutral, 1=faster vs preceding avg
   }>;
+  /** Route highlight for this activity (trend, PR) */
+  routeHighlight?: {
+    routeName: string;
+    isPr: boolean;
+    trend: number; // -1=slower, 0=neutral, 1=faster
+  };
 }
 
 // White text theme (used on any dark/satellite map, or dark theme + light map)
@@ -124,6 +130,7 @@ export const ActivityCard = React.memo(
     startupTrack,
     snapshotReady,
     sectionHighlights,
+    routeHighlight,
   }: ActivityCardProps) {
     // Log actual function body execution (not useEffect which is deferred)
     if (__DEV__ && (index ?? 0) < 3) {
@@ -547,6 +554,14 @@ export const ActivityCard = React.memo(
                     {formatRelativeDate(activity.start_date_local)}
                   </RNText>
                 </View>
+                {routeHighlight && routeHighlight.trend !== 0 && (
+                  <MaterialCommunityIcons
+                    name={routeHighlight.trend === 1 ? 'trending-up' : 'trending-down'}
+                    size={22}
+                    color={routeHighlight.trend === 1 ? '#66BB6A' : '#FFA726'}
+                    style={styles.routeTrendIcon}
+                  />
+                )}
               </View>
             </LinearGradient>
 
@@ -757,6 +772,9 @@ const styles = StyleSheet.create({
   },
   overlayTitleColumn: {
     flex: 1,
+    marginLeft: spacing.sm,
+  },
+  routeTrendIcon: {
     marginLeft: spacing.sm,
   },
   overlayName: {

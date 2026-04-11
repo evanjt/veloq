@@ -240,7 +240,8 @@ export default function FeedScreen() {
     () => filteredActivities.map((a: Activity) => a.id),
     [filteredActivities]
   );
-  const sectionHighlightsMap = useActivitySectionHighlights(highlightIds);
+  const { sections: sectionHighlightsMap, routes: routeHighlightsMap } =
+    useActivitySectionHighlights(highlightIds);
 
   // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
   const handleRefresh = useCallback(async () => {
@@ -302,9 +303,11 @@ export default function FeedScreen() {
   if (startupData?.previewTracks) {
     previewTracksRef.current = startupData.previewTracks;
   }
-  // Stabilize highlights ref to avoid FlatList re-renders from new Map instances
+  // Stabilize highlights refs to avoid FlatList re-renders from new Map instances
   const highlightsRef = useRef(sectionHighlightsMap);
   highlightsRef.current = sectionHighlightsMap;
+  const routeHighlightsRef = useRef(routeHighlightsMap);
+  routeHighlightsRef.current = routeHighlightsMap;
   const renderActivity = useCallback(
     ({ item, index }: { item: Activity; index: number }) => (
       <ActivityCard
@@ -316,9 +319,10 @@ export default function FeedScreen() {
         snapshotReady={snapshotWebViewReady}
         colorScheme={isDark}
         sectionHighlights={highlightsRef.current.get(item.id)}
+        routeHighlight={routeHighlightsRef.current.get(item.id)}
       />
     ),
-    [isFeedFocused, snapshotWebViewReady, isDark, sectionHighlightsMap]
+    [isFeedFocused, snapshotWebViewReady, isDark, sectionHighlightsMap, routeHighlightsMap]
   );
 
   const navigateToSettings = useCallback(() => {

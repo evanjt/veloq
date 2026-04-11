@@ -1,12 +1,12 @@
 /**
- * Batch-fetches section highlights (PRs, section counts) for a list of activity IDs.
- * Used by the feed to show section indicators on activity cards.
+ * Batch-fetches section and route highlights for a list of activity IDs.
+ * Used by the feed to show trend indicators and PR badges on activity cards.
  *
- * Performance: single batch SQL query (~5ms for 30 activities) via Rust FFI.
- * Gates on isRouteMatchingEnabled() — returns empty map when disabled.
+ * Performance: batch SQL queries (~5-10ms for 30 activities) via Rust FFI.
+ * Gates on isRouteMatchingEnabled() — returns empty maps when disabled.
  */
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
@@ -19,29 +19,39 @@ export interface ActivitySectionHighlight {
   trend: number; // -1=slower, 0=neutral, 1=faster vs preceding avg
 }
 
+export interface ActivityRouteHighlight {
+  routeId: string;
+  routeName: string;
+  isPr: boolean;
+  trend: number; // -1=slower, 0=neutral, 1=faster vs preceding avg
+}
+
 /**
- * Returns a map of activity ID → section highlights for a batch of activities.
+ * Returns maps of activity ID → section/route highlights for a batch of activities.
  * Re-queries when section data changes (engine subscription).
  */
-export function useActivitySectionHighlights(
-  activityIds: string[]
-): Map<string, ActivitySectionHighlight[]> {
-  // Subscribe to section changes so we re-query when detection completes
-  const trigger = useEngineSubscription(['sections']);
+export function useActivitySectionHighlights(activityIds: string[]): {
+  sections: Map<string, ActivitySectionHighlight[]>;
+  routes: Map<string, ActivityRouteHighlight>;
+} {
+  const trigger = useEngineSubscription(['sections', 'groups']);
 
   return useMemo(() => {
-    if (!isRouteMatchingEnabled() || activityIds.length === 0) {
-      return new Map<string, ActivitySectionHighlight[]>();
-    }
+    const empty = {
+      sections: new Map<string, ActivitySectionHighlight[]>(),
+      routes: new Map<string, ActivityRouteHighlight>(),
+    };
+
+    if (!isRouteMatchingEnabled() || activityIds.length === 0) return empty;
 
     const engine = getRouteEngine();
-    if (!engine) return new Map<string, ActivitySectionHighlight[]>();
+    if (!engine) return empty;
 
     try {
-      const raw = engine.getActivitySectionHighlights(activityIds);
-      const map = new Map<string, ActivitySectionHighlight[]>();
-
-      for (const h of raw) {
+      // Section highlights
+      const rawSections = engine.getActivitySectionHighlights(activityIds);
+      const sectionMap = new Map<string, ActivitySectionHighlight[]>();
+      for (const h of rawSections) {
         const entry: ActivitySectionHighlight = {
           sectionId: h.sectionId,
           sectionName: h.sectionName,
@@ -49,17 +59,33 @@ export function useActivitySectionHighlights(
           isPr: h.isPr,
           trend: h.trend ?? 0,
         };
-        const existing = map.get(h.activityId);
+        const existing = sectionMap.get(h.activityId);
         if (existing) {
           existing.push(entry);
         } else {
-          map.set(h.activityId, [entry]);
+          sectionMap.set(h.activityId, [entry]);
         }
       }
 
-      return map;
+      // Route highlights
+      const routeMap = new Map<string, ActivityRouteHighlight>();
+      try {
+        const rawRoutes = engine.getActivityRouteHighlights(activityIds);
+        for (const r of rawRoutes) {
+          routeMap.set(r.activityId, {
+            routeId: r.routeId,
+            routeName: r.routeName,
+            isPr: r.isPr,
+            trend: r.trend ?? 0,
+          });
+        }
+      } catch {
+        // Route highlights may not be available yet
+      }
+
+      return { sections: sectionMap, routes: routeMap };
     } catch {
-      return new Map<string, ActivitySectionHighlight[]>();
+      return empty;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityIds.join(','), trigger]);
