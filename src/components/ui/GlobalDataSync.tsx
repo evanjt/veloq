@@ -44,7 +44,7 @@ export function GlobalDataSync() {
 
   // Startup alignment: invalidate activities on mount to force a fresh API fetch.
   useEffect(() => {
-    if (isAuthenticated && routeSettings.enabled) {
+    if (isAuthenticated) {
       queryClient.invalidateQueries({ queryKey: ['activities'] });
       if (isInfiniteActivitiesStale(queryClient)) {
         queryClient.resetQueries({ queryKey: ['activities-infinite'] });
@@ -101,8 +101,10 @@ export function GlobalDataSync() {
     setFetchingExtended(isFetching);
   }, [isFetching, setFetchingExtended]);
 
-  // Use the route data sync hook to automatically sync GPS data
-  const { progress, isSyncing } = useRouteDataSync(activities, routeSettings.enabled);
+  // Use the route data sync hook to automatically sync GPS data.
+  // Always enabled — GPS tracks are needed for heatmap even when route matching is off.
+  // Section detection is gated separately in useGpsDataFetcher.
+  const { progress, isSyncing } = useRouteDataSync(activities, true);
 
   // Invalidate caches when sync completes so data refreshes
   useEffect(() => {
