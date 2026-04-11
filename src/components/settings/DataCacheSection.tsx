@@ -245,6 +245,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             emitClearTileCache();
             getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
             setTerrainCacheSize(0);
+            setHeatmapCacheSize(0);
             setTileCacheStats(null);
 
             // 5. Remove all cached query data
@@ -257,12 +258,14 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             queryClient.removeQueries({ queryKey: ['athlete'] });
             await AsyncStorage.removeItem('veloq-query-cache');
 
-            // 6. Invalidate remaining queries to trigger fresh fetches
+            // 6. Invalidate ALL queries to trigger fresh fetches
+            queryClient.invalidateQueries({ queryKey: ['activities'] });
+            queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
             queryClient.invalidateQueries({ queryKey: ['wellness'] });
             queryClient.invalidateQueries({ queryKey: ['powerCurve'] });
             queryClient.invalidateQueries({ queryKey: ['paceCurve'] });
             queryClient.invalidateQueries({ queryKey: ['athlete'] });
-            // Activities will be auto-fetched by GlobalDataSync with new 90-day range
+            queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
 
             // Refresh cache sizes
             refreshCacheSizes();
