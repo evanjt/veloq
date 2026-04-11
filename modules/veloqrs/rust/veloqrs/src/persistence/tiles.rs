@@ -87,13 +87,27 @@ impl PersistentRouteEngine {
             .collect();
 
         let (tx, rx) = mpsc::channel();
+        let generated_counter = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let total_counter = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let gen_clone = generated_counter.clone();
+        let total_clone = total_counter.clone();
 
         std::thread::spawn(move || {
-            let generated = background_generate_tiles(&db_path, &tiles_path, &all_bounds);
+            let generated = background_generate_tiles(
+                &db_path,
+                &tiles_path,
+                &all_bounds,
+                &gen_clone,
+                &total_clone,
+            );
             tx.send(generated).ok();
         });
 
-        Some(TileGenerationHandle { receiver: rx })
+        Some(TileGenerationHandle {
+            receiver: rx,
+            generated: generated_counter,
+            total: total_counter,
+        })
     }
 
     /// Disable heatmap tile generation by clearing the tiles path.
@@ -130,7 +144,13 @@ impl PersistentRouteEngine {
 
 /// Generate heatmap tiles on a background thread.
 /// Opens its own SQLite connection — does NOT touch PERSISTENT_ENGINE.
-fn background_generate_tiles(db_path: &str, tiles_path: &str, all_bounds: &[Bounds]) -> u32 {
+fn background_generate_tiles(
+    db_path: &str,
+    tiles_path: &str,
+    all_bounds: &[Bounds],
+    generated_counter: &std::sync::atomic::AtomicU32,
+    total_counter: &std::sync::atomic::AtomicU32,
+) -> u32 {
     let start = std::time::Instant::now();
     let base = Path::new(tiles_path);
     let config = tiles::HeatmapConfig::default();
@@ -159,6 +179,8 @@ fn background_generate_tiles(db_path: &str, tiles_path: &str, all_bounds: &[Boun
         return 0;
     }
 
+    total_counter.store(tile_coords.len() as u32, std::sync::atomic::Ordering::SeqCst);
+
     info!(
         "[heatmap] Background: generating {} tiles for {} activities z{}-{}",
         tile_coords.len(),
@@ -178,12 +200,15 @@ fn background_generate_tiles(db_path: &str, tiles_path: &str, all_bounds: &[Boun
 
     let mut generated = 0u32;
     let mut skipped = 0u32;
+    let mut processed = 0u32;
     for (z, x, y) in &tile_coords {
         // Skip tiles that already exist — only generate new ones.
         // Tiles are invalidated (deleted) when activities change via
         // invalidate_tiles_for_bounds(), so existing tiles are up-to-date.
         if tiles::tile_exists(base, *z, *x, *y) {
             skipped += 1;
+            processed += 1;
+            generated_counter.store(processed, std::sync::atomic::Ordering::SeqCst);
             continue;
         }
 
@@ -227,6 +252,8 @@ fn background_generate_tiles(db_path: &str, tiles_path: &str, all_bounds: &[Boun
             }
             None => {}
         }
+        processed += 1;
+        generated_counter.store(processed, std::sync::atomic::Ordering::SeqCst);
     }
 
     info!(

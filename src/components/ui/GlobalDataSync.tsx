@@ -160,16 +160,28 @@ export function GlobalDataSync() {
   const terrainSnapshotProgress = useSyncDateRange((s) => s.terrainSnapshotProgress);
 
   // Poll heatmap tile generation status (runs on Rust background thread)
-  const [heatmapGenerating, setHeatmapGenerating] = useState(false);
+  const [heatmapProgress, setHeatmapProgress] = useState<{
+    running: boolean;
+    processed: number;
+    total: number;
+  }>({ running: false, processed: 0, total: 0 });
   useEffect(() => {
     const interval = setInterval(() => {
       const engine = getRouteEngine();
       if (!engine) return;
       try {
         const status = engine.pollTileGeneration();
-        setHeatmapGenerating(status === 'running');
+        if (status === 'running') {
+          // Get progress counts from Rust
+          const progress = engine.getHeatmapTileProgress?.();
+          const processed = progress?.[0] ?? 0;
+          const total = progress?.[1] ?? 0;
+          setHeatmapProgress({ running: true, processed, total });
+        } else {
+          setHeatmapProgress({ running: false, processed: 0, total: 0 });
+        }
       } catch {
-        setHeatmapGenerating(false);
+        setHeatmapProgress({ running: false, processed: 0, total: 0 });
       }
     }, 500);
     return () => clearInterval(interval);
@@ -195,15 +207,17 @@ export function GlobalDataSync() {
 
   // Heatmap tile generation display info
   const heatmapDisplayInfo = useMemo((): SyncDisplayInfo | null => {
-    if (!heatmapGenerating) return null;
+    if (!heatmapProgress.running) return null;
+    const { processed, total } = heatmapProgress;
+    const percent = total > 0 ? Math.round((processed / total) * 100) : 0;
     return {
       icon: 'map-legend',
       text: t('cache.generatingHeatmap', 'Generating heatmap...') as string,
-      percent: 0,
-      countText: null,
-      indeterminate: true,
+      percent,
+      countText: total > 0 ? `${processed}/${total}` : null,
+      indeterminate: total === 0,
     };
-  }, [heatmapGenerating, t]);
+  }, [heatmapProgress, t]);
 
   // Pick which info to show — GPS sync > bounds sync > terrain > heatmap
   const displayInfo =

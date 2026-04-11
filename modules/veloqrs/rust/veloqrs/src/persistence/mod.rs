@@ -311,15 +311,27 @@ impl SectionDetectionHandle {
     }
 }
 
-/// Handle for background heatmap tile generation.
+/// Handle for background heatmap tile generation with progress tracking.
 pub struct TileGenerationHandle {
     receiver: mpsc::Receiver<u32>,
+    /// Number of tiles generated so far (updated atomically by background thread)
+    pub generated: Arc<AtomicU32>,
+    /// Total tiles to process
+    pub total: Arc<AtomicU32>,
 }
 
 impl TileGenerationHandle {
     /// Check if generation is complete (non-blocking). Returns tiles generated count.
     pub fn try_recv(&self) -> Option<u32> {
         self.receiver.try_recv().ok()
+    }
+
+    /// Get current progress: (generated, total)
+    pub fn get_progress(&self) -> (u32, u32) {
+        (
+            self.generated.load(Ordering::SeqCst),
+            self.total.load(Ordering::SeqCst),
+        )
     }
 }
 

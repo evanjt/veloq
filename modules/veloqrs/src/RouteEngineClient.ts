@@ -864,6 +864,16 @@ class RouteEngineClient {
     );
   }
 
+  /** Get heatmap tile generation progress: [processed, total] */
+  getHeatmapTileProgress(): number[] | null {
+    if (!this.ready) return null;
+    try {
+      return this.engine.heatmap().getProgress();
+    } catch {
+      return null;
+    }
+  }
+
   /** Poll tile generation status: 'idle' | 'running' | 'complete' */
   pollTileGeneration(): string {
     if (!this.ready) return 'idle';

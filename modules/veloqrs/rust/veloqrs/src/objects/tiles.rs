@@ -76,4 +76,19 @@ impl HeatmapManager {
             None => Ok("running".to_string()),
         }
     }
+
+    /// Get tile generation progress: (processed, total). Returns (0, 0) if idle.
+    fn get_progress(&self) -> Result<Vec<u32>, VeloqError> {
+        let handle_guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
+            .lock()
+            .map_err(|_| VeloqError::LockFailed)?;
+
+        match handle_guard.as_ref() {
+            Some(handle) => {
+                let (processed, total) = handle.get_progress();
+                Ok(vec![processed, total])
+            }
+            None => Ok(vec![0, 0]),
+        }
+    }
 }
