@@ -567,24 +567,25 @@ export const ActivityCard = React.memo(
                   </RNText>
                 </View>
                 {routeHighlight && (
-                  <MaterialCommunityIcons
-                    name={
-                      routeHighlight.trend === 1
-                        ? 'trending-up'
-                        : routeHighlight.trend === -1
-                          ? 'trending-down'
-                          : 'trending-neutral'
-                    }
-                    size={22}
-                    color={
-                      routeHighlight.trend === 1
-                        ? '#66BB6A'
-                        : routeHighlight.trend === -1
-                          ? '#EF5350'
-                          : theme.textMuted
-                    }
-                    style={styles.routeTrendIcon}
-                  />
+                  <View style={styles.routeTrendBadge}>
+                    <MaterialCommunityIcons
+                      name={
+                        routeHighlight.trend === 1
+                          ? 'trending-up'
+                          : routeHighlight.trend === -1
+                            ? 'trending-down'
+                            : 'trending-neutral'
+                      }
+                      size={20}
+                      color={
+                        routeHighlight.trend === 1
+                          ? '#66BB6A'
+                          : routeHighlight.trend === -1
+                            ? '#EF5350'
+                            : 'rgba(255,255,255,0.6)'
+                      }
+                    />
+                  </View>
                 )}
               </View>
             </LinearGradient>
@@ -828,8 +829,11 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.sm,
   },
-  routeTrendIcon: {
+  routeTrendBadge: {
     marginLeft: spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    padding: 3,
   },
   overlayName: {
     fontSize: typography.cardTitle.fontSize,
