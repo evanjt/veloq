@@ -1953,10 +1953,10 @@ impl PersistentRouteEngine {
         }
 
         // Step 1: Query section matches for the requested activities.
-        // Track whether lap_time is real or estimated — trends only use real times.
+        // Include direction so we compute trend/PR per (section, direction) pair.
         let placeholders: String = activity_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let sql = format!(
-            "SELECT sa.activity_id, sa.section_id,
+            "SELECT sa.activity_id, sa.section_id, sa.direction,
                     COALESCE(sa.lap_time,
                              CASE WHEN a.distance_meters > 0 AND sa.distance_meters > 0
                                   THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
@@ -1985,15 +1985,15 @@ impl PersistentRouteEngine {
             .map(|id| id as &dyn rusqlite::types::ToSql)
             .collect();
 
-        // (activity_id, section_id, effective_time, has_real_time)
-        let rows: Vec<(String, String, f64, bool)> = match stmt.query_map(params.as_slice(), |row| {
-            let time: Option<f64> = row.get(2)?;
-            let real: i32 = row.get(3)?;
-            Ok((row.get(0)?, row.get(1)?, time.unwrap_or(0.0), real != 0))
+        // (activity_id, section_id, direction, effective_time, has_real_time)
+        let rows: Vec<(String, String, String, f64, bool)> = match stmt.query_map(params.as_slice(), |row| {
+            let time: Option<f64> = row.get(3)?;
+            let real: i32 = row.get(4)?;
+            Ok((row.get(0)?, row.get(1)?, row.get::<_, String>(2)?, time.unwrap_or(0.0), real != 0))
         }) {
             Ok(mapped) => mapped
                 .filter_map(|r| r.ok())
-                .filter(|(_, _, t, _)| *t > 0.0)
+                .filter(|(_, _, _, t, _)| *t > 0.0)
                 .collect(),
             Err(e) => {
                 log::warn!("tracematch: [highlights] query failed: {}", e);
@@ -2005,26 +2005,26 @@ impl PersistentRouteEngine {
             return vec![];
         }
 
-        // Track which (activity, section) pairs have real vs estimated times
-        let mut has_real_time_map: HashMap<(String, String), bool> = HashMap::new();
-        for (aid, sid, _, real) in &rows {
-            has_real_time_map.insert((aid.clone(), sid.clone()), *real);
+        // Track which (activity, section, direction) triples have real vs estimated times
+        let mut has_real_time_map: HashMap<(String, String, String), bool> = HashMap::new();
+        for (aid, sid, dir, _, real) in &rows {
+            has_real_time_map.insert((aid.clone(), sid.clone(), dir.clone()), *real);
         }
 
         // Step 2: Collect distinct section IDs from the results
         let section_ids: Vec<String> = {
             let mut set = std::collections::HashSet::new();
-            for (_, sid, _, _) in &rows {
+            for (_, sid, _, _, _) in &rows {
                 set.insert(sid.clone());
             }
             set.into_iter().collect()
         };
 
-        // Step 3: Batch-query global best times per section (using same COALESCE fallback)
+        // Step 3: Batch-query global best times per (section, direction)
         let sec_placeholders: String =
             section_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let best_sql = format!(
-            "SELECT sa.section_id, MIN(
+            "SELECT sa.section_id, sa.direction, MIN(
                     COALESCE(sa.lap_time,
                              CASE WHEN a.distance_meters > 0 AND sa.distance_meters > 0
                                   THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
@@ -2033,7 +2033,7 @@ impl PersistentRouteEngine {
              JOIN activities a ON sa.activity_id = a.id
              WHERE sa.section_id IN ({})
                AND sa.excluded = 0
-             GROUP BY sa.section_id",
+             GROUP BY sa.section_id, sa.direction",
             sec_placeholders
         );
 
@@ -2050,18 +2050,19 @@ impl PersistentRouteEngine {
             .map(|id| id as &dyn rusqlite::types::ToSql)
             .collect();
 
-        let mut best_times: HashMap<String, f64> = HashMap::new();
+        // Key: (section_id, direction)
+        let mut best_times: HashMap<(String, String), f64> = HashMap::new();
         if let Ok(mapped) = best_stmt.query_map(best_params.as_slice(), |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?))
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, f64>(2)?))
         }) {
             for r in mapped.flatten() {
-                best_times.insert(r.0, r.1);
+                best_times.insert((r.0, r.1), r.2);
             }
         }
 
-        // Step 3b: Batch-query all effective times per section ordered by date for trend computation
+        // Step 3b: Batch-query all effective times per (section, direction) ordered by date
         let trend_sql = format!(
-            "SELECT sa.section_id, sa.activity_id,
+            "SELECT sa.section_id, sa.direction, sa.activity_id,
                     COALESCE(sa.lap_time,
                              CASE WHEN a.distance_meters > 0 AND sa.distance_meters > 0
                                   THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
@@ -2070,11 +2071,12 @@ impl PersistentRouteEngine {
              JOIN activities a ON sa.activity_id = a.id
              WHERE sa.section_id IN ({})
                AND sa.excluded = 0
-             ORDER BY sa.section_id, a.start_date ASC",
+             ORDER BY sa.section_id, sa.direction, a.start_date ASC",
             sec_placeholders
         );
 
-        let mut trend_map: HashMap<(String, String), i8> = HashMap::new();
+        // Key: (activity_id, section_id, direction)
+        let mut trend_map: HashMap<(String, String, String), i8> = HashMap::new();
         if let Ok(mut trend_stmt) = self.db.prepare(&trend_sql) {
             let trend_params: Vec<&dyn rusqlite::types::ToSql> = section_ids
                 .iter()
@@ -2082,25 +2084,27 @@ impl PersistentRouteEngine {
                 .collect();
 
             if let Ok(mapped) = trend_stmt.query_map(trend_params.as_slice(), |row| {
-                let time: Option<f64> = row.get(2)?;
+                let time: Option<f64> = row.get(3)?;
                 Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(0)?, // section_id
+                    row.get::<_, String>(1)?, // direction
+                    row.get::<_, String>(2)?, // activity_id
                     time.unwrap_or(0.0),
                 ))
             }) {
-                let mut current_section = String::new();
+                let mut current_key = String::new();
                 let mut running_sum: f64 = 0.0;
                 let mut count: u32 = 0;
 
                 for r in mapped.flatten() {
-                    let (sid, aid, lt) = r;
+                    let (sid, dir, aid, lt) = r;
                     if lt <= 0.0 {
                         continue;
                     }
-                    // Reset running average when switching sections
-                    if sid != current_section {
-                        current_section = sid.clone();
+                    // Reset running average when switching (section, direction)
+                    let key = format!("{}:{}", sid, dir);
+                    if key != current_key {
+                        current_key = key;
                         running_sum = 0.0;
                         count = 0;
                     }
@@ -2118,7 +2122,7 @@ impl PersistentRouteEngine {
                         }
                     };
 
-                    trend_map.insert((aid, sid), trend);
+                    trend_map.insert((aid, sid, dir), trend);
                     running_sum += lt;
                     count += 1;
                 }
@@ -2158,44 +2162,58 @@ impl PersistentRouteEngine {
             }
         }
 
-        // Step 5: Build result, comparing each lap_time against global best.
-        // Trends are suppressed (set to 0) when using estimated times — estimates
-        // from activity_duration × distance_ratio are too inaccurate for trend signals.
-        rows.into_iter()
-            .map(|(activity_id, section_id, lap_time, _has_real)| {
-                let is_pr = best_times
-                    .get(&section_id)
-                    .map(|&best| (lap_time - best).abs() < 0.001)
-                    .unwrap_or(false);
+        // Step 5: Build result per (activity, section) pair.
+        // When an activity traverses a section in both directions, pick the best result:
+        // PR > improving > neutral > declining. This gives one highlight per section per activity.
+        // Direction-aware: trend and PR are computed against same-direction history only.
+        let mut highlight_map: HashMap<(String, String), crate::FfiActivitySectionHighlight> = HashMap::new();
 
-                let section_name = section_names
-                    .get(&section_id)
-                    .cloned()
-                    .unwrap_or_default();
+        for (activity_id, section_id, direction, lap_time, _has_real) in rows {
+            let is_pr = best_times
+                .get(&(section_id.clone(), direction.clone()))
+                .map(|&best| (lap_time - best).abs() < 0.001)
+                .unwrap_or(false);
 
-                // Only show trend when we have real lap_time data
-                let has_real = has_real_time_map
-                    .get(&(activity_id.clone(), section_id.clone()))
+            let section_name = section_names
+                .get(&section_id)
+                .cloned()
+                .unwrap_or_default();
+
+            let has_real = has_real_time_map
+                .get(&(activity_id.clone(), section_id.clone(), direction.clone()))
+                .copied()
+                .unwrap_or(false);
+            let trend = if has_real {
+                trend_map
+                    .get(&(activity_id.clone(), section_id.clone(), direction.clone()))
                     .copied()
-                    .unwrap_or(false);
-                let trend = if has_real {
-                    trend_map
-                        .get(&(activity_id.clone(), section_id.clone()))
-                        .copied()
-                        .unwrap_or(0)
-                } else {
-                    0 // suppress trend for estimated times
-                };
+                    .unwrap_or(0)
+            } else {
+                0
+            };
 
-                crate::FfiActivitySectionHighlight {
-                    activity_id,
-                    section_id,
-                    section_name,
-                    lap_time,
-                    is_pr,
-                    trend,
-                }
-            })
+            let key = (activity_id.clone(), section_id.clone());
+            let entry = highlight_map.entry(key).or_insert(crate::FfiActivitySectionHighlight {
+                activity_id: activity_id.clone(),
+                section_id: section_id.clone(),
+                section_name: section_name.clone(),
+                lap_time,
+                is_pr,
+                trend,
+            });
+
+            // If this direction has a better result (PR or better trend), replace
+            if is_pr && !entry.is_pr {
+                entry.is_pr = true;
+                entry.trend = trend;
+                entry.lap_time = lap_time;
+            } else if trend > entry.trend && !entry.is_pr {
+                entry.trend = trend;
+                entry.lap_time = lap_time;
+            }
+        }
+
+        highlight_map.into_values().collect()
             .collect()
     }
 
