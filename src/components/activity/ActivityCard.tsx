@@ -657,7 +657,7 @@ export const ActivityCard = React.memo(
                           )}
                           {prCount > 0 && (
                             <View style={styles.trendItem}>
-                              <MaterialCommunityIcons name="trophy" size={15} color="#FFD700" />
+                              <MaterialCommunityIcons name="trophy" size={14} color="#FFD700" />
                               <RNText style={[styles.trendCount, { color: '#FFD700' }]}>
                                 {prCount}
                               </RNText>
@@ -863,8 +863,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   trendCount: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
+    letterSpacing: -0.3,
   },
   primaryStats: {
     flexDirection: 'row',
