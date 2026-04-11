@@ -226,33 +226,28 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             // 1. Cancel any in-flight queries
             await queryClient.cancelQueries();
 
-            // 2. Clear all caches (engine, tiles, filesystem)
+            // 2. Reset sync date range to 90 days FIRST (changes query keys)
+            resetSyncDateRange();
+
+            // 3. Clear all caches (engine, tiles, filesystem)
             await clearCache();
             await clearTerrainPreviews();
             await TileCacheService.clearAllPacks();
             emitClearTileCache();
-            const plainTilesPath = HEATMAP_TILES_DIR.startsWith('file://')
-              ? HEATMAP_TILES_DIR.slice(7)
-              : HEATMAP_TILES_DIR;
-            getRouteEngine()?.clearHeatmapTiles(plainTilesPath);
+            getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
             setTerrainCacheSize(0);
             setHeatmapCacheSize(0);
             setTileCacheStats(null);
             await AsyncStorage.removeItem('veloq-query-cache');
 
-            // 3. Clear ALL query data from TanStack cache
-            queryClient.clear();
-
-            // 4. Reset sync date range to 90 days and lock expansion
-            resetSyncDateRange();
-
-            // 5. Yield to let GlobalDataSync re-render with new date range
+            // 4. Yield to let GlobalDataSync re-render with new 90-day date range
             await new Promise((resolve) => setTimeout(resolve, 200));
 
-            // 6. Invalidate all queries to force fresh fetches.
-            // GlobalDataSync has new 90-day dates and creates new query keys.
-            // Invalidating marks them stale so they refetch immediately.
-            queryClient.invalidateQueries();
+            // 5. Force active queries to refetch fresh data.
+            // DO NOT use clear() — it destroys observers.
+            // DO NOT use invalidateQueries() — it only marks stale, doesn't actively fetch.
+            // refetchQueries() actively fetches all mounted queries regardless of state.
+            await queryClient.refetchQueries();
 
             // Refresh cache sizes
             refreshCacheSizes();

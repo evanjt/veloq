@@ -152,9 +152,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             const routeWord = i18n.t('routes.routeWord');
             const sectionWord = i18n.t('routes.sectionWord');
             engine.setNameTranslations(routeWord, sectionWord);
-            // Enable heatmap tile generation if setting is on
+            // Enable/disable heatmap tile generation based on setting
             if (isHeatmapEnabled()) {
               engine.enableHeatmapTiles();
+            } else {
+              engine.disableHeatmapTiles();
             }
             // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
             migrateSettingsToSqlite().catch(() => {});

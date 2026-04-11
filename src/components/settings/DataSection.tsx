@@ -9,6 +9,7 @@ import { getLastBackupTimestamp } from '@/lib/backup';
 import { useRouteSettings } from '@/providers';
 import { useTileCacheStore } from '@/providers/TileCacheStore';
 import { getTerrainPreviewCacheSize } from '@/lib/storage/terrainPreviewCache';
+import * as FileSystem from 'expo-file-system/legacy';
 import { getHeatmapTilesCacheSize, HEATMAP_TILES_DIR } from '@/hooks/maps/useHeatmapTiles';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import {
@@ -164,11 +165,12 @@ export function DataSection() {
               if (enabled) {
                 getRouteEngine()?.enableHeatmapTiles();
               } else {
-                // Strip file:// prefix — Rust expects a plain filesystem path
-                const plainPath = HEATMAP_TILES_DIR.startsWith('file://')
-                  ? HEATMAP_TILES_DIR.slice(7)
-                  : HEATMAP_TILES_DIR;
-                getRouteEngine()?.clearHeatmapTiles(plainPath);
+                // Clear tiles from current location (cacheDirectory)
+                getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
+                // Also clear legacy location (documentDirectory) from older versions
+                const legacyDir = `${FileSystem.documentDirectory}heatmap-tiles/`;
+                getRouteEngine()?.clearHeatmapTiles(legacyDir);
+                // Prevent regeneration
                 getRouteEngine()?.disableHeatmapTiles();
               }
             }}
