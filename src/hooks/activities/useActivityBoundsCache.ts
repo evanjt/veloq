@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSyncDateRange } from '@/providers';
 import { clearAllGpsTracks, clearBoundsCache } from '@/lib/storage/gpsStorage';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 import { formatLocalDate } from '@/lib';
 
 export interface SyncProgress {
@@ -179,9 +179,16 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   );
 
   const clearCache = useCallback(async () => {
-    // Clear Rust engine state
+    // Destroy and re-init engine to get a clean state.
+    // DO NOT use engine.clear() — it corrupts sub-objects (strength() returns null).
     const engine = getRouteEngine();
-    if (engine) engine.clear();
+    if (engine) {
+      const dbPath = getRouteDbPath();
+      engine.destroyEngine();
+      if (dbPath) {
+        engine.initWithPath(dbPath);
+      }
+    }
 
     // Clear FileSystem caches (GPS tracks and bounds)
     await Promise.all([clearAllGpsTracks(), clearBoundsCache()]);

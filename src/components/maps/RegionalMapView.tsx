@@ -33,6 +33,7 @@ import {
 import type { ActivityBoundsItem } from '@/types';
 import { useEngineSections, useRouteSignatures, useRouteGroups } from '@/hooks/routes';
 import { HEATMAP_TILE_URL_TEMPLATE } from '@/hooks/maps/useHeatmapTiles';
+import { isHeatmapEnabled } from '@/providers/RouteSettingsStore';
 import type { FrequentSection } from '@/types';
 import {
   ActivityPopup,
@@ -781,27 +782,29 @@ export function RegionalMapView({
             />
           </ShapeSource>
 
-          {/* Raster heatmap tiles — replaces vector traces for performance */}
-          <RasterSource
-            id="heatmap-tiles"
-            tileUrlTemplates={[HEATMAP_TILE_URL_TEMPLATE]}
-            minZoomLevel={5}
-            maxZoomLevel={17}
-            tileSize={256}
-          >
-            <RasterLayer
-              id="heatmap-layer"
-              style={{
-                rasterOpacity: showActivities ? (mapStyle === 'light' ? 0.82 : 0.72) : 0,
-                rasterContrast: mapStyle === 'light' ? 0.25 : 0,
-                rasterBrightnessMax: mapStyle === 'light' ? 0.7 : 1,
-                rasterSaturation: mapStyle === 'light' ? 0.4 : 0,
-                rasterResampling: 'linear',
-                rasterFadeDuration: 0,
-              }}
-              belowLayerID="cluster-circles"
-            />
-          </RasterSource>
+          {/* Raster heatmap tiles — only rendered when heatmap generation is enabled */}
+          {isHeatmapEnabled() && (
+            <RasterSource
+              id="heatmap-tiles"
+              tileUrlTemplates={[HEATMAP_TILE_URL_TEMPLATE]}
+              minZoomLevel={5}
+              maxZoomLevel={17}
+              tileSize={256}
+            >
+              <RasterLayer
+                id="heatmap-layer"
+                style={{
+                  rasterOpacity: showActivities ? (mapStyle === 'light' ? 0.82 : 0.72) : 0,
+                  rasterContrast: mapStyle === 'light' ? 0.25 : 0,
+                  rasterBrightnessMax: mapStyle === 'light' ? 0.7 : 1,
+                  rasterSaturation: mapStyle === 'light' ? 0.4 : 0,
+                  rasterResampling: 'linear',
+                  rasterFadeDuration: 0,
+                }}
+                belowLayerID="cluster-circles"
+              />
+            </RasterSource>
+          )}
 
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
           {/* Vector traces fully replaced by raster heatmap — no LineLayer needed */}
