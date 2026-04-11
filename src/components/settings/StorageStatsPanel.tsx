@@ -28,6 +28,7 @@ function StorageBreakdownBar({
   nativeSizeEstimate,
   tileCacheStats,
   terrainCacheSize,
+  heatmapCacheSize,
   freeStorage,
   isDark,
 }: {
@@ -35,6 +36,7 @@ function StorageBreakdownBar({
   nativeSizeEstimate: number;
   tileCacheStats: TileCacheStats | null;
   terrainCacheSize: number;
+  heatmapCacheSize: number;
   freeStorage: number | null;
   isDark: boolean;
 }) {
@@ -42,6 +44,9 @@ function StorageBreakdownBar({
     const result: StorageBarSegment[] = [];
     if (routesSize > 0) {
       result.push({ label: 'Database', bytes: routesSize, color: colors.primary });
+    }
+    if (heatmapCacheSize > 0) {
+      result.push({ label: 'Heatmap', bytes: heatmapCacheSize, color: '#FF9800' });
     }
     if (nativeSizeEstimate > 0) {
       result.push({ label: 'Map packs', bytes: nativeSizeEstimate, color: colors.chartBlue });
@@ -71,7 +76,7 @@ function StorageBreakdownBar({
       result.push({ label: '3D previews', bytes: terrainCacheSize, color: colors.chartYellow });
     }
     return result;
-  }, [routesSize, nativeSizeEstimate, tileCacheStats, terrainCacheSize]);
+  }, [routesSize, nativeSizeEstimate, tileCacheStats, terrainCacheSize, heatmapCacheSize]);
 
   const totalCacheBytes = segments.reduce((sum, s) => sum + s.bytes, 0);
 
@@ -144,6 +149,7 @@ export interface StorageStatsPanelProps {
   nativeSizeEstimate: number;
   tileCacheStats: TileCacheStats | null;
   terrainCacheSize: number;
+  heatmapCacheSize: number;
   freeStorage: number | null;
 }
 
@@ -163,6 +169,7 @@ export function StorageStatsPanel({
   nativeSizeEstimate,
   tileCacheStats,
   terrainCacheSize,
+  heatmapCacheSize,
   freeStorage,
 }: StorageStatsPanelProps) {
   const { t } = useTranslation();
@@ -276,6 +283,7 @@ export function StorageStatsPanel({
         nativeSizeEstimate={nativeSizeEstimate}
         tileCacheStats={tileCacheStats}
         terrainCacheSize={terrainCacheSize}
+        heatmapCacheSize={heatmapCacheSize}
         freeStorage={freeStorage}
         isDark={isDark}
       />

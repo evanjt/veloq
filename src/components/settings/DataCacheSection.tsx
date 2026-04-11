@@ -27,7 +27,7 @@ import {
   getTerrainPreviewCacheSize,
 } from '@/lib/storage/terrainPreviewCache';
 import * as TileCacheService from '@/lib/maps/tileCacheService';
-import { HEATMAP_TILES_DIR } from '@/hooks/maps/useHeatmapTiles';
+import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/hooks/maps/useHeatmapTiles';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { CacheManagementPanel } from './CacheManagementPanel';
@@ -70,11 +70,13 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   // Map tile cache stats
   const nativeSizeEstimate = useTileCacheStore((s) => s.nativeSizeEstimate);
   const [terrainCacheSize, setTerrainCacheSize] = useState(0);
+  const [heatmapCacheSize, setHeatmapCacheSize] = useState(0);
   const [tileCacheStats, setTileCacheStats] = useState<TileCacheStats | null>(null);
   const [freeStorage, setFreeStorage] = useState<number | null>(null);
 
   useEffect(() => {
     getTerrainPreviewCacheSize().then(setTerrainCacheSize);
+    getHeatmapTilesCacheSize().then(setHeatmapCacheSize);
   }, []);
 
   useEffect(() => {
@@ -95,13 +97,16 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
       .catch(() => setFreeStorage(null));
   }, []);
 
-  const totalMapCache = nativeSizeEstimate + terrainCacheSize + (tileCacheStats?.totalBytes ?? 0);
+  const totalMapCache =
+    nativeSizeEstimate + terrainCacheSize + heatmapCacheSize + (tileCacheStats?.totalBytes ?? 0);
 
   const handleClearMapCache = useCallback(async () => {
     await clearTerrainPreviews();
     await TileCacheService.clearAllPacks();
+    getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
     emitClearTileCache();
     setTerrainCacheSize(0);
+    setHeatmapCacheSize(0);
     setTileCacheStats(null);
   }, []);
 
@@ -310,6 +315,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
           nativeSizeEstimate={nativeSizeEstimate}
           tileCacheStats={tileCacheStats}
           terrainCacheSize={terrainCacheSize}
+          heatmapCacheSize={heatmapCacheSize}
           freeStorage={freeStorage}
         />
 
