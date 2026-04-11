@@ -1640,6 +1640,10 @@ pub struct FfiActivitySectionHighlight {
     pub is_pr: bool,
     /// -1=slower than preceding avg, 0=neutral, 1=faster
     pub trend: i8,
+    /// Start index into the activity's GPS track array
+    pub start_index: u32,
+    /// End index into the activity's GPS track array
+    pub end_index: u32,
 }
 
 // ============================================================================

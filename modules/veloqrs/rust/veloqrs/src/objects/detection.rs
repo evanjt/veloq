@@ -63,15 +63,6 @@ impl DetectionManager {
                         log::error!("save_processed_activity_ids failed: {}", err);
                     }
 
-                    // Spawn background heatmap tile generation after sections are applied
-                    if let Some(handle) = e.generate_tiles_background() {
-                        if let Ok(mut guard) =
-                            crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock()
-                        {
-                            *guard = Some(handle);
-                        }
-                    }
-
                     Ok(())
                 })??;
 

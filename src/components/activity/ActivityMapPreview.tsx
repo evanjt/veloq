@@ -40,6 +40,8 @@ interface ActivityMapPreviewProps {
   startupTrack?: PreviewTrack;
   /** Whether the snapshot WebView workers are mounted and ready */
   snapshotReady?: boolean;
+  /** GPS track index ranges for PR sections to highlight in gold */
+  prSectionIndices?: Array<{ startIndex: number; endIndex: number }>;
 }
 
 export const ActivityMapPreview = React.memo(function ActivityMapPreview({
@@ -50,6 +52,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   screenFocused = true,
   snapshotReady = false,
   startupTrack,
+  prSectionIndices,
 }: ActivityMapPreviewProps) {
   const mapPreviewStart = __DEV__ && index < 3 ? performance.now() : 0;
   const { getStyleForActivity, getTerrain3DMode } = useMapPreferences();
@@ -230,6 +233,37 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     };
   }, [validCoordinates]);
 
+  // Build GeoJSON for PR section highlights (gold overlay on the activity trace)
+  const prSectionGeoJSON = useMemo(() => {
+    if (!prSectionIndices || prSectionIndices.length === 0 || validCoordinates.length < 2) {
+      return null;
+    }
+    const features: Array<{
+      type: 'Feature';
+      properties: { index: number };
+      geometry: { type: 'LineString'; coordinates: number[][] };
+    }> = [];
+    prSectionIndices.forEach((range, i) => {
+      const start = Math.max(0, range.startIndex);
+      const end = Math.min(validCoordinates.length, range.endIndex + 1);
+      if (end - start < 2) return;
+      const slice = validCoordinates.slice(start, end);
+      features.push({
+        type: 'Feature' as const,
+        properties: { index: i },
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: slice.map((c) => [c.longitude, c.latitude]),
+        },
+      });
+    });
+    if (features.length === 0) return null;
+    return {
+      type: 'FeatureCollection' as const,
+      features,
+    };
+  }, [prSectionIndices, validCoordinates]);
+
   const styleUrl = getMapStyle(mapStyle);
   const startPoint = validCoordinates[0];
   const endPoint = validCoordinates[validCoordinates.length - 1];
@@ -254,6 +288,16 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       lineJoin: 'round' as const,
     }),
     [hasRouteData, activityColor]
+  );
+  const prLineStyle = useMemo(
+    () => ({
+      lineColor: '#FFD700',
+      lineOpacity: 1,
+      lineWidth: 4,
+      lineCap: 'round' as const,
+      lineJoin: 'round' as const,
+    }),
+    []
   );
 
   // Memoize terrain camera: use user override if saved, else auto-calculate
@@ -408,6 +452,13 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
           <LineLayer id="routeLineCasing" style={casingStyle} />
           <LineLayer id="routeLine" style={routeLineStyle} />
         </ShapeSource>
+
+        {/* PR section highlights in gold */}
+        {prSectionGeoJSON && (
+          <ShapeSource id="prSectionSource" shape={prSectionGeoJSON}>
+            <LineLayer id="prSectionLine" style={prLineStyle} />
+          </ShapeSource>
+        )}
 
         {/* Start marker */}
         {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}

@@ -17,7 +17,13 @@ import {
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
-import { useActivityBoundsCache, useActivities, useTheme, useEngineMapActivities } from '@/hooks';
+import {
+  useActivityBoundsCache,
+  useActivities,
+  useTheme,
+  useMetricSystem,
+  useEngineMapActivities,
+} from '@/hooks';
 import { useAuthStore, useSyncDateRange } from '@/providers';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import {
@@ -33,7 +39,7 @@ const ALL_TIME_START = new Date('2000-01-01');
 const ALL_TIME_END = new Date('2099-12-31');
 
 type PeriodKey = 'all' | 'year' | '6m' | '3m' | '1m' | '1w';
-type DistanceKey = 'all' | 'short' | 'medium' | 'long';
+type DistanceKey = 'all' | 'xshort' | 'short' | 'medium' | 'long';
 
 // Pre-compute period start dates (stable references, computed once)
 function getPeriodStart(period: PeriodKey): Date {
@@ -58,12 +64,31 @@ const PERIOD_OPTIONS: { key: PeriodKey; label: string }[] = [
   { key: '1w', label: '1 wk' },
 ];
 
-const DISTANCE_OPTIONS: { key: DistanceKey; label: string }[] = [
-  { key: 'all', label: 'Any' },
-  { key: 'short', label: '<10km' },
-  { key: 'medium', label: '10–50km' },
-  { key: 'long', label: '50km+' },
-];
+// Distance thresholds in meters (metric) and labels for both systems
+function getDistanceOptions(isMetric: boolean): { key: DistanceKey; label: string }[] {
+  return isMetric
+    ? [
+        { key: 'all', label: 'Any' },
+        { key: 'xshort', label: '<5km' },
+        { key: 'short', label: '5–10km' },
+        { key: 'medium', label: '10–50km' },
+        { key: 'long', label: '50km+' },
+      ]
+    : [
+        { key: 'all', label: 'Any' },
+        { key: 'xshort', label: '<3mi' },
+        { key: 'short', label: '3–6mi' },
+        { key: 'medium', label: '6–30mi' },
+        { key: 'long', label: '30mi+' },
+      ];
+}
+
+// Thresholds in meters — imperial uses approximate mile equivalents
+function getDistanceThresholds(isMetric: boolean) {
+  return isMetric
+    ? { xshort: 5000, short: 10000, medium: 50000 }
+    : { xshort: 4828, short: 9656, medium: 48280 }; // 3mi, 6mi, 30mi
+}
 
 export default function MapScreen() {
   // Performance timing
@@ -75,6 +100,7 @@ export default function MapScreen() {
 
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   // Attribution text from map (updated dynamically)
@@ -108,23 +134,37 @@ export default function MapScreen() {
   // Memoize period start date to keep reference stable across renders
   const periodStart = useMemo(() => getPeriodStart(period), [period]);
 
-  // Get activities from engine (date + type filtering in Rust)
-  const { activities: filteredActivities, availableTypes } = useEngineMapActivities({
+  // Get ALL activities from engine (date filtering only — sport+distance filtering in JS
+  // so we always have full counts for category chips even when some types are deselected)
+  const allSelectedTypes = useMemo(() => new Set<string>(), []);
+  const { activities: allActivities, availableTypes } = useEngineMapActivities({
     startDate: periodStart,
     endDate: ALL_TIME_END,
-    selectedTypes,
+    selectedTypes: allSelectedTypes,
     enabled: isReady,
   });
 
-  // Apply distance filter JS-side (data already returned, instant for <2000 activities)
+  // Apply sport type + distance filters JS-side
   const displayActivities = useMemo(() => {
-    if (distanceFilter === 'all') return filteredActivities;
-    return filteredActivities.filter((a) => {
-      if (distanceFilter === 'short') return a.distance < 10000;
-      if (distanceFilter === 'medium') return a.distance >= 10000 && a.distance < 50000;
-      return a.distance >= 50000; // long
-    });
-  }, [filteredActivities, distanceFilter]);
+    let result = allActivities;
+    // Sport type filter
+    if (selectedTypes.size > 0 && selectedTypes.size < availableTypes.length) {
+      result = result.filter((a) => selectedTypes.has(a.type));
+    }
+    // Distance filter
+    if (distanceFilter !== 'all') {
+      const thresholds = getDistanceThresholds(isMetric);
+      result = result.filter((a) => {
+        if (distanceFilter === 'xshort') return a.distance < thresholds.xshort;
+        if (distanceFilter === 'short')
+          return a.distance >= thresholds.xshort && a.distance < thresholds.short;
+        if (distanceFilter === 'medium')
+          return a.distance >= thresholds.short && a.distance < thresholds.medium;
+        return a.distance >= thresholds.medium;
+      });
+    }
+    return result;
+  }, [allActivities, selectedTypes, availableTypes.length, distanceFilter]);
 
   // Initialize selected types when data loads
   useEffect(() => {
@@ -145,12 +185,12 @@ export default function MapScreen() {
     return `${fmt(oldestSyncedDate)} – ${fmt(newestSyncedDate)}`;
   }, [oldestSyncedDate, newestSyncedDate]);
 
-  // Group available types by category, count visible activities per category
-  // Always show all available categories (even when deselected) so user can re-enable them
+  // Group available types by category, count from ALL activities (not filtered by sport type)
+  // so counts stay stable when toggling chips — chips never move position
   const categorySorted = useMemo(() => {
     const groups = groupTypesByCategory(availableTypes);
     const counts = new Map<string, number>();
-    for (const activity of displayActivities) {
+    for (const activity of allActivities) {
       const category = Object.entries(ACTIVITY_CATEGORIES).find(([, c]) =>
         c.types.includes(activity.type)
       )?.[0];
@@ -158,7 +198,6 @@ export default function MapScreen() {
         counts.set(category, (counts.get(category) ?? 0) + 1);
       }
     }
-    // Sort: active categories first (by count desc), then inactive
     return Array.from(groups.entries())
       .map(([category, types]) => ({
         category,
@@ -166,11 +205,8 @@ export default function MapScreen() {
         count: counts.get(category) ?? 0,
         active: types.every((t) => selectedTypes.has(t)),
       }))
-      .sort((a, b) => {
-        if (a.active !== b.active) return a.active ? -1 : 1;
-        return b.count - a.count;
-      });
-  }, [availableTypes, displayActivities, selectedTypes]);
+      .sort((a, b) => b.count - a.count);
+  }, [availableTypes, allActivities, selectedTypes]);
 
   // Toggle all types in a category
   const toggleCategory = (category: string) => {
@@ -245,43 +281,75 @@ export default function MapScreen() {
             </Text>
           </View>
 
-          {/* Time period filter */}
-          <View style={styles.filterRow}>
+          {/* Time period chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipRow}
+          >
             {PERIOD_OPTIONS.map(({ key, label }) => (
-              <TouchableOpacity key={key} onPress={() => setPeriod(key)} style={styles.filterBtn}>
-                <Text
-                  style={[
-                    styles.filterText,
-                    isDark && styles.filterTextDark,
-                    period === key && styles.filterTextActive,
-                  ]}
-                >
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Distance filter */}
-          <View style={styles.filterRow}>
-            {DISTANCE_OPTIONS.map(({ key, label }) => (
               <TouchableOpacity
                 key={key}
-                onPress={() => setDistanceFilter(key)}
-                style={styles.filterBtn}
+                onPress={() => setPeriod(key)}
+                style={[
+                  styles.chip,
+                  period === key
+                    ? styles.chipFilterActive
+                    : isDark
+                      ? styles.chipDark
+                      : styles.chipInactive,
+                ]}
               >
                 <Text
                   style={[
-                    styles.filterText,
-                    isDark && styles.filterTextDark,
-                    distanceFilter === key && styles.filterTextActive,
+                    styles.chipText,
+                    period === key
+                      ? styles.chipTextActive
+                      : isDark
+                        ? styles.chipTextDark
+                        : styles.chipTextInactive,
                   ]}
                 >
                   {label}
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
+
+          {/* Distance chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipRow}
+          >
+            {getDistanceOptions(isMetric).map(({ key, label }) => (
+              <TouchableOpacity
+                key={key}
+                onPress={() => setDistanceFilter(key)}
+                style={[
+                  styles.chip,
+                  distanceFilter === key
+                    ? styles.chipFilterActive
+                    : isDark
+                      ? styles.chipDark
+                      : styles.chipInactive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    distanceFilter === key
+                      ? styles.chipTextActive
+                      : isDark
+                        ? styles.chipTextDark
+                        : styles.chipTextInactive,
+                  ]}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
 
           {/* Sport type filter chips */}
           <ScrollView
@@ -393,27 +461,8 @@ const styles = StyleSheet.create({
   infoBarDark: {
     backgroundColor: 'rgba(20, 20, 22, 0.92)',
   },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingBottom: 2,
-  },
-  filterBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  filterText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  filterTextDark: {
-    color: 'rgba(255, 255, 255, 0.5)',
-  },
-  filterTextActive: {
-    color: colors.primary,
-    fontWeight: '700',
+  chipFilterActive: {
+    backgroundColor: colors.primary,
   },
   chipRow: {
     flexDirection: 'row',

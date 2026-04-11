@@ -17,6 +17,8 @@ export interface ActivitySectionHighlight {
   lapTime: number;
   isPr: boolean;
   trend: number; // -1=slower, 0=neutral, 1=faster vs preceding avg
+  startIndex: number;
+  endIndex: number;
 }
 
 export interface ActivityRouteHighlight {
@@ -58,6 +60,8 @@ export function useActivitySectionHighlights(activityIds: string[]): {
           lapTime: h.lapTime,
           isPr: h.isPr,
           trend: h.trend ?? 0,
+          startIndex: h.startIndex,
+          endIndex: h.endIndex,
         };
         const existing = sectionMap.get(h.activityId);
         if (existing) {

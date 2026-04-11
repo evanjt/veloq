@@ -233,6 +233,7 @@ impl PersistentRouteEngine {
                         deleted,
                         id
                     );
+                    self.mark_heatmap_dirty();
                 }
             }
         }

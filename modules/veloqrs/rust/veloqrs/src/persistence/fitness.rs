@@ -1961,7 +1961,8 @@ impl PersistentRouteEngine {
                              CASE WHEN a.distance_meters > 0 AND sa.distance_meters > 0
                                   THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
                                   ELSE NULL END) as effective_time,
-                    CASE WHEN sa.lap_time IS NOT NULL THEN 1 ELSE 0 END as has_real_time
+                    CASE WHEN sa.lap_time IS NOT NULL THEN 1 ELSE 0 END as has_real_time,
+                    sa.start_index, sa.end_index
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              JOIN activities a ON sa.activity_id = a.id
@@ -1985,15 +1986,17 @@ impl PersistentRouteEngine {
             .map(|id| id as &dyn rusqlite::types::ToSql)
             .collect();
 
-        // (activity_id, section_id, direction, effective_time, has_real_time)
-        let rows: Vec<(String, String, String, f64, bool)> = match stmt.query_map(params.as_slice(), |row| {
+        // (activity_id, section_id, direction, effective_time, has_real_time, start_index, end_index)
+        let rows: Vec<(String, String, String, f64, bool, u32, u32)> = match stmt.query_map(params.as_slice(), |row| {
             let time: Option<f64> = row.get(3)?;
             let real: i32 = row.get(4)?;
-            Ok((row.get(0)?, row.get(1)?, row.get::<_, String>(2)?, time.unwrap_or(0.0), real != 0))
+            let si: u32 = row.get(5)?;
+            let ei: u32 = row.get(6)?;
+            Ok((row.get(0)?, row.get(1)?, row.get::<_, String>(2)?, time.unwrap_or(0.0), real != 0, si, ei))
         }) {
             Ok(mapped) => mapped
                 .filter_map(|r| r.ok())
-                .filter(|(_, _, _, t, _)| *t > 0.0)
+                .filter(|(_, _, _, t, _, _, _)| *t > 0.0)
                 .collect(),
             Err(e) => {
                 log::warn!("tracematch: [highlights] query failed: {}", e);
@@ -2007,14 +2010,14 @@ impl PersistentRouteEngine {
 
         // Track which (activity, section, direction) triples have real vs estimated times
         let mut has_real_time_map: HashMap<(String, String, String), bool> = HashMap::new();
-        for (aid, sid, dir, _, real) in &rows {
+        for (aid, sid, dir, _, real, _, _) in &rows {
             has_real_time_map.insert((aid.clone(), sid.clone(), dir.clone()), *real);
         }
 
         // Step 2: Collect distinct section IDs from the results
         let section_ids: Vec<String> = {
             let mut set = std::collections::HashSet::new();
-            for (_, sid, _, _, _) in &rows {
+            for (_, sid, _, _, _, _, _) in &rows {
                 set.insert(sid.clone());
             }
             set.into_iter().collect()
@@ -2168,7 +2171,7 @@ impl PersistentRouteEngine {
         // Direction-aware: trend and PR are computed against same-direction history only.
         let mut highlight_map: HashMap<(String, String), crate::FfiActivitySectionHighlight> = HashMap::new();
 
-        for (activity_id, section_id, direction, lap_time, _has_real) in rows {
+        for (activity_id, section_id, direction, lap_time, _has_real, start_index, end_index) in rows {
             let is_pr = best_times
                 .get(&(section_id.clone(), direction.clone()))
                 .map(|&best| (lap_time - best).abs() < 0.001)
@@ -2200,16 +2203,23 @@ impl PersistentRouteEngine {
                 lap_time,
                 is_pr,
                 trend,
+                start_index,
+                end_index,
             });
 
             // If this direction has a better result (PR or better trend), replace
+            // Keep the start_index/end_index of whichever direction was chosen
             if is_pr && !entry.is_pr {
                 entry.is_pr = true;
                 entry.trend = trend;
                 entry.lap_time = lap_time;
+                entry.start_index = start_index;
+                entry.end_index = end_index;
             } else if trend > entry.trend && !entry.is_pr {
                 entry.trend = trend;
                 entry.lap_time = lap_time;
+                entry.start_index = start_index;
+                entry.end_index = end_index;
             }
         }
 

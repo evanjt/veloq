@@ -836,6 +836,183 @@ const FfiConverterTypeFfiActivityPattern = (() => {
 })();
 
 /**
+ * Lightweight route highlight for an activity: was this a PR on the route?
+ */
+export type FfiActivityRouteHighlight = {
+  activityId: string;
+  routeId: string;
+  routeName: string;
+  /**
+   * True when this activity's duration is the best across all route attempts
+   */
+  isPr: boolean;
+  /**
+   * -1=slower than preceding avg, 0=neutral, 1=faster
+   */
+  trend: /*i8*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiActivityRouteHighlight} record objects.
+ */
+export const FfiActivityRouteHighlight = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiActivityRouteHighlight,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiActivityRouteHighlight}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiActivityRouteHighlight}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiActivityRouteHighlight>,
+  });
+})();
+
+const FfiConverterTypeFfiActivityRouteHighlight = (() => {
+  type TypeName = FfiActivityRouteHighlight;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityId: FfiConverterString.read(from),
+        routeId: FfiConverterString.read(from),
+        routeName: FfiConverterString.read(from),
+        isPr: FfiConverterBool.read(from),
+        trend: FfiConverterInt8.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.activityId, into);
+      FfiConverterString.write(value.routeId, into);
+      FfiConverterString.write(value.routeName, into);
+      FfiConverterBool.write(value.isPr, into);
+      FfiConverterInt8.write(value.trend, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterString.allocationSize(value.routeId) +
+        FfiConverterString.allocationSize(value.routeName) +
+        FfiConverterBool.allocationSize(value.isPr) +
+        FfiConverterInt8.allocationSize(value.trend)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Lightweight section highlight for an activity: was this a PR?
+ */
+export type FfiActivitySectionHighlight = {
+  activityId: string;
+  sectionId: string;
+  sectionName: string;
+  lapTime: /*f64*/ number;
+  isPr: boolean;
+  /**
+   * -1=slower than preceding avg, 0=neutral, 1=faster
+   */
+  trend: /*i8*/ number;
+  /**
+   * Start index into the activity's GPS track array
+   */
+  startIndex: /*u32*/ number;
+  /**
+   * End index into the activity's GPS track array
+   */
+  endIndex: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiActivitySectionHighlight} record objects.
+ */
+export const FfiActivitySectionHighlight = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiActivitySectionHighlight,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiActivitySectionHighlight}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiActivitySectionHighlight}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiActivitySectionHighlight>,
+  });
+})();
+
+const FfiConverterTypeFfiActivitySectionHighlight = (() => {
+  type TypeName = FfiActivitySectionHighlight;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityId: FfiConverterString.read(from),
+        sectionId: FfiConverterString.read(from),
+        sectionName: FfiConverterString.read(from),
+        lapTime: FfiConverterFloat64.read(from),
+        isPr: FfiConverterBool.read(from),
+        trend: FfiConverterInt8.read(from),
+        startIndex: FfiConverterUInt32.read(from),
+        endIndex: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.activityId, into);
+      FfiConverterString.write(value.sectionId, into);
+      FfiConverterString.write(value.sectionName, into);
+      FfiConverterFloat64.write(value.lapTime, into);
+      FfiConverterBool.write(value.isPr, into);
+      FfiConverterInt8.write(value.trend, into);
+      FfiConverterUInt32.write(value.startIndex, into);
+      FfiConverterUInt32.write(value.endIndex, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterString.allocationSize(value.sectionName) +
+        FfiConverterFloat64.allocationSize(value.lapTime) +
+        FfiConverterBool.allocationSize(value.isPr) +
+        FfiConverterInt8.allocationSize(value.trend) +
+        FfiConverterUInt32.allocationSize(value.startIndex) +
+        FfiConverterUInt32.allocationSize(value.endIndex)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Batch trace result: one activity's extracted section trace as flat coords.
  */
 export type FfiBatchTrace = {
@@ -8141,6 +8318,12 @@ const FfiConverterTypeMapManager = new FfiConverterObject(
 
 export interface RouteManagerInterface {
   excludeActivity(routeId: string, activityId: string) /*throws*/ : void;
+  /**
+   * Batch-query route highlights (PRs and trends) for a list of activity IDs.
+   */
+  getActivityRouteHighlights(
+    activityIds: Array<string>,
+  ) /*throws*/ : Array<FfiActivityRouteHighlight>;
   getAll() /*throws*/ : Array<FfiRouteGroup>;
   getAllNames() /*throws*/ : Map<string, string>;
   getById(groupId: string) /*throws*/ : FfiRouteGroup | undefined;
@@ -8208,6 +8391,29 @@ export class RouteManager
         );
       },
       /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Batch-query route highlights (PRs and trends) for a list of activity IDs.
+   */
+  public getActivityRouteHighlights(
+    activityIds: Array<string>,
+  ): Array<FfiActivityRouteHighlight> /*throws*/ {
+    return FfiConverterArrayTypeFfiActivityRouteHighlight.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_activity_route_highlights(
+            uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayString.lower(activityIds),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
     );
   }
 
@@ -8560,6 +8766,12 @@ export interface SectionManagerInterface {
     activityIds: Array<string>,
     sectionPolylineJson: string,
   ) /*throws*/ : Array<FfiBatchTrace>;
+  /**
+   * Batch-query section highlights (PRs) for a list of activity IDs.
+   */
+  getActivitySectionHighlights(
+    activityIds: Array<string>,
+  ) /*throws*/ : Array<FfiActivitySectionHighlight>;
   getAll() /*throws*/ : Array<FfiFrequentSection>;
   getAllNames() /*throws*/ : Map<string, string>;
   /**
@@ -8850,6 +9062,29 @@ export class SectionManager
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterArrayString.lower(activityIds),
             FfiConverterString.lower(sectionPolylineJson),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Batch-query section highlights (PRs) for a list of activity IDs.
+   */
+  public getActivitySectionHighlights(
+    activityIds: Array<string>,
+  ): Array<FfiActivitySectionHighlight> /*throws*/ {
+    return FfiConverterArrayTypeFfiActivitySectionHighlight.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_section_highlights(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayString.lower(activityIds),
             callStatus,
           );
         },
@@ -10368,6 +10603,11 @@ export interface VeloqEngineInterface {
   destroy(): void;
   detection(): DetectionManagerInterface;
   fitness(): FitnessManagerInterface;
+  /**
+   * Get activity IDs that need time streams fetched (have NULL lap_time, no time_stream).
+   * Used for one-time backfill after upgrade.
+   */
+  getActivitiesNeedingTimeStreams() /*throws*/ : Array<string>;
   getActivityCount() /*throws*/ : /*u32*/ number;
   /**
    * Get backup metadata as JSON for validation before restore.
@@ -10581,6 +10821,27 @@ export class VeloqEngine
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_fitness(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get activity IDs that need time streams fetched (have NULL lap_time, no time_stream).
+   * Used for one-time backfill after upgrade.
+   */
+  public getActivitiesNeedingTimeStreams(): Array<string> /*throws*/ {
+    return FfiConverterArrayString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_streams(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
             callStatus,
           );
@@ -10953,6 +11214,16 @@ const FfiConverterArrayTypeFfiActivityMetrics = new FfiConverterArray(
 // FfiConverter for Array<FfiActivityPattern>
 const FfiConverterArrayTypeFfiActivityPattern = new FfiConverterArray(
   FfiConverterTypeFfiActivityPattern,
+);
+
+// FfiConverter for Array<FfiActivityRouteHighlight>
+const FfiConverterArrayTypeFfiActivityRouteHighlight = new FfiConverterArray(
+  FfiConverterTypeFfiActivityRouteHighlight,
+);
+
+// FfiConverter for Array<FfiActivitySectionHighlight>
+const FfiConverterArrayTypeFfiActivitySectionHighlight = new FfiConverterArray(
+  FfiConverterTypeFfiActivitySectionHighlight,
 );
 
 // FfiConverter for Array<FfiBatchTrace>
@@ -11508,6 +11779,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_activity_route_highlights() !==
+    42833
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routemanager_get_activity_route_highlights",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all() !==
     2386
   ) {
@@ -11673,6 +11952,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_extract_traces_batch",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_section_highlights() !==
+    14654
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_activity_section_highlights",
     );
   }
   if (
@@ -12172,6 +12459,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams() !==
+    14094
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count() !==
     2518
   ) {
@@ -12361,6 +12656,8 @@ export default Object.freeze({
     FfiConverterTypeFetchAndStoreResult,
     FfiConverterTypeFfiActivityMetrics,
     FfiConverterTypeFfiActivityPattern,
+    FfiConverterTypeFfiActivityRouteHighlight,
+    FfiConverterTypeFfiActivitySectionHighlight,
     FfiConverterTypeFfiBatchTrace,
     FfiConverterTypeFfiBounds,
     FfiConverterTypeFfiCalendarDirectionBest,

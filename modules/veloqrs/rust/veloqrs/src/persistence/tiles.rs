@@ -17,14 +17,49 @@ use tracematch::{Bounds, GpsPoint};
 /// Triggers automatic cache clear + regeneration on app upgrade.
 const TILE_FORMAT_VERSION: &str = "7";
 
+/// Marker file written to the tiles directory when new data arrives.
+/// Cleared after tile generation completes. Prevents redundant generation on app restart.
+const DIRTY_MARKER: &str = ".dirty";
+
 /// Expand activity bounds slightly so line antialiasing and low-zoom blur can bleed into
 /// neighboring tiles without getting clipped by strict metadata bounds.
 const TILE_ENUMERATION_MARGIN_DEGREES: f64 = 0.002;
 
 impl PersistentRouteEngine {
+    /// Check whether heatmap tiles need (re)generation.
+    /// Returns true if the dirty marker exists or no version file is present (first time / cache cleared).
+    pub fn is_heatmap_dirty(&self) -> bool {
+        let Some(ref path) = self.heatmap_tiles_path else {
+            return false;
+        };
+        let base = Path::new(path);
+        // No version file → first time or OS cleared cache → needs generation
+        if !base.join("version.txt").exists() {
+            return true;
+        }
+        // Dirty marker present → new data arrived since last generation
+        base.join(DIRTY_MARKER).exists()
+    }
+
+    /// Mark heatmap tiles as needing regeneration.
+    /// Writes a `.dirty` marker file in the tiles directory.
+    pub fn mark_heatmap_dirty(&self) {
+        let Some(ref path) = self.heatmap_tiles_path else {
+            return;
+        };
+        let base = Path::new(path);
+        if let Err(e) = std::fs::create_dir_all(base) {
+            log::warn!("[heatmap] Failed to create tiles directory for dirty marker: {}", e);
+            return;
+        }
+        if let Err(e) = std::fs::write(base.join(DIRTY_MARKER), b"") {
+            log::warn!("[heatmap] Failed to write dirty marker: {}", e);
+        }
+    }
+
     /// Set the filesystem path where heatmap tiles are stored.
     /// Called once from JS at engine init time.
-    /// If the engine already has activities, spawns background tile generation immediately.
+    /// If the engine already has activities and tiles are stale, spawns background generation.
     pub fn set_heatmap_tiles_path(&mut self, path: String) {
         info!("[heatmap] Tiles path set to: {}", path);
         self.heatmap_tiles_path = Some(path.clone());
@@ -53,16 +88,21 @@ impl PersistentRouteEngine {
                     e
                 );
             }
+            // Format changed — mark dirty so generation runs
+            self.mark_heatmap_dirty();
         }
 
-        // If we already have activity data (existing user / upgrade),
-        // generate tiles immediately so the map shows the heatmap on first view.
-        if !self.activity_metadata.is_empty() {
+        // Only generate if tiles are stale (new data, format change, first time, or cache cleared).
+        // Skips the expensive tile enumeration + file-existence checks on normal app restart.
+        if !self.activity_metadata.is_empty() && self.is_heatmap_dirty() {
+            info!("[heatmap] Tiles are stale — spawning background generation");
             if let Some(handle) = self.generate_tiles_background() {
                 if let Ok(mut guard) = super::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock() {
                     *guard = Some(handle);
                 }
             }
+        } else if !self.activity_metadata.is_empty() {
+            info!("[heatmap] Tiles are up to date — skipping generation");
         }
     }
 
@@ -100,6 +140,7 @@ impl PersistentRouteEngine {
                 &gen_clone,
                 &total_clone,
             );
+            clear_dirty_marker(&tiles_path);
             tx.send(generated).ok();
         });
 
@@ -117,9 +158,13 @@ impl PersistentRouteEngine {
         self.heatmap_tiles_path = None;
     }
 
-    /// Clear all heatmap tiles from disk.
+    /// Clear all heatmap tiles from disk and mark as dirty so they regenerate when re-enabled.
     pub fn clear_heatmap_tiles(&self, base_path: &str) -> u32 {
-        tiles::clear_all_tiles(Path::new(base_path))
+        let count = tiles::clear_all_tiles(Path::new(base_path));
+        if count > 0 {
+            self.mark_heatmap_dirty();
+        }
+        count
     }
 
     /// Delete heatmap tiles within a geographic bounding box across all zoom levels.
@@ -138,6 +183,16 @@ impl PersistentRouteEngine {
             )
         } else {
             0
+        }
+    }
+}
+
+/// Remove the dirty marker from the tiles directory after successful generation.
+fn clear_dirty_marker(tiles_path: &str) {
+    let marker = Path::new(tiles_path).join(DIRTY_MARKER);
+    if marker.exists() {
+        if let Err(e) = std::fs::remove_file(&marker) {
+            log::warn!("[heatmap] Failed to clear dirty marker: {}", e);
         }
     }
 }

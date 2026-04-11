@@ -76,6 +76,8 @@ export interface FfiActivitySectionHighlight {
   lapTime: number;
   isPr: boolean;
   trend: number;
+  startIndex: number;
+  endIndex: number;
 }
 
 export interface FfiActivityRouteHighlight {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Platform, Text as RNText } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useMetricSystem } from '@/hooks';
@@ -58,6 +58,8 @@ interface ActivityCardProps {
     sectionName: string;
     isPr: boolean;
     trend: number; // -1=slower, 0=neutral, 1=faster vs preceding avg
+    startIndex: number;
+    endIndex: number;
   }>;
   /** Route highlight for this activity (trend, PR) */
   routeHighlight?: {
@@ -172,6 +174,15 @@ export const ActivityCard = React.memo(
     const mapStyle = getStyleForActivity(activity.type, activity.id, activity.country);
     const theme = getGradientTheme(isDark, mapStyle);
     const hasGpsData = activity.stream_types?.includes('latlng');
+
+    // Extract PR section GPS track indices for gold highlighting on map preview
+    const prSectionIndices = useMemo(() => {
+      if (!sectionHighlights) return undefined;
+      const prs = sectionHighlights.filter((h) => h.isPr && h.startIndex < h.endIndex);
+      return prs.length > 0
+        ? prs.map((h) => ({ startIndex: h.startIndex, endIndex: h.endIndex }))
+        : undefined;
+    }, [sectionHighlights]);
 
     const compactTextColor = isDark ? darkColors.textPrimary : colors.textPrimary;
     const compactMutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -509,6 +520,7 @@ export const ActivityCard = React.memo(
               screenFocused={screenFocused}
               snapshotReady={snapshotReady}
               startupTrack={startupTrack}
+              prSectionIndices={prSectionIndices}
             />
 
             {/* Pressable overlay for tap/long-press */}
@@ -610,7 +622,7 @@ export const ActivityCard = React.memo(
                   <View style={styles.trendBadge}>
                     {sectionHighlights.filter((h) => h.trend === 1).length > 0 && (
                       <View style={styles.trendItem}>
-                        <MaterialCommunityIcons name="trending-up" size={14} color="#66BB6A" />
+                        <MaterialCommunityIcons name="trending-up" size={16} color="#66BB6A" />
                         <RNText style={[styles.trendCount, { color: '#66BB6A' }]}>
                           {sectionHighlights.filter((h) => h.trend === 1).length}
                         </RNText>
@@ -618,7 +630,7 @@ export const ActivityCard = React.memo(
                     )}
                     {sectionHighlights.filter((h) => h.trend === -1).length > 0 && (
                       <View style={styles.trendItem}>
-                        <MaterialCommunityIcons name="trending-down" size={14} color="#FFA726" />
+                        <MaterialCommunityIcons name="trending-down" size={16} color="#FFA726" />
                         <RNText style={[styles.trendCount, { color: '#FFA726' }]}>
                           {sectionHighlights.filter((h) => h.trend === -1).length}
                         </RNText>
@@ -809,16 +821,19 @@ const styles = StyleSheet.create({
   trendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   trendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 1,
+    gap: 2,
   },
   trendCount: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   primaryStats: {
     flexDirection: 'row',

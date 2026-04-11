@@ -224,10 +224,10 @@ export function RegionalMapView({
   const { activityCenters, mapCenter, currentZoomRef, currentCenterRef, markUserInteracted } =
     useMapCamera({ activities, routeSignatures, mapKey, cameraRef });
 
-  // GPS trace visibility: zoom above threshold + activities visible.
-  // aboveTraceZoom is state updated by handlers only on threshold crossing (avoids re-renders during pan).
+  // Trace zoom threshold — passed to handlers for zoom tracking but visibility
+  // is handled by native minZoomLevel on layers (not React state) to avoid
+  // re-renders that cause Android MapLibre camera snap-back.
   const TRACE_ZOOM_THRESHOLD = 11;
-  const [aboveTraceZoom, setAboveTraceZoom] = useState(false);
   const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
@@ -306,8 +306,6 @@ export function RegionalMapView({
     return activities.filter((a) => visibleActivityIds.has(a.id));
   }, [activities, visibleActivityIds]);
 
-  const showTraces = aboveTraceZoom && showActivities;
-
   // All GeoJSON data for map layers
   const {
     markersGeoJSON,
@@ -371,7 +369,7 @@ export function RegionalMapView({
     setVisibleActivityIds,
     currentZoomRef,
     currentCenterRef,
-    setAboveTraceZoom,
+    setAboveTraceZoom: () => {}, // No-op: visibility handled by native minZoomLevel
     traceZoomThreshold: TRACE_ZOOM_THRESHOLD,
     onCameraSettled: handleCameraSettled,
     cameraRef,
@@ -591,7 +589,7 @@ export function RegionalMapView({
             shape={markersGeoJSON}
             cluster={true}
             clusterRadius={80}
-            clusterMaxZoomLevel={17}
+            clusterMaxZoomLevel={11}
             onPress={
               Platform.OS === 'android' && showActivities ? handleClusterOrMarkerPress : undefined
             }
@@ -833,16 +831,19 @@ export function RegionalMapView({
 
           {/* Activity start-point markers — small dots at the first GPS coordinate */}
           {/* Visible when zoomed in past trace threshold and activities are shown */}
+          {/* Start-point markers: use native minZoomLevel instead of React state
+              to avoid re-renders that cause Android MapLibre camera snap-back */}
           <ShapeSource id="activity-start-points" shape={startPointsGeoJSON}>
             <CircleLayer
               id="start-point-outer"
+              minZoomLevel={11}
               style={{
                 circleRadius: 5,
                 circleColor: ['get', 'color'],
-                circleOpacity: showTraces ? 0.9 : 0,
+                circleOpacity: showActivities ? 0.9 : 0,
                 circleStrokeWidth: 1.5,
                 circleStrokeColor: '#FFFFFF',
-                circleStrokeOpacity: showTraces ? 1 : 0,
+                circleStrokeOpacity: showActivities ? 1 : 0,
               }}
             />
           </ShapeSource>
