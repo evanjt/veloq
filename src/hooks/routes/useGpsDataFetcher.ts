@@ -503,9 +503,11 @@ export function useGpsDataFetcher() {
         }
 
         if (progress.active) {
-          // Download is 0-50% of overall progress
+          // Download is 0-50% when route matching is on (detection fills 50-100%),
+          // or 0-100% when route matching is off (no detection phase).
+          const maxPercent = isRouteMatchingEnabled() ? 50 : 100;
           const dlPercent =
-            progress.total > 0 ? Math.round((progress.completed / progress.total) * 50) : 0;
+            progress.total > 0 ? Math.round((progress.completed / progress.total) * maxPercent) : 0;
           updateProgress({
             status: 'fetching',
             completed: progress.completed,
