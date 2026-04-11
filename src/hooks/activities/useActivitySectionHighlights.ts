@@ -36,7 +36,7 @@ export function useActivitySectionHighlights(activityIds: string[]): {
   sections: Map<string, ActivitySectionHighlight[]>;
   routes: Map<string, ActivityRouteHighlight>;
 } {
-  const trigger = useEngineSubscription(['sections', 'groups']);
+  const trigger = useEngineSubscription(['sections', 'groups', 'activities']);
 
   return useMemo(() => {
     const empty = {
