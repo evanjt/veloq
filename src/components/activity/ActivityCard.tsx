@@ -53,10 +53,11 @@ interface ActivityCardProps {
   snapshotReady?: boolean;
   /** Forces re-render when theme changes (enableFreeze suppresses useColorScheme updates) */
   colorScheme?: boolean;
-  /** Section highlights for this activity (PRs, section matches) from batch FFI query */
+  /** Section highlights for this activity (PRs, trends) from batch FFI query */
   sectionHighlights?: Array<{
     sectionName: string;
     isPr: boolean;
+    trend: number; // -1=slower, 0=neutral, 1=faster vs preceding avg
   }>;
 }
 
@@ -235,23 +236,6 @@ export const ActivityCard = React.memo(
               </RNText>
             </View>
           )}
-          {sectionHighlights &&
-            sectionHighlights.length > 0 &&
-            (sectionHighlights.some((h) => h.isPr) ? (
-              <View style={styles.secondaryStat}>
-                <MaterialCommunityIcons name="trophy" size={14} color={brand.orange} />
-                <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
-                  {t('activity.sectionPr')}
-                </RNText>
-              </View>
-            ) : (
-              <View style={styles.secondaryStat}>
-                <MaterialCommunityIcons name="road-variant" size={14} color={textColor} />
-                <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
-                  {t('activity.sectionCount', { count: sectionHighlights.length })}
-                </RNText>
-              </View>
-            ))}
         </Pressable>
       </ScrollView>
     );
@@ -317,23 +301,25 @@ export const ActivityCard = React.memo(
                   <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
                     <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
                   </View>
-                  <RNText
-                    style={[
-                      styles.overlayName,
-                      { color: compactTextColor, textShadowColor: 'transparent' },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {activity.name}
-                  </RNText>
-                  <RNText
-                    style={[
-                      styles.overlayDate,
-                      { color: compactMutedColor, textShadowColor: 'transparent' },
-                    ]}
-                  >
-                    {formatRelativeDate(activity.start_date_local)}
-                  </RNText>
+                  <View style={styles.overlayTitleColumn}>
+                    <RNText
+                      style={[
+                        styles.overlayName,
+                        { color: compactTextColor, textShadowColor: 'transparent' },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {activity.name}
+                    </RNText>
+                    <RNText
+                      style={[
+                        styles.overlayDateSubtitle,
+                        { color: compactMutedColor, textShadowColor: 'transparent' },
+                      ]}
+                    >
+                      {formatRelativeDate(activity.start_date_local)}
+                    </RNText>
+                  </View>
                 </View>
               </View>
 
@@ -419,29 +405,33 @@ export const ActivityCard = React.memo(
           >
             <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
               <View style={styles.compactContent}>
-                {/* Header: icon + name + no-map indicator + date */}
+                {/* Header: icon + name/date stacked + no-map indicator */}
                 <View style={styles.compactHeader}>
                   <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
                     <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
                   </View>
-                  <RNText
-                    style={[styles.compactName, { color: compactTextColor }]}
-                    numberOfLines={1}
-                  >
-                    {activity.name}
-                  </RNText>
-                  <MaterialCommunityIcons
-                    name="map-marker-off"
-                    size={14}
-                    color={activityColor}
-                    style={styles.compactNoMapIcon}
-                  />
-                  <RNText
-                    style={[styles.compactDate, { color: compactMutedColor }]}
-                    numberOfLines={1}
-                  >
-                    {formatRelativeDate(activity.start_date_local)}
-                  </RNText>
+                  <View style={styles.compactTitleColumn}>
+                    <View style={styles.compactNameRow}>
+                      <RNText
+                        style={[styles.compactName, { color: compactTextColor }]}
+                        numberOfLines={1}
+                      >
+                        {activity.name}
+                      </RNText>
+                      <MaterialCommunityIcons
+                        name="map-marker-off"
+                        size={14}
+                        color={activityColor}
+                        style={styles.compactNoMapIcon}
+                      />
+                    </View>
+                    <RNText
+                      style={[styles.compactDateSubtitle, { color: compactMutedColor }]}
+                      numberOfLines={1}
+                    >
+                      {formatRelativeDate(activity.start_date_local)}
+                    </RNText>
+                  </View>
                 </View>
 
                 {/* Primary stats + location */}
@@ -527,7 +517,7 @@ export const ActivityCard = React.memo(
               accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
             />
 
-            {/* Top gradient: sport icon + name + date */}
+            {/* Top gradient: sport icon + name/date stacked + route trend */}
             <LinearGradient
               colors={theme.top as [string, string, string]}
               style={styles.topOverlay}
@@ -537,21 +527,26 @@ export const ActivityCard = React.memo(
                 <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
                   <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
                 </View>
-                <RNText
-                  style={[styles.overlayName, { color: theme.text, textShadowColor: theme.shadow }]}
-                  numberOfLines={1}
-                >
-                  {activity.name}
-                </RNText>
-                <RNText
-                  style={[
-                    styles.overlayDate,
-                    { color: theme.textMuted, textShadowColor: theme.shadow },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {formatRelativeDate(activity.start_date_local)}
-                </RNText>
+                <View style={styles.overlayTitleColumn}>
+                  <RNText
+                    style={[
+                      styles.overlayName,
+                      { color: theme.text, textShadowColor: theme.shadow },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {activity.name}
+                  </RNText>
+                  <RNText
+                    style={[
+                      styles.overlayDateSubtitle,
+                      { color: theme.textMuted, textShadowColor: theme.shadow },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {formatRelativeDate(activity.start_date_local)}
+                  </RNText>
+                </View>
               </View>
             </LinearGradient>
 
@@ -595,7 +590,30 @@ export const ActivityCard = React.memo(
                     {formatElevation(activity.total_elevation_gain, isMetric)}
                   </RNText>
                 </View>
-                {location && (
+                {/* Section trend indicators + route PR trophy */}
+                {sectionHighlights && sectionHighlights.length > 0 ? (
+                  <View style={styles.trendBadge}>
+                    {sectionHighlights.filter((h) => h.trend === 1).length > 0 && (
+                      <View style={styles.trendItem}>
+                        <MaterialCommunityIcons name="arrow-up-bold" size={12} color="#66BB6A" />
+                        <RNText style={[styles.trendCount, { color: '#66BB6A' }]}>
+                          {sectionHighlights.filter((h) => h.trend === 1).length}
+                        </RNText>
+                      </View>
+                    )}
+                    {sectionHighlights.filter((h) => h.trend === -1).length > 0 && (
+                      <View style={styles.trendItem}>
+                        <MaterialCommunityIcons name="arrow-down-bold" size={12} color="#FFA726" />
+                        <RNText style={[styles.trendCount, { color: '#FFA726' }]}>
+                          {sectionHighlights.filter((h) => h.trend === -1).length}
+                        </RNText>
+                      </View>
+                    )}
+                    {sectionHighlights.some((h) => h.isPr) && (
+                      <MaterialCommunityIcons name="trophy" size={13} color={brand.orange} />
+                    )}
+                  </View>
+                ) : location ? (
                   <RNText
                     style={[
                       styles.overlayLocation,
@@ -604,7 +622,7 @@ export const ActivityCard = React.memo(
                   >
                     {location}
                   </RNText>
-                )}
+                ) : null}
               </Pressable>
               {activity.skyline_chart_bytes ? (
                 <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
@@ -737,19 +755,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  overlayName: {
+  overlayTitleColumn: {
     flex: 1,
+    marginLeft: spacing.sm,
+  },
+  overlayName: {
     fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     letterSpacing: -0.3,
-    marginLeft: spacing.sm,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
-  overlayDate: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-    marginLeft: spacing.sm,
+  overlayDateSubtitle: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '500',
+    marginTop: 1,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
@@ -767,6 +787,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 20,
     paddingBottom: 2,
+  },
+  trendBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  trendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 1,
+  },
+  trendCount: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   primaryStats: {
     flexDirection: 'row',
@@ -821,20 +855,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  compactTitleColumn: {
+    flex: 1,
+    marginLeft: spacing.sm,
+  },
+  compactNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   compactName: {
     flex: 1,
     fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     letterSpacing: -0.3,
-    marginLeft: spacing.sm,
   },
   compactNoMapIcon: {
-    marginHorizontal: 6,
+    marginLeft: 6,
     opacity: 0.5,
   },
-  compactDate: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
+  compactDateSubtitle: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '500',
+    marginTop: 1,
   },
   compactPrimaryRow: {
     flexDirection: 'row',

@@ -16,6 +16,7 @@ export interface ActivitySectionHighlight {
   sectionName: string;
   lapTime: number;
   isPr: boolean;
+  trend: number; // -1=slower, 0=neutral, 1=faster vs preceding avg
 }
 
 /**
@@ -46,6 +47,7 @@ export function useActivitySectionHighlights(
           sectionName: h.sectionName,
           lapTime: h.lapTime,
           isPr: h.isPr,
+          trend: (h as unknown as { trend?: number }).trend ?? 0,
         };
         const existing = map.get(h.activityId);
         if (existing) {
