@@ -1920,14 +1920,57 @@ impl PersistentRouteEngine {
         distance_meters: f64,
     ) -> Result<(), String> {
         let dir_str = direction.to_string();
+
+        // Compute lap_time from time_stream when available (in-memory or DB)
+        let (lap_time, lap_pace) = self
+            .load_lap_time(activity_id, start_index, end_index, distance_meters);
+
         self.db
             .execute(
-                "INSERT OR IGNORE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters)
-                 VALUES (?, ?, ?, ?, ?, ?)",
-                rusqlite::params![section_id, activity_id, dir_str, start_index, end_index, distance_meters],
+                "INSERT OR IGNORE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                rusqlite::params![section_id, activity_id, dir_str, start_index, end_index, distance_meters, lap_time, lap_pace],
             )
             .map_err(|e| format!("Failed to insert section_activity: {}", e))?;
         Ok(())
+    }
+
+    /// Load lap_time from time_stream (in-memory or DB fallback).
+    fn load_lap_time(
+        &self,
+        activity_id: &str,
+        start_index: u32,
+        end_index: u32,
+        distance_meters: f64,
+    ) -> (Option<f64>, Option<f64>) {
+        let times = if let Some(ts) = self.time_streams.get(activity_id) {
+            Some(ts.clone())
+        } else {
+            self.db
+                .query_row(
+                    "SELECT times FROM time_streams WHERE activity_id = ?",
+                    rusqlite::params![activity_id],
+                    |row| {
+                        let bytes: Vec<u8> = row.get(0)?;
+                        rmp_serde::from_slice::<Vec<u32>>(&bytes)
+                            .map_err(|_| rusqlite::Error::InvalidQuery)
+                    },
+                )
+                .ok()
+        };
+
+        if let Some(times) = times {
+            let si = start_index as usize;
+            let ei = end_index as usize;
+            if si < times.len() && ei < times.len() {
+                let lap_time = (times[ei] as f64 - times[si] as f64).abs();
+                if lap_time > 0.0 {
+                    let lap_pace = distance_meters / lap_time;
+                    return (Some(lap_time), Some(lap_pace));
+                }
+            }
+        }
+        (None, None)
     }
 
     /// Get sections near a given section within a radius (meters).

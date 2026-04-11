@@ -21,6 +21,7 @@ import {
 import { getStoredCredentials, getSyncGeneration, useSyncDateRange } from '@/providers';
 import { isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
+import { intervalsApi } from '@/api';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 
@@ -597,6 +598,46 @@ export function useGpsDataFetcher() {
         // Now notify UI that activities have been added (metrics are already in DB)
         routeEngine.triggerRefresh('activities');
         routeEngine.triggerRefresh('groups');
+      }
+
+      // Fetch time streams for synced activities so section detection can compute real lap_times.
+      // Without this, section_activities.lap_time stays NULL and feed trends are inaccurate.
+      if (result.syncedIds.length > 0 && isMountedRef.current && !abortSignal.aborted) {
+        try {
+          const batchSize = 10;
+          const timeStreamsToSync: Array<{ activityId: string; times: number[] }> = [];
+          for (let i = 0; i < result.syncedIds.length; i += batchSize) {
+            if (!isMountedRef.current || abortSignal.aborted) break;
+            const batch = result.syncedIds.slice(i, i + batchSize);
+            const results = await Promise.all(
+              batch.map(async (activityId) => {
+                try {
+                  const streams = await intervalsApi.getActivityStreams(activityId, ['time']);
+                  return { activityId, times: (streams.time as number[]) || [] };
+                } catch {
+                  return { activityId, times: [] as number[] };
+                }
+              })
+            );
+            for (const r of results) {
+              if (r.times.length > 0) {
+                timeStreamsToSync.push(r);
+              }
+            }
+          }
+          if (timeStreamsToSync.length > 0 && isMountedRef.current) {
+            routeEngine.setTimeStreams(timeStreamsToSync);
+            if (__DEV__) {
+              console.log(
+                `[fetchApiGps] Synced ${timeStreamsToSync.length}/${result.syncedIds.length} time streams`
+              );
+            }
+          }
+        } catch (e) {
+          if (__DEV__) {
+            console.warn('[fetchApiGps] Time stream fetch failed:', e);
+          }
+        }
       }
 
       // Run section detection if route matching is enabled AND (new activities synced,
