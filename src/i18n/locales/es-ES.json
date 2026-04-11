@@ -752,7 +752,8 @@
         "next": "El detalle de sección muestra los esfuerzos individuales y datos de FC."
       }
     },
-    "viewInDetail": "View in detail"
+    "viewInDetail": "View in detail",
+    "routesDisabled": "Routes off"
   },
   "licenses": {
     "footer": "Toca cualquier insignia de licencia para ver el texto completo. Toca el icono de enlace para visitar el repositorio del proyecto.",

@@ -752,7 +752,8 @@
         "next": "区间详情显示各个努力和心率数据。"
       }
     },
-    "viewInDetail": "View in detail"
+    "viewInDetail": "View in detail",
+    "routesDisabled": "Routes off"
   },
   "licenses": {
     "footer": "点击任何许可证徽章查看完整许可证文本。点击链接图标访问项目仓库。",

@@ -752,7 +752,8 @@
         "next": "セクション詳細に個々の努力とHRデータが表示されます。"
       }
     },
-    "viewInDetail": "View in detail"
+    "viewInDetail": "View in detail",
+    "routesDisabled": "Routes off"
   },
   "licenses": {
     "footer": "ライセンスバッジをタップすると、完全なライセンステキストが表示されます。リンクアイコンをタップすると、プロジェクトリポジトリにアクセスできます。",

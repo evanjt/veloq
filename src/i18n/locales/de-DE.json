@@ -752,7 +752,8 @@
         "next": "Streckendetails zeigen die einzelnen Leistungen und HF-Daten."
       }
     },
-    "viewInDetail": "View in detail"
+    "viewInDetail": "View in detail",
+    "routesDisabled": "Routes off"
   },
   "licenses": {
     "footer": "Tippe auf ein Lizenz-Badge um den vollständigen Lizenztext anzuzeigen. Tippe auf das Link-Symbol um das Projekt-Repository zu besuchen.",

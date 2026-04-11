@@ -752,7 +752,8 @@
         "next": "Section detail shows the individual efforts and HR data."
       }
     },
-    "viewInDetail": "View in detail"
+    "viewInDetail": "View in detail",
+    "routesDisabled": "Routes off"
   },
   "licenses": {
     "footer": "Tap any licence badge to suss out the full licence text. Tap the link icon to check out the project repo.",

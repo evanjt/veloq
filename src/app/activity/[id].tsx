@@ -244,12 +244,6 @@ export default function ActivityDetailScreen() {
           count: totalSectionCount,
         }
       );
-    } else if (hasGpsData) {
-      allTabs.push({
-        key: 'routes',
-        label: t('activityDetail.tabs.route'),
-        icon: 'map-marker-path',
-      });
     }
     return allTabs;
   }, [t, isStrength, hasGpsData, isRouteMatchingOn, matchedRouteCount, totalSectionCount]);

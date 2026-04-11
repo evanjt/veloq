@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { router, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -458,6 +458,22 @@ export default function RoutesScreen() {
           <Text style={[styles.headerTitle, isDark && styles.textLight]}>
             {t('insights.title', 'Insights')}
           </Text>
+          {!isRouteMatchingEnabled && (
+            <TouchableOpacity
+              onPress={() => router.push('/settings')}
+              style={styles.disabledHint}
+              activeOpacity={0.6}
+            >
+              <MaterialCommunityIcons
+                name="map-marker-off-outline"
+                size={14}
+                color={isDark ? darkColors.textMuted : colors.textSecondary}
+              />
+              <Text style={[styles.disabledHintText, isDark && styles.textMuted]}>
+                {t('insights.routesDisabled', 'Routes off')}
+              </Text>
+            </TouchableOpacity>
+          )}
           <IconButton
             icon="information-outline"
             size={20}
@@ -509,6 +525,19 @@ const styles = StyleSheet.create({
   infoButton: {
     margin: 0,
   },
+  disabledHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 12,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+  },
+  disabledHintText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -516,6 +545,9 @@ const styles = StyleSheet.create({
   },
   textLight: {
     color: colors.textOnDark,
+  },
+  textMuted: {
+    color: darkColors.textSecondary,
   },
   routeTabPage: {
     flex: 1,

@@ -752,7 +752,8 @@
         "next": "Section detail shows the individual efforts and HR data."
       }
     },
-    "viewInDetail": "View in detail"
+    "viewInDetail": "View in detail",
+    "routesDisabled": "Routes off"
   },
   "strength": {
     "snapshot": "Strength snapshot",
