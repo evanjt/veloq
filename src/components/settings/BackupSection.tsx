@@ -30,6 +30,7 @@ import {
   type BackupBackend,
 } from '@/lib/backup';
 import { colors, darkColors, spacing, layout } from '@/theme';
+import { NextcloudQrScanner } from './NextcloudQrScanner';
 
 export function BackupSection() {
   const { isDark } = useTheme();
@@ -78,6 +79,7 @@ export function BackupSection() {
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionResult, setConnectionResult] = useState<'success' | 'error' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [showQrScanner, setShowQrScanner] = useState(false);
 
   useEffect(() => {
     getAvailableBackends().then(setAvailableBackends);
@@ -102,7 +104,54 @@ export function BackupSection() {
     getAvailableBackends().then(setAvailableBackends);
   }, [webdavUrl, webdavUser, webdavPass]);
 
+  const handleQrScanned = useCallback(
+    (data: string) => {
+      // Parse nc://login/user:USERNAME&password:PASSWORD&server:SERVER_URL
+      if (!data.startsWith('nc://login/')) {
+        setConnectionResult('error');
+        setConnectionError(t('backup.invalidQrCode', 'Not a valid Nextcloud QR code'));
+        setShowQrScanner(false);
+        return;
+      }
+      const params = data.slice('nc://login/'.length);
+      const parts: Record<string, string> = {};
+      for (const part of params.split('&')) {
+        const colonIdx = part.indexOf(':');
+        if (colonIdx > 0) {
+          parts[part.slice(0, colonIdx)] = part.slice(colonIdx + 1);
+        }
+      }
+      const user = parts.user;
+      const password = parts.password;
+      const server = parts.server;
+      if (!user || !password || !server) {
+        setConnectionResult('error');
+        setConnectionError(t('backup.invalidQrCode', 'Not a valid Nextcloud QR code'));
+        setShowQrScanner(false);
+        return;
+      }
+      // Construct WebDAV URL per Nextcloud docs
+      const baseUrl = server.endsWith('/') ? server.slice(0, -1) : server;
+      const webdavEndpoint = `${baseUrl}/remote.php/dav/files/${user}/`;
+      setWebdavUrl(webdavEndpoint);
+      setWebdavUser(user);
+      setWebdavPass(password);
+      setShowQrScanner(false);
+      setConnectionResult(null);
+      // Auto-save config
+      setWebdavConfig(webdavEndpoint, user, password).then(() => {
+        getAvailableBackends().then(setAvailableBackends);
+      });
+    },
+    [t]
+  );
+
   const handleTestConnection = useCallback(async () => {
+    if (!webdavUrl || !webdavUser || !webdavPass) {
+      setConnectionResult('error');
+      setConnectionError(t('backup.fillAllFields', 'Please fill in all fields'));
+      return;
+    }
     setTestingConnection(true);
     setConnectionResult(null);
     setConnectionError(null);
@@ -115,7 +164,7 @@ export function BackupSection() {
     } else {
       setConnectionResult('success');
     }
-  }, [handleSaveWebdav]);
+  }, [handleSaveWebdav, webdavUrl, webdavUser, webdavPass, t]);
 
   // Database backup
   const { exportDatabaseBackup, exporting: dbExporting } = useExportDatabaseBackup();
@@ -193,6 +242,24 @@ export function BackupSection() {
         {/* WebDAV config (shown when WebDAV is selected) */}
         {currentBackend.id === 'webdav' && (
           <View style={[styles.configBlock, isDark && styles.configBlockDark]}>
+            {/* Nextcloud QR code setup */}
+            <TouchableOpacity
+              style={styles.qrSetupButton}
+              onPress={() => setShowQrScanner(true)}
+              activeOpacity={0.6}
+            >
+              <MaterialCommunityIcons name="qrcode-scan" size={18} color={colors.primary} />
+              <Text style={styles.qrSetupText}>
+                {t('backup.scanNextcloudQr', 'Scan Nextcloud App Password')}
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.qrHint, isDark && styles.textMuted]}>
+              {t(
+                'backup.nextcloudQrHint',
+                'Nextcloud → Settings → Security → Create new app password → Scan QR code'
+              )}
+            </Text>
+
             <TextInput
               style={[styles.input, isDark && styles.inputDark]}
               placeholder={t('backup.serverUrl')}
@@ -225,24 +292,26 @@ export function BackupSection() {
               autoCorrect={false}
               secureTextEntry
             />
-            <TouchableOpacity
-              style={[styles.testButton, testingConnection && { opacity: 0.5 }]}
-              onPress={handleTestConnection}
-              disabled={testingConnection || !webdavUrl}
-              activeOpacity={0.6}
-            >
-              <Text style={styles.testButtonText}>
-                {testingConnection ? '...' : t('backup.testConnection')}
-              </Text>
-            </TouchableOpacity>
-            {connectionResult === 'success' && (
-              <Text style={styles.connectionSuccess}>{t('backup.connectionSuccess')}</Text>
-            )}
-            {connectionResult === 'error' && (
-              <Text style={styles.connectionError}>
-                {connectionError || t('backup.connectionFailed')}
-              </Text>
-            )}
+            <View style={styles.testRow}>
+              <TouchableOpacity
+                style={[styles.testButton, testingConnection && { opacity: 0.5 }]}
+                onPress={handleTestConnection}
+                disabled={testingConnection}
+                activeOpacity={0.6}
+              >
+                <Text style={styles.testButtonText}>
+                  {testingConnection ? '...' : t('backup.testConnection')}
+                </Text>
+              </TouchableOpacity>
+              {connectionResult === 'success' && (
+                <Text style={styles.connectionSuccess}>{t('backup.connectionSuccess')}</Text>
+              )}
+              {connectionResult === 'error' && (
+                <Text style={styles.connectionError}>
+                  {connectionError || t('backup.connectionFailed')}
+                </Text>
+              )}
+            </View>
           </View>
         )}
         <View style={[styles.divider, isDark && styles.dividerDark]} />
@@ -319,6 +388,15 @@ export function BackupSection() {
               ))}
             </View>
           </TouchableOpacity>
+        </Modal>
+
+        {/* QR Scanner modal */}
+        <Modal
+          visible={showQrScanner}
+          animationType="slide"
+          onRequestClose={() => setShowQrScanner(false)}
+        >
+          <NextcloudQrScanner onScanned={handleQrScanned} onClose={() => setShowQrScanner(false)} />
         </Modal>
 
         {/* Encryption warning */}
@@ -569,13 +647,38 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
     backgroundColor: darkColors.background,
   },
+  testRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: 2,
+  },
   testButton: {
-    alignSelf: 'flex-start',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: 16,
     backgroundColor: colors.primary,
-    marginTop: 2,
+  },
+  qrSetupButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+  },
+  qrSetupText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.primary,
+  },
+  qrHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
   },
   testButtonText: {
     fontSize: 13,

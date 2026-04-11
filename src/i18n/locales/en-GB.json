@@ -289,7 +289,15 @@
     "backupFailedTitle": "Backup Failed",
     "backupFailedMessage": "Could not complete the backup. Check your backup destination and try again.",
     "legacyImportNotice": "This is a legacy backup (.veloq). Only preferences, section names, and route names were restored. For a full restore, use a database backup (.veloqdb).",
-    "notEncryptedWarning": "Backups are not encrypted. Do not store on untrusted services."
+    "notEncryptedWarning": "Backups are not encrypted. Do not store on untrusted services.",
+    "scanNextcloudQr": "Scan Nextcloud App Password",
+    "nextcloudQrHint": "Nextcloud → Settings → Security → Create new app password → Scan QR code",
+    "scanQrTitle": "Scan Nextcloud QR Code",
+    "scanQrInstructions": "In Nextcloud, go to Settings → Security → Create new app password, then scan the QR code shown.",
+    "invalidQrCode": "Not a valid Nextcloud QR code",
+    "cameraPermissionNeeded": "Camera access is required to scan QR codes",
+    "grantCameraAccess": "Grant Camera Access",
+    "fillAllFields": "Please fill in all fields"
   },
   "cache": {
     "addingActivities": "Adding activities...",
