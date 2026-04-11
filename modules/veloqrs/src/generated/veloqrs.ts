@@ -7666,6 +7666,15 @@ export interface HeatmapManagerInterface {
    */
   clearTiles(basePath: string) /*throws*/ : /*u32*/ number;
   /**
+   * Disable heatmap tile generation by clearing the tiles path.
+   */
+  clearTilesPath() /*throws*/ : void;
+  /**
+   * Get total size of heatmap tile cache in bytes.
+   * Walks the z/x/y directory tree natively — much faster than JS filesystem calls.
+   */
+  getCacheSize(basePath: string) /*throws*/ : /*u64*/ bigint;
+  /**
    * Poll tile generation progress: "idle" | "running" | "complete"
    */
   poll() /*throws*/ : string;
@@ -7709,6 +7718,46 @@ export class HeatmapManager
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
+            uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(basePath),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Disable heatmap tile generation by clearing the tiles path.
+   */
+  public clearTilesPath(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path(
+          uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Get total size of heatmap tile cache in bytes.
+   * Walks the z/x/y directory tree natively — much faster than JS filesystem calls.
+   */
+  public getCacheSize(basePath: string): /*u64*/ bigint /*throws*/ {
+    return FfiConverterUInt64.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
             uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(basePath),
             callStatus,
@@ -11328,6 +11377,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path() !==
+    40331
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size() !==
+    54156
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size",
     );
   }
   if (

@@ -331,7 +331,8 @@
     "downloadingGpsProgress": "Downloading GPS data... {{completed}}/{{total}}",
     "noValidGpsChecked": "No valid GPS data found (checked {{count}} activities)",
     "syncingActivities": "Syncing activities",
-    "fetchingActivities": "Fetching activities..."
+    "fetchingActivities": "Fetching activities...",
+    "generatingHeatmap": "Generating heatmap..."
   },
   "chartTypes": {
     "alt": "Alt",

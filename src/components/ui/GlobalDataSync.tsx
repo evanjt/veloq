@@ -4,7 +4,7 @@
  * Posts native OS notifications for sync progress instead of rendering an in-app banner.
  */
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -22,6 +22,7 @@ import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,
   formatTerrainSnapshotProgress,
+  type SyncDisplayInfo,
 } from '@/lib/utils/syncProgressFormat';
 import {
   updateSyncNotification,
@@ -158,6 +159,22 @@ export function GlobalDataSync() {
   // Terrain snapshot rendering progress
   const terrainSnapshotProgress = useSyncDateRange((s) => s.terrainSnapshotProgress);
 
+  // Poll heatmap tile generation status (runs on Rust background thread)
+  const [heatmapGenerating, setHeatmapGenerating] = useState(false);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const engine = getRouteEngine();
+      if (!engine) return;
+      try {
+        const status = engine.pollTileGeneration();
+        setHeatmapGenerating(status === 'running');
+      } catch {
+        setHeatmapGenerating(false);
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
   // GPS sync display info
   const gpsDisplayInfo = useMemo(
     () => formatGpsSyncProgress(progress, isFetching && !isSyncing, t),
@@ -176,8 +193,21 @@ export function GlobalDataSync() {
     [terrainSnapshotProgress, t]
   );
 
-  // Pick which info to show — GPS sync > bounds sync > terrain snapshots
-  const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo;
+  // Heatmap tile generation display info
+  const heatmapDisplayInfo = useMemo((): SyncDisplayInfo | null => {
+    if (!heatmapGenerating) return null;
+    return {
+      icon: 'map-legend',
+      text: t('cache.generatingHeatmap', 'Generating heatmap...') as string,
+      percent: 0,
+      countText: null,
+      indeterminate: true,
+    };
+  }, [heatmapGenerating, t]);
+
+  // Pick which info to show — GPS sync > bounds sync > terrain > heatmap
+  const displayInfo =
+    gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo ?? heatmapDisplayInfo;
 
   // Post/update/dismiss native notification immediately — no artificial delay.
   useEffect(() => {
