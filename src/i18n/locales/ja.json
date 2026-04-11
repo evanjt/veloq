@@ -264,7 +264,7 @@
     "exportingDatabase": "Exporting database...",
     "importingDatabase": "Importing database...",
     "autoBackup": "Auto-Backup",
-    "autoBackupDescription": "Daily after sync. All backups are kept.",
+    "autoBackupDescription": "Daily after sync. Local: keeps last 5. Cloud: keeps all.",
     "lastBackup": "Last backup: {{date}}",
     "lastBackupNever": "Never backed up",
     "backupNow": "Back Up Now",

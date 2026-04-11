@@ -30,7 +30,7 @@ const SETTING_AUTO_BACKUP_ENABLED = '__auto_backup_enabled';
 
 const MIN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const STALE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const MAX_BACKUPS = 3;
+const MAX_LOCAL_BACKUPS = 5;
 
 /** Registry of available backends. */
 const backends: Record<string, BackupBackend> = {
@@ -154,9 +154,11 @@ export async function performBackup(force = false): Promise<boolean> {
     // Update last backup timestamp
     engine.setSetting(SETTING_LAST_BACKUP, String(Date.now()));
 
-    // Retention: backups are kept indefinitely. The user manages
-    // cleanup manually via the backup settings screen. Storage is on
-    // their own server/device so automatic deletion is too risky.
+    // Local backups: enforce retention to prevent silent device storage growth.
+    // Cloud/WebDAV backups: kept indefinitely — storage is the user's responsibility.
+    if (backend.id === 'local') {
+      await enforceRetention(backend, MAX_LOCAL_BACKUPS);
+    }
 
     log.log(`Auto-backup complete: ${entry.activityCount} activities, ${entry.sizeBytes} bytes`);
     return true;
@@ -167,14 +169,14 @@ export async function performBackup(force = false): Promise<boolean> {
   }
 }
 
-/** Delete old backups beyond the retention limit. */
-async function enforceRetention(backend: BackupBackend): Promise<void> {
+/** Delete old backups beyond the retention limit (local storage only). */
+async function enforceRetention(backend: BackupBackend, maxBackups: number): Promise<void> {
   try {
     const backups = await backend.listBackups();
-    if (backups.length <= MAX_BACKUPS) return;
+    if (backups.length <= maxBackups) return;
 
     // Delete oldest backups beyond the limit
-    const toDelete = backups.slice(MAX_BACKUPS);
+    const toDelete = backups.slice(maxBackups);
     for (const backup of toDelete) {
       await backend.delete(backup.id);
       log.log(`Deleted old backup: ${backup.id}`);
