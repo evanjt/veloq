@@ -195,7 +195,7 @@ class RouteEngineClient {
       this.dbPath = dbPath;
       // Configure heatmap tiles path so Rust generates tiles on background threads
       // Strip file:// prefix for plain filesystem path (Rust expects plain path, not URL)
-      const tilesPath = `${FileSystem.documentDirectory}heatmap-tiles/`;
+      const tilesPath = `${FileSystem.cacheDirectory}heatmap-tiles/`;
       const normalizedTilesPath = tilesPath.startsWith('file://')
         ? tilesPath.slice(7)
         : tilesPath;

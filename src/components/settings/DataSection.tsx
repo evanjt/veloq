@@ -104,7 +104,7 @@ export function DataSection() {
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
           <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
-            {t('settings.cache', 'Cache')}
+            {t('settings.cacheAndDatabase', 'Cache & Database')}
           </Text>
           <Text style={[styles.summaryValue, isDark && settingsStyles.textMuted]}>
             {formatFileSize(totalCacheSize)}
@@ -160,7 +160,7 @@ export function DataSection() {
                   t('settings.geocodingTermsTitle', 'OpenStreetMap Nominatim'),
                   t(
                     'settings.geocodingTermsMessage',
-                    'Route and section names are generated using OpenStreetMap Nominatim, a free geocoding service. By enabling this feature you agree to the Nominatim Usage Policy. Veloq is not affiliated with OpenStreetMap.'
+                    'Route and section names are generated using OpenStreetMap Nominatim, a free geocoding service. This applies only to new activities. By enabling this feature you agree to the Nominatim Usage Policy (https://nominatim.org/release-docs/develop/api/Search/#terms-and-conditions). Veloq is not affiliated with OpenStreetMap.'
                   ),
                   [
                     { text: t('common.cancel'), style: 'cancel' },

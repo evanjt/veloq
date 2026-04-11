@@ -1459,7 +1459,8 @@
     "geocoding": "Auto-name Routes",
     "geocodingDescription": "Uses OpenStreetMap to name routes from GPS coordinates",
     "geocodingTermsTitle": "OpenStreetMap Nominatim",
-    "geocodingTermsMessage": "Route and section names are generated using OpenStreetMap Nominatim, a free geocoding service. By enabling this feature you agree to the Nominatim Usage Policy. Veloq is not affiliated with OpenStreetMap."
+    "geocodingTermsMessage": "Route and section names are generated using OpenStreetMap Nominatim, a free geocoding service. This applies only to new activities. By enabling this feature you agree to the Nominatim Usage Policy (https://nominatim.org/release-docs/develop/api/Search/#terms-and-conditions). Veloq is not affiliated with OpenStreetMap.",
+    "cacheAndDatabase": "Cache & Database"
   },
   "stats": {
     "activities": "Activities",

@@ -1417,7 +1417,8 @@
     "geocoding": "Routes automatisch benoemen",
     "geocodingDescription": "Gebruikt OpenStreetMap om routes te benoemen op basis van GPS-coördinaten",
     "geocodingTermsTitle": "OpenStreetMap Nominatim",
-    "geocodingTermsMessage": "Route and section names are generated using OpenStreetMap Nominatim, a free geocoding service. By enabling this feature you agree to the Nominatim Usage Policy. Veloq is not affiliated with OpenStreetMap."
+    "geocodingTermsMessage": "Route and section names are generated using OpenStreetMap Nominatim, a free geocoding service. By enabling this feature you agree to the Nominatim Usage Policy. Veloq is not affiliated with OpenStreetMap.",
+    "cacheAndDatabase": "Cache & Database"
   },
   "stats": {
     "activities": "Activiteiten",
