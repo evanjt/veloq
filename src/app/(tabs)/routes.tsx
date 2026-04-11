@@ -200,24 +200,26 @@ export default function RoutesScreen() {
       });
     }
 
-    result.push({
-      key: 'routes',
-      label: t('trainingScreen.routes'),
-      icon: 'map-marker-path',
-    });
+    if (isRouteMatchingEnabled) {
+      result.push({
+        key: 'routes',
+        label: t('trainingScreen.routes'),
+        icon: 'map-marker-path',
+      });
 
-    result.push({
-      key: 'sections',
-      label: t('trainingScreen.sections'),
-      icon: 'road-variant',
-    });
+      result.push({
+        key: 'sections',
+        label: t('trainingScreen.sections'),
+        icon: 'road-variant',
+      });
+    }
 
     if (debugEnabled) {
       result.push({ key: 'debug', label: 'Sync', icon: 'bug-outline' });
     }
 
     return result;
-  }, [debugEnabled, hasStrength, t]);
+  }, [debugEnabled, hasStrength, isRouteMatchingEnabled, t]);
 
   const availableTabKeys = useMemo(() => new Set(tabs.map((entry) => entry.key)), [tabs]);
   const [activeTab, setActiveTab] = useState<TabType>(() => {
