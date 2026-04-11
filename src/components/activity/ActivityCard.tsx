@@ -625,7 +625,7 @@ export const ActivityCard = React.memo(
                       </View>
                     )}
                     {sectionHighlights.some((h) => h.isPr) && (
-                      <MaterialCommunityIcons name="trophy" size={13} color={brand.orange} />
+                      <MaterialCommunityIcons name="trophy" size={13} color="#FFD700" />
                     )}
                   </View>
                 ) : location ? (

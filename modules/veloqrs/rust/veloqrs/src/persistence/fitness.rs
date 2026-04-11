@@ -1935,14 +1935,15 @@ impl PersistentRouteEngine {
         }
 
         // Step 1: Query section matches for the requested activities.
-        // Use lap_time when available, otherwise estimate from activity duration × distance ratio.
+        // Track whether lap_time is real or estimated — trends only use real times.
         let placeholders: String = activity_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let sql = format!(
             "SELECT sa.activity_id, sa.section_id,
                     COALESCE(sa.lap_time,
                              CASE WHEN a.distance_meters > 0 AND sa.distance_meters > 0
                                   THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
-                                  ELSE NULL END) as effective_time
+                                  ELSE NULL END) as effective_time,
+                    CASE WHEN sa.lap_time IS NOT NULL THEN 1 ELSE 0 END as has_real_time
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              JOIN activities a ON sa.activity_id = a.id
@@ -1966,13 +1967,15 @@ impl PersistentRouteEngine {
             .map(|id| id as &dyn rusqlite::types::ToSql)
             .collect();
 
-        let rows: Vec<(String, String, f64)> = match stmt.query_map(params.as_slice(), |row| {
+        // (activity_id, section_id, effective_time, has_real_time)
+        let rows: Vec<(String, String, f64, bool)> = match stmt.query_map(params.as_slice(), |row| {
             let time: Option<f64> = row.get(2)?;
-            Ok((row.get(0)?, row.get(1)?, time.unwrap_or(0.0)))
+            let real: i32 = row.get(3)?;
+            Ok((row.get(0)?, row.get(1)?, time.unwrap_or(0.0), real != 0))
         }) {
             Ok(mapped) => mapped
                 .filter_map(|r| r.ok())
-                .filter(|(_, _, t)| *t > 0.0)
+                .filter(|(_, _, t, _)| *t > 0.0)
                 .collect(),
             Err(e) => {
                 log::warn!("tracematch: [highlights] query failed: {}", e);
@@ -1984,10 +1987,16 @@ impl PersistentRouteEngine {
             return vec![];
         }
 
+        // Track which (activity, section) pairs have real vs estimated times
+        let mut has_real_time_map: HashMap<(String, String), bool> = HashMap::new();
+        for (aid, sid, _, real) in &rows {
+            has_real_time_map.insert((aid.clone(), sid.clone()), *real);
+        }
+
         // Step 2: Collect distinct section IDs from the results
         let section_ids: Vec<String> = {
             let mut set = std::collections::HashSet::new();
-            for (_, sid, _) in &rows {
+            for (_, sid, _, _) in &rows {
                 set.insert(sid.clone());
             }
             set.into_iter().collect()
@@ -2131,9 +2140,11 @@ impl PersistentRouteEngine {
             }
         }
 
-        // Step 5: Build result, comparing each lap_time against global best
+        // Step 5: Build result, comparing each lap_time against global best.
+        // Trends are suppressed (set to 0) when using estimated times — estimates
+        // from activity_duration × distance_ratio are too inaccurate for trend signals.
         rows.into_iter()
-            .map(|(activity_id, section_id, lap_time)| {
+            .map(|(activity_id, section_id, lap_time, _has_real)| {
                 let is_pr = best_times
                     .get(&section_id)
                     .map(|&best| (lap_time - best).abs() < 0.001)
@@ -2144,10 +2155,19 @@ impl PersistentRouteEngine {
                     .cloned()
                     .unwrap_or_default();
 
-                let trend = trend_map
+                // Only show trend when we have real lap_time data
+                let has_real = has_real_time_map
                     .get(&(activity_id.clone(), section_id.clone()))
                     .copied()
-                    .unwrap_or(0);
+                    .unwrap_or(false);
+                let trend = if has_real {
+                    trend_map
+                        .get(&(activity_id.clone(), section_id.clone()))
+                        .copied()
+                        .unwrap_or(0)
+                } else {
+                    0 // suppress trend for estimated times
+                };
 
                 crate::FfiActivitySectionHighlight {
                     activity_id,
