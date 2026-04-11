@@ -1934,14 +1934,19 @@ impl PersistentRouteEngine {
             return vec![];
         }
 
-        // Step 1: Query lap times for the requested activities
+        // Step 1: Query section matches for the requested activities.
+        // Use lap_time when available, otherwise estimate from activity duration × distance ratio.
         let placeholders: String = activity_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let sql = format!(
-            "SELECT sa.activity_id, sa.section_id, sa.lap_time
+            "SELECT sa.activity_id, sa.section_id,
+                    COALESCE(sa.lap_time,
+                             CASE WHEN a.distance_meters > 0 AND sa.distance_meters > 0
+                                  THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
+                                  ELSE NULL END) as effective_time
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
+             JOIN activities a ON sa.activity_id = a.id
              WHERE sa.activity_id IN ({})
-               AND sa.lap_time IS NOT NULL
                AND sa.excluded = 0
                AND s.disabled = 0
                AND s.superseded_by IS NULL",
@@ -1962,9 +1967,13 @@ impl PersistentRouteEngine {
             .collect();
 
         let rows: Vec<(String, String, f64)> = match stmt.query_map(params.as_slice(), |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            let time: Option<f64> = row.get(2)?;
+            Ok((row.get(0)?, row.get(1)?, time.unwrap_or(0.0)))
         }) {
-            Ok(mapped) => mapped.filter_map(|r| r.ok()).collect(),
+            Ok(mapped) => mapped
+                .filter_map(|r| r.ok())
+                .filter(|(_, _, t)| *t > 0.0)
+                .collect(),
             Err(e) => {
                 log::warn!("tracematch: [highlights] query failed: {}", e);
                 return vec![];
@@ -1984,16 +1993,20 @@ impl PersistentRouteEngine {
             set.into_iter().collect()
         };
 
-        // Step 3: Batch-query global best times per section
+        // Step 3: Batch-query global best times per section (using same COALESCE fallback)
         let sec_placeholders: String =
             section_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let best_sql = format!(
-            "SELECT section_id, MIN(lap_time) as best_time
-             FROM section_activities
-             WHERE section_id IN ({})
-               AND lap_time IS NOT NULL
-               AND excluded = 0
-             GROUP BY section_id",
+            "SELECT sa.section_id, MIN(
+                    COALESCE(sa.lap_time,
+                             CASE WHEN a.distance_meters > 0 AND sa.distance_meters > 0
+                                  THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
+                                  ELSE NULL END)) as best_time
+             FROM section_activities sa
+             JOIN activities a ON sa.activity_id = a.id
+             WHERE sa.section_id IN ({})
+               AND sa.excluded = 0
+             GROUP BY sa.section_id",
             sec_placeholders
         );
 
@@ -2019,13 +2032,16 @@ impl PersistentRouteEngine {
             }
         }
 
-        // Step 3b: Batch-query all lap_times per section ordered by date for trend computation
+        // Step 3b: Batch-query all effective times per section ordered by date for trend computation
         let trend_sql = format!(
-            "SELECT sa.section_id, sa.activity_id, sa.lap_time
+            "SELECT sa.section_id, sa.activity_id,
+                    COALESCE(sa.lap_time,
+                             CASE WHEN a.distance_meters > 0 AND sa.distance_meters > 0
+                                  THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
+                                  ELSE NULL END) as effective_time
              FROM section_activities sa
              JOIN activities a ON sa.activity_id = a.id
              WHERE sa.section_id IN ({})
-               AND sa.lap_time IS NOT NULL
                AND sa.excluded = 0
              ORDER BY sa.section_id, a.start_date ASC",
             sec_placeholders
@@ -2039,10 +2055,11 @@ impl PersistentRouteEngine {
                 .collect();
 
             if let Ok(mapped) = trend_stmt.query_map(trend_params.as_slice(), |row| {
+                let time: Option<f64> = row.get(2)?;
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
-                    row.get::<_, f64>(2)?,
+                    time.unwrap_or(0.0),
                 ))
             }) {
                 let mut current_section = String::new();
@@ -2051,6 +2068,9 @@ impl PersistentRouteEngine {
 
                 for r in mapped.flatten() {
                     let (sid, aid, lt) = r;
+                    if lt <= 0.0 {
+                        continue;
+                    }
                     // Reset running average when switching sections
                     if sid != current_section {
                         current_section = sid.clone();
