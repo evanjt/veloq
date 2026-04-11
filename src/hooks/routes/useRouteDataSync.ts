@@ -46,6 +46,7 @@ import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { i18n } from '@/i18n';
 import { getNativeModule } from '@/lib/native/routeEngine';
 import { routeEngine } from 'veloqrs';
+import { intervalsApi } from '@/api';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
 import { useSyncDateRange, getStoredCredentials } from '@/providers';
 import type { Activity } from '@/types';
@@ -323,6 +324,49 @@ export function useRouteDataSync(
             }
           } else if (__DEV__) {
             console.log('[RouteDataSync] No new activities to sync');
+          }
+
+          // Backfill: fetch time streams for activities with NULL lap_time (upgrade path)
+          if (isMountedRef.current && !isDemo) {
+            try {
+              const needingStreams = routeEngine.getActivitiesNeedingTimeStreams();
+              if (needingStreams.length > 0) {
+                if (__DEV__) {
+                  console.log(
+                    `[RouteDataSync] Backfilling time streams for ${needingStreams.length} activities`
+                  );
+                }
+                const batchSize = 10;
+                const backfillStreams: Array<{ activityId: string; times: number[] }> = [];
+                for (let i = 0; i < needingStreams.length; i += batchSize) {
+                  if (!isMountedRef.current) break;
+                  const batch = needingStreams.slice(i, i + batchSize);
+                  const results = await Promise.all(
+                    batch.map(async (activityId) => {
+                      try {
+                        const streams = await intervalsApi.getActivityStreams(activityId, ['time']);
+                        return { activityId, times: (streams.time as number[]) || [] };
+                      } catch {
+                        return { activityId, times: [] as number[] };
+                      }
+                    })
+                  );
+                  for (const r of results) {
+                    if (r.times.length > 0) backfillStreams.push(r);
+                  }
+                }
+                if (backfillStreams.length > 0 && isMountedRef.current) {
+                  routeEngine.setTimeStreams(backfillStreams);
+                  if (__DEV__) {
+                    console.log(
+                      `[RouteDataSync] Backfilled ${backfillStreams.length}/${needingStreams.length} time streams`
+                    );
+                  }
+                }
+              }
+            } catch {
+              // Non-critical — will retry next sync
+            }
           }
 
           // Set complete status so lastSyncTimestamp is updated
