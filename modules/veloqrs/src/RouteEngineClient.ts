@@ -846,7 +846,11 @@ class RouteEngineClient {
   /** Clear all heatmap tiles from disk. */
   clearHeatmapTiles(basePath: string): number {
     if (!this.ready) return 0;
-    return this.timed('clearHeatmapTiles', () => this.engine.heatmap().clearTiles(basePath));
+    // Normalize file:// URLs — Rust expects plain filesystem paths
+    const normalizedPath = basePath.startsWith('file://') ? basePath.slice(7) : basePath;
+    return this.timed('clearHeatmapTiles', () =>
+      this.engine.heatmap().clearTiles(normalizedPath)
+    );
   }
 
   /** Poll tile generation status: 'idle' | 'running' | 'complete' */

@@ -164,7 +164,11 @@ export function DataSection() {
               if (enabled) {
                 getRouteEngine()?.enableHeatmapTiles();
               } else {
-                getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
+                // Strip file:// prefix — Rust expects a plain filesystem path
+                const plainPath = HEATMAP_TILES_DIR.startsWith('file://')
+                  ? HEATMAP_TILES_DIR.slice(7)
+                  : HEATMAP_TILES_DIR;
+                getRouteEngine()?.clearHeatmapTiles(plainPath);
                 getRouteEngine()?.disableHeatmapTiles();
               }
             }}

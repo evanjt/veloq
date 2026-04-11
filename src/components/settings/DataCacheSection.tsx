@@ -223,38 +223,36 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
         style: 'destructive',
         onPress: async () => {
           try {
-            // 1. Cancel any in-flight queries FIRST to stop ongoing fetches
+            // 1. Cancel any in-flight queries
             await queryClient.cancelQueries();
 
-            // 2. Reset sync date range to 90 days and LOCK expansion
-            // The expansion lock prevents any expandRange() calls from re-expanding
-            resetSyncDateRange();
-
-            // 3. Clear GPS/bounds cache and route cache
-            // clearCache() calls engine.clear() which deletes all SQLite data
+            // 2. Clear all caches (engine, tiles, filesystem)
             await clearCache();
             await clearTerrainPreviews();
             await TileCacheService.clearAllPacks();
             emitClearTileCache();
-            getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
+            const plainTilesPath = HEATMAP_TILES_DIR.startsWith('file://')
+              ? HEATMAP_TILES_DIR.slice(7)
+              : HEATMAP_TILES_DIR;
+            getRouteEngine()?.clearHeatmapTiles(plainTilesPath);
             setTerrainCacheSize(0);
             setHeatmapCacheSize(0);
             setTileCacheStats(null);
             await AsyncStorage.removeItem('veloq-query-cache');
 
-            // 4. Yield to let GlobalDataSync re-render with new 90-day date range
-            await new Promise((resolve) => setTimeout(resolve, 100));
+            // 3. Clear ALL query data from TanStack cache
+            queryClient.clear();
 
-            // 5. Reset all queries — clears data AND preserves observers to trigger refetch.
-            // exact: false enables prefix matching so ['activities'] matches
-            // ['activities', athleteId, oldest, newest, 'base'] etc.
-            queryClient.resetQueries({ queryKey: ['activities'], exact: false });
-            queryClient.resetQueries({ queryKey: ['activities-infinite'], exact: false });
-            queryClient.resetQueries({ queryKey: ['wellness'], exact: false });
-            queryClient.resetQueries({ queryKey: ['powerCurve'], exact: false });
-            queryClient.resetQueries({ queryKey: ['paceCurve'], exact: false });
-            queryClient.resetQueries({ queryKey: ['athlete'], exact: false });
-            queryClient.resetQueries({ queryKey: ['athlete-summary'], exact: false });
+            // 4. Reset sync date range to 90 days and lock expansion
+            resetSyncDateRange();
+
+            // 5. Yield to let GlobalDataSync re-render with new date range
+            await new Promise((resolve) => setTimeout(resolve, 200));
+
+            // 6. Invalidate all queries to force fresh fetches.
+            // GlobalDataSync has new 90-day dates and creates new query keys.
+            // Invalidating marks them stale so they refetch immediately.
+            queryClient.invalidateQueries();
 
             // Refresh cache sizes
             refreshCacheSizes();
