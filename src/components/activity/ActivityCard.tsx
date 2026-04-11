@@ -635,7 +635,7 @@ export const ActivityCard = React.memo(
                             <View style={styles.trendItem}>
                               <MaterialCommunityIcons
                                 name="trending-up"
-                                size={18}
+                                size={15}
                                 color="#66BB6A"
                               />
                               <RNText style={[styles.trendCount, { color: '#66BB6A' }]}>
@@ -647,7 +647,7 @@ export const ActivityCard = React.memo(
                             <View style={styles.trendItem}>
                               <MaterialCommunityIcons
                                 name="trending-down"
-                                size={18}
+                                size={15}
                                 color="#EF5350"
                               />
                               <RNText style={[styles.trendCount, { color: '#EF5350' }]}>
@@ -863,11 +863,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   trendCount: {
-    fontSize: 16,
-    fontWeight: '800',
-    textShadowColor: 'rgba(0,0,0,0.7)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    fontSize: 13,
+    fontWeight: '700',
   },
   primaryStats: {
     flexDirection: 'row',
