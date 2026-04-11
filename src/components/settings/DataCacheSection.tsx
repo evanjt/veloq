@@ -32,7 +32,6 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { CacheManagementPanel } from './CacheManagementPanel';
 import { StorageStatsPanel } from './StorageStatsPanel';
-import { TileCachePanel } from './TileCachePanel';
 
 function formatDateOrDash(dateStr: string | null): string {
   if (!dateStr) return '-';
@@ -66,7 +65,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     minActivities: 2,
   });
   const { totalCount: totalSections } = useSectionSummaries();
-  const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } = useRouteSettings();
+  const { settings: routeSettings } = useRouteSettings();
 
   // Map tile cache stats
   const nativeSizeEstimate = useTileCacheStore((s) => s.nativeSizeEstimate);
@@ -312,14 +311,6 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
           terrainCacheSize={terrainCacheSize}
           heatmapCacheSize={heatmapCacheSize}
           freeStorage={freeStorage}
-        />
-
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
-
-        <TileCachePanel
-          isDark={isDark}
-          routeMatchingEnabled={routeSettings.enabled}
-          onRouteMatchingChange={setRouteMatchingEnabled}
         />
       </View>
     </>

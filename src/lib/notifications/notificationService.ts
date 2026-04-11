@@ -50,8 +50,9 @@ export function initializeNotifications(): void {
     Notifications.setNotificationChannelAsync(SYNC_CHANNEL_ID, {
       name: 'Sync Progress',
       description: 'Background data sync progress',
-      importance: Notifications.AndroidImportance.LOW,
+      importance: Notifications.AndroidImportance.DEFAULT,
       vibrationPattern: [],
+      sound: null,
     });
   }
 }

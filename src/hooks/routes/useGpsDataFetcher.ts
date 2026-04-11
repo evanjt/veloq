@@ -58,12 +58,13 @@ const PHASE_DISPLAY_NAMES: Record<string, string> = {
 };
 
 /**
- * Calculate progress percentage directly from phase completed/total.
- * No artificial phase weighting — shows real progress within the current phase.
+ * Calculate overall progress for section detection (50-100% range).
+ * Download is 0-50%, all detection phases combined are 50-100%.
  */
-function calculateOverallProgress(_phase: string, completed: number, total: number): number {
-  if (total <= 0) return 0;
-  return Math.round(Math.min((completed / total) * 100, 100));
+function calculateDetectionProgress(completed: number, total: number): number {
+  if (total <= 0) return 50;
+  const phasePercent = Math.min(completed / total, 1);
+  return Math.round(50 + phasePercent * 50);
 }
 
 /**
@@ -298,11 +299,7 @@ export function useGpsDataFetcher() {
             if (status === 'running') {
               const progress = nativeModule.routeEngine.getSectionDetectionProgress();
               if (progress) {
-                const phasePercent = calculateOverallProgress(
-                  progress.phase,
-                  progress.completed,
-                  progress.total
-                );
+                const phasePercent = calculateDetectionProgress(progress.completed, progress.total);
                 const phaseName = getPhaseDisplayName(progress.phase);
                 const countText =
                   progress.total > 0 ? ` ${progress.completed}/${progress.total}` : '';
@@ -505,8 +502,9 @@ export function useGpsDataFetcher() {
         }
 
         if (progress.active) {
+          // Download is 0-50% of overall progress
           const dlPercent =
-            progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
+            progress.total > 0 ? Math.round((progress.completed / progress.total) * 50) : 0;
           updateProgress({
             status: 'fetching',
             completed: progress.completed,
@@ -637,11 +635,7 @@ export function useGpsDataFetcher() {
             if (status === 'running') {
               const progress = nativeModule.routeEngine.getSectionDetectionProgress();
               if (progress) {
-                const phasePercent = calculateOverallProgress(
-                  progress.phase,
-                  progress.completed,
-                  progress.total
-                );
+                const phasePercent = calculateDetectionProgress(progress.completed, progress.total);
                 const phaseName = getPhaseDisplayName(progress.phase);
                 const countText =
                   progress.total > 0 ? ` ${progress.completed}/${progress.total}` : '';
