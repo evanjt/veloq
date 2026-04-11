@@ -15,7 +15,7 @@ use tracematch::{Bounds, GpsPoint};
 
 /// Tile format version — increment when tile size, zoom range, or rendering changes.
 /// Triggers automatic cache clear + regeneration on app upgrade.
-const TILE_FORMAT_VERSION: &str = "5";
+const TILE_FORMAT_VERSION: &str = "6";
 
 /// Expand activity bounds slightly so line antialiasing and low-zoom blur can bleed into
 /// neighboring tiles without getting clipped by strict metadata bounds.
@@ -190,10 +190,6 @@ fn background_generate_tiles(db_path: &str, tiles_path: &str, all_bounds: &[Boun
         };
 
         if activity_ids.is_empty() {
-            // Write sentinel only if no tile exists yet (don't overwrite a real tile with empty)
-            if !tiles::tile_exists(base, *z, *x, *y) {
-                let _ = tiles::save_empty_sentinel(base, *z, *x, *y);
-            }
             continue;
         }
 
@@ -215,9 +211,8 @@ fn background_generate_tiles(db_path: &str, tiles_path: &str, all_bounds: &[Boun
                 }
             }
             None => {
-                if !tiles::tile_exists(base, *z, *x, *y) {
-                    let _ = tiles::save_empty_sentinel(base, *z, *x, *y);
-                }
+                // No visible heatmap data for this tile — skip writing.
+                // MapLibre renders missing tiles as transparent.
             }
         }
     }
