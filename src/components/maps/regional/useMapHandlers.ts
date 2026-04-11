@@ -423,7 +423,10 @@ export function useMapHandlers({
       }, 300);
 
       // v10: visibleBounds is [northEast, southWest] where each is [lng, lat]
-      if (visibleBounds) {
+      // Skip viewport culling entirely for < 2000 activities — native MapLibre Supercluster
+      // handles clustering efficiently. The state update from setVisibleActivityIds causes
+      // React re-renders that trigger Android MapLibre camera snap-back.
+      if (visibleBounds && activities.length >= 2000) {
         if (visibleDebounceRef.current) clearTimeout(visibleDebounceRef.current);
         visibleDebounceRef.current = setTimeout(() => {
           const [northEast, southWest] = visibleBounds;

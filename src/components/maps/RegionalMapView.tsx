@@ -171,6 +171,12 @@ export function RegionalMapView({
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
   const clusterSourceRef = useRef<React.ElementRef<typeof ShapeSource>>(null);
 
+  // Ref mirror for showSections — read inside handleRegionDidChange to keep callback
+  // identity stable. Changing onRegionDidChange prop causes Android MapLibre to
+  // re-render the native view and snap the camera back.
+  const showSectionsRef = useRef(showSections);
+  showSectionsRef.current = showSections;
+
   // Track whether user manually toggled sections (if so, don't auto-show/hide)
   const userToggledSectionsRef = useRef(false);
 
@@ -282,10 +288,11 @@ export function RegionalMapView({
     onAttributionChange?.(attributionText);
   }, [attributionText, onAttributionChange]);
 
-  // Filter activities to only those visible in viewport (for performance)
-  // Only enable viewport culling for large activity counts to avoid marker flashing
-  // With < 150 activities, showing all is fast enough and provides better UX
-  const VIEWPORT_CULLING_THRESHOLD = 150;
+  // Native MapLibre Supercluster handles large point counts efficiently (1000+).
+  // JS-side viewport culling creates new array references via .filter() that cascade
+  // through all GeoJSON builders, causing render loops via onRegionDidChange on Android.
+  // Only enable for very large datasets where trace rendering is the bottleneck.
+  const VIEWPORT_CULLING_THRESHOLD = 2000;
   const visibleActivities = useMemo(() => {
     // Skip viewport culling for small activity counts - prevents marker flashing during pan
     if (activities.length < VIEWPORT_CULLING_THRESHOLD) {
@@ -387,6 +394,8 @@ export function RegionalMapView({
     baseToggleSections();
   }, [baseToggleSections]);
 
+  // CRITICAL: Read showSections from ref (not closure) to keep callback identity stable.
+  // Changing onRegionDidChange prop causes Android MapLibre to re-render and snap camera back.
   const handleRegionDidChange = useCallback(
     (feature: GeoJSON.Feature) => {
       baseHandleRegionDidChange(feature);
@@ -396,13 +405,13 @@ export function RegionalMapView({
       const zoomLevel = (feature.properties as { zoomLevel?: number } | undefined)?.zoomLevel;
       if (zoomLevel === undefined) return;
 
-      if (zoomLevel >= SECTIONS_AUTO_SHOW_ZOOM && !showSections) {
+      if (zoomLevel >= SECTIONS_AUTO_SHOW_ZOOM && !showSectionsRef.current) {
         setShowSections(true);
-      } else if (zoomLevel < SECTIONS_AUTO_HIDE_ZOOM && showSections) {
+      } else if (zoomLevel < SECTIONS_AUTO_HIDE_ZOOM && showSectionsRef.current) {
         setShowSections(false);
       }
     },
-    [baseHandleRegionDidChange, showSections]
+    [baseHandleRegionDidChange]
   );
 
   // Clear selections when their corresponding group visibility is turned off
@@ -581,7 +590,7 @@ export function RegionalMapView({
             id="activity-clusters"
             shape={markersGeoJSON}
             cluster={true}
-            clusterRadius={50}
+            clusterRadius={80}
             clusterMaxZoomLevel={17}
             onPress={
               Platform.OS === 'android' && showActivities ? handleClusterOrMarkerPress : undefined
@@ -646,7 +655,10 @@ export function RegionalMapView({
                       8,
                     ]
                   : 8,
-                circleOpacity: showActivities ? 1 : 0,
+                // Recency fade: recent activities full opacity, 1+ year old at 35%
+                circleOpacity: showActivities
+                  ? ['interpolate', ['linear'], ['get', 'age'], 0, 1, 1, 0.35]
+                  : 0,
                 circleStrokeWidth: selectedActivityId
                   ? ['case', ['==', ['get', 'id'], selectedActivityId], 2.5, 1.5]
                   : 1.5,

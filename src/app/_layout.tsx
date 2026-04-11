@@ -95,7 +95,9 @@ function configureMapLibreLogger() {
         log.level === 'error' &&
         (log.tag === 'Mbgl-HttpRequest' ||
           log.message.includes('404') ||
-          log.message.includes('not found'))
+          log.message.includes('not found') ||
+          log.message.includes('Unable to resolve host') ||
+          log.message.includes('Failed to load tile'))
       ) {
         if (__DEV__) {
           console.warn('MapLibre HTTP warning:', log.message);

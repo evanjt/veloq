@@ -1,7 +1,15 @@
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import {
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { RegionalMapView, TimelineSlider, SyncProgressBanner } from '@/components/maps';
+import { useRouter } from 'expo-router';
+import { RegionalMapView, SyncProgressBanner } from '@/components/maps';
 import {
   ComponentErrorBoundary,
   ScreenErrorBoundary,
@@ -9,19 +17,53 @@ import {
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
-import {
-  useActivityBoundsCache,
-  useOldestActivityDate,
-  useActivities,
-  useTheme,
-  useEngineMapActivities,
-} from '@/hooks';
+import { useActivityBoundsCache, useActivities, useTheme, useEngineMapActivities } from '@/hooks';
 import { useAuthStore, useSyncDateRange } from '@/providers';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { formatLocalDate } from '@/lib';
+import {
+  getActivityTypeConfig,
+  groupTypesByCategory,
+  ACTIVITY_CATEGORIES,
+} from '@/components/maps/ActivityTypeFilter';
 
-// Debounce delay for expensive operations during timeline scrubbing
-const FILTER_DEBOUNCE_MS = 100;
+// Stable date references — creating new Date() in the component body triggers
+// useEngineMapActivities useMemo on every render, causing cascading re-renders
+// that make Android MapLibre snap the camera back.
+const ALL_TIME_START = new Date('2000-01-01');
+const ALL_TIME_END = new Date('2099-12-31');
+
+type PeriodKey = 'all' | 'year' | '6m' | '3m' | '1m' | '1w';
+type DistanceKey = 'all' | 'short' | 'medium' | 'long';
+
+// Pre-compute period start dates (stable references, computed once)
+function getPeriodStart(period: PeriodKey): Date {
+  if (period === 'all') return ALL_TIME_START;
+  const d = new Date();
+  if (period === 'year') {
+    d.setMonth(0, 1);
+    d.setHours(0, 0, 0, 0);
+  } else if (period === '6m') d.setMonth(d.getMonth() - 6);
+  else if (period === '3m') d.setMonth(d.getMonth() - 3);
+  else if (period === '1m') d.setMonth(d.getMonth() - 1);
+  else if (period === '1w') d.setDate(d.getDate() - 7);
+  return d;
+}
+
+const PERIOD_OPTIONS: { key: PeriodKey; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'year', label: 'This year' },
+  { key: '6m', label: '6 mo' },
+  { key: '3m', label: '3 mo' },
+  { key: '1m', label: '1 mo' },
+  { key: '1w', label: '1 wk' },
+];
+
+const DISTANCE_OPTIONS: { key: DistanceKey; label: string }[] = [
+  { key: 'all', label: 'Any' },
+  { key: 'short', label: '<10km' },
+  { key: 'medium', label: '10–50km' },
+  { key: 'long', label: '50km+' },
+];
 
 export default function MapScreen() {
   // Performance timing
@@ -41,13 +83,7 @@ export default function MapScreen() {
   // Get the sync date range from global store
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
-  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
-
-  // Fetch the true oldest activity date from API (for timeline extent)
-  const { data: apiOldestDate } = useOldestActivityDate();
-
   // Fetch activities for the current sync range (triggers GlobalDataSync)
-  // Use isLoading (not isFetching) to avoid showing banner during background refetches
   const {
     isLoading: isLoadingActivities,
     isError: isActivitiesError,
@@ -60,32 +96,35 @@ export default function MapScreen() {
   });
 
   // Get sync state from engine cache
-  const { isReady, progress, syncDateRange, cacheStats } = useActivityBoundsCache();
+  const { isReady, progress, cacheStats } = useActivityBoundsCache();
   const oldestSyncedDate = cacheStats.oldestDate;
   const newestSyncedDate = cacheStats.newestDate;
 
-  // Only subscribe to boolean sync state (not progress object which updates frequently)
-  const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
-
-  // Combined syncing state - uses booleans only to avoid frequent re-renders
-  const isSyncing =
-    progress.status === 'syncing' || isGpsSyncing || isLoadingActivities || isFetchingExtended;
-
-  // Selected date range (default: all loaded activities)
-  const [startDate, setStartDate] = useState<Date>(() => new Date('2000-01-01'));
-  const [endDate, setEndDate] = useState<Date>(() => new Date());
-
-  // Selected activity types
+  // Filter state
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
+  const [period, setPeriod] = useState<PeriodKey>('all');
+  const [distanceFilter, setDistanceFilter] = useState<DistanceKey>('all');
 
-  // Get filtered activities directly from Rust engine
-  // Filtering happens in Rust (single O(n) pass) - no JS filtering needed
+  // Memoize period start date to keep reference stable across renders
+  const periodStart = useMemo(() => getPeriodStart(period), [period]);
+
+  // Get activities from engine (date + type filtering in Rust)
   const { activities: filteredActivities, availableTypes } = useEngineMapActivities({
-    startDate,
-    endDate,
+    startDate: periodStart,
+    endDate: ALL_TIME_END,
     selectedTypes,
     enabled: isReady,
   });
+
+  // Apply distance filter JS-side (data already returned, instant for <2000 activities)
+  const displayActivities = useMemo(() => {
+    if (distanceFilter === 'all') return filteredActivities;
+    return filteredActivities.filter((a) => {
+      if (distanceFilter === 'short') return a.distance < 10000;
+      if (distanceFilter === 'medium') return a.distance >= 10000 && a.distance < 50000;
+      return a.distance >= 50000; // long
+    });
+  }, [filteredActivities, distanceFilter]);
 
   // Initialize selected types when data loads
   useEffect(() => {
@@ -94,54 +133,60 @@ export default function MapScreen() {
     }
   }, [availableTypes]);
 
-  // Debounced sync for date range changes during timeline scrubbing
-  // This prevents hammering the API while the user drags the slider
-  const syncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const router = useRouter();
 
-  // Handle date range change - update state immediately, debounce sync
-  const handleRangeChange = useCallback(
-    (start: Date, end: Date) => {
-      // Update local state immediately for responsive UI
-      setStartDate(start);
-      setEndDate(end);
-
-      // Clear any pending sync
-      if (syncDebounceRef.current) {
-        clearTimeout(syncDebounceRef.current);
-      }
-
-      // Debounce the expensive sync operation
-      syncDebounceRef.current = setTimeout(() => {
-        // Only request sync if the range extends beyond what's already synced
-        // This prevents unnecessary API calls when selecting a range within cached data
-        const requestedStart = formatLocalDate(start);
-        const requestedEnd = formatLocalDate(end);
-        const needsExpansion = requestedStart < syncOldest || requestedEnd > syncNewest;
-
-        if (needsExpansion) {
-          syncDateRange(requestedStart, requestedEnd);
-        }
-      }, FILTER_DEBOUNCE_MS);
-    },
-    [syncDateRange, syncOldest, syncNewest]
-  );
-
-  // Clean up debounce timer on unmount
-  useEffect(() => {
-    return () => {
-      if (syncDebounceRef.current) {
-        clearTimeout(syncDebounceRef.current);
-      }
+  // Format synced date range for display
+  const dateRangeLabel = useMemo(() => {
+    if (!oldestSyncedDate || !newestSyncedDate) return '';
+    const fmt = (d: string) => {
+      const date = new Date(d);
+      return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
     };
-  }, []);
+    return `${fmt(oldestSyncedDate)} – ${fmt(newestSyncedDate)}`;
+  }, [oldestSyncedDate, newestSyncedDate]);
 
-  // Calculate min/max dates for slider using API oldest date
-  const { minDateForSlider, maxDateForSlider } = useMemo(() => {
-    const now = new Date();
-    // Use API oldest date, fallback to 90 days ago if not available yet
-    const minDate = apiOldestDate ? new Date(apiOldestDate) : startDate;
-    return { minDateForSlider: minDate, maxDateForSlider: now };
-  }, [apiOldestDate, startDate]);
+  // Group available types by category, count visible activities per category
+  // Always show all available categories (even when deselected) so user can re-enable them
+  const categorySorted = useMemo(() => {
+    const groups = groupTypesByCategory(availableTypes);
+    const counts = new Map<string, number>();
+    for (const activity of displayActivities) {
+      const category = Object.entries(ACTIVITY_CATEGORIES).find(([, c]) =>
+        c.types.includes(activity.type)
+      )?.[0];
+      if (category) {
+        counts.set(category, (counts.get(category) ?? 0) + 1);
+      }
+    }
+    // Sort: active categories first (by count desc), then inactive
+    return Array.from(groups.entries())
+      .map(([category, types]) => ({
+        category,
+        types,
+        count: counts.get(category) ?? 0,
+        active: types.every((t) => selectedTypes.has(t)),
+      }))
+      .sort((a, b) => {
+        if (a.active !== b.active) return a.active ? -1 : 1;
+        return b.count - a.count;
+      });
+  }, [availableTypes, displayActivities, selectedTypes]);
+
+  // Toggle all types in a category
+  const toggleCategory = (category: string) => {
+    const group = categorySorted.find((g) => g.category === category);
+    const typesInCategory = group?.types ?? [];
+    setSelectedTypes((prev) => {
+      const next = new Set(prev);
+      const allSelected = typesInCategory.every((t) => next.has(t));
+      if (allSelected) {
+        typesInCategory.forEach((t) => next.delete(t));
+      } else {
+        typesInCategory.forEach((t) => next.add(t));
+      }
+      return next;
+    });
+  };
 
   // Show error state if activities failed to load
   if (isActivitiesError) {
@@ -179,42 +224,127 @@ export default function MapScreen() {
         {/* Main map view */}
         <ComponentErrorBoundary componentName="Map">
           <RegionalMapView
-            activities={filteredActivities}
+            activities={displayActivities}
             showAttribution={false}
             onAttributionChange={setAttribution}
           />
         </ComponentErrorBoundary>
 
-        {/* Timeline slider with integrated filters (bottom overlay) */}
+        {/* Bottom info bar with sport filters */}
         <View
           style={[
-            styles.sliderContainer,
-            { paddingBottom: TAB_BAR_SAFE_PADDING },
-            isDark && styles.sliderContainerDark,
+            styles.infoBar,
+            { paddingBottom: TAB_BAR_SAFE_PADDING + 16 },
+            isDark && styles.infoBarDark,
           ]}
-          pointerEvents="box-none"
         >
-          {/* Attribution pill - positioned at top right of panel */}
+          {/* Attribution pill */}
           <View style={[styles.attributionPill, isDark && styles.attributionPillDark]}>
             <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
               {attribution}
             </Text>
           </View>
-          <TimelineSlider
-            minDate={minDateForSlider}
-            maxDate={maxDateForSlider}
-            startDate={startDate}
-            endDate={endDate}
-            onRangeChange={handleRangeChange}
-            isLoading={isSyncing}
-            activityCount={filteredActivities.length}
-            cachedOldest={oldestSyncedDate ? new Date(oldestSyncedDate) : null}
-            cachedNewest={newestSyncedDate ? new Date(newestSyncedDate) : null}
-            selectedTypes={selectedTypes}
-            availableTypes={availableTypes}
-            onTypeSelectionChange={setSelectedTypes}
-            isDark={isDark}
-          />
+
+          {/* Time period filter */}
+          <View style={styles.filterRow}>
+            {PERIOD_OPTIONS.map(({ key, label }) => (
+              <TouchableOpacity key={key} onPress={() => setPeriod(key)} style={styles.filterBtn}>
+                <Text
+                  style={[
+                    styles.filterText,
+                    isDark && styles.filterTextDark,
+                    period === key && styles.filterTextActive,
+                  ]}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Distance filter */}
+          <View style={styles.filterRow}>
+            {DISTANCE_OPTIONS.map(({ key, label }) => (
+              <TouchableOpacity
+                key={key}
+                onPress={() => setDistanceFilter(key)}
+                style={styles.filterBtn}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    isDark && styles.filterTextDark,
+                    distanceFilter === key && styles.filterTextActive,
+                  ]}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Sport type filter chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipRow}
+          >
+            {categorySorted.map(({ category, count, active }) => {
+              const config = ACTIVITY_CATEGORIES[category];
+              if (!config) return null;
+              return (
+                <TouchableOpacity
+                  key={category}
+                  style={[
+                    styles.chip,
+                    active
+                      ? { backgroundColor: config.color }
+                      : isDark
+                        ? styles.chipDark
+                        : styles.chipInactive,
+                  ]}
+                  onPress={() => toggleCategory(category)}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      active
+                        ? styles.chipTextActive
+                        : isDark
+                          ? styles.chipTextDark
+                          : styles.chipTextInactive,
+                    ]}
+                  >
+                    {t(`maps.activityTypes.${config.labelKey}`, category)}
+                    <Text
+                      style={[
+                        styles.chipCount,
+                        active
+                          ? styles.chipCountActive
+                          : isDark
+                            ? styles.chipCountDark
+                            : styles.chipCountInactive,
+                      ]}
+                    >
+                      {' '}
+                      {count}
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          {/* Activity count and date range */}
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+              {displayActivities.length} {t('mapScreen.activities', 'activities')}
+              {dateRangeLabel ? ` · ${dateRangeLabel}` : ''}
+            </Text>
+            <TouchableOpacity onPress={() => router.push('/cache-settings' as never)}>
+              <Text style={styles.infoLink}>{t('mapScreen.expandRange', 'Expand range')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </ScreenErrorBoundary>
@@ -249,16 +379,102 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  sliderContainer: {
+  infoBar: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     zIndex: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
   },
-  sliderContainerDark: {
-    backgroundColor: 'rgba(30, 30, 30, 0.85)',
+  infoBarDark: {
+    backgroundColor: 'rgba(20, 20, 22, 0.92)',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingBottom: 2,
+  },
+  filterBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  filterText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  filterTextDark: {
+    color: 'rgba(255, 255, 255, 0.5)',
+  },
+  filterTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: spacing.xs,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+  },
+  chipInactive: {
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  chipDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  chipTextActive: {
+    color: '#FFFFFF',
+  },
+  chipTextInactive: {
+    color: colors.textSecondary,
+  },
+  chipTextDark: {
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  chipCount: {
+    fontSize: 12,
+    fontWeight: '400',
+  },
+  chipCountActive: {
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  chipCountInactive: {
+    color: 'rgba(0, 0, 0, 0.35)',
+  },
+  chipCountDark: {
+    color: 'rgba(255, 255, 255, 0.45)',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  infoText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  infoTextDark: {
+    color: darkColors.textSecondary,
+  },
+  infoLink: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
   },
   attributionPill: {
     position: 'absolute',

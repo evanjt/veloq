@@ -122,6 +122,9 @@ export function useMapGeoJSON({
         }
         const config = getActivityTypeConfig(activity.type);
         const size = getMarkerSize(activity.distance);
+        // Recency: 0 = today, 1 = 1+ year old (for opacity fade on unclustered points)
+        const ageMs = Date.now() - new Date(activity.date).getTime();
+        const age = Math.min(ageMs / (365 * 24 * 60 * 60 * 1000), 1);
 
         return {
           type: 'Feature' as const,
@@ -132,6 +135,7 @@ export function useMapGeoJSON({
             type: activity.type,
             color: config.color,
             size: size,
+            age: Math.round(age * 100) / 100, // 2 decimal places
           },
           geometry: {
             type: 'Point' as const,
