@@ -624,7 +624,7 @@ export const ActivityCard = React.memo(
                         </RNText>
                       </View>
                     )}
-                    {sectionHighlights.some((h) => h.isPr) && (
+                    {routeHighlight?.isPr && (
                       <MaterialCommunityIcons name="trophy" size={13} color="#FFD700" />
                     )}
                   </View>

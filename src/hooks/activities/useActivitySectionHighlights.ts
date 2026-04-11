@@ -71,6 +71,12 @@ export function useActivitySectionHighlights(activityIds: string[]): {
       const routeMap = new Map<string, ActivityRouteHighlight>();
       try {
         const rawRoutes = engine.getActivityRouteHighlights(activityIds);
+        if (__DEV__ && rawRoutes.length > 0) {
+          console.log(
+            `[SectionHighlights] Route highlights: ${rawRoutes.length} results`,
+            rawRoutes.slice(0, 3).map((r) => `${r.routeName} trend=${r.trend} pr=${r.isPr}`)
+          );
+        }
         for (const r of rawRoutes) {
           routeMap.set(r.activityId, {
             routeId: r.routeId,
@@ -79,8 +85,10 @@ export function useActivitySectionHighlights(activityIds: string[]): {
             trend: r.trend ?? 0,
           });
         }
-      } catch {
-        // Route highlights may not be available yet
+      } catch (e) {
+        if (__DEV__) {
+          console.warn('[SectionHighlights] Route highlights failed:', e);
+        }
       }
 
       return { sections: sectionMap, routes: routeMap };
