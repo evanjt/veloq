@@ -76,7 +76,7 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
     {
       titleKey: 'whatsNew.v030.sectionTrimTitle',
       bodyKey: 'whatsNew.v030.sectionTrimBody',
-      icon: 'content-cut',
+      icon: 'arrow-expand-horizontal',
       get Component() {
         return require('./SectionTrimSlide').SectionTrimSlide;
       },

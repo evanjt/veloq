@@ -1677,8 +1677,8 @@
       "insightsBody": "Personalised daily insights based on your training: section PRs, efficiency trends, fitness milestones, and HRV patterns. A rotating highlight appears on the home screen.",
       "strengthTitle": "Strength Tracking",
       "strengthBody": "Visualise muscle group volume with body diagrams. Track balance between antagonist pairs and monitor progression over time.",
-      "sectionTrimTitle": "Section Trimming",
-      "sectionTrimBody": "Adjust section start and end boundaries with a dual-handle slider. See your changes reflected on the map in real time.",
+      "sectionTrimTitle": "Section Editing",
+      "sectionTrimBody": "Fine-tune section boundaries with a dual-handle slider. Trim to narrow the range, or switch to expand mode to extend beyond the auto-detected limits when detection missed part of the route. Changes are reflected on the map in real time.",
       "backupTitle": "Backup & Restore",
       "backupBody": "Export all your data as a full backup and share it via your device's share sheet. Restore from any backup to pick up right where you left off."
     }

@@ -25,7 +25,7 @@ pub struct HeatmapConfig {
 impl Default for HeatmapConfig {
     fn default() -> Self {
         Self {
-            min_zoom: 5,
+            min_zoom: 1,
             max_zoom: 17,
         }
     }

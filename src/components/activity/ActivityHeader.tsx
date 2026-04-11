@@ -183,9 +183,13 @@ export const ActivityHeader = React.memo(function ActivityHeader({
         <View style={styles.metaRow}>
           <Text style={styles.activityDate}>{formatDateTime(activity.start_date_local)}</Text>
           <View style={styles.inlineStats}>
-            <Text testID="activity-detail-distance" style={styles.inlineStat}>{formatDistance(activity.distance, isMetric)}</Text>
+            <Text testID="activity-detail-distance" style={styles.inlineStat}>
+              {formatDistance(activity.distance, isMetric)}
+            </Text>
             <Text style={styles.inlineStatDivider}>·</Text>
-            <Text testID="activity-detail-duration" style={styles.inlineStat}>{formatDuration(activity.moving_time)}</Text>
+            <Text testID="activity-detail-duration" style={styles.inlineStat}>
+              {formatDuration(activity.moving_time)}
+            </Text>
             <Text style={styles.inlineStatDivider}>·</Text>
             <Text style={styles.inlineStat}>
               {formatElevation(activity.total_elevation_gain, isMetric)}

@@ -304,7 +304,7 @@
   "cache": {
     "addingActivities": "Adding activities...",
     "allActivitiesSynced": "All activities synced up, legend",
-    "analyzingRouteGroups": "Analyzing routes...",
+    "analyzingRouteGroups": "Analysing routes...",
     "analyzingRoutes": "Analysing routes",
     "analyzingRoutesProgress": "Analysing routes... {{percent}}%",
     "cancelled": "Cancelled",
@@ -546,7 +546,7 @@
     "title": "Insights",
     "strength": "Strength",
     "noInsights": "Insights will appear as you train",
-    "noInsightsHint": "Complete more activities to see personalized insights",
+    "noInsightsHint": "Complete more activities to see personalised insights",
     "sectionPr": "PR on {{name}}",
     "sectionPrSubtitle": "{{time}} - {{daysAgo}}d ago",
     "sectionTrendSummary": "{{improving}} of {{total}} sections trending up",
@@ -1329,7 +1329,7 @@
     "connectedViaApiKey": "Hooked up via API key",
     "connectionMethod": "Connection",
     "customiseByActivity": "Tweak by activity type",
-    "customiseMetrics": "Customize Dashboard Pills",
+    "customiseMetrics": "Customise Dashboard Pills",
     "dark": "Dark",
     "dashboardMetrics": "Dashboard Metrics",
     "dataCache": "Data Stash",
@@ -1635,8 +1635,8 @@
       "insightsBody": "Personalised daily insights based on your training: section PRs, efficiency trends, fitness milestones, and HRV patterns. A rotating highlight appears on the home screen.",
       "strengthTitle": "Strength Tracking",
       "strengthBody": "Visualise muscle group volume with body diagrams. Track balance between antagonist pairs and monitor progression over time.",
-      "sectionTrimTitle": "Section Trimming",
-      "sectionTrimBody": "Adjust section start and end boundaries with a dual-handle slider. See your changes reflected on the map in real time.",
+      "sectionTrimTitle": "Section Editing",
+      "sectionTrimBody": "Fine-tune section boundaries with a dual-handle slider. Trim to narrow the range, or switch to expand mode to extend beyond the auto-detected limits when detection missed part of the route. Changes are reflected on the map in real time.",
       "backupTitle": "Backup & Restore",
       "backupBody": "Export all your data as a full backup and share it via your device's share sheet. Restore from any backup to pick up right where you left off."
     }

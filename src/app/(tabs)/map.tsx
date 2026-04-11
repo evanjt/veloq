@@ -71,12 +71,8 @@ export default function MapScreen() {
   const isSyncing =
     progress.status === 'syncing' || isGpsSyncing || isLoadingActivities || isFetchingExtended;
 
-  // Selected date range (default: last 90 days)
-  const [startDate, setStartDate] = useState<Date>(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 90);
-    return d;
-  });
+  // Selected date range (default: all loaded activities)
+  const [startDate, setStartDate] = useState<Date>(() => new Date('2000-01-01'));
   const [endDate, setEndDate] = useState<Date>(() => new Date());
 
   // Selected activity types

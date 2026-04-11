@@ -101,7 +101,8 @@ export function useIOSTapHandler({
         // Expand query rect based on zoom (matches CircleLayer radius interpolation)
         // Use different hit radius for points vs lines - lines are thin and need bigger area
         // Matches CircleLayer: zoom 0→16, 4→14, 8→12, 12→8, 16→6
-        const pointHitRadius = zoom < 4 ? 16 : zoom < 8 ? 14 : zoom < 12 ? 12 : zoom < 16 ? 8 : 6;
+        // Larger hit radius at low zoom where clusters are bigger tap targets
+        const pointHitRadius = zoom < 6 ? 30 : zoom < 10 ? 24 : zoom < 14 ? 16 : 10;
         // Lines need 3x the hit area since they're only a few pixels wide
         const lineHitRadius = Math.max(pointHitRadius * 3, 20); // Minimum 20px for lines
 
@@ -194,12 +195,15 @@ export function useIOSTapHandler({
                     return;
                   }
 
-                  cameraRef.current?.setCamera({
-                    centerCoordinate: coords,
-                    zoomLevel: expansionZoom,
-                    animationDuration: 400,
-                    animationMode: 'flyTo',
-                  });
+                  // Only zoom if expansion zoom is deeper — never zoom back out
+                  if (expansionZoom > currentZoom) {
+                    cameraRef.current?.setCamera({
+                      centerCoordinate: coords,
+                      zoomLevel: expansionZoom,
+                      animationDuration: 400,
+                      animationMode: 'flyTo',
+                    });
+                  }
                 }
               } catch (e) {
                 if (__DEV__) console.warn('[iOS tap] cluster error:', e);

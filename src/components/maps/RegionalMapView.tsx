@@ -589,45 +589,53 @@ export function RegionalMapView({
             hitbox={{ width: 44, height: 44 }}
           >
             {/* Cluster circles — sized by activity count */}
+            {/* Use white/dark pill instead of primary teal to contrast against teal heatmap */}
             <CircleLayer
               id="cluster-circles"
               filter={['has', 'point_count']}
               style={{
-                circleColor: colors.primary,
+                circleColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.95)',
                 circleRadius: [
                   'step',
                   ['get', 'point_count'],
-                  18, // default: 1-4 activities
+                  18, // 1-4 activities
                   5,
                   22, // 5-9
                   10,
                   28, // 10-24
                   25,
-                  34, // 25+
+                  34, // 25-99
+                  100,
+                  42, // 100-499
+                  500,
+                  50, // 500+
                 ],
-                circleOpacity: showActivities ? 0.9 : 0,
-                circleStrokeWidth: 2,
-                circleStrokeColor: 'rgba(255, 255, 255, 0.6)',
+                circleOpacity: showActivities ? 1 : 0,
+                circleStrokeWidth: 2.5,
+                circleStrokeColor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.15)',
                 circleStrokeOpacity: showActivities ? 1 : 0,
               }}
             />
-            {/* Cluster count labels */}
+            {/* Cluster count labels — textFont MUST match glyph server (Noto Sans) */}
             <SymbolLayer
               id="cluster-count"
               filter={['has', 'point_count']}
               style={{
                 textField: ['get', 'point_count_abbreviated'],
-                textSize: 13,
-                textColor: '#FFFFFF',
+                textFont: ['Noto Sans Regular'],
+                textSize: ['step', ['get', 'point_count'], 12, 25, 14, 100, 16],
+                textColor: isDark ? '#FFFFFF' : colors.primary,
                 textAllowOverlap: true,
                 textIgnorePlacement: true,
                 visibility: showActivities ? 'visible' : 'none',
               }}
             />
             {/* Individual unclustered activity points — colored by sport type */}
+            {/* Only visible at zoom >= 10 to keep low-zoom view clean (clusters only) */}
             <CircleLayer
               id="unclustered-point"
               filter={['!', ['has', 'point_count']]}
+              minZoomLevel={10}
               style={{
                 circleColor: ['get', 'color'],
                 circleRadius: selectedActivityId
@@ -787,7 +795,7 @@ export function RegionalMapView({
             <RasterSource
               id="heatmap-tiles"
               tileUrlTemplates={[HEATMAP_TILE_URL_TEMPLATE]}
-              minZoomLevel={5}
+              minZoomLevel={1}
               maxZoomLevel={17}
               tileSize={256}
             >

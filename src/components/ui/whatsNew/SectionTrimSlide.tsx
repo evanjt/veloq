@@ -1,6 +1,14 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Canvas, Path, Circle, Line, vec, RoundedRect } from '@shopify/react-native-skia';
+import {
+  Canvas,
+  Path,
+  Circle,
+  Line,
+  vec,
+  RoundedRect,
+  DashPathEffect,
+} from '@shopify/react-native-skia';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing } from '@/theme';
 
@@ -11,12 +19,18 @@ const PAD_Y = 16;
 const DRAW_W = CANVAS_WIDTH - PAD_X * 2;
 const DRAW_H = CANVAS_HEIGHT - PAD_Y * 2;
 
-// Simulated elevation profile
-const ELEVATION = [10, 14, 20, 30, 38, 42, 40, 35, 28, 22, 18, 20, 26, 34, 40, 36, 28, 20, 14, 10];
+// Simulated elevation profile (extended to show expand context)
+const ELEVATION = [
+  8, 10, 12, 14, 20, 30, 38, 42, 40, 35, 28, 22, 18, 20, 26, 34, 40, 36, 28, 20, 14, 10, 8, 6,
+];
 
-// Trim handles at 25% and 75%
-const TRIM_START = 0.25;
-const TRIM_END = 0.75;
+// Original auto-detected boundaries (narrower)
+const ORIGINAL_START = 0.25;
+const ORIGINAL_END = 0.7;
+
+// Expanded handles (user extended beyond auto-detected)
+const EXPAND_START = 0.12;
+const EXPAND_END = 0.85;
 
 function buildPath(values: number[]): string {
   const min = Math.min(...values);
@@ -34,24 +48,33 @@ function buildPath(values: number[]): string {
 export function SectionTrimSlide() {
   const { isDark } = useTheme();
   const primaryColor = isDark ? darkColors.primary : colors.primary;
-  const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
   const dimColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.10)';
+  const originalMarkerColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.20)';
   const handleColor = primaryColor;
 
   const path = buildPath(ELEVATION);
-  const startX = PAD_X + TRIM_START * DRAW_W;
-  const endX = PAD_X + TRIM_END * DRAW_W;
+  const origStartX = PAD_X + ORIGINAL_START * DRAW_W;
+  const origEndX = PAD_X + ORIGINAL_END * DRAW_W;
+  const expandStartX = PAD_X + EXPAND_START * DRAW_W;
+  const expandEndX = PAD_X + EXPAND_END * DRAW_W;
   const handleR = 6;
 
   return (
     <View style={styles.container}>
       <Canvas style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}>
-        {/* Dimmed zones outside trim range */}
-        <RoundedRect x={0} y={0} width={startX} height={CANVAS_HEIGHT} r={0} color={dimColor} />
+        {/* Dimmed zones outside expanded range */}
         <RoundedRect
-          x={endX}
+          x={0}
           y={0}
-          width={CANVAS_WIDTH - endX}
+          width={expandStartX}
+          height={CANVAS_HEIGHT}
+          r={0}
+          color={dimColor}
+        />
+        <RoundedRect
+          x={expandEndX}
+          y={0}
+          width={CANVAS_WIDTH - expandEndX}
           height={CANVAS_HEIGHT}
           r={0}
           color={dimColor}
@@ -67,31 +90,49 @@ export function SectionTrimSlide() {
           strokeJoin="round"
         />
 
-        {/* Trim handle lines */}
+        {/* Original auto-detected boundary markers (dashed) */}
         <Line
-          p1={vec(startX, PAD_Y - 4)}
-          p2={vec(startX, CANVAS_HEIGHT - PAD_Y + 4)}
+          p1={vec(origStartX, PAD_Y - 2)}
+          p2={vec(origStartX, CANVAS_HEIGHT - PAD_Y + 2)}
+          color={originalMarkerColor}
+          strokeWidth={1.5}
+        >
+          <DashPathEffect intervals={[3, 3]} />
+        </Line>
+        <Line
+          p1={vec(origEndX, PAD_Y - 2)}
+          p2={vec(origEndX, CANVAS_HEIGHT - PAD_Y + 2)}
+          color={originalMarkerColor}
+          strokeWidth={1.5}
+        >
+          <DashPathEffect intervals={[3, 3]} />
+        </Line>
+
+        {/* Expanded handle lines */}
+        <Line
+          p1={vec(expandStartX, PAD_Y - 4)}
+          p2={vec(expandStartX, CANVAS_HEIGHT - PAD_Y + 4)}
           color={handleColor}
           strokeWidth={2}
         />
         <Line
-          p1={vec(endX, PAD_Y - 4)}
-          p2={vec(endX, CANVAS_HEIGHT - PAD_Y + 4)}
+          p1={vec(expandEndX, PAD_Y - 4)}
+          p2={vec(expandEndX, CANVAS_HEIGHT - PAD_Y + 4)}
           color={handleColor}
           strokeWidth={2}
         />
 
         {/* Handle circles */}
-        <Circle cx={startX} cy={CANVAS_HEIGHT / 2} r={handleR} color={handleColor} />
+        <Circle cx={expandStartX} cy={CANVAS_HEIGHT / 2} r={handleR} color={handleColor} />
         <Circle
-          cx={startX}
+          cx={expandStartX}
           cy={CANVAS_HEIGHT / 2}
           r={handleR - 2}
           color={isDark ? darkColors.surface : colors.surface}
         />
-        <Circle cx={endX} cy={CANVAS_HEIGHT / 2} r={handleR} color={handleColor} />
+        <Circle cx={expandEndX} cy={CANVAS_HEIGHT / 2} r={handleR} color={handleColor} />
         <Circle
-          cx={endX}
+          cx={expandEndX}
           cy={CANVAS_HEIGHT / 2}
           r={handleR - 2}
           color={isDark ? darkColors.surface : colors.surface}

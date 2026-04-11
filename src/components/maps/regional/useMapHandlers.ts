@@ -240,6 +240,7 @@ export function useMapHandlers({
       if (!feature) return;
 
       // Cluster tap — zoom in or spider-expand at max zoom
+      // Only zoom IN (never back out) to avoid fighting user gestures
       if (feature.properties?.cluster === true) {
         try {
           if (clusterSourceRef.current) {
@@ -261,12 +262,15 @@ export function useMapHandlers({
               return;
             }
 
-            cameraRef.current?.setCamera({
-              centerCoordinate: coords,
-              zoomLevel: expansionZoom,
-              animationDuration: 400,
-              animationMode: 'flyTo',
-            });
+            // Only zoom if expansion zoom is deeper than current — never zoom back out
+            if (expansionZoom > currentZoom) {
+              cameraRef.current?.setCamera({
+                centerCoordinate: coords,
+                zoomLevel: expansionZoom,
+                animationDuration: 400,
+                animationMode: 'flyTo',
+              });
+            }
           }
         } catch (e) {
           if (__DEV__) console.warn('[cluster] Error handling cluster tap:', e);

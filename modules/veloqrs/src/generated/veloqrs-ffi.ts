@@ -778,6 +778,10 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_destroy(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -980,6 +984,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_activities(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_destroy(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_detection(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_fitness(): number;

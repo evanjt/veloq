@@ -10357,6 +10357,11 @@ export interface VeloqEngineInterface {
   ) /*throws*/ : /*u32*/ number;
   clear() /*throws*/ : void;
   /**
+   * Clear only route/section data, keeping GPS tracks and activities.
+   * Used when route matching is toggled off.
+   */
+  clearRoutesAndSections() /*throws*/ : void;
+  /**
    * Drop the persistent engine entirely, closing the SQLite connection.
    * The next call to `create()` will re-initialize from scratch.
    */
@@ -10514,6 +10519,25 @@ export class VeloqEngine
       ),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_clear(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Clear only route/section data, keeping GPS tracks and activities.
+   * Used when route matching is toggled off.
+   */
+  public clearRoutesAndSections(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           callStatus,
         );
@@ -12113,6 +12137,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_clear",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections() !==
+    15340
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections",
     );
   }
   if (

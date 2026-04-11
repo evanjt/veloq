@@ -15,7 +15,7 @@ use tracematch::{Bounds, GpsPoint};
 
 /// Tile format version — increment when tile size, zoom range, or rendering changes.
 /// Triggers automatic cache clear + regeneration on app upgrade.
-const TILE_FORMAT_VERSION: &str = "6";
+const TILE_FORMAT_VERSION: &str = "7";
 
 /// Expand activity bounds slightly so line antialiasing and low-zoom blur can bleed into
 /// neighboring tiles without getting clipped by strict metadata bounds.
