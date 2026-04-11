@@ -28,7 +28,7 @@ import {
   ActivityRoutesSection,
   ActivitySectionsSection,
 } from '@/components';
-import { useDebugStore } from '@/providers';
+import { useDebugStore, useRouteSettings } from '@/providers';
 import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import type {
   SectionCreationResult,
@@ -139,6 +139,7 @@ export default function ActivityDetailScreen() {
   }, [streams?.latlng, activity?.polyline]);
 
   const hasGpsData = coordinates.length > 0;
+  const isRouteMatchingOn = useRouteSettings((s) => s.settings.enabled);
   const isStrength = activity?.type === 'WeightTraining';
   const { data: exerciseSets } = useExerciseSets(id || '', activity?.type ?? '');
   const { data: athlete } = useAthlete();
@@ -229,7 +230,7 @@ export default function ActivityDetailScreen() {
         icon: 'dumbbell',
       });
     }
-    if (hasGpsData) {
+    if (hasGpsData && isRouteMatchingOn) {
       allTabs.push(
         {
           key: 'routes',
@@ -243,9 +244,15 @@ export default function ActivityDetailScreen() {
           count: totalSectionCount,
         }
       );
+    } else if (hasGpsData) {
+      allTabs.push({
+        key: 'routes',
+        label: t('activityDetail.tabs.route'),
+        icon: 'map-marker-path',
+      });
     }
     return allTabs;
-  }, [t, isStrength, hasGpsData, matchedRouteCount, totalSectionCount]);
+  }, [t, isStrength, hasGpsData, isRouteMatchingOn, matchedRouteCount, totalSectionCount]);
 
   // Handle chart point selection
   const handlePointSelect = useCallback((index: number | null) => {

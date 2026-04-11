@@ -1430,7 +1430,9 @@
     "geocodingDescription": "Używa OpenStreetMap do nazywania tras na podstawie współrzędnych GPS",
     "geocodingTermsTitle": "OpenStreetMap Nominatim",
     "geocodingTermsMessage": "Route and section names are generated using OpenStreetMap Nominatim, a free geocoding service. By enabling this feature you agree to the Nominatim Usage Policy. Veloq is not affiliated with OpenStreetMap.",
-    "cacheAndDatabase": "Cache & Database"
+    "cacheAndDatabase": "Cache & Database",
+    "heatmapGeneration": "Heatmap",
+    "heatmapDescription": "Uses device storage. Disable to save space."
   },
   "stats": {
     "activities": "Aktywności",

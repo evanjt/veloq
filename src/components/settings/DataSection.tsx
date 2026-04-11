@@ -9,7 +9,8 @@ import { getLastBackupTimestamp } from '@/lib/backup';
 import { useRouteSettings } from '@/providers';
 import { useTileCacheStore } from '@/providers/TileCacheStore';
 import { getTerrainPreviewCacheSize } from '@/lib/storage/terrainPreviewCache';
-import { getHeatmapTilesCacheSize } from '@/hooks/maps/useHeatmapTiles';
+import { getHeatmapTilesCacheSize, HEATMAP_TILES_DIR } from '@/hooks/maps/useHeatmapTiles';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import {
   requestTileCacheStats,
   onTileCacheStats,
@@ -21,7 +22,11 @@ import { settingsStyles, DIVIDER_INSET } from './settingsStyles';
 export function DataSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } = useRouteSettings();
+  const {
+    settings: routeSettings,
+    setEnabled: setRouteMatchingEnabled,
+    setHeatmapEnabled,
+  } = useRouteSettings();
 
   // Lightweight cache size computation
   const nativeSizeEstimate = useTileCacheStore((s) => s.nativeSizeEstimate);
@@ -134,6 +139,36 @@ export function DataSection() {
         {/* Geocoding toggle hidden — Nominatim Usage Policy prohibits periodic app requests
            without a proxy. Will re-enable once we have a caching proxy (Cloudflare worker or
            self-hosted Nominatim). See: https://operations.osmfoundation.org/policies/nominatim/ */}
+
+        <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
+
+        {/* Heatmap generation toggle */}
+        <View style={settingsStyles.actionRow}>
+          <MaterialCommunityIcons
+            name="map-legend"
+            size={22}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <View style={styles.toggleTextContainer}>
+            <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
+              {t('settings.heatmapGeneration', 'Heatmap')}
+            </Text>
+            <Text style={[styles.toggleHint, isDark && settingsStyles.textMuted]}>
+              {t('settings.heatmapDescription', 'Uses device storage. Disable to save space.')}
+            </Text>
+          </View>
+          <Switch
+            value={routeSettings.heatmapEnabled}
+            onValueChange={(enabled) => {
+              setHeatmapEnabled(enabled);
+              if (!enabled) {
+                // Clear existing heatmap tiles when disabling
+                getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
+              }
+            }}
+            color={colors.primary}
+          />
+        </View>
       </View>
     </>
   );

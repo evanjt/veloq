@@ -76,6 +76,7 @@ const DEFAULT_ROUTE_SETTINGS = {
   retentionDays: 0,
   autoCleanupEnabled: false,
   geocodingEnabled: false,
+  heatmapEnabled: true,
 };
 
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
@@ -308,6 +309,7 @@ describe('RouteSettingsStore', () => {
           retentionDays: 90,
           autoCleanupEnabled: true,
           geocodingEnabled: true,
+          heatmapEnabled: true,
         },
         isLoaded: true,
       });
@@ -374,6 +376,7 @@ describe('RouteSettingsStore', () => {
           retentionDays: 180,
           autoCleanupEnabled: false,
           geocodingEnabled: true,
+          heatmapEnabled: true,
         },
         isLoaded: true,
       });

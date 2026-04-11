@@ -46,6 +46,7 @@ import {
   useSyncDateRange,
   useEngineStatus,
 } from '@/providers';
+import { isHeatmapEnabled } from '@/providers/RouteSettingsStore';
 import { formatLocalDate } from '@/lib';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
@@ -151,6 +152,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             const routeWord = i18n.t('routes.routeWord');
             const sectionWord = i18n.t('routes.sectionWord');
             engine.setNameTranslations(routeWord, sectionWord);
+            // Enable heatmap tile generation if setting is on
+            if (isHeatmapEnabled()) {
+              engine.enableHeatmapTiles();
+            }
             // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
             migrateSettingsToSqlite().catch(() => {});
             // Load WebDAV credentials into memory cache

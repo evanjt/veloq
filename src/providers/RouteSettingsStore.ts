@@ -20,6 +20,8 @@ interface RouteSettings {
   autoCleanupEnabled: boolean;
   /** Whether reverse geocoding of route/section names is enabled (default: true) */
   geocodingEnabled: boolean;
+  /** Whether heatmap tile generation is enabled (default: true) */
+  heatmapEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: RouteSettings = {
@@ -27,6 +29,7 @@ const DEFAULT_SETTINGS: RouteSettings = {
   retentionDays: 0, // 0 = keep all activities forever
   autoCleanupEnabled: false, // Don't auto-delete by default
   geocodingEnabled: false, // Off by default — user must acknowledge OSM Nominatim terms
+  heatmapEnabled: true, // Generate heatmap tiles by default
 };
 
 /**
@@ -43,6 +46,8 @@ function isRouteSettings(value: unknown): value is RouteSettings {
   if ('autoCleanupEnabled' in obj && typeof obj.autoCleanupEnabled !== 'boolean') return false;
   // geocodingEnabled must be boolean if present
   if ('geocodingEnabled' in obj && typeof obj.geocodingEnabled !== 'boolean') return false;
+  // heatmapEnabled must be boolean if present
+  if ('heatmapEnabled' in obj && typeof obj.heatmapEnabled !== 'boolean') return false;
   return true;
 }
 
@@ -56,6 +61,7 @@ interface RouteSettingsState {
   setRetentionDays: (days: number) => Promise<void>;
   setAutoCleanupEnabled: (enabled: boolean) => Promise<void>;
   setGeocodingEnabled: (enabled: boolean) => Promise<void>;
+  setHeatmapEnabled: (enabled: boolean) => Promise<void>;
 }
 
 export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
@@ -135,6 +141,18 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
 
     log.log(`Geocoding ${enabled ? 'enabled' : 'disabled'}`);
   },
+
+  setHeatmapEnabled: async (enabled: boolean) => {
+    set((state) => {
+      const newSettings = { ...state.settings, heatmapEnabled: enabled };
+      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
+        log.error('Failed to save heatmap setting:', error);
+      });
+      return { settings: newSettings };
+    });
+
+    log.log(`Heatmap generation ${enabled ? 'enabled' : 'disabled'}`);
+  },
 }));
 
 // Helper for synchronous access
@@ -150,6 +168,11 @@ export function getRetentionDays(): number {
 // Helper for checking geocoding enabled synchronously
 export function isGeocodingEnabled(): boolean {
   return useRouteSettings.getState().settings.geocodingEnabled;
+}
+
+// Helper for checking heatmap enabled synchronously
+export function isHeatmapEnabled(): boolean {
+  return useRouteSettings.getState().settings.heatmapEnabled;
 }
 
 // Initialize route settings (call during app startup)

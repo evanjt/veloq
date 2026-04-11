@@ -193,19 +193,9 @@ class RouteEngineClient {
     if (result) {
       this.initialized = true;
       this.dbPath = dbPath;
-      // Configure heatmap tiles path so Rust generates tiles on background threads
-      // Strip file:// prefix for plain filesystem path (Rust expects plain path, not URL)
-      const tilesPath = `${FileSystem.cacheDirectory}heatmap-tiles/`;
-      const normalizedTilesPath = tilesPath.startsWith('file://')
-        ? tilesPath.slice(7)
-        : tilesPath;
-      try {
-        console.log('[RouteEngineClient] Setting heatmap tiles path to:', normalizedTilesPath);
-        this.engine.heatmap().setTilesPath(normalizedTilesPath);
-      } catch (e) {
-        // Non-critical — tiles just won't generate
-        console.warn('[RouteEngineClient] Failed to set heatmap tiles path:', e);
-      }
+      // Heatmap tiles path is set lazily via enableHeatmapTiles() — called from app
+      // code when the heatmap setting is enabled. This avoids importing provider stores
+      // in the native module.
       if (this.pendingMetrics) {
         this.timed('setActivityMetrics', () =>
           this.engine.activities().setMetrics(this.pendingMetrics!),
@@ -828,6 +818,20 @@ class RouteEngineClient {
   // ==========================================================================
   // Tile generation is handled in Rust on background threads.
   // Only clear is exposed to JS (for settings "clear cache").
+
+  /** Enable heatmap tile generation by setting the tiles path. */
+  enableHeatmapTiles(): void {
+    if (!this.ready) return;
+    const tilesPath = `${FileSystem.cacheDirectory}heatmap-tiles/`;
+    const normalizedTilesPath = tilesPath.startsWith('file://')
+      ? tilesPath.slice(7)
+      : tilesPath;
+    try {
+      this.engine.heatmap().setTilesPath(normalizedTilesPath);
+    } catch (e) {
+      console.warn('[RouteEngineClient] Failed to set heatmap tiles path:', e);
+    }
+  }
 
   /** Clear all heatmap tiles from disk. */
   clearHeatmapTiles(basePath: string): number {
