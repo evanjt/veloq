@@ -96,6 +96,37 @@ impl PersistentRouteEngine {
         } else {
             self.groups_dirty = false;
         }
+
+        // Backfill: ensure every group member has an activity_matches DB entry.
+        // The grouping algorithm uses Union-Find which adds members transitively,
+        // but only records match info for directly compared pairs.
+        let mut backfilled = 0u32;
+        for group in &self.groups {
+            for activity_id in &group.activity_ids {
+                let exists: bool = self.db.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM activity_matches WHERE route_id = ? AND activity_id = ?)",
+                    rusqlite::params![&group.group_id, activity_id],
+                    |row| row.get(0),
+                ).unwrap_or(true);
+
+                if !exists {
+                    let _ = self.db.execute(
+                        "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction)
+                         VALUES (?, ?, 0.0, 'same')",
+                        rusqlite::params![&group.group_id, activity_id],
+                    );
+                    backfilled += 1;
+                }
+            }
+        }
+        if backfilled > 0 {
+            // Reload matches to include the new entries
+            self.load_activity_matches()?;
+            log::info!(
+                "tracematch: Backfilled {} missing activity_matches entries from group member lists",
+                backfilled
+            );
+        }
         Ok(())
     }
 
