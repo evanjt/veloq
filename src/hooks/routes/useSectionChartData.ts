@@ -418,10 +418,14 @@ export function useSectionChartData({
     // Create a map of records by activity ID for quick lookup
     const recordMap = new Map(performanceRecords?.map((r) => [r.activityId, r]) || []);
 
-    // Sort activities by date
-    const sortedActivities = [...sectionActivities].sort(
-      (a, b) => new Date(a.start_date_local).getTime() - new Date(b.start_date_local).getTime()
-    );
+    // Sort activities by date and filter by selected time range
+    const rangeDays = RANGE_DAYS[sectionTimeRange];
+    const cutoffMs = rangeDays > 0 ? Date.now() - rangeDays * 86400 * 1000 : 0;
+    const sortedActivities = [...sectionActivities]
+      .sort(
+        (a, b) => new Date(a.start_date_local).getTime() - new Date(b.start_date_local).getTime()
+      )
+      .filter((a) => rangeDays === 0 || new Date(a.start_date_local).getTime() >= cutoffMs);
 
     let hasAnyReverse = false;
 
@@ -510,7 +514,14 @@ export function useSectionChartData({
       bestIndex: bestIdx,
       hasReverseRuns: hasAnyReverse,
     };
-  }, [section, sectionWithTraces, sectionActivities, performanceRecords, portionMap]);
+  }, [
+    section,
+    sectionWithTraces,
+    sectionActivities,
+    performanceRecords,
+    portionMap,
+    sectionTimeRange,
+  ]);
 
   // Compute performance rankings by speed
   const { rankMap, bestActivityId, bestTimeValue, bestPaceValue, averageTime, lastActivityDate } =

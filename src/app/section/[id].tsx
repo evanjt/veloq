@@ -110,7 +110,7 @@ export default function SectionDetailScreen() {
   const [mergeTarget, setMergeTarget] = useState<(typeof mergeCandidates)[number] | null>(null);
 
   // Time range for chart data (passed to useSectionChartData)
-  const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>('1y');
+  const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>('all');
 
   // State for section renaming
   const [isEditing, setIsEditing] = useState(false);
