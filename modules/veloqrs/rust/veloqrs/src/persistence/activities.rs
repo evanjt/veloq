@@ -272,6 +272,29 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Clear only route/section data, keeping GPS tracks and activities intact.
+    /// Used when route matching is toggled off to free section memory
+    /// without losing the underlying GPS data (needed for heatmap).
+    pub fn clear_routes_and_sections(&mut self) -> SqlResult<()> {
+        self.db.execute_batch(
+            "DELETE FROM section_activities;
+             DELETE FROM sections;
+             DELETE FROM route_groups;
+             DELETE FROM activity_matches;
+             DELETE FROM overlap_cache;",
+        )?;
+
+        self.groups.clear();
+        self.sections.clear();
+        self.consensus_cache.clear();
+        self.groups_dirty = true;
+        self.sections_dirty = true;
+        self.invalidate_perf_cache();
+
+        log::info!("[engine] Cleared routes and sections (GPS tracks preserved)");
+        Ok(())
+    }
+
     /// Remove activities older than the specified retention period.
     ///
     /// This cleans up old activities and their associated data (GPS tracks, signatures)

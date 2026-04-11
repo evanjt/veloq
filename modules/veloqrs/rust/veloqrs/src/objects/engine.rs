@@ -53,6 +53,16 @@ impl VeloqEngine {
         })?
     }
 
+    /// Clear only route/section data, keeping GPS tracks and activities.
+    /// Used when route matching is toggled off.
+    fn clear_routes_and_sections(&self) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.clear_routes_and_sections().map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
+        })?
+    }
+
     /// Drop the persistent engine entirely, closing the SQLite connection.
     /// The next call to `create()` will re-initialize from scratch.
     fn destroy(&self) {

@@ -215,6 +215,17 @@ class RouteEngineClient {
     return this.dbPath !== null;
   }
 
+  /** Clear only route/section data, keeping GPS tracks and activities.
+   *  Used when route matching is toggled off to free storage. */
+  clearRoutesAndSections(): void {
+    if (!this.ready) return;
+    try {
+      this.engine.clearRoutesAndSections();
+    } catch (e) {
+      console.warn('[RouteEngineClient] Failed to clear routes and sections:', e);
+    }
+  }
+
   /** Drop the Rust engine singleton without clearing data. Used before database restore. */
   destroyEngine(): void {
     try {

@@ -94,11 +94,15 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
       return { settings: newSettings };
     });
 
-    // Notify UI to update sections/routes visibility
     try {
       const { getRouteEngine } = require('@/lib/native/routeEngine');
       const engine = getRouteEngine();
       if (engine) {
+        if (!enabled) {
+          // Clear route/section data from SQLite (GPS tracks preserved for heatmap)
+          engine.clearRoutesAndSections();
+        }
+        // Notify UI to update sections/routes visibility
         engine.triggerRefresh('sections');
         engine.triggerRefresh('groups');
         if (enabled) {
