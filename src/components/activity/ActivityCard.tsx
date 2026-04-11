@@ -648,9 +648,9 @@ export const ActivityCard = React.memo(
                               <MaterialCommunityIcons
                                 name="trending-down"
                                 size={18}
-                                color="#FFA726"
+                                color="#EF5350"
                               />
-                              <RNText style={[styles.trendCount, { color: '#FFA726' }]}>
+                              <RNText style={[styles.trendCount, { color: '#EF5350' }]}>
                                 {declining}
                               </RNText>
                             </View>
@@ -851,7 +851,11 @@ const styles = StyleSheet.create({
   trendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   trendItem: {
     flexDirection: 'row',
