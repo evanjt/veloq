@@ -753,7 +753,9 @@
       }
     },
     "viewInDetail": "View in detail",
-    "routesDisabled": "Routes off"
+    "routesDisabled": "Routes off",
+    "routesDisabledLine1": "Routes & Sections disabled",
+    "routesDisabledLine2": "Tap to enable"
   },
   "licenses": {
     "footer": "Tik op een licentiebadge om de volledige licentietekst te bekijken. Tik op het linkpictogram om de projectrepository te bezoeken.",

@@ -753,7 +753,9 @@
       }
     },
     "viewInDetail": "View in detail",
-    "routesDisabled": "Routes off"
+    "routesDisabled": "Routes off",
+    "routesDisabledLine1": "Routes & Sections disabled",
+    "routesDisabledLine2": "Tap to enable"
   },
   "licenses": {
     "footer": "Tap any licence badge to suss out the full licence text. Tap the link icon to check out the project repo.",

@@ -460,7 +460,7 @@ export default function RoutesScreen() {
           </Text>
           {!isRouteMatchingEnabled && (
             <TouchableOpacity
-              onPress={() => router.push('/settings')}
+              onPress={() => useRouteSettings.getState().setEnabled(true)}
               style={styles.disabledHint}
               activeOpacity={0.6}
             >
@@ -469,9 +469,14 @@ export default function RoutesScreen() {
                 size={14}
                 color={isDark ? darkColors.textMuted : colors.textSecondary}
               />
-              <Text style={[styles.disabledHintText, isDark && styles.textMuted]}>
-                {t('insights.routesDisabled', 'Routes off')}
-              </Text>
+              <View>
+                <Text style={[styles.disabledHintText, isDark && styles.textMuted]}>
+                  {t('insights.routesDisabledLine1', 'Routes & Sections disabled')}
+                </Text>
+                <Text style={[styles.disabledHintLink]}>
+                  {t('insights.routesDisabledLine2', 'Tap to enable')}
+                </Text>
+              </View>
             </TouchableOpacity>
           )}
           <IconButton
@@ -537,6 +542,11 @@ const styles = StyleSheet.create({
   disabledHintText: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  disabledHintLink: {
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '500',
   },
   headerTitle: {
     fontSize: 18,

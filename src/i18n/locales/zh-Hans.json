@@ -753,7 +753,9 @@
       }
     },
     "viewInDetail": "View in detail",
-    "routesDisabled": "Routes off"
+    "routesDisabled": "Routes off",
+    "routesDisabledLine1": "Routes & Sections disabled",
+    "routesDisabledLine2": "Tap to enable"
   },
   "licenses": {
     "footer": "点击任何许可证徽章查看完整许可证文本。点击链接图标访问项目仓库。",

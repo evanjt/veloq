@@ -753,7 +753,9 @@
       }
     },
     "viewInDetail": "View in detail",
-    "routesDisabled": "Routes off"
+    "routesDisabled": "Routes off",
+    "routesDisabledLine1": "Routes & Sections disabled",
+    "routesDisabledLine2": "Tap to enable"
   },
   "licenses": {
     "footer": "Toque em qualquer selo de licenca para ver o texto completo. Toque no icone de link para visitar o repositorio do projeto.",

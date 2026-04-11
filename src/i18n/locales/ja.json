@@ -753,7 +753,9 @@
       }
     },
     "viewInDetail": "View in detail",
-    "routesDisabled": "Routes off"
+    "routesDisabled": "Routes off",
+    "routesDisabledLine1": "Routes & Sections disabled",
+    "routesDisabledLine2": "Tap to enable"
   },
   "licenses": {
     "footer": "ライセンスバッジをタップすると、完全なライセンステキストが表示されます。リンクアイコンをタップすると、プロジェクトリポジトリにアクセスできます。",
