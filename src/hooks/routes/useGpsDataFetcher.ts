@@ -722,6 +722,50 @@ export function useGpsDataFetcher() {
         await pollTileGeneration(isMountedRef);
       }
 
+      // Backfill: fetch time streams for existing activities with NULL lap_time.
+      // Handles upgrade from versions that didn't fetch time streams during sync.
+      if (isMountedRef.current && !abortSignal.aborted) {
+        try {
+          const needingStreams = routeEngine.getActivitiesNeedingTimeStreams();
+          if (needingStreams.length > 0) {
+            if (__DEV__) {
+              console.log(
+                `[fetchApiGps] Backfilling time streams for ${needingStreams.length} activities`
+              );
+            }
+            const batchSize = 10;
+            const backfillStreams: Array<{ activityId: string; times: number[] }> = [];
+            for (let i = 0; i < needingStreams.length; i += batchSize) {
+              if (!isMountedRef.current || abortSignal.aborted) break;
+              const batch = needingStreams.slice(i, i + batchSize);
+              const results = await Promise.all(
+                batch.map(async (activityId) => {
+                  try {
+                    const streams = await intervalsApi.getActivityStreams(activityId, ['time']);
+                    return { activityId, times: (streams.time as number[]) || [] };
+                  } catch {
+                    return { activityId, times: [] as number[] };
+                  }
+                })
+              );
+              for (const r of results) {
+                if (r.times.length > 0) backfillStreams.push(r);
+              }
+            }
+            if (backfillStreams.length > 0 && isMountedRef.current) {
+              routeEngine.setTimeStreams(backfillStreams);
+              if (__DEV__) {
+                console.log(
+                  `[fetchApiGps] Backfilled ${backfillStreams.length}/${needingStreams.length} time streams`
+                );
+              }
+            }
+          }
+        } catch {
+          // Non-critical — will retry on next sync
+        }
+      }
+
       // Final progress update
       if (isMountedRef.current) {
         updateProgress({

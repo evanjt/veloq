@@ -676,6 +676,18 @@ class RouteEngineClient {
     }
   }
 
+  /** Get activity IDs needing time stream fetch (NULL lap_time, no time_stream). */
+  getActivitiesNeedingTimeStreams(): string[] {
+    if (!this.ready) return [];
+    try {
+      return this.timed('getActivitiesNeedingTimeStreams', () =>
+        this.engine.getActivitiesNeedingTimeStreams()
+      );
+    } catch {
+      return [];
+    }
+  }
+
   getRoutesScreenData(
     groupLimit = 20,
     groupOffset = 0,

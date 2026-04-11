@@ -45,6 +45,12 @@ impl VeloqEngine {
         with_engine(|e| e.activity_count() as u32)
     }
 
+    /// Get activity IDs that need time streams fetched (have NULL lap_time, no time_stream).
+    /// Used for one-time backfill after upgrade.
+    fn get_activities_needing_time_streams(&self) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| e.get_activities_needing_time_streams())
+    }
+
     fn clear(&self) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.clear().map_err(|e| VeloqError::Database {

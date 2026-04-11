@@ -518,6 +518,24 @@ impl PersistentRouteEngine {
         self.invalidate_perf_cache();
     }
 
+    /// Get activity IDs that have section_activities with NULL lap_time but no time_stream.
+    /// Used to trigger time stream fetching for existing activities after upgrade.
+    pub fn get_activities_needing_time_streams(&self) -> Vec<String> {
+        match self.db.prepare(
+            "SELECT DISTINCT sa.activity_id
+             FROM section_activities sa
+             LEFT JOIN time_streams ts ON sa.activity_id = ts.activity_id
+             WHERE sa.lap_time IS NULL AND sa.excluded = 0 AND ts.activity_id IS NULL"
+        ) {
+            Ok(mut stmt) => stmt
+                .query_map([], |row| row.get(0))
+                .ok()
+                .map(|rows| rows.filter_map(|r| r.ok()).collect())
+                .unwrap_or_default(),
+            Err(_) => vec![],
+        }
+    }
+
     /// Backfill NULL lap_time/lap_pace in section_activities from available time streams.
     /// Called after sync when new time streams may have been loaded.
     /// This fixes orphaned rows from migration or activities that were synced after section detection.
