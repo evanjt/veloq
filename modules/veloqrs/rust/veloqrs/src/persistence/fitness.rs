@@ -2361,9 +2361,11 @@ impl PersistentRouteEngine {
                         0i8
                     } else {
                         let avg = running_sum / count as f64;
-                        if duration < avg * 0.97 {
+                        // Tighter threshold for routes (1%) — full activity durations
+                        // have less variance than section-level times
+                        if duration < avg * 0.99 {
                             1 // faster
-                        } else if duration > avg * 1.03 {
+                        } else if duration > avg * 1.01 {
                             -1 // slower
                         } else {
                             0

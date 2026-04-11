@@ -566,11 +566,23 @@ export const ActivityCard = React.memo(
                     {formatRelativeDate(activity.start_date_local)}
                   </RNText>
                 </View>
-                {routeHighlight && routeHighlight.trend !== 0 && (
+                {routeHighlight && (
                   <MaterialCommunityIcons
-                    name={routeHighlight.trend === 1 ? 'trending-up' : 'trending-down'}
+                    name={
+                      routeHighlight.trend === 1
+                        ? 'trending-up'
+                        : routeHighlight.trend === -1
+                          ? 'trending-down'
+                          : 'trending-neutral'
+                    }
                     size={22}
-                    color={routeHighlight.trend === 1 ? '#66BB6A' : '#FFA726'}
+                    color={
+                      routeHighlight.trend === 1
+                        ? '#66BB6A'
+                        : routeHighlight.trend === -1
+                          ? '#EF5350'
+                          : theme.textMuted
+                    }
                     style={styles.routeTrendIcon}
                   />
                 )}
