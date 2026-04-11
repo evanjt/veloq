@@ -2019,6 +2019,65 @@ impl PersistentRouteEngine {
             }
         }
 
+        // Step 3b: Batch-query all lap_times per section ordered by date for trend computation
+        let trend_sql = format!(
+            "SELECT sa.section_id, sa.activity_id, sa.lap_time
+             FROM section_activities sa
+             JOIN activities a ON sa.activity_id = a.id
+             WHERE sa.section_id IN ({})
+               AND sa.lap_time IS NOT NULL
+               AND sa.excluded = 0
+             ORDER BY sa.section_id, a.start_date ASC",
+            sec_placeholders
+        );
+
+        let mut trend_map: HashMap<(String, String), i8> = HashMap::new();
+        if let Ok(mut trend_stmt) = self.db.prepare(&trend_sql) {
+            let trend_params: Vec<&dyn rusqlite::types::ToSql> = section_ids
+                .iter()
+                .map(|id| id as &dyn rusqlite::types::ToSql)
+                .collect();
+
+            if let Ok(mapped) = trend_stmt.query_map(trend_params.as_slice(), |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, f64>(2)?,
+                ))
+            }) {
+                let mut current_section = String::new();
+                let mut running_sum: f64 = 0.0;
+                let mut count: u32 = 0;
+
+                for r in mapped.flatten() {
+                    let (sid, aid, lt) = r;
+                    // Reset running average when switching sections
+                    if sid != current_section {
+                        current_section = sid.clone();
+                        running_sum = 0.0;
+                        count = 0;
+                    }
+
+                    let trend = if count == 0 {
+                        0i8
+                    } else {
+                        let avg = running_sum / count as f64;
+                        if lt < avg * 0.97 {
+                            1 // faster (lower time)
+                        } else if lt > avg * 1.03 {
+                            -1 // slower (higher time)
+                        } else {
+                            0
+                        }
+                    };
+
+                    trend_map.insert((aid, sid), trend);
+                    running_sum += lt;
+                    count += 1;
+                }
+            }
+        }
+
         // Step 4: Get section names (from the `name` column on the sections table)
         let name_sql = format!(
             "SELECT id, name FROM sections WHERE id IN ({})",
@@ -2065,12 +2124,210 @@ impl PersistentRouteEngine {
                     .cloned()
                     .unwrap_or_default();
 
+                let trend = trend_map
+                    .get(&(activity_id.clone(), section_id.clone()))
+                    .copied()
+                    .unwrap_or(0);
+
                 crate::FfiActivitySectionHighlight {
                     activity_id,
                     section_id,
                     section_name,
                     lap_time,
                     is_pr,
+                    trend,
+                }
+            })
+            .collect()
+    }
+
+    /// Batch-query route highlights for a list of activity IDs.
+    /// Returns one entry per (activity, route) pair.
+    /// `is_pr` is true when this activity's duration is the best across all route attempts.
+    /// `trend` compares this attempt's duration against the running average of preceding attempts.
+    pub fn get_activity_route_highlights(
+        &self,
+        activity_ids: &[String],
+    ) -> Vec<crate::FfiActivityRouteHighlight> {
+        if activity_ids.is_empty() {
+            return vec![];
+        }
+
+        // Step 1: Find which routes the requested activities belong to
+        let placeholders: String = activity_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let match_sql = format!(
+            "SELECT am.activity_id, am.route_id
+             FROM activity_matches am
+             WHERE am.activity_id IN ({})
+               AND am.excluded = 0",
+            placeholders
+        );
+
+        let mut match_stmt = match self.db.prepare(&match_sql) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("tracematch: [route_highlights] prepare failed: {}", e);
+                return vec![];
+            }
+        };
+
+        let params: Vec<&dyn rusqlite::types::ToSql> = activity_ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::types::ToSql)
+            .collect();
+
+        let activity_routes: Vec<(String, String)> =
+            match match_stmt.query_map(params.as_slice(), |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            }) {
+                Ok(mapped) => mapped.filter_map(|r| r.ok()).collect(),
+                Err(e) => {
+                    log::warn!("tracematch: [route_highlights] query failed: {}", e);
+                    return vec![];
+                }
+            };
+
+        if activity_routes.is_empty() {
+            return vec![];
+        }
+
+        // Step 2: Collect distinct route IDs
+        let route_ids: Vec<String> = {
+            let mut set = std::collections::HashSet::new();
+            for (_, rid) in &activity_routes {
+                set.insert(rid.clone());
+            }
+            set.into_iter().collect()
+        };
+
+        // Step 3: Get route names (custom name from route_names, falling back to empty)
+        let route_placeholders: String =
+            route_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let mut route_names: HashMap<String, String> = HashMap::new();
+
+        let name_sql = format!(
+            "SELECT route_id, custom_name FROM route_names WHERE route_id IN ({})",
+            route_placeholders
+        );
+        if let Ok(mut name_stmt) = self.db.prepare(&name_sql) {
+            let name_params: Vec<&dyn rusqlite::types::ToSql> = route_ids
+                .iter()
+                .map(|id| id as &dyn rusqlite::types::ToSql)
+                .collect();
+            if let Ok(mapped) = name_stmt.query_map(name_params.as_slice(), |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            }) {
+                for r in mapped.flatten() {
+                    route_names.insert(r.0, r.1);
+                }
+            }
+        }
+
+        // Step 4: For each route, query all activity durations ordered by date
+        //         to compute trend and PR
+        let duration_sql = format!(
+            "SELECT am.route_id, am.activity_id, a.duration_secs
+             FROM activity_matches am
+             JOIN activities a ON am.activity_id = a.id
+             WHERE am.route_id IN ({})
+               AND am.excluded = 0
+               AND a.duration_secs IS NOT NULL
+             ORDER BY am.route_id, a.start_date ASC",
+            route_placeholders
+        );
+
+        // Maps: (activity_id, route_id) -> (trend, duration), and route_id -> best_duration
+        let mut trend_map: HashMap<(String, String), i8> = HashMap::new();
+        let mut best_durations: HashMap<String, f64> = HashMap::new();
+        let mut activity_durations: HashMap<(String, String), f64> = HashMap::new();
+
+        if let Ok(mut dur_stmt) = self.db.prepare(&duration_sql) {
+            let dur_params: Vec<&dyn rusqlite::types::ToSql> = route_ids
+                .iter()
+                .map(|id| id as &dyn rusqlite::types::ToSql)
+                .collect();
+
+            if let Ok(mapped) = dur_stmt.query_map(dur_params.as_slice(), |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)? as f64,
+                ))
+            }) {
+                let mut current_route = String::new();
+                let mut running_sum: f64 = 0.0;
+                let mut count: u32 = 0;
+                let mut min_duration: f64 = f64::MAX;
+
+                for r in mapped.flatten() {
+                    let (rid, aid, duration) = r;
+                    // Reset when switching routes
+                    if rid != current_route {
+                        if !current_route.is_empty() {
+                            best_durations.insert(current_route.clone(), min_duration);
+                        }
+                        current_route = rid.clone();
+                        running_sum = 0.0;
+                        count = 0;
+                        min_duration = f64::MAX;
+                    }
+
+                    let trend = if count == 0 {
+                        0i8
+                    } else {
+                        let avg = running_sum / count as f64;
+                        if duration < avg * 0.97 {
+                            1 // faster
+                        } else if duration > avg * 1.03 {
+                            -1 // slower
+                        } else {
+                            0
+                        }
+                    };
+
+                    trend_map.insert((aid.clone(), rid.clone()), trend);
+                    activity_durations.insert((aid, rid), duration);
+                    running_sum += duration;
+                    count += 1;
+                    if duration < min_duration {
+                        min_duration = duration;
+                    }
+                }
+                // Don't forget the last route
+                if !current_route.is_empty() {
+                    best_durations.insert(current_route, min_duration);
+                }
+            }
+        }
+
+        // Step 5: Build results for the requested activities only
+        activity_routes
+            .into_iter()
+            .map(|(activity_id, route_id)| {
+                let route_name = route_names
+                    .get(&route_id)
+                    .cloned()
+                    .unwrap_or_default();
+
+                let is_pr = match (
+                    activity_durations.get(&(activity_id.clone(), route_id.clone())),
+                    best_durations.get(&route_id),
+                ) {
+                    (Some(&dur), Some(&best)) => (dur - best).abs() < 0.001,
+                    _ => false,
+                };
+
+                let trend = trend_map
+                    .get(&(activity_id.clone(), route_id.clone()))
+                    .copied()
+                    .unwrap_or(0);
+
+                crate::FfiActivityRouteHighlight {
+                    activity_id,
+                    route_id,
+                    route_name,
+                    is_pr,
+                    trend,
                 }
             })
             .collect()

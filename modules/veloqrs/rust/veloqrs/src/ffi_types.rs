@@ -1638,6 +1638,24 @@ pub struct FfiActivitySectionHighlight {
     pub section_name: String,
     pub lap_time: f64,
     pub is_pr: bool,
+    /// -1=slower than preceding avg, 0=neutral, 1=faster
+    pub trend: i8,
+}
+
+// ============================================================================
+// Route Highlight Types
+// ============================================================================
+
+/// Lightweight route highlight for an activity: was this a PR on the route?
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivityRouteHighlight {
+    pub activity_id: String,
+    pub route_id: String,
+    pub route_name: String,
+    /// True when this activity's duration is the best across all route attempts
+    pub is_pr: bool,
+    /// -1=slower than preceding avg, 0=neutral, 1=faster
+    pub trend: i8,
 }
 
 // ============================================================================

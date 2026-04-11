@@ -117,6 +117,7 @@ export type {
   FfiMergeCandidate as MergeCandidate,
   FfiNearbySectionSummary as NearbySectionSummary,
   FfiActivitySectionHighlight as ActivitySectionHighlight,
+  FfiActivityRouteHighlight as ActivityRouteHighlight,
 } from './RouteEngineClient';
 // Strength training types (generated after Rust rebuild)
 export interface ExerciseSet {

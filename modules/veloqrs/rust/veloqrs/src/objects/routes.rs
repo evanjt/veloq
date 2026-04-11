@@ -136,4 +136,12 @@ impl RouteManager {
             )
         })
     }
+
+    /// Batch-query route highlights (PRs and trends) for a list of activity IDs.
+    fn get_activity_route_highlights(
+        &self,
+        activity_ids: Vec<String>,
+    ) -> Result<Vec<crate::FfiActivityRouteHighlight>, VeloqError> {
+        with_engine(|e| e.get_activity_route_highlights(&activity_ids))
+    }
 }

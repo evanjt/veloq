@@ -75,6 +75,15 @@ export interface FfiActivitySectionHighlight {
   sectionName: string;
   lapTime: number;
   isPr: boolean;
+  trend: number;
+}
+
+export interface FfiActivityRouteHighlight {
+  activityId: string;
+  routeId: string;
+  routeName: string;
+  isPr: boolean;
+  trend: number;
 }
 
 import * as FileSystem from 'expo-file-system/legacy';
@@ -1543,6 +1552,13 @@ class RouteEngineClient {
     if (!this.ready || activityIds.length === 0) return [];
     return this.timed('getActivitySectionHighlights', () =>
       this.engine.sections().getActivitySectionHighlights(activityIds),
+    );
+  }
+
+  getActivityRouteHighlights(activityIds: string[]): FfiActivityRouteHighlight[] {
+    if (!this.ready || activityIds.length === 0) return [];
+    return this.timed('getActivityRouteHighlights', () =>
+      this.engine.routes().getActivityRouteHighlights(activityIds),
     );
   }
 

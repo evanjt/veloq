@@ -47,7 +47,7 @@ export function useActivitySectionHighlights(
           sectionName: h.sectionName,
           lapTime: h.lapTime,
           isPr: h.isPr,
-          trend: (h as unknown as { trend?: number }).trend ?? 0,
+          trend: h.trend ?? 0,
         };
         const existing = map.get(h.activityId);
         if (existing) {
