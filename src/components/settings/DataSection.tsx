@@ -38,7 +38,7 @@ export function DataSection() {
 
   useEffect(() => {
     getTerrainPreviewCacheSize().then(setTerrainCacheSize);
-    getHeatmapTilesCacheSize().then(setHeatmapCacheSize);
+    setHeatmapCacheSize(getHeatmapTilesCacheSize());
     estimateRoutesDatabaseSize().then(setRoutesSize);
   }, []);
 

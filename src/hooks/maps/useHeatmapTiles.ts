@@ -21,51 +21,13 @@ export const HEATMAP_TILES_DIR = HEATMAP_DIR;
 
 /**
  * Get total size of heatmap tile cache in bytes.
- * Counts PNG files and estimates size to avoid slow per-file stat calls.
- * Falls back to sampling a few tiles for average size.
+ * Uses native Rust directory scan for speed — no JS filesystem calls.
  */
-export async function getHeatmapTilesCacheSize(): Promise<number> {
+export function getHeatmapTilesCacheSize(): number {
   try {
-    const dirInfo = await FileSystem.getInfoAsync(HEATMAP_DIR);
-    if (!dirInfo.exists) return 0;
-
-    let fileCount = 0;
-    let sampledSize = 0;
-    let sampledCount = 0;
-
-    const zoomDirs = await FileSystem.readDirectoryAsync(HEATMAP_DIR);
-    for (const zDir of zoomDirs) {
-      const zPath = `${HEATMAP_DIR}${zDir}/`;
-      const zInfo = await FileSystem.getInfoAsync(zPath);
-      if (!zInfo.exists || !zInfo.isDirectory) continue;
-
-      const xDirs = await FileSystem.readDirectoryAsync(zPath);
-      for (const xDir of xDirs) {
-        const xPath = `${zPath}${xDir}/`;
-        const xInfo = await FileSystem.getInfoAsync(xPath);
-        if (!xInfo.exists || !xInfo.isDirectory) continue;
-
-        const files = await FileSystem.readDirectoryAsync(xPath);
-        const pngCount = files.filter((f) => f.endsWith('.png')).length;
-        fileCount += pngCount;
-
-        // Sample first few tiles for average size (avoid stat-ing every file)
-        if (sampledCount < 5 && pngCount > 0) {
-          const sampleFile = files.find((f) => f.endsWith('.png'));
-          if (sampleFile) {
-            const info = await FileSystem.getInfoAsync(`${xPath}${sampleFile}`);
-            if (info.exists && 'size' in info && info.size) {
-              sampledSize += info.size;
-              sampledCount++;
-            }
-          }
-        }
-      }
-    }
-
-    if (fileCount === 0) return 0;
-    const avgSize = sampledCount > 0 ? sampledSize / sampledCount : 50000; // 50KB default
-    return Math.round(fileCount * avgSize);
+    const engine = getRouteEngine();
+    if (!engine) return 0;
+    return engine.getHeatmapCacheSize(HEATMAP_DIR);
   } catch {
     return 0;
   }

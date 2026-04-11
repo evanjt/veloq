@@ -843,6 +843,17 @@ class RouteEngineClient {
     }
   }
 
+  /** Get total size of heatmap tile cache in bytes (fast native scan). */
+  getHeatmapCacheSize(basePath: string): number {
+    if (!this.ready) return 0;
+    const normalizedPath = basePath.startsWith('file://') ? basePath.slice(7) : basePath;
+    return Number(
+      this.timed('getHeatmapCacheSize', () =>
+        this.engine.heatmap().getCacheSize(normalizedPath)
+      )
+    );
+  }
+
   /** Clear all heatmap tiles from disk. */
   clearHeatmapTiles(basePath: string): number {
     if (!this.ready) return 0;

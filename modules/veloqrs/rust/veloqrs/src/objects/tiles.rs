@@ -29,6 +29,34 @@ impl HeatmapManager {
         with_engine(|e| e.clear_heatmap_tiles(&base_path))
     }
 
+    /// Get total size of heatmap tile cache in bytes.
+    /// Walks the z/x/y directory tree natively — much faster than JS filesystem calls.
+    fn get_cache_size(&self, base_path: String) -> Result<u64, VeloqError> {
+        let path = std::path::Path::new(&base_path);
+        if !path.exists() {
+            return Ok(0);
+        }
+        let mut total: u64 = 0;
+        if let Ok(z_entries) = std::fs::read_dir(path) {
+            for z_entry in z_entries.flatten() {
+                if !z_entry.path().is_dir() { continue; }
+                if let Ok(x_entries) = std::fs::read_dir(z_entry.path()) {
+                    for x_entry in x_entries.flatten() {
+                        if !x_entry.path().is_dir() { continue; }
+                        if let Ok(y_entries) = std::fs::read_dir(x_entry.path()) {
+                            for y_entry in y_entries.flatten() {
+                                if let Ok(meta) = y_entry.metadata() {
+                                    total += meta.len();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(total)
+    }
+
     /// Poll tile generation progress: "idle" | "running" | "complete"
     fn poll(&self) -> Result<String, VeloqError> {
         let mut handle_guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE

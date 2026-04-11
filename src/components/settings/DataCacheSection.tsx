@@ -76,7 +76,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
 
   useEffect(() => {
     getTerrainPreviewCacheSize().then(setTerrainCacheSize);
-    getHeatmapTilesCacheSize().then(setHeatmapCacheSize);
+    setHeatmapCacheSize(getHeatmapTilesCacheSize());
   }, []);
 
   useEffect(() => {
