@@ -54,10 +54,10 @@ export function formatGpsSyncProgress(
   if (progress.status === 'computing' || progress.status === 'processing') {
     return {
       icon: 'map-marker-path',
-      text: t('cache.analyzingRoutes') as string,
+      text: progress.message || (t('cache.analyzingRoutes') as string),
       percent: progress.percent,
-      countText: null,
-      indeterminate: progress.percent === 0,
+      countText: progress.total > 0 ? `${progress.completed}/${progress.total}` : null,
+      indeterminate: progress.percent === 0 || progress.percent === 50,
     };
   }
 

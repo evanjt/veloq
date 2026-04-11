@@ -609,7 +609,7 @@ export function useGpsDataFetcher() {
           status: 'computing',
           completed: 0,
           total: 0,
-          percent: 0,
+          percent: 50,
           message: i18n.t('cache.analyzingRoutes'),
         });
 
