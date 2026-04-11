@@ -145,6 +145,12 @@ impl PersistentRouteEngine {
                     )?;
                 }
 
+                // Populate activities table with duration/name for route trend computation
+                let _ = self.db.execute(
+                    "UPDATE activities SET start_date = COALESCE(start_date, ?), name = ?, distance_meters = ?, duration_secs = ? WHERE id = ?",
+                    params![m.date, &m.name, m.distance, m.moving_time as i64, &m.activity_id],
+                );
+
                 // Update heatmap intensity cache
                 let date_str = chrono::DateTime::from_timestamp(m.date, 0)
                     .map(|dt| dt.format("%Y-%m-%d").to_string())
