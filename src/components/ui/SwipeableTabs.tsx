@@ -319,6 +319,5 @@ const styles = StyleSheet.create({
   },
   page: {
     width: SCREEN_WIDTH,
-    flex: 1,
   },
 });
