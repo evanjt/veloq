@@ -297,7 +297,9 @@
     "invalidQrCode": "Not a valid Nextcloud QR code",
     "cameraPermissionNeeded": "Camera access is required to scan QR codes",
     "grantCameraAccess": "Grant Camera Access",
-    "fillAllFields": "Please fill in all fields"
+    "fillAllFields": "Please fill in all fields",
+    "nextcloudSetup": "If using Nextcloud WebDAV",
+    "manualSetup": "Or enter manually"
   },
   "cache": {
     "addingActivities": "アクティビティを追加中...",

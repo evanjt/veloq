@@ -39,29 +39,41 @@ export function BackupSection() {
   // Auto-backup state
   const [autoEnabled, setAutoEnabled] = useState(() => isAutoBackupEnabled());
   const [backingUp, setBackingUp] = useState(false);
+  const [backupResult, setBackupResult] = useState<'success' | 'error' | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
   const lastBackupTs = useMemo(() => getLastBackupTimestamp(), [backingUp]);
 
-  const handleToggleAutoBackup = useCallback((value: boolean) => {
-    setAutoBackupEnabled(value);
-    setAutoEnabled(value);
-  }, []);
+  const handleToggleAutoBackup = useCallback(
+    async (value: boolean) => {
+      setAutoBackupEnabled(value);
+      setAutoEnabled(value);
+      // Trigger immediate backup when enabling auto-backup
+      if (value) {
+        setBackingUp(true);
+        try {
+          await performBackup(true);
+        } catch {
+          // Silent — auto-backup will retry on next trigger
+        } finally {
+          setBackingUp(false);
+        }
+      }
+    },
+    [backingUp]
+  );
 
   const handleBackupNow = useCallback(async () => {
     if (backingUp) return;
     setBackingUp(true);
+    setBackupResult(null);
+    setBackupError(null);
     try {
       const success = await performBackup(true);
-      if (success) {
-        Alert.alert(t('backup.backupSuccessTitle'), t('backup.backupSuccessMessage'));
-      } else {
-        Alert.alert(t('backup.backupFailedTitle'), t('backup.backupFailedMessage'));
-      }
+      setBackupResult(success ? 'success' : 'error');
+      if (!success) setBackupError(t('backup.backupFailedMessage'));
     } catch (error) {
-      const detail = error instanceof Error ? error.message : '';
-      Alert.alert(
-        t('backup.backupFailedTitle'),
-        detail ? `${t('backup.backupFailedMessage')}\n\n${detail}` : t('backup.backupFailedMessage')
-      );
+      setBackupResult('error');
+      setBackupError(error instanceof Error ? error.message : t('backup.backupFailedMessage'));
     } finally {
       setBackingUp(false);
     }
@@ -243,6 +255,9 @@ export function BackupSection() {
         {currentBackend.id === 'webdav' && (
           <View style={[styles.configBlock, isDark && styles.configBlockDark]}>
             {/* Nextcloud QR code setup */}
+            <Text style={[styles.configLabel, isDark && styles.textMuted]}>
+              {t('backup.nextcloudSetup', 'If using Nextcloud WebDAV')}
+            </Text>
             <TouchableOpacity
               style={styles.qrSetupButton}
               onPress={() => setShowQrScanner(true)}
@@ -260,6 +275,11 @@ export function BackupSection() {
               )}
             </Text>
 
+            <Text
+              style={[styles.configLabel, { marginTop: spacing.sm }, isDark && styles.textMuted]}
+            >
+              {t('backup.manualSetup', 'Or enter manually')}
+            </Text>
             <TextInput
               style={[styles.input, isDark && styles.inputDark]}
               placeholder={t('backup.serverUrl')}
@@ -412,7 +432,13 @@ export function BackupSection() {
 
         {/* Last backup status */}
         <View style={[styles.statusRow, isDark && styles.statusRowDark]}>
-          <Text style={[styles.statusText, isDark && styles.textMuted]}>{lastBackupText}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.statusText, isDark && styles.textMuted]}>{lastBackupText}</Text>
+            {backupResult === 'success' && (
+              <Text style={styles.connectionSuccess}>{t('backup.backupSuccessMessage')}</Text>
+            )}
+            {backupResult === 'error' && <Text style={styles.connectionError}>{backupError}</Text>}
+          </View>
           <TouchableOpacity onPress={handleBackupNow} disabled={backingUp} activeOpacity={0.2}>
             <Text style={[styles.linkText, backingUp && styles.linkTextDisabled]}>
               {backingUp ? t('backup.backingUp') : t('backup.backupNow')}
@@ -678,6 +704,14 @@ const styles = StyleSheet.create({
   qrHint: {
     fontSize: 12,
     color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  configLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginBottom: spacing.xs,
   },
   testButtonText: {
