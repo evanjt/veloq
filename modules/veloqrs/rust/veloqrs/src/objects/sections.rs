@@ -626,4 +626,12 @@ impl SectionManager {
                 })
         })?
     }
+
+    /// Batch-query section highlights (PRs) for a list of activity IDs.
+    fn get_activity_section_highlights(
+        &self,
+        activity_ids: Vec<String>,
+    ) -> Result<Vec<crate::FfiActivitySectionHighlight>, VeloqError> {
+        with_engine(|e| e.get_activity_section_highlights(&activity_ids))
+    }
 }

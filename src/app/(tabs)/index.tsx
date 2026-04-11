@@ -25,6 +25,7 @@ import {
   useSummaryCardData,
   useInsights,
   isInfiniteActivitiesStale,
+  useActivitySectionHighlights,
 } from '@/hooks';
 import type { Activity } from '@/types';
 import { useDashboardPreferences, useMapPreferences } from '@/providers';
@@ -234,6 +235,13 @@ export default function FeedScreen() {
     return filtered;
   }, [allActivities, searchQuery, selectedTypeGroup]);
 
+  // Batch-fetch section highlights (PRs) for visible activities
+  const highlightIds = useMemo(
+    () => filteredActivities.map((a: Activity) => a.id),
+    [filteredActivities]
+  );
+  const sectionHighlightsMap = useActivitySectionHighlights(highlightIds);
+
   // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
   const handleRefresh = useCallback(async () => {
     // Reset the infinite query if page params are stale (don't cover today),
@@ -294,6 +302,9 @@ export default function FeedScreen() {
   if (startupData?.previewTracks) {
     previewTracksRef.current = startupData.previewTracks;
   }
+  // Stabilize highlights ref to avoid FlatList re-renders from new Map instances
+  const highlightsRef = useRef(sectionHighlightsMap);
+  highlightsRef.current = sectionHighlightsMap;
   const renderActivity = useCallback(
     ({ item, index }: { item: Activity; index: number }) => (
       <ActivityCard
@@ -304,9 +315,10 @@ export default function FeedScreen() {
         startupTrack={previewTracksRef.current?.get(item.id)}
         snapshotReady={snapshotWebViewReady}
         colorScheme={isDark}
+        sectionHighlights={highlightsRef.current.get(item.id)}
       />
     ),
-    [isFeedFocused, snapshotWebViewReady, isDark]
+    [isFeedFocused, snapshotWebViewReady, isDark, sectionHighlightsMap]
   );
 
   const navigateToSettings = useCallback(() => {

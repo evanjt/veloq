@@ -53,6 +53,11 @@ interface ActivityCardProps {
   snapshotReady?: boolean;
   /** Forces re-render when theme changes (enableFreeze suppresses useColorScheme updates) */
   colorScheme?: boolean;
+  /** Section highlights for this activity (PRs, section matches) from batch FFI query */
+  sectionHighlights?: Array<{
+    sectionName: string;
+    isPr: boolean;
+  }>;
 }
 
 // White text theme (used on any dark/satellite map, or dark theme + light map)
@@ -117,6 +122,7 @@ export const ActivityCard = React.memo(
     screenFocused,
     startupTrack,
     snapshotReady,
+    sectionHighlights,
   }: ActivityCardProps) {
     // Log actual function body execution (not useEffect which is deferred)
     if (__DEV__ && (index ?? 0) < 3) {
@@ -229,6 +235,23 @@ export const ActivityCard = React.memo(
               </RNText>
             </View>
           )}
+          {sectionHighlights &&
+            sectionHighlights.length > 0 &&
+            (sectionHighlights.some((h) => h.isPr) ? (
+              <View style={styles.secondaryStat}>
+                <MaterialCommunityIcons name="trophy" size={14} color={brand.orange} />
+                <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+                  {t('activity.sectionPr')}
+                </RNText>
+              </View>
+            ) : (
+              <View style={styles.secondaryStat}>
+                <MaterialCommunityIcons name="road-variant" size={14} color={textColor} />
+                <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+                  {t('activity.sectionCount', { count: sectionHighlights.length })}
+                </RNText>
+              </View>
+            ))}
         </Pressable>
       </ScrollView>
     );

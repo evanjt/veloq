@@ -1,5 +1,10 @@
 // Activity hooks
-export { useActivities, useActivityBoundsCache, useEFTPHistory } from './activities';
+export {
+  useActivities,
+  useActivityBoundsCache,
+  useEFTPHistory,
+  useActivitySectionHighlights,
+} from './activities';
 export { useSectionOverlays } from './activities/useSectionOverlays';
 export { useSectionTimeStreams } from './activities/useSectionTimeStreams';
 

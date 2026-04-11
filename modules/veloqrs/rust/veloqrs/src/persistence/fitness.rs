@@ -1918,6 +1918,163 @@ impl PersistentRouteEngine {
             effort_count: rows.len() as u32,
         })
     }
+
+    // ========================================================================
+    // Activity Section Highlights (batch PR detection)
+    // ========================================================================
+
+    /// Batch-query section highlights (PRs) for a list of activity IDs.
+    /// Returns one entry per (activity, section) pair that has a recorded lap_time.
+    /// `is_pr` is true only when the lap_time equals the global best for that section.
+    pub fn get_activity_section_highlights(
+        &self,
+        activity_ids: &[String],
+    ) -> Vec<crate::FfiActivitySectionHighlight> {
+        if activity_ids.is_empty() {
+            return vec![];
+        }
+
+        // Step 1: Query lap times for the requested activities
+        let placeholders: String = activity_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            "SELECT sa.activity_id, sa.section_id, sa.lap_time
+             FROM section_activities sa
+             JOIN sections s ON s.id = sa.section_id
+             WHERE sa.activity_id IN ({})
+               AND sa.lap_time IS NOT NULL
+               AND sa.excluded = 0
+               AND s.disabled = 0
+               AND s.superseded_by IS NULL",
+            placeholders
+        );
+
+        let mut stmt = match self.db.prepare(&sql) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("tracematch: [highlights] prepare failed: {}", e);
+                return vec![];
+            }
+        };
+
+        let params: Vec<&dyn rusqlite::types::ToSql> = activity_ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::types::ToSql)
+            .collect();
+
+        let rows: Vec<(String, String, f64)> = match stmt.query_map(params.as_slice(), |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        }) {
+            Ok(mapped) => mapped.filter_map(|r| r.ok()).collect(),
+            Err(e) => {
+                log::warn!("tracematch: [highlights] query failed: {}", e);
+                return vec![];
+            }
+        };
+
+        if rows.is_empty() {
+            return vec![];
+        }
+
+        // Step 2: Collect distinct section IDs from the results
+        let section_ids: Vec<String> = {
+            let mut set = std::collections::HashSet::new();
+            for (_, sid, _) in &rows {
+                set.insert(sid.clone());
+            }
+            set.into_iter().collect()
+        };
+
+        // Step 3: Batch-query global best times per section
+        let sec_placeholders: String =
+            section_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let best_sql = format!(
+            "SELECT section_id, MIN(lap_time) as best_time
+             FROM section_activities
+             WHERE section_id IN ({})
+               AND lap_time IS NOT NULL
+               AND excluded = 0
+             GROUP BY section_id",
+            sec_placeholders
+        );
+
+        let mut best_stmt = match self.db.prepare(&best_sql) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("tracematch: [highlights] best times query failed: {}", e);
+                return vec![];
+            }
+        };
+
+        let best_params: Vec<&dyn rusqlite::types::ToSql> = section_ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::types::ToSql)
+            .collect();
+
+        let mut best_times: HashMap<String, f64> = HashMap::new();
+        if let Ok(mapped) = best_stmt.query_map(best_params.as_slice(), |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?))
+        }) {
+            for r in mapped.flatten() {
+                best_times.insert(r.0, r.1);
+            }
+        }
+
+        // Step 4: Get section names (from the `name` column on the sections table)
+        let name_sql = format!(
+            "SELECT id, name FROM sections WHERE id IN ({})",
+            sec_placeholders
+        );
+
+        let mut name_stmt = match self.db.prepare(&name_sql) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("tracematch: [highlights] section names query failed: {}", e);
+                return vec![];
+            }
+        };
+
+        let name_params: Vec<&dyn rusqlite::types::ToSql> = section_ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::types::ToSql)
+            .collect();
+
+        let mut section_names: HashMap<String, String> = HashMap::new();
+        if let Ok(mapped) = name_stmt.query_map(name_params.as_slice(), |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Option<String>>(1)?,
+            ))
+        }) {
+            for r in mapped.flatten() {
+                if let Some(name) = r.1 {
+                    section_names.insert(r.0, name);
+                }
+            }
+        }
+
+        // Step 5: Build result, comparing each lap_time against global best
+        rows.into_iter()
+            .map(|(activity_id, section_id, lap_time)| {
+                let is_pr = best_times
+                    .get(&section_id)
+                    .map(|&best| (lap_time - best).abs() < 0.001)
+                    .unwrap_or(false);
+
+                let section_name = section_names
+                    .get(&section_id)
+                    .cloned()
+                    .unwrap_or_default();
+
+                crate::FfiActivitySectionHighlight {
+                    activity_id,
+                    section_id,
+                    section_name,
+                    lap_time,
+                    is_pr,
+                }
+            })
+            .collect()
+    }
 }
 
 /// Simple least-squares linear regression.

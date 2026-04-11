@@ -1627,6 +1627,20 @@ pub struct FfiExerciseActivities {
 }
 
 // ============================================================================
+// Section Highlight Types
+// ============================================================================
+
+/// Lightweight section highlight for an activity: was this a PR?
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivitySectionHighlight {
+    pub activity_id: String,
+    pub section_id: String,
+    pub section_name: String,
+    pub lap_time: f64,
+    pub is_pr: bool,
+}
+
+// ============================================================================
 // Section Matching & Merge Types
 // ============================================================================
 

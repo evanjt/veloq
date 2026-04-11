@@ -69,6 +69,14 @@ export interface FfiNearbySectionSummary {
   polylineCoords: number[];
 }
 
+export interface FfiActivitySectionHighlight {
+  activityId: string;
+  sectionId: string;
+  sectionName: string;
+  lapTime: number;
+  isPr: boolean;
+}
+
 import * as FileSystem from 'expo-file-system/legacy';
 import {
   flatCoordsToPoints,
@@ -1529,6 +1537,13 @@ class RouteEngineClient {
       console.error('[RouteEngine] mergeSections failed:', e);
       return null;
     }
+  }
+
+  getActivitySectionHighlights(activityIds: string[]): FfiActivitySectionHighlight[] {
+    if (!this.ready || activityIds.length === 0) return [];
+    return this.timed('getActivitySectionHighlights', () =>
+      this.engine.sections().getActivitySectionHighlights(activityIds),
+    );
   }
 
   forceRedetectSections(sportFilter?: string): boolean {
