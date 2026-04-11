@@ -833,6 +833,16 @@ class RouteEngineClient {
     }
   }
 
+  /** Disable heatmap tile generation by clearing the tiles path in the engine. */
+  disableHeatmapTiles(): void {
+    if (!this.ready) return;
+    try {
+      this.engine.heatmap().clearTilesPath();
+    } catch (e) {
+      console.warn('[RouteEngineClient] Failed to clear heatmap tiles path:', e);
+    }
+  }
+
   /** Clear all heatmap tiles from disk. */
   clearHeatmapTiles(basePath: string): number {
     if (!this.ready) return 0;

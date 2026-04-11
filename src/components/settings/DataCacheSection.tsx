@@ -246,15 +246,15 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             await new Promise((resolve) => setTimeout(resolve, 100));
 
             // 5. Reset all queries — clears data AND preserves observers to trigger refetch.
-            // DO NOT use removeQueries + invalidateQueries — removeQueries destroys
-            // observers, so invalidateQueries has nothing to trigger.
-            queryClient.resetQueries({ queryKey: ['activities'] });
-            queryClient.resetQueries({ queryKey: ['activities-infinite'] });
-            queryClient.resetQueries({ queryKey: ['wellness'] });
-            queryClient.resetQueries({ queryKey: ['powerCurve'] });
-            queryClient.resetQueries({ queryKey: ['paceCurve'] });
-            queryClient.resetQueries({ queryKey: ['athlete'] });
-            queryClient.resetQueries({ queryKey: ['athlete-summary'] });
+            // exact: false enables prefix matching so ['activities'] matches
+            // ['activities', athleteId, oldest, newest, 'base'] etc.
+            queryClient.resetQueries({ queryKey: ['activities'], exact: false });
+            queryClient.resetQueries({ queryKey: ['activities-infinite'], exact: false });
+            queryClient.resetQueries({ queryKey: ['wellness'], exact: false });
+            queryClient.resetQueries({ queryKey: ['powerCurve'], exact: false });
+            queryClient.resetQueries({ queryKey: ['paceCurve'], exact: false });
+            queryClient.resetQueries({ queryKey: ['athlete'], exact: false });
+            queryClient.resetQueries({ queryKey: ['athlete-summary'], exact: false });
 
             // Refresh cache sizes
             refreshCacheSizes();

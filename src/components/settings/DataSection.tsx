@@ -161,9 +161,11 @@ export function DataSection() {
             value={routeSettings.heatmapEnabled}
             onValueChange={(enabled) => {
               setHeatmapEnabled(enabled);
-              if (!enabled) {
-                // Clear existing heatmap tiles when disabling
+              if (enabled) {
+                getRouteEngine()?.enableHeatmapTiles();
+              } else {
                 getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
+                getRouteEngine()?.disableHeatmapTiles();
               }
             }}
             color={colors.primary}

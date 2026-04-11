@@ -19,6 +19,11 @@ impl HeatmapManager {
         with_engine(|e| e.set_heatmap_tiles_path(path))
     }
 
+    /// Disable heatmap tile generation by clearing the tiles path.
+    fn clear_tiles_path(&self) -> Result<(), VeloqError> {
+        with_engine(|e| e.clear_heatmap_tiles_path())
+    }
+
     /// Clear all heatmap tiles from disk.
     fn clear_tiles(&self, base_path: String) -> Result<u32, VeloqError> {
         with_engine(|e| e.clear_heatmap_tiles(&base_path))

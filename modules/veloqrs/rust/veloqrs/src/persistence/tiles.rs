@@ -96,6 +96,13 @@ impl PersistentRouteEngine {
         Some(TileGenerationHandle { receiver: rx })
     }
 
+    /// Disable heatmap tile generation by clearing the tiles path.
+    /// Prevents regeneration on next sync.
+    pub fn clear_heatmap_tiles_path(&mut self) {
+        info!("[heatmap] Tiles path cleared — generation disabled");
+        self.heatmap_tiles_path = None;
+    }
+
     /// Clear all heatmap tiles from disk.
     pub fn clear_heatmap_tiles(&self, base_path: &str) -> u32 {
         tiles::clear_all_tiles(Path::new(base_path))
