@@ -89,6 +89,9 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const queryClient = useQueryClient();
   const lastSyncTimestamp = useSyncDateRange((s) => s.lastSyncTimestamp);
 
+  // Counter to force engine re-subscription after clear+reinit
+  const [engineGeneration, setEngineGeneration] = useState(0);
+
   // Track mount state to prevent setState after unmount
   const isMountedRef = useRef(true);
   useEffect(() => {
@@ -154,7 +157,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       cancelled = true;
       unsubscribe?.();
     };
-  }, []);
+  }, [engineGeneration]); // Re-subscribe when engine is destroyed and re-created
 
   // Cache statistics from engine (date range from engine's actual data)
   const cacheStats: CacheStats = useMemo(() => {
@@ -195,6 +198,8 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
 
     setActivityCount(0);
     setEngineDateRange({ oldest: null, newest: null });
+    // Force engine re-subscription since destroy+reinit breaks the old subscription
+    setEngineGeneration((g) => g + 1);
   }, []);
 
   const sync = useCallback(
