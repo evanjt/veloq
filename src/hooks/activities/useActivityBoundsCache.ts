@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSyncDateRange } from '@/providers';
 import { clearAllGpsTracks, clearBoundsCache } from '@/lib/storage/gpsStorage';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
+import { isHeatmapEnabled } from '@/providers/RouteSettingsStore';
 import { formatLocalDate } from '@/lib';
 
 export interface SyncProgress {
@@ -190,6 +191,10 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       engine.destroyEngine();
       if (dbPath) {
         engine.initWithPath(dbPath);
+        // Re-enable heatmap tiles if setting is on (init doesn't do this automatically)
+        if (isHeatmapEnabled()) {
+          engine.enableHeatmapTiles();
+        }
       }
     }
 

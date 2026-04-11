@@ -21,14 +21,18 @@ export const HEATMAP_TILES_DIR = HEATMAP_DIR;
 
 /**
  * Get total size of heatmap tile cache in bytes.
- * Recursively scans the z/x/y.png directory structure.
+ * Counts PNG files and estimates size to avoid slow per-file stat calls.
+ * Falls back to sampling a few tiles for average size.
  */
 export async function getHeatmapTilesCacheSize(): Promise<number> {
   try {
     const dirInfo = await FileSystem.getInfoAsync(HEATMAP_DIR);
     if (!dirInfo.exists) return 0;
 
-    let totalSize = 0;
+    let fileCount = 0;
+    let sampledSize = 0;
+    let sampledCount = 0;
+
     const zoomDirs = await FileSystem.readDirectoryAsync(HEATMAP_DIR);
     for (const zDir of zoomDirs) {
       const zPath = `${HEATMAP_DIR}${zDir}/`;
@@ -42,16 +46,26 @@ export async function getHeatmapTilesCacheSize(): Promise<number> {
         if (!xInfo.exists || !xInfo.isDirectory) continue;
 
         const files = await FileSystem.readDirectoryAsync(xPath);
-        for (const file of files) {
-          if (!file.endsWith('.png')) continue;
-          const info = await FileSystem.getInfoAsync(`${xPath}${file}`);
-          if (info.exists && 'size' in info) {
-            totalSize += info.size || 0;
+        const pngCount = files.filter((f) => f.endsWith('.png')).length;
+        fileCount += pngCount;
+
+        // Sample first few tiles for average size (avoid stat-ing every file)
+        if (sampledCount < 5 && pngCount > 0) {
+          const sampleFile = files.find((f) => f.endsWith('.png'));
+          if (sampleFile) {
+            const info = await FileSystem.getInfoAsync(`${xPath}${sampleFile}`);
+            if (info.exists && 'size' in info && info.size) {
+              sampledSize += info.size;
+              sampledCount++;
+            }
           }
         }
       }
     }
-    return totalSize;
+
+    if (fileCount === 0) return 0;
+    const avgSize = sampledCount > 0 ? sampledSize / sampledCount : 50000; // 50KB default
+    return Math.round(fileCount * avgSize);
   } catch {
     return 0;
   }
