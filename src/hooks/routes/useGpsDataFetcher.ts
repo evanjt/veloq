@@ -19,6 +19,7 @@ import {
   type ActivitySportMapping,
 } from 'veloqrs';
 import { getStoredCredentials, getSyncGeneration, useSyncDateRange } from '@/providers';
+import { isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
@@ -596,13 +597,15 @@ export function useGpsDataFetcher() {
         routeEngine.triggerRefresh('groups');
       }
 
-      // Run section detection if new activities were synced, engine needs re-detection,
-      // or the date range was expanded (new activities from a wider window need detection).
+      // Run section detection if route matching is enabled AND (new activities synced,
+      // engine needs re-detection, or date range expanded).
       const { hasExpanded } = useSyncDateRange.getState();
+      const routeMatchingOn = isRouteMatchingEnabled();
       const needsDetection =
-        result.syncedIds.length > 0 ||
-        routeEngine.getStats()?.sectionsDirty === true ||
-        hasExpanded;
+        routeMatchingOn &&
+        (result.syncedIds.length > 0 ||
+          routeEngine.getStats()?.sectionsDirty === true ||
+          hasExpanded);
 
       if (needsDetection && isMountedRef.current) {
         updateProgress({

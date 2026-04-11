@@ -86,15 +86,29 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
   },
 
   setEnabled: async (enabled: boolean) => {
-    // Use functional update to ensure we read the latest state (fixes race condition)
     set((state) => {
       const newSettings = { ...state.settings, enabled };
-      // Persist asynchronously - errors logged but don't block state update
       setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
         log.error('Failed to save settings:', error);
       });
       return { settings: newSettings };
     });
+
+    // Notify UI to update sections/routes visibility
+    try {
+      const { getRouteEngine } = require('@/lib/native/routeEngine');
+      const engine = getRouteEngine();
+      if (engine) {
+        engine.triggerRefresh('sections');
+        engine.triggerRefresh('groups');
+        if (enabled) {
+          // Trigger activity refresh so sync picks up and runs detection
+          engine.triggerRefresh('activities');
+        }
+      }
+    } catch {
+      // Engine might not be available yet
+    }
   },
 
   setRetentionDays: async (days: number) => {

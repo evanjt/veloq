@@ -1,4 +1,5 @@
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
 import { generateInsights } from './generateInsights';
 import { generateStrengthInsights } from './strengthInsights';
 import type { Insight } from '@/types';
@@ -328,9 +329,10 @@ export function computeInsightsFromData(
     const atl = latestWellness?.atl ?? latestWellness?.atlLoad ?? 0;
     const tsb = ctl - atl;
 
-    // Section readiness check
+    // Section readiness check — skip when route matching is disabled
     const engine = getRouteEngine();
-    const sectionCount = engine?.getStats()?.sectionCount ?? 0;
+    const routeMatchingOn = isRouteMatchingEnabled();
+    const sectionCount = routeMatchingOn ? (engine?.getStats()?.sectionCount ?? 0) : 0;
     const sectionsReady = sectionCount > 0;
 
     const allPatterns = ffiData.allPatterns ?? [];

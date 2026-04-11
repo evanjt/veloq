@@ -33,7 +33,7 @@ import {
 import type { ActivityBoundsItem } from '@/types';
 import { useEngineSections, useRouteSignatures, useRouteGroups } from '@/hooks/routes';
 import { HEATMAP_TILE_URL_TEMPLATE } from '@/hooks/maps/useHeatmapTiles';
-import { isHeatmapEnabled } from '@/providers/RouteSettingsStore';
+import { isHeatmapEnabled, isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
 import type { FrequentSection } from '@/types';
 import {
   ActivityPopup,
@@ -1022,8 +1022,8 @@ export function RegionalMapView({
         onResetOrientation={resetOrientation}
         onGetLocation={handleGetLocation}
         onToggleActivities={toggleActivities}
-        onToggleSections={toggleSections}
-        onToggleRoutes={toggleRoutes}
+        onToggleSections={isRouteMatchingEnabled() ? toggleSections : undefined}
+        onToggleRoutes={isRouteMatchingEnabled() ? toggleRoutes : undefined}
         onFitAll={handleFitAll}
       />
       {/* Attribution */}

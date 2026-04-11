@@ -46,10 +46,10 @@ interface MapControlStackProps {
   onGetLocation: () => void;
   /** Callback to toggle activities */
   onToggleActivities: () => void;
-  /** Callback to toggle sections */
-  onToggleSections: () => void;
-  /** Callback to toggle routes */
-  onToggleRoutes: () => void;
+  /** Callback to toggle sections (undefined = hidden) */
+  onToggleSections?: () => void;
+  /** Callback to toggle routes (undefined = hidden) */
+  onToggleRoutes?: () => void;
   /** Callback to fit all activities in view */
   onFitAll: () => void;
 }
@@ -233,8 +233,8 @@ export function MapControlStack({
               )}
             </>
           )}
-          {/* Sections toggle */}
-          {sections.length > 0 && (
+          {/* Sections toggle — hidden when route matching disabled */}
+          {sections.length > 0 && onToggleSections && (
             <>
               <TouchableOpacity
                 testID="map-toggle-sections"
@@ -268,8 +268,8 @@ export function MapControlStack({
               )}
             </>
           )}
-          {/* Routes toggle */}
-          {routeCount > 0 && (
+          {/* Routes toggle — hidden when route matching disabled */}
+          {routeCount > 0 && onToggleRoutes && (
             <TouchableOpacity
               testID="map-toggle-routes"
               style={[

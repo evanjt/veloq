@@ -61,7 +61,7 @@ export function GlobalDataSync() {
     oldest: syncOldest,
     newest: syncNewest,
     includeStats: false,
-    enabled: isAuthenticated && routeSettings.enabled,
+    enabled: isAuthenticated,
   });
 
   // Fetch activities with stats for fitness tab cache warming.
