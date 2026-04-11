@@ -4,7 +4,7 @@
  * Posts native OS notifications for sync progress instead of rendering an in-app banner.
  */
 
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -63,12 +63,14 @@ export function GlobalDataSync() {
     enabled: isAuthenticated && routeSettings.enabled,
   });
 
-  // Prefetch 1 year of activities with stats for fitness tab cache warming.
-  // Also used to update the engine with training load and FTP data — the GPS sync
+  // Fetch activities with stats for fitness tab cache warming.
+  // Uses the same sync date range as the GPS fetch to respect the 90-day default.
+  // Also updates the engine with training load and FTP data — the GPS sync
   // fetch (above) uses includeStats: false for speed, so the engine initially has
   // NULL training_load/ftp. This fetch fills in those fields.
   const { data: statsActivities } = useActivities({
-    days: 365,
+    oldest: syncOldest,
+    newest: syncNewest,
     includeStats: true,
     enabled: isAuthenticated,
   });
@@ -177,40 +179,17 @@ export function GlobalDataSync() {
   // Pick which info to show — GPS sync > bounds sync > terrain snapshots
   const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo;
 
-  // Suppress notification for fast syncs (<1s)
-  const [delayPassed, setDelayPassed] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Post/update/dismiss native notification immediately — no artificial delay.
   useEffect(() => {
-    if (displayInfo !== null && !delayPassed) {
-      if (!timerRef.current) {
-        timerRef.current = setTimeout(() => setDelayPassed(true), 1000);
-      }
-    } else if (displayInfo === null) {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-      setDelayPassed(false);
-    }
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [displayInfo, delayPassed]);
-
-  // Post/update/dismiss native notification based on sync state
-  useEffect(() => {
-    if (displayInfo !== null && delayPassed) {
+    if (displayInfo !== null) {
       const body = displayInfo.countText
         ? `${displayInfo.text}... ${displayInfo.countText}`
         : `${displayInfo.text}...`;
       updateSyncNotification(body);
-    } else if (displayInfo === null) {
+    } else {
       dismissSyncNotification();
     }
-  }, [displayInfo, delayPassed]);
+  }, [displayInfo]);
 
   // Dismiss notification on unmount
   useEffect(() => {

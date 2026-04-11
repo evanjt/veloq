@@ -18,7 +18,7 @@ import {
   takeFetchAndStoreResult,
   type ActivitySportMapping,
 } from 'veloqrs';
-import { getStoredCredentials, getSyncGeneration } from '@/providers';
+import { getStoredCredentials, getSyncGeneration, useSyncDateRange } from '@/providers';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
@@ -42,98 +42,44 @@ interface FetchDeps {
 }
 
 /**
- * Phase weights for section detection progress calculation.
- * Maps Rust detection phases to 0-100% progress within the section detection stage.
- *
- * Rust emits phases: "loading", "building_rtrees", "finding_overlaps",
- *                    "clustering", "postprocessing", "saving", "complete"
+ * Human-readable phase names for section detection.
+ * Rust emits: "loading", "building_rtrees", "finding_overlaps",
+ *             "clustering", "postprocessing", "saving", "complete"
  */
-const PHASE_WEIGHTS: Record<string, { start: number; weight: number }> = {
-  loading: { start: 0, weight: 8 },
-  building_rtrees: { start: 8, weight: 7 },
-  finding_overlaps: { start: 15, weight: 50 },
-  clustering: { start: 65, weight: 15 },
-  postprocessing: { start: 80, weight: 15 },
-  saving: { start: 95, weight: 5 },
-  complete: { start: 100, weight: 0 },
-  detecting: { start: 15, weight: 80 }, // backwards compat (single blocking call)
+const PHASE_DISPLAY_NAMES: Record<string, string> = {
+  loading: 'Loading tracks',
+  building_rtrees: 'Building spatial index',
+  finding_overlaps: 'Finding overlaps',
+  clustering: 'Clustering sections',
+  postprocessing: 'Processing sections',
+  saving: 'Saving sections',
+  complete: 'Complete',
+  detecting: 'Detecting sections',
 };
 
-// Track the last known progress to prevent backwards jumps
-let lastKnownProgress = 0;
-
-// Timestamp of last progress update, used for time-based interpolation
-let lastProgressUpdateTime = 0;
+/**
+ * Calculate progress percentage directly from phase completed/total.
+ * No artificial phase weighting — shows real progress within the current phase.
+ */
+function calculateOverallProgress(_phase: string, completed: number, total: number): number {
+  if (total <= 0) return 0;
+  return Math.round(Math.min((completed / total) * 100, 100));
+}
 
 /**
- * Calculate overall progress percentage across all phases.
- * Returns a smoothly increasing value from 0-100.
- * Uses monotonic tracking to prevent backwards jumps from unknown phases.
- *
- * Applies time-based interpolation: if no new progress has arrived for a while,
- * nudge the displayed value forward slowly to give a sense of continuous movement.
+ * Get display name for a detection phase.
  */
-function calculateOverallProgress(phase: string, completed: number, total: number): number {
-  // Handle scale phases (e.g., "scale_short", "scale_medium") - treat as finding_overlaps
+export function getPhaseDisplayName(phase: string): string {
+  // Handle scale phases (e.g., "scale_short", "scale_medium")
   const normalizedPhase = phase.startsWith('scale_') ? 'finding_overlaps' : phase;
-
-  const phaseInfo = PHASE_WEIGHTS[normalizedPhase];
-  if (!phaseInfo) {
-    // Unknown phase - return last known progress instead of 0 to prevent jumps
-    if (__DEV__) {
-      console.log(
-        `[calculateOverallProgress] Unknown phase: "${phase}", keeping progress at ${lastKnownProgress}`
-      );
-    }
-    return lastKnownProgress;
-  }
-
-  const now = Date.now();
-
-  // Calculate progress within this phase
-  const phaseProgress = total > 0 ? Math.min(completed / total, 1) : 0;
-
-  // Overall = phase start + (phase weight * progress within phase)
-  const rawProgress = Math.round(phaseInfo.start + phaseInfo.weight * phaseProgress);
-
-  // Compute the maximum the display should reach for the current phase
-  // (the end of the phase range). Used to cap time-based interpolation.
-  const phaseEnd = phaseInfo.start + phaseInfo.weight;
-
-  // Time-based interpolation: if the raw progress hasn't changed but time has elapsed,
-  // creep forward by up to 1% per 300ms towards the phase ceiling.
-  // This prevents the bar from appearing frozen during long computations.
-  let newProgress = rawProgress;
-  if (rawProgress === lastKnownProgress && lastProgressUpdateTime > 0) {
-    const elapsed = now - lastProgressUpdateTime;
-    const interpolatedCreep = Math.floor(elapsed / 300); // 1% per 300ms
-    if (interpolatedCreep > 0) {
-      // Don't creep past the end of the current phase
-      const maxCreep = Math.max(0, Math.floor(phaseEnd) - lastKnownProgress - 1);
-      newProgress = lastKnownProgress + Math.min(interpolatedCreep, maxCreep);
-    }
-  }
-
-  // Only allow progress to increase (monotonic) to prevent backwards jumps
-  // Exception: if we're at 'loading' phase, allow reset to start new detection
-  if (newProgress >= lastKnownProgress || normalizedPhase === 'loading') {
-    if (newProgress !== lastKnownProgress) {
-      lastProgressUpdateTime = now;
-    }
-    lastKnownProgress = newProgress;
-    return newProgress;
-  }
-
-  // Progress would go backwards - keep the higher value
-  return lastKnownProgress;
+  return PHASE_DISPLAY_NAMES[normalizedPhase] ?? phase;
 }
 
 /**
  * Reset the progress tracker. Call this when starting a new sync operation.
  */
 export function resetProgressTracker(): void {
-  lastKnownProgress = 0;
-  lastProgressUpdateTime = 0;
+  // No-op — progress is now calculated directly from phase completed/total
 }
 
 /**
@@ -350,29 +296,24 @@ export function useGpsDataFetcher() {
             const status = nativeModule.routeEngine.pollSectionDetection();
 
             if (status === 'running') {
-              // Get progress and calculate overall percentage
               const progress = nativeModule.routeEngine.getSectionDetectionProgress();
-              // If no progress yet, keep the last percentage (don't reset to 0)
-              const overallPercent = progress
-                ? calculateOverallProgress(progress.phase, progress.completed, progress.total)
-                : lastPercent >= 0
-                  ? lastPercent
-                  : 0;
-
-              // Update on every percentage change - the animation will smooth transitions
-              if (overallPercent !== lastPercent) {
-                const message = progress
-                  ? getSectionDetectionMessage(progress.phase)
-                  : i18n.t('cache.analyzingRoutes');
+              if (progress) {
+                const phasePercent = calculateOverallProgress(
+                  progress.phase,
+                  progress.completed,
+                  progress.total
+                );
+                const phaseName = getPhaseDisplayName(progress.phase);
+                const countText =
+                  progress.total > 0 ? ` ${progress.completed}/${progress.total}` : '';
 
                 updateProgress({
                   status: 'computing',
-                  completed: 0,
-                  total: 0,
-                  percent: overallPercent,
-                  message,
+                  completed: progress.completed,
+                  total: progress.total,
+                  percent: phasePercent,
+                  message: `${phaseName}${countText}`,
                 });
-                lastPercent = overallPercent;
               }
             } else if (status === 'complete' || status === 'idle') {
               break;
@@ -657,10 +598,13 @@ export function useGpsDataFetcher() {
         routeEngine.triggerRefresh('groups');
       }
 
-      // Run section detection if new activities were synced OR if the engine
-      // needs re-detection (e.g., after a migration updated the portions algorithm)
+      // Run section detection if new activities were synced, engine needs re-detection,
+      // or the date range was expanded (new activities from a wider window need detection).
+      const { hasExpanded } = useSyncDateRange.getState();
       const needsDetection =
-        result.syncedIds.length > 0 || routeEngine.getStats()?.sectionsDirty === true;
+        result.syncedIds.length > 0 ||
+        routeEngine.getStats()?.sectionsDirty === true ||
+        hasExpanded;
 
       if (needsDetection && isMountedRef.current) {
         updateProgress({
@@ -692,25 +636,23 @@ export function useGpsDataFetcher() {
 
             if (status === 'running') {
               const progress = nativeModule.routeEngine.getSectionDetectionProgress();
-              const overallPercent = progress
-                ? calculateOverallProgress(progress.phase, progress.completed, progress.total)
-                : lastPercent >= 0
-                  ? lastPercent
-                  : 0;
-
-              if (overallPercent !== lastPercent) {
-                const message = progress
-                  ? getSectionDetectionMessage(progress.phase)
-                  : i18n.t('cache.analyzingRoutes');
+              if (progress) {
+                const phasePercent = calculateOverallProgress(
+                  progress.phase,
+                  progress.completed,
+                  progress.total
+                );
+                const phaseName = getPhaseDisplayName(progress.phase);
+                const countText =
+                  progress.total > 0 ? ` ${progress.completed}/${progress.total}` : '';
 
                 updateProgress({
                   status: 'computing',
-                  completed: 0,
-                  total: 0,
-                  percent: overallPercent,
-                  message,
+                  completed: progress.completed,
+                  total: progress.total,
+                  percent: phasePercent,
+                  message: `${phaseName}${countText}`,
                 });
-                lastPercent = overallPercent;
               }
             } else if (status === 'complete' || status === 'idle') {
               break;
