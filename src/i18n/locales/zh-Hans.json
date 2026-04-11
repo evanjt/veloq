@@ -927,8 +927,8 @@
       "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
     },
     "prompt": {
-      "title": "活动通知",
-      "description": "接收有关新活动和成就的通知",
+      "title": "Stay in the loop",
+      "description": "Get notified about new activities, sync progress, and when your data is ready to explore.",
       "enable": "启用",
       "dismiss": "不用了",
       "settingsHint": "您可以随时在设置中启用通知"

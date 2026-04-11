@@ -7675,6 +7675,10 @@ export interface HeatmapManagerInterface {
    */
   getCacheSize(basePath: string) /*throws*/ : /*u64*/ bigint;
   /**
+   * Get tile generation progress: (processed, total). Returns (0, 0) if idle.
+   */
+  getProgress() /*throws*/ : Array</*u32*/ number>;
+  /**
    * Poll tile generation progress: "idle" | "running" | "complete"
    */
   poll() /*throws*/ : string;
@@ -7760,6 +7764,26 @@ export class HeatmapManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
             uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(basePath),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get tile generation progress: (processed, total). Returns (0, 0) if idle.
+   */
+  public getProgress(): Array</*u32*/ number> /*throws*/ {
+    return FfiConverterArrayUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
+            uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -11393,6 +11417,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress() !==
+    23308
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_heatmapmanager_get_progress",
     );
   }
   if (

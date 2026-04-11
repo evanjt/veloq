@@ -927,8 +927,8 @@
       "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
     },
     "prompt": {
-      "title": "Notificações de atividade",
-      "description": "Receba notificações sobre novas atividades e conquistas",
+      "title": "Stay in the loop",
+      "description": "Get notified about new activities, sync progress, and when your data is ready to explore.",
       "enable": "Ativar",
       "dismiss": "Não, obrigado",
       "settingsHint": "Pode ativar as notificações a qualquer momento nas Definições"

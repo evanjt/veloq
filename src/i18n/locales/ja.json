@@ -927,8 +927,8 @@
       "stravaNote": "Note: Strava-sourced activities do not trigger notifications."
     },
     "prompt": {
-      "title": "アクティビティ通知",
-      "description": "新しいアクティビティや達成についての通知を受け取る",
+      "title": "Stay in the loop",
+      "description": "Get notified about new activities, sync progress, and when your data is ready to explore.",
       "enable": "有効にする",
       "dismiss": "結構です",
       "settingsHint": "通知はいつでも設定から有効にできます"
