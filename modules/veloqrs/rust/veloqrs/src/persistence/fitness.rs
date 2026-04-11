@@ -2202,26 +2202,27 @@ impl PersistentRouteEngine {
             };
 
             let key = (activity_id.clone(), section_id.clone());
+            let effective_trend = if is_pr { 1 } else { trend };
             let entry = highlight_map.entry(key).or_insert(crate::FfiActivitySectionHighlight {
                 activity_id: activity_id.clone(),
                 section_id: section_id.clone(),
                 section_name: section_name.clone(),
                 lap_time,
                 is_pr,
-                trend,
+                trend: effective_trend,
                 start_index,
                 end_index,
             });
 
-            // If this direction has a better result (PR or better trend), replace
-            // Keep the start_index/end_index of whichever direction was chosen
+            // If this direction has a better result (PR or better trend), replace.
+            // A PR always forces trend >= 1 (you can't be declining AND fastest ever).
             if is_pr && !entry.is_pr {
                 entry.is_pr = true;
-                entry.trend = trend;
+                entry.trend = 1; // PR = improving by definition
                 entry.lap_time = lap_time;
                 entry.start_index = start_index;
                 entry.end_index = end_index;
-            } else if trend > entry.trend && !entry.is_pr {
+            } else if !entry.is_pr && trend > entry.trend {
                 entry.trend = trend;
                 entry.lap_time = lap_time;
                 entry.start_index = start_index;
