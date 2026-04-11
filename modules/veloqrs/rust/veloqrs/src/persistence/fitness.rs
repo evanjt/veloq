@@ -2213,7 +2213,7 @@ impl PersistentRouteEngine {
             }
         }
 
-        highlight_map.into_values().collect()
+        highlight_map.into_values().collect::<Vec<_>>()
             .collect()
     }
 
