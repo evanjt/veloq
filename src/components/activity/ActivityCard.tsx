@@ -566,13 +566,15 @@ export const ActivityCard = React.memo(
                     {formatRelativeDate(activity.start_date_local)}
                   </RNText>
                 </View>
-                {routeHighlight && routeHighlight.trend !== 0 && (
+                {routeHighlight && (routeHighlight.trend !== 0 || routeHighlight.isPr) && (
                   <View style={styles.routeTrendBadge}>
-                    <MaterialCommunityIcons
-                      name={routeHighlight.trend === 1 ? 'trending-up' : 'trending-down'}
-                      size={20}
-                      color={routeHighlight.trend === 1 ? '#66BB6A' : '#EF5350'}
-                    />
+                    {routeHighlight.trend !== 0 && (
+                      <MaterialCommunityIcons
+                        name={routeHighlight.trend === 1 ? 'trending-up' : 'trending-down'}
+                        size={20}
+                        color={routeHighlight.trend === 1 ? '#66BB6A' : '#EF5350'}
+                      />
+                    )}
                     {routeHighlight.isPr && (
                       <MaterialCommunityIcons name="trophy" size={14} color="#FFD700" />
                     )}
@@ -625,9 +627,9 @@ export const ActivityCard = React.memo(
                 {sectionHighlights && sectionHighlights.length > 0 ? (
                   <View style={styles.trendBadge}>
                     {(() => {
-                      // PRs count as improving (a PR is by definition faster)
+                      // Separate counts: improving (non-PR), declining (non-PR), PRs
                       const improving = sectionHighlights.filter(
-                        (h) => h.trend === 1 || h.isPr
+                        (h) => h.trend === 1 && !h.isPr
                       ).length;
                       const declining = sectionHighlights.filter(
                         (h) => h.trend === -1 && !h.isPr

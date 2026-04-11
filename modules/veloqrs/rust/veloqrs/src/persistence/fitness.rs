@@ -2122,9 +2122,9 @@ impl PersistentRouteEngine {
                         0i8
                     } else {
                         let avg = running_sum / count as f64;
-                        if lt < avg * 0.97 {
+                        if lt < avg * 0.99 {
                             1 // faster (lower time)
-                        } else if lt > avg * 1.03 {
+                        } else if lt > avg * 1.01 {
                             -1 // slower (higher time)
                         } else {
                             0
@@ -2180,7 +2180,7 @@ impl PersistentRouteEngine {
         for (activity_id, section_id, direction, lap_time, _has_real, start_index, end_index) in rows {
             let is_pr = best_times
                 .get(&(section_id.clone(), direction.clone()))
-                .map(|&best| (lap_time - best).abs() < 0.001)
+                .map(|&best| (lap_time - best).abs() < 0.5)
                 .unwrap_or(false);
 
             let section_name = section_names
@@ -2290,24 +2290,29 @@ impl PersistentRouteEngine {
                     .collect();
                 members.sort_by_key(|m| m.2);
 
-                let mut best = f64::MAX;
-                let mut trends: HashMap<&str, (i8, f64)> = HashMap::new();
-                let mut sum = 0.0f64;
-                let mut n = 0u32;
+                // Skip singleton routes — need at least 2 attempts for meaningful trends/PRs
+                if members.len() < 2 {
+                    group_cache.insert(gid, (f64::MAX, HashMap::new()));
+                } else {
+                    let mut best = f64::MAX;
+                    let mut trends: HashMap<&str, (i8, f64)> = HashMap::new();
+                    let mut sum = 0.0f64;
+                    let mut n = 0u32;
 
-                for (mid, dur, _) in &members {
-                    let trend = if n == 0 { 0i8 }
-                    else {
-                        let avg = sum / n as f64;
-                        if *dur < avg * 0.99 { 1 } else if *dur > avg * 1.01 { -1 } else { 0 }
-                    };
-                    trends.insert(mid, (trend, *dur));
-                    sum += dur;
-                    n += 1;
-                    if *dur < best { best = *dur; }
+                    for (mid, dur, _) in &members {
+                        let trend = if n == 0 { 0i8 }
+                        else {
+                            let avg = sum / n as f64;
+                            if *dur < avg * 0.99 { 1 } else if *dur > avg * 1.01 { -1 } else { 0 }
+                        };
+                        trends.insert(mid, (trend, *dur));
+                        sum += dur;
+                        n += 1;
+                        if *dur < best { best = *dur; }
+                    }
+
+                    group_cache.insert(gid, (best, trends));
                 }
-
-                group_cache.insert(gid, (best, trends));
             }
 
             if let Some((best, trends)) = group_cache.get(gid) {
@@ -2316,7 +2321,7 @@ impl PersistentRouteEngine {
                     activity_id: aid.to_string(),
                     route_id: gid.to_string(),
                     route_name: route_names.get(gid).cloned().unwrap_or_default(),
-                    is_pr: dur > 0.0 && (dur - best).abs() < 0.5,
+                    is_pr: dur > 0.0 && *best < f64::MAX && (dur - best).abs() < 0.5,
                     trend,
                 });
             }
