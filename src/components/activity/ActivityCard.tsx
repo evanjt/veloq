@@ -617,28 +617,58 @@ export const ActivityCard = React.memo(
                     {formatElevation(activity.total_elevation_gain, isMetric)}
                   </RNText>
                 </View>
-                {/* Section trend indicators + route PR trophy */}
+                {/* Section trend indicators + PR counts + route PR trophy */}
                 {sectionHighlights && sectionHighlights.length > 0 ? (
                   <View style={styles.trendBadge}>
-                    {sectionHighlights.filter((h) => h.trend === 1).length > 0 && (
-                      <View style={styles.trendItem}>
-                        <MaterialCommunityIcons name="trending-up" size={16} color="#66BB6A" />
-                        <RNText style={[styles.trendCount, { color: '#66BB6A' }]}>
-                          {sectionHighlights.filter((h) => h.trend === 1).length}
-                        </RNText>
-                      </View>
-                    )}
-                    {sectionHighlights.filter((h) => h.trend === -1).length > 0 && (
-                      <View style={styles.trendItem}>
-                        <MaterialCommunityIcons name="trending-down" size={16} color="#FFA726" />
-                        <RNText style={[styles.trendCount, { color: '#FFA726' }]}>
-                          {sectionHighlights.filter((h) => h.trend === -1).length}
-                        </RNText>
-                      </View>
-                    )}
-                    {routeHighlight?.isPr && (
-                      <MaterialCommunityIcons name="trophy" size={13} color="#FFD700" />
-                    )}
+                    {(() => {
+                      // PRs count as improving (a PR is by definition faster)
+                      const improving = sectionHighlights.filter(
+                        (h) => h.trend === 1 || h.isPr
+                      ).length;
+                      const declining = sectionHighlights.filter(
+                        (h) => h.trend === -1 && !h.isPr
+                      ).length;
+                      const prCount = sectionHighlights.filter((h) => h.isPr).length;
+                      return (
+                        <>
+                          {improving > 0 && (
+                            <View style={styles.trendItem}>
+                              <MaterialCommunityIcons
+                                name="trending-up"
+                                size={16}
+                                color="#66BB6A"
+                              />
+                              <RNText style={[styles.trendCount, { color: '#66BB6A' }]}>
+                                {improving}
+                              </RNText>
+                            </View>
+                          )}
+                          {declining > 0 && (
+                            <View style={styles.trendItem}>
+                              <MaterialCommunityIcons
+                                name="trending-down"
+                                size={16}
+                                color="#FFA726"
+                              />
+                              <RNText style={[styles.trendCount, { color: '#FFA726' }]}>
+                                {declining}
+                              </RNText>
+                            </View>
+                          )}
+                          {prCount > 0 && (
+                            <View style={styles.trendItem}>
+                              <MaterialCommunityIcons name="trophy" size={14} color="#FFD700" />
+                              <RNText style={[styles.trendCount, { color: '#FFD700' }]}>
+                                {prCount}
+                              </RNText>
+                            </View>
+                          )}
+                          {routeHighlight?.isPr && (
+                            <MaterialCommunityIcons name="trophy" size={16} color={brand.orange} />
+                          )}
+                        </>
+                      );
+                    })()}
                   </View>
                 ) : location ? (
                   <RNText
