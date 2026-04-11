@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import React, { useMemo, useState, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
 import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
@@ -21,11 +21,7 @@ import { settingsStyles, DIVIDER_INSET } from './settingsStyles';
 export function DataSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const {
-    settings: routeSettings,
-    setEnabled: setRouteMatchingEnabled,
-    setGeocodingEnabled,
-  } = useRouteSettings();
+  const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } = useRouteSettings();
 
   // Lightweight cache size computation
   const nativeSizeEstimate = useTileCacheStore((s) => s.nativeSizeEstimate);
@@ -135,48 +131,9 @@ export function DataSection() {
           />
         </View>
 
-        <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
-
-        {/* Geocoding toggle - uses OpenStreetMap Nominatim for reverse geocoding */}
-        <View style={settingsStyles.actionRow}>
-          <MaterialCommunityIcons
-            name="map-search-outline"
-            size={22}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-          <View style={styles.toggleTextContainer}>
-            <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
-              {t('settings.geocoding')}
-            </Text>
-            <Text style={[styles.toggleHint, isDark && settingsStyles.textMuted]}>
-              {t('settings.geocodingDescription')}
-            </Text>
-          </View>
-          <Switch
-            value={routeSettings.geocodingEnabled}
-            onValueChange={(enabled) => {
-              if (enabled) {
-                Alert.alert(
-                  t('settings.geocodingTermsTitle', 'OpenStreetMap Nominatim'),
-                  t(
-                    'settings.geocodingTermsMessage',
-                    'Route and section names are generated using OpenStreetMap Nominatim, a free geocoding service. This applies only to new activities. By enabling this feature you agree to the Nominatim Usage Policy (https://nominatim.org/release-docs/develop/api/Search/#terms-and-conditions). Veloq is not affiliated with OpenStreetMap.'
-                  ),
-                  [
-                    { text: t('common.cancel'), style: 'cancel' },
-                    {
-                      text: t('common.agree', 'Agree'),
-                      onPress: () => setGeocodingEnabled(true),
-                    },
-                  ]
-                );
-              } else {
-                setGeocodingEnabled(false);
-              }
-            }}
-            color={colors.primary}
-          />
-        </View>
+        {/* Geocoding toggle hidden — Nominatim Usage Policy prohibits periodic app requests
+           without a proxy. Will re-enable once we have a caching proxy (Cloudflare worker or
+           self-hosted Nominatim). See: https://operations.osmfoundation.org/policies/nominatim/ */}
       </View>
     </>
   );
