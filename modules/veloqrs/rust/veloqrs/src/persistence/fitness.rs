@@ -2214,7 +2214,6 @@ impl PersistentRouteEngine {
         }
 
         highlight_map.into_values().collect::<Vec<_>>()
-            .collect()
     }
 
     /// Batch-query route highlights for a list of activity IDs.
