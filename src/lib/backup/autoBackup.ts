@@ -160,8 +160,9 @@ export async function performBackup(force = false): Promise<boolean> {
     log.log(`Auto-backup complete: ${entry.activityCount} activities, ${entry.sizeBytes} bytes`);
     return true;
   } catch (error) {
-    log.warn('Auto-backup failed:', error);
-    return false;
+    const msg = error instanceof Error ? error.message : String(error);
+    log.warn('Auto-backup failed:', msg);
+    throw new Error(msg);
   }
 }
 

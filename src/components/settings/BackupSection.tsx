@@ -55,8 +55,12 @@ export function BackupSection() {
       } else {
         Alert.alert(t('backup.backupFailedTitle'), t('backup.backupFailedMessage'));
       }
-    } catch {
-      Alert.alert(t('backup.backupFailedTitle'), t('backup.backupFailedMessage'));
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : '';
+      Alert.alert(
+        t('backup.backupFailedTitle'),
+        detail ? `${t('backup.backupFailedMessage')}\n\n${detail}` : t('backup.backupFailedMessage')
+      );
     } finally {
       setBackingUp(false);
     }
@@ -72,6 +76,8 @@ export function BackupSection() {
   const [webdavUser, setWebdavUser] = useState('');
   const [webdavPass, setWebdavPass] = useState('');
   const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionResult, setConnectionResult] = useState<'success' | 'error' | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   useEffect(() => {
     getAvailableBackends().then(setAvailableBackends);
@@ -98,16 +104,18 @@ export function BackupSection() {
 
   const handleTestConnection = useCallback(async () => {
     setTestingConnection(true);
-    // Save first so the test uses current values
+    setConnectionResult(null);
+    setConnectionError(null);
     await handleSaveWebdav();
     const error = await testWebdavConnection();
     setTestingConnection(false);
     if (error) {
-      Alert.alert(t('backup.connectionFailed'), error);
+      setConnectionResult('error');
+      setConnectionError(error);
     } else {
-      Alert.alert(t('backup.connectionSuccess'));
+      setConnectionResult('success');
     }
-  }, [handleSaveWebdav, t]);
+  }, [handleSaveWebdav]);
 
   // Database backup
   const { exportDatabaseBackup, exporting: dbExporting } = useExportDatabaseBackup();
@@ -227,6 +235,14 @@ export function BackupSection() {
                 {testingConnection ? '...' : t('backup.testConnection')}
               </Text>
             </TouchableOpacity>
+            {connectionResult === 'success' && (
+              <Text style={styles.connectionSuccess}>{t('backup.connectionSuccess')}</Text>
+            )}
+            {connectionResult === 'error' && (
+              <Text style={styles.connectionError}>
+                {connectionError || t('backup.connectionFailed')}
+              </Text>
+            )}
           </View>
         )}
         <View style={[styles.divider, isDark && styles.dividerDark]} />
@@ -304,6 +320,17 @@ export function BackupSection() {
             </View>
           </TouchableOpacity>
         </Modal>
+
+        {/* Encryption warning */}
+        <View style={[styles.warningRow, isDark && styles.warningRowDark]}>
+          <MaterialCommunityIcons name="shield-alert-outline" size={16} color={colors.warning} />
+          <Text style={[styles.warningText, isDark && styles.textMuted]}>
+            {t(
+              'backup.notEncryptedWarning',
+              'Backups are not encrypted. Do not store on untrusted services.'
+            )}
+          </Text>
+        </View>
 
         {/* Last backup status */}
         <View style={[styles.statusRow, isDark && styles.statusRowDark]}>
@@ -554,6 +581,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#fff',
+  },
+  connectionSuccess: {
+    fontSize: 13,
+    color: colors.success ?? '#10B981',
+    marginTop: spacing.xs,
+  },
+  connectionError: {
+    fontSize: 13,
+    color: colors.error ?? '#EF4444',
+    marginTop: spacing.xs,
+  },
+  warningRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+  },
+  warningRowDark: {
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   modalOverlay: {
     flex: 1,

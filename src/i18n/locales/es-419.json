@@ -288,7 +288,8 @@
     "backupSuccessMessage": "Your data has been backed up successfully.",
     "backupFailedTitle": "Backup Failed",
     "backupFailedMessage": "Could not complete the backup. Check your backup destination and try again.",
-    "legacyImportNotice": "This is a legacy backup (.veloq). Only preferences, section names, and route names were restored. For a full restore, use a database backup (.veloqdb)."
+    "legacyImportNotice": "This is a legacy backup (.veloq). Only preferences, section names, and route names were restored. For a full restore, use a database backup (.veloqdb).",
+    "notEncryptedWarning": "Backups are not encrypted. Do not store on untrusted services."
   },
   "cache": {
     "addingActivities": "Agregando actividades...",
