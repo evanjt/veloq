@@ -144,9 +144,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     [onRematch]
   );
 
-  // Retry counter: if first load returns no plot data, retry once after a short delay
-  // (Rust lazily computes lap_time/lap_pace on first query per section)
+  // Retry counter: retry up to 3 times when some sections fail to load
   const [plotRetry, setPlotRetry] = useState(0);
+  const MAX_PLOT_RETRIES = 3;
 
   // Batch-load performance data for all sections
   const plotDataMap = useMemo((): Map<string, InlineSectionData> => {
@@ -201,18 +201,22 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
             : null,
           activityType: sectionSportType as ActivityType,
         });
-      } catch {
-        // Skip sections that fail to load
+      } catch (e) {
+        if (__DEV__) console.warn(`[Sections] Failed to load performance for ${sectionId}:`, e);
       }
     }
     return map;
   }, [unifiedSections, activityType, plotRetry]);
 
-  // If sections exist but no plot data loaded, retry after a short delay
-  // (performance data may be lazily computed on first FFI query)
+  // Retry when some sections failed to load (not just when ALL failed)
   useEffect(() => {
-    if (unifiedSections.length > 0 && plotDataMap.size === 0 && plotRetry === 0) {
-      const timer = setTimeout(() => setPlotRetry(1), 500);
+    if (
+      unifiedSections.length > 0 &&
+      plotDataMap.size < unifiedSections.length &&
+      plotRetry < MAX_PLOT_RETRIES
+    ) {
+      const delay = 500 * (plotRetry + 1); // 500ms, 1000ms, 1500ms
+      const timer = setTimeout(() => setPlotRetry((r) => r + 1), delay);
       return () => clearTimeout(timer);
     }
   }, [unifiedSections.length, plotDataMap.size, plotRetry]);
