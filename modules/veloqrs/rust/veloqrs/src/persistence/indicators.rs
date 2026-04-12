@@ -349,13 +349,38 @@ impl PersistentRouteEngine {
     }
 
     /// Read pre-computed indicators for a batch of activity IDs.
-    /// This is the fast path — just a table read, no computation.
+    /// Self-healing: if the table is empty but sections exist, triggers a one-time
+    /// recomputation before returning results.
     pub fn get_activity_indicators(
         &self,
         activity_ids: &[String],
     ) -> Vec<crate::FfiActivityIndicator> {
         if activity_ids.is_empty() {
             return vec![];
+        }
+
+        // Self-healing: if the table is completely empty but we have sections,
+        // trigger a recomputation. This handles the case where the engine
+        // was initialized before the indicator code existed (dev hot reload,
+        // or first run after migration where load() didn't trigger).
+        let total_indicators: i64 = self
+            .db
+            .query_row("SELECT COUNT(*) FROM activity_indicators", [], |row| {
+                row.get(0)
+            })
+            .unwrap_or(0);
+
+        if total_indicators == 0 && !self.sections.is_empty() {
+            log::info!(
+                "tracematch: [indicators] Table empty with {} sections — auto-populating",
+                self.sections.len()
+            );
+            if let Err(e) = self.recompute_activity_indicators() {
+                log::warn!(
+                    "tracematch: [indicators] Auto-population failed: {}",
+                    e
+                );
+            }
         }
 
         let placeholders: String = activity_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
