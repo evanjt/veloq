@@ -14,6 +14,7 @@ import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
 export interface ActivitySectionHighlight {
   sectionId: string;
   sectionName: string;
+  direction: string;
   lapTime: number;
   isPr: boolean;
   trend: number; // -1=slower, 0=neutral, 1=faster vs preceding avg
@@ -61,7 +62,9 @@ export function useActivitySectionHighlights(activityIds: string[]): {
         const isPr = ind.indicatorType === 'section_pr';
 
         const existing = sectionMap.get(ind.activityId);
-        const existingEntry = existing?.find((e) => e.sectionId === ind.targetId);
+        const existingEntry = existing?.find(
+          (e) => e.sectionId === ind.targetId && e.direction === ind.direction
+        );
         if (existingEntry) {
           if (isPr && !existingEntry.isPr) {
             existingEntry.isPr = true;
@@ -74,6 +77,7 @@ export function useActivitySectionHighlights(activityIds: string[]): {
           const entry: ActivitySectionHighlight = {
             sectionId: ind.targetId,
             sectionName: ind.targetName,
+            direction: ind.direction,
             lapTime: ind.lapTime,
             isPr,
             trend: isPr ? 1 : ind.trend,
