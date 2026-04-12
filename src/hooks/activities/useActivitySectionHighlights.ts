@@ -92,21 +92,26 @@ export function useActivitySectionHighlights(activityIds: string[]): {
       const rawRoutes = engine.getActivityRouteHighlights(activityIds);
       const routeMap = new Map<string, ActivityRouteHighlight>();
       for (const r of rawRoutes) {
-        // Only show if there's something to display (PR or non-zero trend)
-        if (r.isPr || r.trend !== 0) {
-          routeMap.set(r.activityId, {
-            routeId: r.routeId,
-            routeName: r.routeName,
-            isPr: r.isPr,
-            trend: r.trend,
-          });
-        }
+        routeMap.set(r.activityId, {
+          routeId: r.routeId,
+          routeName: r.routeName,
+          isPr: r.isPr,
+          trend: r.trend,
+        });
       }
 
       if (__DEV__) {
+        const prRoutes = rawRoutes.filter((r) => r.isPr);
+        const trendRoutes = rawRoutes.filter((r) => r.trend !== 0 && !r.isPr);
         console.log(
-          `[Indicators] sections: ${sectionMap.size} activities, routes: ${routeMap.size} activities`
+          `[Indicators] sections: ${sectionMap.size}, routes: ${rawRoutes.length} raw (${prRoutes.length} PR, ${trendRoutes.length} trend)`
         );
+        if (prRoutes.length > 0) {
+          console.log(
+            `[Indicators] Route PRs:`,
+            prRoutes.map((r) => `${r.activityId.slice(-6)} "${r.routeName}" trend=${r.trend}`)
+          );
+        }
       }
 
       return { sections: sectionMap, routes: routeMap };
