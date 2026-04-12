@@ -872,13 +872,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
   },
   routeTrendBadgeDark: {
-    backgroundColor: 'rgba(24, 24, 27, 0.85)',
+    backgroundColor: 'rgba(24, 24, 27, 0.9)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     shadowOpacity: 0.3,
   },
   routeTrendBadgePr: {
-    borderColor: 'rgba(212, 175, 55, 0.3)',
+    borderColor: 'rgba(212, 175, 55, 0.5)',
   },
   overlayName: {
     fontSize: typography.cardTitle.fontSize,
@@ -926,29 +926,29 @@ const styles = StyleSheet.create({
   // PR pill — warm gold tint
   prPillLight: {
     backgroundColor: 'rgba(212, 175, 55, 0.12)',
-    borderColor: 'rgba(212, 175, 55, 0.3)',
+    borderColor: 'rgba(212, 175, 55, 0.35)',
   },
   prPillDark: {
-    backgroundColor: 'rgba(212, 175, 55, 0.15)',
-    borderColor: 'rgba(212, 175, 55, 0.25)',
+    backgroundColor: 'rgba(212, 175, 55, 0.25)',
+    borderColor: 'rgba(212, 175, 55, 0.45)',
   },
-  // Improving pill — subtle green tint
+  // Improving pill — green tint
   improvingPillLight: {
-    backgroundColor: 'rgba(34, 197, 94, 0.08)',
-    borderColor: 'rgba(34, 197, 94, 0.15)',
+    backgroundColor: 'rgba(34, 197, 94, 0.10)',
+    borderColor: 'rgba(34, 197, 94, 0.25)',
   },
   improvingPillDark: {
-    backgroundColor: 'rgba(74, 222, 128, 0.10)',
-    borderColor: 'rgba(74, 222, 128, 0.15)',
+    backgroundColor: 'rgba(74, 222, 128, 0.20)',
+    borderColor: 'rgba(74, 222, 128, 0.35)',
   },
   // Declining pill — muted neutral
   decliningPillLight: {
     backgroundColor: 'rgba(113, 113, 122, 0.08)',
-    borderColor: 'rgba(113, 113, 122, 0.12)',
+    borderColor: 'rgba(113, 113, 122, 0.15)',
   },
   decliningPillDark: {
-    backgroundColor: 'rgba(161, 161, 170, 0.10)',
-    borderColor: 'rgba(161, 161, 170, 0.12)',
+    backgroundColor: 'rgba(161, 161, 170, 0.18)',
+    borderColor: 'rgba(161, 161, 170, 0.28)',
   },
   trendCount: {
     fontSize: 13,
