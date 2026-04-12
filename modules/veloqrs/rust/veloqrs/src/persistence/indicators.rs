@@ -52,18 +52,32 @@ impl PersistentRouteEngine {
         tx: &rusqlite::Transaction,
         now: i64,
     ) -> SqlResult<usize> {
-        // Get all (section_id, direction) pairs with 2+ non-excluded real-time traversals
-        let mut pair_stmt = tx.prepare(
+        // Effective time: use lap_time if available, otherwise estimate from
+        // activity duration proportional to section distance.
+        // This handles the common case where lap_time is NULL (not yet populated
+        // from time streams) while still producing useful indicators.
+        let effective_time_expr =
+            "COALESCE(sa.lap_time,
+                      CASE WHEN a.distance_meters > 0 AND sa.distance_meters > 0
+                           THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
+                           ELSE NULL END)";
+
+        // Get all (section_id, direction) pairs with 2+ non-excluded traversals
+        let pair_sql = format!(
             "SELECT sa.section_id, sa.direction, COUNT(*) as cnt
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
+             JOIN activities a ON a.id = sa.activity_id
              WHERE sa.excluded = 0
-               AND sa.lap_time IS NOT NULL
+               AND {} IS NOT NULL
                AND s.disabled = 0
                AND s.superseded_by IS NULL
              GROUP BY sa.section_id, sa.direction
              HAVING cnt >= 2",
-        )?;
+            effective_time_expr
+        );
+
+        let mut pair_stmt = tx.prepare(&pair_sql)?;
 
         let pairs: Vec<(String, String)> = pair_stmt
             .query_map([], |row| {
@@ -88,21 +102,23 @@ impl PersistentRouteEngine {
         let mut total = 0;
 
         // For each (section, direction) pair: query traversals ordered by date
-        let mut traversal_stmt = tx.prepare(
-            "SELECT sa.activity_id, sa.lap_time
+        let traversal_sql = format!(
+            "SELECT sa.activity_id, {} as effective_time
              FROM section_activities sa
              JOIN activities a ON a.id = sa.activity_id
              WHERE sa.section_id = ?
                AND sa.direction = ?
                AND sa.excluded = 0
-               AND sa.lap_time IS NOT NULL
              ORDER BY a.start_date ASC",
-        )?;
+            effective_time_expr
+        );
+        let mut traversal_stmt = tx.prepare(&traversal_sql)?;
 
         for (section_id, direction) in &pairs {
             let traversals: Vec<(String, f64)> = traversal_stmt
                 .query_map(params![section_id, direction], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?))
+                    let time: Option<f64> = row.get(1)?;
+                    Ok((row.get::<_, String>(0)?, time.unwrap_or(0.0)))
                 })?
                 .filter_map(|r| r.ok())
                 .filter(|(_, t)| *t > 0.0)
