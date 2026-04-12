@@ -1,5 +1,5 @@
 import React, { memo, useCallback } from 'react';
-import { View, StyleSheet, Pressable, Platform, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Pressable, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,8 +7,7 @@ import { Animated } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { formatDistance } from '@/lib';
-import { SectionScatterChart } from '@/components/section/SectionScatterChart';
+import { formatDistance, formatDuration } from '@/lib';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import type { DirectionBestRecord, DirectionSummaryStats } from '@/components/routes/performance';
 
@@ -135,23 +134,60 @@ export const SectionInlinePlot = memo(
               />
             </View>
 
-            {/* Inline scatter chart */}
-            {plotData && plotData.chartData.length >= 1 ? (
-              <SectionScatterChart
-                chartData={plotData.chartData}
-                activityType={plotData.activityType}
-                isDark={isDark}
-                bestForwardRecord={plotData.bestForwardRecord}
-                bestReverseRecord={plotData.bestReverseRecord}
-                forwardStats={plotData.forwardStats}
-                reverseStats={plotData.reverseStats}
-                compact
-              />
-            ) : !plotData && visitCount > 1 ? (
-              <View style={styles.chartLoading}>
-                <ActivityIndicator size="small" color={isDark ? '#555' : '#CCC'} />
-              </View>
-            ) : null}
+            {/* Compact stats row: best time + trend */}
+            {plotData &&
+              (() => {
+                const bestRecord =
+                  plotData.bestForwardRecord && plotData.bestReverseRecord
+                    ? plotData.bestForwardRecord.bestTime <= plotData.bestReverseRecord.bestTime
+                      ? plotData.bestForwardRecord
+                      : plotData.bestReverseRecord
+                    : (plotData.bestForwardRecord ?? plotData.bestReverseRecord);
+                const stats = plotData.forwardStats ?? plotData.reverseStats;
+                const lastDataPoint =
+                  plotData.chartData.length > 0
+                    ? plotData.chartData[plotData.chartData.length - 1]
+                    : null;
+                const lastTime = lastDataPoint?.sectionTime;
+                const avgTime = stats?.avgTime;
+                const trendPct =
+                  lastTime && avgTime && avgTime > 0
+                    ? ((lastTime - avgTime) / avgTime) * 100
+                    : null;
+
+                if (!bestRecord && !trendPct) return null;
+
+                return (
+                  <View style={styles.statsRow}>
+                    {bestRecord && (
+                      <View style={styles.statItem}>
+                        <MaterialCommunityIcons
+                          name="trophy-outline"
+                          size={12}
+                          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                        />
+                        <Text style={[styles.statText, isDark && styles.textMuted]}>
+                          {formatDuration(bestRecord.bestTime)}
+                        </Text>
+                      </View>
+                    )}
+                    {trendPct !== null && Math.abs(trendPct) >= 1 && (
+                      <View style={styles.statItem}>
+                        <MaterialCommunityIcons
+                          name={trendPct < 0 ? 'trending-down' : 'trending-up'}
+                          size={12}
+                          color={trendPct < 0 ? '#4CAF50' : '#F44336'}
+                        />
+                        <Text
+                          style={[styles.statText, { color: trendPct < 0 ? '#4CAF50' : '#F44336' }]}
+                        >
+                          {Math.abs(trendPct).toFixed(0)}%
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })()}
           </Pressable>
         </Swipeable>
       </View>
@@ -188,7 +224,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.sm,
-    paddingBottom: 0,
   },
   numberBadge: {
     width: 28,
@@ -258,9 +293,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.chartCyan,
   },
-  chartLoading: {
-    height: 60,
-    justifyContent: 'center',
+  statsRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingLeft: spacing.sm + 28 + spacing.sm, // align with section name (badge width + margins)
+    paddingRight: spacing.sm,
+    paddingBottom: spacing.xs,
+    gap: spacing.sm,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  statText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.textSecondary,
   },
 });

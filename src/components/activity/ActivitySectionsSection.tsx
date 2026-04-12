@@ -280,9 +280,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   }, [onHighlightedSectionIdChange]);
 
   // Handle section press navigation
-  const handleSectionPress = useCallback((sectionId: string) => {
-    navigateTo(`/section/${sectionId}`);
-  }, []);
+  const handleSectionPress = useCallback(
+    (sectionId: string) => {
+      navigateTo(`/section/${sectionId}?activityId=${activityId}`);
+    },
+    [activityId]
+  );
 
   // Render swipe actions for section cards
   const renderSectionSwipeActions = useCallback(
@@ -463,12 +466,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         sectionDisplayNames[match.sectionId] || match.sectionName || match.sectionId.slice(0, 8);
       return (
         <View
-          key={match.sectionId}
+          key={`${match.sectionId}-${match.startIndex}`}
           style={[styles.scanMatchRow, isDark && styles.scanMatchRowDark]}
         >
           <TouchableOpacity
             style={styles.scanMatchInfo}
-            onPress={() => navigateTo(`/section/${match.sectionId}`)}
+            onPress={() => navigateTo(`/section/${match.sectionId}?activityId=${activityId}`)}
             activeOpacity={0.7}
           >
             <Text

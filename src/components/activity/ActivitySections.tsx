@@ -10,6 +10,7 @@ interface PRSection {
   sectionId: string;
   sectionName: string;
   time: number;
+  direction: string;
 }
 
 interface ActivitySectionsProps {
@@ -39,6 +40,7 @@ export const ActivitySections = React.memo(function ActivitySections({
           sectionId: ind.targetId,
           sectionName: ind.targetName || 'Section',
           time: ind.lapTime,
+          direction: ind.direction,
         }));
     } catch {
       return [];
@@ -57,7 +59,7 @@ export const ActivitySections = React.memo(function ActivitySections({
       </View>
       {prSections.map((pr) => (
         <TouchableOpacity
-          key={pr.sectionId}
+          key={`${pr.sectionId}-${pr.direction}`}
           style={styles.prRow}
           activeOpacity={0.7}
           onPress={() => navigateTo(`/section/${pr.sectionId}`)}

@@ -540,9 +540,9 @@ export const ActivityCard = React.memo(
             <LinearGradient
               colors={theme.top as [string, string, string]}
               style={styles.topOverlay}
-              pointerEvents="none"
+              pointerEvents="box-none"
             >
-              <View style={styles.overlayHeader}>
+              <View style={styles.overlayHeader} pointerEvents="box-none">
                 <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
                   <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
                 </View>
@@ -567,7 +567,9 @@ export const ActivityCard = React.memo(
                   </RNText>
                 </View>
                 {routeHighlight && (routeHighlight.trend !== 0 || routeHighlight.isPr) && (
-                  <View
+                  <Pressable
+                    onPress={() => router.push(`/activity/${activity.id}?tab=routes`)}
+                    hitSlop={8}
                     style={[
                       styles.routeTrendBadge,
                       routeHighlight.isPr
@@ -586,7 +588,7 @@ export const ActivityCard = React.memo(
                         color="#FFFFFF"
                       />
                     )}
-                  </View>
+                  </Pressable>
                 )}
               </View>
             </LinearGradient>
@@ -633,7 +635,11 @@ export const ActivityCard = React.memo(
                 </View>
                 {/* Section trend indicators + PR counts */}
                 {sectionHighlights && sectionHighlights.length > 0 ? (
-                  <View style={styles.trendBadge}>
+                  <Pressable
+                    onPress={() => router.push(`/activity/${activity.id}?tab=sections`)}
+                    hitSlop={8}
+                    style={styles.trendBadge}
+                  >
                     {(() => {
                       const improving = sectionHighlights.filter(
                         (h) => h.trend === 1 && !h.isPr
@@ -699,7 +705,7 @@ export const ActivityCard = React.memo(
                         </>
                       );
                     })()}
-                  </View>
+                  </Pressable>
                 ) : location ? (
                   <RNText
                     style={[

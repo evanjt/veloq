@@ -45,10 +45,13 @@ function formatShortDate(date: Date): string {
   return `${base} '${year}`;
 }
 
-/** Format date for axis labels */
-function formatAxisDate(date: Date): string {
+/** Format date for axis labels — includes day when labels share the same month */
+function formatAxisDate(date: Date, includeDay: boolean): string {
   const month = date.toLocaleDateString(getIntlLocale(), { month: 'short' });
   const year = date.getFullYear().toString().slice(-2);
+  if (includeDay) {
+    return `${month} ${date.getDate()} '${year}`;
+  }
   return `${month} '${year}`;
 }
 
@@ -225,7 +228,7 @@ export function SectionScatterChart({
     };
   }, [forwardPoints, reversePoints]);
 
-  // Time axis labels: start, middle, end
+  // Time axis labels: start, middle, end — include day when months repeat
   const timeAxisLabels = useMemo(() => {
     if (allPoints.length < 2) return [];
     const firstDate = allPoints[0].date;
@@ -233,6 +236,12 @@ export function SectionScatterChart({
     const midDate = new Date((firstDate.getTime() + lastDate.getTime()) / 2);
     return [firstDate, midDate, lastDate];
   }, [allPoints]);
+
+  const axisLabelsNeedDay = useMemo(() => {
+    if (timeAxisLabels.length < 2) return false;
+    const monthKeys = timeAxisLabels.map((d) => `${d.getFullYear()}-${d.getMonth()}`);
+    return monthKeys[0] === monthKeys[1] || monthKeys[1] === monthKeys[2];
+  }, [timeAxisLabels]);
 
   const handlePointPress = useCallback(
     (point: PerformanceDataPoint & { x: number }) => {
@@ -671,7 +680,7 @@ export function SectionScatterChart({
                 idx === timeAxisLabels.length - 1 && styles.timeAxisLabelLast,
               ]}
             >
-              {formatAxisDate(date)}
+              {formatAxisDate(date, axisLabelsNeedDay)}
             </Text>
           ))}
         </View>

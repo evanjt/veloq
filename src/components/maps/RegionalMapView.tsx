@@ -115,6 +115,11 @@ const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = {
   features: [],
 };
 
+// Stable no-op function reference for disabled callbacks.
+// Inline `() => {}` creates a new reference every render, which destabilises
+// useCallback dependency chains and causes Android MapLibre camera snap-back.
+const NOOP = () => {};
+
 /**
  * 120Hz OPTIMIZATION SUMMARY:
  *
@@ -179,6 +184,10 @@ export function RegionalMapView({
 
   // Track whether user manually toggled sections (if so, don't auto-show/hide)
   const userToggledSectionsRef = useRef(false);
+
+  // Debounce timer for auto-show/hide sections — defers setShowSections to avoid
+  // React re-renders during gesture momentum that cause Android MapLibre snap-back.
+  const showSectionsDebounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   // iOS simulator tile loading retry mechanism
   const [mapKey, setMapKey] = useState(0);
@@ -369,7 +378,7 @@ export function RegionalMapView({
     setVisibleActivityIds,
     currentZoomRef,
     currentCenterRef,
-    setAboveTraceZoom: () => {}, // No-op: visibility handled by native minZoomLevel
+    setAboveTraceZoom: NOOP, // No-op: visibility handled by native minZoomLevel
     traceZoomThreshold: TRACE_ZOOM_THRESHOLD,
     onCameraSettled: handleCameraSettled,
     cameraRef,
@@ -403,11 +412,16 @@ export function RegionalMapView({
       const zoomLevel = (feature.properties as { zoomLevel?: number } | undefined)?.zoomLevel;
       if (zoomLevel === undefined) return;
 
-      if (zoomLevel >= SECTIONS_AUTO_SHOW_ZOOM && !showSectionsRef.current) {
-        setShowSections(true);
-      } else if (zoomLevel < SECTIONS_AUTO_HIDE_ZOOM && showSectionsRef.current) {
-        setShowSections(false);
-      }
+      // Defer section visibility change to avoid React re-render during gesture momentum.
+      // Matches the 300ms debounce used for zoom/center updates in useMapHandlers.
+      if (showSectionsDebounceRef.current) clearTimeout(showSectionsDebounceRef.current);
+      showSectionsDebounceRef.current = setTimeout(() => {
+        if (zoomLevel >= SECTIONS_AUTO_SHOW_ZOOM && !showSectionsRef.current) {
+          setShowSections(true);
+        } else if (zoomLevel < SECTIONS_AUTO_HIDE_ZOOM && showSectionsRef.current) {
+          setShowSections(false);
+        }
+      }, 300);
     },
     [baseHandleRegionDidChange]
   );

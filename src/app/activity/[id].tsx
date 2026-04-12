@@ -66,7 +66,7 @@ export default function ActivityDetailScreen() {
   });
 
   const { t } = useTranslation();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const debugEnabled = useDebugStore((s) => s.enabled);
@@ -82,7 +82,9 @@ export default function ActivityDetailScreen() {
 
   // Tab state for swipeable tabs
   type TabType = 'charts' | 'exercises' | 'routes' | 'sections';
-  const [activeTab, setActiveTab] = useState<TabType>('charts');
+  const validTabs: TabType[] = ['charts', 'exercises', 'routes', 'sections'];
+  const initialTab = validTabs.includes(tab as TabType) ? (tab as TabType) : 'charts';
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
   // Fetch intervals data
   const { data: intervalsData } = useActivityIntervals(id || '');
