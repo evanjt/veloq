@@ -56,21 +56,8 @@ export function useActivitySectionHighlights(activityIds: string[]): {
       const sectionMap = new Map<string, ActivitySectionHighlight[]>();
       const routeMap = new Map<string, ActivityRouteHighlight>();
 
-      // Also get start/end indices via the old section highlights path
-      // (indicators don't store GPS indices since those are section_activities data)
-      const rawSections = engine.getActivitySectionHighlights(activityIds);
-      const idxMap = new Map<string, { startIndex: number; endIndex: number }>();
-      for (const h of rawSections) {
-        idxMap.set(`${h.activityId}:${h.sectionId}`, {
-          startIndex: h.startIndex,
-          endIndex: h.endIndex,
-        });
-      }
-
       for (const ind of indicators) {
         if (ind.indicatorType === 'section_pr' || ind.indicatorType === 'section_trend') {
-          const key = `${ind.activityId}:${ind.targetId}`;
-          const indices = idxMap.get(key) ?? { startIndex: 0, endIndex: 0 };
           const isPr = ind.indicatorType === 'section_pr';
 
           const existing = sectionMap.get(ind.activityId);
@@ -92,8 +79,8 @@ export function useActivitySectionHighlights(activityIds: string[]): {
               lapTime: ind.lapTime,
               isPr,
               trend: isPr ? 1 : ind.trend,
-              startIndex: indices.startIndex,
-              endIndex: indices.endIndex,
+              startIndex: 0,
+              endIndex: 0,
             };
             if (existing) {
               existing.push(entry);

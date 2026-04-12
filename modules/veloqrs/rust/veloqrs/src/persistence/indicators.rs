@@ -8,6 +8,10 @@ use std::collections::HashMap;
 
 use super::PersistentRouteEngine;
 
+/// Bump this when the indicator computation algorithm changes.
+/// On next read, a version mismatch triggers a full clean recompute.
+const INDICATOR_ALGORITHM_VERSION: i32 = 1;
+
 impl PersistentRouteEngine {
     /// Recompute all activity indicators (PRs and trends) from scratch.
     ///
@@ -45,12 +49,19 @@ impl PersistentRouteEngine {
         let section_count = self.compute_section_indicators(&tx, now)?;
         let route_count = self.compute_route_indicators(&tx, now)?;
 
+        // Stamp the algorithm version so we don't recompute until it changes
+        tx.execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('indicator_version', ?)",
+            params![INDICATOR_ALGORITHM_VERSION.to_string()],
+        )?;
+
         tx.commit()?;
 
         log::info!(
-            "tracematch: [indicators] Recomputed {} section + {} route indicators",
+            "tracematch: [indicators] Recomputed {} section + {} route indicators (v{})",
             section_count,
-            route_count
+            route_count,
+            INDICATOR_ALGORITHM_VERSION
         );
 
         Ok(())
@@ -273,25 +284,11 @@ impl PersistentRouteEngine {
                 .map(|(_, dur, _)| *dur)
                 .fold(f64::MAX, f64::min);
 
-            log::info!(
-                "tracematch: [indicators] Route '{}' ({}) — {} members, best_time={:.1}s",
-                route_name,
-                group.group_id,
-                members.len(),
-                best_time
-            );
-
             let mut running_sum = 0.0f64;
             let mut count = 0u32;
 
             for (activity_id, dur, _) in &members {
                 let is_pr = (*dur - best_time).abs() < 0.5; // routes use moving_time (integer seconds)
-                if is_pr {
-                    log::info!(
-                        "tracematch: [indicators]   PR: activity={} dur={:.1}s (best={:.1}s, diff={:.3}s)",
-                        activity_id, dur, best_time, (dur - best_time).abs()
-                    );
-                }
 
                 let trend: i8 = if count == 0 {
                     0
@@ -363,8 +360,8 @@ impl PersistentRouteEngine {
     }
 
     /// Read pre-computed indicators for a batch of activity IDs.
-    /// Self-healing: if the table is empty but sections exist, triggers a one-time
-    /// recomputation before returning results.
+    /// Version check: if the stored algorithm version doesn't match the current
+    /// constant, triggers a full clean recompute before returning results.
     pub fn get_activity_indicators(
         &self,
         activity_ids: &[String],
@@ -373,46 +370,24 @@ impl PersistentRouteEngine {
             return vec![];
         }
 
-        // Self-healing: recompute if data is missing.
-        // Check both: table entirely empty, OR route groups exist but no route indicators.
-        let needs_recompute = {
-            let total: i64 = self
-                .db
-                .query_row("SELECT COUNT(*) FROM activity_indicators", [], |r| r.get(0))
-                .unwrap_or(0);
+        // Version-based invalidation: recompute if algorithm changed
+        let stored_version: i32 = self
+            .db
+            .query_row(
+                "SELECT CAST(value AS INTEGER) FROM schema_info WHERE key = 'indicator_version'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
 
-            if total == 0 && !self.sections.is_empty() {
-                log::info!(
-                    "tracematch: [indicators] Table empty with {} sections — auto-populating",
-                    self.sections.len()
-                );
-                true
-            } else if !self.groups.is_empty() {
-                let route_count: i64 = self
-                    .db
-                    .query_row(
-                        "SELECT COUNT(*) FROM activity_indicators WHERE indicator_type IN ('route_pr', 'route_trend')",
-                        [],
-                        |r| r.get(0),
-                    )
-                    .unwrap_or(0);
-                if route_count == 0 {
-                    log::info!(
-                        "tracematch: [indicators] {} route groups but no route indicators — recomputing",
-                        self.groups.len()
-                    );
-                    true
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
-        };
-
-        if needs_recompute {
+        if stored_version < INDICATOR_ALGORITHM_VERSION && !self.sections.is_empty() {
+            log::info!(
+                "tracematch: [indicators] Version mismatch (stored={}, current={}) — recomputing",
+                stored_version,
+                INDICATOR_ALGORITHM_VERSION
+            );
             if let Err(e) = self.recompute_activity_indicators() {
-                log::warn!("tracematch: [indicators] Auto-population failed: {}", e);
+                log::warn!("tracematch: [indicators] Recomputation failed: {}", e);
             }
         }
 
