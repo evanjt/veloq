@@ -273,11 +273,25 @@ impl PersistentRouteEngine {
                 .map(|(_, dur, _)| *dur)
                 .fold(f64::MAX, f64::min);
 
+            log::info!(
+                "tracematch: [indicators] Route '{}' ({}) — {} members, best_time={:.1}s",
+                route_name,
+                group.group_id,
+                members.len(),
+                best_time
+            );
+
             let mut running_sum = 0.0f64;
             let mut count = 0u32;
 
             for (activity_id, dur, _) in &members {
                 let is_pr = (*dur - best_time).abs() < 0.5; // routes use moving_time (integer seconds)
+                if is_pr {
+                    log::info!(
+                        "tracematch: [indicators]   PR: activity={} dur={:.1}s (best={:.1}s, diff={:.3}s)",
+                        activity_id, dur, best_time, (dur - best_time).abs()
+                    );
+                }
 
                 let trend: i8 = if count == 0 {
                     0
