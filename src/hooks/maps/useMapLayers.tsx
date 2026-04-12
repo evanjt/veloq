@@ -198,7 +198,7 @@ export function useMapLayers({
         if (validPortionPoints && validPortionPoints.length >= 2) {
           portionGeo = {
             type: 'Feature',
-            properties: { id: overlay.id, type: 'portion' },
+            properties: { id: overlay.id, type: 'portion', isPR: !!overlay.isPR },
             geometry: {
               type: 'LineString',
               coordinates: validPortionPoints.map((c) => [c.longitude, c.latitude]),

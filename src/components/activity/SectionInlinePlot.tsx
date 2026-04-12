@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { formatDistance, formatDuration } from '@/lib';
+import { SectionScatterChart } from '@/components/section/SectionScatterChart';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import type { DirectionBestRecord, DirectionSummaryStats } from '@/components/routes/performance';
 
@@ -188,6 +189,22 @@ export const SectionInlinePlot = memo(
                   </View>
                 );
               })()}
+
+            {/* Compact scatter chart */}
+            {plotData && plotData.chartData.length >= 2 ? (
+              <View style={styles.chartContainer}>
+                <SectionScatterChart
+                  chartData={plotData.chartData}
+                  activityType={plotData.activityType}
+                  isDark={isDark}
+                  bestForwardRecord={plotData.bestForwardRecord}
+                  bestReverseRecord={plotData.bestReverseRecord}
+                  forwardStats={plotData.forwardStats}
+                  reverseStats={plotData.reverseStats}
+                  compact
+                />
+              </View>
+            ) : null}
           </Pressable>
         </Swipeable>
       </View>
@@ -292,6 +309,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: colors.chartCyan,
+  },
+  chartContainer: {
+    height: 72,
+    overflow: 'hidden',
+    marginTop: -spacing.xs,
   },
   statsRow: {
     flexDirection: 'row',

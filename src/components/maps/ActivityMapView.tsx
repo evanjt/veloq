@@ -107,6 +107,7 @@ import {
   Text,
   Platform,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
@@ -871,17 +872,9 @@ export const ActivityMapView = memo(function ActivityMapView({
               <LineLayer
                 id="section-overlays-line"
                 style={{
-                  lineColor:
-                    activeTab === 'charts'
-                      ? '#D4AF37'
-                      : highlightedSectionId
-                        ? [
-                            'case',
-                            ['==', ['get', 'id'], highlightedSectionId],
-                            '#FFAB00',
-                            ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#00BCD4'],
-                          ]
-                        : ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#00BCD4'],
+                  lineColor: highlightedSectionId
+                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#FFAB00', '#00BCD4']
+                    : '#00BCD4',
                   lineWidth: highlightedSectionId
                     ? ['case', ['==', ['get', 'id'], highlightedSectionId], 7, 4]
                     : 5,
@@ -900,8 +893,13 @@ export const ActivityMapView = memo(function ActivityMapView({
                 id="portion-overlays-line"
                 style={{
                   lineColor: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#FFAB00', '#E91E63']
-                    : '#E91E63',
+                    ? [
+                        'case',
+                        ['==', ['get', 'id'], highlightedSectionId],
+                        '#FFAB00',
+                        ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#E91E63'],
+                      ]
+                    : ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#E91E63'],
                   lineWidth: highlightedSectionId
                     ? ['case', ['==', ['get', 'id'], highlightedSectionId], 5, 3]
                     : 4,
@@ -1016,9 +1014,9 @@ export const ActivityMapView = memo(function ActivityMapView({
               <CircleLayer
                 id="section-marker-circle"
                 style={{
-                  circleRadius: ['case', ['get', 'isPR'], 14, 12] as unknown as number,
-                  circleColor: ['case', ['get', 'isPR'], '#D4AF37', '#00BCD4'] as unknown as string,
-                  circleStrokeWidth: ['case', ['get', 'isPR'], 2.5, 2] as unknown as number,
+                  circleRadius: ['case', ['get', 'isPR'], 8, 6] as unknown as number,
+                  circleColor: ['case', ['get', 'isPR'], '#D4AF37', '#607D8B'] as unknown as string,
+                  circleStrokeWidth: ['case', ['get', 'isPR'], 2, 1.5] as unknown as number,
                   circleStrokeColor: '#FFFFFF',
                 }}
               />
@@ -1027,7 +1025,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 style={{
                   textField: ['get', 'label'] as unknown as string,
                   textColor: '#FFFFFF',
-                  textSize: 10,
+                  textSize: 7,
                   textAnchor: 'center',
                   textAllowOverlap: true,
                   textIgnorePlacement: true,
@@ -1279,7 +1277,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             <LineLayer
               id="fs-portion-overlays-line"
               style={{
-                lineColor: '#E91E63',
+                lineColor: ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#E91E63'],
                 lineWidth: 4,
                 lineCap: 'round',
                 lineJoin: 'round',
@@ -1301,9 +1299,9 @@ export const ActivityMapView = memo(function ActivityMapView({
             <CircleLayer
               id="fs-section-marker-circle"
               style={{
-                circleRadius: 14,
+                circleRadius: 8,
                 circleColor: '#D4AF37',
-                circleStrokeWidth: 2.5,
+                circleStrokeWidth: 2,
                 circleStrokeColor: '#FFFFFF',
               }}
             />
@@ -1312,7 +1310,7 @@ export const ActivityMapView = memo(function ActivityMapView({
               style={{
                 textField: ['get', 'label'] as unknown as string,
                 textColor: '#FFFFFF',
-                textSize: 10,
+                textSize: 7,
                 textAnchor: 'center',
                 textAllowOverlap: true,
                 textIgnorePlacement: true,
@@ -1463,6 +1461,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: spacing.sm + 36,
     right: spacing.sm,
+    maxWidth: Dimensions.get('window').width * 0.45,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -1484,6 +1483,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textOnDark,
     fontWeight: '500',
+    flexShrink: 1,
   },
   prMarker: {
     width: 28,
