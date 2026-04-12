@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Dimensions, type ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -37,6 +37,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - 32;
 const CHART_HEIGHT = 120;
 const CHART_PADDING = { left: 12, right: 8, top: 12, bottom: 12 } as const;
+const MINI_HEIGHT = 56;
+const MINI_PADDING = { left: 4, right: 4, top: 4, bottom: 4 } as const;
 
 /** Format date with 2-digit year (e.g., "Jan 15 '24") */
 function formatShortDate(date: Date): string {
@@ -74,6 +76,10 @@ export interface SectionScatterChartProps {
   onToggleShowExcluded?: () => void;
   /** When true, hides tooltip/scrub hint and disables long-press scrub gesture */
   compact?: boolean;
+  /** When true, renders a minimal chart: no text overlays, no gestures, smaller dots */
+  mini?: boolean;
+  /** External style for controlling width in flex layouts */
+  containerStyle?: ViewStyle;
 }
 
 export function SectionScatterChart({
@@ -94,11 +100,18 @@ export function SectionScatterChart({
   hasExcluded,
   onToggleShowExcluded,
   compact,
+  mini,
+  containerStyle,
 }: SectionScatterChartProps) {
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
   const activityColor = colors.primary;
   const sectionDistance = chartData[0]?.sectionDistance || 0;
+
+  const effectiveHeight = mini ? MINI_HEIGHT : CHART_HEIGHT;
+  const effectivePadding = mini ? MINI_PADDING : CHART_PADDING;
+  const dotRadius = mini ? 3 : 4;
+  const prRingRadius = mini ? 4.5 : 6;
 
   const [selectedPoint, setSelectedPoint] = useState<(PerformanceDataPoint & { x: number }) | null>(
     null
@@ -256,8 +269,8 @@ export function SectionScatterChart({
   const selectPointAtX = useCallback(
     (locationX: number) => {
       if (allPoints.length === 0) return;
-      const chartContentW = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right;
-      const tapX = locationX - CHART_PADDING.left;
+      const chartContentW = CHART_WIDTH - effectivePadding.left - effectivePadding.right;
+      const tapX = locationX - effectivePadding.left;
       const normalizedX = Math.max(0, Math.min(1, tapX / chartContentW));
 
       let closestIdx = 0;
@@ -282,13 +295,16 @@ export function SectionScatterChart({
   const selectPointAtXY = useCallback(
     (locationX: number, locationY: number) => {
       if (allPoints.length === 0) return;
-      const chartContentW = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right;
-      const chartContentH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
+      const chartContentW = CHART_WIDTH - effectivePadding.left - effectivePadding.right;
+      const chartContentH = effectiveHeight - effectivePadding.top - effectivePadding.bottom;
       const normalizedX = Math.max(
         0,
-        Math.min(1, (locationX - CHART_PADDING.left) / chartContentW)
+        Math.min(1, (locationX - effectivePadding.left) / chartContentW)
       );
-      const normalizedY = Math.max(0, Math.min(1, (locationY - CHART_PADDING.top) / chartContentH));
+      const normalizedY = Math.max(
+        0,
+        Math.min(1, (locationY - effectivePadding.top) / chartContentH)
+      );
       // Y in chart goes top=maxSpeed, bottom=minSpeed → invert to get speed-space
       const speedRange = maxSpeed - minSpeed || 1;
 
@@ -362,14 +378,14 @@ export function SectionScatterChart({
   );
 
   // Combined gesture — allows ScrollView to handle scroll momentum
-  // In compact mode, skip pan (scrub) gesture entirely
+  // In compact mode, skip pan (scrub) gesture entirely; in mini mode, skip all gestures
   const nativeGesture = useMemo(() => Gesture.Native(), []);
   const composedGesture = useMemo(
     () =>
-      compact
+      compact || mini
         ? Gesture.Simultaneous(nativeGesture, tapGesture)
         : Gesture.Simultaneous(nativeGesture, Gesture.Simultaneous(tapGesture, panGesture)),
-    [nativeGesture, tapGesture, panGesture, compact]
+    [nativeGesture, tapGesture, panGesture, compact, mini]
   );
 
   // Animated reaction: map touch X to closest data point during scrub
@@ -449,9 +465,9 @@ export function SectionScatterChart({
   };
 
   return (
-    <View style={[styles.container, isDark && styles.containerDark]}>
+    <View style={[styles.container, isDark && styles.containerDark, containerStyle]}>
       {/* Eye toggle for excluded activities */}
-      {hasExcluded && onToggleShowExcluded && (
+      {!mini && hasExcluded && onToggleShowExcluded && (
         <View style={styles.eyeToggleRow}>
           <TouchableOpacity
             onPress={onToggleShowExcluded}
@@ -467,7 +483,8 @@ export function SectionScatterChart({
         </View>
       )}
       {/* Forward stats row above chart */}
-      {hasForward &&
+      {!mini &&
+        hasForward &&
         renderStatsRow(
           'forward',
           forwardStats,
@@ -477,14 +494,14 @@ export function SectionScatterChart({
         )}
 
       {/* Chart */}
-      <View style={styles.chartWrapper}>
+      <View style={[styles.chartWrapper, { height: effectiveHeight }]}>
         <View style={StyleSheet.absoluteFill}>
           <CartesianChart
             data={allPoints as unknown as Record<string, unknown>[]}
             xKey={'x' as never}
             yKeys={['speed'] as never}
             domain={{ x: [0, 1], y: [minSpeed, maxSpeed] }}
-            padding={CHART_PADDING}
+            padding={effectivePadding}
           >
             {
               (({
@@ -594,8 +611,13 @@ export function SectionScatterChart({
                       if (isSelected) {
                         return (
                           <React.Fragment key={`pt-${idx}`}>
-                            <Circle cx={point.x} cy={point.y} r={7} color={colors.chartCyan} />
-                            <Circle cx={point.x} cy={point.y} r={4} color={dotColor} />
+                            <Circle
+                              cx={point.x}
+                              cy={point.y}
+                              r={dotRadius + 3}
+                              color={colors.chartCyan}
+                            />
+                            <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
                           </React.Fragment>
                         );
                       }
@@ -606,7 +628,7 @@ export function SectionScatterChart({
                             key={`pt-${idx}`}
                             cx={point.x}
                             cy={point.y}
-                            r={3}
+                            r={dotRadius - 1}
                             color={isDark ? darkColors.textSecondary : colors.textSecondary}
                             opacity={0.25}
                           />
@@ -616,11 +638,11 @@ export function SectionScatterChart({
                       if (isBest) {
                         return (
                           <React.Fragment key={`pt-${idx}`}>
-                            <Circle cx={point.x} cy={point.y} r={4} color={dotColor} />
+                            <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
                             <Circle
                               cx={point.x}
                               cy={point.y}
-                              r={6}
+                              r={prRingRadius}
                               color={colors.chartGold}
                               style="stroke"
                               strokeWidth={1.5}
@@ -634,7 +656,7 @@ export function SectionScatterChart({
                           key={`pt-${idx}`}
                           cx={point.x}
                           cy={point.y}
-                          r={4}
+                          r={dotRadius}
                           color={dotColor}
                           opacity={0.7}
                         />
@@ -648,26 +670,30 @@ export function SectionScatterChart({
         </View>
 
         {/* Gesture target for tap + long-press scrub */}
-        <GestureDetector gesture={composedGesture}>
-          <Animated.View style={styles.tapTarget} />
-        </GestureDetector>
+        {!mini && (
+          <GestureDetector gesture={composedGesture}>
+            <Animated.View style={styles.tapTarget} />
+          </GestureDetector>
+        )}
 
         {/* Crosshair (visible during scrubbing) */}
-        <Animated.View style={[styles.crosshair, crosshairStyle]} pointerEvents="none" />
+        {!mini && <Animated.View style={[styles.crosshair, crosshairStyle]} pointerEvents="none" />}
 
         {/* Y-axis labels */}
-        <View style={styles.yAxisOverlay} pointerEvents="none">
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {formatSpeedValue(maxSpeed)}
-          </Text>
-          <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-            {formatSpeedValue(minSpeed)}
-          </Text>
-        </View>
+        {!mini && (
+          <View style={styles.yAxisOverlay} pointerEvents="none">
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {formatSpeedValue(maxSpeed)}
+            </Text>
+            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+              {formatSpeedValue(minSpeed)}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Time axis: start / middle / end */}
-      {timeAxisLabels.length > 0 && (
+      {!mini && timeAxisLabels.length > 0 && (
         <View style={styles.timeAxis}>
           {timeAxisLabels.map((date, idx) => (
             <Text
@@ -687,7 +713,8 @@ export function SectionScatterChart({
       )}
 
       {/* Reverse stats row below chart */}
-      {hasReverse &&
+      {!mini &&
+        hasReverse &&
         renderStatsRow(
           'reverse',
           reverseStats,
@@ -923,7 +950,6 @@ const styles = StyleSheet.create({
     color: colors.chartGold,
   },
   chartWrapper: {
-    height: CHART_HEIGHT,
     width: CHART_WIDTH,
   },
   tapTarget: {

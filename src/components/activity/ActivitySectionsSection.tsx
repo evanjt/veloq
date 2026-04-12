@@ -384,6 +384,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           sectionType={sectionType}
           distance={distance}
           visitCount={visitCount}
+          activityId={activityId}
           index={item.index}
           style={style}
           isHighlighted={highlightedSectionId === sectionId}
@@ -401,6 +402,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       );
     },
     [
+      activityId,
       highlightedSectionId,
       isDark,
       isMetric,

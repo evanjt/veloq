@@ -27,6 +27,7 @@ interface SectionInlinePlotProps {
   sectionType: string;
   distance: number;
   visitCount: number;
+  activityId: string;
   index: number;
   style: { color: string };
   isHighlighted: boolean;
@@ -50,6 +51,7 @@ export const SectionInlinePlot = memo(
     sectionType,
     distance,
     visitCount,
+    activityId,
     index,
     style,
     isHighlighted,
@@ -135,15 +137,27 @@ export const SectionInlinePlot = memo(
               />
             </View>
 
-            {/* Compact stats row: best time + trend */}
+            {/* Horizontal layout: mini chart + stats */}
             {plotData &&
+              plotData.chartData.length >= 2 &&
               (() => {
+                const thisActivityData = plotData.chartData.find(
+                  (d) => d.activityId === activityId
+                );
+                const thisActivityTime = thisActivityData?.sectionTime;
+                const isThisPR =
+                  thisActivityData && plotData.chartData.length > 0
+                    ? thisActivityData.speed >= Math.max(...plotData.chartData.map((d) => d.speed))
+                    : false;
+
                 const bestRecord =
                   plotData.bestForwardRecord && plotData.bestReverseRecord
                     ? plotData.bestForwardRecord.bestTime <= plotData.bestReverseRecord.bestTime
                       ? plotData.bestForwardRecord
                       : plotData.bestReverseRecord
                     : (plotData.bestForwardRecord ?? plotData.bestReverseRecord);
+                const bestTime = bestRecord?.bestTime;
+
                 const stats = plotData.forwardStats ?? plotData.reverseStats;
                 const lastDataPoint =
                   plotData.chartData.length > 0
@@ -156,55 +170,61 @@ export const SectionInlinePlot = memo(
                     ? ((lastTime - avgTime) / avgTime) * 100
                     : null;
 
-                if (!bestRecord && !trendPct) return null;
-
                 return (
-                  <View style={styles.statsRow}>
-                    {bestRecord && (
-                      <View style={styles.statItem}>
-                        <MaterialCommunityIcons
-                          name="trophy-outline"
-                          size={12}
-                          color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                        />
-                        <Text style={[styles.statText, isDark && styles.textMuted]}>
-                          {formatDuration(bestRecord.bestTime)}
+                  <View style={styles.contentRow}>
+                    <View style={styles.chartWrapper}>
+                      <SectionScatterChart
+                        chartData={plotData.chartData}
+                        activityType={plotData.activityType}
+                        isDark={isDark}
+                        bestForwardRecord={plotData.bestForwardRecord}
+                        bestReverseRecord={plotData.bestReverseRecord}
+                        forwardStats={plotData.forwardStats}
+                        reverseStats={plotData.reverseStats}
+                        mini
+                      />
+                    </View>
+                    <View style={styles.statsColumn}>
+                      {thisActivityTime != null && (
+                        <View style={styles.statRow}>
+                          <Text style={[styles.thisTimeValue, isDark && styles.textLight]}>
+                            {formatDuration(thisActivityTime)}
+                          </Text>
+                          {isThisPR && (
+                            <MaterialCommunityIcons
+                              name="trophy"
+                              size={14}
+                              color={colors.chartGold}
+                            />
+                          )}
+                        </View>
+                      )}
+                      {bestTime != null && bestTime !== thisActivityTime && (
+                        <Text style={[styles.bestTimeText, isDark && styles.textMuted]}>
+                          {t('routes.best')}: {formatDuration(bestTime)}
                         </Text>
-                      </View>
-                    )}
-                    {trendPct !== null && Math.abs(trendPct) >= 1 && (
-                      <View style={styles.statItem}>
-                        <MaterialCommunityIcons
-                          name={trendPct < 0 ? 'trending-down' : 'trending-up'}
-                          size={12}
-                          color={trendPct < 0 ? '#4CAF50' : '#F44336'}
-                        />
-                        <Text
-                          style={[styles.statText, { color: trendPct < 0 ? '#4CAF50' : '#F44336' }]}
-                        >
-                          {Math.abs(trendPct).toFixed(0)}%
-                        </Text>
-                      </View>
-                    )}
+                      )}
+                      {trendPct !== null && Math.abs(trendPct) >= 1 && (
+                        <View style={styles.trendRow}>
+                          <MaterialCommunityIcons
+                            name={trendPct < 0 ? 'trending-down' : 'trending-up'}
+                            size={12}
+                            color={trendPct < 0 ? '#4CAF50' : '#F44336'}
+                          />
+                          <Text
+                            style={{
+                              color: trendPct < 0 ? '#4CAF50' : '#F44336',
+                              fontSize: 11,
+                            }}
+                          >
+                            {Math.abs(trendPct).toFixed(0)}%
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                 );
               })()}
-
-            {/* Compact scatter chart */}
-            {plotData && plotData.chartData.length >= 2 ? (
-              <View style={styles.chartContainer}>
-                <SectionScatterChart
-                  chartData={plotData.chartData}
-                  activityType={plotData.activityType}
-                  isDark={isDark}
-                  bestForwardRecord={plotData.bestForwardRecord}
-                  bestReverseRecord={plotData.bestReverseRecord}
-                  forwardStats={plotData.forwardStats}
-                  reverseStats={plotData.reverseStats}
-                  compact
-                />
-              </View>
-            ) : null}
           </Pressable>
         </Swipeable>
       </View>
@@ -215,7 +235,8 @@ export const SectionInlinePlot = memo(
       prev.isHighlighted === next.isHighlighted &&
       prev.plotData === next.plotData &&
       prev.isDark === next.isDark &&
-      prev.sectionName === next.sectionName
+      prev.sectionName === next.sectionName &&
+      prev.activityId === next.activityId
     );
   }
 );
@@ -310,27 +331,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.chartCyan,
   },
-  chartContainer: {
-    height: 72,
-    overflow: 'hidden',
-    marginTop: -spacing.xs,
-  },
-  statsRow: {
+  contentRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: spacing.sm + 28 + spacing.sm, // align with section name (badge width + margins)
-    paddingRight: spacing.sm,
-    paddingBottom: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
     gap: spacing.sm,
   },
-  statItem: {
+  chartWrapper: {
+    flex: 3,
+  },
+  statsColumn: {
+    flex: 2,
+    justifyContent: 'center',
+    gap: 2,
+  },
+  statRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  thisTimeValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  bestTimeText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  trendRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-  },
-  statText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: colors.textSecondary,
   },
 });
