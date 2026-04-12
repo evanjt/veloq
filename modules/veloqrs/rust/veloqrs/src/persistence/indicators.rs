@@ -28,6 +28,17 @@ impl PersistentRouteEngine {
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
 
+        // Step 0: Backfill any NULL lap_time values from time_streams.
+        // This ensures section_activities has real recorded times wherever possible,
+        // so the indicator computation uses actual data instead of estimates.
+        let backfilled = self.backfill_null_lap_times()?;
+        if backfilled > 0 {
+            log::info!(
+                "tracematch: [indicators] Backfilled lap_time for {} section portions from time streams",
+                backfilled
+            );
+        }
+
         let tx = self.db.unchecked_transaction()?;
         tx.execute("DELETE FROM activity_indicators", [])?;
 
@@ -415,5 +426,92 @@ impl PersistentRouteEngine {
             Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
             Err(_) => vec![],
         }
+    }
+
+    /// Backfill NULL lap_time values in section_activities from time_streams.
+    /// Time streams store cumulative timestamps at each GPS point index, so
+    /// lap_time = times[end_index] - times[start_index].
+    /// Returns the number of rows updated.
+    fn backfill_null_lap_times(&self) -> SqlResult<usize> {
+        // Find all section_activities rows with NULL lap_time that have valid indices
+        let portions: Vec<(String, String, u32, u32, f64)> = self
+            .db
+            .prepare(
+                "SELECT sa.section_id, sa.activity_id, sa.start_index, sa.end_index, sa.distance_meters
+                 FROM section_activities sa
+                 WHERE sa.lap_time IS NULL
+                   AND sa.start_index > 0
+                   AND sa.end_index > sa.start_index",
+            )?
+            .query_map([], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if portions.is_empty() {
+            return Ok(0);
+        }
+
+        // Collect unique activity IDs that need time streams
+        let activity_ids: std::collections::HashSet<String> =
+            portions.iter().map(|(_, aid, _, _, _)| aid.clone()).collect();
+
+        // Load time streams for those activities
+        let mut time_streams: HashMap<String, Vec<u32>> = HashMap::new();
+        for activity_id in &activity_ids {
+            if let Ok(stream) = self.db.query_row(
+                "SELECT times FROM time_streams WHERE activity_id = ?",
+                [activity_id],
+                |row| {
+                    let bytes: Vec<u8> = row.get(0)?;
+                    let times: Vec<u32> = rmp_serde::from_slice(&bytes)
+                        .map_err(|_| rusqlite::Error::InvalidQuery)?;
+                    Ok(times)
+                },
+            ) {
+                time_streams.insert(activity_id.clone(), stream);
+            }
+        }
+
+        if time_streams.is_empty() {
+            return Ok(0);
+        }
+
+        let mut update_stmt = self.db.prepare(
+            "UPDATE section_activities
+             SET lap_time = ?, lap_pace = ?
+             WHERE section_id = ? AND activity_id = ? AND start_index = ?",
+        )?;
+
+        let mut updated = 0usize;
+        for (section_id, activity_id, start_idx, end_idx, distance) in &portions {
+            if let Some(times) = time_streams.get(activity_id) {
+                let si = *start_idx as usize;
+                let ei = *end_idx as usize;
+                if si < times.len() && ei < times.len() {
+                    let lap_time = (times[ei] as f64 - times[si] as f64).abs();
+                    if lap_time > 0.0 {
+                        let lap_pace = distance / lap_time;
+                        update_stmt.execute(params![
+                            lap_time,
+                            lap_pace,
+                            section_id,
+                            activity_id,
+                            start_idx,
+                        ])?;
+                        updated += 1;
+                    }
+                }
+            }
+        }
+
+        Ok(updated)
     }
 }
