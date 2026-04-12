@@ -74,14 +74,29 @@ export const SectionInlinePlot = memo(
       onPress?.(sectionId);
     }, [onPress, sectionId]);
 
-    return (
-      <View testID={`section-inline-plot-${index}`}>
+    // Find this activity's traversals per direction
+    const thisLaps = plotData?.chartData.filter((d) => d.activityId === activityId) ?? [];
+    const directions =
+      thisLaps.length > 0 ? [...new Set(thisLaps.map((d) => d.direction))] : ['same'];
+
+    const renderCard = (direction: string, cardIndex: number) => {
+      const lap = thisLaps.find((d) => d.direction === direction);
+      const isReverse = direction === 'reverse';
+      const dirData = plotData?.chartData.filter((d) => d.direction === direction) ?? [];
+      const sparklineData = dirData.length >= 2 ? dirData : plotData?.chartData;
+      const isBest =
+        lap && dirData.length > 0 && lap.speed >= Math.max(...dirData.map((d) => d.speed));
+      const displayName = isReverse ? `${sectionName} ↩` : sectionName;
+      const dirVisitCount = dirData.length || visitCount;
+
+      return (
         <Swipeable
+          key={`${sectionId}-${direction}`}
           ref={(ref) => {
             if (ref) {
-              swipeableRefs.current.set(sectionId, ref);
+              swipeableRefs.current.set(`${sectionId}-${direction}`, ref);
             } else {
-              swipeableRefs.current.delete(sectionId);
+              swipeableRefs.current.delete(`${sectionId}-${direction}`);
             }
           }}
           renderRightActions={renderRightActions}
@@ -100,101 +115,59 @@ export const SectionInlinePlot = memo(
               pressed && Platform.OS === 'ios' && { opacity: 0.7 },
             ]}
           >
-            {(() => {
-              // Find all traversals of this activity on this section
-              const thisLaps = plotData?.chartData.filter((d) => d.activityId === activityId) ?? [];
-              const fwdLap = thisLaps.find((d) => d.direction === 'same');
-              const revLap = thisLaps.find((d) => d.direction === 'reverse');
-              const hasReverse = fwdLap && revLap;
-
-              const renderDirStats = (
-                lap: (typeof thisLaps)[0] | undefined,
-                label: string | null
-              ) => {
-                if (!lap) return null;
-                const dirData =
-                  plotData?.chartData.filter((d) => d.direction === lap.direction) ?? [];
-                const isBest =
-                  dirData.length > 0 && lap.speed >= Math.max(...dirData.map((d) => d.speed));
-                const avgTime =
-                  dirData.length > 0
-                    ? dirData.reduce((s, d) => s + (d.sectionTime ?? 0), 0) / dirData.length
-                    : null;
-                const trendPct =
-                  lap.sectionTime && avgTime && avgTime > 0
-                    ? ((lap.sectionTime - avgTime) / avgTime) * 100
-                    : null;
-
-                return (
-                  <View style={styles.metaRow}>
-                    {label && (
-                      <Text style={[styles.meta, isDark && styles.textMuted]}>{label} · </Text>
-                    )}
-                    <Text style={[styles.timeValue, isDark && styles.textLight]}>
-                      {formatDuration(lap.sectionTime ?? 0)}
-                    </Text>
-                    {isBest && (
-                      <MaterialCommunityIcons
-                        name="trophy"
-                        size={11}
-                        color={colors.chartGold}
-                        style={{ marginLeft: 2 }}
-                      />
-                    )}
-                    {trendPct !== null && Math.abs(trendPct) >= 1 && (
-                      <MaterialCommunityIcons
-                        name={trendPct < 0 ? 'trending-down' : 'trending-up'}
-                        size={11}
-                        color={trendPct < 0 ? '#4CAF50' : '#F44336'}
-                        style={{ marginLeft: 3 }}
-                      />
-                    )}
-                  </View>
-                );
-              };
-
-              return (
-                <View style={styles.header}>
-                  <View style={[styles.numberBadge, { borderColor: style.color }]}>
-                    <Text style={styles.numberBadgeText}>{index + 1}</Text>
-                  </View>
-                  <View style={styles.headerInfo}>
-                    <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
-                      {sectionName}
-                    </Text>
-                    <View style={styles.metaRow}>
-                      <Text style={[styles.meta, isDark && styles.textMuted]}>
-                        {formatDistance(distance, isMetric)} · {visitCount} {t('routes.visits')}
+            <View style={styles.header}>
+              <View style={[styles.numberBadge, { borderColor: style.color }]}>
+                <Text style={styles.numberBadgeText}>{index + 1}</Text>
+              </View>
+              <View style={styles.headerInfo}>
+                <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
+                  {displayName}
+                </Text>
+                <View style={styles.metaRow}>
+                  <Text style={[styles.meta, isDark && styles.textMuted]}>
+                    {formatDistance(distance, isMetric)} · {dirVisitCount} {t('routes.visits')}
+                  </Text>
+                  {lap && (
+                    <>
+                      <Text style={[styles.meta, isDark && styles.textMuted]}> · </Text>
+                      <Text style={[styles.timeValue, isDark && styles.textLight]}>
+                        {formatDuration(lap.sectionTime ?? 0)}
                       </Text>
-                    </View>
-                    {hasReverse ? (
-                      <>
-                        {renderDirStats(fwdLap, t('sections.forward'))}
-                        {renderDirStats(revLap, t('sections.reverse'))}
-                      </>
-                    ) : (
-                      renderDirStats(thisLaps[0], null)
-                    )}
-                  </View>
-                  {plotData && plotData.chartData.length >= 2 && (
-                    <SectionSparkline
-                      data={plotData.chartData}
-                      width={80}
-                      height={28}
-                      isDark={isDark}
-                      highlightActivityId={activityId}
-                    />
+                      {isBest && (
+                        <MaterialCommunityIcons
+                          name="trophy"
+                          size={11}
+                          color={colors.chartGold}
+                          style={{ marginLeft: 2 }}
+                        />
+                      )}
+                    </>
                   )}
-                  <MaterialCommunityIcons
-                    name="chevron-right"
-                    size={20}
-                    color={isDark ? '#555' : '#CCC'}
-                  />
                 </View>
-              );
-            })()}
+              </View>
+              {sparklineData && sparklineData.length >= 2 && (
+                <SectionSparkline
+                  data={sparklineData}
+                  width={80}
+                  height={28}
+                  isDark={isDark}
+                  highlightActivityId={activityId}
+                />
+              )}
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={20}
+                color={isDark ? '#555' : '#CCC'}
+              />
+            </View>
           </Pressable>
         </Swipeable>
+      );
+    };
+
+    return (
+      <View testID={`section-inline-plot-${index}`}>
+        {directions.map((dir, i) => renderCard(dir, i))}
       </View>
     );
   },
@@ -274,5 +247,10 @@ const styles = StyleSheet.create({
     fontSize: typography.label.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
+  },
+  dirLabel: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginLeft: 4,
   },
 });
