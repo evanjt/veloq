@@ -373,27 +373,46 @@ impl PersistentRouteEngine {
             return vec![];
         }
 
-        // Self-healing: if the table is completely empty but we have sections,
-        // trigger a recomputation. This handles the case where the engine
-        // was initialized before the indicator code existed (dev hot reload,
-        // or first run after migration where load() didn't trigger).
-        let total_indicators: i64 = self
-            .db
-            .query_row("SELECT COUNT(*) FROM activity_indicators", [], |row| {
-                row.get(0)
-            })
-            .unwrap_or(0);
+        // Self-healing: recompute if data is missing.
+        // Check both: table entirely empty, OR route groups exist but no route indicators.
+        let needs_recompute = {
+            let total: i64 = self
+                .db
+                .query_row("SELECT COUNT(*) FROM activity_indicators", [], |r| r.get(0))
+                .unwrap_or(0);
 
-        if total_indicators == 0 && !self.sections.is_empty() {
-            log::info!(
-                "tracematch: [indicators] Table empty with {} sections — auto-populating",
-                self.sections.len()
-            );
-            if let Err(e) = self.recompute_activity_indicators() {
-                log::warn!(
-                    "tracematch: [indicators] Auto-population failed: {}",
-                    e
+            if total == 0 && !self.sections.is_empty() {
+                log::info!(
+                    "tracematch: [indicators] Table empty with {} sections — auto-populating",
+                    self.sections.len()
                 );
+                true
+            } else if !self.groups.is_empty() {
+                let route_count: i64 = self
+                    .db
+                    .query_row(
+                        "SELECT COUNT(*) FROM activity_indicators WHERE indicator_type IN ('route_pr', 'route_trend')",
+                        [],
+                        |r| r.get(0),
+                    )
+                    .unwrap_or(0);
+                if route_count == 0 {
+                    log::info!(
+                        "tracematch: [indicators] {} route groups but no route indicators — recomputing",
+                        self.groups.len()
+                    );
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        };
+
+        if needs_recompute {
+            if let Err(e) = self.recompute_activity_indicators() {
+                log::warn!("tracematch: [indicators] Auto-population failed: {}", e);
             }
         }
 

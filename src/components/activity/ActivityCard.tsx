@@ -570,25 +570,21 @@ export const ActivityCard = React.memo(
                   <View
                     style={[
                       styles.routeTrendBadge,
-                      isDark ? styles.routeTrendBadgeDark : styles.routeTrendBadgeLight,
-                      routeHighlight.isPr && styles.routeTrendBadgePr,
+                      routeHighlight.isPr
+                        ? styles.routeTrendBadgePr
+                        : routeHighlight.trend === 1
+                          ? styles.routeTrendBadgeUp
+                          : styles.routeTrendBadgeDown,
                     ]}
                   >
-                    {routeHighlight.trend !== 0 && !routeHighlight.isPr && (
+                    {routeHighlight.isPr ? (
+                      <MaterialCommunityIcons name="trophy" size={14} color="#18181B" />
+                    ) : (
                       <MaterialCommunityIcons
                         name={routeHighlight.trend === 1 ? 'trending-up' : 'trending-down'}
                         size={16}
-                        color={
-                          routeHighlight.trend === 1
-                            ? colors.success
-                            : isDark
-                              ? darkColors.textMuted
-                              : colors.textMuted
-                        }
+                        color="#FFFFFF"
                       />
-                    )}
-                    {routeHighlight.isPr && (
-                      <MaterialCommunityIcons name="trophy" size={14} color={brand.gold} />
                     )}
                   </View>
                 )}
@@ -655,8 +651,8 @@ export const ActivityCard = React.memo(
                                 isDark ? styles.prPillDark : styles.prPillLight,
                               ]}
                             >
-                              <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
-                              <RNText style={[styles.trendCount, { color: brand.gold }]}>
+                              <MaterialCommunityIcons name="trophy" size={12} color="#18181B" />
+                              <RNText style={[styles.trendCount, { color: '#18181B' }]}>
                                 {prCount}
                               </RNText>
                             </View>
@@ -671,9 +667,9 @@ export const ActivityCard = React.memo(
                               <MaterialCommunityIcons
                                 name="trending-up"
                                 size={13}
-                                color={colors.success}
+                                color="#FFFFFF"
                               />
-                              <RNText style={[styles.trendCount, { color: colors.success }]}>
+                              <RNText style={[styles.trendCount, { color: '#FFFFFF' }]}>
                                 {improving}
                               </RNText>
                             </View>
@@ -688,14 +684,12 @@ export const ActivityCard = React.memo(
                               <MaterialCommunityIcons
                                 name="trending-down"
                                 size={13}
-                                color={isDark ? darkColors.textMuted : colors.textMuted}
+                                color={isDark ? '#A1A1AA' : '#FFFFFF'}
                               />
                               <RNText
                                 style={[
                                   styles.trendCount,
-                                  {
-                                    color: isDark ? darkColors.textMuted : colors.textMuted,
-                                  },
+                                  { color: isDark ? '#A1A1AA' : '#FFFFFF' },
                                 ]}
                               >
                                 {declining}
@@ -865,20 +859,14 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  routeTrendBadgeLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.08)',
-    shadowOpacity: 0.1,
-  },
-  routeTrendBadgeDark: {
-    backgroundColor: 'rgba(24, 24, 27, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    shadowOpacity: 0.3,
-  },
   routeTrendBadgePr: {
-    borderColor: 'rgba(212, 175, 55, 0.5)',
+    backgroundColor: '#D4AF37',
+  },
+  routeTrendBadgeUp: {
+    backgroundColor: '#22C55E',
+  },
+  routeTrendBadgeDown: {
+    backgroundColor: '#52525B',
   },
   overlayName: {
     fontSize: typography.cardTitle.fontSize,
@@ -923,32 +911,32 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderWidth: 1,
   },
-  // PR pill — warm gold tint
+  // PR pill — solid gold, high contrast
   prPillLight: {
-    backgroundColor: 'rgba(212, 175, 55, 0.12)',
-    borderColor: 'rgba(212, 175, 55, 0.35)',
+    backgroundColor: '#D4AF37',
+    borderColor: '#B8942F',
   },
   prPillDark: {
-    backgroundColor: 'rgba(212, 175, 55, 0.25)',
-    borderColor: 'rgba(212, 175, 55, 0.45)',
+    backgroundColor: '#D4AF37',
+    borderColor: '#E8C96E',
   },
-  // Improving pill — green tint
+  // Improving pill — solid green
   improvingPillLight: {
-    backgroundColor: 'rgba(34, 197, 94, 0.10)',
-    borderColor: 'rgba(34, 197, 94, 0.25)',
+    backgroundColor: '#22C55E',
+    borderColor: '#16A34A',
   },
   improvingPillDark: {
-    backgroundColor: 'rgba(74, 222, 128, 0.20)',
-    borderColor: 'rgba(74, 222, 128, 0.35)',
+    backgroundColor: '#22C55E',
+    borderColor: '#4ADE80',
   },
-  // Declining pill — muted neutral
+  // Declining pill — solid muted
   decliningPillLight: {
-    backgroundColor: 'rgba(113, 113, 122, 0.08)',
-    borderColor: 'rgba(113, 113, 122, 0.15)',
+    backgroundColor: '#A1A1AA',
+    borderColor: '#71717A',
   },
   decliningPillDark: {
-    backgroundColor: 'rgba(161, 161, 170, 0.18)',
-    borderColor: 'rgba(161, 161, 170, 0.28)',
+    backgroundColor: '#52525B',
+    borderColor: '#71717A',
   },
   trendCount: {
     fontSize: 13,
