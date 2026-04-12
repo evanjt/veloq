@@ -2035,60 +2035,99 @@ impl PersistentRouteEngine {
     }
 
     /// Batch-query route highlights for a list of activity IDs.
-    /// Now reads from the materialized `activity_indicators` table.
-    /// Kept for backwards compatibility — new code should use `get_activity_indicators()`.
+    /// Computes inline from in-memory groups + activity_metrics — no table read.
     pub fn get_activity_route_highlights(
         &self,
         activity_ids: &[String],
     ) -> Vec<crate::FfiActivityRouteHighlight> {
-        if activity_ids.is_empty() {
+        if activity_ids.is_empty() || self.groups.is_empty() {
             return vec![];
         }
 
-        let indicators = self.get_activity_indicators(activity_ids);
+        let requested: std::collections::HashSet<&str> = activity_ids.iter().map(|s| s.as_str()).collect();
 
-        // Convert route indicators to the old FfiActivityRouteHighlight format.
-        // Key by (activity_id, route_id) to handle multiple routes per activity,
-        // then collapse to one per activity (pick the most interesting: PR > trend).
-        let mut by_route: HashMap<(String, String), crate::FfiActivityRouteHighlight> = HashMap::new();
+        // Map activity → group from in-memory groups
+        let mut activity_to_group: HashMap<&str, &tracematch::RouteGroup> = HashMap::new();
+        for group in &self.groups {
+            for aid in &group.activity_ids {
+                if requested.contains(aid.as_str()) {
+                    activity_to_group.insert(aid.as_str(), group);
+                }
+            }
+        }
 
-        for ind in indicators {
-            if ind.indicator_type != "route_pr" && ind.indicator_type != "route_trend" {
-                continue;
+        if activity_to_group.is_empty() {
+            return vec![];
+        }
+
+        // Route names from DB
+        let mut route_names: HashMap<String, String> = HashMap::new();
+        if let Ok(mut stmt) = self.db.prepare("SELECT route_id, custom_name FROM route_names") {
+            if let Ok(rows) = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            }) {
+                for r in rows.flatten() {
+                    route_names.insert(r.0, r.1);
+                }
+            }
+        }
+
+        // Per-group: compute best time + per-activity trend from activity_metrics
+        let mut group_cache: HashMap<&str, (f64, HashMap<&str, (i8, f64)>)> = HashMap::new();
+        let mut results = Vec::new();
+
+        for (&aid, group) in &activity_to_group {
+            let gid = group.group_id.as_str();
+
+            if !group_cache.contains_key(gid) {
+                let mut members: Vec<(&str, f64, i64)> = group
+                    .activity_ids
+                    .iter()
+                    .filter_map(|id| {
+                        let m = self.activity_metrics.get(id)?;
+                        if m.moving_time > 0 { Some((id.as_str(), m.moving_time as f64, m.date)) } else { None }
+                    })
+                    .collect();
+                members.sort_by_key(|m| m.2);
+
+                // Skip singleton routes — need at least 2 attempts for meaningful trends/PRs
+                if members.len() < 2 {
+                    group_cache.insert(gid, (f64::MAX, HashMap::new()));
+                } else {
+                    let mut best = f64::MAX;
+                    let mut trends: HashMap<&str, (i8, f64)> = HashMap::new();
+                    let mut sum = 0.0f64;
+                    let mut n = 0u32;
+
+                    for (mid, dur, _) in &members {
+                        let trend = if n == 0 { 0i8 }
+                        else {
+                            let avg = sum / n as f64;
+                            if *dur < avg * 0.99 { 1 } else if *dur > avg * 1.01 { -1 } else { 0 }
+                        };
+                        trends.insert(mid, (trend, *dur));
+                        sum += dur;
+                        n += 1;
+                        if *dur < best { best = *dur; }
+                    }
+
+                    group_cache.insert(gid, (best, trends));
+                }
             }
 
-            let is_pr = ind.indicator_type == "route_pr";
-            let key = (ind.activity_id.clone(), ind.target_id.clone());
-            let entry = by_route
-                .entry(key)
-                .or_insert(crate::FfiActivityRouteHighlight {
-                    activity_id: ind.activity_id.clone(),
-                    route_id: ind.target_id.clone(),
-                    route_name: ind.target_name.clone(),
-                    is_pr,
-                    trend: ind.trend,
+            if let Some((best, trends)) = group_cache.get(gid) {
+                let (trend, dur) = trends.get(aid).copied().unwrap_or((0, 0.0));
+                results.push(crate::FfiActivityRouteHighlight {
+                    activity_id: aid.to_string(),
+                    route_id: gid.to_string(),
+                    route_name: route_names.get(gid).cloned().unwrap_or_default(),
+                    is_pr: dur > 0.0 && *best < f64::MAX && (dur - best).abs() < 0.5,
+                    trend,
                 });
-
-            if is_pr && !entry.is_pr {
-                entry.is_pr = true;
-                entry.trend = 1;
-            } else if !entry.is_pr && ind.trend > entry.trend {
-                entry.trend = ind.trend;
             }
         }
 
-        // Collapse to one per activity — PR wins over trend
-        let mut per_activity: HashMap<String, crate::FfiActivityRouteHighlight> = HashMap::new();
-        for highlight in by_route.into_values() {
-            let entry = per_activity
-                .entry(highlight.activity_id.clone())
-                .or_insert(highlight.clone());
-            if highlight.is_pr && !entry.is_pr {
-                *entry = highlight;
-            }
-        }
-
-        per_activity.into_values().collect()
+        results
     }
 }
 

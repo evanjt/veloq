@@ -10,7 +10,7 @@ use super::PersistentRouteEngine;
 
 /// Bump this when the indicator computation algorithm changes.
 /// On next read, a version mismatch triggers a full clean recompute.
-const INDICATOR_ALGORITHM_VERSION: i32 = 2;
+const INDICATOR_ALGORITHM_VERSION: i32 = 3;
 
 impl PersistentRouteEngine {
     /// Recompute all activity indicators (PRs and trends) from scratch.
@@ -46,8 +46,9 @@ impl PersistentRouteEngine {
         let tx = self.db.unchecked_transaction()?;
         tx.execute("DELETE FROM activity_indicators", [])?;
 
+        // Section indicators only — route highlights are computed inline
+        // from in-memory groups + activity_metrics (no table needed).
         let section_count = self.compute_section_indicators(&tx, now)?;
-        let route_count = self.compute_route_indicators(&tx, now)?;
 
         // Stamp the algorithm version so we don't recompute until it changes
         tx.execute(
@@ -58,9 +59,8 @@ impl PersistentRouteEngine {
         tx.commit()?;
 
         log::info!(
-            "tracematch: [indicators] Recomputed {} section + {} route indicators (v{})",
+            "tracematch: [indicators] Recomputed {} section indicators (v{})",
             section_count,
-            route_count,
             INDICATOR_ALGORITHM_VERSION
         );
 
@@ -222,133 +222,6 @@ impl PersistentRouteEngine {
 
     /// Compute route PRs and trends, insert into activity_indicators.
     /// Returns total number of indicators inserted.
-    fn compute_route_indicators(
-        &self,
-        tx: &rusqlite::Transaction,
-        now: i64,
-    ) -> SqlResult<usize> {
-        if self.groups.is_empty() {
-            return Ok(0);
-        }
-
-        // Load route names
-        let mut route_names: HashMap<String, String> = HashMap::new();
-        if let Ok(mut stmt) = tx.prepare("SELECT route_id, custom_name FROM route_names") {
-            if let Ok(rows) = stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            }) {
-                for r in rows.flatten() {
-                    route_names.insert(r.0, r.1);
-                }
-            }
-        }
-
-        let mut insert_stmt = tx.prepare(
-            "INSERT OR REPLACE INTO activity_indicators
-             (activity_id, indicator_type, target_id, target_name, direction, lap_time, trend, computed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        )?;
-
-        let mut total = 0;
-
-        for group in &self.groups {
-            // Load excluded activity IDs for this route
-            let excluded: std::collections::HashSet<String> = {
-                let mut stmt = tx.prepare(
-                    "SELECT DISTINCT activity_id FROM activity_matches WHERE route_id = ? AND excluded = 1",
-                ).unwrap_or_else(|_| tx.prepare("SELECT '' WHERE 0").unwrap());
-                stmt.query_map([&group.group_id], |row| row.get::<_, String>(0))
-                    .map(|rows| rows.filter_map(|r| r.ok()).collect())
-                    .unwrap_or_default()
-            };
-
-            // Collect non-excluded members sorted by date
-            let mut members: Vec<(&str, f64, i64)> = group
-                .activity_ids
-                .iter()
-                .filter(|id| !excluded.contains(*id))
-                .filter_map(|id| {
-                    let m = self.activity_metrics.get(id)?;
-                    if m.moving_time > 0 {
-                        Some((id.as_str(), m.moving_time as f64, m.date))
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            members.sort_by_key(|m| m.2);
-
-            if members.len() < 2 {
-                continue;
-            }
-
-            let route_name = route_names
-                .get(&group.group_id)
-                .cloned()
-                .unwrap_or_default();
-
-            let best_time = members
-                .iter()
-                .map(|(_, dur, _)| *dur)
-                .fold(f64::MAX, f64::min);
-
-            let mut running_sum = 0.0f64;
-            let mut count = 0u32;
-
-            for (activity_id, dur, _) in &members {
-                let is_pr = (*dur - best_time).abs() < 0.5;
-
-                let trend: i8 = if count == 0 {
-                    0
-                } else {
-                    let avg = running_sum / count as f64;
-                    if *dur < avg * 0.98 {
-                        1
-                    } else if *dur > avg * 1.02 {
-                        -1
-                    } else {
-                        0
-                    }
-                };
-
-                let effective_trend = if is_pr { 1 } else { trend };
-
-                if is_pr {
-                    insert_stmt.execute(params![
-                        activity_id,
-                        "route_pr",
-                        &group.group_id,
-                        &route_name,
-                        "same",
-                        dur,
-                        effective_trend,
-                        now,
-                    ])?;
-                    total += 1;
-                }
-
-                if is_pr || trend != 0 {
-                    insert_stmt.execute(params![
-                        activity_id,
-                        "route_trend",
-                        &group.group_id,
-                        &route_name,
-                        "same",
-                        dur,
-                        trend,
-                        now,
-                    ])?;
-                    total += 1;
-                }
-
-                running_sum += dur;
-                count += 1;
-            }
-        }
-
-        Ok(total)
-    }
-
     /// Load section names from the sections table.
     fn load_section_names(
         &self,
