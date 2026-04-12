@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { formatDistance, formatDuration } from '@/lib';
-import { SectionScatterChart } from '@/components/section/SectionScatterChart';
+import { SectionSparkline } from '@/components/section/SectionSparkline';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import type { DirectionBestRecord, DirectionSummaryStats } from '@/components/routes/performance';
 
@@ -172,18 +172,13 @@ export const SectionInlinePlot = memo(
 
                 return (
                   <View style={styles.contentRow}>
-                    <View style={styles.chartWrapper}>
-                      <SectionScatterChart
-                        chartData={plotData.chartData}
-                        activityType={plotData.activityType}
-                        isDark={isDark}
-                        bestForwardRecord={plotData.bestForwardRecord}
-                        bestReverseRecord={plotData.bestReverseRecord}
-                        forwardStats={plotData.forwardStats}
-                        reverseStats={plotData.reverseStats}
-                        mini
-                      />
-                    </View>
+                    <SectionSparkline
+                      data={plotData.chartData}
+                      width={120}
+                      height={44}
+                      isDark={isDark}
+                      highlightActivityId={activityId}
+                    />
                     <View style={styles.statsColumn}>
                       {thisActivityTime != null && (
                         <View style={styles.statRow}>
@@ -333,15 +328,14 @@ const styles = StyleSheet.create({
   },
   contentRow: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.sm,
+    alignItems: 'center',
+    paddingLeft: spacing.sm + 28 + spacing.sm, // align with section name
+    paddingRight: spacing.sm,
+    paddingBottom: spacing.xs,
     gap: spacing.sm,
   },
-  chartWrapper: {
-    flex: 3,
-  },
   statsColumn: {
-    flex: 2,
+    flex: 1,
     justifyContent: 'center',
     gap: 2,
   },
