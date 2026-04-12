@@ -55,28 +55,24 @@ export const SectionSparkline = React.memo(function SectionSparkline({
       {/* Data points */}
       {data.map((point, i) => {
         const isHighlight = point.activityId === highlightActivityId;
-        const isBest =
-          point.speed === maxSpeed ||
-          (point.sectionTime != null &&
-            point.sectionTime === Math.min(...data.map((d) => d.sectionTime ?? Infinity)));
 
-        return (
-          <Circle
-            key={i}
-            cx={toX(i)}
-            cy={toY(point.speed)}
-            r={isHighlight ? 4 : isBest ? 3.5 : 2.5}
-            color={
-              isHighlight
-                ? colors.primary
-                : isBest
-                  ? colors.chartGold
-                  : point.direction === 'reverse'
-                    ? colors.reverseDirection
-                    : dotColor
-            }
-          />
-        );
+        if (isHighlight) {
+          return (
+            <React.Fragment key={i}>
+              <Circle
+                cx={toX(i)}
+                cy={toY(point.speed)}
+                r={5}
+                color={colors.primary}
+                style="stroke"
+                strokeWidth={1.5}
+              />
+              <Circle cx={toX(i)} cy={toY(point.speed)} r={3} color={colors.primary} />
+            </React.Fragment>
+          );
+        }
+
+        return <Circle key={i} cx={toX(i)} cy={toY(point.speed)} r={2} color={dotColor} />;
       })}
     </Canvas>
   );

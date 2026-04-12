@@ -100,126 +100,99 @@ export const SectionInlinePlot = memo(
               pressed && Platform.OS === 'ios' && { opacity: 0.7 },
             ]}
           >
-            {/* Header row */}
-            <View style={styles.header}>
-              <View style={[styles.numberBadge, { borderColor: style.color }]}>
-                <Text style={styles.numberBadgeText}>{index + 1}</Text>
-              </View>
-              <View style={styles.headerInfo}>
-                <View style={styles.nameRow}>
-                  <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
-                    {sectionName}
-                  </Text>
-                  <View
-                    style={[
-                      sectionType === 'custom' ? styles.customBadge : styles.autoBadge,
-                      isDark &&
-                        (sectionType === 'custom' ? styles.customBadgeDark : styles.autoBadgeDark),
-                    ]}
-                  >
-                    <Text
-                      style={
-                        sectionType === 'custom' ? styles.customBadgeText : styles.autoBadgeText
-                      }
-                    >
-                      {sectionType === 'custom' ? t('routes.custom') : t('routes.autoDetected')}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={[styles.meta, isDark && styles.textMuted]}>
-                  {formatDistance(distance, isMetric)} · {visitCount} {t('routes.visits')}
-                </Text>
-              </View>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={20}
-                color={isDark ? '#555' : '#CCC'}
-              />
-            </View>
+            {(() => {
+              // Find all traversals of this activity on this section
+              const thisLaps = plotData?.chartData.filter((d) => d.activityId === activityId) ?? [];
+              const fwdLap = thisLaps.find((d) => d.direction === 'same');
+              const revLap = thisLaps.find((d) => d.direction === 'reverse');
+              const hasReverse = fwdLap && revLap;
 
-            {/* Horizontal layout: mini chart + stats */}
-            {plotData &&
-              plotData.chartData.length >= 2 &&
-              (() => {
-                const thisActivityData = plotData.chartData.find(
-                  (d) => d.activityId === activityId
-                );
-                const thisActivityTime = thisActivityData?.sectionTime;
-                const isThisPR =
-                  thisActivityData && plotData.chartData.length > 0
-                    ? thisActivityData.speed >= Math.max(...plotData.chartData.map((d) => d.speed))
-                    : false;
-
-                const bestRecord =
-                  plotData.bestForwardRecord && plotData.bestReverseRecord
-                    ? plotData.bestForwardRecord.bestTime <= plotData.bestReverseRecord.bestTime
-                      ? plotData.bestForwardRecord
-                      : plotData.bestReverseRecord
-                    : (plotData.bestForwardRecord ?? plotData.bestReverseRecord);
-                const bestTime = bestRecord?.bestTime;
-
-                const stats = plotData.forwardStats ?? plotData.reverseStats;
-                const lastDataPoint =
-                  plotData.chartData.length > 0
-                    ? plotData.chartData[plotData.chartData.length - 1]
+              const renderDirStats = (
+                lap: (typeof thisLaps)[0] | undefined,
+                label: string | null
+              ) => {
+                if (!lap) return null;
+                const dirData =
+                  plotData?.chartData.filter((d) => d.direction === lap.direction) ?? [];
+                const isBest =
+                  dirData.length > 0 && lap.speed >= Math.max(...dirData.map((d) => d.speed));
+                const avgTime =
+                  dirData.length > 0
+                    ? dirData.reduce((s, d) => s + (d.sectionTime ?? 0), 0) / dirData.length
                     : null;
-                const lastTime = lastDataPoint?.sectionTime;
-                const avgTime = stats?.avgTime;
                 const trendPct =
-                  lastTime && avgTime && avgTime > 0
-                    ? ((lastTime - avgTime) / avgTime) * 100
+                  lap.sectionTime && avgTime && avgTime > 0
+                    ? ((lap.sectionTime - avgTime) / avgTime) * 100
                     : null;
 
                 return (
-                  <View style={styles.contentRow}>
+                  <View style={styles.metaRow}>
+                    {label && (
+                      <Text style={[styles.meta, isDark && styles.textMuted]}>{label} · </Text>
+                    )}
+                    <Text style={[styles.timeValue, isDark && styles.textLight]}>
+                      {formatDuration(lap.sectionTime ?? 0)}
+                    </Text>
+                    {isBest && (
+                      <MaterialCommunityIcons
+                        name="trophy"
+                        size={11}
+                        color={colors.chartGold}
+                        style={{ marginLeft: 2 }}
+                      />
+                    )}
+                    {trendPct !== null && Math.abs(trendPct) >= 1 && (
+                      <MaterialCommunityIcons
+                        name={trendPct < 0 ? 'trending-down' : 'trending-up'}
+                        size={11}
+                        color={trendPct < 0 ? '#4CAF50' : '#F44336'}
+                        style={{ marginLeft: 3 }}
+                      />
+                    )}
+                  </View>
+                );
+              };
+
+              return (
+                <View style={styles.header}>
+                  <View style={[styles.numberBadge, { borderColor: style.color }]}>
+                    <Text style={styles.numberBadgeText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.headerInfo}>
+                    <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
+                      {sectionName}
+                    </Text>
+                    <View style={styles.metaRow}>
+                      <Text style={[styles.meta, isDark && styles.textMuted]}>
+                        {formatDistance(distance, isMetric)} · {visitCount} {t('routes.visits')}
+                      </Text>
+                    </View>
+                    {hasReverse ? (
+                      <>
+                        {renderDirStats(fwdLap, t('sections.forward'))}
+                        {renderDirStats(revLap, t('sections.reverse'))}
+                      </>
+                    ) : (
+                      renderDirStats(thisLaps[0], null)
+                    )}
+                  </View>
+                  {plotData && plotData.chartData.length >= 2 && (
                     <SectionSparkline
                       data={plotData.chartData}
-                      width={120}
-                      height={44}
+                      width={80}
+                      height={28}
                       isDark={isDark}
                       highlightActivityId={activityId}
                     />
-                    <View style={styles.statsColumn}>
-                      {thisActivityTime != null && (
-                        <View style={styles.statRow}>
-                          <Text style={[styles.thisTimeValue, isDark && styles.textLight]}>
-                            {formatDuration(thisActivityTime)}
-                          </Text>
-                          {isThisPR && (
-                            <MaterialCommunityIcons
-                              name="trophy"
-                              size={14}
-                              color={colors.chartGold}
-                            />
-                          )}
-                        </View>
-                      )}
-                      {bestTime != null && bestTime !== thisActivityTime && (
-                        <Text style={[styles.bestTimeText, isDark && styles.textMuted]}>
-                          {t('routes.best')}: {formatDuration(bestTime)}
-                        </Text>
-                      )}
-                      {trendPct !== null && Math.abs(trendPct) >= 1 && (
-                        <View style={styles.trendRow}>
-                          <MaterialCommunityIcons
-                            name={trendPct < 0 ? 'trending-down' : 'trending-up'}
-                            size={12}
-                            color={trendPct < 0 ? '#4CAF50' : '#F44336'}
-                          />
-                          <Text
-                            style={{
-                              color: trendPct < 0 ? '#4CAF50' : '#F44336',
-                              fontSize: 11,
-                            }}
-                          >
-                            {Math.abs(trendPct).toFixed(0)}%
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                );
-              })()}
+                  )}
+                  <MaterialCommunityIcons
+                    name="chevron-right"
+                    size={20}
+                    color={isDark ? '#555' : '#CCC'}
+                  />
+                </View>
+              );
+            })()}
           </Pressable>
         </Swipeable>
       </View>
@@ -276,17 +249,16 @@ const styles = StyleSheet.create({
   headerInfo: {
     flex: 1,
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
   name: {
     fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-    flex: 1,
-    marginRight: spacing.xs,
+    marginBottom: 2,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
   textLight: {
     color: darkColors.textPrimary,
@@ -298,64 +270,9 @@ const styles = StyleSheet.create({
   textMuted: {
     color: darkColors.textSecondary,
   },
-  customBadge: {
-    backgroundColor: colors.primary + '1A',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  customBadgeDark: {
-    backgroundColor: darkColors.primary + '33',
-  },
-  customBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  autoBadge: {
-    backgroundColor: colors.chartCyan + '1A',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  autoBadgeDark: {
-    backgroundColor: colors.chartCyan + '33',
-  },
-  autoBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.chartCyan,
-  },
-  contentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: spacing.sm + 28 + spacing.sm, // align with section name
-    paddingRight: spacing.sm,
-    paddingBottom: spacing.xs,
-    gap: spacing.sm,
-  },
-  statsColumn: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 2,
-  },
-  statRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  thisTimeValue: {
-    fontSize: 16,
+  timeValue: {
+    fontSize: typography.label.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
-  },
-  bestTimeText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  trendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
   },
 });
