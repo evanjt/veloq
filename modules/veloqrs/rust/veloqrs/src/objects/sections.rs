@@ -663,6 +663,15 @@ impl SectionManager {
         with_engine(|e| e.get_indicators_for_activity(&activity_id))
     }
 
+    /// Get section encounters for an activity: one entry per (section, direction).
+    /// Canonical data unit for the sections tab in activity detail.
+    fn get_activity_section_encounters(
+        &self,
+        activity_id: String,
+    ) -> Result<Vec<crate::FfiSectionEncounter>, VeloqError> {
+        with_engine(|e| Ok(e.get_activity_section_encounters(&activity_id)))
+    }
+
     /// Recompute all activity indicators (PRs and trends).
     /// Call after sync, section detection, route grouping, or exclude/include changes.
     fn recompute_indicators(&self) -> Result<(), VeloqError> {

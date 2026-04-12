@@ -10,7 +10,7 @@ use super::PersistentRouteEngine;
 
 /// Bump this when the indicator computation algorithm changes.
 /// On next read, a version mismatch triggers a full clean recompute.
-const INDICATOR_ALGORITHM_VERSION: i32 = 3;
+const INDICATOR_ALGORITHM_VERSION: i32 = 4;
 
 impl PersistentRouteEngine {
     /// Recompute all activity indicators (PRs and trends) from scratch.

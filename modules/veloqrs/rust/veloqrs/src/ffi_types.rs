@@ -1682,6 +1682,28 @@ pub struct FfiActivityIndicator {
     pub trend: i8,
 }
 
+/// A section encounter: one (section, direction) pair for a given activity.
+/// This is the canonical unit for displaying section data in the activity detail.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionEncounter {
+    pub section_id: String,
+    pub section_name: String,
+    pub direction: String,
+    pub distance_meters: f64,
+    /// This activity's time on this section in this direction
+    pub lap_time: f64,
+    /// This activity's pace on this section in this direction
+    pub lap_pace: f64,
+    /// Whether this activity holds the PR for this (section, direction)
+    pub is_pr: bool,
+    /// How many total traversals exist for this (section, direction)
+    pub visit_count: u32,
+    /// Historical lap times for sparkline (chronological, all activities in this direction)
+    pub history_times: Vec<f64>,
+    /// Activity IDs corresponding to history_times (for highlighting current activity)
+    pub history_activity_ids: Vec<String>,
+}
+
 // ============================================================================
 // Section Matching & Merge Types
 // ============================================================================

@@ -2141,6 +2141,116 @@ impl PersistentRouteEngine {
 
         results
     }
+
+    /// Get section encounters for an activity: one entry per (section, direction).
+    /// Includes this activity's time, PR status, visit count, and sparkline history.
+    pub fn get_activity_section_encounters(
+        &self,
+        activity_id: &str,
+    ) -> Vec<crate::ffi_types::FfiSectionEncounter> {
+        use crate::ffi_types::FfiSectionEncounter;
+
+        let visible_filter = "s.disabled = 0 AND s.superseded_by IS NULL";
+
+        // Get this activity's traversals with section metadata
+        let query = format!(
+            "SELECT sa.section_id, COALESCE(s.name, ''), sa.direction,
+                    sa.distance_meters, COALESCE(sa.lap_time, 0.0), COALESCE(sa.lap_pace, 0.0)
+             FROM section_activities sa
+             JOIN sections s ON s.id = sa.section_id
+             WHERE sa.activity_id = ?1 AND sa.excluded = 0 AND {}
+             ORDER BY sa.section_id, sa.direction",
+            visible_filter
+        );
+
+        let mut stmt = match self.db.prepare(&query) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        struct Traversal {
+            section_id: String,
+            section_name: String,
+            direction: String,
+            distance_meters: f64,
+            lap_time: f64,
+            lap_pace: f64,
+        }
+
+        let traversals: Vec<Traversal> = stmt
+            .query_map(rusqlite::params![activity_id], |row| {
+                Ok(Traversal {
+                    section_id: row.get(0)?,
+                    section_name: row.get(1)?,
+                    direction: row.get(2)?,
+                    distance_meters: row.get(3)?,
+                    lap_time: row.get(4)?,
+                    lap_pace: row.get(5)?,
+                })
+            })
+            .ok()
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default();
+
+        let mut encounters = Vec::new();
+
+        for trav in &traversals {
+            // Get history for this (section, direction): all traversals sorted by activity date
+            let history_query =
+                "SELECT sa.lap_time, sa.activity_id, COALESCE(a.start_date, 0) as act_date
+                 FROM section_activities sa
+                 LEFT JOIN activities a ON a.id = sa.activity_id
+                 WHERE sa.section_id = ?1 AND sa.direction = ?2
+                   AND sa.excluded = 0 AND sa.lap_time IS NOT NULL AND sa.lap_time > 0
+                 ORDER BY act_date ASC";
+
+            let mut hist_stmt = match self.db.prepare(history_query) {
+                Ok(s) => s,
+                Err(_) => continue,
+            };
+
+            let mut history_times: Vec<f64> = Vec::new();
+            let mut history_ids: Vec<String> = Vec::new();
+            let mut best_time: f64 = f64::MAX;
+
+            if let Ok(rows) = hist_stmt.query_map(
+                rusqlite::params![trav.section_id, trav.direction],
+                |row| {
+                    Ok((
+                        row.get::<_, f64>(0)?,
+                        row.get::<_, String>(1)?,
+                    ))
+                },
+            ) {
+                for row in rows.flatten() {
+                    if row.0 < best_time {
+                        best_time = row.0;
+                    }
+                    history_times.push(row.0);
+                    history_ids.push(row.1);
+                }
+            }
+
+            let is_pr = trav.lap_time > 0.0
+                && best_time < f64::MAX
+                && (trav.lap_time - best_time).abs() < 0.5;
+
+            encounters.push(FfiSectionEncounter {
+                section_id: trav.section_id.clone(),
+                section_name: trav.section_name.clone(),
+                direction: trav.direction.clone(),
+                distance_meters: trav.distance_meters,
+                lap_time: trav.lap_time,
+                lap_pace: trav.lap_pace,
+                is_pr,
+                visit_count: history_times.len() as u32,
+                history_times,
+                history_activity_ids: history_ids,
+            });
+        }
+
+        encounters
+    }
 }
 
 /// Simple least-squares linear regression.

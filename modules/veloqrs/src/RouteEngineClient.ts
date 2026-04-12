@@ -98,6 +98,20 @@ export interface FfiActivityIndicator {
   trend: number; // -1=declining, 0=stable, 1=improving
 }
 
+/** A section encounter: one (section, direction) pair for a given activity. */
+export interface SectionEncounter {
+  sectionId: string;
+  sectionName: string;
+  direction: string;
+  distanceMeters: number;
+  lapTime: number;
+  lapPace: number;
+  isPr: boolean;
+  visitCount: number;
+  historyTimes: number[];
+  historyActivityIds: string[];
+}
+
 import * as FileSystem from 'expo-file-system/legacy';
 import {
   flatCoordsToPoints,
@@ -1600,6 +1614,26 @@ class RouteEngineClient {
     return this.timed('getIndicatorsForActivity', () =>
       this.engine.sections().getIndicatorsForActivity(activityId),
     );
+  }
+
+  /** Get section encounters for an activity: one entry per (section, direction). */
+  getActivitySectionEncounters(activityId: string): SectionEncounter[] {
+    if (!this.ready || !activityId) return [];
+    return this.timed('getActivitySectionEncounters', () => {
+      const raw = this.engine.sections().getActivitySectionEncounters(activityId);
+      return raw.map((e: any) => ({
+        sectionId: e.sectionId,
+        sectionName: e.sectionName,
+        direction: e.direction,
+        distanceMeters: e.distanceMeters,
+        lapTime: e.lapTime,
+        lapPace: e.lapPace,
+        isPr: e.isPr,
+        visitCount: e.visitCount,
+        historyTimes: Array.from(e.historyTimes),
+        historyActivityIds: Array.from(e.historyActivityIds),
+      }));
+    });
   }
 
   /** Recompute all activity indicators (PRs and trends). */

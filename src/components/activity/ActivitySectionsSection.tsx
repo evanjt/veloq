@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
   FlatList,
@@ -10,33 +10,23 @@ import {
 } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import type { SectionMatch as FfiSectionMatch } from 'veloqrs';
+import type { SectionMatch as FfiSectionMatch, SectionEncounter } from 'veloqrs';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import { routeEngine, type SectionPerformanceResult } from 'veloqrs';
-import { SectionInlinePlot, type InlineSectionData } from '@/components/activity/SectionInlinePlot';
+import { SectionInlinePlot } from '@/components/activity/SectionInlinePlot';
 import { DataRangeFooter } from '@/components/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
-import { castDirection, fromUnixSeconds } from '@/lib/utils/ffiConversions';
-import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
-import type { Section, ActivityType, PerformanceDataPoint } from '@/types';
-import { getSectionStyle, navigateTo, formatDistance, safeGetTime } from '@/lib';
+import { getSectionStyle, navigateTo, formatDistance } from '@/lib';
 import { colors, darkColors, spacing, shadows } from '@/theme';
-
-type UnifiedSectionItem =
-  | { type: 'engine'; match: SectionMatch; index: number }
-  | { type: 'custom'; section: Section; index: number };
 
 interface ActivitySectionsSectionProps {
   activityId: string;
-  activityType: ActivityType;
-  unifiedSections: UnifiedSectionItem[];
+  encounters: SectionEncounter[];
   coordinates: { latitude: number; longitude: number }[];
-  streams: { time?: number[] } | undefined;
   isDark: boolean;
   isMetric: boolean;
   sectionCreationMode: boolean;
@@ -44,7 +34,6 @@ interface ActivitySectionsSectionProps {
   highlightedSectionId: string | null;
   onHighlightedSectionIdChange: (id: string | null) => void;
   onSectionCreationModeChange: (mode: boolean) => void;
-  getSectionBestTime: (sectionId: string) => number | undefined;
   removeSection: (sectionId: string) => Promise<void>;
   /** Scan results from useActivityRematch */
   scanMatches: FfiSectionMatch[];
@@ -58,38 +47,9 @@ interface ActivitySectionsSectionProps {
   onRematch: (sectionId: string) => boolean;
 }
 
-/** Build chart data from section performance FFI result */
-function buildChartData(
-  result: SectionPerformanceResult,
-  sportType: string
-): (PerformanceDataPoint & { x: number })[] {
-  const points: (PerformanceDataPoint & { x: number })[] = [];
-  for (const record of result.records) {
-    const date = fromUnixSeconds(record.activityDate);
-    if (!date) continue;
-    for (const lap of record.laps) {
-      if (lap.pace <= 0) continue;
-      points.push({
-        x: 0,
-        id: lap.id,
-        activityId: record.activityId,
-        speed: lap.pace,
-        date,
-        activityName: record.activityName,
-        direction: castDirection(lap.direction),
-        sectionTime: Math.round(lap.time),
-        sectionDistance: lap.distance || record.sectionDistance,
-      });
-    }
-  }
-  points.sort((a, b) => safeGetTime(a.date) - safeGetTime(b.date));
-  return points.map((p, i) => ({ ...p, x: i }));
-}
-
 export const ActivitySectionsSection = React.memo(function ActivitySectionsSection({
   activityId,
-  activityType,
-  unifiedSections,
+  encounters,
   coordinates,
   isDark,
   isMetric,
@@ -117,13 +77,10 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // Whether a scan has been performed
   const hasScanned = scanMatches.length > 0 || addedSectionIds.size > 0;
 
-  // Filter scan results: exclude sections already in the matched list and already added
+  // Filter scan results: exclude sections already in the encounter list and already added
   const existingSectionIds = useMemo(
-    () =>
-      new Set(
-        unifiedSections.map((s) => (s.type === 'engine' ? s.match.section.id : s.section.id))
-      ),
-    [unifiedSections]
+    () => new Set(encounters.map((e) => e.sectionId)),
+    [encounters]
   );
 
   const filteredScanMatches = useMemo(
@@ -143,83 +100,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     },
     [onRematch]
   );
-
-  // Retry counter: retry up to 3 times when some sections fail to load
-  const [plotRetry, setPlotRetry] = useState(0);
-  const MAX_PLOT_RETRIES = 3;
-
-  // Batch-load performance data for all sections
-  const plotDataMap = useMemo((): Map<string, InlineSectionData> => {
-    const map = new Map<string, InlineSectionData>();
-    const engine = getRouteEngine();
-    if (!engine) return map;
-
-    for (const item of unifiedSections) {
-      const section = item.type === 'engine' ? item.match.section : item.section;
-      const sectionId = section.id;
-      const sectionSportType = (section as any).sportType || activityType;
-
-      try {
-        const result: SectionPerformanceResult = routeEngine.getSectionPerformances(sectionId);
-        const chartData = buildChartData(result, sectionSportType);
-        if (chartData.length === 0) continue;
-
-        const bestFwd = result.bestForwardRecord;
-        const bestRev = result.bestReverseRecord;
-
-        map.set(sectionId, {
-          chartData,
-          bestForwardRecord: bestFwd
-            ? {
-                bestTime: bestFwd.bestTime,
-                activityDate: fromUnixSeconds(bestFwd.activityDate) ?? new Date(),
-              }
-            : null,
-          bestReverseRecord: bestRev
-            ? {
-                bestTime: bestRev.bestTime,
-                activityDate: fromUnixSeconds(bestRev.activityDate) ?? new Date(),
-              }
-            : null,
-          forwardStats: result.forwardStats
-            ? {
-                avgTime: result.forwardStats.avgTime ?? null,
-                lastActivity: result.forwardStats.lastActivity
-                  ? fromUnixSeconds(result.forwardStats.lastActivity)
-                  : null,
-                count: result.forwardStats.count,
-              }
-            : null,
-          reverseStats: result.reverseStats
-            ? {
-                avgTime: result.reverseStats.avgTime ?? null,
-                lastActivity: result.reverseStats.lastActivity
-                  ? fromUnixSeconds(result.reverseStats.lastActivity)
-                  : null,
-                count: result.reverseStats.count,
-              }
-            : null,
-          activityType: sectionSportType as ActivityType,
-        });
-      } catch (e) {
-        if (__DEV__) console.warn(`[Sections] Failed to load performance for ${sectionId}:`, e);
-      }
-    }
-    return map;
-  }, [unifiedSections, activityType, plotRetry]);
-
-  // Retry when some sections failed to load (not just when ALL failed)
-  useEffect(() => {
-    if (
-      unifiedSections.length > 0 &&
-      plotDataMap.size < unifiedSections.length &&
-      plotRetry < MAX_PLOT_RETRIES
-    ) {
-      const delay = 500 * (plotRetry + 1); // 500ms, 1000ms, 1500ms
-      const timer = setTimeout(() => setPlotRetry((r) => r + 1), delay);
-      return () => clearTimeout(timer);
-    }
-  }, [unifiedSections.length, plotDataMap.size, plotRetry]);
 
   // Close any open swipeable when another opens
   const handleSwipeableOpen = useCallback((sectionId: string) => {
@@ -294,9 +174,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // Render swipe actions for section cards
   const renderSectionSwipeActions = useCallback(
     (
-      sectionId: string,
-      isCustom: boolean,
-      isDisabled: boolean,
+      item: SectionEncounter,
       _progress: Animated.AnimatedInterpolation<number>,
       dragX: Animated.AnimatedInterpolation<number>
     ) => {
@@ -306,19 +184,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         extrapolate: 'clamp',
       });
 
-      if (isCustom) {
-        return (
-          <Animated.View style={[styles.swipeAction, styles.deleteSwipeAction, { opacity }]}>
-            <RectButton
-              style={styles.swipeActionButton}
-              onPress={() => handleDeleteSection(sectionId)}
-            >
-              <MaterialCommunityIcons name="delete" size={24} color={colors.textOnDark} />
-              <Text style={styles.swipeActionText}>{t('common.delete')}</Text>
-            </RectButton>
-          </Animated.View>
-        );
-      }
+      // For now, all encounters from the engine are treated as auto-detected
+      const isDisabled = false;
 
       return (
         <Animated.View
@@ -330,7 +197,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         >
           <RectButton
             style={styles.swipeActionButton}
-            onPress={() => handleToggleDisable(sectionId, isDisabled)}
+            onPress={() => handleToggleDisable(item.sectionId, isDisabled)}
           >
             <MaterialCommunityIcons
               name={isDisabled ? 'eye' : 'eye-off'}
@@ -344,59 +211,32 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         </Animated.View>
       );
     },
-    [handleDeleteSection, handleToggleDisable, t]
+    [handleToggleDisable, t]
   );
 
   // FlatList key extractor
-  const keyExtractor = useCallback((item: UnifiedSectionItem) => {
-    return item.type === 'engine' ? item.match.section.id : item.section.id;
-  }, []);
+  const keyExtractor = useCallback(
+    (item: SectionEncounter) => `${item.sectionId}-${item.direction}`,
+    []
+  );
 
   // FlatList render item
-  const renderSectionItem = useCallback(
-    ({ item }: { item: UnifiedSectionItem }) => {
-      const style = getSectionStyle(item.index);
-      const sectionId = item.type === 'engine' ? item.match.section.id : item.section.id;
-      const isCustom = item.type === 'custom';
-      const sectionType = item.type === 'engine' ? item.match.section.sectionType : 'custom';
-      const sectionName =
-        item.type === 'engine'
-          ? item.match.section.name || t('routes.autoDetected')
-          : item.section.name || t('routes.custom');
-
-      let distance: number;
-      let visitCount: number;
-
-      if (item.type === 'engine') {
-        distance = item.match.distance;
-        visitCount = item.match.section.visitCount;
-      } else {
-        distance = item.section.distanceMeters;
-        visitCount = item.section.activityIds?.length ?? item.section.visitCount;
-      }
-
-      const isDisabled = false; // Rust filters disabled sections — only visible ones reach here
-
+  const renderEncounterItem = useCallback(
+    ({ item, index }: { item: SectionEncounter; index: number }) => {
+      const style = getSectionStyle(index);
       return (
         <SectionInlinePlot
-          sectionId={sectionId}
-          sectionName={sectionName}
-          sectionType={sectionType}
-          distance={distance}
-          visitCount={visitCount}
+          encounter={item}
           activityId={activityId}
-          index={item.index}
+          index={index}
           style={style}
-          isHighlighted={highlightedSectionId === sectionId}
+          isHighlighted={highlightedSectionId === item.sectionId}
           isDark={isDark}
           isMetric={isMetric}
-          plotData={plotDataMap.get(sectionId)}
           onPress={handleSectionPress}
           onLongPress={handleSectionLongPress}
           onSwipeableOpen={handleSwipeableOpen}
-          renderRightActions={(progress, dragX) =>
-            renderSectionSwipeActions(sectionId, isCustom, isDisabled, progress, dragX)
-          }
+          renderRightActions={(progress, dragX) => renderSectionSwipeActions(item, progress, dragX)}
           swipeableRefs={swipeableRefs}
         />
       );
@@ -406,8 +246,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       highlightedSectionId,
       isDark,
       isMetric,
-      t,
-      plotDataMap,
       handleSectionLongPress,
       handleSectionPress,
       handleSwipeableOpen,
@@ -511,7 +349,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     return (
       <>
         {/* Scan trigger: show "Scan for more sections" link when sections exist */}
-        {unifiedSections.length > 0 && !hasScanned && (
+        {encounters.length > 0 && !hasScanned && (
           <TouchableOpacity
             style={styles.scanLink}
             onPress={onScan}
@@ -577,7 +415,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     cacheDays,
     t,
     onSectionCreationModeChange,
-    unifiedSections.length,
+    encounters.length,
     hasScanned,
     isScanning,
     filteredScanMatches,
@@ -592,13 +430,13 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       testID="activity-sections-list"
     >
       <FlatList
-        data={unifiedSections}
+        data={encounters}
         keyExtractor={keyExtractor}
-        renderItem={renderSectionItem}
+        renderItem={renderEncounterItem}
         ListEmptyComponent={renderSectionsListEmpty}
         ListFooterComponent={renderSectionsListFooter}
         contentContainerStyle={
-          unifiedSections.length === 0 ? styles.tabScrollContentEmpty : styles.tabScrollContent
+          encounters.length === 0 ? styles.tabScrollContentEmpty : styles.tabScrollContent
         }
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"

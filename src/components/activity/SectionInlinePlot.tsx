@@ -1,4 +1,4 @@
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { View, StyleSheet, Pressable, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -9,31 +9,17 @@ import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { formatDistance, formatDuration } from '@/lib';
 import { SectionSparkline } from '@/components/section/SectionSparkline';
-import type { ActivityType, PerformanceDataPoint } from '@/types';
-import type { DirectionBestRecord, DirectionSummaryStats } from '@/components/routes/performance';
-
-export interface InlineSectionData {
-  chartData: (PerformanceDataPoint & { x: number })[];
-  bestForwardRecord: DirectionBestRecord | null;
-  bestReverseRecord: DirectionBestRecord | null;
-  forwardStats: DirectionSummaryStats | null;
-  reverseStats: DirectionSummaryStats | null;
-  activityType: ActivityType;
-}
+import type { SectionEncounter } from 'veloqrs';
+import type { PerformanceDataPoint } from '@/types';
 
 interface SectionInlinePlotProps {
-  sectionId: string;
-  sectionName: string;
-  sectionType: string;
-  distance: number;
-  visitCount: number;
+  encounter: SectionEncounter;
   activityId: string;
   index: number;
   style: { color: string };
   isHighlighted: boolean;
   isDark: boolean;
   isMetric: boolean;
-  plotData: InlineSectionData | undefined;
   onPress: (sectionId: string) => void;
   onLongPress: (sectionId: string) => void;
   onSwipeableOpen: (sectionId: string) => void;
@@ -46,18 +32,13 @@ interface SectionInlinePlotProps {
 
 export const SectionInlinePlot = memo(
   function SectionInlinePlot({
-    sectionId,
-    sectionName,
-    sectionType,
-    distance,
-    visitCount,
+    encounter,
     activityId,
     index,
     style,
     isHighlighted,
     isDark,
     isMetric,
-    plotData,
     onPress,
     onLongPress,
     onSwipeableOpen,
@@ -67,40 +48,49 @@ export const SectionInlinePlot = memo(
     const { t } = useTranslation();
 
     const handleLongPress = useCallback(() => {
-      onLongPress?.(sectionId);
-    }, [onLongPress, sectionId]);
+      onLongPress?.(encounter.sectionId);
+    }, [onLongPress, encounter.sectionId]);
 
     const handlePress = useCallback(() => {
-      onPress?.(sectionId);
-    }, [onPress, sectionId]);
+      onPress?.(encounter.sectionId);
+    }, [onPress, encounter.sectionId]);
 
-    // Find this activity's traversals per direction
-    const thisLaps = plotData?.chartData.filter((d) => d.activityId === activityId) ?? [];
-    const directions =
-      thisLaps.length > 0 ? [...new Set(thisLaps.map((d) => d.direction))] : ['same'];
+    const swipeKey = `${encounter.sectionId}-${encounter.direction}`;
+    const displayName =
+      encounter.direction === 'reverse' ? `${encounter.sectionName} \u21A9` : encounter.sectionName;
 
-    const renderCard = (direction: string, cardIndex: number) => {
-      const lap = thisLaps.find((d) => d.direction === direction);
-      const isReverse = direction === 'reverse';
-      const dirData = plotData?.chartData.filter((d) => d.direction === direction) ?? [];
-      const sparklineData = dirData.length >= 2 ? dirData : plotData?.chartData;
-      const isBest =
-        lap && dirData.length > 0 && lap.speed >= Math.max(...dirData.map((d) => d.speed));
-      const displayName = isReverse ? `${sectionName} ↩` : sectionName;
-      const dirVisitCount = dirData.length || visitCount;
+    // Build sparkline-compatible data from encounter history
+    const sparklineData = useMemo((): (PerformanceDataPoint & { x: number })[] | undefined => {
+      if (encounter.historyTimes.length < 2) return undefined;
+      return encounter.historyTimes.map((time, i) => ({
+        x: i,
+        id: encounter.historyActivityIds[i] || '',
+        activityId: encounter.historyActivityIds[i] || '',
+        speed: time > 0 ? encounter.distanceMeters / time : 0,
+        date: new Date(),
+        activityName: '',
+        direction: encounter.direction as 'same' | 'reverse',
+        sectionTime: time,
+      }));
+    }, [
+      encounter.historyTimes,
+      encounter.historyActivityIds,
+      encounter.distanceMeters,
+      encounter.direction,
+    ]);
 
-      return (
+    return (
+      <View testID={`section-inline-plot-${index}`}>
         <Swipeable
-          key={`${sectionId}-${direction}`}
           ref={(ref) => {
             if (ref) {
-              swipeableRefs.current.set(`${sectionId}-${direction}`, ref);
+              swipeableRefs.current.set(swipeKey, ref);
             } else {
-              swipeableRefs.current.delete(`${sectionId}-${direction}`);
+              swipeableRefs.current.delete(swipeKey);
             }
           }}
           renderRightActions={renderRightActions}
-          onSwipeableOpen={() => onSwipeableOpen(sectionId)}
+          onSwipeableOpen={() => onSwipeableOpen(swipeKey)}
           overshootRight={false}
           friction={2}
         >
@@ -125,15 +115,16 @@ export const SectionInlinePlot = memo(
                 </Text>
                 <View style={styles.metaRow}>
                   <Text style={[styles.meta, isDark && styles.textMuted]}>
-                    {formatDistance(distance, isMetric)} · {dirVisitCount} {t('routes.visits')}
+                    {formatDistance(encounter.distanceMeters, isMetric)} · {encounter.visitCount}{' '}
+                    {t('routes.visits')}
                   </Text>
-                  {lap && (
+                  {encounter.lapTime > 0 && (
                     <>
                       <Text style={[styles.meta, isDark && styles.textMuted]}> · </Text>
                       <Text style={[styles.timeValue, isDark && styles.textLight]}>
-                        {formatDuration(lap.sectionTime ?? 0)}
+                        {formatDuration(encounter.lapTime)}
                       </Text>
-                      {isBest && (
+                      {encounter.isPr && (
                         <MaterialCommunityIcons
                           name="trophy"
                           size={11}
@@ -145,7 +136,7 @@ export const SectionInlinePlot = memo(
                   )}
                 </View>
               </View>
-              {sparklineData && sparklineData.length >= 2 && (
+              {sparklineData && (
                 <SectionSparkline
                   data={sparklineData}
                   width={80}
@@ -162,21 +153,14 @@ export const SectionInlinePlot = memo(
             </View>
           </Pressable>
         </Swipeable>
-      );
-    };
-
-    return (
-      <View testID={`section-inline-plot-${index}`}>
-        {directions.map((dir, i) => renderCard(dir, i))}
       </View>
     );
   },
   (prev, next) => {
     return (
       prev.isHighlighted === next.isHighlighted &&
-      prev.plotData === next.plotData &&
+      prev.encounter === next.encounter &&
       prev.isDark === next.isDark &&
-      prev.sectionName === next.sectionName &&
       prev.activityId === next.activityId
     );
   }
@@ -247,10 +231,5 @@ const styles = StyleSheet.create({
     fontSize: typography.label.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
-  },
-  dirLabel: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginLeft: 4,
   },
 });

@@ -16,12 +16,12 @@ import {
   useCacheDays,
   useGpxExport,
   useSectionOverlays,
-  useSectionTimeStreams,
   useActivityRematch,
 } from '@/hooks';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
-import { useSectionMatches, type SectionMatch } from '@/hooks/routes/useSectionMatches';
+import { useSectionMatches } from '@/hooks/routes/useSectionMatches';
+import { useSectionEncounters } from '@/hooks/routes/useSectionEncounters';
 import {
   ActivityHeader,
   ActivityChartsSection,
@@ -148,11 +148,7 @@ export default function ActivityDetailScreen() {
   const hasExercises = (exerciseSets?.length ?? 0) > 0;
 
   // Get auto-detected sections from engine that include this activity
-  const {
-    sections: engineSectionMatches,
-    count: engineSectionCount,
-    isLoading: sectionsLoading,
-  } = useSectionMatches(id);
+  const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);
 
   // Scan for additional section matches
   const {
@@ -162,7 +158,10 @@ export default function ActivityDetailScreen() {
     isRematching,
   } = useActivityRematch();
 
-  // Filter custom sections that match this activity
+  // Section encounters for the sections tab (one entry per section+direction)
+  const { encounters, isLoading: encountersLoading } = useSectionEncounters(id);
+
+  // Filter custom sections that match this activity (still needed for map overlays)
   const customMatchedSections = useMemo(() => {
     if (!id) return [];
     const engineSectionIds = new Set(engineSectionMatches.map((m) => m.section.id));
@@ -173,33 +172,6 @@ export default function ActivityDetailScreen() {
     );
   }, [sections, id, engineSectionMatches]);
 
-  // Total section count (auto-detected + custom, deduplicated)
-  const totalSectionCount = engineSectionCount + customMatchedSections.length;
-
-  // Unified section list for rendering
-  type UnifiedSectionItem =
-    | { type: 'engine'; match: SectionMatch; index: number }
-    | {
-        type: 'custom';
-        section: (typeof customMatchedSections)[0];
-        index: number;
-      };
-
-  const unifiedSections = useMemo((): UnifiedSectionItem[] => {
-    const items: UnifiedSectionItem[] = [];
-    engineSectionMatches.forEach((match, i) => {
-      items.push({ type: 'engine', match, index: i });
-    });
-    customMatchedSections.forEach((section, i) => {
-      items.push({
-        type: 'custom',
-        section,
-        index: engineSectionMatches.length + i,
-      });
-    });
-    return items;
-  }, [engineSectionMatches, customMatchedSections]);
-
   // Section overlay computation (traces + map overlays)
   const { sectionOverlays } = useSectionOverlays(
     activeTab,
@@ -207,13 +179,6 @@ export default function ActivityDetailScreen() {
     engineSectionMatches,
     customMatchedSections,
     coordinates
-  );
-
-  // Time stream syncing + performance data for section best times
-  const { getSectionBestTime } = useSectionTimeStreams(
-    activeTab,
-    engineSectionMatches,
-    customMatchedSections
   );
 
   // Tabs configuration
@@ -243,12 +208,12 @@ export default function ActivityDetailScreen() {
           key: 'sections',
           label: t('activityDetail.tabs.sections'),
           icon: 'road-variant',
-          count: totalSectionCount,
+          count: encounters.length,
         }
       );
     }
     return allTabs;
-  }, [t, isStrength, hasGpsData, isRouteMatchingOn, matchedRouteCount, totalSectionCount]);
+  }, [t, isStrength, hasGpsData, isRouteMatchingOn, matchedRouteCount, encounters.length]);
 
   // Handle chart point selection
   const handlePointSelect = useCallback((index: number | null) => {
@@ -582,10 +547,8 @@ export default function ActivityDetailScreen() {
         {hasGpsData && (
           <ActivitySectionsSection
             activityId={id}
-            activityType={activity.type}
-            unifiedSections={unifiedSections}
+            encounters={encounters}
             coordinates={coordinates}
-            streams={streams}
             isDark={isDark}
             isMetric={isMetric}
             sectionCreationMode={sectionCreationMode}
@@ -593,11 +556,10 @@ export default function ActivityDetailScreen() {
             highlightedSectionId={highlightedSectionId}
             onHighlightedSectionIdChange={setHighlightedSectionId}
             onSectionCreationModeChange={setSectionCreationMode}
-            getSectionBestTime={getSectionBestTime}
             removeSection={removeSection}
             scanMatches={scanMatches}
             isScanning={isRematching}
-            isSectionsLoading={sectionsLoading}
+            isSectionsLoading={encountersLoading}
             onScan={() => scanForSections(id)}
             onRematch={(sectionId) => rematchSection(id, sectionId)}
           />
