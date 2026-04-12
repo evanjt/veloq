@@ -10,7 +10,7 @@ use super::PersistentRouteEngine;
 
 /// Bump this when the indicator computation algorithm changes.
 /// On next read, a version mismatch triggers a full clean recompute.
-const INDICATOR_ALGORITHM_VERSION: i32 = 1;
+const INDICATOR_ALGORITHM_VERSION: i32 = 2;
 
 impl PersistentRouteEngine {
     /// Recompute all activity indicators (PRs and trends) from scratch.
@@ -185,7 +185,6 @@ impl PersistentRouteEngine {
                 let effective_trend = if is_pr { 1 } else { trend };
 
                 if is_pr {
-                    // Insert PR indicator
                     insert_stmt.execute(params![
                         activity_id,
                         "section_pr",
@@ -199,8 +198,7 @@ impl PersistentRouteEngine {
                     total += 1;
                 }
 
-                if trend != 0 {
-                    // Insert trend indicator (even for PR activities — they get both)
+                if is_pr || trend != 0 {
                     insert_stmt.execute(params![
                         activity_id,
                         "section_trend",
@@ -208,7 +206,7 @@ impl PersistentRouteEngine {
                         &section_name,
                         direction,
                         lap_time,
-                        effective_trend,
+                        trend, // original trend, not effective_trend
                         now,
                     ])?;
                     total += 1;
@@ -254,10 +252,21 @@ impl PersistentRouteEngine {
         let mut total = 0;
 
         for group in &self.groups {
-            // Collect (activity_id, moving_time, date) sorted by date
+            // Load excluded activity IDs for this route
+            let excluded: std::collections::HashSet<String> = {
+                let mut stmt = tx.prepare(
+                    "SELECT DISTINCT activity_id FROM activity_matches WHERE route_id = ? AND excluded = 1",
+                ).unwrap_or_else(|_| tx.prepare("SELECT '' WHERE 0").unwrap());
+                stmt.query_map([&group.group_id], |row| row.get::<_, String>(0))
+                    .map(|rows| rows.filter_map(|r| r.ok()).collect())
+                    .unwrap_or_default()
+            };
+
+            // Collect non-excluded members sorted by date
             let mut members: Vec<(&str, f64, i64)> = group
                 .activity_ids
                 .iter()
+                .filter(|id| !excluded.contains(*id))
                 .filter_map(|id| {
                     let m = self.activity_metrics.get(id)?;
                     if m.moving_time > 0 {
@@ -269,7 +278,6 @@ impl PersistentRouteEngine {
                 .collect();
             members.sort_by_key(|m| m.2);
 
-            // Need at least 2 members for meaningful PR/trends
             if members.len() < 2 {
                 continue;
             }
@@ -288,7 +296,7 @@ impl PersistentRouteEngine {
             let mut count = 0u32;
 
             for (activity_id, dur, _) in &members {
-                let is_pr = (*dur - best_time).abs() < 0.5; // routes use moving_time (integer seconds)
+                let is_pr = (*dur - best_time).abs() < 0.5;
 
                 let trend: i8 = if count == 0 {
                     0
@@ -319,7 +327,7 @@ impl PersistentRouteEngine {
                     total += 1;
                 }
 
-                if trend != 0 {
+                if is_pr || trend != 0 {
                     insert_stmt.execute(params![
                         activity_id,
                         "route_trend",
@@ -327,7 +335,7 @@ impl PersistentRouteEngine {
                         &route_name,
                         "same",
                         dur,
-                        effective_trend,
+                        trend,
                         now,
                     ])?;
                     total += 1;

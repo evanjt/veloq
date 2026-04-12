@@ -2047,8 +2047,10 @@ impl PersistentRouteEngine {
 
         let indicators = self.get_activity_indicators(activity_ids);
 
-        // Convert route indicators to the old FfiActivityRouteHighlight format
-        let mut results: HashMap<String, crate::FfiActivityRouteHighlight> = HashMap::new();
+        // Convert route indicators to the old FfiActivityRouteHighlight format.
+        // Key by (activity_id, route_id) to handle multiple routes per activity,
+        // then collapse to one per activity (pick the most interesting: PR > trend).
+        let mut by_route: HashMap<(String, String), crate::FfiActivityRouteHighlight> = HashMap::new();
 
         for ind in indicators {
             if ind.indicator_type != "route_pr" && ind.indicator_type != "route_trend" {
@@ -2056,8 +2058,9 @@ impl PersistentRouteEngine {
             }
 
             let is_pr = ind.indicator_type == "route_pr";
-            let entry = results
-                .entry(ind.activity_id.clone())
+            let key = (ind.activity_id.clone(), ind.target_id.clone());
+            let entry = by_route
+                .entry(key)
                 .or_insert(crate::FfiActivityRouteHighlight {
                     activity_id: ind.activity_id.clone(),
                     route_id: ind.target_id.clone(),
@@ -2074,7 +2077,18 @@ impl PersistentRouteEngine {
             }
         }
 
-        results.into_values().collect()
+        // Collapse to one per activity — PR wins over trend
+        let mut per_activity: HashMap<String, crate::FfiActivityRouteHighlight> = HashMap::new();
+        for highlight in by_route.into_values() {
+            let entry = per_activity
+                .entry(highlight.activity_id.clone())
+                .or_insert(highlight.clone());
+            if highlight.is_pr && !entry.is_pr {
+                *entry = highlight;
+            }
+        }
+
+        per_activity.into_values().collect()
     }
 }
 
