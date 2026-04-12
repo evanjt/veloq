@@ -88,6 +88,16 @@ export interface FfiActivityRouteHighlight {
   trend: number;
 }
 
+export interface FfiActivityIndicator {
+  activityId: string;
+  indicatorType: string; // "section_pr", "route_pr", "section_trend", "route_trend"
+  targetId: string;
+  targetName: string;
+  direction: string;
+  lapTime: number;
+  trend: number; // -1=declining, 0=stable, 1=improving
+}
+
 import * as FileSystem from 'expo-file-system/legacy';
 import {
   flatCoordsToPoints,
@@ -1574,6 +1584,28 @@ class RouteEngineClient {
     return this.timed('getActivityRouteHighlights', () =>
       this.engine.routes().getActivityRouteHighlights(activityIds),
     );
+  }
+
+  /** Read pre-computed indicators for a batch of activity IDs (from materialized table). */
+  getActivityIndicators(activityIds: string[]): FfiActivityIndicator[] {
+    if (!this.ready || activityIds.length === 0) return [];
+    return this.timed('getActivityIndicators', () =>
+      this.engine.sections().getActivityIndicators(activityIds),
+    );
+  }
+
+  /** Read pre-computed indicators for a single activity. */
+  getIndicatorsForActivity(activityId: string): FfiActivityIndicator[] {
+    if (!this.ready) return [];
+    return this.timed('getIndicatorsForActivity', () =>
+      this.engine.sections().getIndicatorsForActivity(activityId),
+    );
+  }
+
+  /** Recompute all activity indicators (PRs and trends). */
+  recomputeIndicators(): void {
+    if (!this.ready) return;
+    this.timed('recomputeIndicators', () => this.engine.sections().recomputeIndicators());
   }
 
   forceRedetectSections(sportFilter?: string): boolean {

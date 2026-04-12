@@ -567,16 +567,28 @@ export const ActivityCard = React.memo(
                   </RNText>
                 </View>
                 {routeHighlight && (routeHighlight.trend !== 0 || routeHighlight.isPr) && (
-                  <View style={styles.routeTrendBadge}>
-                    {routeHighlight.trend !== 0 && (
+                  <View
+                    style={[
+                      styles.routeTrendBadge,
+                      isDark ? styles.routeTrendBadgeDark : styles.routeTrendBadgeLight,
+                      routeHighlight.isPr && styles.routeTrendBadgePr,
+                    ]}
+                  >
+                    {routeHighlight.trend !== 0 && !routeHighlight.isPr && (
                       <MaterialCommunityIcons
                         name={routeHighlight.trend === 1 ? 'trending-up' : 'trending-down'}
-                        size={20}
-                        color={routeHighlight.trend === 1 ? '#66BB6A' : '#EF5350'}
+                        size={16}
+                        color={
+                          routeHighlight.trend === 1
+                            ? colors.success
+                            : isDark
+                              ? darkColors.textMuted
+                              : colors.textMuted
+                        }
                       />
                     )}
                     {routeHighlight.isPr && (
-                      <MaterialCommunityIcons name="trophy" size={14} color="#FFD700" />
+                      <MaterialCommunityIcons name="trophy" size={14} color={brand.gold} />
                     )}
                   </View>
                 )}
@@ -623,11 +635,10 @@ export const ActivityCard = React.memo(
                     {formatElevation(activity.total_elevation_gain, isMetric)}
                   </RNText>
                 </View>
-                {/* Section trend indicators + PR counts + route PR trophy */}
+                {/* Section trend indicators + PR counts */}
                 {sectionHighlights && sectionHighlights.length > 0 ? (
                   <View style={styles.trendBadge}>
                     {(() => {
-                      // Separate counts: improving (non-PR), declining (non-PR), PRs
                       const improving = sectionHighlights.filter(
                         (h) => h.trend === 1 && !h.isPr
                       ).length;
@@ -637,40 +648,59 @@ export const ActivityCard = React.memo(
                       const prCount = sectionHighlights.filter((h) => h.isPr).length;
                       return (
                         <>
+                          {prCount > 0 && (
+                            <View
+                              style={[
+                                styles.trendPill,
+                                isDark ? styles.prPillDark : styles.prPillLight,
+                              ]}
+                            >
+                              <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
+                              <RNText style={[styles.trendCount, { color: brand.gold }]}>
+                                {prCount}
+                              </RNText>
+                            </View>
+                          )}
                           {improving > 0 && (
-                            <View style={styles.trendItem}>
+                            <View
+                              style={[
+                                styles.trendPill,
+                                isDark ? styles.improvingPillDark : styles.improvingPillLight,
+                              ]}
+                            >
                               <MaterialCommunityIcons
                                 name="trending-up"
-                                size={15}
-                                color="#66BB6A"
+                                size={13}
+                                color={colors.success}
                               />
-                              <RNText style={[styles.trendCount, { color: '#66BB6A' }]}>
+                              <RNText style={[styles.trendCount, { color: colors.success }]}>
                                 {improving}
                               </RNText>
                             </View>
                           )}
                           {declining > 0 && (
-                            <View style={styles.trendItem}>
+                            <View
+                              style={[
+                                styles.trendPill,
+                                isDark ? styles.decliningPillDark : styles.decliningPillLight,
+                              ]}
+                            >
                               <MaterialCommunityIcons
                                 name="trending-down"
-                                size={15}
-                                color="#EF5350"
+                                size={13}
+                                color={isDark ? darkColors.textMuted : colors.textMuted}
                               />
-                              <RNText style={[styles.trendCount, { color: '#EF5350' }]}>
+                              <RNText
+                                style={[
+                                  styles.trendCount,
+                                  {
+                                    color: isDark ? darkColors.textMuted : colors.textMuted,
+                                  },
+                                ]}
+                              >
                                 {declining}
                               </RNText>
                             </View>
-                          )}
-                          {prCount > 0 && (
-                            <View style={styles.trendItem}>
-                              <MaterialCommunityIcons name="trophy" size={13} color="#FFD700" />
-                              <RNText style={[styles.trendCount, { color: '#FFD700' }]}>
-                                {prCount}
-                              </RNText>
-                            </View>
-                          )}
-                          {routeHighlight?.isPr && (
-                            <MaterialCommunityIcons name="trophy" size={16} color={brand.orange} />
                           )}
                         </>
                       );
@@ -827,10 +857,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
     marginLeft: spacing.sm,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 12,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
     paddingVertical: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  routeTrendBadgeLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowOpacity: 0.1,
+  },
+  routeTrendBadgeDark: {
+    backgroundColor: 'rgba(24, 24, 27, 0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    shadowOpacity: 0.3,
+  },
+  routeTrendBadgePr: {
+    borderColor: 'rgba(212, 175, 55, 0.3)',
   },
   overlayName: {
     fontSize: typography.cardTitle.fontSize,
@@ -864,19 +912,46 @@ const styles = StyleSheet.create({
   trendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    gap: 4,
   },
-  trendItem: {
+  trendPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+  },
+  // PR pill — warm gold tint
+  prPillLight: {
+    backgroundColor: 'rgba(212, 175, 55, 0.12)',
+    borderColor: 'rgba(212, 175, 55, 0.3)',
+  },
+  prPillDark: {
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    borderColor: 'rgba(212, 175, 55, 0.25)',
+  },
+  // Improving pill — subtle green tint
+  improvingPillLight: {
+    backgroundColor: 'rgba(34, 197, 94, 0.08)',
+    borderColor: 'rgba(34, 197, 94, 0.15)',
+  },
+  improvingPillDark: {
+    backgroundColor: 'rgba(74, 222, 128, 0.10)',
+    borderColor: 'rgba(74, 222, 128, 0.15)',
+  },
+  // Declining pill — muted neutral
+  decliningPillLight: {
+    backgroundColor: 'rgba(113, 113, 122, 0.08)',
+    borderColor: 'rgba(113, 113, 122, 0.12)',
+  },
+  decliningPillDark: {
+    backgroundColor: 'rgba(161, 161, 170, 0.10)',
+    borderColor: 'rgba(161, 161, 170, 0.12)',
   },
   trendCount: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     letterSpacing: -0.3,
   },

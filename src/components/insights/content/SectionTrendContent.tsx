@@ -11,14 +11,12 @@ import { getActivityIcon } from '@/lib/utils/activityUtils';
 import { Shimmer } from '@/components/ui/Shimmer';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/lib';
-import { colors, darkColors, spacing, shadows, opacity } from '@/theme';
+import { brand, colors, darkColors, spacing, shadows, opacity } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-
-const PR_GOLD = '#D4AF37';
 
 function getTrendIcon(trend?: number): string {
   if (trend == null) return 'minus';
@@ -232,7 +230,7 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
 
       {hasAnyPR ? (
         <View style={styles.legend}>
-          <MaterialCommunityIcons name="trophy" size={12} color={PR_GOLD} />
+          <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
           <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
             Recent personal record
           </Text>
@@ -323,7 +321,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   prChip: {
-    backgroundColor: PR_GOLD,
+    backgroundColor: brand.gold,
     borderRadius: 8,
     width: 18,
     height: 18,

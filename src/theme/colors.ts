@@ -166,7 +166,7 @@ export const colors = {
   workoutCooldown: '#8B5CF6',
 
   // Insight category colors
-  insightGold: '#FFD700',
+  insightGold: '#D4AF37', // brand.gold — unified PR color
   insightOrange: '#F97316',
 
   // Warning banner colors

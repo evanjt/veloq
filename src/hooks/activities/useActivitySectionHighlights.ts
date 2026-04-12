@@ -1,8 +1,8 @@
 /**
- * Batch-fetches section and route highlights for a list of activity IDs.
+ * Batch-fetches pre-computed indicators for a list of activity IDs.
  * Used by the feed to show trend indicators and PR badges on activity cards.
  *
- * Performance: batch SQL queries (~5-10ms for 30 activities) via Rust FFI.
+ * Reads from the materialized `activity_indicators` table — a single fast SQL read.
  * Gates on isRouteMatchingEnabled() — returns empty maps when disabled.
  */
 
@@ -50,48 +50,75 @@ export function useActivitySectionHighlights(activityIds: string[]): {
     if (!engine) return empty;
 
     try {
-      // Section highlights
-      const rawSections = engine.getActivitySectionHighlights(activityIds);
+      // Single FFI call reads from materialized activity_indicators table
+      const indicators = engine.getActivityIndicators(activityIds);
+
       const sectionMap = new Map<string, ActivitySectionHighlight[]>();
+      const routeMap = new Map<string, ActivityRouteHighlight>();
+
+      // Also get start/end indices via the old section highlights path
+      // (indicators don't store GPS indices since those are section_activities data)
+      const rawSections = engine.getActivitySectionHighlights(activityIds);
+      const idxMap = new Map<string, { startIndex: number; endIndex: number }>();
       for (const h of rawSections) {
-        const entry: ActivitySectionHighlight = {
-          sectionId: h.sectionId,
-          sectionName: h.sectionName,
-          lapTime: h.lapTime,
-          isPr: h.isPr,
-          trend: h.trend ?? 0,
+        idxMap.set(`${h.activityId}:${h.sectionId}`, {
           startIndex: h.startIndex,
           endIndex: h.endIndex,
-        };
-        const existing = sectionMap.get(h.activityId);
-        if (existing) {
-          existing.push(entry);
-        } else {
-          sectionMap.set(h.activityId, [entry]);
-        }
+        });
       }
 
-      // Route highlights
-      const routeMap = new Map<string, ActivityRouteHighlight>();
-      try {
-        const rawRoutes = engine.getActivityRouteHighlights(activityIds);
-        if (__DEV__ && rawRoutes.length > 0) {
-          console.log(
-            `[SectionHighlights] Route highlights: ${rawRoutes.length} results`,
-            rawRoutes.slice(0, 3).map((r) => `${r.routeName} trend=${r.trend} pr=${r.isPr}`)
-          );
-        }
-        for (const r of rawRoutes) {
-          routeMap.set(r.activityId, {
-            routeId: r.routeId,
-            routeName: r.routeName,
-            isPr: r.isPr,
-            trend: r.trend ?? 0,
-          });
-        }
-      } catch (e) {
-        if (__DEV__) {
-          console.warn('[SectionHighlights] Route highlights failed:', e);
+      for (const ind of indicators) {
+        if (ind.indicatorType === 'section_pr' || ind.indicatorType === 'section_trend') {
+          const key = `${ind.activityId}:${ind.targetId}`;
+          const indices = idxMap.get(key) ?? { startIndex: 0, endIndex: 0 };
+          const isPr = ind.indicatorType === 'section_pr';
+
+          const existing = sectionMap.get(ind.activityId);
+          // Check if we already have an entry for this section
+          const existingEntry = existing?.find((e) => e.sectionId === ind.targetId);
+          if (existingEntry) {
+            // PR always wins
+            if (isPr && !existingEntry.isPr) {
+              existingEntry.isPr = true;
+              existingEntry.trend = 1;
+              existingEntry.lapTime = ind.lapTime;
+            } else if (!existingEntry.isPr && ind.trend > existingEntry.trend) {
+              existingEntry.trend = ind.trend;
+            }
+          } else {
+            const entry: ActivitySectionHighlight = {
+              sectionId: ind.targetId,
+              sectionName: ind.targetName,
+              lapTime: ind.lapTime,
+              isPr,
+              trend: isPr ? 1 : ind.trend,
+              startIndex: indices.startIndex,
+              endIndex: indices.endIndex,
+            };
+            if (existing) {
+              existing.push(entry);
+            } else {
+              sectionMap.set(ind.activityId, [entry]);
+            }
+          }
+        } else if (ind.indicatorType === 'route_pr' || ind.indicatorType === 'route_trend') {
+          const isPr = ind.indicatorType === 'route_pr';
+          const existing = routeMap.get(ind.activityId);
+          if (existing) {
+            if (isPr && !existing.isPr) {
+              existing.isPr = true;
+              existing.trend = 1;
+            } else if (!existing.isPr && ind.trend > existing.trend) {
+              existing.trend = ind.trend;
+            }
+          } else {
+            routeMap.set(ind.activityId, {
+              routeId: ind.targetId,
+              routeName: ind.targetName,
+              isPr,
+              trend: isPr ? 1 : ind.trend,
+            });
+          }
         }
       }
 

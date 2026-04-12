@@ -241,14 +241,24 @@ impl SectionManager {
     fn exclude_activity(&self, section_id: String, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.exclude_activity_from_section(&section_id, &activity_id)
-                .map_err(|e| VeloqError::Database { msg: e })
+                .map_err(|e| VeloqError::Database { msg: e })?;
+            // Recompute indicators since exclusion changes PR/trend calculations
+            if let Err(err) = e.recompute_activity_indicators() {
+                log::warn!("tracematch: [exclude_activity] Indicator recomputation failed: {}", err);
+            }
+            Ok(())
         })?
     }
 
     fn include_activity(&self, section_id: String, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.include_activity_in_section(&section_id, &activity_id)
-                .map_err(|e| VeloqError::Database { msg: e })
+                .map_err(|e| VeloqError::Database { msg: e })?;
+            // Recompute indicators since inclusion changes PR/trend calculations
+            if let Err(err) = e.recompute_activity_indicators() {
+                log::warn!("tracematch: [include_activity] Indicator recomputation failed: {}", err);
+            }
+            Ok(())
         })?
     }
 
@@ -633,5 +643,34 @@ impl SectionManager {
         activity_ids: Vec<String>,
     ) -> Result<Vec<crate::FfiActivitySectionHighlight>, VeloqError> {
         with_engine(|e| e.get_activity_section_highlights(&activity_ids))
+    }
+
+    /// Read pre-computed indicators for a batch of activity IDs.
+    /// Returns section PRs, route PRs, section trends, and route trends
+    /// from the materialized `activity_indicators` table.
+    fn get_activity_indicators(
+        &self,
+        activity_ids: Vec<String>,
+    ) -> Result<Vec<crate::FfiActivityIndicator>, VeloqError> {
+        with_engine(|e| e.get_activity_indicators(&activity_ids))
+    }
+
+    /// Read pre-computed indicators for a single activity.
+    fn get_indicators_for_activity(
+        &self,
+        activity_id: String,
+    ) -> Result<Vec<crate::FfiActivityIndicator>, VeloqError> {
+        with_engine(|e| e.get_indicators_for_activity(&activity_id))
+    }
+
+    /// Recompute all activity indicators (PRs and trends).
+    /// Call after sync, section detection, route grouping, or exclude/include changes.
+    fn recompute_indicators(&self) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.recompute_activity_indicators()
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("recompute_indicators failed: {}", err),
+                })
+        })?
     }
 }

@@ -110,14 +110,22 @@ impl RouteManager {
     fn exclude_activity(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.exclude_activity_from_route(&route_id, &activity_id)
-                .map_err(|e| VeloqError::Database { msg: e })
+                .map_err(|e| VeloqError::Database { msg: e })?;
+            if let Err(err) = e.recompute_activity_indicators() {
+                log::warn!("tracematch: [exclude_route_activity] Indicator recomputation failed: {}", err);
+            }
+            Ok(())
         })?
     }
 
     fn include_activity(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.include_activity_in_route(&route_id, &activity_id)
-                .map_err(|e| VeloqError::Database { msg: e })
+                .map_err(|e| VeloqError::Database { msg: e })?;
+            if let Err(err) = e.recompute_activity_indicators() {
+                log::warn!("tracematch: [include_route_activity] Indicator recomputation failed: {}", err);
+            }
+            Ok(())
         })?
     }
 

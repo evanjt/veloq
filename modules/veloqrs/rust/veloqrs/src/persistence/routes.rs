@@ -432,6 +432,11 @@ impl PersistentRouteEngine {
         let save_ms = save_start.elapsed().as_millis();
         self.groups_dirty = false;
 
+        // Recompute materialized PR/trend indicators with updated route groups
+        if let Err(e) = self.recompute_activity_indicators() {
+            log::warn!("tracematch: [recompute_groups] Indicator recomputation failed: {}", e);
+        }
+
         let total_ms = total_start.elapsed().as_millis();
         log::info!("[RUST: PERF] Phase 4 - Save groups: {}ms", save_ms);
         log::info!(

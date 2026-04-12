@@ -16,7 +16,7 @@ import { colors, darkColors, spacing, opacity, brand } from '@/theme';
 import type { Insight } from '@/types';
 import type { SectionPerformanceRecord } from '@/hooks/routes/useSectionPerformances';
 
-const ACCENT_COLOR = brand.orange;
+const ACCENT_COLOR = brand.gold;
 
 interface SectionPRContentProps {
   insight: Insight;

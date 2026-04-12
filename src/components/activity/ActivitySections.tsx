@@ -2,12 +2,9 @@ import React, { useMemo } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { routeEngine } from 'veloqrs';
-import { useSectionMatches } from '@/hooks/routes/useSectionMatches';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import { formatDuration, navigateTo } from '@/lib';
-import { colors, darkColors, spacing } from '@/theme';
-
-const PR_GOLD = '#D4AF37';
+import { brand, darkColors, spacing } from '@/theme';
 
 interface PRSection {
   sectionId: string;
@@ -23,43 +20,38 @@ interface ActivitySectionsProps {
 /**
  * Compact PR banner shown on the activity detail page when the activity
  * holds a section PR. Only renders when PRs exist — zero layout impact otherwise.
- * The full section list already exists in the Sections tab.
+ *
+ * Reads from the materialized `activity_indicators` table via a single FFI call.
  */
 export const ActivitySections = React.memo(function ActivitySections({
   activityId,
   isDark,
 }: ActivitySectionsProps) {
-  const { sections: sectionMatches } = useSectionMatches(activityId);
-
   const prSections = useMemo((): PRSection[] => {
-    const prs: PRSection[] = [];
-    for (const match of sectionMatches) {
-      try {
-        const result = routeEngine.getSectionPerformances(match.section.id);
-        if (result?.bestRecord?.activityId === activityId) {
-          const record = result.records.find((r) => r.activityId === activityId);
-          if (record) {
-            prs.push({
-              sectionId: match.section.id,
-              sectionName: match.section.name || 'Section',
-              time: record.bestTime,
-            });
-          }
-        }
-      } catch {
-        // Engine may not have performance data yet
-      }
+    const engine = getRouteEngine();
+    if (!engine) return [];
+
+    try {
+      const indicators = engine.getIndicatorsForActivity(activityId);
+      return indicators
+        .filter((ind) => ind.indicatorType === 'section_pr')
+        .map((ind) => ({
+          sectionId: ind.targetId,
+          sectionName: ind.targetName || 'Section',
+          time: ind.lapTime,
+        }));
+    } catch {
+      return [];
     }
-    return prs;
-  }, [sectionMatches, activityId]);
+  }, [activityId]);
 
   if (prSections.length === 0) return null;
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
       <View style={styles.headerRow}>
-        <MaterialCommunityIcons name="trophy" size={16} color={PR_GOLD} />
-        <Text style={[styles.headerText, isDark && styles.headerTextDark]}>
+        <MaterialCommunityIcons name="trophy" size={16} color={brand.gold} />
+        <Text style={styles.headerText}>
           {prSections.length === 1 ? 'Section PR' : `${prSections.length} Section PRs`}
         </Text>
       </View>
@@ -77,7 +69,7 @@ export const ActivitySections = React.memo(function ActivitySections({
           <MaterialCommunityIcons
             name="chevron-right"
             size={14}
-            color={isDark ? darkColors.textMuted : colors.textMuted}
+            color={isDark ? darkColors.textMuted : '#71717A'}
           />
         </TouchableOpacity>
       ))}
@@ -109,10 +101,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 13,
     fontWeight: '700',
-    color: PR_GOLD,
-  },
-  headerTextDark: {
-    color: PR_GOLD,
+    color: brand.gold,
   },
   prRow: {
     flexDirection: 'row',
@@ -124,7 +113,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '500',
-    color: colors.textPrimary,
+    color: '#18181B',
   },
   sectionNameDark: {
     color: darkColors.textPrimary,
@@ -132,6 +121,6 @@ const styles = StyleSheet.create({
   prTime: {
     fontSize: 14,
     fontWeight: '700',
-    color: PR_GOLD,
+    color: brand.gold,
   },
 });

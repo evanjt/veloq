@@ -1702,6 +1702,14 @@ impl PersistentRouteEngine {
                     );
                 }
 
+                // Recompute materialized PR/trend indicators
+                if let Err(e) = self.recompute_activity_indicators() {
+                    log::warn!(
+                        "tracematch: [apply_sections] Indicator recomputation failed: {}",
+                        e
+                    );
+                }
+
                 Ok(())
             }
             Err(e) => {

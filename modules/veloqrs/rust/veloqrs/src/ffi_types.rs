@@ -1663,6 +1663,26 @@ pub struct FfiActivityRouteHighlight {
 }
 
 // ============================================================================
+// Materialized Activity Indicator (from activity_indicators table)
+// ============================================================================
+
+/// Pre-computed PR or trend indicator for an activity.
+/// Read from the `activity_indicators` table — no on-demand computation.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivityIndicator {
+    pub activity_id: String,
+    /// "section_pr", "route_pr", "section_trend", "route_trend"
+    pub indicator_type: String,
+    /// section_id or route_id
+    pub target_id: String,
+    pub target_name: String,
+    pub direction: String,
+    pub lap_time: f64,
+    /// -1=declining, 0=stable, 1=improving
+    pub trend: i8,
+}
+
+// ============================================================================
 // Section Matching & Merge Types
 // ============================================================================
 

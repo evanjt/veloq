@@ -37,6 +37,7 @@ use rusqlite::{Connection, Result as SqlResult};
 mod activities;
 pub(crate) mod export;
 mod fitness;
+mod indicators;
 mod routes;
 mod schema;
 mod sections;
@@ -552,6 +553,23 @@ impl PersistentRouteEngine {
                 self.activity_metadata.len()
             );
             self.sections_dirty = true;
+        }
+
+        // Populate activity indicators if the table is empty (first run after M22 migration).
+        // This only runs once — subsequent updates happen via apply_sections/recompute_groups.
+        let indicator_count: i64 = self.db.query_row(
+            "SELECT COUNT(*) FROM activity_indicators",
+            [],
+            |row| row.get(0),
+        ).unwrap_or(0);
+
+        if indicator_count == 0 && !self.sections.is_empty() {
+            log::info!(
+                "tracematch: [PersistentEngine] Populating activity indicators (first run after migration)..."
+            );
+            if let Err(e) = self.recompute_activity_indicators() {
+                log::warn!("tracematch: [PersistentEngine] Initial indicator population failed: {}", e);
+            }
         }
 
         Ok(())
