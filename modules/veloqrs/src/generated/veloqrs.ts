@@ -545,6 +545,98 @@ const FfiConverterTypeFetchAndStoreResult = (() => {
 })();
 
 /**
+ * Pre-computed PR or trend indicator for an activity.
+ * Read from the `activity_indicators` table — no on-demand computation.
+ */
+export type FfiActivityIndicator = {
+  activityId: string;
+  /**
+   * "section_pr", "route_pr", "section_trend", "route_trend"
+   */
+  indicatorType: string;
+  /**
+   * section_id or route_id
+   */
+  targetId: string;
+  targetName: string;
+  direction: string;
+  lapTime: /*f64*/ number;
+  /**
+   * -1=declining, 0=stable, 1=improving
+   */
+  trend: /*i8*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiActivityIndicator} record objects.
+ */
+export const FfiActivityIndicator = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiActivityIndicator,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiActivityIndicator}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiActivityIndicator}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiActivityIndicator>,
+  });
+})();
+
+const FfiConverterTypeFfiActivityIndicator = (() => {
+  type TypeName = FfiActivityIndicator;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityId: FfiConverterString.read(from),
+        indicatorType: FfiConverterString.read(from),
+        targetId: FfiConverterString.read(from),
+        targetName: FfiConverterString.read(from),
+        direction: FfiConverterString.read(from),
+        lapTime: FfiConverterFloat64.read(from),
+        trend: FfiConverterInt8.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.activityId, into);
+      FfiConverterString.write(value.indicatorType, into);
+      FfiConverterString.write(value.targetId, into);
+      FfiConverterString.write(value.targetName, into);
+      FfiConverterString.write(value.direction, into);
+      FfiConverterFloat64.write(value.lapTime, into);
+      FfiConverterInt8.write(value.trend, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterString.allocationSize(value.indicatorType) +
+        FfiConverterString.allocationSize(value.targetId) +
+        FfiConverterString.allocationSize(value.targetName) +
+        FfiConverterString.allocationSize(value.direction) +
+        FfiConverterFloat64.allocationSize(value.lapTime) +
+        FfiConverterInt8.allocationSize(value.trend)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Activity metrics for FFI
  */
 export type FfiActivityMetrics = {
@@ -8767,6 +8859,14 @@ export interface SectionManagerInterface {
     sectionPolylineJson: string,
   ) /*throws*/ : Array<FfiBatchTrace>;
   /**
+   * Read pre-computed indicators for a batch of activity IDs.
+   * Returns section PRs, route PRs, section trends, and route trends
+   * from the materialized `activity_indicators` table.
+   */
+  getActivityIndicators(
+    activityIds: Array<string>,
+  ) /*throws*/ : Array<FfiActivityIndicator>;
+  /**
    * Batch-query section highlights (PRs) for a list of activity IDs.
    */
   getActivitySectionHighlights(
@@ -8798,6 +8898,12 @@ export interface SectionManagerInterface {
     minVisits: /*u32*/ number | undefined,
   ) /*throws*/ : Array<FfiFrequentSection>;
   getForActivity(activityId: string) /*throws*/ : Array<FfiSection>;
+  /**
+   * Read pre-computed indicators for a single activity.
+   */
+  getIndicatorsForActivity(
+    activityId: string,
+  ) /*throws*/ : Array<FfiActivityIndicator>;
   /**
    * Find sections that are candidates for merging with the given section.
    * Candidates have >30% polyline overlap or centers within 300m with similar distances.
@@ -8845,6 +8951,11 @@ export interface SectionManagerInterface {
    * Recomputes consensus polyline. Deletes secondary. Returns the primary section ID.
    */
   mergeSections(primaryId: string, secondaryId: string) /*throws*/ : string;
+  /**
+   * Recompute all activity indicators (PRs and trends).
+   * Call after sync, section detection, route grouping, or exclude/include changes.
+   */
+  recomputeIndicators() /*throws*/ : void;
   /**
    * Force-match a single activity to a specific section with relaxed thresholds.
    * Returns true if a match was found and the section_activities row was inserted.
@@ -9062,6 +9173,31 @@ export class SectionManager
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterArrayString.lower(activityIds),
             FfiConverterString.lower(sectionPolylineJson),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Read pre-computed indicators for a batch of activity IDs.
+   * Returns section PRs, route PRs, section trends, and route trends
+   * from the materialized `activity_indicators` table.
+   */
+  public getActivityIndicators(
+    activityIds: Array<string>,
+  ): Array<FfiActivityIndicator> /*throws*/ {
+    return FfiConverterArrayTypeFfiActivityIndicator.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayString.lower(activityIds),
             callStatus,
           );
         },
@@ -9316,6 +9452,29 @@ export class SectionManager
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_for_activity(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Read pre-computed indicators for a single activity.
+   */
+  public getIndicatorsForActivity(
+    activityId: string,
+  ): Array<FfiActivityIndicator> /*throws*/ {
+    return FfiConverterArrayTypeFfiActivityIndicator.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_indicators_for_activity(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
             callStatus,
@@ -9621,6 +9780,25 @@ export class SectionManager
         },
         /*liftString:*/ FfiConverterString.lift,
       ),
+    );
+  }
+
+  /**
+   * Recompute all activity indicators (PRs and trends).
+   * Call after sync, section detection, route grouping, or exclude/include changes.
+   */
+  public recomputeIndicators(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_recompute_indicators(
+          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
     );
   }
 
@@ -11206,6 +11384,11 @@ const FfiConverterArrayTypeActivitySportMapping = new FfiConverterArray(
   FfiConverterTypeActivitySportMapping,
 );
 
+// FfiConverter for Array<FfiActivityIndicator>
+const FfiConverterArrayTypeFfiActivityIndicator = new FfiConverterArray(
+  FfiConverterTypeFfiActivityIndicator,
+);
+
 // FfiConverter for Array<FfiActivityMetrics>
 const FfiConverterArrayTypeFfiActivityMetrics = new FfiConverterArray(
   FfiConverterTypeFfiActivityMetrics,
@@ -11955,6 +12138,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators() !==
+    16488
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_section_highlights() !==
     14654
   ) {
@@ -12056,6 +12247,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_indicators_for_activity() !==
+    34976
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_indicators_for_activity",
     );
   }
   if (
@@ -12168,6 +12367,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_merge_sections",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recompute_indicators() !==
+    27226
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_recompute_indicators",
     );
   }
   if (
@@ -12654,6 +12861,7 @@ export default Object.freeze({
     FfiConverterTypeDetectionManager,
     FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeFetchAndStoreResult,
+    FfiConverterTypeFfiActivityIndicator,
     FfiConverterTypeFfiActivityMetrics,
     FfiConverterTypeFfiActivityPattern,
     FfiConverterTypeFfiActivityRouteHighlight,

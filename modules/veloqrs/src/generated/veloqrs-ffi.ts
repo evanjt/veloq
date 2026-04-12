@@ -446,6 +446,11 @@ interface NativeModuleInterface {
     sectionPolylineJson: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
+    ptr: bigint,
+    activityIds: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_section_highlights(
     ptr: bigint,
     activityIds: Uint8Array,
@@ -506,6 +511,11 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_for_activity(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_indicators_for_activity(
     ptr: bigint,
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
@@ -585,6 +595,10 @@ interface NativeModuleInterface {
     secondaryId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_recompute_indicators(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_rematch_activity_to_section(
     ptr: bigint,
     activityId: Uint8Array,
@@ -941,6 +955,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_trace(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_traces_batch(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_section_highlights(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names(): number;
@@ -954,6 +969,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_extension_track(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_indicators_for_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_merge_candidates(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances(): number;
@@ -968,6 +984,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_merge_sections(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recompute_indicators(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_reference(): number;

@@ -2080,35 +2080,45 @@ impl PersistentRouteEngine {
             let gid = group.group_id.as_str();
 
             if !group_cache.contains_key(gid) {
+                // Use speed (m/s) = distance / moving_time — matches route detail page ranking
                 let mut members: Vec<(&str, f64, i64)> = group
                     .activity_ids
                     .iter()
                     .filter_map(|id| {
                         let m = self.activity_metrics.get(id)?;
-                        if m.moving_time > 0 { Some((id.as_str(), m.moving_time as f64, m.date)) } else { None }
+                        if m.moving_time > 0 && m.distance > 0.0 {
+                            let speed = m.distance / m.moving_time as f64;
+                            Some((id.as_str(), speed, m.date))
+                        } else {
+                            None
+                        }
                     })
                     .collect();
                 members.sort_by_key(|m| m.2);
 
                 // Skip singleton routes — need at least 2 attempts for meaningful trends/PRs
                 if members.len() < 2 {
-                    group_cache.insert(gid, (f64::MAX, HashMap::new()));
+                    group_cache.insert(gid, (0.0f64, HashMap::new()));
                 } else {
-                    let mut best = f64::MAX;
+                    // Best = highest speed (fastest)
+                    let mut best = 0.0f64;
                     let mut trends: HashMap<&str, (i8, f64)> = HashMap::new();
                     let mut sum = 0.0f64;
                     let mut n = 0u32;
 
-                    for (mid, dur, _) in &members {
+                    for (mid, speed, _) in &members {
+                        // Trend: higher speed = improving (reversed from time)
                         let trend = if n == 0 { 0i8 }
                         else {
                             let avg = sum / n as f64;
-                            if *dur < avg * 0.99 { 1 } else if *dur > avg * 1.01 { -1 } else { 0 }
+                            if *speed > avg * 1.01 { 1 }    // >1% faster speed
+                            else if *speed < avg * 0.99 { -1 } // >1% slower speed
+                            else { 0 }
                         };
-                        trends.insert(mid, (trend, *dur));
-                        sum += dur;
+                        trends.insert(mid, (trend, *speed));
+                        sum += speed;
                         n += 1;
-                        if *dur < best { best = *dur; }
+                        if *speed > best { best = *speed; }
                     }
 
                     group_cache.insert(gid, (best, trends));
@@ -2116,12 +2126,14 @@ impl PersistentRouteEngine {
             }
 
             if let Some((best, trends)) = group_cache.get(gid) {
-                let (trend, dur) = trends.get(aid).copied().unwrap_or((0, 0.0));
+                let (trend, speed) = trends.get(aid).copied().unwrap_or((0, 0.0));
+                // PR = highest speed (within 0.5% tolerance for float comparison)
+                let is_pr = speed > 0.0 && *best > 0.0 && (speed - best).abs() / best < 0.005;
                 results.push(crate::FfiActivityRouteHighlight {
                     activity_id: aid.to_string(),
                     route_id: gid.to_string(),
                     route_name: route_names.get(gid).cloned().unwrap_or_default(),
-                    is_pr: dur > 0.0 && *best < f64::MAX && (dur - best).abs() < 0.5,
+                    is_pr,
                     trend,
                 });
             }

@@ -29,114 +29,105 @@ describe('Route highlight display logic', () => {
   });
 });
 
-describe('Route PR determination', () => {
-  // Simulates the Rust logic: MIN(moving_time) within 0.5s tolerance
+describe('Route PR determination (speed-based)', () => {
+  // Simulates the Rust logic: MAX(speed) where speed = distance / moving_time
+  // PR = highest speed (fastest pace), matching the route detail page
   function computeRouteHighlights(
-    members: Array<{ id: string; movingTime: number; date: number }>
+    members: Array<{ id: string; distance: number; movingTime: number; date: number }>
   ) {
     if (members.length < 2) return [];
 
     const sorted = [...members].sort((a, b) => a.date - b.date);
-    const best = Math.min(...sorted.map((m) => m.movingTime));
+    const speeds = sorted.map((m) => m.distance / m.movingTime);
+    const best = Math.max(...speeds);
 
     let sum = 0;
     let count = 0;
-    return sorted.map((m) => {
+    return sorted.map((m, i) => {
+      const speed = speeds[i];
+      // Trend: higher speed = improving
       const trend =
-        count === 0
-          ? 0
-          : m.movingTime < (sum / count) * 0.99
-            ? 1
-            : m.movingTime > (sum / count) * 1.01
-              ? -1
-              : 0;
-      sum += m.movingTime;
+        count === 0 ? 0 : speed > (sum / count) * 1.01 ? 1 : speed < (sum / count) * 0.99 ? -1 : 0;
+      sum += speed;
       count++;
       return {
         activityId: m.id,
-        isPr: Math.abs(m.movingTime - best) < 0.5,
+        isPr: Math.abs(speed - best) / best < 0.005,
         trend,
       };
     });
   }
 
-  it('marks fastest activity as PR', () => {
+  it('marks highest-speed activity as PR (same distance)', () => {
     const results = computeRouteHighlights([
-      { id: 'a1', movingTime: 1800, date: 1 },
-      { id: 'a2', movingTime: 1700, date: 2 },
+      { id: 'a1', distance: 5000, movingTime: 1800, date: 1 },
+      { id: 'a2', distance: 5000, movingTime: 1700, date: 2 },
     ]);
-    expect(results[0].isPr).toBe(false); // a1: 1800 != 1700
-    expect(results[1].isPr).toBe(true); // a2: 1700 is MIN
+    expect(results[0].isPr).toBe(false);
+    expect(results[1].isPr).toBe(true); // faster time = higher speed
   });
 
-  it('marks first activity as PR when it is fastest', () => {
+  it('marks longer-distance run as PR when speed is higher', () => {
+    // Real-world case: 26 Mar (4.4km/29:22) vs 15 Mar (4.3km/29:09)
     const results = computeRouteHighlights([
-      { id: 'a1', movingTime: 1700, date: 1 },
-      { id: 'a2', movingTime: 1800, date: 2 },
+      { id: 'mar15', distance: 4300, movingTime: 1749, date: 1 }, // speed = 2.459 m/s
+      { id: 'mar26', distance: 4400, movingTime: 1762, date: 2 }, // speed = 2.497 m/s
     ]);
-    expect(results[0].isPr).toBe(true); // a1: 1700 is MIN
-    expect(results[1].isPr).toBe(false);
+    expect(results[0].isPr).toBe(false); // 15 Mar: faster time but slower pace
+    expect(results[1].isPr).toBe(true); // 26 Mar: higher speed = PR
   });
 
   it('returns empty for singleton routes', () => {
-    expect(computeRouteHighlights([{ id: 'a1', movingTime: 1800, date: 1 }])).toEqual([]);
+    expect(
+      computeRouteHighlights([{ id: 'a1', distance: 5000, movingTime: 1800, date: 1 }])
+    ).toEqual([]);
   });
 
-  it('marks both as PR for equal times', () => {
+  it('marks both as PR for equal speeds', () => {
     const results = computeRouteHighlights([
-      { id: 'a1', movingTime: 1800, date: 1 },
-      { id: 'a2', movingTime: 1800, date: 2 },
+      { id: 'a1', distance: 5000, movingTime: 1800, date: 1 },
+      { id: 'a2', distance: 5000, movingTime: 1800, date: 2 },
     ]);
     expect(results[0].isPr).toBe(true);
     expect(results[1].isPr).toBe(true);
   });
 
-  it('assigns improving trend when >1% faster than average', () => {
+  it('assigns improving trend when speed >1% above average', () => {
     const results = computeRouteHighlights([
-      { id: 'a1', movingTime: 1000, date: 1 },
-      { id: 'a2', movingTime: 985, date: 2 }, // 1.5% faster
+      { id: 'a1', distance: 5000, movingTime: 1000, date: 1 }, // 5.0 m/s
+      { id: 'a2', distance: 5000, movingTime: 980, date: 2 }, // 5.10 m/s (2% faster)
     ]);
     expect(results[1].trend).toBe(1);
   });
 
-  it('assigns declining trend when >1% slower than average', () => {
+  it('assigns declining trend when speed >1% below average', () => {
     const results = computeRouteHighlights([
-      { id: 'a1', movingTime: 1000, date: 1 },
-      { id: 'a2', movingTime: 1015, date: 2 }, // 1.5% slower
+      { id: 'a1', distance: 5000, movingTime: 1000, date: 1 }, // 5.0 m/s
+      { id: 'a2', distance: 5000, movingTime: 1020, date: 2 }, // 4.90 m/s (2% slower)
     ]);
     expect(results[1].trend).toBe(-1);
   });
 
-  it('assigns neutral trend when within 1% of average', () => {
-    const results = computeRouteHighlights([
-      { id: 'a1', movingTime: 1000, date: 1 },
-      { id: 'a2', movingTime: 1005, date: 2 }, // 0.5% slower
-    ]);
-    expect(results[1].trend).toBe(0);
-  });
-
   it('first activity always has trend=0', () => {
     const results = computeRouteHighlights([
-      { id: 'a1', movingTime: 1000, date: 1 },
-      { id: 'a2', movingTime: 900, date: 2 },
+      { id: 'a1', distance: 5000, movingTime: 1000, date: 1 },
+      { id: 'a2', distance: 5000, movingTime: 900, date: 2 },
     ]);
     expect(results[0].trend).toBe(0);
   });
 
   it('handles 7 activities with last being fastest', () => {
     const results = computeRouteHighlights([
-      { id: 'a1', movingTime: 2000, date: 1 },
-      { id: 'a2', movingTime: 1950, date: 2 },
-      { id: 'a3', movingTime: 1900, date: 3 },
-      { id: 'a4', movingTime: 1850, date: 4 },
-      { id: 'a5', movingTime: 1800, date: 5 },
-      { id: 'a6', movingTime: 1780, date: 6 },
-      { id: 'a7', movingTime: 1700, date: 7 },
+      { id: 'a1', distance: 5000, movingTime: 2000, date: 1 },
+      { id: 'a2', distance: 5000, movingTime: 1950, date: 2 },
+      { id: 'a3', distance: 5000, movingTime: 1900, date: 3 },
+      { id: 'a4', distance: 5000, movingTime: 1850, date: 4 },
+      { id: 'a5', distance: 5000, movingTime: 1800, date: 5 },
+      { id: 'a6', distance: 5000, movingTime: 1780, date: 6 },
+      { id: 'a7', distance: 5000, movingTime: 1700, date: 7 },
     ]);
-    // Last is fastest
     expect(results[6].isPr).toBe(true);
     expect(results[6].trend).toBe(1);
-    // Others are not PR
     for (let i = 0; i < 6; i++) {
       expect(results[i].isPr).toBe(false);
     }
