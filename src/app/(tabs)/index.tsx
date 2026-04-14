@@ -47,6 +47,7 @@ import {
   initTerrainPreviewCache,
   consumePendingSnapshots,
   signalSnapshotNeeded,
+  setPrioritySnapshotIds,
 } from '@/lib/storage/terrainPreviewCache';
 import { initCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
@@ -116,6 +117,7 @@ export default function FeedScreen() {
       // mount WebView workers immediately instead of waiting 500ms
       consumePendingSnapshots().then((pending) => {
         if (pending.length > 0) {
+          setPrioritySnapshotIds(pending);
           setSnapshotWebViewReady(true);
           signalSnapshotNeeded();
         }

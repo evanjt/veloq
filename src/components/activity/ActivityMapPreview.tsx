@@ -20,6 +20,8 @@ import {
   isTerrainPreviewDirty,
   clearTerrainPreviewDirty,
   deleteTerrainPreviewsForActivity,
+  isPrioritySnapshot,
+  clearPrioritySnapshot,
 } from '@/lib/storage/terrainPreviewCache';
 import { getCameraOverride } from '@/lib/storage/terrainCameraOverrides';
 import { subscribeSnapshot } from '@/lib/events/terrainSnapshotEvents';
@@ -316,11 +318,13 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
 
   // Request 3D terrain snapshot when enabled and coordinates are available
   // Only cards within the first N positions request snapshots to limit queue pressure
+  // Priority activities (from background notification ingestion) bypass the index gate
   // Deferred until the feed screen is focused — avoids competing with the detail view's Map3DWebView
   useEffect(() => {
     if (!screenFocused) return;
     if (!show3D || !terrainCameraResult) return;
-    if (index >= 10) return; // Don't queue snapshots for far-off cards
+    const hasPriority = isPrioritySnapshot(activity.id);
+    if (index >= 10 && !hasPriority) return; // Don't queue snapshots for far-off cards
 
     // If dirty (style/3D changed in detail view), delete old preview first
     if (isTerrainPreviewDirty(activity.id)) {
@@ -330,6 +334,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       // Fall through to request new snapshot below
     } else if (hasTerrainPreview(activity.id, mapStyle)) {
       setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle));
+      if (hasPriority) clearPrioritySnapshot(activity.id);
       return;
     }
 
@@ -347,6 +352,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       mapStyle,
       routeColor: activityColor,
     });
+    if (hasPriority) clearPrioritySnapshot(activity.id);
   }, [
     screenFocused,
     show3D,

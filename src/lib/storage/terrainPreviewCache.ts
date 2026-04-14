@@ -241,6 +241,41 @@ export function getTerrainPreviewCount(): number {
 }
 
 // ============================================================================
+// Priority snapshot queue (consumed pending → in-memory for cards)
+// ============================================================================
+
+/**
+ * Activity IDs that need priority snapshot generation.
+ * Populated from consumePendingSnapshots() — cards check this set to bypass
+ * the index-based throttle (index >= 10 skip) and request snapshots immediately.
+ */
+const prioritySnapshotIds = new Set<string>();
+
+/**
+ * Mark activity IDs as needing priority snapshot generation.
+ * Called by the feed screen after consuming the pending queue.
+ */
+export function setPrioritySnapshotIds(ids: string[]): void {
+  for (const id of ids) {
+    prioritySnapshotIds.add(id);
+  }
+}
+
+/**
+ * Check whether an activity has priority snapshot status.
+ */
+export function isPrioritySnapshot(activityId: string): boolean {
+  return prioritySnapshotIds.has(activityId);
+}
+
+/**
+ * Clear priority status for an activity (called after snapshot is requested).
+ */
+export function clearPrioritySnapshot(activityId: string): void {
+  prioritySnapshotIds.delete(activityId);
+}
+
+// ============================================================================
 // Demand-driven snapshot worker mounting
 // ============================================================================
 
